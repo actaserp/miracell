@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="ko">
+<style>
+    .list-num {
+        position: relative;
+        width: 100%;
+    }
+
+    .list-num p:first-child {
+        position: absolute;
+        right: 0; /* 오른쪽 끝으로 이동 */
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        text-align: center;
+    }
+    th, td {
+        border: 1px solid #ddd;
+        padding: 10px;
+    }
+    th {
+        background-color: #f2f2f2;
+    }
+    .color-box {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+    }
+    .white { background-color: white; border: 1px solid #ddd; }
+    .green { background-color: green; }
+    .blue { background-color: blue; }
+    .yellow { background-color: yellow; }
+    .orange { background-color: orange; }
+    .red { background-color: red; }
+    .black { background-color: black; }
+</style>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FACT CHECK</title>
+    <link rel="icon" type="image/png" href="/images/logo/icon_FACT%20CHECK.png">
+    <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/smoothness/jquery-ui.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css"/> <!-- Slide css -->
+    <link rel="stylesheet" href="/resource/ax5ui/ax5ui.all.css">
+    <link rel="stylesheet" type="text/css" href="/assets_mobile/css/import.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
+
+    <script src="/assets_mobile/js/ui.js"></script> <!-- Common js -->
+    <script th:inline="javascript">
+        var sandanData = /*[[${session.sandanList}]]*/ [];
+    </script>
+
+
+    <script type="text/javascript" src="/resource/ax5ui/ax5ui.all.min.js?v=1000"></script>
+
+    <script type="text/javascript" src="/js/ax5commUtil.js?v=1070"></script>
+
+    <script src="/js/common.js?v=1060"></script>
+    <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script> <!-- Slide js -->
+    <script src="/js/Mobile.js"></script>
+</head>
+
+<body>
+<div class="mobile-wrapper page-ticket-list"><!-- ★페이지 Class명 -->
+    <!-- [모바일] 헤더  -->
+    <div class="mobile-layout-header">
+        <header>
+            <div class="left">
+                <div class="hd-btn">
+                                    <a href="javascript:void(0);" onclick="history.back();" title="뒤로가기">
+                                        <img src="/images/icon/btn-prev.svg" alt="뒤로가기 아이콘">
+                                    </a>
+                </div>
+            </div>
+            <div class="center" style="margin-left:35px;">
+                <h2>위험도</h2>
+            </div>
+            <div class="right">
+                <a href="#" title="전체메뉴" class="btn-menu">
+                    <img src="/assets_mobile/images/icon/btn-menu.svg" alt="전체메뉴 아이콘">
+                </a>
+            </div>
+        </header>
+    </div> <!-- //mobile-layout-header end-->
+
+    <!-- [모바일] 메뉴  -->
+    <div th:insert="~{mobile/mobile_menu :: mobile_menu}"></div>
+    <!-- [모바일] 컨덴츠  -->
+    <div class="mobile-layout-contents">
+        <!--- (레이아웃) Contents 영역 -->
+        <div class="layout-contents">
+            <hr style="margin-left: 13px; height: 5px; border: 1px solid steelblue; background-color: steelblue">
+
+            <!-- 컨텐츠 영역  -->
+            <div class="contents-wrap">
+                <div class="list-top-wrap">
+                    <div class="list-num" style="margin-top: 15px">
+                        <p>앱정보 > 위험도</p>
+                    </div>
+                </div>
+
+                <table style="margin-top: 30px">
+                    <thead>
+                    <tr>
+                        <th>등급</th>
+                        <th>점수</th>
+                        <th>명칭</th>
+                        <th>표시색상</th>
+                        <th>표정</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr>
+                        <td>S</td>
+                        <td>100~90</td>
+                        <td>안심</td>
+                        <td><span class="color-box white"></span></td>
+                        <td>😊</td>
+
+                    </tr>
+                    <tr>
+                        <td>A</td>
+                        <td>89~80</td>
+                        <td>관심</td>
+                        <td><span class="color-box green"></span></td>
+                        <td>🤔</td>
+
+                    </tr>
+                    <tr>
+                        <td>B</td>
+                        <td>79~70</td>
+                        <td>주의</td>
+                        <td><span class="color-box blue"></span></td>
+                        <td>😟</td>
+
+                    </tr>
+                    <tr>
+                        <td>C</td>
+                        <td>69~60</td>
+                        <td>경계</td>
+                        <td><span class="color-box yellow"></span></td>
+                        <td>😨</td>
+
+                    </tr>
+                    <tr>
+                        <td>D</td>
+                        <td>59~50</td>
+                        <td>불안</td>
+                        <td><span class="color-box orange"></span></td>
+                        <td>😰</td>
+                    </tr>
+                    <tr>
+                        <td>E</td>
+                        <td>49~40</td>
+                        <td>심각</td>
+                        <td><span class="color-box red"></span></td>
+                        <td>😬</td>
+                    </tr>
+                    <tr>
+                        <td>F</td>
+                        <td>39~29(0)</td>
+                        <td>위험</td>
+                        <td><span class="color-box black"></span></td>
+                        <td>😱</td>
+                    </tr>
+                    </tbody>
+                </table>
+
+            </div> <!--// contents-wrap end-->
+        </div> <!--//layout-contents end -->
+
+    </div> <!-- //mobile-layout-contents end-->
+
+
+
+    <!--거래처 검색 팝업-->
+
+</div> <!-- //page-wrapper end-->
+
+<script type="text/javascript">
+
+    document.readyState === 'complete' ? init() : window.onload = init;
+
+
+    function init() {
+        fetch('/build-info.json')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('version').innerText = data.version;
+                document.getElementById('lastupdate').innerText = data.lastUpdate;
+            })
+            .catch(error => console.error('날짜 로드 실패', error));
+    }
+
+    // $(document).ready(function () {
+    //
+    //     $('#logout').on('click', function (e) {
+    //         e.preventDefault();
+
+</script>
+</body>
+</html>

@@ -1,0 +1,580 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        .wj-header {
+            text-align: center !important;
+        }
+    </style>
+</head>
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>라우팅</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>기준정보</li>
+                <li>라우팅</li>
+            </ul>
+        </div>
+
+        <div style="display: flex; gap: 5px">
+            <section class="section" style="width: 60%;">
+                <div class="section-top">
+                    <div class="search-wrap">
+                        <dl>
+                            <dt>
+                                <label>라우팅명</label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <input type="text" class="form-control2" id="txtRouting" name="txtRouting">
+                                </div>
+                            </dd>
+                        </dl>
+
+                        <dl>
+                            <dt><span class="eq"></span></dt>
+                            <dd>
+                                <li>
+                                    <a class="btn btn-delete" title="검색" id="btnSearch">
+                                        <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                        검색
+                                    </a>
+                                </li>
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+
+                <div class="container-fluid">
+                    <p id="selectedItem"></p>
+                    <div id="theGrid"></div>
+                </div>
+            </section>
+
+            <div class="tab-wrap" style="width: 40%;">
+                <ul class="tab-links">
+                    <li><a href="#tabs_first">라우팅 기본정보</a></li>
+                    <li><a href="#tabs_second">공정 정보</a></li>
+                </ul>
+
+                <div>
+                    <section class="tab-item" id="tabs_first" style="border-top-left-radius: 0;">
+                        <div class="section-top">
+                            <div class="button-wrap">
+                                <ul>
+                                    <li>
+                                        <button type="button" class="btn-excellt btn-default" id="btnNewRouting" name="btnNew"
+                                                style="width: 115px; height: 36px;">
+                                            <i class="fas fa-plus"></i>신규등록
+                                        </button>
+                                    </li>
+
+                                    <li>
+                                        <button type="button" class="btn-delete btn-danger" id="btnDelRouting"
+                                                style="width: 115px; height: 36px;">
+                                            <i class="fas fa-trash"></i>삭제
+                                        </button>
+                                    </li>
+
+                                    <li>
+                                        <button disabled type="button" class="btn-excellt btn-default" id="btnSaveRouting"
+                                                style="width: 115px; height: 36px;">
+                                            <i class="fas fa-save"></i>저장
+                                        </button>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div>
+                            <form id="routingForm">
+                                <table class="write-table"
+                                       style="width: 100%; border-collapse: collapse; table-layout: fixed;">
+                                    <caption style="text-align: left; margin-bottom: 8px;">상세테이블</caption>
+                                    <input type="hidden" id="id" name="id"/>
+                                        <col class="wp20">
+                                        <col class="wp80">
+                                    <tbody>
+                                    <tr>
+                                        <th>
+                                            <label for="routing_name">라우팅 명</label><span class="eq">*</span>
+                                        </th>
+                                        <td>
+                                            <input type="text" id="routing_name" name="routing_name" style="width: 100%;">
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <th>
+                                            <label for="storeHouse_id">창고</label>
+                                        </th>
+                                        <td>
+                                            <select type="text" id="storeHouse_id" name="storeHouse_id" style="width: 100%;" required=""></select>
+                                        </td>
+                                    </tr>
+
+                                    <tr>
+                                        <th>
+                                            <label for="description">비고</label>
+                                        </th>
+                                        <td style=" text-align: center; vertical-align: middle;">
+                                            <div>
+                                                <textarea id="description" name="description"></textarea>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </form>
+                        </div>
+                    </section>
+
+                    <section class="tab-item" id="tabs_second" style="border-top-left-radius: 0;">
+                        <div class="section-top">
+                            <div class="button-wrap">
+                                <ul>
+                                    <li>
+                                        <button type="button" class="btn-excellt btn-default" id="btnNewProcess" name="btnNew"
+                                                style="width: 115px; height: 36px;"><i class="fas fa-plus"></i></button>
+                                    </li>
+
+                                    <li>
+                                        <button type="button" class="btn-delete btn-danger" id="btnDelProcess"
+                                                style="float:none; width: 115px; height: 36px;"><i class="fas fa-trash"></i>
+                                        </button>
+                                    </li>
+                                    <li>
+                                        <a class="btn" title="위" id="btnUp">
+                                            <i class="fas fa-arrow-up"></i>
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="btn" title="아래" id="btnDown">
+                                            <i class="fas fa-arrow-down"></i>
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="btn btn-excell" title="수정" id="btnIndexSave">
+                                            순서 저장
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <div class="container-fluid">
+                            <div id="routing-process-grid" style=""></div>
+                        </div>
+                    </section>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/popup_process :: popup_process" ></th:block>
+    <script type="text/javascript">
+
+        var theGrid;
+        var viewdata;
+        var theGrid2;
+        var viewdata2;
+
+        let columns = [
+            {binding: 'id', header: 'id', width: 150, align: 'left', visible: false},
+            {binding: 'routing_name', header: '라우팅명', width: 250, align: 'left'},
+            {binding: 'storeHouse_id', header: '창고id', width: 100, visible: false},
+            {binding: 'storeHouse_nm', header: '창고', width: 150, align: 'left'},
+            {binding: 'description', header: '비고', width: '*', align: 'left'}
+        ];
+
+        let columns2 = [
+            {binding: 'ProcessOrder', header: '순서', width: 200, align: 'center'},
+            {binding: 'ProcessCode', header: '공정코드', width: 150, align: 'left'},
+            {binding: 'ProcessName', header: '공정명', width: 200, align: 'left'}
+        ];
+
+        document.readyState === 'complete' ? init() : window.onload = init;
+
+        function init() {
+            viewdata = new wijmo.collections.CollectionView([]);
+
+            theGrid = new wijmo.grid.FlexGrid('#theGrid', {
+                autoGenerateColumns: false,
+                showMarquee: true,
+                columns: columns,
+                isReadOnly: true,
+                itemsSource: viewdata
+            });
+
+            theGrid.hostElement.addEventListener('dblclick', function (e) {
+                let selectedItem = theGrid.selectedItems[0];
+                console.log(selectedItem);
+
+                document.getElementById('id').value = selectedItem.id;
+                document.getElementById('routing_name').value = selectedItem.routing_name;
+                document.getElementById('description').value = selectedItem.description;
+
+
+                function setSelectValue(selectId, valueToMatch) {
+                    const sel = document.getElementById(selectId);
+                    if (!sel) return;
+
+                    // 값으로 매칭 (숫자 → 문자열 변환)
+                    sel.value = String(valueToMatch);
+
+                    // 혹시 해당 value가 없으면(옵션 아직 안 채워졌거나 값 불일치) 텍스트로도 한번 더 시도
+                    if (sel.value !== String(valueToMatch)) {
+                        for (const opt of sel.options) {
+                            if (opt.text === String(valueToMatch)) {
+                                opt.selected = true;
+                                break;
+                            }
+                        }
+                    }
+
+                }
+                setSelectValue('storeHouse_id', selectedItem.storeHouse_id);
+
+                showProcessList(selectedItem.id);
+                setButtonState();
+                $('#btnDelProcess').prop('disabled', false);
+            });
+
+            theGrid.rowHeaders.columns.splice(0, 1);
+            /*  new FlexGridContextMenu(theGrid);*/
+            // showProcessList();
+            searchMainData();
+        }
+
+
+        function searchMainData() {
+            let keyword = $('#txtRouting').val();
+
+            $.ajax({
+                url: '/api/definition/routing/read',
+                type: 'GET',
+                data: {
+                    'keyword': keyword,
+                    spjangcd: sessionStorage.getItem('spjangcd'),
+                },
+                async: false,
+                success: function (result) {
+                    if (result.success) {
+                        console.log('result', result.data);
+                        viewdata.sourceCollection = result.data;
+
+                    } else {
+                        console.log("Error occurred");
+                    }
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                    console.error('Error fetching log_list data:', textStatus, errorThrown);
+
+                }
+            });
+
+            resetForm(true);
+
+            setButtonState();
+            $('#btnDelProcess').prop('disabled', true);
+        }
+
+
+        function saveRouting() {
+            let url = '/api/definition/routing/save';
+            //데이터입력체크루틴 누락
+            let data = FormUtil.extractForm($('#routingForm'));
+
+            if (!data.routing_name) {
+                Alert.alert('', '라우팅 명을 입력해주세요.');
+                $('#routingForm #routing_name').focus();
+                return false;
+            }
+            data.spjangcd = sessionStorage.getItem('spjangcd');
+
+            let fnSuccess = function (res) {
+                if (res.success) {
+                    Alert.alert('', '저장되었습니다');
+                    searchMainData();
+                } else {
+                    Alert.alert('', res.message);
+                }
+            };
+
+            AjaxUtil.postAsyncData(url, data, fnSuccess);
+        }
+
+        function deleteRouting(id) {
+            let url = '/api/definition/routing/delete';
+            let data = {id: id};
+
+            let fnSuccess = function (res) {
+                if (res.success) {
+                    Alert.alert('', '삭제되었습니다');
+                    searchMainData();
+                } else {
+                    Alert.alert('', res.message);
+                }
+            };
+
+            AjaxUtil.postAsyncData(url, data, fnSuccess);
+        }
+
+        function showProcessList(routing_id) {
+            let data2 = [];
+
+            $.ajax({
+                url: '/api/definition/routing/process_list',
+                type: 'GET',
+                data: {
+                    'id': routing_id,
+                },
+                async: false,
+                success: function (data) {
+                    data2 = data.data;
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                    /*console.error('Error fetching log_count data:', textStatus, errorThrown);*/
+                }
+            })
+
+            // 기존 그리드 초기화
+            if (theGrid2) {
+                theGrid2.dispose();  // 기존 그리드를 제거합니다.
+            }
+
+            viewdata2 = new wijmo.collections.CollectionView(data2);
+
+            theGrid2 = new wijmo.grid.FlexGrid('#routing-process-grid', {
+                autoGenerateColumns: false,
+                showMarquee: true,
+                columns: columns2,
+                isReadOnly: true,
+                itemsSource: viewdata2
+            });
+
+            theGrid2.rowHeaders.columns.splice(0, 1);
+
+        }
+
+
+        //팝업 열릴때 추가
+        function addProcess(routing_id, process_id) {
+            let url = '/api/definition/routing';
+            let data = {routing_id: routing_id, process_id: process_id};
+            let fnsuccess = function (result) {
+                if (result.success) {
+                    Alert.alert('', '저장되었습니다');
+                    showProcessList(routing_id);
+                } else {
+                    Alert.alert('', result.message);
+                }
+            };
+
+            AjaxUtil.postAsyncData(url + "/add_process", data, fnsuccess);
+
+        }
+
+        function resetForm(disableFlag) {
+            $('#routingForm')[0].reset();
+            $('#routingForm').find('#id').val('');
+            let fndisable = function (obj) {
+                if (disableFlag === true) {
+                    if ($(obj).is(':disabled') === false) {
+                        $(obj).attr('disabled', true);
+                    }
+                } else {
+                    if ($(obj).is(':disabled')) {
+                        $(obj).removeAttr('disabled');
+                    }
+                }
+            };
+
+
+            $('#routingForm select').each(function () {
+                fndisable(this);
+            });
+
+            $('#routingForm input').each(function () {
+                fndisable(this);
+            });
+
+            $('#routingForm checkbox').each(function () {
+                fndisable(this);
+            });
+        }
+
+
+        function deleteProcess(item) {
+            let url = '/api/definition/routing';
+            let fnsuccess = function (result) {
+                if (result.success) {
+                    Alert.alert('', '삭제되었습니다');
+                }
+                showProcessList(item.routing_id);
+            };
+
+            let data = {'process_id': item.process_id, 'routing_id': item.routing_id, id: item.id};
+            AjaxUtil.postAsyncData(url + "/delete_process", data, fnsuccess);
+        }
+
+        function saveIndex() {
+
+            let items = [];
+            $.each(theGrid2.itemsSource.items, function (idx, item) {
+                items.push({id: item.id});
+            });
+
+            let strData = JSON.stringify(items);
+            let data = {Q: strData};
+            let fnsuccess = function (result) {
+                if (result.success) {
+                    Notify.success('저장했습니다.');
+                    console.log('theGrid.itemsSource.items', theGrid.itemsSource.items[0].id);
+                    showProcessList(theGrid.itemsSource.items[0].id);
+                }
+            };
+
+            AjaxUtil.postAsyncData('/api/definition/routing/save_index', data, fnsuccess);
+        }
+
+        //버튼 활성화
+        function setButtonState() {
+            let pk = $('#id').val();
+
+            $('#btnNewRouting').prop('disabled', false);
+            $('#btnSaveRouting').prop('disabled', false);
+
+            if (pk) {
+                $('#btnDelRouting').prop('disabled', false);
+
+                $('#routingForm select, #routingForm input, #routingForm :checkbox').each(function () {
+                    $(this).prop('disabled', false);
+                });
+            } else {
+                $('#btnDelRouting').prop('disabled', true);
+            }
+
+        }
+
+        $(document).ready(function (e) {
+            setButtonState();
+
+            AjaxUtil.fillSelectOptions($('#storeHouse_id'), 'store_house', 'choose', false);
+
+            $('#txtRouting').on('keypress', function (e) {
+                if (event.keyCode === 13) {
+                    searchMainData();
+                }
+            });
+
+            $('#btnSearch').click(function (e) {
+                searchMainData();
+            });
+
+            $('#btnNewRouting').click(function (e) {
+                resetForm(false);
+                setButtonState();
+            });
+
+            $('#btnSaveRouting').click(function (e) {
+
+                Alert.confirm('',
+                    '저장하시겠습니까?',
+                    function () {
+                        saveRouting();
+                    },
+                    function () {
+                    }
+                );
+            });
+
+            $('#btnDelRouting').click(function (e) {
+                let id = $('#routingForm').find('#id').val();
+
+                if (id === '') {
+                    Alert.alert('', '선택된 데이터가 없습니다.');
+                    return;
+                }
+
+                Alert.confirm('',
+                    '삭제하시겠습니까?',
+                    function () {
+                        deleteRouting(id)
+                    },
+                    function () {
+                    }
+                );
+            });
+            /*popupPage = new PopupEquipmentPage();*/
+            $('#btnNewProcess').click(function (e) {
+                let id = $('#routingForm').find('#id').val();
+                if (!id) {
+                    Alert.alert('', '정보를 선택해 주세요.');
+                    return false;
+                }
+                let routing_id = id;
+
+                if (routing_id !== '') {
+                    popupPage = new PopupProcessPage();
+                    selectCallback = function (item) {
+                        /*console.log('selectCallback진입');*/
+                        let equipment_id = item.id;
+                        addProcess(routing_id, equipment_id);
+                        popupPage.close();
+                    };
+                    popupPage.show(selectCallback);
+                }
+            });
+
+            $('#btnDelProcess').click(function (e) {
+                // 선택된 항목 가져오기
+                let selectedItems = theGrid2.selectedItems;
+
+                if (selectedItems.length === 0) { // 선택된 항목이 없는 경우
+                    Alert.alert('삭제할 항목을 선택하세요.');
+                    return false;
+                }
+
+                let data = selectedItems[0]; // 첫 번째 선택된 항목 가져오기
+                /*console.log('선택된 데이터:', data);*/
+
+                // 확인 창 표시
+                Alert.confirm('', '삭제하시겠습니까?', function () {
+                    deleteProcess(data); // 선택된 데이터 삭제 함수 호출
+                });
+            });
+
+            $('#btnUp').click(function (e) {
+                GridUtil.changeOrder('U', theGrid2);
+            });
+
+            $('#btnDown').click(function (e) {
+                GridUtil.changeOrder('D', theGrid2);
+            });
+
+            $('#btnIndexSave').click(function (e) {
+                let length = theGrid2.itemsSource.items.length;
+                if (length === 0 || length === 1) {
+                    return;
+                }
+                Alert.confirm('', '순서를 저장하시겠습니까?', function () {
+                    saveIndex();
+                });
+
+            });
+
+        });
+
+    </script>
+</th:block>
+</html>

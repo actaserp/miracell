@@ -1,0 +1,231 @@
+<html layout:decorate="~{layout_page}">
+<th:block layout:fragment="content">
+<div class="layout-contents">
+
+    <div class="page-title-wrap">
+        <div class="left">
+            <h2>납기 단축 지표</h2>
+            <a title="북마크" class="bookmark toggle">
+                내 메뉴
+            </a>
+        </div>
+        <ul class="page-navi">
+            <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+            <li>KPI 성과 지표</li>
+            <li>납기 단축 지표</li>
+        </ul>
+    </div>
+
+
+    <section class="section">
+        <div class="section-top">
+            <div class="search-wrap">
+                <!--<dl>
+                    <dt>
+                        <label for="cboYear">
+                            기준년도
+                        </label>
+                    </dt>
+                    <dd>
+                        <div class="srch-box">
+                            <select id="cboYear">
+                            </select>
+                        </div>
+                    </dd>
+                </dl>-->
+                <dl>
+                    <dt>
+                        <label>
+                            수주일<span class="eq"></span>
+                        </label>
+                    </dt>
+                    <dd>
+                        <div class="srch-box">
+                            <input type="date" id="srchStartDt" name="srchStartDt"/>
+                            <span class="slow_sign">~</span>
+                            <input type="date" id="srchEndDt" name="srchEndDt"/>
+                        </div>
+                    </dd>
+                </dl>
+
+                <dl>
+                    <dt>&nbsp;</dt>
+                    <dd>
+                        <li>
+                            <a class="btn btn-delete" title="검색" id="btnSearch">
+                                <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                검색
+                            </a>
+                        </li>
+                    </dd>
+
+                </dl>
+                <dl>
+                    <dt>&nbsp;</dt>
+                    <dd>
+                        <span>* 일수 계산은 수주일을 1일로 포함하여 계산됩니다. </span>
+                    </dd>
+
+                </dl>
+
+            </div>
+        </div>
+        <div class="container-fluid">
+            <div id="theGrid" style="height: 730px;"></div>
+        </div>
+    </section>
+</div>
+</th:block>
+<th:block layout:fragment="scripts">
+<script type="text/javascript">
+    class ProductionMonthPage {
+        constructor() {
+            this.grid = null;
+            this.viewData = new wijmo.collections.CollectionView();
+            this.init();
+        }
+
+        init() {
+            let _this = this;
+
+            this.grid = new wijmo.grid.FlexGrid('#theGrid', {
+                selectionMode: wijmo.grid.SelectionMode.Row,
+                headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                allowSorting: wijmo.grid.AllowSorting.MultiColumn,
+                allowMerging: wijmo.grid.AllowMerging.Cells,
+                autoGenerateColumns: false,
+                showMarquee: true,
+                isReadOnly: true,
+                frozenColumns: 4,
+
+                formatItem: (s, e) => {
+                    if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                        e.cell.style.textAlign = 'center';
+                        return;
+                    }
+
+                    if (e.panel.cellType === wijmo.grid.CellType.Cell) {
+                        const item = s.rows[e.row]?.dataItem;
+                        if (!item) return;
+
+                        // ✅ 먼저 기본값 초기화 (재활용 방지)
+                        e.cell.style.fontWeight = '';
+                        e.cell.style.backgroundColor = '';
+                        e.cell.style.borderTop = '';
+                        e.cell.style.color = '';
+
+                        // ✅ null 수주일자 깔끔히 처리
+                        if (!item.jumundate && !item.is_footer && s.columns[e.col].binding === 'jumundate') {
+                            e.cell.textContent = '';
+                        }
+
+                        // ✅ 푸터 스타일 (월 합계 행)
+                        if (item.is_footer) {
+                            e.cell.style.fontWeight = 'bold';
+                            e.cell.style.backgroundColor = '#e5e5e5';
+                            e.cell.style.borderTop = '2px solid #999';
+                            e.cell.style.color = '#004080';
+                        }
+                    }
+                },
+
+                columns: [
+                    { binding: 'jumundate', header: '수주일자', width: 120, align: 'center' },
+                    { binding: 'jumun_number', header: '수주번호', width: 150, align: 'center'},
+                    { binding: 'company_name', header: '거래처명', width: '*', align: 'left' },
+                    { binding: 'material_summary', header: '제품명', width: '*', align: 'left' },
+                    { binding: 'total_suju_qty', header: '수주수량', width: 100, align: 'right', format: 'n0' },
+                    { binding: 'total_shipped_qty', header: '출하수량', width: 100, align: 'right', format: 'n0' },
+                    { binding: 'shipdate', header: '출하일자', width: 130, align: 'center' },
+                    { binding: 'avg_wday', header: '평균납기일수', width: 100, align: 'center', format: 'n1' },
+                ],
+            });
+
+            new FlexGridContextMenu(this.grid);
+            this.grid.downloadFileName = '납기 단축 지표';
+        }
+
+
+
+
+        searchMainData() {
+            let url = '/api/summary/indicator/short_read'
+            let data = {
+				//'cboYear' : $("#cboYear").val(),
+                'date_from' : $('#srchStartDt').val(),
+                'date_to' : $('#srchEndDt').val(),
+                'spjangcd' : sessionStorage.getItem('spjangcd')
+			}
+            const result = AjaxUtil.getSyncData(url, data);
+            console.log("result data : ", result.data);
+            if (result) {
+                this.grid.itemsSource = result.data;
+            }
+        }
+
+    }
+
+    let page = null;
+
+    $(document.body).ready(function (e) {
+
+        $('#srchStartDt').val(CommonUtil.getYYYYMMDD(-7));
+        $('#srchEndDt').val(CommonUtil.getYYYYMMDD());
+
+
+        page = new ProductionMonthPage();
+
+        AjaxUtil.fillSelectOptions($('#cboYear'), 'data_year', '', false);
+
+        page.searchMainData();
+
+        // 검색
+        $('#btnSearch').click(function (e) {
+            page.searchMainData();
+        });
+
+
+    });
+
+    // class CustomMergeManager extends wijmo.grid.MergeManager {
+    //     getMergedRange(panel, row, col, clip = true) {
+    //         if (panel.cellType !== wijmo.grid.CellType.Cell) {
+    //             return super.getMergedRange(panel, row, col, clip);
+    //         }
+    //
+    //         const colName = panel.columns[col].binding;
+    //         if (colName === 'standard1' || colName === 'unit_name') {
+    //             const matNameCol = panel.columns.getColumn('mat_name').index;
+    //             const val = panel.getCellData(row, col, false);
+    //             const matName = panel.getCellData(row, matNameCol, false);
+    //
+    //             let rng = new wijmo.grid.CellRange(row, col);
+    //
+    //             // 위로 병합
+    //             while (rng.row > 0) {
+    //                 let prevVal = panel.getCellData(rng.row - 1, col, false);
+    //                 let prevMatName = panel.getCellData(rng.row - 1, matNameCol, false);
+    //                 if (prevVal !== val || prevMatName !== matName) break;
+    //                 rng.row--;
+    //             }
+    //
+    //             // 아래로 병합
+    //             while (rng.row2 < panel.rows.length - 1) {
+    //                 let nextVal = panel.getCellData(rng.row2 + 1, col, false);
+    //                 let nextMatName = panel.getCellData(rng.row2 + 1, matNameCol, false);
+    //                 if (nextVal !== val || nextMatName !== matName) break;
+    //                 rng.row2++;
+    //             }
+    //
+    //             return rng.isSingleCell ? null : rng;
+    //         }
+    //
+    //         return super.getMergedRange(panel, row, col, clip);
+    //     }
+    // }
+
+
+
+</script>
+</th:block>

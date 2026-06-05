@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="ko">
+<style>
+    .btn-clear {
+        display: none !important; /* 강제로 숨김 */
+    }
+    .btn-close {
+        display: none !important; /* 강제로 숨김 */
+    }
+    /* 검색 영역 스타일 */
+    #searcharea, #detailarea {
+        position: relative;
+        width: 100%;
+        margin-top: 10px;
+    }
+
+    .search-container input {
+        margin-top: 10px;
+        margin-bottom: 10px;
+        box-shadow: 0 4px 5px rgba(0, 0, 0, 0.2);
+    }
+
+    #searcharea input, #detailarea input {
+        width: 100%;
+        border: none;
+        outline: none;
+        font-size: 16px;
+        padding: 10px;
+    }
+
+    #theGrid {
+        overflow-x: auto; /* 가로 스크롤 활성화 */
+        white-space: nowrap; /* 테이블이 자동으로 줄 바꿈되지 않도록 설정 */
+    }
+
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+        display: none;
+    }
+
+    .modal {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        background-color: white;
+        padding: 20px;
+        border-radius: 10px;
+        width: 95%;
+        z-index: 1001;
+    }
+
+    .modal input, .modal select {
+        width: 100%;
+        margin-bottom: 10px;
+        padding: 5px;
+    }
+
+</style>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ACTAS MES</title>
+    <link rel="icon" type="image/png" href="/images/logo/actas_log_a.png">
+    <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/smoothness/jquery-ui.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css"/> <!-- Slide css -->
+    <link rel="stylesheet" href="/resource/ax5ui/ax5ui.all.css">
+    <link rel="stylesheet" type="text/css" href="/assets_mobile/css/import.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
+
+    <script src="/assets_mobile/js/ui.js"></script> <!-- Common js -->
+    <script th:inline="javascript">
+        var sandanData = /*[[${session.sandanList}]]*/ [];
+    </script>
+
+
+    <script type="text/javascript" src="/resource/ax5ui/ax5ui.all.min.js?v=1000"></script>
+
+    <script type="text/javascript" src="/js/ax5commUtil.js?v=1070"></script>
+
+    <script src="/js/common.js?v=1060"></script>
+    <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script> <!-- Slide js -->
+    <script src="/js/Mobile.js"></script>
+</head>
+
+<body>
+<input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
+<div class="mobile-wrapper page-ticket-list"><!-- ★페이지 Class명 -->
+    <!-- [모바일] 헤더  -->
+    <div class="mobile-layout-header">
+        <header>
+            <div class="left">
+                <a href="#" title="전체메뉴" class="logo">
+                </a>
+            </div>
+            <div class="left" style="margin-left:35px; font-size: 25px;">
+                <h2>개인별휴가현황</h2>
+            </div>
+            <div class="right">
+                <a href="#" title="전체메뉴" class="btn-menu">
+                    <img src="/assets_mobile/images/icon/btn-menu.svg" alt="전체메뉴 아이콘">
+                </a>
+            </div>
+        </header>
+    </div> <!-- //mobile-layout-header end-->
+
+    <!-- [모바일] 메뉴  -->
+    <div th:insert="~{mobile/mobile_menu :: mobile_menu}"></div>
+    <!-- [모바일] 컨덴츠  -->
+    <div class="mobile-layout-contents">
+        <!--- (레이아웃) Contents 영역 -->
+        <div class="layout-contents" >
+            <!-- 검색 영역  -->
+            <div class="search-wrap">
+                <div class="srch-tit aco-hd">
+                    <p>기본검색</p>
+                    <a href="#" title="열기/닫기" class="btn-aco">
+                        <img src="/assets_mobile/images/icon/ico-down.svg" alt="열기/닫기">
+                    </a>
+                </div>
+                <div class="srch-cont aco-cont">
+                    <dl>
+                        <dt>조회년도</dt>
+                        <dd>
+                            <div style="display: flex; gap: 10px">
+                                <div style="width: 100%">
+                                    <select id="searchYear">
+                                        <option>
+                                            2025
+                                        </option>
+                                    </select>
+                                </div>
+                            </div>
+                        </dd>
+                    </dl>
+                    <dl>
+                        <dt>근태항목</dt>
+                        <dd>
+                            <div style="display: flex; gap: 10px">
+                                <div style="width: 100%">
+                                    <select id="selectWorkcd">
+                                        <option>전체</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </dd>
+                    </dl>
+                    <div class="srch-btn">
+                        <button class="btn-dark" onclick="handleSearch()">조회</button>
+                    </div>
+                </div>
+            </div>
+            <!-- 컨텐츠 영역  -->
+            <div class="contents-wrap">
+                <div id="theGrid">
+
+                </div>
+                <div class="srch-btn">
+                </div>
+            </div><!--// contents-wrap end-->
+        </div> <!--//layout-contents end -->
+        <!-- 수정 모달 -->
+        <!-- 수정 모달 오버레이 및 창 -->
+        <div id="vacationEditModal" class="modal-overlay">
+            <div class="modal">
+                <h3>휴가 정보 수정</h3>
+                <input type="hidden" id="vacId">
+                <br>
+                <div class="form-group" >
+                    <label for="editAttKind">근태항목:</label>
+                    <div style="display: flex; gap: 10%">
+                        <select id="editAttKind" style="width: 70%" onchange="bindPeriod();">
+                            <option>휴가</option>
+                        </select>
+                        <label style="display: flex; align-items: center">
+                            <input type="checkbox" style="margin: 0" id="isAnnual" disabled>
+                            &nbsp;&nbsp;연차</label>
+                    </div>
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 5px;">
+                    <label for="editStartDate">시작일:</label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="date" id="editStartDate" style="width: 140px;">
+                        <input type="time" id="editStartTime" style="width: 140px;">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="editEndDate">종료일:</label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="date" id="editEndDate" style="width: 140px;">
+                        <input type="time" id="editEndTime" style="width: 140px;">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="editUseDate">사용일수:</label>
+                    <input type="number" id="editUseDate" readonly>
+                </div>
+
+                <div class="form-group">
+                    <label for="editRemark">사유:</label>
+                    <input type="text" id="editRemark">
+                </div>
+
+                <div style="display: flex; gap: 10px;">
+                    <button onclick="submitEditVacation()" style="background-color: #56a0fd; color: #FFFFFF">수정</button>
+                    <button onclick="deleteVacation()">삭제</button>
+                    <button onclick="closeEditModal()">닫기</button>
+                </div>
+            </div>
+        </div>
+    </div> <!-- //mobile-layout-contents end-->
+</div> <!-- //page-wrapper end-->
+<script th:inline="javascript">
+    // // Thymeleaf에서 값 설정: Null 체크와 기본값 처리
+    // var groupid = [[${session.groupid != null ? session.groupid : 'null'}]];
+    // var id = /*[[${id != null ? id : 'null'}]]*/;
+    // var groupname = /*[[${groupname != null ? groupname : 'null'}]]*/;
+    // var username = /*[[${username != null ? username : 'null'}]]*/;
+    //
+    // // 로컬스토리지에 값 유지 (null 또는 빈 문자열은 저장하지 않음)
+    // if (groupid && groupid !== 'null') localStorage.setItem('groupid', groupid);
+    // if (id && id !== 'null') localStorage.setItem('id', id);
+    // if (username && username !== 'null') localStorage.setItem('username', username);
+    // if (groupname && groupname !== 'null') localStorage.setItem('groupname', groupname);
+</script>
+<script type="text/javascript">
+
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const date = String(today.getDate()).padStart(2, '0');
+
+    $(document).ready(function () {
+        AjaxUtil.fillSelectOptions($('#selectWorkcd'), 'workcd', 'all', false, 'work_division', '');
+        AjaxUtil.fillSelectOptions($('#editAttKind'), 'workcd', 'choose', false, 'work_division', '');
+        // 이벤트 리스너 등록
+        document.getElementById('editStartDate').addEventListener('change', calculateUseDays);
+        document.getElementById('editEndDate').addEventListener('change', calculateUseDays);
+        searchMainData();
+    });
+    // yy.mm.dd 형식 포멧함수
+    function formatDateToYYMMDD(dateStr) {
+        if (!dateStr || dateStr.length < 10) return '';
+        return dateStr.slice(2, 10); // "2024.05.27" → "24.05.27"
+    }
+    function searchMainData() {
+        let url = '/api/attendance_current/read';
+        let data = {
+            'workcd': document.getElementById('selectWorkcd').value,
+            'searchYear': document.getElementById('searchYear').value,
+        };
+        let fnsuccess = function (result) {
+            if (result != null && result.data != null) {
+                if(result.data.annInfo == null){
+                    result.data.annInfo = {
+                        rtdate: "",
+                        ewolnum: "",
+                        holinum: "",
+                        daynum: "",
+                        restnum: ""
+                    };
+                }
+                // 현재 휴가정보 데이터 개수 확인
+                const currentLength = result.data.vacInfo.length;
+                if (currentLength < 8) {
+                    const itemsToAdd = 8 - currentLength;
+                    for (let i = 0; i < itemsToAdd; i++) {
+                        result.data.vacInfo.push({});
+                    }
+                }
+                // 조회된 연차정보
+                const annInfo = result.data.annInfo;
+                // 조회된 데이터(휴가정보)
+                const vacitems = result.data.vacInfo;
+
+                // ✅ 동적 테이블 생성
+                let tableHtml = `
+          <table>
+                        <tr>
+                            <th>입사일</th>
+                            <td colspan="7" style="text-align: left">
+                                ${annInfo.rtdate || ''}
+                            </td>
+                            <td>
+
+                            </td>
+                        </tr>
+                        <br>
+                        <tr>
+                            <th>이월</th>
+                            <td>
+                                ${annInfo.ewolnum || ''}
+                            </td>
+                            <th>생성</th>
+                            <td>
+                                ${annInfo.holinum || ''}
+                            </td>
+                            <th>사용</th>
+                            <td>
+                                ${annInfo.daynum || ''}
+                            </td>
+                            <th>잔여</th>
+                            <td>
+                                ${annInfo.restnum || ''}
+                            </td>
+                            <td></td>
+                        </tr>
+                        <br>
+                        <tr>
+                            <th>신청일</th>
+                            <th>구분</th>
+                            <th>연차</th>
+                            <th>시작일</th>
+                            <th>종료일</th>
+                            <th>기간</th>
+                            <th>사유</th>
+                            <th>시작시각</th>
+                            <th>종료시각</th>
+                        </tr>
+                `;
+
+                vacitems.forEach(vacInfo => {
+                    tableHtml += `
+                    <tr>
+                        <td>${formatDateToYYMMDD(vacInfo.reqdate) || ''}</td>
+                        <td>${vacInfo.worknm || ''}</td>
+                        <td>${vacInfo.yearflag || ''}</td>
+                        <td>${formatDateToYYMMDD(vacInfo.frdate) || ''}</td>
+                        <td>${formatDateToYYMMDD(vacInfo.todate) || ''}</td>
+                        <td>${vacInfo.daynum || ''}</td>
+                        <td>${vacInfo.remark || ''}</td>
+                        <td>${vacInfo.sttime || ''}</td>
+                        <td>${vacInfo.edtime || ''}</td>
+                        <td style="display: none;">${vacInfo.workcd || ''}</td>
+                        <td style="display: none;">${vacInfo.id || ''}</td>
+                        <td style="display: none;">${vacInfo.appgubun || ''}</td>
+                        <td style="display: none;">${vacInfo.fixflag || ''}</td>
+                    </tr>
+                `;
+                });
+
+                tableHtml += `
+                </table>
+            `;
+
+                // ✅ 기존 내용 제거하고 새롭게 바인딩
+                const tableBody = document.querySelector('#theGrid');
+                tableBody.innerHTML = tableHtml;
+            } else {
+                const tableBody = document.querySelector('#theGrid');
+                tableBody.innerHTML = `
+          <tr>
+              <td colspan="6" style="text-align: center; padding: 8px;">조회된 데이터가 없습니다.</td>
+          </tr>
+      `;
+            }
+        };
+        AjaxUtil.getAsyncData(url, data, fnsuccess);
+    }
+    // 검색버튼 클릭
+    function handleSearch() {
+        searchMainData();
+        const buttons = document.querySelectorAll('.btn-aco');
+        buttons.forEach(button => {
+            button.click();
+        });
+    }
+    // yyyy.mm.dd 형식 복원함수
+    function restoreFullYearDate(shortDateStr) {
+        if (!shortDateStr || shortDateStr.length !== 8) return ''; // ex: "24.05.27"
+        const parts = shortDateStr.split('.');
+        const fullYear = '20' + parts[0]; // assumes 20xx
+        return `${fullYear}.${parts[1]}.${parts[2]}`;
+    }
+    // 휴가정보 테이블 클릭 이벤트 추가
+    document.querySelector('#theGrid').addEventListener('click', function (e) {
+        const targetRow = e.target.closest('tr');
+        if (!targetRow) return;
+        const cells = targetRow.querySelectorAll('td');
+        const gubunValue = cells[11].innerText;
+        const fixflag = cells[12].innerText;
+        const isEmptyRow = Array.from(cells).every(cell => cell.innerText.trim() === "");
+        if (isEmptyRow) return;
+        if (gubunValue !== '001'){
+            Alert.alert('',  '해당 항목은 결재처리되었습니다.')
+            return
+        }else if (fixflag !== '0' && fixflag !== ''){
+            Alert.alert('',  '해당 항목은 확인처리되었습니다.')
+            return
+        }
+
+        openEditModal(targetRow);
+    });
+    function openEditModal(targetRow) {
+        const cells = targetRow.querySelectorAll('td');
+        // 모달에 값 채우기
+        const textValue = cells[9].innerText;
+
+        // 모든 option 요소를 순회
+        const selectElement = document.getElementById('editAttKind');
+        const options = selectElement.options;
+
+        for (let i = 0; i < options.length; i++) {
+            if (options[i].value === textValue) {
+                selectElement.value = options[i].value;
+                break;
+            }
+        }
+        // ✅ 날짜와 시간 조합해서 datetime-local 형식으로 변환
+        const startDate = restoreFullYearDate(cells[3].innerText).split('.');
+        const startTime = cells[7].innerText; // hh:mm
+
+        const endDate = restoreFullYearDate(cells[4].innerText).split('.');
+        const endTime = cells[8].innerText;
+
+        // ✅ datetime-local 형식으로 변환
+        const formattedStartDateTime = `${startDate[0]}-${startDate[1]}-${startDate[2]}`;
+        const formattedEndDateTime = `${endDate[0]}-${endDate[1]}-${endDate[2]}`;
+        document.getElementById('editStartDate').value = formattedStartDateTime;
+        document.getElementById('editStartTime').value = startTime;
+        document.getElementById('editEndDate').value = formattedEndDateTime;
+        document.getElementById('editEndTime').value = endTime;
+        document.getElementById('editUseDate').value = cells[5].innerText;
+        document.getElementById('editRemark').value = cells[6].innerText;
+        document.getElementById('vacId').value = cells[10].innerText;
+        document.getElementById('isAnnual').checked = cells[2].innerText !== '';
+
+        // 모달 열기
+        document.getElementById('vacationEditModal').style.display = 'block';
+    }
+
+    // ✅ 모달 닫기
+    function closeEditModal() {
+        document.getElementById('vacationEditModal').style.display = 'none';
+    }
+
+    // 모달 데이터 저장(휴가데이터 수정)
+    function submitEditVacation() {
+        let url = '/api/attendance_current/updateAttendance';
+        let data = {
+            'vacId': document.getElementById('vacId').value,
+            'attKind': document.getElementById('editAttKind').value,
+            'useDate': document.getElementById('editUseDate').value,
+            'remark': document.getElementById('editRemark').value,
+            'startDate': document.getElementById('editStartDate').value,
+            'startTime': document.getElementById('editStartTime').value,
+            'endDate': document.getElementById('editEndDate').value,
+            'endTime': document.getElementById('editEndTime').value,
+            'isAnnual': document.getElementById('isAnnual').checked ? "1" : "0"
+        };
+
+        let fnsuccess = function (result) {
+            if (result != null) {
+                if (result.success) {
+                    Alert.alert('', result.message, reloadWindow);
+                } else {
+                    Alert.alert('',"휴가 수정에 실패하였습니다.");
+                }
+            } else {
+                Alert.alert('',"오류가 발생하였습니다.");
+            }
+        };
+
+        AjaxUtil.postAsyncData(url, data, fnsuccess);
+    }
+
+    // 휴가데이터 삭제
+    function deleteVacation() {
+        let url = '/api/attendance_current/deleteAttendance';
+        let data = {
+            'vacId': document.getElementById('vacId').value
+        };
+
+        let fnsuccess = function (result) {
+            if (result != null) {
+                if (result.success) {
+                    Alert.alert('', result.message, reloadWindow);
+                } else {
+                    Alert.alert('',"휴가 삭제에 실패하였습니다.");
+                }
+            } else {
+                Alert.alert('',"오류가 발생하였습니다.");
+            }
+        };
+
+        AjaxUtil.postAsyncData(url, data, fnsuccess);
+    }
+
+    // 날짜와 시간 차이 계산 함수
+    function calculateUseDays() {
+        const startDate = document.getElementById('editStartDate').value;
+        const endDate = document.getElementById('editEndDate').value;
+        const useDateInput = document.getElementById('editUseDate');
+
+        console.log('날자계산 메서드 동작')
+        if (useDateInput.getAttribute('data-fixed') === 'true') {
+            console.log('useDate는 고정값 상태입니다. 계산하지 않음.');
+            return;
+        }
+        if (startDate && endDate) {
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            // 같은 날짜면 최소 하루
+            // 하루 = 1000ms * 60s * 60m * 24h
+            const dayDiff = (end - start) / (1000 * 60 * 60 * 24);
+
+            if (dayDiff === 0) {
+                useDateInput.value = "1.00"; // 같은 날이면 1일
+            } else {
+                useDateInput.value = dayDiff > 0 ? (dayDiff + 1).toFixed(2) : '0.00'; // 양수면 +1일
+            }
+        }
+    }
+    function reloadWindow(){
+        console.log("확인 버튼 클릭됨");
+        window.location.reload(); // ✅ 페이지 새로고침
+    }
+    function bindPeriod() {
+        let _this = this;
+        let url = '/api/attendance_submit/bindPeriod'
+        let data = {
+            'attKind': document.getElementById('editAttKind').value,
+        }
+        let fnsuccess = function (result) {
+            if (result != null) {
+                console.log("result : ", result);
+                let usenum = parseFloat(result.data.usenum);
+                if (usenum > 0 && usenum < 1) {
+                    const useDateInput = document.getElementById('editUseDate');
+                    useDateInput.value = usenum.toFixed(2);
+                    useDateInput.setAttribute('data-fixed', 'true'); // 🔒 잠금 표시
+                } else {
+                    document.getElementById('editUseDate').removeAttribute('data-fixed');
+                }
+                document.getElementById('isAnnual').checked = result.data.yearflag === '1';
+            } else {
+                Alert.alert('', "오류가 발생하였습니다.");
+            }
+        };
+        AjaxUtil.getAsyncData(url, data, fnsuccess);
+    }
+</script>
+</body>
+</html>

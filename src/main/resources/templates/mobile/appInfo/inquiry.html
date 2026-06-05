@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="ko">
+<style>
+    .search-wrap{
+        position: relative;
+        padding: 0 10px;
+        background-color: #fff;
+        border-radius: 0 !important;
+        box-shadow: 0 0 0 !important;
+        margin-bottom: 10px !important;
+    }
+
+    button:hover, .btn:hover{
+        border: 0 !important;
+    }
+
+    .aco-cont{
+        border-top: 1px solid #EFEFEF !important;
+    }
+
+    .search-wrap .srch-cont dl{
+        border-bottom: 1px solid #333 !important;
+    }
+
+    .questionBox {
+        position: relative;
+        height: 300px;
+        border: 1px solid lightgrey;
+        margin: 30px 10px 0 10px;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+    }
+
+    .questionBox textarea {
+        width: 100%;
+        height: 100px; /* 높이 조정 가능 */
+        border: none;
+        outline: none;
+        resize: none;
+        padding-right: 30px; /* X 버튼 공간 확보 */
+    }
+
+    .clear-btn {
+        position: absolute;
+        top: 93%;
+        right: 0;
+        transform: translateY(-50%);
+        width: 20px;
+        height: 20px;
+        color: black;
+        font-size: 14px;
+        font-weight: bold;
+        border: none;
+        border-radius: 50%;
+        cursor: pointer;
+        display: none; /* 기본적으로 숨김 */
+        align-items: center;
+        justify-content: center;
+    }
+
+    .srch-tit {
+        display: flex;
+        justify-content: normal !important;
+        align-items: center;
+        width: 100%;
+    }
+
+    .qst-text {
+
+    }
+
+    .answer-status {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px; /* "미답변"과 X 버튼 간격 조정 */
+    }
+
+    .status-Red {
+        margin-left: 10px;
+        color: tomato;
+        font-weight: bold;
+    }
+
+    .status-Blue {
+        margin-left: 10px;
+        color: dodgerblue;
+        font-weight: bold;
+    }
+    .delete-btn {
+        color: black;
+        border: none;
+        width: 18px;
+        cursor: pointer;
+        align-items: center;
+        justify-content: center;
+        padding: 2px;
+    }
+
+    .btn-aco{
+        display: flex;
+        margin-left: auto;
+    }
+
+    .qst-text {
+        max-width: 75%; /* 최대 너비 지정 */
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        display: inline-block;
+        vertical-align: middle;
+    }
+
+    #QnAContainer {
+        max-height: 400px;
+        overflow-y: auto;
+        border: 1px solid lightgrey;
+        border-radius: 5px;
+    }
+
+</style>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FACT CHECK</title>
+    <link rel="icon" type="image/png" href="/images/logo/icon_FACT%20CHECK.png">
+    <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/smoothness/jquery-ui.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css"/> <!-- Slide css -->
+    <link rel="stylesheet" href="/resource/ax5ui/ax5ui.all.css">
+    <link rel="stylesheet" type="text/css" href="/assets_mobile/css/import.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
+
+    <script src="/assets_mobile/js/ui.js"></script> <!-- Common js -->
+    <script type="text/javascript" src="/resource/ax5ui/ax5ui.all.min.js?v=1000"></script>
+    <script type="text/javascript" src="/js/ax5commUtil.js?v=1070"></script>
+    <script src="/js/common.js?v=1060"></script>
+    <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script> <!-- Slide js -->
+    <script src="/js/Mobile.js"></script>
+</head>
+
+<body>
+<div class="mobile-wrapper"><!-- ★페이지 Class명 -->
+    <!-- [모바일] 헤더  -->
+    <div class="mobile-layout-header">
+        <header>
+            <div class="left">
+                <a href="#" title="전체메뉴" class="logo">
+                </a>
+            </div>
+            <div class="center" style="margin-left:35px;">
+                <h2>1:1문의</h2>
+            </div>
+            <div class="right">
+                <a href="#" title="전체메뉴" class="btn-menu">
+                    <img src="/assets_mobile/images/icon/btn-menu.svg" alt="전체메뉴 아이콘">
+                </a>
+            </div>
+        </header>
+    </div> <!-- //mobile-layout-header end-->
+
+    <!-- [모바일] 메뉴  -->
+    <div th:insert="~{mobile/mobile_menu :: mobile_menu}"></div>
+    <!-- [모바일] 컨덴츠  -->
+    <div class="mobile-layout-contents">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+        <!--- (레이아웃) Contents 영역 -->
+        <div class="layout-contents" style="padding-bottom: 10px">
+
+            <!-- 검색 영역  -->
+            <div id="QnAContainer">
+
+            </div>
+
+            <div id="questionBox" class="questionBox">
+                <input type="hidden" id="seq" />
+                <textarea id="questionTextarea" style="height: 100%"></textarea>
+                <button id="clearButton" class="clear-btn">X</button>
+            </div>
+            <div style="display: flex; justify-content: center;">
+                <button id="questionSave" class="btn" style="width: 120px; margin-top: 25px">문의 등록</button>
+            </div>
+
+        </div> <!--//layout-contents end -->
+    </div> <!-- //mobile-layout-contents end-->
+</div> <!-- //page-wrapper end-->
+
+<script type="text/javascript">
+
+    document.readyState === 'complete' ? init() : window.onload = init;
+
+    const textarea = document.getElementById("questionTextarea");
+    const clearButton = document.getElementById("clearButton");
+
+    // 입력이 있을 때만 X 버튼 표시
+    textarea.addEventListener("input", function () {
+        clearButton.style.display = textarea.value.trim() ? "flex" : "none";
+    });
+
+    // X 버튼 클릭 시 내용 초기화
+    clearButton.addEventListener("click", function () {
+        textarea.value = "";
+        clearButton.style.display = "none";
+        textarea.focus(); // 클릭 후 다시 입력 가능하게 포커스 유지
+    });
+
+    function init() {
+        fetchList();
+    }
+
+    function fetchList() {
+        $.ajax({
+            url: "/api/inquiry/list",
+            type: "GET",
+            success: function (response) {
+                if (response.success) {
+
+                    console.log(response.data);
+                    renderQnA(response.data);
+
+                } else {
+                    Alert.alert("QnA에 대한 정보를 찾을 수 없습니다.");
+                }
+            },
+            error: function (xhr, status, error) {
+                Alert.alert("서버와의 통신 중 오류가 발생했습니다.");
+            }
+        });
+    }
+
+
+    function renderQnA(faqData) {
+        const container = document.getElementById("QnAContainer");
+        container.innerHTML = ''; // 기존 FAQ 초기화
+
+        faqData.forEach(item => {
+            console.log("🔹 추가할 항목:", item);
+
+            let deleteButton = item.answer ? '' : `<button class="delete-btn" data-qstseq="${item.QSTSEQ}">X</button>`
+
+            let answerStatus = item.answer ? `<span class="status-Blue">답변완료</span>` : `
+            <span class="status-Red">미답변</span>
+        `;
+
+            let toggleButton = item.answer ? `
+            <a href="#" title="열기/닫기" class="btn-aco">
+                <img src="/assets_mobile/images/icon/ico-down.svg" alt="열기/닫기">
+            </a>` : '';
+
+            let faqItem = document.createElement("div");
+            faqItem.classList.add("search-wrap");
+            faqItem.setAttribute("data-qstseq", item.QSTSEQ); // 삭제할 때 사용
+            faqItem.innerHTML = `
+            <div class="srch-tit aco-hd" data-qstseq="${item.QSTSEQ}" data-qsttext="${item.QSTTEXT}">
+                <span class="qst-text" title="${item.QSTTEXT}">${item.QSTTEXT}</span>
+                <span class="answer-status">
+                    ${answerStatus}
+                        ${deleteButton}
+                </span>
+                ${toggleButton}
+            </div>
+            <div class="srch-cont ${item.answer ? 'aco-cont answer' : 'aco-cont'}" style="display: none;">
+                <dl>
+                    <dt>답변</dt>
+                    <dd>${item.answer ? item.answer : '<span style="color: red;">아직 답변이 등록되지 않았습니다.</span>'}</dd>
+                </dl>
+            </div>
+        `;
+
+            container.appendChild(faqItem);
+        });
+
+
+        $(document).off("click", ".aco-hd").on("click", ".aco-hd", function () {
+            let qstText = $(this).data("qsttext");  // 문의 내용 가져오기
+            let qstSeq = $(this).data("qstseq");  // 문의 ID 가져오기
+            console.log("문의 내용:", qstText, "문의 ID:", qstSeq);
+
+
+            $("#questionTextarea").val(qstText);
+
+            // 클릭된 아코디언 항목의 컨텐츠 토글
+            $(this).next('.aco-cont').slideToggle();
+            $('.aco-cont').not($(this).next()).slideUp();
+            $(this).toggleClass('active');
+            $('.aco-hd').not($(this)).removeClass('active');
+        });
+
+        // X 버튼 클릭 시 해당 문의 삭제
+        $(document).off("click", ".delete-btn").on("click", ".delete-btn", function (e) {
+            e.stopPropagation(); // 부모 클릭 이벤트 방지
+
+            let qstSeq = $(this).data("qstseq");  // 삭제할 문의 ID
+                let _this = this;
+            Alert.confirm('', '삭제하시겠습니까?', function(){
+                let data = {
+                    'id' : qstSeq,
+                    '_csrf': csrfToken
+                }
+                let fnSuccess = function (res) {
+                    if (res.success) {
+                        Alert.alert('', '삭제되었습니다.', function(){
+                            // 해당 요소 삭제
+                            $(_this).closest(".search-wrap").remove();
+                        });
+
+                    }else{
+                        Alert.alert('', res.message);
+                    }
+                }
+                AjaxUtil.postAsyncData('/api/inquiry/delete', data, fnSuccess);
+            })
+
+
+        });
+    }
+
+    function resetField(){
+        $('#questionTextarea').val("");
+
+    }
+
+    $('#questionSave').click(function(){
+        let val = $('#questionTextarea').val();
+
+        if(val === '') {
+            Alert.alert('', '내용을 입력해 주세요.')
+        }else{
+
+            let data = {
+                '_csrf': csrfToken,
+                'content' : val
+            }
+            let fnSuccess = function (res) {
+                if (res.success) {
+                    Alert.alert('', '등록되었습니다.', function(){
+                        fetchList();
+                        resetField();
+                    });
+                }
+            }
+            AjaxUtil.postAsyncData('/api/inquiry/save', data, fnSuccess);
+        }
+    })
+
+</script>
+</body>
+</html>

@@ -1,0 +1,207 @@
+<html layout:decorate="~{layout_page}">
+<th:block layout:fragment="content">
+  <div class="layout-contents">
+    <div class="page-title-wrap">
+      <div class="left">
+        <h2>수주별 납품현황</h2>
+        <a title="북마크" class="bookmark toggle">
+          내 메뉴
+        </a>
+      </div>
+      <ul class="page-navi">
+        <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+        <li>영업 관리</li>
+        <li>수주별 납품현황</li>
+      </ul>
+    </div>
+
+    <section class="section">
+      <div class="section-top">
+        <div class="search-wrap">
+          <dl>
+            <dt>
+              <label for="srchStartDt">
+                 출고예정일<span class="eq"></span>
+              </label>
+            </dt>
+            <dd>
+              <div class="srch-box">
+                <input type="date" id="srchStartDt">&nbsp; ~&nbsp;
+                <input type="date" id="srchEndDt">
+              </div>
+            </dd>
+          </dl>
+          <dl id="searchComArea">
+            <dt>
+              <label>업체</label>
+            </dt>
+            <dd>
+              <input type="text" class="form-control2"
+                     id="txtCompany" name="txtCompany">
+            </dd>
+          </dl>
+          <dl>
+            <dt>&nbsp;</dt>
+            <dd>
+              <li>
+                <a class="btn btn-delete" title="검색" id="btnSearch">
+                  <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                  <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                  검색
+                </a>
+              </li>
+            </dd>
+          </dl>
+        </div>
+      </div>
+      <div class="container-fluid">
+        <div id="theGrid" style="height: 730px;"></div>
+      </div>
+    </section>
+  </div>
+</th:block>
+<th:block layout:fragment="scripts">
+  <th:block th:replace="/common/columns_setting :: columns_setting" ></th:block>
+  <th:block th:replace="/common/popup_company :: popup_company"></th:block>
+  <script type="text/javascript">
+
+
+    class SuJuDeliveryStatusPage {
+      constructor() {
+        this.url = '/api/sales/suju_delivery_status';
+        this.grid = null;
+        this.viewData = new wijmo.collections.CollectionView();
+        this.init();
+      }
+
+      init() {
+        let _this = this;
+        this.grid = new wijmo.grid.FlexGrid('#theGrid', {
+          selectionMode: wijmo.grid.SelectionMode.Row,
+          headersVisibility: wijmo.grid.HeadersVisibility.Column,
+          allowSorting: wijmo.grid.AllowSorting.MultiColumn,
+          allowMerging: wijmo.grid.AllowMerging.Cells,  //셀 병합
+          autoGenerateColumns: false,
+          showMarquee: true,
+          isReadOnly: true,
+          formatItem: (sender, e) => {
+            if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+              e.cell.style.textAlign = 'center';
+            }
+          },
+          columns: [
+            { binding: 'id', header: 'id', visible: false, allowSorting: false},
+            { binding: 'DeliveryDate', header: '출고예정일', width: 120, align: 'center' },
+            { binding: 'JumunDate', header: '수주일', width: 120, align: 'center' },
+            { binding: 'com_name', header: '업체', width: 150 , allowMerging: false },
+            { binding: 'mat_name', header: '품목', width: 180, allowSorting: false },
+            { binding: 'SujuQty', header: '수주량', width: 100, align: 'right', format: 'n0' },
+            { binding: 'ship_oty', header: '출고 수량', width: 100, align: 'right', format: 'n0' },
+            { binding: 'SujuQty3', header: '미출고 수량', width: 120, align: 'right', format: 'n0' },
+            { binding: 'devdate', header: '출고일', width: 120, align: 'center' },
+          ],
+          itemsSource: this.viewData,
+        });
+        this.grid.itemFormatter = function (panel, row, col, cell) {
+          if (panel.cellType === wijmo.grid.CellType.Cell) {
+            let colName = panel.columns[col].binding;
+            if (['com_name', 'CustomerBarcode'].includes(colName)) {
+              cell.style.textAlign = 'center';          // 수평 가운데
+              cell.style.verticalAlign = 'middle';      // 수직 가운데
+              cell.style.display = 'flex';              // flex로 정렬
+              cell.style.alignItems = 'center';         // 수직 정렬
+              cell.style.justifyContent = 'center';     // 수평 정렬
+            }
+          }
+        };
+
+        new FlexGridContextMenu(this.grid);
+        this.grid.downloadFileName = '수주별납품현황';
+
+        $('#txtCompany').on('keypress', function (e) {
+          if (e.keyCode === 13) {
+            _this.searchMainData();
+          }
+        });
+      }
+
+      searchMainData() {
+        let _this = this;
+        let company =  $('#txtCompany').val();
+        let start = $('#srchStartDt').val();  //시작일
+        let end = $('#srchEndDt').val();      //종료일
+        let url = this.url + '/read';
+
+        let data = {
+          'company': company,
+          'start': start,
+          'end': end,
+          'action': 'read',
+          spjangcd: sessionStorage.getItem('spjangcd')
+        };
+
+        let fnsuccess = function (result) {
+          if (result != null) {
+            _this.viewData.sourceCollection = result.data;
+          }
+        };
+        AjaxUtil.getAsyncData(url, data, fnsuccess);
+      }
+    }
+
+    let page = null;
+
+    $(document.body).ready(function (e) {
+      const today = new Date();
+      const yyyy = today.getFullYear();
+      const mm = String(today.getMonth() + 1).padStart(2, '0'); // 월은 0부터 시작
+      const dd = String(today.getDate()).padStart(2, '0');
+
+      const firstDay = `${yyyy}-${mm}-01`;
+      const currentDay = `${yyyy}-${mm}-${dd}`;
+
+      page = new SuJuDeliveryStatusPage();
+
+
+      $('#srchStartDt').val(firstDay);
+      $('#srchEndDt').val(currentDay);
+
+      $('#btnSearch').click(() => {
+        if ($('#cboCompanyHidden').val() === '' && $('#cboCompany').val() !== '') {
+          Alert.alert('', '업체명은 업체검색 버튼을 통해서 \n 검색해주세요');
+          return;
+        }
+
+        page.searchMainData();
+      });
+
+      $('#btnCompanySearch').click(function () {
+
+        let poppage = new PopCompComponent();
+        let $poppage = $(poppage);
+        let searchcallback = function (items) {
+          //console.log('items : ',items);
+          document.getElementById('cboCompany').value = items.compname;
+          document.getElementById('cboCompanyHidden').value = items.id;
+        };
+
+        poppage.show(searchcallback);
+      });
+
+      page.searchMainData();
+    });
+
+    $('#cboCompany').on('input', function () {
+      const val = $(this).val();
+      if (val === '') {
+        $('#cboCompanyHidden').val('');
+      }
+    });
+    // .btn-clear 클릭 후 input 이벤트 강제 발생
+    $(document).on('click', '.btn-clear', function () {
+      const $input = $(this).siblings('input[type="text"]');
+      $input.val('');
+      $input.trigger('input'); // 🔥 input 이벤트 강제 발생
+    });
+  </script>
+</th:block>

@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="ko">
+<style>
+    .mobile-layout-header header {
+        display: flex;
+        justify-content: center; /* 가운데 정렬 */
+        align-items: center; /* 수직 정렬 */
+        height: 60px; /* 높이 조절 */
+    }
+
+    .left {
+        margin-left: 0; /* 기존 여백 제거 */
+    }
+
+    .left h2 {
+        font-size: 25px; /* 글자 크기 설정 */
+    }
+    .btn-clear {
+        display: none !important; /* 강제로 숨김 */
+    }
+    .btn-close {
+        display: none !important; /* 강제로 숨김 */
+    }
+    /* 전체 컨테이너 스타일 */
+    .contents-wrap {
+        width: 100%;
+        max-width: 500px;
+        margin: 0 auto;
+    }
+
+    /* 검색 영역 스타일 */
+    #searcharea, #detailarea {
+        position: relative;
+        width: 100%;
+        margin-top: 10px;
+    }
+
+    #searcharea input, #detailarea input {
+        width: 100%;
+        border: none;
+        outline: none;
+        font-size: 16px;
+        padding: 10px;
+    }
+
+    /* 검색 아이콘 (SVG) */
+    .search-icon {
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        cursor: pointer;
+    }
+
+    /* 검색 가이드 스타일 */
+    .search-guide {
+        padding: 10px;
+        font-size: 14px;
+        color: #666;
+    }
+
+    /* 버튼 스타일 */
+    .btn-select, .btn-login {
+        width: 100%;
+        padding: 10px;
+        margin-top: 10px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+    }
+
+    /* 모달 오버레이 (배경 흐리게) */
+    .modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5); /* 반투명한 검은색 배경 */
+        z-index: 999; /* 모달보다 한 단계 아래 */
+    }
+
+    /* 모달 스타일 */
+    .modal {
+        display: none;
+        position: fixed;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        width: 400px;
+        max-width: 90%;
+        background-color: white;
+        border-radius: 10px;
+        box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+        z-index: 9999;
+    }
+
+    /* 모달 닫기 버튼 스타일 */
+    .modal-close {
+        position: absolute;
+        top: 10px;
+        right: 5px;
+        width: 30px; /* 버튼 크기 */
+        height: 25px;
+        border: none;
+        border-radius: 3px;
+        background: none; !important; /* 배경 제거 */
+        background-color: transparent; !important; /* 배경을 투명하게 */
+        z-index: 1000;
+        cursor: pointer; /* 클릭 가능한 버튼 스타일 */
+    }
+    #loadingSpinner {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(0, 0, 0, 0.8); /* 배경 어둡게 */
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+    }
+
+    #loadingImage {
+        width: 90%; /* 전체 화면의 80% 크기 */
+        max-width: 700px; /* 최대 크기 제한 */
+    }
+
+</style>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FACT CHECK</title>
+  <link rel="icon" type="image/png" href="/images/logo/icon_FACT%20CHECK.png">
+  <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/smoothness/jquery-ui.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css"/> <!-- Slide css -->
+  <link rel="stylesheet" href="/resource/ax5ui/ax5ui.all.css">
+  <link rel="stylesheet" type="text/css" href="/assets_mobile/css/import.css">
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
+
+  <script src="/assets_mobile/js/ui.js"></script> <!-- Common js -->
+  <script th:inline="javascript">
+    var sandanData = /*[[${session.sandanList}]]*/ [];
+  </script>
+
+
+  <script type="text/javascript" src="/resource/ax5ui/ax5ui.all.min.js?v=1000"></script>
+  <script type="text/javascript" src="/js/ax5commUtil.js?v=1070"></script>
+  <script src="/js/common.js?v=1060"></script>
+  <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script> <!-- Slide js -->
+</head>
+
+<body>
+<div class="mobile-wrapper page-ticket-list"><!-- ★페이지 Class명 -->
+  <!-- [모바일] 헤더  -->
+  <div class="mobile-layout-header">
+    <header>
+      <div class="left">
+        <h2>FACT CHECK</h2>
+      </div>
+    </header>
+  </div> <!-- //mobile-layout-header end-->
+  <!-- [모바일] 메뉴  -->
+  <div th:insert="~{mobile/mobile_menu :: mobile_menu}"></div>
+  <!-- [모바일] 컨덴츠  -->
+  <div class="mobile-layout-contents">
+    <!--- (레이아웃) Contents 영역 -->
+    <div class="layout-contents">
+      <!-- 검색 영역  -->
+      <div class="search-wrap">
+
+      </div>
+      <!-- 컨텐츠 영역  -->
+      <div class="contents-wrap">
+        <dl style="margin-bottom: 10px">
+          <div class="search-container">
+            <input type="hidden" id="postno">
+            <h2>주소</h2>
+
+            <!-- 주소 검색 입력창 -->
+            <div id="searcharea">
+              <input type="text" id="address1" placeholder="검색 할 부동산 주소를 입력 해주세요" onfocus="openModal()">
+              <span class="search-icon" id="searchIcon" onclick="openModal()">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="11" cy="11" r="7" stroke="black" stroke-width="2"/>
+                        <line x1="16" y1="16" x2="22" y2="22" stroke="black" stroke-width="2"/>
+                    </svg>
+                </span>
+            </div>
+            <div class="modal-overlay" id="modalOverlay"></div>
+            <!-- 모달 -->
+            <div id="postcodeModal" class="modal">
+              <div class="modal-content">
+                <div style="display: flex">
+                  <div class="modal-header"></div>
+                  <button class="modal-close" onclick="closeModal()">
+                    <img src="../img/icon/factcheck/x-lg.svg" alt="닫기" class="close-icon">
+                  </button>
+                </div>
+                <div id="postcodeContainer"></div>
+              </div>
+            </div>
+
+
+            <!-- 상세 주소 입력 -->
+            <div id="detailarea">
+              <input type="text" id="address2" placeholder="상세주소를 입력 하세요">
+            </div>
+          </div>
+
+          <!-- 검색 가이드 -->
+          <div class="search-guide">
+            <p>* 부동산 소재지번 또는 도로명, 동/호로 검색하면 정확한 결과를 얻을 수 있습니다.</p>
+            <p>* 미등기인 경우 주소 조회 및 등록이 되지 않습니다.</p>
+          </div>
+
+          <!-- 버튼 -->
+          <div style="display: flex; gap: 5px; align-items: center; max-width: 100%;">
+          <button onclick="searchGoyuList()" style="margin-top: 10px;border: none; margin-bottom: 10px;">물건 선택</button>
+          <button id="login" style="padding-top: 0px;border: none;">로그인 하러 가기</button>
+          </div>
+        </dl>
+      </div>
+
+
+      <div id="addressWrap" class="contents-wrap"></div>
+
+      <!-- 로딩 화면 -->
+      <div id="loadingSpinner" style="display: none;">
+        <img src="/images/gif/CardLoading.gif" alt="로딩 중" id="loadingImage">
+      </div>
+    </div> <!--//layout-contents end -->
+
+  </div> <!-- //mobile-layout-contents end-->
+</div> <!-- //page-wrapper end-->
+<script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
+<script th:inline="javascript">
+  // // Thymeleaf에서 값 설정: Null 체크와 기본값 처리
+  // var groupid = [[${session.groupid != null ? session.groupid : 'null'}]];
+  // var id = /*[[${id != null ? id : 'null'}]]*/;
+  // var groupname = /*[[${groupname != null ? groupname : 'null'}]]*/;
+  // var username = /*[[${username != null ? username : 'null'}]]*/;
+  //
+  // // 로컬스토리지에 값 유지 (null 또는 빈 문자열은 저장하지 않음)
+  // if (groupid && groupid !== 'null') localStorage.setItem('groupid', groupid);
+  // if (id && id !== 'null') localStorage.setItem('id', id);
+  // if (username && username !== 'null') localStorage.setItem('username', username);
+  // if (groupname && groupname !== 'null') localStorage.setItem('groupname', groupname);
+</script>
+<script>
+  function openModal() {
+    document.getElementById('postcodeModal').style.display= 'block';
+    document.getElementById('searcharea').style.display= 'none';
+    document.getElementById("searchIcon").style.display = "none";
+    new daum.Postcode({
+      oncomplete: function(data) {
+        var roadAddr = data.roadAddress;
+        var extraRoadAddr = '';
+
+        if (data.bname !== '' && /[동|로|가]$/g.test(data.bname)) {
+          extraRoadAddr += data.bname;
+        }
+        if (data.buildingName !== '' && data.apartment === 'Y') {
+          extraRoadAddr += (extraRoadAddr !== '' ? ', ' + data.buildingName : data.buildingName);
+        }
+        if (extraRoadAddr !== '') {
+          extraRoadAddr = ' (' + extraRoadAddr + ')';
+        }
+
+        document.getElementById('postno').value = data.zonecode;
+        document.getElementById('address1').value = roadAddr;
+
+        closeModal();
+      },
+      onresize: function(size) {
+        // 모달 내부 iframe 크기 자동 조정
+        const layers = document.querySelectorAll('[id^="__daum__layer_"]');
+        layers.forEach(layer => {
+          layer.style.width = '100%';
+          layer.style.height = window.innerHeight * 0.6 + 'px'; // 화면 높이의 60%로 조정
+          layer.style.overflow = 'hidden';
+          layer.style.backgroundColor = '#fff';
+        });
+
+        // 모달 크기 조정
+        const modal = document.getElementById('postcodeModal');
+        if (modal) {
+          modal.style.width = '90%'; // 작은 화면에서는 너비를 90%로 설정
+          modal.style.maxWidth = '500px'; // 최대 너비 제한
+          modal.style.height = 'auto';
+          modal.style.maxHeight = window.innerHeight * 0.8 + 'px'; // 화면의 80%까지만 커지도록 설정
+        }
+      }
+
+    }).embed(document.getElementById('postcodeContainer'));
+  }
+
+  function closeModal() {
+    document.getElementById('postcodeModal').style.display= 'none';
+    document.getElementById('searcharea').style.display= 'block';
+  }
+</script>
+<script type="text/javascript">
+  document.readyState === 'complete' ? init() : window.onload = init;
+
+  function init() {
+    // ✅ 로그인 여부 확인
+    const isLoggedIn = sessionStorage.getItem('isLoggedIn');
+    const loginButton = document.getElementById('login'); // 로그인 버튼 선택
+    const localLogged = localStorage.getItem('isLoggedIn');
+
+    if(localLogged === 'true'){
+      localStorage.removeItem('isLoggedIn');
+    }
+
+    if (isLoggedIn === 'true') {
+      console.log("✅ 로그인 유지됨: 현재 페이지 유지");
+
+      // 로그인 상태이면 버튼 숨기기
+      if (loginButton) {
+        loginButton.style.display = "none";
+        //sessionStorage.removeItem('isLoggedIn');
+      }
+    } else {
+      console.log("🔒 로그인 정보 없음: 로그인 하러 가기 버튼 보이기");
+
+      // 로그아웃 상태이면 버튼 보이기
+      if (loginButton) {
+        loginButton.style.display = "block";
+      }
+    }
+  }
+
+  document.getElementById('login').addEventListener('click', function() {
+    window.location.href = '/mobile/mlogin';
+  });
+
+  $(document).ready(function () {
+
+    // 2.검색 버튼 클릭 시 이벤트 처리
+    $(document).on('click', 'button[onclick="searchGoyuList()"]', function (e) {
+      e.preventDefault(); // 기본 동작 방지
+      handleSearchButtonClick(); // 검색 버튼 처리 함수 실행
+    });
+  });
+
+  // 주소를 로컬스토리지에 저장
+  function saveAddressToLocalStorage() {
+    const address1 = $('#address1').val().trim();
+    const address2 = $('#address2').val().trim();
+
+    localStorage.setItem('savedAddress1', address1);
+    localStorage.setItem('savedAddress2', address2);
+
+    console.log('주소 저장 완료:', address1, address2);
+  }
+
+  // 검색 버튼 클릭 시 실행될 함수
+  function handleSearchButtonClick() {
+    saveAddressToLocalStorage(); // 새 주소 저장
+    clearPreviousSearchResults(); // 기존 검색 결과 삭제
+  }
+
+  // 기존 검색 결과 삭제 (올바른 삭제 방식)
+  function clearPreviousSearchResults() {
+    $('#addressWrap').empty(); // 기존 검색 결과 삭제
+    localStorage.removeItem('address1'); // 도로명 주소 삭제
+    localStorage.removeItem('address2'); // 상세 주소 삭제
+  }
+
+  // 고유번호 조회
+  let isRequestInProgress = false;  // 중복 요청 방지 플래그
+
+  function searchGoyuList() {
+
+    const isLoggedIn = sessionStorage.getItem('isLoggedIn');
+
+    if (isLoggedIn !== 'true') {
+      console.log("로그인 필요: 로그인 페이지로 이동");
+      saveAddressToLocalStorage();
+      // Alert 확인 후 로그인 페이지로 이동하도록 수정
+      Alert.alert("로그인이 필요합니다.", "로그인 페이지로 이동합니다.", function () {
+
+        window.location.href = '/mobile/mlogin';
+      });
+
+      return;
+    }
+
+    if (isRequestInProgress) return;  // 진행 중이면 무시
+    isRequestInProgress = true;
+
+    if (document.getElementById('address1').value === "") {
+      Alert.alert('', '주소를 선택해주세요');
+      isRequestInProgress = false;
+      return false;
+    }
+
+
+    $.ajax({
+      url: '/api/tilko/searchGoyuList',
+      type: 'GET',
+      data: {
+        'address1': $('#address1').val() + " " + $('#address2').val()
+      },
+      async: false,
+      success: function (data) {
+        let data2 = data.data;
+        // **비어 있는 데이터 체크 및 경고 메시지 표시**
+        if (!data2 || data2.length === 0) {
+          Alert.alert('', '검색된 데이터가 없습니다.');
+          isRequestInProgress = false;
+          return;
+        }
+        console.log("data2", data);
+        console.log("data2", data2);
+
+        const listAddressWrap = document.getElementById('addressWrap');
+        const availableColors = ['card-blue', 'card-green', 'card-black', 'card-red', 'card-yellow', 'card-purple'];
+        listAddressWrap.innerHTML = '';  // 기존 내용 초기화
+        let colorIndex = 0;
+        let htmlContent = '';
+
+        // '토지' 제외 로직
+        data2.forEach(data => {
+          if (data.Gubun !== '토지') {
+            const cardColor = availableColors[colorIndex];
+            colorIndex = (colorIndex + 1) % availableColors.length;
+
+            let cleanAddress = preprocessAddress(data.rd_addr_detail);
+            htmlContent += `
+                        <div class="card-box ${cardColor}" data-Goyu="${data.pin}">
+                            <div class="card-cont">
+                                <dl>
+                                    <dt>고유번호</dt>
+                                    <dd>${data.pin}</dd>
+                                </dl>
+                                <dl>
+                                    <dt>주소</dt>
+                                    <dd>${cleanAddress}</dd>
+                                </dl>
+                                <dl>
+                                    <dt>구분</dt>
+                                    <dd>${data.real_cls_cd}</dd>
+                                </dl>
+                                <dl>
+                                    <dt>상태</dt>
+                                    <dd>${data.use_cls_cd}</dd>
+                                </dl>
+                            </div>
+                            <button class="btn btn-popup-open" data-popup="popup-history" title="등기부">
+                                등기부 조회
+                            </button>
+                        </div>`;
+          } else {
+            console.log("토지 데이터");
+          }
+        });
+
+        listAddressWrap.insertAdjacentHTML('beforeend', htmlContent);
+
+        // AJAX 완료 시 플래그 해제
+        isRequestInProgress = false;
+
+        // 이벤트 위임 (중복 방지)
+        listAddressWrap.addEventListener('click', (event) => {
+          const button = event.target.closest('.btn-popup-open[data-popup="popup-history"]');
+          if (!button) return;
+
+          const cardBox = button.closest('.card-box');
+          const goyuNum = cardBox.getAttribute('data-Goyu');
+
+          const item = data2.find(d => d.pin === goyuNum);
+          if (item) {
+            const cleanAddress = preprocessAddress(item.rd_addr_detail);
+            searchaddress(item, cleanAddress);
+          }
+        });
+      },
+      error: function () {
+        isRequestInProgress = false;  // 에러 시에도 플래그 해제
+      }
+    });
+  }
+
+  // 주속 태그 삭제 및 공백 메서드
+  function preprocessAddress(input) {
+    // 1. <span> 시작/종료 시 공백 추가
+    let processed = input.replace(/<\/?span[^>]*>/g, match => ` ${match} `);
+    // 2. 모든 태그 제거 및 공백 축소
+    processed = processed.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+    return processed;
+  }
+  // HTML 태그 제거 함수
+  function stripHtmlTags(html) {
+    let tempDiv = document.createElement("div");
+    tempDiv.innerHTML = html;
+    return tempDiv.textContent || tempDiv.innerText || "";
+  }
+  // pdf 데이터 조회 및 파싱 저장 메서드 호출(등기부등본 조회 메서드)
+  let isSearchInProgress = false;  // 중복 호출 방지 플래그
+
+  function searchaddress(data, cleanAddress) {
+    if (isSearchInProgress) return; // 진행 중이면 함수 종료
+    isSearchInProgress = true; // 플래그 설정
+
+    console.log("data : ", data);
+
+    // 로딩 화면 표시
+    document.getElementById('loadingSpinner').style.display = 'flex';
+
+    let startTime = Date.now(); // 요청 시작 시간 기록
+
+    $.ajax({
+      url: '/api/tilko/downloadPDF',
+      type: 'GET',
+      data: {
+        "GoyuNUM": data.pin,
+        "address": cleanAddress
+      },
+      async: true,
+      success: function (response) {
+        let elapsedTime = Date.now() - startTime; // 경과 시간 계산
+        let minLoadingTime = 4500; // 최소 로딩 시간 (2초)
+
+        // 최소 로딩 시간 보장 후 실행
+        setTimeout(() => {
+          if (!response.success || response.data === null) {
+            document.getElementById('loadingSpinner').style.display = 'none';
+            isSearchInProgress = false;
+
+            Alert.alert("", response.message);
+            return;
+          }
+
+          let data2 = response.data;
+          console.log("data2", data2);
+
+          let resultMap = {
+            "REALID": data2.REALID,
+            "REALSCORE": data2.REALSCORE,
+            "GRADE": data2.GRADE,
+            "COMMENT": data2.COMMENT,
+            "ADDRESS": data2.ADDRESS
+          };
+          sessionStorage.setItem("resultMap", JSON.stringify(resultMap));
+
+          document.getElementById('loadingSpinner').style.display = 'none';
+          isSearchInProgress = false;
+
+          // search_card 페이지로 이동
+          window.location.href = "mobile/search_card";
+        }, Math.max(0, minLoadingTime - elapsedTime)); // 최소 로딩 시간 보장
+      },
+      error: function (error) {
+        let elapsedTime = Date.now() - startTime;
+        let minLoadingTime = 4500;
+
+        setTimeout(() => {
+          document.getElementById('loadingSpinner').style.display = 'none';
+          isSearchInProgress = false;
+          console.error("Error in API call:", error);
+        }, Math.max(0, minLoadingTime - elapsedTime)); // 최소 로딩 시간 보장
+      }
+    });
+  }
+</script>
+</body>
+</html>
