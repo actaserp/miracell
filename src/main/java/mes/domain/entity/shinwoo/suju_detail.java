@@ -1,4 +1,4 @@
-package mes.domain.entity.shinwoo;
+package mes.domain.entity.iljin;
 
 import lombok.Data;
 import lombok.NoArgsConstructor;
