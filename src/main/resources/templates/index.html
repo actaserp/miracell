@@ -471,97 +471,8 @@
                         <!--                        </div>-->
                         <nav class="layout-nav sidebar-tabcont" id="menu">
                             <ul class="dep1">
-                                <li class="dep1-1">
-                                    <a href="#a" title="모니터링" class="ico-lnb01">
-                                        모니터링
-                                    </a>
-                                    <ul class="dep2" id="dep2-monitoring">
-
-                                    </ul>
-                                </li>
-                                <li class="dep1-1">
-                                    <a href="#a" title="기준정보" class="ico-lnb05">
-                                        기준정보
-                                    </a>
-                                    <ul class="dep2" id="dep2-information">
-
-                                    </ul>
-                                </li>
-                                <li class="dep1-1">
-                                    <a href="#a" title="영업 관리" class="ico-lnb02">
-                                        영업 관리
-                                    </a>
-                                    <ul class="dep2" id="dep2-sales-management">
-
-                                    </ul>
-                                </li>
-                                <li class="dep1-1">
-                                    <a href="#a" title="구매 관리" class="ico-lnb03">
-                                        구매 관리
-                                    </a>
-                                    <ul class="dep2" id="dep2-purchase-materials">
-
-                                    </ul>
-                                </li>
-                                <li class="dep1-1">
-                                    <a href="#a" title="구매 관리" class="ico-lnb03">
-                                        재고 관리
-                                    </a>
-                                    <ul class="dep2" id="dep2-inventory-materials">
-
-                                    </ul>
-                                </li>
-                                <li class="dep1-1">
-                                    <a href="#a" title="생산 관리" class="ico-lnb03">
-                                        생산 관리
-                                    </a>
-                                    <ul class="dep2" id="dep2-production-management">
-
-                                    </ul>
-                                </li>
-                                <li class="dep1-1">
-                                    <a href="#a" title="품질 관리" class="ico-lnb04">
-                                        품질 관리
-                                    </a>
-                                    <ul class="dep2" id="dep2-quality">
-
-                                    </ul>
-                                </li>
-                                <!--                                <li class="dep1-1">-->
-                                <!--                                    <a href="#a" title="보고서 관리" class="ico-lnb04">-->
-                                <!--                                        보고서 관리-->
-                                <!--                                    </a>-->
-                                <!--                                    <ul class="dep2" id="dep2-report">-->
-
-                                <!--                                    </ul>-->
-                                <!--                                </li>-->
-                                <li class="dep1-1">
-                                    <a href="#a" title="입출금 관리" class="ico-lnb04">
-                                        입출금 관리
-                                    </a>
-                                    <ul class="dep2" id="dep2-transaction">
-
-                                    </ul>
-                                </li>
-                                <!--                                <li class="dep1-1">-->
-                                <!--                                    <a href="#a" title="근태관리" class="ico-lnb04">-->
-                                <!--                                        근태 관리-->
-                                <!--                                    </a>-->
-                                <!--                                    <ul class="dep2" id="dep2-clock-inout">-->
-
-                                <!--                                    </ul>-->
-                                <!--                                </li>-->
-                                <li class="dep1-1">
-                                    <a href="#a" title="시스템설정" class="ico-lnb05">
-                                        시스템 설정
-                                    </a>
-                                    <ul class="dep2" id="dep2-system-settings">
-
-                                    </ul>
-                                </li>
-                            </ul>
-
-                        </nav> <!-- // nav end -->
+                            </ul>  <!-- 비어있음 -->
+                        </nav>
                         <div class="layout-bookmark sidebar-tabcont" id="bookmark">
                             <ul class="bookmark-list" id="bookmark-menu">
 
@@ -774,15 +685,58 @@
             );
         }
 
-        loadMenusOnce(function (menus) {
+        loadMenusOnce(function (data) {
+            const menus = data.menuItems;
+            const frontFolders = data.frontFolders;
+
             initializeMenuSearchData(menus);
 
-            Object.keys(dep2Mappings).forEach(FrontFolderId => {
+            const $menuContainer = $('.dep1');
+            $menuContainer.empty();
+
+            frontFolders.forEach(ff => {
+                const ffHtml = `
+                    <li class="dep1-1" style="display: none;">
+                        <a href="#a" title="${ff.folder_name}" class="${ff.icon_css}">
+                            ${ff.folder_name}
+                        </a>
+                        <ul class="dep2" id="dep2-${ff.dom_id}">
+                        </ul>
+                    </li>
+                `;
+                const $ffLi = $(ffHtml);
+                $menuContainer.append($ffLi);
+
                 renderMenuByFrontFolder(
                     menus,
-                    FrontFolderId,
-                    $(dep2Mappings[FrontFolderId])
+                    ff.id,
+                    $ffLi.find('.dep2')
                 );
+            });
+
+            // 동적 생성된 대분류 클릭 이벤트 추가 (이벤트 위임)
+            $menuContainer.off('click', '.dep1-1 > a').on('click', '.dep1-1 > a', function (e) {
+                e.preventDefault();
+                const $parent = $(this).parent();
+                const $subMenu = $(this).next('.dep2');
+                const isActive = $parent.hasClass('active');
+
+                if (isActive) {
+                    $parent.removeClass('active');
+                    $subMenu.find('.dep2-1').removeClass('active');
+                    $subMenu.slideUp(300);
+                } else {
+                    $parent.siblings().removeClass('active').find('.dep2').slideUp(300);
+
+                    $parent.addClass('active');
+                    $subMenu.slideDown(300, function() {
+                        const $dep2Items = $subMenu.find('.dep2-1');
+                        if ($dep2Items.length === 1) {
+                            $dep2Items.addClass('active');
+                            $dep2Items.find('> ul.dep3').slideDown(300);
+                        }
+                    });
+                }
             });
         });
 

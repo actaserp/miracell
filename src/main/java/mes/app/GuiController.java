@@ -17,78 +17,84 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.ModelAndView;
 
 import mes.config.Settings;
-import mes.domain.GUIConfiguration;
+import mes.domain.entity.MenuItem;
 import mes.domain.entity.MenuUseLog;
 import mes.domain.entity.User;
-import mes.domain.model.GUIData;
+import mes.domain.repository.MenuItemRepository;
 import mes.domain.repository.MenuUseLogRepository;
 import mes.domain.services.SqlRunner;
 
 @Controller
 public class GuiController {
-	
+
 	@Autowired
 	Settings settings;
-	
+
 	@Autowired
 	SqlRunner sqlRunner;
-	
+
 	@Autowired
 	MenuUseLogRepository menuUseLogRepository;
-	
+
+	@Autowired
+	MenuItemRepository menuItemRepository;
+
 	private ModelAndView getView(String gui, String templateName, User user, MultiValueMap<String, String> allRequestParams) {
 		ModelAndView mv = new ModelAndView();
-        GUIData guiData= GUIConfiguration.getGUIInfo(gui);
-        if (guiData!=null) {
-        	String username = user.getUserProfile().getName();
-        	
-        	for(String k : allRequestParams.keySet()){
-        	     mv.addObject(k, allRequestParams.get(k).get(0));
-        	}
-        	
-            // get 파라미터를 뷰에 넘겨줘야함
-        	//mv.addAllObjects(allRequestParams);
-        	
-        	String templatePath = guiData.templates.get(templateName);
-        	mv.setViewName(templatePath);
-        	
-    		mv.addObject("username", username);
-    		mv.addObject("userinfo", user);    		
-    		mv.addObject("gui_code", gui);
-    		mv.addObject("template_key", templateName);
-    		
-    		String mqtt_host = settings.getProperty("mqtt_host");
-    		String mqtt_web_port = settings.getProperty("mqtt_web_port");
-    		String hmi_topic = settings.getProperty("hmi_topic");
-    		mv.addObject("mqtt_host", mqtt_host);
-    		mv.addObject("mqtt_web_port", mqtt_web_port);
-    		mv.addObject("hmi_topic", hmi_topic);
 
-    		// 권한처리 루틴 시작
-    		// 메뉴별 권한 조회
-    		Map<String,Object> map = new HashMap<String,Object>();
-    		
-			MapSqlParameterSource dicParam = new MapSqlParameterSource();			
+		// DB(menu_item)에서 메뉴/템플릿 조회
+		MenuItem menuItem = menuItemRepository.findByMenuCode(gui);
+
+		if (menuItem != null && menuItem.getTemplate() != null) {
+			String username = user.getUserProfile().getName();
+
+			for (String k : allRequestParams.keySet()) {
+				mv.addObject(k, allRequestParams.get(k).get(0));
+			}
+
+			// "default" 템플릿이면 DB의 template 컬럼 사용, 그 외는 templateName을 직접 뷰 경로로 사용
+			String templatePath = "default".equals(templateName)
+															? menuItem.getTemplate()
+															: templateName;
+			mv.setViewName(templatePath);
+
+			mv.addObject("username", username);
+			mv.addObject("userinfo", user);
+			mv.addObject("gui_code", gui);
+			mv.addObject("template_key", templateName);
+
+			String mqtt_host = settings.getProperty("mqtt_host");
+			String mqtt_web_port = settings.getProperty("mqtt_web_port");
+			String hmi_topic = settings.getProperty("hmi_topic");
+			mv.addObject("mqtt_host", mqtt_host);
+			mv.addObject("mqtt_web_port", mqtt_web_port);
+			mv.addObject("hmi_topic", hmi_topic);
+
+			// 권한처리 루틴 시작
+			// 메뉴별 권한 조회
+			Map<String, Object> map = new HashMap<String, Object>();
+
+			MapSqlParameterSource dicParam = new MapSqlParameterSource();
 			dicParam.addValue("MenuCode", gui);
 			dicParam.addValue("UserGroupId", user.getUserProfile().getUserGroup().getId());
-			
+
 			String sql = """
-						select "AuthCode" from user_group_menu ugm
-						where ugm."MenuCode" = :MenuCode and "UserGroup_id" = :UserGroupId
-						""";
-			
+                    select "AuthCode" from user_group_menu ugm
+                    where ugm."MenuCode" = :MenuCode and "UserGroup_id" = :UserGroupId
+                    """;
+
 			map = this.sqlRunner.getRow(sql, dicParam);
-			
+
 			String active = null;
-			
-			boolean read_flag = false; 
+
+			boolean read_flag = false;
 			boolean write_flag = false;
-			
+
 			if (map != null) {
 				active = map.get("AuthCode").toString();
-				
+
 				// 권한처리
-				if(active.equals("RW")) {
+				if (active.equals("RW")) {
 					read_flag = true;
 					write_flag = true;
 				} else if (active.equals("R")) {
@@ -105,85 +111,77 @@ public class GuiController {
 				read_flag = true;
 				write_flag = false;
 			}
-			
+
 			// 권한 셋팅
-    		mv.addObject("read_flag", read_flag);
-    		mv.addObject("write_flag", write_flag);
-    		
-            // 메뉴 접속 로그 기록 저장
-            if ("default".equals(templateName)) {
-            	try {
-    	        	MenuUseLog menuUseLog = new MenuUseLog();
-    	        	menuUseLog.setMenuCode(gui);
-    	        	menuUseLog.setUserId(user.getId());
-    	        	menuUseLog.set_audit(user);
-    	        	
-    	            this.menuUseLogRepository.save(menuUseLog);
-            	} catch(Exception ex) {
-            		System.out.println("MenuUseLog save" + ex);
-            	}
-            }
-            
-        }
-        else {
-        	//404 page 이동
-        	mv.setViewName("errors/404");
-        }       
-        
+			mv.addObject("read_flag", read_flag);
+			mv.addObject("write_flag", write_flag);
+
+			// 메뉴 접속 로그 기록 저장
+			if ("default".equals(templateName)) {
+				try {
+					MenuUseLog menuUseLog = new MenuUseLog();
+					menuUseLog.setMenuCode(gui);
+					menuUseLog.setUserId(user.getId());
+					menuUseLog.set_audit(user);
+
+					this.menuUseLogRepository.save(menuUseLog);
+				} catch (Exception ex) {
+					System.out.println("MenuUseLog save" + ex);
+				}
+			}
+
+		} else {
+			// 404 page 이동
+			mv.setViewName("errors/404");
+		}
+
 		return mv;
 	}
-	
+
 	@GetMapping("/gui/{gui}")
 	public ModelAndView pageGUI(
-			@PathVariable("gui")String gui, 
-			@RequestParam MultiValueMap<String, String> allRequestParams
-			) {
-		
-        SecurityContext sc = SecurityContextHolder.getContext();
-        Authentication auth = sc.getAuthentication();         
-        User user = (User)auth.getPrincipal();        
-        //System.out.println(user.getUsername());		
-        
+		@PathVariable("gui") String gui,
+		@RequestParam MultiValueMap<String, String> allRequestParams
+	) {
+		SecurityContext sc = SecurityContextHolder.getContext();
+		Authentication auth = sc.getAuthentication();
+		User user = (User) auth.getPrincipal();
 
-        String templateName = "default";       
-        ModelAndView mv = this.getView(gui, templateName, user, allRequestParams);
-		return mv;
+		String templateName = "default";
+		return this.getView(gui, templateName, user, allRequestParams);
 	}
-	
+
 	@GetMapping("/gui/{gui}/{template}")
 	public ModelAndView pageGUITemplate(
-			@PathVariable("gui")String gui, 
-			@PathVariable("template")Optional<String> template,
-			@RequestParam MultiValueMap<String, String> allRequestParams,
-			Authentication auth
-			) {	
-        
-        User user = (User)auth.getPrincipal();        		
-        
-        String templateName = "default";
-        if(template.isPresent()) {
-        	templateName = template.get();
-        }
-        
-        ModelAndView mv = this.getView(gui, templateName, user, allRequestParams);
-		return mv;
+		@PathVariable("gui") String gui,
+		@PathVariable("template") Optional<String> template,
+		@RequestParam MultiValueMap<String, String> allRequestParams,
+		Authentication auth
+	) {
+		User user = (User) auth.getPrincipal();
+
+		String templateName = "default";
+		if (template.isPresent()) {
+			templateName = template.get();
+		}
+
+		return this.getView(gui, templateName, user, allRequestParams);
 	}
-	
+
 	@GetMapping("/page/{folder}/{template}")
 	public ModelAndView pageTemplatePathView(
-			@PathVariable("folder")String folder,
-			@PathVariable("template")String template,
-			Authentication auth
-			) {
-		User user = (User)auth.getPrincipal();
-		
+		@PathVariable("folder") String folder,
+		@PathVariable("template") String template,
+		Authentication auth
+	) {
+		User user = (User) auth.getPrincipal();
+
 		ModelAndView mv = new ModelAndView();
 		mv.addObject("userinfo", user);
-		
+
 		String viewName = String.format("/page/%s/%s", folder, template);
-		mv.setViewName(viewName);		
-		
+		mv.setViewName(viewName);
+
 		return mv;
-		
 	}
 }

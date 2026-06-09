@@ -25,6 +25,15 @@ public class SystemService {
 	@Autowired
     private NamedParameterJdbcTemplate  jdbcTemplate;
 
+	public List<Map<String, Object>> getFrontFolderList() {
+		String sql = """
+            select id, folder_name, icon_css, dom_id, _order
+            from menu_front_folder
+            where use_yn = 'Y'
+            order by _order
+        """;
+		return this.sqlRunner.getRows(sql, null);
+	}
 
 	public List<Map<String, Object>> getWebMenuList(User user) {
 
@@ -148,7 +157,7 @@ public class SystemService {
 	 * @param userGroupId
 	 * @param folderId
 	 * @return
-	 */
+	 */ 
 	public List<Map<String, Object>> getUserGroupMenuList(Integer userGroupId, Integer folderId) {
 
 		String sql = """

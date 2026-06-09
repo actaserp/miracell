@@ -15,7 +15,7 @@ import lombok.Setter;
 @Getter
 @NoArgsConstructor
 public class MenuItem extends AbstractAuditModel {
-	
+
 	@Id
 	@Column(name = "\"MenuCode\"")
 	String menuCode;
@@ -34,4 +34,7 @@ public class MenuItem extends AbstractAuditModel {
 
 	@Column(name = "\"MenuFolder_id\"")
 	Integer menuFolderId;
+
+	@Column(name = "template")
+	String template;
 }
