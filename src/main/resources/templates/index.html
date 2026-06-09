@@ -583,7 +583,7 @@
             ).filter(Boolean);
 
             menu_arr = menus.flatMap(folder =>
-                (folder.nodes || []).map(node => ({[node.objNm]: node.objUrl}))
+                (folder.nodes || []).map(node => ({ [node.objNm]: node.objUrl }))
             );
 
             // FrontFolder_id 기준 필터링
@@ -606,7 +606,7 @@
                 $li.append($subUl);
 
                 folder.nodes.forEach(function (item) {
-                    let $itemLi = $('<li class="dep3-custom-list-style"></li>');
+                    let $itemLi = $('<li class="dep3-custom-list-style" style="cursor: default; list-style-image: none;"></li>');
                     let $itemA = $('<a href="#" ' +
                         'menuurl="' + item.objUrl + '" ' +
                         'data-bookmark="' + item.isbookmark + '" ' +
@@ -621,30 +621,25 @@
 
                 $FrontFolderElement.append($li);
 
-                // dep2 클릭 이벤트
+                // dep2(중메뉴) 클릭 이벤트
                 $a.on('click', function (e) {
                     e.preventDefault();
+                    e.stopPropagation();
 
-                    let $dep3 = $li.find('.dep3 li');
+                    const isActive = $li.hasClass('active');
 
-                    if ($dep3.length === 1) {
-                        let $a = $dep3.find('a');
-                        let objid = $a.data('objid');
-                        let title = $a.text();
+                    if (isActive) {
+                        // 닫기: 클래스 먼저 제거하고 스르륵 접기
+                        $li.removeClass('active');
+                        $subUl.slideUp(300);
+                    } else {
+                        // 열기: 다른 중메뉴들 닫기
+                        $li.siblings().removeClass('active').find('.dep3').slideUp(300);
 
-                        if (nthTabs.isExistsTab('#' + objid)) {
-                            nthTabs.toggleTab('#' + objid);
-                        } else {
-                            nthTabs.addTab({
-                                id: objid,
-                                title: title,
-                                url: withCtx('/gui/' + objid + '/default'),
-                                active: true,
-                                allowClose: true
-                            });
-                        }
-
-                        $subUl.hide();
+                        // 스르륵 펼치기
+                        $subUl.slideDown(300, function() {
+                            $li.addClass('active');
+                        });
                     }
                 });
             });
