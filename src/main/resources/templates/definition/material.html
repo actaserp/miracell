@@ -90,14 +90,14 @@
                                 <select class="form-control2" id="cboMaterialGroup" name="cboMaterialGroup"></select>
                             </dd>
                         </dl>
-                        <dl>
-                            <dt>
-                                <label>품목중분류</label>
-                            </dt>
-                            <dd>
-                                <select class="form-control2" id="cboMaterialMid" name="cboMaterialMid" style="width: 250px;"></select>
-                            </dd>
-                        </dl>
+<!--                        <dl>-->
+<!--                            <dt>-->
+<!--                                <label>품목중분류</label>-->
+<!--                            </dt>-->
+<!--                            <dd>-->
+<!--                                <select class="form-control2" id="cboMaterialMid" name="cboMaterialMid" style="width: 250px;"></select>-->
+<!--                            </dd>-->
+<!--                        </dl>-->
 <!--                        <dl>-->
 <!--                            <dt>-->
 <!--                                <label>품목소분류</label>-->
@@ -1494,7 +1494,7 @@
                     'keyword': $('#keyword').val(),
                     'action': 'read',
                     'useYn_flag': $('#useYn_flag').is(':checked') ? '1' : '0',
-                    'user_code': $('#cboMaterialMid').val(),
+                    // 'user_code': $('#cboMaterialMid').val(),
                     spjangcd: sessionStorage.getItem('spjangcd'),
                 };
 
@@ -2705,24 +2705,24 @@
 
 
         // ✅ 중분류 데이터 로딩
-        $('#cboMaterialGroup').on('change', function () {
-            let groupId = $(this).val(); // material_group.id
-
-            $.ajax({
-                url: '/api/definition/material/children',
-                type: 'GET',
-                data: { parentId: groupId },
-                success: function (res) {
-                    let $mid = $('#cboMaterialMid');
-                    $mid.empty().append('<option value="">전체</option>');
-                    if (res.success && res.data) {
-                        res.data.forEach(item => {
-                            $mid.append(`<option value="${item.id}">${item.value}</option>`);
-                        });
-                    }
-                }
-            });
-        });
+        // $('#cboMaterialGroup').on('change', function () {
+        //     let groupId = $(this).val(); // material_group.id
+        //
+        //     $.ajax({
+        //         url: '/api/definition/material/children',
+        //         type: 'GET',
+        //         data: { parentId: groupId },
+        //         success: function (res) {
+        //             let $mid = $('#cboMaterialMid');
+        //             $mid.empty().append('<option value="">전체</option>');
+        //             if (res.success && res.data) {
+        //                 res.data.forEach(item => {
+        //                     $mid.append(`<option value="${item.id}">${item.value}</option>`);
+        //                 });
+        //             }
+        //         }
+        //     });
+        // });
 
         // // ✅ 소분류 데이터 로딩 (중분류 선택 시)
         // $('#cboMaterialMid').on('change', function () {
