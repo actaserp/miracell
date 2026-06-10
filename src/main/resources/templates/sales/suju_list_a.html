@@ -89,26 +89,6 @@
               </a>
             </li>
             <li>
-              <a class="btn btn-excell" title="페이지 이동" id="balju_optimal_stock_move">
-                적정재고
-              </a>
-            </li>
-            <li>
-              <a class="btn btn-excell" title="페이지 이동" id="balju_order_move">
-                발주등록
-              </a>
-            </li>
-            <li>
-              <a class="btn btn-excell" title="페이지 이동" id="cash_io_move">
-                입출금등록
-              </a>
-            </li>
-            <li>
-              <a class="btn btn-excell" title="페이지 이동" id="sales_invoice_move">
-                매출등록
-              </a>
-            </li>
-            <li>
               <a class="btn btn-excell" title="등록" id="btnAddNew">
                 <img th:src="@{/images/icon/ico-plus.svg}" alt="등록 아이콘">
                 등록
@@ -2864,66 +2844,6 @@
         window.top.openTabInMain({ id, title, url });
       } else if (window.opener && typeof window.opener.openTabInMain === 'function') {
         // 팝업으로 열린 경우
-        window.opener.openTabInMain({ id, title, url });
-      } else {
-        Alert.alert('','메인 탭 컨테이너를 찾을 수 없습니다.');
-      }
-    });
-
-    $('#balju_order_move').on('click', function (e) {
-      e.preventDefault();
-      const id = 'wm_balju_order';
-      const title = '발주등록';
-      const url = '/gui/wm_balju_order/default';
-
-      if (window.top && typeof window.top.openTabInMain === 'function') {
-        window.top.openTabInMain({ id, title, url });
-      } else if (window.opener && typeof window.opener.openTabInMain === 'function') {
-        window.opener.openTabInMain({ id, title, url });
-      } else {
-        Alert.alert('','메인 탭 컨테이너를 찾을 수 없습니다.');
-      }
-    });
-
-    $('#balju_optimal_stock_move').on('click', function (e) {
-      e.preventDefault();
-      const id = 'wm_balju_optimal_stock';
-      const title = '수주량대비 적정재고현황';
-      const url = '/gui/wm_balju_optimal_stock/default';
-
-      if (window.top && typeof window.top.openTabInMain === 'function') {
-        window.top.openTabInMain({ id, title, url });
-      } else if (window.opener && typeof window.opener.openTabInMain === 'function') {
-        window.opener.openTabInMain({ id, title, url });
-      } else {
-        Alert.alert('','메인 탭 컨테이너를 찾을 수 없습니다.');
-      }
-    });
-
-    $('#cash_io_move').on('click', function (e) {
-      e.preventDefault();
-      const id = 'wm_transaction_input';
-      const title = '입출금 입력';
-      const url = '/gui/wm_transaction_input/default';
-
-      if (window.top && typeof window.top.openTabInMain === 'function') {
-        window.top.openTabInMain({ id, title, url });
-      } else if (window.opener && typeof window.opener.openTabInMain === 'function') {
-        window.opener.openTabInMain({ id, title, url });
-      } else {
-        Alert.alert('','메인 탭 컨테이너를 찾을 수 없습니다.');
-      }
-    });
-
-    $('#sales_invoice_move').on('click', function (e) {
-      e.preventDefault();
-      const id = 'wm_sales_invoice';
-      const title = '매출 계산서 관리';
-      const url = '/gui/wm_sales_invoice/default';
-
-      if (window.top && typeof window.top.openTabInMain === 'function') {
-        window.top.openTabInMain({ id, title, url });
-      } else if (window.opener && typeof window.opener.openTabInMain === 'function') {
         window.opener.openTabInMain({ id, title, url });
       } else {
         Alert.alert('','메인 탭 컨테이너를 찾을 수 없습니다.');

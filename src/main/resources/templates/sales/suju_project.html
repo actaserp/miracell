@@ -120,10 +120,13 @@
           background-color: #EDEFF5;
           text-align: center;
           font-weight: bold;
-          padding: 6px;
+          padding: 0.125rem 0.25rem;   /* 2px 4px */
           border: 1px solid #ccc;
-          font-size: 13px;
+          font-size: 0.8125rem;        /* 13px */
+          min-height: 1.75rem;         /* 28px — 고정 대신 최소값만 */
+          line-height: 1.2;
       }
+
       .item-table td {
           padding: 4px;
           text-align: center;
@@ -141,8 +144,8 @@
           display: inline-flex;
           justify-content: center;
           align-items: center;
-          width: 30px;
-          height: 30px;
+          width: 24px;
+          height: 24px;
           border-radius: 4px;
           padding: 0;
           border: 1px solid #B3B3B3;
@@ -173,6 +176,28 @@
           margin-top: 8px;
       }
       .ps-form-foot .warn { color: #c0392b; font-size: 13px; }
+
+      .ps-wrap input[type="text"],
+      .ps-wrap input[type="date"],
+      .ps-wrap input:not([type]),
+      .ps-wrap select {
+          height: 30px !important;
+          line-height: 30px !important;
+      }
+
+      #projForm .view-table th,
+      #projForm .view-table td,
+      #sujuForm .write-table th,
+      #sujuForm .write-table td,
+      #sujuForm .item-table th,
+      #sujuForm .item-table td {
+          height: auto !important;
+          padding: 2px 6px;
+      }
+      #projForm .view-table th,
+      #sujuForm .write-table th {
+          font-size: 13px;
+      }
   </style>
 </head>
 <th:block layout:fragment="content">
@@ -225,7 +250,7 @@
                 <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">검색
               </a>
             </div>
-            <div id="projGrid" style="height: 300px;"></div>
+            <div id="projGrid" style="height: 150px;"></div>
           </div>
 
           <!-- ② 프로젝트 입력 -->
@@ -277,7 +302,9 @@
                 </tr>
                 <tr>
                   <th><label for="projRemark">비고</label></th>
-                  <td colspan="3"><input type="text" id="projRemark" name="remark" class="wp100" placeholder="비고"/></td>
+                  <td colspan="3">
+                    <textarea type="text" id="projRemark" name="remark" class="wp100" style="height:100px"  placeholder="비고"></textarea>
+                    </td>
                 </tr>
                 </tbody>
               </table>
@@ -311,7 +338,7 @@
                 <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">검색
               </a>
             </div>
-            <div id="sujuGrid" style="height: 300px;"></div>
+            <div id="sujuGrid" style="height: 200px;"></div>
           </div>
 
           <!-- ④ 수주상세 입력 -->
@@ -366,6 +393,17 @@
                         <img th:src="@{/images/icon/ico-plus.svg}" alt="등록"></a>
                     </div>
                   </td>
+
+                  <th><label for="totalAmountSum">총액</label></th>
+                  <td><input id="totalAmountSum" name="totalAmountSum" style="text-align:right;" readonly></td>
+                </tr>
+                <tr>
+                  <th><label for="SujuDescription">비고</label></th>
+                  <td colspan="3"><textarea id="SujuDescription" name="Description"></textarea></td>
+                </tr>
+                <!--<tr>
+                 &lt;!&ndash; <th><label for="DeliveryName">납품처<span class="eq">*</span></label></th>
+                  <td><input type="text" id="DeliveryName" name="DeliveryName" placeholder="납품처"/></td>&ndash;&gt;
                   <th><label>판매처<span class="eq">*</span></label></th>
                   <td>
                     <div class="input-with-button">
@@ -375,17 +413,8 @@
                         <img th:src="@{/images/icon/btn-srch.svg}" alt="검색"></a>
                     </div>
                   </td>
-                </tr>
-                <tr>
-                  <th><label for="DeliveryName">납품처<span class="eq">*</span></label></th>
-                  <td><input type="text" id="DeliveryName" name="DeliveryName" placeholder="납품처"/></td>
-                  <th><label for="totalAmountSum">총액</label></th>
-                  <td><input id="totalAmountSum" name="totalAmountSum" style="text-align:right;" readonly></td>
-                </tr>
-                <tr>
-                  <th><label for="SujuDescription">비고</label></th>
-                  <td colspan="3"><textarea id="SujuDescription" name="Description"></textarea></td>
-                </tr>
+                </tr>-->
+
                 </tbody>
               </table>
 
