@@ -62,6 +62,8 @@
 
         /* PLC 게이지: touch-mode에서 2열로 (좁은 화면 대응) */
         body.touch-mode .plc-gauge { min-width: calc(50% - 7px); }
+        /* PC: 목록 탭 콘텐츠 자체를 강제 숨김 (빈 박스 방지) */
+        body:not(.touch-mode) #tabList { display: none !important; }
     </style>
 </head>
 
