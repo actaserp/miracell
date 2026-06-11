@@ -360,116 +360,137 @@ public class ProdOrderEditService {
 
 	@Transactional
 	@BizEventTrigger(domain = "wm_prod_order_edit", action = "SAVE")
-	public AjaxResult makeProdOrder(
-			Integer sujuId,
-			String productionDate,
-			Integer cboMaterial,
-			String cboShiftCode,
-			Integer cboWorcenter,
-			Integer cboEquipment,
-			Float txtOrderQty,
-			String spjangcd,
-			User user) {
+	public AjaxResult makeProdOrder(Integer sujuId, String productionDate, Integer cboMaterial,
+									String cboShiftCode, Integer cboWorcenter, Integer cboEquipment,
+									Float txtOrderQty, String spjangcd, User user) {
 
 		AjaxResult result = new AjaxResult();
-
-		Integer matPk = cboMaterial;
-		Material m = materialRepository.getMaterialById(matPk);
+		Material m = materialRepository.getMaterialById(cboMaterial);
 		Integer routingPk = m.getRoutingId();
-		Integer locPk = m.getStoreHouseId();
-		Integer factoryPk = m.getFactory_id();
-
 		Timestamp prodDate = CommonUtil.tryTimestamp(productionDate);
+		boolean hasRouting = (routingPk != null);
 
 		JobRes header = new JobRes();
-		final boolean hasRouting = (routingPk != null);
-
-		// ===== 헤더 저장 =====
 		header.set_audit(user);
 		header.setProductionDate(prodDate);
 		header.setProductionPlanDate(prodDate);
-		header.setMaterialId(matPk);
+		header.setMaterialId(cboMaterial);
 		header.setOrderQty(txtOrderQty);
-		header.setStoreHouse_id(locPk);
+		header.setStoreHouse_id(m.getStoreHouseId());
 		header.setLotCount(1);
 		header.setState("ordered");
 		header.setSourceDataPk(sujuId);
 		header.setSourceTableName("suju");
+		header.setShiftCode(cboShiftCode);
 		header.setSpjangcd(spjangcd);
 
-		/* =========================
-		 * 라우팅 없음
-		 * ========================= */
 		if (!hasRouting) {
-
+			// ── 심플 모드: 단일 공정 (기존 동작 그대로) ──
 			header.setRouting_id(null);
 			header.setProcessCount(1);
 			header.setWorkCenter_id(cboWorcenter);
 			header.setFirstWorkCenter_id(cboWorcenter);
 			header.setEquipment_id(cboEquipment);
-			header.setShiftCode(cboShiftCode);
-
 			header = jobResRepository.save(header);
-
+			confirmSuju(sujuId);
 			result.success = true;
-			result.data = header;
+			result.data = Map.of("jobResId", header.getId(), "childCount", 0);
 			return result;
 		}
 
-		/* =========================
-		 * 라우팅 있음
-		 * ========================= */
-		List<RoutingProc> steps =
-				routingProcRepository.findByRoutingIdOrderByProcessOrder(routingPk);
-
-		if (steps == null || steps.isEmpty()) {
-			result.success = false;
-			result.message = "라우팅 공정이 없습니다.";
-			return result;
-		}
-
-		RoutingProc last = steps.get(steps.size() - 1);
-		Integer lastProcId = last.getProcessId();
-
-		Workcenter lastWc =
-				workcenterRepository.findByProcessIdAndFactoryId(
-						lastProcId, factoryPk);
-
-		Integer lastWcId = (lastWc != null ? lastWc.getId() : null);
-
+		// ── 라우팅 모드: 헤더=작지(공정X) + 공정 전개 ──
 		header.setRouting_id(routingPk);
-		header.setProcessCount(steps.size());
-		header.setWorkCenter_id(lastWcId);
-		header.setFirstWorkCenter_id(lastWcId);
-		header.setEquipment_id(cboEquipment);
-		header.setShiftCode(cboShiftCode);
-
+		header.setWorkCenter_id(null);
+		header.setFirstWorkCenter_id(null);
 		header = jobResRepository.save(header);
 
-		// ===== 알림 =====
-//		notificationController_modal.sendJobOrderNotification(
-//				"작업지시가 생성되었습니다.",
-//				header.getId(),
-//				m.getName(),
-//				txtOrderQty,
-//				factoryPk
-//		);
+		int childCount = explodeProcessRows(header, cboMaterial, txtOrderQty, prodDate, cboShiftCode, spjangcd, user);
+		MapSqlParameterSource pc = new MapSqlParameterSource();
+		pc.addValue("c", childCount);
+		pc.addValue("id", header.getId());
+		sqlRunner.execute("UPDATE job_res SET \"ProcessCount\" = :c WHERE id = :id", pc);
 
-		// ===== 수주 확정 =====
-		Suju suju = sujuRepository.getSujuById(sujuId);
-		if (suju != null) {
-			suju.setConfirm("1");
-			suju.setState("ordered");
-			sujuRepository.save(suju);
-		}
-
-		Map<String, Object> payload = new HashMap<>();
-		payload.put("jobResId", header.getId());
-		payload.put("factoryPk", factoryPk);
-
+		confirmSuju(sujuId);
 		result.success = true;
-		result.data = payload;
+		result.data = Map.of("jobResId", header.getId(), "childCount", childCount);
 		return result;
+	}
+
+	private void confirmSuju(Integer sujuId) {
+		if (sujuId == null) return;
+		Suju suju = sujuRepository.getSujuById(sujuId);
+		if (suju != null) { suju.setConfirm("1"); suju.setState("ordered"); sujuRepository.save(suju); }
+	}
+
+	private int explodeProcessRows(JobRes header, Integer rootMatPk, Float orderQty,
+								   Timestamp prodDate, String shiftCode, String spjangcd, User user) {
+
+		String sql = """
+        WITH RECURSIVE tree AS (
+            SELECT :rootMat AS mat_id, CAST(1 AS numeric) AS ratio
+            UNION ALL
+            SELECT bc."Material_id",
+                   t.ratio * (bc."Amount" / COALESCE(b."OutputAmount",1))::numeric
+            FROM tree t
+            JOIN bom b       ON b."Material_id" = t.mat_id AND b."BOMType" = 'manufacturing'
+            JOIN bom_comp bc ON bc."BOM_id" = b.id
+        )
+        SELECT t.mat_id,
+               SUM(t.ratio)      AS cum_ratio,
+               m."Routing_id"    AS routing_id,
+               m."Factory_id"    AS factory_id,
+               m."StoreHouse_id" AS store_id
+        FROM tree t
+        JOIN material m ON m.id = t.mat_id
+        WHERE EXISTS (SELECT 1 FROM bom b2
+                      WHERE b2."Material_id" = t.mat_id AND b2."BOMType" = 'manufacturing')
+          AND m."Routing_id" IS NOT NULL
+        GROUP BY t.mat_id, m."Routing_id", m."Factory_id", m."StoreHouse_id"
+        """;
+		MapSqlParameterSource p = new MapSqlParameterSource();
+		p.addValue("rootMat", rootMatPk);
+		List<Map<String,Object>> produced = sqlRunner.getRows(sql, p);
+
+		int count = 0;
+		for (Map<String,Object> row : produced) {
+			Integer matId     = ((Number) row.get("mat_id")).intValue();
+			Integer routingId = ((Number) row.get("routing_id")).intValue();
+			Integer factoryId = row.get("factory_id") != null ? ((Number) row.get("factory_id")).intValue() : null;
+			Integer storeId   = row.get("store_id")   != null ? ((Number) row.get("store_id")).intValue()   : null;
+			java.math.BigDecimal cum = (java.math.BigDecimal) row.get("cum_ratio");
+			float reqQty = (orderQty != null ? orderQty : 0f) * (cum != null ? cum.floatValue() : 1f);
+
+			List<RoutingProc> steps = routingProcRepository.findByRoutingIdOrderByProcessOrder(routingId);
+			if (steps == null || steps.isEmpty()) continue;
+
+			Workcenter firstWc = workcenterRepository.findByProcessIdAndFactoryId(steps.get(0).getProcessId(), factoryId);
+			Integer firstWcId = (firstWc != null ? firstWc.getId() : null);
+
+			for (RoutingProc step : steps) {
+				Workcenter wc = workcenterRepository.findByProcessIdAndFactoryId(step.getProcessId(), factoryId);
+				Integer wcId = (wc != null ? wc.getId() : null);
+
+				JobRes child = new JobRes();
+				child.set_audit(user);
+				child.setParentId(header.getId());
+				child.setMaterialId(matId);
+				child.setOrderQty(reqQty);
+				child.setProductionDate(prodDate);
+				child.setProductionPlanDate(prodDate);
+				child.setRouting_id(routingId);
+				child.setProcessCount(steps.size());
+				child.setWorkIndex(step.getProcessOrder());   // 공정 순서(단계 게이팅용)
+				child.setWorkCenter_id(wcId);
+				child.setFirstWorkCenter_id(firstWcId != null ? firstWcId : wcId);
+				child.setShiftCode(shiftCode);
+				child.setStoreHouse_id(storeId);
+				child.setState("ordered");
+				child.setSpjangcd(spjangcd);
+				jobResRepository.save(child);
+				count++;
+			}
+		}
+		return count;
 	}
 
 }

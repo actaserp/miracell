@@ -420,13 +420,12 @@
                         {binding: 'mat_name', header: '제품명', width: 180, align: 'left', isReadOnly: true},
                         {binding: 'unit_name', header: '단위', width: 60, align: 'center', isReadOnly: true},
                         {binding: 'Standard', header: '규격', width: 60, align: 'center', isReadOnly: true},
-                        {binding: 'SujuQty', header: '수주량', width: 80, format: 'n2', align: 'right', isReadOnly: true},
+                        {binding: 'SujuQty', header: '수주량', width: 80, align: 'right', isReadOnly: true},
                         {
                             binding: 'ordered_qty',
                             header: '기 지시량',
                             width: 80,
                             align: 'right',
-                            format: 'n2',
                             isReadOnly: true
                         },
                         {
@@ -434,10 +433,9 @@
                             header: '잔여량',
                             width: 60,
                             align: 'right',
-                            format: 'n2',
                             isReadOnly: true
                         },
-                        {binding: 'AdditionalQty', header: '지시량', width: 60, align: 'right', format: 'n2', isReadOnly: false}, // 수정 가능
+                        {binding: 'AdditionalQty', header: '지시량', width: 60, align: 'right', isReadOnly: false}, // 수정 가능
                         {
                             binding: 'workcenter_id', header: '워크센터', width: 100, align: 'center',
                             dataMap: workcenterMap, isReadOnly: false, visible: false // 수정 가능
@@ -534,12 +532,6 @@
                         Alert.alert('', '지시량을 입력해주세요.');
                         return;
                     }
-
-                    if (!selectedItem.workcenter_id) {
-                        Alert.alert('', '워크센터를 선택해주세요.');
-                        return;
-                    }
-
 
                     let data = {
                         suju_id: selectedItem.id,
@@ -1161,10 +1153,10 @@
                         return;
                     }
 
-                    if ($WorkCenter_id.val() === '') {
-                        Alert.alert('', '워크센터를 선택하세요');
-                        return;
-                    }
+                    // if ($WorkCenter_id.val() === '') {
+                    //     Alert.alert('', '워크센터를 선택하세요');
+                    //     return;
+                    // }
 
                     Alert.confirm('', '저장하시겠습니까?', function () {
                         let jobresData = FormUtil.extractForm($form);

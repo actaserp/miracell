@@ -28,4 +28,9 @@ public interface EquRunRepository extends JpaRepository<EquRun, Integer>{
 	@Modifying(clearAutomatically = true, flushAutomatically = true)
 	@Transactional
 	int deleteByWorkOrderNumberAndEquipmentId(String orderNum, Integer equipmentId);
+
+	long countByJobResponseIdAndRunState(Integer jobResponseId, String runState);
+
+	@Query("SELECT e FROM EquRun e WHERE e.jobResponseId = :jrPk AND e.runState = 'run' ORDER BY e.startDate DESC")
+	Optional<EquRun> findLatestRunningByJobResponseId(@Param("jrPk") Integer jrPk);
 }

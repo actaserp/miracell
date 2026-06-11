@@ -50,4 +50,10 @@ public class EquRun extends AbstractAuditModel{
 	Integer stopCauseId;
 
 	String spjangcd;
+
+	@Column(name = "\"JobResponse_id\"")
+	private Integer jobResponseId;
+
+	@Column(name = "\"Actor_id\"")
+	private Integer actorId;
 }

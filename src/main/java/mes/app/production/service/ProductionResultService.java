@@ -1,22 +1,27 @@
 package mes.app.production.service;
 
 import java.math.BigDecimal;
+import java.sql.Timestamp;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 
 import lombok.extern.slf4j.Slf4j;
+import mes.app.definition.service.EquipmentService;
+import mes.app.inventory.service.LotService;
+import mes.domain.entity.*;
+import mes.domain.model.AjaxResult;
+import mes.domain.repository.*;
+import mes.domain.services.DateUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.stereotype.Service;
 
 import io.micrometer.core.instrument.util.StringUtils;
-import mes.domain.entity.MaterialLot;
-import mes.domain.entity.MatLotCons;
-import mes.domain.entity.StoreHouse;
-import mes.domain.repository.MatLotConsRepository;
-import mes.domain.repository.MatLotRepository;
-import mes.domain.repository.StorehouseRepository;
 import mes.domain.services.SqlRunner;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Slf4j
 @Service
@@ -33,6 +38,60 @@ public class ProductionResultService {
 
 	@Autowired
 	MatLotRepository matLotRepository;
+
+	@Autowired
+	private LotService lotService;
+
+	@Autowired
+	MatConsuRepository matConsuRepository;
+
+	@Autowired
+	JobResRepository jobResRepository;
+
+	@Autowired
+	MatProcInputReqRepository matProcInputReqRepository;
+
+	@Autowired
+	JobResDefectRepository jobResDefectRepository;
+
+	@Autowired
+	MatProduceRepository matProduceRepository;
+
+	@Autowired
+	MaterialRepository materialRepository;
+
+	@Autowired
+	WorkcenterRepository workcenterRepository;
+
+	@Autowired
+	SystemOptionRepository systemOptionRepository;
+
+	@Autowired
+	MatProcInputRepository matProcInputRepository;
+
+	@Autowired
+	MaterialGroupRepository materialGroupRepository;
+
+	@Autowired
+	MatInoutRepository matInoutRepository;
+
+	@Autowired
+	SujuRepository sujuRepository;
+
+	@Autowired
+	TransactionTemplate transactionTemplate;
+
+	@Autowired
+	TestResultRepository testResultRepository;
+
+	@Autowired
+	TestItemResultRepository testItemResultRepository;
+
+	@Autowired
+	EquipmentService equipmentService;
+
+	@Autowired
+	EquRunRepository equRunRepository;
 
 	public void add_jobres_defectqty_inout(Integer jrPk, int id) {
 
@@ -621,31 +680,30 @@ public class ProductionResultService {
 	}
 
 	public List<Map<String, Object>> getChasuList(Integer jrPk) {
-
-		MapSqlParameterSource dicParam = new MapSqlParameterSource();
-		dicParam.addValue("jrPk", jrPk);
-
+		MapSqlParameterSource p = new MapSqlParameterSource().addValue("jrPk", jrPk);
 		String sql = """
-			 select id
-				  , "LotIndex" as chasu
-				  , "LotNumber" as lot_no
-				  , ROUND("GoodQty"::numeric, 2) as good_qty
-				  , ROUND("DefectQty"::numeric, 2) as defect_qty
-				  , "LossQty" as loss_qty
-				  , "ScrapQty" as scrap_qty
-				  , to_char("EndTime", 'YYYY-MM-DD HH24:MI') as end_time
-				  , to_char("StartTime", 'YYYY-MM-DD HH24:MI') as start_time
-				  , case
-					  when "_modified" is null then to_char("_created", 'YYYY-MM-DD HH24:MI')
-					  else to_char("_modified", 'YYYY-MM-DD HH24:MI')
-					end as input_time
-			 from mat_produce
-			 where "JobResponse_id" = :jrPk
-			 order by "LotIndex"
-			""";
-
-		List<Map<String, Object>> items = this.sqlRunner.getRows(sql, dicParam);
-		return items;
+        SELECT mp.id
+             , mp."LotIndex" AS chasu
+             , mp."LotNumber" AS lot_no
+             , mp."State" AS state
+             , CASE mp."State"
+                 WHEN 'ready'    THEN '배정'
+                 WHEN 'working'  THEN '진행중'
+                 WHEN 'finished' THEN '완료'
+                 ELSE mp."State"
+               END AS state_name
+             , ROUND(COALESCE(mp."InputQty",0)::numeric, 2)  AS input_qty
+             , ROUND(COALESCE(mp."GoodQty",0)::numeric, 2)   AS good_qty
+             , ROUND(COALESCE(mp."DefectQty",0)::numeric, 2) AS defect_qty
+             , per."Name" AS worker_name
+             , to_char(mp."StartTime", 'MM-DD HH24:MI') AS start_time
+             , to_char(mp."EndTime",   'MM-DD HH24:MI') AS end_time
+        FROM mat_produce mp
+        LEFT JOIN person per ON per.id = mp."Actor_id"
+        WHERE mp."JobResponse_id" = :jrPk
+        ORDER BY mp."LotIndex"
+    """;
+		return this.sqlRunner.getRows(sql, p);
 	}
 
 	public List<Map<String, Object>> getInputLotList(Integer jrPk, String mat_code) {
@@ -1297,4 +1355,351 @@ public class ProductionResultService {
 		return qty;
 	}
 
+	public AjaxResult getJobResByProcess(String dateFrom, String dateTo,
+										 String factory, String company, boolean includeComp, String processCode) {
+
+		AjaxResult result = new AjaxResult();
+
+		String sql = """
+        WITH proc_wc AS (
+			SELECT wc.id AS wc_id, p."Code" AS proc_code, p.id AS proc_id
+			FROM work_center wc
+			JOIN process p ON p.id = wc."Process_id"
+			WHERE p."Code" = :processCode
+		),
+		jr_with_order AS (
+			SELECT jr.id,
+				   jr."WorkOrderNumber"   AS order_num,
+				   jr."State"             AS state,
+				   jr."OrderQty"          AS order_qty,
+				   jr."GoodQty"           AS good_qty,
+				   jr."DefectQty"         AS defect_qty,
+				   jr."ProductionDate"    AS prod_date,
+				   to_char(jr."StartTime", 'HH24:MI') AS start_time,
+				   to_char(jr."EndTime",   'HH24:MI') AS end_time,
+				   jr."EndDate"           AS end_date,
+				   jr."Parent_id",
+				   jr."Routing_id",
+				   jr."WorkCenter_id",
+				   jr."Equipment_id",
+				   jr."Manager_id"        AS manager_id,
+				   jr."Description"       AS description,
+				   rp."ProcessOrder",
+				   m."Code"      AS mat_code,
+				   m."Name"      AS mat_name,
+				   m."Standard1" AS standard,
+				   u."Name"      AS unit,
+				   pw.proc_code,
+				   wc."Name"  AS workcenter_name,
+				   per."Name" AS worker_name,
+				   e."Name"   AS equ_name,
+				   CASE jr."State"
+					   WHEN 'working'  THEN '생산중'
+					   WHEN 'finished' THEN '생산완료'
+					   WHEN 'stopped'  THEN '일시중지'
+					   WHEN 'wait'     THEN '대기'
+					   ELSE '작업지시'
+				   END AS job_state
+			FROM job_res jr
+			JOIN proc_wc pw ON pw.wc_id = jr."WorkCenter_id"
+			LEFT JOIN material m ON m.id = jr."Material_id"
+			LEFT JOIN unit u ON u.id = m."Unit_id"
+			LEFT JOIN work_center wc ON wc.id = jr."WorkCenter_id"
+			LEFT JOIN person per ON per.id = jr."Manager_id"
+			LEFT JOIN equ e ON e.id = jr."Equipment_id"
+			LEFT JOIN routing_proc rp ON rp."Routing_id" = jr."Routing_id"
+				AND rp."Process_id" = pw.proc_id
+			WHERE jr."Parent_id" IS NOT NULL
+			  AND (jr."ProductionDate" BETWEEN CAST(:dateFrom AS date) AND CAST(:dateTo AS date)
+				   OR jr."ProductionDate" IS NULL)
+		)
+		SELECT j.*,
+			CASE WHEN EXISTS (
+				SELECT 1 FROM job_res sibling
+				JOIN work_center swc ON swc.id = sibling."WorkCenter_id"
+				JOIN routing_proc srp ON srp."Routing_id" = sibling."Routing_id"
+					AND srp."Process_id" = swc."Process_id"
+				WHERE sibling."Parent_id" = j."Parent_id"
+				  AND sibling.id != j.id
+				  AND srp."ProcessOrder" < j."ProcessOrder"
+				  AND sibling."State" != 'finished'
+			) THEN true ELSE false END AS _locked
+		FROM jr_with_order j
+		ORDER BY order_num, "ProcessOrder"
+    """;
+
+		MapSqlParameterSource param = new MapSqlParameterSource();
+		param.addValue("processCode", processCode);
+		param.addValue("dateFrom", dateFrom);
+		param.addValue("dateTo", dateTo);
+
+		List<Map<String, Object>> items = this.sqlRunner.getRows(sql, param);
+
+		result.success = true;
+		result.data = items;
+		return result;
+	}
+
+	public Map<String, Object> getProdResultDetailByChild(Integer jrPk) {
+		MapSqlParameterSource p = new MapSqlParameterSource().addValue("jrPk", jrPk);
+
+		String sql = """
+        SELECT
+            c.id                              AS id,
+            c."Parent_id"                     AS parent_jr_pk,
+            c."WorkOrderNumber"               AS order_num,
+            -- ★ child(공정 row) 자신의 품목/수량
+            cm.id                             AS mat_pk,
+            cm."Code"                         AS mat_code,
+            cm."Name"                         AS mat_name,
+            cu."Name"                         AS unit,
+            ROUND(COALESCE(c."OrderQty",0)::numeric, 2)   AS order_qty,
+            ROUND(COALESCE(c."GoodQty",0)::numeric, 2)    AS good_qty,
+            ROUND(COALESCE(c."DefectQty",0)::numeric, 2)  AS defect_qty,
+            to_char(c."ProductionDate",'yyyy-mm-dd')      AS prod_date,
+            to_char(c."StartTime",'hh24:mi')              AS start_time,
+            c."EndDate"                                    AS end_date,
+            to_char(c."EndTime",'hh24:mi')                AS end_time,
+            c."State"                                      AS state,
+            fn_code_name('job_state', c."State")           AS job_state,
+            c."Description"                                AS description,
+            c."Routing_id"                                 AS routing_id,
+            c."Manager_id"                                 AS manager_id,
+            child_wc.id                                    AS workcenter_id,
+            child_wc."Name"                                AS workcenter_name,
+            child_wc."Factory_id"                          AS wcfactory_id,
+            c."Equipment_id"                               AS equipment_id,
+            child_p."Name"                                 AS process_nm
+        FROM job_res c
+        LEFT JOIN material cm        ON cm.id = c."Material_id"
+        LEFT JOIN unit cu            ON cu.id = cm."Unit_id"
+        LEFT JOIN work_center child_wc ON child_wc.id = c."WorkCenter_id"
+        LEFT JOIN process child_p    ON child_p.id = child_wc."Process_id"
+        WHERE c.id = :jrPk
+    """;
+		return this.sqlRunner.getRow(sql, p);
+	}
+
+	/** 이 공정이 라우팅의 첫 공정인지 (자재 차감 대상) */
+	public boolean isFirstProcessOfRouting(Integer routingId, Integer processId) {
+		if (routingId == null || processId == null) return true; // 라우팅 없으면 단일공정 취급 → 차감
+		MapSqlParameterSource p = new MapSqlParameterSource();
+		p.addValue("routingId", routingId);
+		p.addValue("processId", processId);
+		String sql = """
+        SELECT CASE WHEN rp."ProcessOrder" = (
+                   SELECT MIN(rp2."ProcessOrder") FROM routing_proc rp2
+                   WHERE rp2."Routing_id" = :routingId
+               ) THEN true ELSE false END AS is_first
+        FROM routing_proc rp
+        WHERE rp."Routing_id" = :routingId AND rp."Process_id" = :processId
+        LIMIT 1
+    """;
+		Map<String, Object> row = this.sqlRunner.getRow(sql, p);
+		return row != null && Boolean.TRUE.equals(row.get("is_first"));
+	}
+
+	/** 이 공정이 라우팅의 마지막 공정인지 (완성품 입고 대상) */
+	public boolean isLastProcessOfRouting(Integer routingId, Integer processId) {
+		if (routingId == null || processId == null) return true; // 라우팅 없으면 단일공정 → 입고
+		MapSqlParameterSource p = new MapSqlParameterSource();
+		p.addValue("routingId", routingId);
+		p.addValue("processId", processId);
+		String sql = """
+        SELECT CASE WHEN rp."ProcessOrder" = (
+                   SELECT MAX(rp2."ProcessOrder") FROM routing_proc rp2
+                   WHERE rp2."Routing_id" = :routingId
+               ) THEN true ELSE false END AS is_last
+        FROM routing_proc rp
+        WHERE rp."Routing_id" = :routingId AND rp."Process_id" = :processId
+        LIMIT 1
+    """;
+		Map<String, Object> row = this.sqlRunner.getRow(sql, p);
+		return row != null && Boolean.TRUE.equals(row.get("is_last"));
+	}
+
+	/** 첫 공정이면 BOM 자재 차감 (mat_consu + mat_inout out) */
+	public AjaxResult consumeBomForChasu(Integer mpId, JobRes jr, User user, String spjangcd) {
+		AjaxResult result = new AjaxResult();
+		result.success = true;
+
+		MaterialProduce mp = this.matProduceRepository.getMatProduceById(mpId);
+		Timestamp now = DateUtil.getNowTimeStamp();
+		LocalDate date = LocalDate.now();
+		LocalTime time = LocalTime.now();
+		DateTimeFormatter df = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+		DateTimeFormatter tf = DateTimeFormatter.ofPattern("HH:mm:ss");
+
+		List<Map<String, Object>> bomMatItems = this.get_chasu_bom_mat_qty_list(mpId);
+		if (bomMatItems.isEmpty()) {
+			result.success = false;
+			result.message = "BOM구성이 없습니다.";
+			return result;
+		}
+
+		for (Map<String, Object> bomMap : bomMatItems) {
+			float chasuBomQty = Float.parseFloat(bomMap.get("chasu_bom_qty").toString());
+			int consumeMatPk = (int) bomMap.get("mat_pk");
+			String matName = bomMap.get("mat_name").toString();
+			Material consMat = this.materialRepository.getMaterialById(consumeMatPk);
+			String lotUseYn = bomMap.get("lotUseYn").toString();
+			float totalQty = 0f;
+
+			if ("Y".equals(lotUseYn)) {
+				List<Map<String, Object>> mpiList = this.getMaterialProcessInputList(jr.getId(), consumeMatPk);
+				float remainQty = chasuBomQty;
+				for (Map<String, Object> mpiMap : mpiList) {
+					float reqQty = Float.parseFloat(mpiMap.get("req_qty").toString());
+					totalQty += reqQty;
+					int matLotId = (int) mpiMap.get("ml_id");
+					float currentStock = Float.parseFloat(mpiMap.get("curr_qty").toString());
+					if (currentStock == 0) continue;
+
+					MatLotCons mlc = new MatLotCons();
+					mlc.setMaterialLotId(matLotId);
+					mlc.setOutputDateTime(now);
+					mlc.setSourceDataPk(mp.getId());
+					mlc.setSourceTableName("mat_produce");
+					mlc.set_audit(user);
+					mlc.setCurrentStock(currentStock);
+					mlc.setSpjangcd(spjangcd);
+					if (currentStock >= remainQty) {
+						mlc.setOutputQty(reqQty);
+						remainQty = 0f;
+						this.matLotConsRepository.save(mlc);
+						break;
+					} else {
+						mlc.setOutputQty(reqQty);
+						this.matLotConsRepository.save(mlc);
+						remainQty -= reqQty;
+					}
+				}
+			} else {
+				if ("1".equals(consMat.getUseyn())) {
+					result.success = false;
+					result.message = "사용 불가능한 품목이 BOM에 등록되어 있습니다.(" + matName + ")";
+					return result;
+				}
+				if (!"0".equals(consMat.getMtyn())) {
+					Float cs = consMat.getCurrentStock();
+					if (cs == null || cs == 0f) {
+						result.success = false;
+						result.message = "가용한 품목 재고가 없습니다.(" + matName + ")";
+						return result;
+					} else if (cs < chasuBomQty) {
+						result.success = false;
+						result.message = "가용한 품목 재고가 부족합니다.\n(" + matName + ", 필요: " + chasuBomQty + ", 가용: " + cs + ")";
+						return result;
+					}
+				}
+				totalQty += chasuBomQty;
+			}
+
+			// mat_consu
+			MaterialConsume mc = new MaterialConsume();
+			mc.setJobResponseId(jr.getId());
+			mc.setMaterialId(consumeMatPk);
+			mc.setProcessOrder(mp.getProcessOrder());
+			mc.setLotIndex(mp.getLotIndex());
+			mc.setStartTime(now);
+			mc.setEndTime(now);
+			mc.setDescription("차수생산분");
+			mc.setBomQty(chasuBomQty);
+			mc.setConsumedQty(totalQty);
+			mc.set_audit(user);
+			mc.setState("finished");
+			mc.set_status("a");
+			mc.setStoreHouseId(consMat.getStoreHouseId());
+			mc.setSpjangcd(spjangcd);
+			mc = this.matConsuRepository.save(mc);
+
+			// mat_inout out
+			MaterialInout mic = new MaterialInout();
+			mic.setMaterialId(mc.getMaterialId());
+			mic.setStoreHouseId(consMat.getStoreHouseId());
+			mic.setLotNumber(mp.getLotNumber());
+			mic.setInoutDate(LocalDate.parse(date.format(df)));
+			mic.setInoutTime(LocalTime.parse(time.format(tf)));
+			mic.setInOut("out");
+			mic.setOutputType("consumed_out");
+			mic.setOutputQty(totalQty);
+			mic.setSourceDataPk(mc.getId());
+			mic.setSourceTableName("mat_consu");
+			mic.setState("confirmed");
+			mic.set_status("a");
+			mic.setDescription("차수생산 투입재고 차감");
+			mic.set_audit(user);
+			mic.setSpjangcd(spjangcd);
+			this.matInoutRepository.save(mic);
+		}
+		return result;
+	}
+
+	/** 마지막 공정이면 완성품 입고 (mat_lot + mat_inout in) */
+	public void produceInForChasu(Integer mpId, Material m, User user, String spjangcd) {
+		MaterialProduce mp = this.matProduceRepository.getMatProduceById(mpId);
+		Timestamp now = DateUtil.getNowTimeStamp();
+		LocalDate date = LocalDate.now();
+		LocalTime time = LocalTime.now();
+		DateTimeFormatter df = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+		DateTimeFormatter tf = DateTimeFormatter.ofPattern("HH:mm:ss");
+
+		// mat_lot
+		MaterialLot ml = new MaterialLot();
+		ml.setLotNumber(mp.getLotNumber());
+		ml.setMaterialId(m.getId());
+		ml.setInputDateTime(now);
+		ml.setInputQty(mp.getGoodQty());
+		ml.setCurrentStock(mp.getGoodQty());
+		ml.setDescription(mp.getLotIndex() + "차수생산");
+		ml.setSourceDataPk(mp.getId());
+		ml.setSourceTableName("mat_produce");
+		ml.setStoreHouseId(mp.getStoreHouseId());
+		ml.set_audit(user);
+		ml.setSpjangcd(spjangcd);
+		this.matLotRepository.save(ml);
+
+		// mat_inout in
+		MaterialInout mip = new MaterialInout();
+		mip.setMaterialId(m.getId());
+		mip.setStoreHouseId(m.getStoreHouseId());
+		mip.setLotNumber(mp.getLotNumber());
+		mip.setInoutDate(LocalDate.parse(date.format(df)));
+		mip.setInoutTime(LocalTime.parse(time.format(tf)));
+		mip.setInOut("in");
+		mip.setInputQty(mp.getGoodQty());
+		mip.setInputType("produced_in");
+		mip.setSourceDataPk(mp.getId());
+		mip.setSourceTableName("mat_produce");
+		mip.setState("confirmed");
+		mip.set_status("a");
+		mip.setDescription("차수생산입고");
+		mip.set_audit(user);
+		mip.setSpjangcd(spjangcd);
+		this.matInoutRepository.save(mip);
+	}
+
+	/** 작지 양품/불량 합계 갱신 + 지시량 충족 시 자동완료 여부 반환 */
+	public boolean recalcJobResAndCheckComplete(Integer jrPk, User user) {
+		JobRes jr = this.jobResRepository.getJobResById(jrPk);
+		Map<String, Object> sum = this.getJobResponseGoodDefectQty(jrPk);
+		float goodSum = sum != null && sum.get("good_qty") != null ? Float.parseFloat(sum.get("good_qty").toString()) : 0f;
+		float defectSum = sum != null && sum.get("defect_qty") != null ? Float.parseFloat(sum.get("defect_qty").toString()) : 0f;
+		jr.setGoodQty(goodSum);
+		jr.setDefectQty(defectSum);
+
+		// 모든 차수 종료 + 양품+불량 >= 지시량 이면 자동완료
+		boolean anyUnfinished = this.matProduceRepository.findByJobResponseId(jrPk).stream()
+				.anyMatch(mp -> !"finished".equals(mp.getState()));
+		float orderQty = jr.getOrderQty() == null ? 0f : jr.getOrderQty().floatValue();
+		boolean complete = !anyUnfinished && (goodSum + defectSum) >= orderQty && orderQty > 0;
+
+		if (complete) {
+			jr.setState("finished");
+			jr.setEndTime(DateUtil.getNowTimeStamp());
+		}
+		jr.set_audit(user);
+		this.jobResRepository.save(jr);
+		return complete;
+	}
 }

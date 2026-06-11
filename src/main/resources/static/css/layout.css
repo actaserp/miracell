@@ -1414,6 +1414,10 @@ table tr, table td, table td a {
     transition: all .2s;
 }
 
+table td {
+    text-align: left;
+}
+
 table th {
     font-size: 14px;
     border-bottom: 1px solid #C6C6C6;
