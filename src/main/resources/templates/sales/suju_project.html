@@ -198,6 +198,11 @@
       #sujuForm .write-table th {
           font-size: 13px;
       }
+      #btnProjClearFilter.active {
+          background: #1d5d90;
+          color: #fff;
+          border-color: #1d5d90;
+      }
   </style>
 </head>
 <th:block layout:fragment="content">
@@ -250,7 +255,7 @@
                 <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">검색
               </a>
             </div>
-            <div id="projGrid" style="height: 150px;"></div>
+            <div id="projGrid" style="height: 160px;"></div>
           </div>
 
           <!-- ② 프로젝트 입력 -->
@@ -287,7 +292,7 @@
                   </td>
                 </tr>
                 <tr>
-                  <th><label for="stdate">공사일자</label></th>
+                  <th><label for="stdate">일자</label></th>
                   <td colspan="3">
                     <div class="date-range">
                       <input type="date" id="stdate" name="stdate"/>
@@ -338,7 +343,7 @@
                 <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">검색
               </a>
             </div>
-            <div id="sujuGrid" style="height: 200px;"></div>
+            <div id="sujuGrid" style="height: 210px;"></div>
           </div>
 
           <!-- ④ 수주상세 입력 -->
@@ -613,7 +618,7 @@
     applySelection(item) {
      this.selectedProj = item;
      this.bindForm(item);
-     $('#btnProjClearFilter').show();
+     $('#btnProjClearFilter').show().removeClass('active');
      sujuPanel.setProject(item);          // 수주 목록 필터 + 상세 초기화
     }
 
@@ -622,7 +627,7 @@
      this.selectedProj = null;
      this.grid.select(-1, -1);
      this.resetForm();
-     $('#btnProjClearFilter').hide();
+     $('#btnProjClearFilter').hide().addClass('active');
      sujuPanel.setProject(null);
     }
 
@@ -752,6 +757,7 @@
      this.itemIndex = 0;        // 품목 행 인덱스 채번
      this.dirty = false;        // 미저장 변경 여부
      this.suppressDirty = false;
+     this.suppressSelection = false;  // 데이터 로드 시 자동 선택 무시
      this.init();
     }
 
@@ -788,6 +794,7 @@
 
      // ★ 목록 클릭 → 상세 바인딩(수정 모드)
      this.grid.selectionChanged.addHandler((s) => {
+      if (_this.suppressSelection) return;
       const item = s.selectedItems[0];
       if (!item) return;
 
@@ -836,7 +843,7 @@
      this.currentProj = proj;
      if (proj) {
       $('#sujuFilterBadge').text(proj.projnm).addClass('edit');
-      this.resetForm('new');               // 상세 초기화 + 프로젝트 자동 세팅
+      this.hideForm();
      } else {
       $('#sujuFilterBadge').text('전체').removeClass('edit');
       this.hideForm();
@@ -856,7 +863,9 @@
      };
      AjaxUtil.getAsyncData(this.url + '/read', data, function (result) {
       if (result != null) {
+       _this.suppressSelection = true;
        _this.viewData.sourceCollection = result.data || [];
+       _this.suppressSelection = false;
        if (window.selectedSujuId) {
         GridUtil.selectRowById(_this.grid, window.selectedSujuId);
         window.selectedSujuId = null;
@@ -940,6 +949,7 @@
      $('#sujuForm').hide();
      $('#sujuGuide').show();
      this.dirty = false;
+     $('#sujuModeBadge').text('신규').removeClass('edit');
     }
 
     // mode: 'new' (프로젝트 선택 상태 전제)
@@ -1265,14 +1275,6 @@
       Alert.alert('', '수주처를 선택하세요.');
       return;
      }
-     if (!$('#cboCompany').val()) {
-      Alert.alert('', '판매처를 선택하세요.');
-      return;
-     }
-     if (!$('#DeliveryName').val()) {
-      Alert.alert('', '납품처를 입력하세요.');
-      return;
-     }
 
      // 품목 수집
      const items = [];
@@ -1321,15 +1323,12 @@
        projno: $('#sujuProjno').val(),                 // ★ 프로젝트 연결
        JumunDate: $('#JumunDate').val(),
        DueDate: $('#DueDate').val(),
-       Company_id: $('#cboCompany').val(),
-       CompanyName: $('#CompanyName').val(),
        SujuType: $('#cboSujuType').val(),
        spjangcd: $('#spjangcdHidden').val(),
        totalAmountSum: $('#totalAmountSum').val(),
        Description: $('#SujuDescription').val(),
        order_id: $('#SuJuOrderId').val(),
        OrderName: $('#SuJuOrderName').val(),
-       DeliveryName: $('#DeliveryName').val(),
        items: items
       };
 
@@ -1384,7 +1383,7 @@
     const $rows = $tbody.find('tr:not(.item-template-row)');
     const $targetRow = $(el).closest('tr');
 
-    if ($rows.length <= 3) {
+    if ($rows.length <= 2) {
      $targetRow.find('input[type="text"]').val('');
      $targetRow.find('input[type="hidden"]').val('');
      $targetRow.find('input[type="checkbox"]').prop('checked', false);
@@ -1423,6 +1422,9 @@
 
     projPanel.search();
     sujuPanel.search();   // 초기엔 전체 수주
+
+    $('#btnProjClearFilter').show().addClass('active');
+
    });
   </script>
 </th:block>

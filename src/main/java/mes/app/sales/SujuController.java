@@ -114,6 +114,7 @@ public class SujuController {
       @RequestParam(value = "end" ) String end_date,
       @RequestParam(value = "spjangcd") String spjangcd,
       @RequestParam(value = "company",required = false) String company,
+      @RequestParam(value = "projno", required = false) String projno,
       HttpServletRequest request) {
 
     start_date = start_date + " 00:00:00";
@@ -122,7 +123,7 @@ public class SujuController {
     Timestamp start = Timestamp.valueOf(start_date);
     Timestamp end = Timestamp.valueOf(end_date);
 
-    List<Map<String, Object>> items = this.sujuService.getSujuList(start, end,spjangcd, company);
+    List<Map<String, Object>> items = this.sujuService.getSujuList(start, end,spjangcd, company, projno);
 
     AjaxResult result = new AjaxResult();
     result.data = items;
@@ -188,7 +189,8 @@ public class SujuController {
     Date dueDate = CommonUtil.trySqlDate(dueDateStr);
 
     String companyName = (String) payload.get("CompanyName");
-    Integer companyId = Integer.parseInt(payload.get("Company_id").toString());
+    if (companyName == null) companyName = (String) payload.get("OrderName");
+    Integer companyId = Integer.parseInt(payload.get("order_id").toString());
     String sujuType = (String) payload.get("SujuType");
     String description = (String) payload.get("Description");
     String spjangcd = (String) payload.get("spjangcd");
@@ -376,7 +378,7 @@ public class SujuController {
       suju.setPrice(Integer.parseInt(item.get("supplyAmount").toString()));
       suju.setVat(Integer.parseInt(item.get("VatAmount").toString()));
       suju.setTotalAmount(Integer.parseInt(item.get("totalAmount").toString()));
-      suju.setProject_id(item.get("projectHidden").toString());
+      suju.setProject_id((String) payload.get("projno"));
       suju.setInVatYN(invatyn);
       suju.setDescription((String) item.get("description"));
       suju.setStandard(standard);

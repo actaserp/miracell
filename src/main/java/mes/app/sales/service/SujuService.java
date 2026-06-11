@@ -31,12 +31,13 @@ public class SujuService {
 	
 	
 	// 수주 내역 조회
-	public List<Map<String, Object>> getSujuList(Timestamp start, Timestamp end, String spjangcd, String company) {
+	public List<Map<String, Object>> getSujuList(Timestamp start, Timestamp end, String spjangcd, String company, String projno) {
 		
 		MapSqlParameterSource dicParam = new MapSqlParameterSource();
 		dicParam.addValue("start", start);
 		dicParam.addValue("end", end);
 		dicParam.addValue("spjangcd", spjangcd);
+		dicParam.addValue("projno", projno);
 
 		String sql = """
 			WITH suju_state_summary AS (
@@ -90,7 +91,7 @@ public class SujuService {
 			  sh."Description",
 			  sc_state."Value" AS "StateName",
 			  sc_type."Value" AS "SujuTypeName",
-			   
+				s.project_id  as projno,
 			  -- 대표 제품명 + 외 N개
 			  CASE
 				 WHEN COUNT(DISTINCT s."Material_id") = 1 THEN
@@ -125,6 +126,11 @@ public class SujuService {
             and sh."JumunDate" between :start and :end
 			""";
 
+		if(projno != null && !projno.isEmpty()){
+			sql += """
+				and s.project_id = :projno
+				""";
+		}
 		if (company != null && !company.isEmpty()) {
 			dicParam.addValue("company", "%" + company + "%");   // ← 여기서 와일드카드 포함해서 덮어쓰기
 
@@ -151,7 +157,8 @@ public class SujuService {
 					 sss.summary_state,
 					 sc_state."Value",
 					 sc_type."Value",
-					 sc_ship."Value"
+					 sc_ship."Value",
+					 s.project_id
 				order by sh."JumunDate" desc,  sh.id desc
 			""";
 

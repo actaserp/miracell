@@ -30,10 +30,10 @@ public class ProjectRegistrationController {  //프로젝트 관리
   public AjaxResult getProjectList(@RequestParam(value = "srchStartDt") String srchStartDt,
                                    @RequestParam(value = "srchEndDt") String srchEndDt,
                                    @RequestParam(value ="spjangcd") String spjangcd,
-                                   @RequestParam(value = "cboCompany") String cboCompany,
+                                   @RequestParam(value = "cboCompany", required = false) String cboCompany,
                                    @RequestParam(value = "txtDescription") String txtDescription,
                                    HttpServletRequest request) {
-    //log.info("프로젝트 read -srchStartDt:{}, srchEndDt:{},spjangcd:{},:cboCompany:{}, txtDescription: {}", srchStartDt, srchEndDt, spjangcd, cboCompany, txtDescription);
+//    log.info("프로젝트 read -srchStartDt:{}, srchEndDt:{},spjangcd:{},:cboCompany:{}, txtDescription: {}", srchStartDt, srchEndDt, spjangcd, cboCompany, txtDescription);
 
     srchStartDt = formatDate8(srchStartDt);
     srchEndDt = formatDate8(srchEndDt);
