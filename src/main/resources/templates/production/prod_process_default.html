@@ -32,7 +32,7 @@
         .row-stopped  { background: #fce4ec !important; }
         .row-locked   { color: #bbb !important; }
 
-        /* ════════ 반응형 ════════ */
+       /* !* ════════ 반응형 ════════ *!
         @media (max-width: 1024px) {
             .prod-flex { flex-direction: column !important; }
             .prod-flex > .section,
@@ -42,7 +42,30 @@
         @media (max-width: 600px) {
             .work-table th, .work-table td { display: block; width: 100% !important; }
             .work-action-buttons .btn { flex: 1; padding: 12px; font-size: 1rem; }
-        }
+        }*/
+
+        /* ════════ 반응형: touch-mode(1600 밑) 기반 ════════ */
+        /* 평소(PC): '목록' 탭 숨김 */
+        .tab-links li:has(a[name="tabList"]) { display: none; }
+
+        /* touch-mode: 좌우 2단 → 단일 컬럼, 목록을 탭으로 */
+        body.touch-mode .prod-flex { flex-direction: column !important; }
+        body.touch-mode .prod-flex > .section { display: none; }
+        body.touch-mode .prod-flex > .tab-wrap { width: 100% !important; flex: none !important; }
+        body.touch-mode .tab-links li:has(a[name="tabList"]) { display: list-item; }
+        body.touch-mode #tabList #proc-main-grid { height: calc(100vh - 240px) !important; }
+
+        /* touch-mode: 글자·버튼 확대 */
+        body.touch-mode .tab-links a { font-size: 1.15rem !important; padding: 14px 20px !important; }
+        body.touch-mode .wj-flexgrid .wj-header { font-size: 1.05rem !important; }
+        body.touch-mode .wj-flexgrid .wj-cell { font-size: 1.05rem !important; padding: 10px !important; }
+        body.touch-mode .work-table th,
+        body.touch-mode .work-table td { font-size: 1.05rem !important; }
+        body.touch-mode .work-table input,
+        body.touch-mode .work-table select,
+        body.touch-mode .work-table textarea { font-size: 1.05rem !important; min-height: 42px !important; }
+        body.touch-mode .work-action-buttons .btn { font-size: 1.1rem !important; min-height: 48px !important; min-width: 90px !important; }
+
     </style>
 </head>
 
@@ -122,6 +145,7 @@
             <div class="tab-wrap" style="flex: 1; min-width: 0;">
 
                 <ul class="tab-links">
+                    <li><a href="#tabList" name="tabList">목록</a></li>
                     <li><a href="#tabBasic" name="tabBasic">기본 정보</a></li>
                     <li><a href="#tabConsumed" name="tabConsumed">투입 내역</a></li>
                     <li><a href="#tabChasu" name="tabChasu">차수별 생산</a></li>
@@ -129,6 +153,12 @@
                 </ul>
 
                 <div>
+
+                    <!-- ──── 목록 (태블릿/키오스크 전용) ──── -->
+                    <section class="tab-item" id="tabList" style="border-top-left-radius: 0;">
+                        <!-- 좌측 목록(.section)이 이 안으로 이동됨 -->
+                    </section>
+
                     <!-- ──── 기본정보 ──── -->
                     <section class="tab-item" id="tabBasic" style="border-top-left-radius: 0;">
                         <div class="section-top">
@@ -386,6 +416,7 @@
                 this.bindEvents();
                 this.fillChasuWorkers();
                 this.searchMainData();
+                this.initLayoutCollapse();
             }
 
             initDefectGrid() {
