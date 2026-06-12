@@ -59,13 +59,13 @@ public class ShipmentApiController {
         String cookieValue = null;
         if (request.getCookies() != null) {
             for (Cookie cookie : request.getCookies()) {
-                if ("iljin_jsessionid".equals(cookie.getName())) {
+                if ("miracell_jsessionid".equals(cookie.getName())) {
                     cookieValue = cookie.getValue();
                     break;
                 }
             }
         }
-        System.out.println("받은 쿠키 iljin_jsessionid = " + cookieValue);
+        System.out.println("받은 쿠키 miracell_jsessionid = " + cookieValue);
 
         try{
             if("Y".equals(not_ship)) {
@@ -106,13 +106,13 @@ public class ShipmentApiController {
         String cookieValue = null;
         if (request.getCookies() != null) {
             for (Cookie cookie : request.getCookies()) {
-                if ("iljin_jsessionid".equals(cookie.getName())) {
+                if ("miracell_jsessionid".equals(cookie.getName())) {
                     cookieValue = cookie.getValue();
                     break;
                 }
             }
         }
-        System.out.println("받은 쿠키 iljin_jsessionid = " + cookieValue);
+        System.out.println("받은 쿠키 miracell_jsessionid = " + cookieValue);
         AjaxResult result = new AjaxResult();
         result.data = items;
 
