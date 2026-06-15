@@ -13,6 +13,8 @@ import mes.domain.repository.UnitRepository;
 import mes.domain.services.CommonUtil;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.ss.util.CellRangeAddress;
+import org.apache.poi.xssf.usermodel.XSSFClientAnchor;
+import org.apache.poi.xssf.usermodel.XSSFDrawing;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
@@ -378,7 +380,7 @@ public class BaljuOrderController {
       Files.createFile(tempXlsx);                   // 새 파일 생성
 
 
-      try (FileInputStream fis = new FileInputStream("C:/Temp/mes21/문서/BaljuTemplate.xlsx");
+      try (FileInputStream fis = new FileInputStream("C:/Temp/mes21/문서/BaljuTemplate_miracell.xlsx");
            Workbook workbook = new XSSFWorkbook(fis);
            FileOutputStream fos = new FileOutputStream(tempXlsx.toFile())) {
 
@@ -412,12 +414,22 @@ public class BaljuOrderController {
         String formattedDate = date.format(DateTimeFormatter.ofPattern("yy.MM.dd"));
         setCell(sheet, 11, 3, formattedDate);  // D12 셀에 날짜만 넣기
 
-        // 자재 행 삽입
-        int startRow = 14;
-        Row styleTemplateRow = sheet.getRow(startRow); // 14행 스타일 참조
+        // ============================================================
+        //  자재 행 삽입 (미라셀 템플릿)
+        //  열 매핑: A(0)=NO, B(1)=자재명, C(2)=바코드이미지, D(3)=코드값,
+        //           E(4)=수량, F(5)=단가, G(6)=비고
+        //  자재 시작행: 엑셀 15행 (0-based 인덱스 14)
+        // ============================================================
 
-        CellStyle[] cachedStyles = new CellStyle[7];         // 일반 행용 스타일
-        CellStyle[] cachedLastRowStyles = new CellStyle[7];  // 마지막 행용 스타일
+        // 바코드 이미지용 Drawing 객체 (시트당 1개만 생성하여 재사용)
+        XSSFDrawing drawing = (XSSFDrawing) sheet.createDrawingPatriarch();
+        CreationHelper helper = workbook.getCreationHelper();
+
+        int startRow = 14; // 0-based → 엑셀 15행
+        Row styleTemplateRow = sheet.getRow(startRow); // 15행 스타일 참조
+
+        CellStyle[] cachedStyles = new CellStyle[8];         // 일반 행용 스타일
+        CellStyle[] cachedLastRowStyles = new CellStyle[8];  // 마지막 행용 스타일
 
         for (int i = 0; i < items.size(); i++) {
           Map<String, Object> item = items.get(i);
@@ -426,14 +438,15 @@ public class BaljuOrderController {
           Row row = sheet.getRow(currentRowIndex);
           if (row == null) row = sheet.createRow(currentRowIndex);
 
-          for (int col = 1; col <= 6; col++) {
+          // ---- 스타일 적용 (A~G = 0~6열) ----
+          for (int col = 0; col <= 6; col++) {
             Cell cell = row.getCell(col);
             if (cell == null) cell = row.createCell(col);
 
             if (styleTemplateRow != null && styleTemplateRow.getCell(col) != null) {
               CellStyle baseStyle = styleTemplateRow.getCell(col).getCellStyle();
 
-              if (i == items.size() - 1 && col == 2) {
+              if (i == items.size() - 1 && col == 1) { // 마지막 행 자재명 굵은 하단선
                 if (cachedLastRowStyles[col] == null) {
                   CellStyle style = workbook.createCellStyle();
                   style.cloneStyleFrom(baseStyle);
@@ -455,46 +468,82 @@ public class BaljuOrderController {
             }
           }
 
-          // ✅ 병합: C열(2) ~ D열(3), 중복 방지 로직 적용
-          CellRangeAddress mergedRegion = new CellRangeAddress(currentRowIndex, currentRowIndex, 2, 3);
-          boolean alreadyMerged = false;
-          for (int j = 0; j < sheet.getNumMergedRegions(); j++) {
-            if (sheet.getMergedRegion(j).equals(mergedRegion)) {
-              alreadyMerged = true;
-              break;
-            }
-          }
-          if (!alreadyMerged) {
-            sheet.addMergedRegion(mergedRegion);
-          }
-
-          // 가운데 정렬 스타일 (자재명 셀에만)
-          CellStyle centerStyle = workbook.createCellStyle();
-          centerStyle.cloneStyleFrom(styleTemplateRow.getCell(2).getCellStyle());
-          centerStyle.setAlignment(HorizontalAlignment.CENTER);
-          centerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
-          row.getCell(2).setCellStyle(centerStyle);
-
-          // 값 설정
-          row.getCell(1).setCellValue(i + 1); // NO
-          row.getCell(2).setCellValue((String) item.get("product_name")); // 자재명
-          row.getCell(4).setCellValue(((Number) item.get("quantity")).doubleValue()); // 수량
+          // ---- 값 설정 ----
+          row.getCell(0).setCellValue(i + 1);                                   // NO
+          row.getCell(1).setCellValue((String) item.get("product_name"));      // 자재명
+          // C(2) = 바코드 이미지 (아래에서 별도 삽입)
+          // D(3) = 코드값 (사람이 읽는 형태, 아래에서 설정)
+          row.getCell(4).setCellValue(((Number) item.get("quantity")).doubleValue());   // 수량
           row.getCell(5).setCellValue(((Number) item.get("unit_price")).doubleValue()); // 단가
-          row.getCell(6).setCellValue((String) item.get("description")); // 비고
+          Object descObj = item.get("description");
+          row.getCell(6).setCellValue(descObj == null ? "" : descObj.toString());       // 비고
+
+          // ---- 바코드 처리 (balju.barcode_value 가 있다고 가정) ----
+          //   (a) barcode_value 에 완성된 값이 있으면 그대로 인코딩 (수입품 기존 바코드 포함)
+          //   (b) 없으면 gtin14/lot/mfg_date 조각으로 GS1-128 조립 (880 자체 규칙, 자릿수 placeholder)
+          String rawForEncode;   // 바코드 이미지 인코딩용
+          String humanReadable;  // D열 표시용
+
+          Object barcodeValueObj = item.get("barcode_value");
+
+          if (barcodeValueObj != null && !barcodeValueObj.toString().isEmpty()) {
+            // (a) 기존 바코드 그대로 사용 (GS1 형식이 아닐 수 있으므로 FNC1 없이 인코딩)
+            rawForEncode  = barcodeValueObj.toString();
+            humanReadable = barcodeValueObj.toString();
+          } else {
+            // (b) 880 규칙 자체 구성
+            String gtin14  = (String) item.getOrDefault("gtin14", "");   // TODO: 회사+제품+CD 조립 확정
+            String lot     = (String) item.getOrDefault("lot_number", "");
+            String mfgDate = (String) item.getOrDefault("mfg_date", ""); // YYMMDD
+
+            rawForEncode  = BarcodeUtil.buildGs1Raw(gtin14, lot, mfgDate);
+            humanReadable = BarcodeUtil.buildHumanReadable(gtin14, lot, mfgDate);
+          }
+
+          // D열(3) 코드값 텍스트
+          Cell codeCell = row.getCell(3);
+          if (codeCell == null) codeCell = row.createCell(3);
+          codeCell.setCellValue(humanReadable);
+
+          // C열(2) 바코드 이미지 삽입
+          try {
+            byte[] pngBytes = BarcodeUtil.createCode128Png(rawForEncode, 300, 80);
+            int pictureIdx = workbook.addPicture(pngBytes, Workbook.PICTURE_TYPE_PNG);
+
+            XSSFClientAnchor anchor = (XSSFClientAnchor) helper.createClientAnchor();
+            // C열(col=2) 한 칸 안에 들어가도록 앵커링
+            anchor.setCol1(2);
+            anchor.setRow1(currentRowIndex);
+            anchor.setCol2(3);
+            anchor.setRow2(currentRowIndex + 1);
+            // 셀 내부 여백 (EMU) — 테두리와 겹치지 않게 안쪽으로 띄움
+            anchor.setDx1(40000);  anchor.setDy1(20000);
+            anchor.setDx2(-40000); anchor.setDy2(-20000);
+            // 셀 크기 변경 시 이미지는 따라 움직이되 늘어나지 않도록
+            anchor.setAnchorType(ClientAnchor.AnchorType.MOVE_DONT_RESIZE);
+
+            drawing.createPicture(anchor, pictureIdx);
+          } catch (Exception barcodeEx) {
+            // 바코드 생성 실패해도 발주서 자체는 나가도록 — 코드값만 남김
+            log.warn("바코드 생성 실패 (row {}): {}", currentRowIndex, barcodeEx.getMessage());
+          }
         }
 
-        // 특이사항 처리 시작
+        // ============================================================
+        //  특이사항 처리
+        //  자재 시작이 15행으로 내려갔으므로 base 값도 +1 (옛 22 → 23)
+        // ============================================================
         // 1. 특이사항 행 위치 계산
         int lastItemRow = startRow + items.size();
-        int baseSpecialNoteRow = 22;
+        int baseSpecialNoteRow = 23;
         int specialNoteStartRow = Math.max(lastItemRow + 2, baseSpecialNoteRow);
 
         // 2. 병합 범위 계산 (B~G 열, 3행 병합)
         CellRangeAddress specialNoteRegion = new CellRangeAddress(
-            specialNoteStartRow,
-            specialNoteStartRow + 2,
-            1,
-            6
+          specialNoteStartRow,
+          specialNoteStartRow + 2,
+          1,
+          6
         );
 
         // 3. 기존 병합과 충돌하는 것 제거
@@ -562,11 +611,11 @@ public class BaljuOrderController {
 
         //메일 전송
         mailService.sendMailWithAttachment(
-            recipients,
-            title,
-            content,
-            tempXlsx.toFile(),
-            fileName
+          recipients,
+          title,
+          content,
+          tempXlsx.toFile(),
+          fileName
         );
 //      log.info("✅ 메일 전송 완료: 수신자={}", recipients);
         // 임시 파일 삭제 예약
