@@ -167,6 +167,14 @@
         height: 16px;
         margin: 0;
     }
+    /* ── 접힘 상태에서 제목 클릭으로 복원 ── */
+    .layout-restore {
+        cursor: pointer;
+    }
+    .layout-restore:hover {
+        color: #3069B3;
+        transition: color .2s;
+    }
 
 </style>
 <body class="animated fadeIn">
@@ -258,6 +266,34 @@
             }
         }
     });
+
+    $(document).ready(function () {
+        if (window.DISABLE_GLOBAL_LAYOUT_TOGGLE) return;
+
+        const pwin = (window.parent && window.parent !== window) ? window.parent : window;
+        if (!pwin.LayoutState) return;
+
+        // 제목 요소: 기본 h2, 없으면 페이지가 지정한 요소(대시보드 h1 등)
+        let $title = $('.page-title-wrap .left h2').first();
+        if (!$title.length) $title = $('[data-layout-toggle-anchor]').first();
+        if (!$title.length) return;
+
+        const sync = () => {
+            const collapsed = pwin.LayoutState.get();
+            $title.toggleClass('layout-restore', collapsed);
+            $title.attr('title', collapsed ? '클릭하면 메뉴/헤더가 펼쳐집니다' : '');
+        };
+        sync();
+        $(window).on('focus', sync);
+
+        $title.on('click', () => {
+            if (pwin.LayoutState.get()) {   // 접혀있을 때만 동작
+                pwin.LayoutState.set(false);
+                sync();
+            }
+        });
+    });
+
 </script>
 <th:block layout:fragment="scripts"></th:block>
 </body>
