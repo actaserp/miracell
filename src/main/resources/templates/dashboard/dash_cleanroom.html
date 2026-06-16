@@ -1,0 +1,856 @@
+<html layout:decorate="~{layout_page}">
+
+<head>
+  <style>
+    /* ═══════════════════════════════════════
+       다크 대시보드 - 클린룸 공정 현황
+    ═══════════════════════════════════════ */
+    #crWrap {
+      background: #0d1117;
+      color: #e6edf3;
+      min-height: calc(100vh - 60px);
+      padding: 20px 24px;
+      font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
+      box-sizing: border-box;
+    }
+
+    /* ── 헤더 ── */
+    #crWrap .dash-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 18px;
+    }
+    #crWrap .dash-head h1 {
+      font-size: 26px;
+      font-weight: 800;
+      color: #fff;
+      margin: 0;
+      letter-spacing: -0.5px;
+    }
+    #crWrap .dash-head .head-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    #crWrap .dash-clock {
+      font-size: 20px;
+      font-weight: 600;
+      color: #58a6ff;
+      font-variant-numeric: tabular-nums;
+    }
+    #crWrap .dash-updated {
+      font-size: 13px;
+      color: #8b949e;
+    }
+
+    /* ── 공장 레이아웃 그리드 ── */
+    /*
+        캡처 기준 배치 (2행 × 3열 + 우측 보조 구역):
+        Row1: 검사(클린룸3존) | 내포장(클린룸4존) | [원자재창고]
+        Row2: 조립(클린룸2존) | 세척실(클린룸1존) | [멸균실]
+    */
+    .factory-layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr 340px;
+      grid-template-rows: 1fr 1fr;
+      gap: 14px;
+      height: calc(100vh - 140px);
+      min-height: 560px;
+    }
+
+    /* ── 공통 구역 카드 ── */
+    .zone-card {
+      background: #161b22;
+      border: 1.5px solid #30363d;
+      border-radius: 14px;
+      padding: 16px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      overflow: hidden;
+      transition: border-color .2s;
+      position: relative;
+    }
+    .zone-card:hover { border-color: #58a6ff; }
+
+    /* 클린룸 존 색상 구분 (상단 보더 라인) */
+    .zone-card.zone-1 { border-top: 3px solid #1f6feb; }
+    .zone-card.zone-2 { border-top: 3px solid #9b59b6; }
+    .zone-card.zone-3 { border-top: 3px solid #238636; }
+    .zone-card.zone-4 { border-top: 3px solid #e67e22; }
+    .zone-card.zone-util { border-top: 3px solid #484f58; }
+
+    /* ── 구역 헤더 ── */
+    .zone-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .zone-title-wrap {}
+    .zone-name {
+      font-size: 18px;
+      font-weight: 800;
+      color: #fff;
+      line-height: 1.2;
+    }
+    .zone-badge {
+      display: inline-block;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 2px 9px;
+      border-radius: 20px;
+      margin-top: 4px;
+    }
+    .zone-1 .zone-badge { background: rgba(31,111,235,.2); color: #58a6ff; }
+    .zone-2 .zone-badge { background: rgba(155,89,182,.2); color: #c39beb; }
+    .zone-3 .zone-badge { background: rgba(35,134,54,.2); color: #3fb950; }
+    .zone-4 .zone-badge { background: rgba(230,126,34,.2); color: #f0b72f; }
+    .zone-util .zone-badge { background: rgba(72,79,88,.3); color: #8b949e; }
+
+    /* ── 온습도 위젯 (클린룸 전용) ── */
+    .env-widget {
+      display: flex;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+    .env-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: #0d1117;
+      border: 1px solid #21262d;
+      border-radius: 10px;
+      padding: 7px 14px;
+      min-width: 72px;
+    }
+    .env-label {
+      font-size: 11px;
+      color: #8b949e;
+      font-weight: 600;
+      letter-spacing: .5px;
+      margin-bottom: 3px;
+    }
+    .env-value {
+      font-size: 22px;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+    }
+    .env-unit {
+      font-size: 11px;
+      color: #8b949e;
+      margin-top: 2px;
+    }
+    .env-temp .env-value { color: #f85149; }
+    .env-humi .env-value { color: #58a6ff; }
+
+    /* 경고 상태 */
+    .env-item.warn-high .env-value { color: #f85149; animation: blink 1s infinite; }
+    .env-item.warn-low  .env-value { color: #79c0ff; animation: blink 1s infinite; }
+
+    @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:.3;} }
+
+    /* ── 현재 공정 표시 ── */
+    .proc-section {
+      flex-shrink: 0;
+    }
+    .proc-section-title {
+      font-size: 11px;
+      color: #8b949e;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      margin-bottom: 6px;
+    }
+    .proc-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .proc-chip {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 11px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      border: 1px solid;
+    }
+    .proc-chip.working {
+      background: rgba(240,183,47,.12);
+      color: #f0b72f;
+      border-color: rgba(240,183,47,.4);
+    }
+    .proc-chip.idle {
+      background: #21262d;
+      color: #484f58;
+      border-color: #30363d;
+    }
+    .proc-chip .chip-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: currentColor;
+      flex-shrink: 0;
+    }
+    .proc-chip.working .chip-dot { animation: blink 1.2s infinite; }
+
+    /* ── 수주 목록 ── */
+    .suju-list {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      min-height: 0;
+    }
+    .suju-list::-webkit-scrollbar { width: 4px; }
+    .suju-list::-webkit-scrollbar-track { background: transparent; }
+    .suju-list::-webkit-scrollbar-thumb { background: #30363d; border-radius: 4px; }
+
+    .suju-item {
+      background: #0d1117;
+      border: 1px solid #21262d;
+      border-radius: 10px;
+      padding: 10px 13px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: border-color .15s;
+    }
+    .suju-item:hover { border-color: #484f58; }
+
+    .suju-status-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .suju-status-dot.working  { background: #f0b72f; animation: blink 1.3s infinite; }
+    .suju-status-dot.finished { background: #3fb950; }
+    .suju-status-dot.pending  { background: #484f58; }
+
+    .suju-info { flex: 1; min-width: 0; }
+    .suju-name {
+      font-size: 14px;
+      font-weight: 700;
+      color: #e6edf3;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .suju-sub {
+      font-size: 12px;
+      color: #8b949e;
+      margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .suju-right { text-align: right; flex-shrink: 0; }
+    .suju-qty {
+      font-size: 15px;
+      font-weight: 800;
+      color: #fff;
+      font-variant-numeric: tabular-nums;
+    }
+    .suju-proc {
+      font-size: 11px;
+      color: #58a6ff;
+      margin-top: 2px;
+    }
+
+    /* 수주 없음 */
+    .no-suju {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #484f58;
+      font-size: 14px;
+    }
+
+    /* ── 우측 보조 구역 (원자재창고 / 멸균실) ── */
+    .zone-util .suju-list { gap: 6px; }
+    .zone-util .suju-item {
+      border-color: #21262d;
+    }
+
+    /* 재고 아이템 (원자재창고) */
+    .stock-item {
+      background: #0d1117;
+      border: 1px solid #21262d;
+      border-radius: 10px;
+      padding: 10px 13px;
+    }
+    .stock-item .si-name {
+      font-size: 13px;
+      font-weight: 700;
+      color: #e6edf3;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .stock-item .si-bar-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 6px;
+    }
+    .stock-item .si-track {
+      flex: 1;
+      height: 8px;
+      background: #21262d;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .stock-item .si-fill {
+      height: 100%;
+      border-radius: 6px;
+      background: linear-gradient(90deg, #1f6feb, #58a6ff);
+      transition: width .5s ease;
+    }
+    .stock-item .si-fill.low { background: linear-gradient(90deg, #b91c1c, #f85149); }
+    .stock-item .si-pct {
+      font-size: 12px;
+      font-weight: 700;
+      color: #8b949e;
+      width: 38px;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* 멸균 상태 아이템 */
+    .steril-item {
+      background: #0d1117;
+      border: 1px solid #21262d;
+      border-radius: 10px;
+      padding: 11px 13px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .steril-icon {
+      font-size: 22px;
+      flex-shrink: 0;
+    }
+    .steril-info { flex: 1; min-width: 0; }
+    .steril-name {
+      font-size: 13px;
+      font-weight: 700;
+      color: #e6edf3;
+    }
+    .steril-sub { font-size: 11px; color: #8b949e; margin-top: 2px; }
+    .steril-badge {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 12px;
+      flex-shrink: 0;
+    }
+    .steril-badge.running  { background: rgba(240,183,47,.15); color: #f0b72f; }
+    .steril-badge.done     { background: rgba(63,185,80,.15); color: #3fb950; }
+    .steril-badge.standby  { background: #21262d; color: #8b949e; }
+    .steril-badge.error    { background: rgba(248,81,73,.15); color: #f85149; }
+
+    /* 스크롤바 없애기 위한 사이즈 보정 */
+    .suju-list.scroll-wrap {
+      padding-right: 2px;
+    }
+
+    /* 구역 없음 표시 */
+    .loading-txt {
+      color: #484f58;
+      font-size: 13px;
+      text-align: center;
+      padding: 20px 0;
+    }
+  </style>
+</head>
+
+<th:block layout:fragment="content">
+  <div id="crWrap">
+
+    <!-- 헤더 -->
+    <div class="dash-head">
+      <div style="display:flex; align-items:baseline; gap:12px;">
+        <h1>클린룸 공정 현황</h1>
+        <span class="dash-updated" id="lastUpdated"></span>
+      </div>
+      <div class="head-right">
+        <div class="dash-clock" id="dashClock"></div>
+      </div>
+    </div>
+
+    <!-- 공장 레이아웃 -->
+    <div class="factory-layout">
+
+      <!-- ① 검사 (클린룸 3존) -->
+      <div class="zone-card zone-3" id="zone-gumsa">
+        <div class="zone-header">
+          <div class="zone-title-wrap">
+            <div class="zone-name">검사</div>
+            <div class="zone-badge">클린룸 3존</div>
+          </div>
+          <div class="env-widget">
+            <div class="env-item env-temp" id="z3-temp">
+              <div class="env-label">TEMP</div>
+              <div class="env-value">--.-</div>
+              <div class="env-unit">°C</div>
+            </div>
+            <div class="env-item env-humi" id="z3-humi">
+              <div class="env-label">HUMI</div>
+              <div class="env-value">--.-</div>
+              <div class="env-unit">%RH</div>
+            </div>
+          </div>
+        </div>
+        <div class="proc-section">
+          <div class="proc-section-title">현재 공정</div>
+          <div class="proc-chips" id="z3-procs">
+            <span class="proc-chip idle"><span class="chip-dot"></span>대기중</span>
+          </div>
+        </div>
+        <div class="suju-list scroll-wrap" id="z3-suju">
+          <div class="no-suju">작업 데이터 없음</div>
+        </div>
+      </div>
+
+      <!-- ② 내포장 (클린룸 4존) -->
+      <div class="zone-card zone-4" id="zone-naepojang">
+        <div class="zone-header">
+          <div class="zone-title-wrap">
+            <div class="zone-name">내포장</div>
+            <div class="zone-badge">클린룸 4존</div>
+          </div>
+          <div class="env-widget">
+            <div class="env-item env-temp" id="z4-temp">
+              <div class="env-label">TEMP</div>
+              <div class="env-value">--.-</div>
+              <div class="env-unit">°C</div>
+            </div>
+            <div class="env-item env-humi" id="z4-humi">
+              <div class="env-label">HUMI</div>
+              <div class="env-value">--.-</div>
+              <div class="env-unit">%RH</div>
+            </div>
+          </div>
+        </div>
+        <div class="proc-section">
+          <div class="proc-section-title">현재 공정</div>
+          <div class="proc-chips" id="z4-procs">
+            <span class="proc-chip idle"><span class="chip-dot"></span>대기중</span>
+          </div>
+        </div>
+        <div class="suju-list scroll-wrap" id="z4-suju">
+          <div class="no-suju">작업 데이터 없음</div>
+        </div>
+      </div>
+
+      <!-- ③ 원자재 창고 (보조 - 우측 상단) -->
+      <div class="zone-card zone-util" id="zone-warehouse">
+        <div class="zone-header">
+          <div class="zone-title-wrap">
+            <div class="zone-name">원자재 창고</div>
+            <div class="zone-badge">RAW MATERIAL</div>
+          </div>
+        </div>
+        <div class="proc-section-title">주요 자재 재고현황</div>
+        <div class="suju-list scroll-wrap" id="wh-stocks">
+          <div class="loading-txt">불러오는 중...</div>
+        </div>
+      </div>
+
+      <!-- ④ 조립 (클린룸 2존) -->
+      <div class="zone-card zone-2" id="zone-jorib">
+        <div class="zone-header">
+          <div class="zone-title-wrap">
+            <div class="zone-name">조립</div>
+            <div class="zone-badge">클린룸 2존</div>
+          </div>
+          <div class="env-widget">
+            <div class="env-item env-temp" id="z2-temp">
+              <div class="env-label">TEMP</div>
+              <div class="env-value">--.-</div>
+              <div class="env-unit">°C</div>
+            </div>
+            <div class="env-item env-humi" id="z2-humi">
+              <div class="env-label">HUMI</div>
+              <div class="env-value">--.-</div>
+              <div class="env-unit">%RH</div>
+            </div>
+          </div>
+        </div>
+        <div class="proc-section">
+          <div class="proc-section-title">현재 공정</div>
+          <div class="proc-chips" id="z2-procs">
+            <span class="proc-chip idle"><span class="chip-dot"></span>대기중</span>
+          </div>
+        </div>
+        <div class="suju-list scroll-wrap" id="z2-suju">
+          <div class="no-suju">작업 데이터 없음</div>
+        </div>
+      </div>
+
+      <!-- ⑤ 세척실 (클린룸 1존) -->
+      <div class="zone-card zone-1" id="zone-sechuk">
+        <div class="zone-header">
+          <div class="zone-title-wrap">
+            <div class="zone-name">세척실</div>
+            <div class="zone-badge">클린룸 1존</div>
+          </div>
+          <div class="env-widget">
+            <div class="env-item env-temp" id="z1-temp">
+              <div class="env-label">TEMP</div>
+              <div class="env-value">--.-</div>
+              <div class="env-unit">°C</div>
+            </div>
+            <div class="env-item env-humi" id="z1-humi">
+              <div class="env-label">HUMI</div>
+              <div class="env-value">--.-</div>
+              <div class="env-unit">%RH</div>
+            </div>
+          </div>
+        </div>
+        <div class="proc-section">
+          <div class="proc-section-title">현재 공정</div>
+          <div class="proc-chips" id="z1-procs">
+            <span class="proc-chip idle"><span class="chip-dot"></span>대기중</span>
+          </div>
+        </div>
+        <div class="suju-list scroll-wrap" id="z1-suju">
+          <div class="no-suju">작업 데이터 없음</div>
+        </div>
+      </div>
+
+      <!-- ⑥ 멸균실 (보조 - 우측 하단) -->
+      <div class="zone-card zone-util" id="zone-steril">
+        <div class="zone-header">
+          <div class="zone-title-wrap">
+            <div class="zone-name">멸균실</div>
+            <div class="zone-badge">STERILIZATION</div>
+          </div>
+        </div>
+        <div class="proc-section-title">멸균 진행 현황</div>
+        <div class="suju-list scroll-wrap" id="st-list">
+          <div class="loading-txt">불러오는 중...</div>
+        </div>
+      </div>
+
+    </div><!-- /factory-layout -->
+  </div><!-- /crWrap -->
+</th:block>
+
+<th:block layout:fragment="scripts">
+  <script type="text/javascript">
+    /* ═══════════════════════════════════════════
+       CleanroomDashboard
+       - 백엔드 연동 준비 완료 (MOCK 데이터로 동작)
+       - API 연결 시 loadZoneData / loadEnvData 교체
+    ═══════════════════════════════════════════ */
+    class CleanroomDashboard {
+      constructor() {
+        this.baseUrl = '/api/dashboard/cleanroom';
+        this.pollMs  = 15000; // 15초 폴링
+        this.timer   = null;
+
+        // 클린룸 존 설정 (zone_id → DOM prefix 매핑)
+        this.zones = [
+          { id: 'z1', name: '세척실',  cleanroom: '클린룸 1존' },
+          { id: 'z2', name: '조립',    cleanroom: '클린룸 2존' },
+          { id: 'z3', name: '검사',    cleanroom: '클린룸 3존' },
+          { id: 'z4', name: '내포장',  cleanroom: '클린룸 4존' }
+        ];
+
+        // 온도/습도 정상 범위 (이 범위 벗어나면 경고 깜빡임)
+        this.envLimit = {
+          temp: { min: 18, max: 25 },
+          humi: { min: 30, max: 60 }
+        };
+      }
+
+      init() {
+        this.startClock();
+        this.loadAll();
+        this.timer = setInterval(() => this.loadAll(), this.pollMs);
+      }
+
+      /* ── 시계 ── */
+      startClock() {
+        const tick = () => {
+          const d = new Date(), p = n => String(n).padStart(2, '0');
+          $('#dashClock').text(
+                  `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} `
+                  + `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`
+          );
+        };
+        tick(); setInterval(tick, 1000);
+      }
+
+      markUpdated() {
+        const d = new Date(), p = n => String(n).padStart(2, '0');
+        $('#lastUpdated').text(`갱신 ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`);
+      }
+
+      /* ══════════════════════════════════════
+         전체 로드 (백엔드 연동 시 아래 mock을
+         AjaxUtil.getAsyncData 호출로 교체)
+      ══════════════════════════════════════ */
+      loadAll() {
+        this.loadEnvData(this.getMockEnv());
+        this.loadZoneData(this.getMockZones());
+        this.loadWarehouse(this.getMockWarehouse());
+        this.loadSteril(this.getMockSteril());
+        this.markUpdated();
+
+        /* ── 백엔드 연동 예시 (주석 해제 후 사용) ──
+        AjaxUtil.getAsyncData(this.baseUrl + '/env', {}, (res) => {
+            if (res && res.data) this.loadEnvData(res.data);
+        });
+        AjaxUtil.getAsyncData(this.baseUrl + '/zones', {}, (res) => {
+            if (res && res.data) this.loadZoneData(res.data);
+        });
+        AjaxUtil.getAsyncData(this.baseUrl + '/warehouse', {}, (res) => {
+            if (res && res.data) this.loadWarehouse(res.data);
+        });
+        AjaxUtil.getAsyncData(this.baseUrl + '/steril', {}, (res) => {
+            if (res && res.data) this.loadSteril(res.data);
+        });
+        */
+      }
+
+      /* ── 온습도 렌더 ── */
+      loadEnvData(envList) {
+        // envList: [{ zone_id:'z1', temp:22.3, humi:45.1 }, ...]
+        envList.forEach(e => {
+          const $tempEl = $(`#${e.zone_id}-temp`);
+          const $humiEl = $(`#${e.zone_id}-humi`);
+          if (!$tempEl.length) return;
+
+          const t = parseFloat(e.temp), h = parseFloat(e.humi);
+
+          $tempEl.find('.env-value').text(isNaN(t) ? '--.-' : t.toFixed(1));
+          $humiEl.find('.env-value').text(isNaN(h) ? '--.-' : h.toFixed(1));
+
+          // 경고 처리
+          $tempEl.removeClass('warn-high warn-low');
+          $humiEl.removeClass('warn-high warn-low');
+          if (!isNaN(t)) {
+            if (t > this.envLimit.temp.max) $tempEl.addClass('warn-high');
+            else if (t < this.envLimit.temp.min) $tempEl.addClass('warn-low');
+          }
+          if (!isNaN(h)) {
+            if (h > this.envLimit.humi.max) $humiEl.addClass('warn-high');
+            else if (h < this.envLimit.humi.min) $humiEl.addClass('warn-low');
+          }
+        });
+      }
+
+      /* ── 구역별 공정 + 수주 렌더 ── */
+      loadZoneData(zoneList) {
+        /*
+         zoneList: [{
+           zone_id: 'z1',
+           processes: [{ proc_name:'세척', status:'working' }, ...],
+           suju: [{
+             suju_no: 'SJ-2024-001', part_name: '본체 어셈블리',
+             company: '삼성메디컬', qty: 500, proc_name: '세척',
+             status: 'working'  // working | finished | pending
+           }, ...]
+         }, ...]
+        */
+        zoneList.forEach(z => {
+          this.renderProcs(z.zone_id, z.processes);
+          this.renderSuju(z.zone_id, z.suju);
+        });
+      }
+
+      renderProcs(zoneId, procs) {
+        const $el = $(`#${zoneId}-procs`);
+        if (!$el.length || !procs || !procs.length) {
+          $el.html('<span class="proc-chip idle"><span class="chip-dot"></span>대기중</span>');
+          return;
+        }
+        let html = '';
+        procs.forEach(p => {
+          const cls = p.status === 'working' ? 'working' : 'idle';
+          html += `<span class="proc-chip ${cls}"><span class="chip-dot"></span>${p.proc_name}</span>`;
+        });
+        $el.html(html);
+      }
+
+      renderSuju(zoneId, sujuList) {
+        const $el = $(`#${zoneId}-suju`);
+        if (!$el.length) return;
+        if (!sujuList || !sujuList.length) {
+          $el.html('<div class="no-suju">진행 중인 수주 없음</div>');
+          return;
+        }
+        let html = '';
+        sujuList.forEach(s => {
+          const dotCls = s.status === 'working' ? 'working' : (s.status === 'finished' ? 'finished' : 'pending');
+          html += `<div class="suju-item">
+                        <div class="suju-status-dot ${dotCls}"></div>
+                        <div class="suju-info">
+                            <div class="suju-name">${s.part_name || '-'}</div>
+                            <div class="suju-sub">${s.suju_no || ''} · ${s.company || ''}</div>
+                        </div>
+                        <div class="suju-right">
+                            <div class="suju-qty">${this.fmt(s.qty)}</div>
+                            <div class="suju-proc">${s.proc_name || ''}</div>
+                        </div>
+                    </div>`;
+        });
+        $el.html(html);
+      }
+
+      /* ── 원자재 창고 렌더 ── */
+      loadWarehouse(stocks) {
+        // stocks: [{ mat_name:'실리콘 튜브', qty:1200, max_qty:2000 }, ...]
+        const $el = $('#wh-stocks');
+        if (!stocks || !stocks.length) {
+          $el.html('<div class="no-suju">재고 데이터 없음</div>');
+          return;
+        }
+        let html = '';
+        stocks.forEach(s => {
+          const pct = s.max_qty > 0 ? Math.min(100, Math.round(s.qty / s.max_qty * 100)) : 0;
+          const fillCls = pct < 25 ? 'low' : '';
+          html += `<div class="stock-item">
+                        <div class="si-name">${s.mat_name}</div>
+                        <div class="si-bar-wrap">
+                            <div class="si-track"><div class="si-fill ${fillCls}" style="width:${pct}%;"></div></div>
+                            <div class="si-pct">${this.fmt(s.qty)}</div>
+                        </div>
+                    </div>`;
+        });
+        $el.html(html);
+      }
+
+      /* ── 멸균실 렌더 ── */
+      loadSteril(items) {
+        // items: [{ lot_name:'LOT-001', stage:'EO 멸균중', status:'running', remain_min:45 }, ...]
+        const $el = $('#st-list');
+        if (!items || !items.length) {
+          $el.html('<div class="no-suju">진행 중인 멸균 없음</div>');
+          return;
+        }
+        const statusMap = {
+          running: '진행중', done: '완료', standby: '대기', error: '오류'
+        };
+        const iconMap = {
+          running: '🔄', done: '✅', standby: '⏳', error: '⚠️'
+        };
+        let html = '';
+        items.forEach(it => {
+          const badgeCls = it.status || 'standby';
+          const label    = statusMap[badgeCls] || badgeCls;
+          const icon     = iconMap[badgeCls] || '❓';
+          const remain   = it.remain_min > 0
+                  ? `잔여 ${it.remain_min}분` : (it.status === 'done' ? '완료' : '-');
+          html += `<div class="steril-item">
+                        <div class="steril-icon">${icon}</div>
+                        <div class="steril-info">
+                            <div class="steril-name">${it.lot_name || '-'}</div>
+                            <div class="steril-sub">${it.stage || ''} · ${remain}</div>
+                        </div>
+                        <div class="steril-badge ${badgeCls}">${label}</div>
+                    </div>`;
+        });
+        $el.html(html);
+      }
+
+      fmt(n) {
+        const v = parseFloat(n);
+        return isNaN(v) ? '0' : v.toLocaleString();
+      }
+
+      /* ══════════════════════════════════════
+         MOCK 데이터 (백엔드 연동 전 화면 확인용)
+         실제 API 연결 후 아래 메서드 제거
+      ══════════════════════════════════════ */
+      getMockEnv() {
+        return [
+          { zone_id: 'z1', temp: 22.1, humi: 47.3 },
+          { zone_id: 'z2', temp: 21.8, humi: 44.9 },
+          { zone_id: 'z3', temp: 23.4, humi: 51.2 },
+          { zone_id: 'z4', temp: 22.7, humi: 46.8 }
+        ];
+      }
+
+      getMockZones() {
+        return [
+          {
+            zone_id: 'z1',
+            processes: [
+              { proc_name: '초음파 세척', status: 'working' },
+              { proc_name: '건조', status: 'idle' }
+            ],
+            suju: [
+              { suju_no: 'SJ-2024-112', part_name: '카테터 본체', company: 'A메디칼', qty: 800, proc_name: '초음파 세척', status: 'working' },
+              { suju_no: 'SJ-2024-108', part_name: '연결 커넥터', company: 'B바이오텍', qty: 1200, proc_name: '건조 대기', status: 'pending' }
+            ]
+          },
+          {
+            zone_id: 'z2',
+            processes: [
+              { proc_name: '조립 A', status: 'working' },
+              { proc_name: '조립 B', status: 'working' }
+            ],
+            suju: [
+              { suju_no: 'SJ-2024-115', part_name: '주사기 어셈블리', company: 'C메디컬', qty: 3000, proc_name: '조립 A', status: 'working' },
+              { suju_no: 'SJ-2024-110', part_name: '밸브 유닛', company: 'D헬스케어', qty: 500, proc_name: '조립 B', status: 'working' },
+              { suju_no: 'SJ-2024-107', part_name: '실링 링', company: 'E바이오', qty: 2000, proc_name: '조립 완료', status: 'finished' }
+            ]
+          },
+          {
+            zone_id: 'z3',
+            processes: [
+              { proc_name: '외관 검사', status: 'working' }
+            ],
+            suju: [
+              { suju_no: 'SJ-2024-109', part_name: '필터 캡', company: 'F메디컬', qty: 4500, proc_name: '외관 검사', status: 'working' },
+              { suju_no: 'SJ-2024-104', part_name: '튜브 세트', company: 'A메디칼', qty: 600, proc_name: '검사 완료', status: 'finished' }
+            ]
+          },
+          {
+            zone_id: 'z4',
+            processes: [
+              { proc_name: '내포장', status: 'working' }
+            ],
+            suju: [
+              { suju_no: 'SJ-2024-103', part_name: '개인용 흡입기', company: 'G파마', qty: 2400, proc_name: '내포장', status: 'working' }
+            ]
+          }
+        ];
+      }
+
+      getMockWarehouse() {
+        return [
+          { mat_name: '실리콘 튜브 (3mm)',   qty: 1450, max_qty: 2000 },
+          { mat_name: 'ABS 레진',             qty: 320,  max_qty: 2000 },
+          { mat_name: '폴리카보네이트 시트',   qty: 80,   max_qty: 500  },
+          { mat_name: 'EO 가스 카트리지',      qty: 15,   max_qty: 50   },
+          { mat_name: '라벨 (A4 스티커)',       qty: 9800, max_qty: 20000 },
+          { mat_name: '포장 봉투 (멸균용)',     qty: 210,  max_qty: 1000 }
+        ];
+      }
+
+      getMockSteril() {
+        return [
+          { lot_name: 'LOT-2024-0612-A', stage: 'EO 멸균 진행중', status: 'running', remain_min: 35 },
+          { lot_name: 'LOT-2024-0612-B', stage: '통기 사이클',    status: 'running', remain_min: 180 },
+          { lot_name: 'LOT-2024-0611-C', stage: '멸균 완료',      status: 'done',    remain_min: 0 },
+          { lot_name: 'LOT-2024-0613-A', stage: '장입 대기',      status: 'standby', remain_min: 0 }
+        ];
+      }
+    }
+
+    $(document).ready(function () {
+      const dash = new CleanroomDashboard();
+      dash.init();
+    });
+  </script>
+</th:block>
+</html>
