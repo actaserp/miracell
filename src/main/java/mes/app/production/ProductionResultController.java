@@ -1096,7 +1096,6 @@ public class ProductionResultController {
         mp.setDescription(immediate ? "즉시생산" : "작업배정");
 
         if (immediate) {
-            // 즉시생산: 바로 working으로 만들고 차감/완료까지
             mp.setState("working");
             mp.setStartTime(now);
             mp.setGoodQty(qty);
@@ -1104,16 +1103,30 @@ public class ProductionResultController {
             mp = this.matProduceRepository.save(mp);
 
             if (isFirst) {
+                // 세척: 원자재 BOM 차감
                 AjaxResult r = this.productionResultService.consumeBomForChasu(mp.getId(), jr, user, spjangcd);
                 if (!r.success) {
                     TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
                     return r;
                 }
-            }
-            if (isLast) {
+                // 세척완제품(WIP-01) 입고
                 this.productionResultService.produceInForChasu(mp.getId(), m, user, spjangcd);
-                this.productionResultService.calculate_balance_mat_lot_with_job_res(jr.getId());
+
+            } else {
+                // 중간/마지막 공정: 전 공정 WIP 로트 자동 투입
+                AjaxResult r = this.productionResultService.consumePrevWipForChasu(mp.getId(), jr, user, spjangcd);
+                if (!r.success) {
+                    TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+                    return r;
+                }
+                // 현 공정 산출품목 입고 (WIP 또는 완제품)
+                this.productionResultService.produceInForChasu(mp.getId(), m, user, spjangcd);
+
+                if (isLast) {
+                    this.productionResultService.calculate_balance_mat_lot_with_job_res(jr.getId());
+                }
             }
+
             mp.setState("finished");
             this.matProduceRepository.save(mp);
         } else {
