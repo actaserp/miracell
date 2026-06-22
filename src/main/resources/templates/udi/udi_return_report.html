@@ -1,0 +1,355 @@
+<html layout:decorate="~{layout_page}">
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>UDI 반품보고</h2>
+                <a title="북마크" class="bookmark toggle">내 메뉴</a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>UDI 관리</li>
+                <li>반품보고</li>
+            </ul>
+        </div>
+
+        <div style="display: flex; gap: 5px;">
+            <!-- 좌측: 검색 + 목록 -->
+            <section class="section" style="flex: 1.4;">
+                <form id="searchForm" autocomplete="off">
+                    <div class="section-top">
+                        <div class="search-wrap">
+                            <dl>
+                                <dt><label>보고 기준월<span class="eq"></span></label></dt>
+                                <dd><input type="month" id="stdMonth" name="stdMonth"/></dd>
+                            </dl>
+                            <dl>
+                                <dt><label>반품일</label></dt>
+                                <dd>
+                                    <div class="srch-box">
+                                        <input type="date" id="srchStartDt" name="srchStartDt"/>
+                                        <span class="slow_sign">~</span>
+                                        <input type="date" id="srchEndDt" name="srchEndDt"/>
+                                    </div>
+                                </dd>
+                            </dl>
+                        </div>
+                        <div class="search-wrap">
+                            <dl>
+                                <dt><label>보고상태</label></dt>
+                                <dd>
+                                    <select id="reportState" name="reportState">
+                                        <option value="">전체</option>
+                                        <option value="t">임시</option>
+                                        <option value="r">보고확정</option>
+                                        <option value="c">취소</option>
+                                    </select>
+                                </dd>
+                            </dl>
+                            <dl>
+                                <dt><label>UDI-DI/표준코드</label></dt>
+                                <dd><input type="text" id="keyword" name="keyword"/></dd>
+                            </dl>
+                            <dl>
+                                <dt>&nbsp;</dt>
+                                <dd>
+                                    <li>
+                                        <a class="btn btn-delete" title="검색" id="btnSearch">
+                                            <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">검색
+                                        </a>
+                                    </li>
+                                </dd>
+                            </dl>
+                        </div>
+                    </div>
+                </form>
+
+                <div class="title_box" style="margin-bottom: 5px;">
+                    <div class="left_align">
+                        <a class="btn btn-add" title="신규" id="btnNew">신규</a>
+                        <a class="btn btn-delete" title="삭제" id="btnDelete">삭제</a>
+                        <a class="btn btn-save" title="보고확정" id="btnConfirm">보고확정</a>
+                    </div>
+                </div>
+
+                <div class="grid_box" id="divList">
+                    <div id="theGrid"></div>
+                </div>
+            </section>
+
+            <!-- 우측: 입력 폼 -->
+            <section class="section" style="flex: 1; min-width: 0;">
+                <div class="title_box">
+                    <span class="right_align rpt">반품 상세입력</span>
+                </div>
+                <form id="editForm" autocomplete="off" class="udi-edit-form" style="overflow:auto;">
+                    <input type="hidden" id="id" name="id"/>
+                    <table class="table_input">
+                        <colgroup>
+                            <col style="width:30%"><col style="width:70%">
+                        </colgroup>
+                        <tbody>
+                        <tr>
+                            <th>UDI-DI 코드<span class="eq"></span></th>
+                            <td><input type="text" id="udiDiCode" name="udi_di_code"/></td>
+                        </tr>
+                        <tr>
+                            <th>표준코드<span class="eq"></span></th>
+                            <td><input type="text" id="stdCode" name="std_code"/></td>
+                        </tr>
+                        <tr>
+                            <th>UDI-PI 코드</th>
+                            <td><input type="text" id="udiPiCode" name="udi_pi_code"/></td>
+                        </tr>
+                        <tr>
+                            <th>로트번호</th>
+                            <td><input type="text" id="lotNo" name="lot_no"/></td>
+                        </tr>
+                        <tr>
+                            <th>일련번호</th>
+                            <td><input type="text" id="itemSerialNo" name="item_serial_no"/></td>
+                        </tr>
+                        <tr>
+                            <th>제조연월(YYMMDD)</th>
+                            <td><input type="text" id="manufYm" name="manuf_ym" maxlength="6" placeholder="예: 240115"/></td>
+                        </tr>
+                        <tr>
+                            <th>사용기한(YYMMDD)</th>
+                            <td><input type="text" id="useTmlmt" name="use_tmlmt" maxlength="6" placeholder="예: 261231"/></td>
+                        </tr>
+                        <tr>
+                            <th>거래처 코드<span class="eq"></span></th>
+                            <td><input type="text" id="bcncCode" name="bcnc_code"/></td>
+                        </tr>
+                        <tr>
+                            <th>납품장소 다름<span class="eq"></span></th>
+                            <td>
+                                <label><input type="checkbox" id="isDiffDvyfg" name="is_diff_dvyfg"/> 공급받은자와 납품장소가 다름</label>
+                            </td>
+                        </tr>
+                        <tr id="dvyfgRow" style="display:none;">
+                            <th>납품장소 거래처</th>
+                            <td><input type="text" id="dvyfgPlaceBcncCode" name="dvyfg_place_bcnc_code"/></td>
+                        </tr>
+                        <tr>
+                            <th>반품일자<span class="eq"></span></th>
+                            <td><input type="date" id="supplyDate" name="supply_date"/></td>
+                        </tr>
+                        <tr>
+                            <th>수량<span class="eq"></span></th>
+                            <td><input type="number" id="supplyQty" name="supply_qty" step="any"/></td>
+                        </tr>
+                        <tr>
+                            <th>낱개 수량</th>
+                            <td><input type="number" id="indvdlzSupplyQty" name="indvdlz_supply_qty" step="any"/></td>
+                        </tr>
+                        <tr>
+                            <th>반품사유</th>
+                            <td><input type="text" id="remark" name="remark" maxlength="650"/></td>
+                        </tr>
+                        </tbody>
+                    </table>
+                    <div class="title_box" style="margin-top:8px;">
+                        <div class="right_align">
+                            <a class="btn btn-save" title="저장" id="btnSave">저장</a>
+                        </div>
+                    </div>
+                </form>
+            </section>
+        </div>
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <script type="text/javascript">
+
+        // 화면 구분값: 반품(2). 납품/폐기와 동일 API를 공유하며 이 값으로만 구분된다.
+        const SUPPLY_FLAG_CODE = '2';
+        let gUrl = '/api/udi/supply_report';
+
+        class UdiReportPage {
+            constructor() {
+                this.grid = null;
+                this.viewData = new wijmo.collections.CollectionView();
+                this.init();
+            }
+
+            init() {
+                this.grid = new wijmo.grid.FlexGrid('#theGrid', {
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    allowSorting: 'MultiColumn',
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    isReadOnly: true,
+                    columns: [
+                        {binding: 'report_state_name', header: '상태', width: 80, align: 'center'},
+                        {binding: 'supply_date', header: '반품일', width: 100, align: 'center'},
+                        {binding: 'udi_di_code', header: 'UDI-DI', width: 140, align: 'left'},
+                        {binding: 'std_code', header: '표준코드', width: 160, align: 'left'},
+                        {binding: 'lot_no', header: '로트', width: 100, align: 'center'},
+                        {binding: 'supply_qty', header: '수량', width: 80, align: 'right'},
+                        {binding: 'bcnc_code', header: '거래처', width: 100, align: 'center'},
+                        {binding: 'remark', header: '반품사유', width: '*', align: 'left'},
+                    ],
+                    itemsSource: this.viewData,
+                    formatItem: function (s, e) {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                    },
+                });
+
+                new wijmo.grid.selector.Selector(this.grid);
+
+                let _this = this;
+                this.grid.selectionChanged.addHandler((s, e) => {
+                    let idx = s.selection.row;
+                    if (idx >= 0 && s.rows[idx]) {
+                        _this.fillForm(s.rows[idx].dataItem);
+                    }
+                });
+
+                new FlexGridContextMenu(this.grid);
+                this.grid.downloadFileName = 'UDI_반품보고';
+            }
+
+            searchList() {
+                let data = FormUtil.extractForm($('#searchForm'));
+                let param = {
+                    std_month: (data['stdMonth'] || '').replace('-', ''),
+                    supply_flag_code: SUPPLY_FLAG_CODE,
+                    date_from: (data['srchStartDt'] || '').replaceAll('-', ''),
+                    date_to: (data['srchEndDt'] || '').replaceAll('-', ''),
+                    report_state: data['reportState'] || '',
+                    keyword: data['keyword'] || ''
+                };
+                let result = AjaxUtil.getSyncData(gUrl + '/list', param);
+                this.grid.itemsSource = (result && result.data) ? result.data : [];
+            }
+
+            fillForm(item) {
+                $('#id').val(item.id);
+                $('#udiDiCode').val(item.udi_di_code || '');
+                $('#stdCode').val(item.std_code || '');
+                $('#udiPiCode').val(item.udi_pi_code || '');
+                $('#lotNo').val(item.lot_no || '');
+                $('#itemSerialNo').val(item.item_serial_no || '');
+                $('#manufYm').val(item.manuf_ym || '');
+                $('#useTmlmt').val(item.use_tmlmt || '');
+                $('#bcncCode').val(item.bcnc_code || '');
+                $('#isDiffDvyfg').prop('checked', item.is_diff_dvyfg === true);
+                $('#dvyfgPlaceBcncCode').val(item.dvyfg_place_bcnc_code || '');
+                $('#supplyDate').val(this.toDateInput(item.supply_date));
+                $('#supplyQty').val(item.supply_qty);
+                $('#indvdlzSupplyQty').val(item.indvdlz_supply_qty);
+                $('#remark').val(item.remark || '');
+                this.toggleDvyfgRow();
+            }
+
+            newRow() {
+                $('#editForm')[0].reset();
+                $('#id').val('');
+                this.toggleDvyfgRow();
+            }
+
+            toggleDvyfgRow() {
+                $('#dvyfgRow').toggle($('#isDiffDvyfg').is(':checked'));
+            }
+
+            collectForm() {
+                return {
+                    id: $('#id').val(),
+                    std_month: ($('#stdMonth').val() || '').replace('-', ''),
+                    supply_flag_code: SUPPLY_FLAG_CODE,
+                    udi_di_code: $('#udiDiCode').val(),
+                    std_code: $('#stdCode').val(),
+                    udi_pi_code: $('#udiPiCode').val(),
+                    lot_no: $('#lotNo').val(),
+                    item_serial_no: $('#itemSerialNo').val(),
+                    manuf_ym: $('#manufYm').val(),
+                    use_tmlmt: $('#useTmlmt').val(),
+                    bcnc_code: $('#bcncCode').val(),
+                    is_diff_dvyfg: $('#isDiffDvyfg').is(':checked'),
+                    dvyfg_place_bcnc_code: $('#dvyfgPlaceBcncCode').val(),
+                    supply_date: ($('#supplyDate').val() || '').replaceAll('-', ''),
+                    supply_qty: $('#supplyQty').val(),
+                    indvdlz_supply_qty: $('#indvdlzSupplyQty').val(),
+                    remark: $('#remark').val()
+                };
+            }
+
+            save() {
+                let data = this.collectForm();
+                if (!data.std_month) { Alert.alert('', '보고 기준월을 선택하세요.'); return; }
+                let _this = this;
+                AjaxUtil.postAsyncData(gUrl + '/save', data, function (result) {
+                    if (result.success) {
+                        Notify.success(result.message || '저장되었습니다.');
+                        _this.searchList();
+                    } else {
+                        Alert.alert('', result.message || '저장에 실패했습니다.');
+                    }
+                });
+            }
+
+            selectedIds() {
+                return this.grid.rows.filter(r => r.isSelected).map(r => r.dataItem.id);
+            }
+
+            del() {
+                let ids = this.selectedIds();
+                if (ids.length === 0) { Alert.alert('', '선택된 항목이 없습니다.'); return; }
+                let _this = this;
+                Alert.confirm('삭제', '선택된 항목을 삭제하시겠습니까? (임시 상태만 삭제됩니다)', function () {
+                    AjaxUtil.postAsyncData(gUrl + '/delete', {ids: ids}, function (result) {
+                        if (result.success) { Notify.success(result.message); _this.searchList(); }
+                        else { Alert.alert('', result.message); }
+                    });
+                });
+            }
+
+            confirm() {
+                let ids = this.selectedIds();
+                if (ids.length === 0) { Alert.alert('', '선택된 항목이 없습니다.'); return; }
+                let _this = this;
+                Alert.confirm('보고확정', '선택된 항목을 식약처로 보고확정 처리하시겠습니까?', function () {
+                    AjaxUtil.postAsyncData(gUrl + '/confirm', {ids: ids}, function (result) {
+                        if (result.success) { Notify.success(result.message); _this.searchList(); }
+                        else { Alert.alert('', result.message); }
+                    });
+                });
+            }
+
+            toDateInput(yyyymmdd) {
+                if (!yyyymmdd || yyyymmdd.length !== 8) return '';
+                return yyyymmdd.substr(0,4) + '-' + yyyymmdd.substr(4,2) + '-' + yyyymmdd.substr(6,2);
+            }
+        }
+
+        let page = null;
+        $(document).ready(function () {
+            page = new UdiReportPage();
+
+            const now = new Date();
+            const monthStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+            $('#stdMonth').val(monthStr);
+
+            const oneMonthAgo = new Date(now); oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+            $('#srchStartDt').val(CommonUtil.formatYYYYMMDD(oneMonthAgo));
+            $('#srchEndDt').val(CommonUtil.formatYYYYMMDD(now));
+
+            $('#btnSearch').click(function (e) { e.preventDefault(); page.searchList(); });
+            $('#searchForm').on('keydown', function (e) {
+                if (e.key === 'Enter') { e.preventDefault(); page.searchList(); }
+            });
+            $('#btnNew').click(function () { page.newRow(); });
+            $('#btnSave').click(function () { page.save(); });
+            $('#btnDelete').click(function () { page.del(); });
+            $('#btnConfirm').click(function () { page.confirm(); });
+            $('#isDiffDvyfg').change(function () { page.toggleDvyfgRow(); });
+
+            page.searchList();
+        });
+    </script>
+</th:block>
+</html>

@@ -1,0 +1,168 @@
+<html layout:decorate="~{layout_page}">
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>UDI 현황집계표</h2>
+                <a title="북마크" class="bookmark toggle">내 메뉴</a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>UDI 관리</li>
+                <li>현황집계표</li>
+            </ul>
+        </div>
+
+        <section class="section">
+            <form id="searchForm" autocomplete="off">
+                <div class="section-top">
+                    <div class="search-wrap">
+                        <dl>
+                            <dt><label>보고 기준월<span class="eq"></span></label></dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <input type="month" id="stdFrom" name="stdFrom"/>
+                                    <span class="slow_sign">~</span>
+                                    <input type="month" id="stdTo" name="stdTo"/>
+                                </div>
+                            </dd>
+                        </dl>
+                        <dl>
+                            <dt><label>보고상태</label></dt>
+                            <dd>
+                                <select id="reportState" name="reportState">
+                                    <option value="">전체</option>
+                                    <option value="t">임시</option>
+                                    <option value="r">보고확정</option>
+                                    <option value="c">취소</option>
+                                </select>
+                            </dd>
+                        </dl>
+                        <dl>
+                            <dt><label>UDI-DI/표준코드</label></dt>
+                            <dd><input type="text" id="keyword" name="keyword"/></dd>
+                        </dl>
+                        <dl>
+                            <dt>&nbsp;</dt>
+                            <dd>
+                                <li>
+                                    <a class="btn btn-delete" title="검색" id="btnSearch">
+                                        <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">검색
+                                    </a>
+                                </li>
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </form>
+
+            <div class="title_box" style="margin-bottom: 5px;">
+                <div class="right_align">
+                    <a class="btn btn-save" title="엑셀 다운로드" id="btnExcel">엑셀 다운로드</a>
+                </div>
+            </div>
+
+            <div class="grid_box" id="divList">
+                <div id="theGrid"></div>
+            </div>
+        </section>
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <script type="text/javascript">
+
+        let gUrl = '/api/udi/supply_report';
+
+        class UdiSummaryPage {
+            constructor() {
+                this.grid = null;
+                this.init();
+            }
+
+            init() {
+                this.grid = new wijmo.grid.FlexGrid('#theGrid', {
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    allowSorting: 'MultiColumn',
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    isReadOnly: true,
+                    columns: [
+                        {binding: 'udi_di_code', header: 'UDI-DI', width: 150, align: 'left'},
+                        {binding: 'std_code', header: '표준코드', width: 180, align: 'left'},
+                        {binding: 'delivery_qty', header: '납품수량', width: 100, align: 'right', format: 'n0'},
+                        {binding: 'return_qty', header: '반품수량', width: 100, align: 'right', format: 'n0'},
+                        {binding: 'disposal_qty', header: '폐기수량', width: 100, align: 'right', format: 'n0'},
+                        {binding: 'delivery_amt', header: '납품금액', width: 120, align: 'right', format: 'n0'},
+                        {binding: 'report_cnt', header: '보고건수', width: 90, align: 'right', format: 'n0'},
+                        {binding: 'confirmed_cnt', header: '확정', width: 70, align: 'right', format: 'n0'},
+                        {binding: 'temp_cnt', header: '임시', width: 70, align: 'right', format: 'n0'},
+                    ],
+                    formatItem: function (s, e) {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                    },
+                });
+
+                // 합계 행 표시
+                this.grid.columnFooters.rows.push(new wijmo.grid.GroupRow());
+                this.grid.bottomLeftCells.setCellData(0, 0, '합계');
+                ['delivery_qty', 'return_qty', 'disposal_qty', 'delivery_amt', 'report_cnt', 'confirmed_cnt', 'temp_cnt']
+                    .forEach(b => {
+                        this.grid.columns.getColumn(b).aggregate = wijmo.Aggregate.Sum;
+                    });
+
+                new FlexGridContextMenu(this.grid);
+                this.grid.downloadFileName = 'UDI_현황집계표';
+            }
+
+            searchList() {
+                let data = FormUtil.extractForm($('#searchForm'));
+                let stdFrom = (data['stdFrom'] || '').replace('-', '');
+                let stdTo = (data['stdTo'] || '').replace('-', '');
+                if (!stdFrom || !stdTo) { Alert.alert('', '보고 기준월 범위를 선택하세요.'); return; }
+                if (stdFrom > stdTo) { Alert.alert('', '기준월 시작이 종료보다 클 수 없습니다.'); return; }
+
+                let param = {
+                    std_from: stdFrom,
+                    std_to: stdTo,
+                    report_state: data['reportState'] || '',
+                    keyword: data['keyword'] || ''
+                };
+                let result = AjaxUtil.getSyncData(gUrl + '/summary', param);
+                this.grid.itemsSource = (result && result.data) ? result.data : [];
+            }
+
+            excel() {
+                if (!this.grid.rows.length) { Alert.alert('', '다운로드할 데이터가 없습니다.'); return; }
+                if (wijmo.grid.xlsx && wijmo.grid.xlsx.FlexGridXlsxConverter) {
+                    wijmo.grid.xlsx.FlexGridXlsxConverter.saveAsync(
+                        this.grid, {includeColumnHeaders: true}, 'UDI_현황집계표.xlsx');
+                } else {
+                    // xlsx 모듈 미로드 환경: 그리드 우클릭 메뉴의 내보내기를 사용
+                    Alert.alert('', '그리드에서 우클릭 후 내보내기를 사용해 주세요.');
+                }
+            }
+        }
+
+        let page = null;
+        $(document).ready(function () {
+            page = new UdiSummaryPage();
+
+            const now = new Date();
+            const monthStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+            $('#stdFrom').val(monthStr);
+            $('#stdTo').val(monthStr);
+
+            $('#btnSearch').click(function (e) { e.preventDefault(); page.searchList(); });
+            $('#searchForm').on('keydown', function (e) {
+                if (e.key === 'Enter') { e.preventDefault(); page.searchList(); }
+            });
+            $('#btnExcel').click(function () { page.excel(); });
+
+            page.searchList();
+        });
+    </script>
+</th:block>
+</html>
