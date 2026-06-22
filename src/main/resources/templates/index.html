@@ -747,7 +747,7 @@
                 function apply() {
                     $('#navbarBarMenu2 .open_menu').toggleClass('menu_open', collapsed);
                     $('.menu_area').toggleClass('hidden', collapsed);
-                    $('.dashboard-layout-header').toggle(!collapsed);
+                    $('.dashboard-layout-header').toggleClass('header-collapsed', collapsed);
 
                     const footerH = $('.footer').outerHeight() || 0;
                     const tabsH   = $('.nth-tabs .page-tabs').outerHeight() || 0;
@@ -770,7 +770,7 @@
                             height: '', position: ''                        // ★ position도 원복
                         });
                         $('.tab-content .tab-pane, .nth-tabs-frame').css('height', '');
-                        $(window).trigger('resize');
+                        setTimeout(function () { $(window).trigger('resize'); }, 320);
                     }
 
                     $('.con_area iframe').each(function () {
