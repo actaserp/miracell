@@ -6,17 +6,17 @@
         .background-blue {
             background-color: #dcf0f8 !important;
             font-weight: bold !important;
-            text-align: right !important;
+            /*text-align: right !important;*/
         }
         .background-order {
             background-color: #e8f5e9 !important;
             font-weight: bold !important;
-            text-align: right !important;
+            /*text-align: right !important;*/
         }
         .background-defect {
             background-color: #fce4ec !important;
             font-weight: bold !important;
-            text-align: right !important;
+            /*text-align: right !important;*/
         }
 
         /* ── 공정 화면 보강: 작업 버튼 크게 (키오스크/태블릿) ── */
@@ -35,6 +35,10 @@
         /* ════════ 반응형: touch-mode(1600 밑) 기반 ════════ */
         /* 평소(PC): '목록' 탭 숨김 */
         .tab-links li:has(a[name="tabList"]) { display: none; }
+        /* 멸균 공정: 투입내역·차수별생산·부적합정보 탭 숨김 */
+        .tab-links li:has(a[name="tabConsumed"]),
+        .tab-links li:has(a[name="tabChasu"]),
+        .tab-links li:has(a[name="tabDefect"]) { display: none; }
 
         /* touch-mode: 좌우 2단 → 단일 컬럼, 목록을 탭으로 */
         body.touch-mode .prod-flex { flex-direction: column !important; }
@@ -56,7 +60,7 @@
         /* PC: 목록 탭 콘텐츠 자체를 강제 숨김 (빈 박스 방지) */
         body:not(.touch-mode) #tabList { display: none !important; }
         /* ════════ 멸균일지 탭 ════════ */
-        #tabSteril .work-table { width:100%; border-collapse:collapse; }
+        #tabSteril .work-table { border-collapse:collapse; }
         #tabSteril .work-table th, #tabSteril .work-table td { border:1px solid #e0e0e0; padding:8px 10px; vertical-align:middle; }
         #tabSteril .work-table th { background:#eceff1; }
         #tabSteril .crit { color:#607d8b; font-size:.88rem; white-space:pre-line; }
@@ -636,7 +640,7 @@
             saveSteril() {
                 const p = this.buildSterilPayload();
                 if (!p.lot_number) {
-                    alert('대상 LOT을 스캔/입력하세요.');
+                    alert('저장');
                     return;
                 }
                 // 실제 저장: steril_log(헤더) + steril_log_detail(단계별 기록) INSERT

@@ -2,6 +2,10 @@
 
 <head>
     <style>
+        table td{
+            text-align: center;
+        }
+
         /* 기존 prod_result 수량 강조 클래스와 동일 */
         .background-blue {
             background-color: #dcf0f8 !important;
@@ -35,6 +39,10 @@
         /* ════════ 반응형: touch-mode(1600 밑) 기반 ════════ */
         /* 평소(PC): '목록' 탭 숨김 */
         .tab-links li:has(a[name="tabList"]) { display: none; }
+        /* 검사 공정: 투입내역·차수별생산·부적합정보 탭 숨김 */
+        .tab-links li:has(a[name="tabConsumed"]),
+        .tab-links li:has(a[name="tabChasu"]),
+        .tab-links li:has(a[name="tabDefect"]) { display: none; }
 
         /* touch-mode: 좌우 2단 → 단일 컬럼, 목록을 탭으로 */
         body.touch-mode .prod-flex { flex-direction: column !important; }
@@ -437,7 +445,7 @@
     <script type="text/javascript">
         // 공정별 설정 — 이 파일은 검사(p03) 전용
         const PROCESS_CONFIG = {
-            'p03': { name: '검사' },
+            'p03': {name: '검사'},
         };
 
         const MENUCODE_TO_PROCESS = {
@@ -448,7 +456,7 @@
         class ProcInspectPage extends ProcPageBase {
             constructor(processCode) {
                 super(processCode);
-                this.config = PROCESS_CONFIG[processCode] || { name: processCode };
+                this.config = PROCESS_CONFIG[processCode] || {name: processCode};
                 this.applyTheme();
                 this.init();
             }
@@ -482,8 +490,8 @@
                     selectionMode: wijmo.grid.SelectionMode.Row,
                     isReadOnly: false,
                     columns: [
-                        { binding: 'defect_type', header: '부적합유형', width: '*', align: 'left', isReadOnly: true },
-                        { binding: 'defect_qty',  header: '부적합량',   width: 100, format: 'n0', align: 'right' },
+                        {binding: 'defect_type', header: '부적합유형', width: '*', align: 'left', isReadOnly: true},
+                        {binding: 'defect_qty', header: '부적합량', width: 100, format: 'n0', align: 'right'},
                     ]
                 });
             }
@@ -500,14 +508,14 @@
                             e.cell.style.textAlign = 'center';
                     },
                     columns: [
-                        { binding: 'mat_code',        header: '품목코드',    width: 100, align: 'left' },
-                        { binding: 'mat_name',        header: '품목',        width: '*',  align: 'left', minWidth: 120 },
-                        { binding: 'request_qty_sum', header: '로트투입량',  width: 100, format: 'n2', align: 'right' },
-                        { binding: 'bom_consumed',    header: '소요량(BOM)', width: 110, format: 'n2', align: 'right' },
-                        { binding: 'remain_input_qty',header: '잔여량',      width: 90,  format: 'n2', align: 'right' },
-                        { binding: 'mc_qty',          header: '실생산소모량', width: 110, format: 'n2', align: 'right' },
-                        { binding: 'currentStock',    header: '현재재고',    width: 90,  format: 'n2', align: 'right' },
-                        { binding: 'unit',            header: '단위',        width: 60,  align: 'center' },
+                        {binding: 'mat_code', header: '품목코드', width: 100, align: 'left'},
+                        {binding: 'mat_name', header: '품목', width: '*', align: 'left', minWidth: 120},
+                        {binding: 'request_qty_sum', header: '로트투입량', width: 100, format: 'n2', align: 'right'},
+                        {binding: 'bom_consumed', header: '소요량(BOM)', width: 110, format: 'n2', align: 'right'},
+                        {binding: 'remain_input_qty', header: '잔여량', width: 90, format: 'n2', align: 'right'},
+                        {binding: 'mc_qty', header: '실생산소모량', width: 110, format: 'n2', align: 'right'},
+                        {binding: 'currentStock', header: '현재재고', width: 90, format: 'n2', align: 'right'},
+                        {binding: 'unit', header: '단위', width: 60, align: 'center'},
                     ],
                     itemFormatter: (panel, row, col, cell) => {
                         if (panel.cellType === wijmo.grid.CellType.Cell) {
@@ -524,10 +532,10 @@
                     selectionMode: wijmo.grid.SelectionMode.Row,
                     isReadOnly: false,
                     columns: [
-                        { binding: 'lot_number', header: '로트번호', width: 140, align: 'center' },
-                        { binding: 'mat_code',   header: '품목코드', width: 120, align: 'center' },
-                        { binding: 'mat_name',   header: '품목명',   width: '*',  align: 'left' },
-                        { binding: 'input_qty',  header: '투입량',   width: 90,  format: 'n2', align: 'right' },
+                        {binding: 'lot_number', header: '로트번호', width: 140, align: 'center'},
+                        {binding: 'mat_code', header: '품목코드', width: 120, align: 'center'},
+                        {binding: 'mat_name', header: '품목명', width: '*', align: 'left'},
+                        {binding: 'input_qty', header: '투입량', width: 90, format: 'n2', align: 'right'},
                     ]
                 });
             }
@@ -537,21 +545,25 @@
             initInspectTab() {
                 const _this = this;
                 this.INSP_TEMPLATES = {
-                    'BASKET-50': { name:'#60 BASKET TEST 50회', type:'repeat', count:50,
-                        item:'BASKET LOCK ON/OFF', criteria:['BSC 30-30주','BSC 60-60주','BMSC-60주'], tool:true },
-                    'ROTOR': { name:'#50 ROTOR', type:'checklist', items:[
-                            {no:1,item:'전원 ON/OFF (3회)',criteria:'ON·OFF / 전원 LED·스위치 문제 없을 것',method:'육안'},
-                            {no:2,item:'외관 및 손잡이 고정',criteria:'파손·이물질·얼룩 없을 것 / 손잡이 헛돎 없이 고정',method:'육안'},
-                            {no:3,item:'배터리 충전',criteria:'충전 LED 점등·점멸 및 100% 충전',method:'육안'},
-                            {no:4,item:'블루투스',criteria:'연결 멘트 및 모니터에 ROTOR 배터리 잔량 표시',method:'육안'},
-                            {no:5,item:'BASKET',criteria:'움직임 부드럽고 소음 없을 것 / 챔버·모터 쏠림 없을 것',method:'육안'},
-                            {no:6,item:'ROTOR 진동 밸런스',criteria:'ROTOR 진동 및 소음 없을 것',method:'육안 / EAR'},
-                        ]},
+                    'BASKET-50': {
+                        name: '#60 BASKET TEST 50회', type: 'repeat', count: 50,
+                        item: 'BASKET LOCK ON/OFF', criteria: ['BSC 30-30주', 'BSC 60-60주', 'BMSC-60주'], tool: true
+                    },
+                    'ROTOR': {
+                        name: '#50 ROTOR', type: 'checklist', items: [
+                            {no: 1, item: '전원 ON/OFF (3회)', criteria: 'ON·OFF / 전원 LED·스위치 문제 없을 것', method: '육안'},
+                            {no: 2, item: '외관 및 손잡이 고정', criteria: '파손·이물질·얼룩 없을 것 / 손잡이 헛돎 없이 고정', method: '육안'},
+                            {no: 3, item: '배터리 충전', criteria: '충전 LED 점등·점멸 및 100% 충전', method: '육안'},
+                            {no: 4, item: '블루투스', criteria: '연결 멘트 및 모니터에 ROTOR 배터리 잔량 표시', method: '육안'},
+                            {no: 5, item: 'BASKET', criteria: '움직임 부드럽고 소음 없을 것 / 챔버·모터 쏠림 없을 것', method: '육안'},
+                            {no: 6, item: 'ROTOR 진동 밸런스', criteria: 'ROTOR 진동 및 소음 없을 것', method: '육안 / EAR'},
+                        ]
+                    },
                 };
                 this.inspRows = [];
-                $('#inspTplSel').html(Object.entries(this.INSP_TEMPLATES).map(([k,v])=>`<option value="${k}">${v.name}</option>`).join(''));
-                $('#inspDate').val(new Date().toISOString().slice(0,10));
-                $('#inspWorker').val(typeof username !== 'undefined' && username ? username : (typeof userid!=='undefined'?userid:''));
+                $('#inspTplSel').html(Object.entries(this.INSP_TEMPLATES).map(([k, v]) => `<option value="${k}">${v.name}</option>`).join(''));
+                $('#inspDate').val(new Date().toISOString().slice(0, 10));
+                $('#inspWorker').val(typeof username !== 'undefined' && username ? username : (typeof userid !== 'undefined' ? userid : ''));
                 $('#inspTplSel').on('change', () => _this.renderInspectTemplate());
                 $('.tab-links a[name="tabInspect"]').on('click', () => _this.refreshInspectHead());
                 $('#btnInspSave').on('click', () => _this.saveInspect());
@@ -559,7 +571,7 @@
             }
 
             refreshInspectHead() {
-                const t = ((($('#mat_code').val()||'') + ' ' + ($('#mat_name').val()||'')).trim());
+                const t = ((($('#mat_code').val() || '') + ' ' + ($('#mat_name').val() || '')).trim());
                 $('#inspProd').text(t || '작업을 선택하세요');
             }
 
@@ -572,10 +584,10 @@
 
             // 반복형(BASKET 50회): 1회차 완료 → 다음 회차 생성 (증분). 직전 값 이월.
             renderInspRepeat(tpl) {
-                const _this=this;
+                const _this = this;
                 this.inspRounds = [];          // 완료된 회차
-                this.inspTotal  = tpl.count;   // 50
-                const crit = tpl.criteria.map(c=>`<option>${c}</option>`).join('');
+                this.inspTotal = tpl.count;   // 50
+                const crit = tpl.criteria.map(c => `<option>${c}</option>`).join('');
                 $('#inspTplArea').html(`
                   <div class="insp-box">
                     <div class="insp-secttitle">${tpl.name} — ${tpl.item}</div>
@@ -586,33 +598,35 @@
                         &nbsp; <span class="fail">불합격 <b id="inspCf">0</b></span></div>
                     </div>
                     <table class="work-table">
-                      <thead><tr><th style="width:60px;">회차</th><th style="width:100px;">결과</th><th style="width:100px;">측정값</th><th>사유</th>${tpl.tool?'<th style="width:130px;">사용공구</th>':''}<th style="width:110px;">검사자</th><th style="width:60px;"></th></tr></thead>
+                      <thead><tr><th style="width:60px;">회차</th><th style="width:100px;">결과</th><th style="width:100px;">측정값</th><th>사유</th>${tpl.tool ? '<th style="width:130px;">사용공구</th>' : ''}<th style="width:110px;">검사자</th><th style="width:60px;"></th></tr></thead>
                       <tbody id="inspDoneBody"></tbody>
                     </table>
                     <div id="inspActiveCard" class="insp-active"></div>
                   </div>`);
-                $('#inspCrit').on('change', ()=>_this.inspRounds.forEach(r=>r.criteria=$('#inspCrit').val()));
+                $('#inspCrit').on('change', () => _this.inspRounds.forEach(r => r.criteria = $('#inspCrit').val()));
                 this.drawInspActive(tpl);
                 this.drawInspDone(tpl);
             }
 
             // 현재 회차 입력 카드 (직전 회차 값 이월: 측정값/사용공구/검사자)
             drawInspActive(tpl) {
-                const _this=this;
+                const _this = this;
                 const done = this.inspRounds.length;
                 if (done >= this.inspTotal) {
                     $('#inspActiveCard').html(`<div class="insp-complete">✓ ${this.inspTotal}회 전수검사 완료 — 저장하세요.</div>`);
                     return;
                 }
-                const prev = this.inspRounds[done-1] || {};
-                const card = { no: done+1, value: prev.value || 'OK', tool: prev.tool || '',
-                    inspector: prev.inspector || $('#inspWorker').val() };
+                const prev = this.inspRounds[done - 1] || {};
+                const card = {
+                    no: done + 1, value: prev.value || 'OK', tool: prev.tool || '',
+                    inspector: prev.inspector || $('#inspWorker').val()
+                };
                 this._activeCard = card;
                 $('#inspActiveCard').html(`
                   <div class="ac-title">현재 회차 <b>${card.no}</b> / ${this.inspTotal}</div>
                   <div class="ac-fields">
                     <label class="hf">측정값<input type="text" id="acValue" value="${card.value}"></label>
-                    ${tpl.tool?`<label class="hf">사용공구<input type="text" id="acTool" value="${card.tool}" placeholder="관리번호"></label>`:''}
+                    ${tpl.tool ? `<label class="hf">사용공구<input type="text" id="acTool" value="${card.tool}"></label>` : ''}
                     <label class="hf">검사자<input type="text" id="acInspector" value="${card.inspector}"></label>
                     <label class="hf" style="flex:1 1 240px;">사유 (불합격 시)<input type="text" id="acReason" placeholder="불합격일 때 입력"></label>
                   </div>
@@ -631,70 +645,95 @@
                     _this.inspRounds.push(c);
                     _this.drawInspDone(tpl);
                     _this.drawInspActive(tpl);
-                    document.getElementById('inspActiveCard')?.scrollIntoView({ block:'center', behavior:'smooth' });
+                    document.getElementById('inspActiveCard')?.scrollIntoView({block: 'center', behavior: 'smooth'});
                 };
-                $('#acPass').on('click', ()=>commit('PASS'));
-                $('#acFail').on('click', ()=>{ if(!$('#acReason').val()){ alert('불합격 사유를 입력하세요.'); $('#acReason').focus(); return; } commit('FAIL'); });
+                $('#acPass').on('click', () => commit('PASS'));
+                $('#acFail').on('click', () => {
+                    if (!$('#acReason').val()) {
+                        alert('불합격 사유를 입력하세요.');
+                        $('#acReason').focus();
+                        return;
+                    }
+                    commit('FAIL');
+                });
             }
 
             // 완료 회차 목록 (취소 가능)
             drawInspDone(tpl) {
-                const _this=this;
-                $('#inspDoneBody').html(this.inspRounds.map((r,i)=>`
-                  <tr class="${r.result==='FAIL'?'failrow':''}">
+                const _this = this;
+                $('#inspDoneBody').html(this.inspRounds.map((r, i) => `
+                  <tr class="${r.result === 'FAIL' ? 'failrow' : ''}">
                     <td>${r.no}</td>
-                    <td><span class="res-tag ${r.result==='PASS'?'pass':'fail'}">${r.result}</span></td>
-                    <td>${r.value||''}</td><td style="text-align:left;">${r.reason||''}</td>
-                    ${tpl.tool?`<td>${r.tool||''}</td>`:''}<td>${r.inspector||''}</td>
+                    <td><span class="res-tag ${r.result === 'PASS' ? 'pass' : 'fail'}">${r.result}</span></td>
+                    <td>${r.value || ''}</td><td style="text-align:left;">${r.reason || ''}</td>
+                    ${tpl.tool ? `<td>${r.tool || ''}</td>` : ''}<td>${r.inspector || ''}</td>
                     <td><button type="button" class="btn-mini" data-i="${i}">취소</button></td>
                   </tr>`).join(''));
-                $('#inspDoneBody .btn-mini').off('click').on('click',function(){
-                    const i=+$(this).data('i'); _this.inspRounds.splice(i,1);
-                    _this.inspRounds.forEach((r,k)=>r.no=k+1);
-                    _this.drawInspDone(tpl); _this.drawInspActive(tpl);
+                $('#inspDoneBody .btn-mini').off('click').on('click', function () {
+                    const i = +$(this).data('i');
+                    _this.inspRounds.splice(i, 1);
+                    _this.inspRounds.forEach((r, k) => r.no = k + 1);
+                    _this.drawInspDone(tpl);
+                    _this.drawInspActive(tpl);
                 });
-                const p=this.inspRounds.filter(r=>r.result==='PASS').length;
+                const p = this.inspRounds.filter(r => r.result === 'PASS').length;
                 $('#inspDone').text(this.inspRounds.length);
-                $('#inspCp').text(p); $('#inspCf').text(this.inspRounds.length-p);
+                $('#inspCp').text(p);
+                $('#inspCf').text(this.inspRounds.length - p);
             }
 
             // 항목형(ROTOR): 고정 항목 PASS/FAIL
             renderInspChecklist(tpl) {
-                this.inspRows = tpl.items.map(it=>({no:it.no,item:it.item,result:'PASS',value:''}));
+                this.inspRows = tpl.items.map(it => ({no: it.no, item: it.item, result: 'PASS', value: ''}));
                 $('#inspTplArea').html(`
                   <div class="insp-box">
                     <div class="insp-secttitle">${tpl.name} — 항목별 검사</div>
                     <div class="insp-scroll">
                       <table class="work-table">
                         <thead><tr><th style="width:54px;">No</th><th style="width:170px;">검사항목</th><th>합격기준</th><th style="width:90px;">판정</th><th style="width:130px;">결과</th><th style="width:140px;">측정값/비고</th></tr></thead>
-                        <tbody>${tpl.items.map((it,i)=>`<tr id="inspCk${i}"><td>${it.no}</td><td style="text-align:left;">${it.item}</td><td style="text-align:left;" class="muted">${it.criteria}</td><td>${it.method}</td><td><button type="button" class="res-btn pass" data-i="${i}">PASS</button></td><td><input type="text" data-i="${i}" style="width:120px;"></td></tr>`).join('')}</tbody>
+                        <tbody>${tpl.items.map((it, i) => `<tr id="inspCk${i}"><td>${it.no}</td><td style="text-align:left;">${it.item}</td><td style="text-align:left;" class="muted">${it.criteria}</td><td>${it.method}</td><td><button type="button" class="res-btn pass" data-i="${i}">PASS</button></td><td><input type="text" data-i="${i}" style="width:120px;"></td></tr>`).join('')}</tbody>
                       </table>
                     </div>
                   </div>`);
-                const _this=this;
-                $('#inspTplArea .res-btn').on('click',function(){const i=+$(this).data('i');const r=_this.inspRows[i];r.result=r.result==='PASS'?'FAIL':'PASS';$(this).text(r.result).attr('class','res-btn '+(r.result==='PASS'?'pass':'fail'));$('#inspCk'+i).css('background',r.result==='FAIL'?'#fff5f5':'');});
-                $('#inspTplArea input').on('change',function(){_this.inspRows[+$(this).data('i')].value=this.value;});
+                const _this = this;
+                $('#inspTplArea .res-btn').on('click', function () {
+                    const i = +$(this).data('i');
+                    const r = _this.inspRows[i];
+                    r.result = r.result === 'PASS' ? 'FAIL' : 'PASS';
+                    $(this).text(r.result).attr('class', 'res-btn ' + (r.result === 'PASS' ? 'pass' : 'fail'));
+                    $('#inspCk' + i).css('background', r.result === 'FAIL' ? '#fff5f5' : '');
+                });
+                $('#inspTplArea input').on('change', function () {
+                    _this.inspRows[+$(this).data('i')].value = this.value;
+                });
             }
 
             buildInspPayload() {
                 const tpl = this.INSP_TEMPLATES[$('#inspTplSel').val()];
-                const rows = tpl.type === 'repeat' ? (this.inspRounds||[]) : (this.inspRows||[]);
-                const pass = rows.filter(r=>r.result==='PASS').length;
-                return { template_code:$('#inspTplSel').val(), lot_number:$('#inspLot').val(),
-                    job_res_id:this.jobres?.id||null, mat_code:$('#mat_code').val()||null,
-                    inspector:$('#inspWorker').val(), insp_date:$('#inspDate').val(),
-                    criteria:$('#inspCrit').val()||null, total_qty:rows.length,
-                    pass_qty:pass, fail_qty:rows.length-pass,
-                    judge:(rows.length-pass)===0?'합격':'불합격', details:rows };
+                const rows = tpl.type === 'repeat' ? (this.inspRounds || []) : (this.inspRows || []);
+                const pass = rows.filter(r => r.result === 'PASS').length;
+                return {
+                    template_code: $('#inspTplSel').val(), lot_number: $('#inspLot').val(),
+                    job_res_id: this.jobres?.id || null, mat_code: $('#mat_code').val() || null,
+                    inspector: $('#inspWorker').val(), insp_date: $('#inspDate').val(),
+                    criteria: $('#inspCrit').val() || null, total_qty: rows.length,
+                    pass_qty: pass, fail_qty: rows.length - pass,
+                    judge: (rows.length - pass) === 0 ? '합격' : '불합격', details: rows
+                };
             }
 
             saveInspect() {
-                const p=this.buildInspPayload();
-                if(!p.lot_number){ alert('대상 LOT을 스캔/입력하세요.'); return; }
+                const p = this.buildInspPayload();
+                if (!p.lot_number) {
+                    alert('대상 LOT을 스캔/입력하세요.');
+                    return;
+                }
                 // 실제 저장: insp_result(헤더) + insp_result_detail(항목) INSERT
                 AjaxUtil.postAsyncData(this.baseUrl + '/insp_save',
-                    { payload: JSON.stringify(p), spjangcd: this.spjangcd || '' },
-                    () => { $('#inspSaveHint').text(`저장 완료: ${p.judge} (합격 ${p.pass_qty}/${p.total_qty})`); });
+                    {payload: JSON.stringify(p), spjangcd: this.spjangcd || ''},
+                    () => {
+                        $('#inspSaveHint').text(`저장 완료: ${p.judge} (합격 ${p.pass_qty}/${p.total_qty})`);
+                    });
             }
 
         }  // end class ProcInspectPage

@@ -1447,17 +1447,7 @@ public class ProductionResultService {
                   AND (:includeComp OR jr."State" <> 'finished')
             )
             SELECT j.*,
-                CASE WHEN EXISTS (
-                   SELECT 1 FROM job_res sibling
-                   JOIN work_center swc ON swc.id = sibling."WorkCenter_id"
-                   JOIN routing_proc srp ON srp."Routing_id" = sibling."Routing_id"
-                      AND srp."Process_id" = swc."Process_id"
-                   WHERE sibling."Parent_id" = j."Parent_id"
-                        AND sibling.id != j.id
-                        AND srp."ProcessOrder" < j."ProcessOrder"
-                        AND sibling."State" != 'finished'
-                        AND COALESCE(sibling."GoodQty", 0) = 0   -- ★ 느슨한 게이팅: 전 공정이 'finished'가 아니어도, 차수가 하나라도 생산(GoodQty>0)됐으면 다음 공정 시작 허용. 한 차수도 생산 안 된 전공정이 있을 때만 잠금.
-                ) THEN true ELSE false END AS _locked
+                false AS _locked   -- 게이팅 해제: 전 공정 완료/생산 여부와 무관하게 모든 공정 시작 가능
             FROM jr_with_order j
             ORDER BY
                 CASE j.state

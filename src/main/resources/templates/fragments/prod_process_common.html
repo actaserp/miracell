@@ -185,6 +185,8 @@
         body.touch-mode[data-active-tab="tabChasu"] #stickyActionBar,
         body.touch-mode[data-active-tab="tabConsumed"] #stickyActionBar,
         body.touch-mode[data-active-tab="tabDefect"] #stickyActionBar,
+        body.touch-mode[data-active-tab="tabInspect"] #stickyActionBar,
+        body.touch-mode[data-active-tab="tabSteril"] #stickyActionBar,
         body.mobile-mode[data-active-tab="tabChasu"] #stickyActionBar { display: none !important; }
         body.touch-mode[data-active-tab="tabChasu"] #tabChasu,
         body.touch-mode[data-active-tab="tabConsumed"] #tabConsumed,
@@ -254,7 +256,6 @@
         /* th 폭 고정 (라벨이 길어도 일정) */
         .work-table th {
             width: 120px;
-            text-align: right;
             padding-right: 14px;
             white-space: nowrap;
             color: #444;
@@ -264,7 +265,6 @@
         .work-table td input:not([type=checkbox]):not([type=radio]),
         .work-table td select,
         .work-table td textarea {
-            width: 100% !important;
             box-sizing: border-box;
             max-width: 100%;
         }
@@ -1119,7 +1119,11 @@
                     // ★ state별 탭 자동 이동
                     //   생산중(working) → 차수별생산 탭 / 그 외(지시·완료·일시중지) → 기본정보 탭
                     const _st = $('#state').val();
-                    const _tab = (_st === 'working') ? 'tabChasu' : 'tabBasic';
+                    const _isInspect = (typeof PROCESS_CODE !== 'undefined' && PROCESS_CODE === 'p03');
+                    const _isSteril  = (typeof PROCESS_CODE !== 'undefined' && PROCESS_CODE === 'p05');
+                    const _tab = (_st === 'working')
+                        ? (_isInspect ? 'tabInspect' : _isSteril ? 'tabSteril' : 'tabChasu')
+                        : 'tabBasic';
                     $('.tab-links a[name="' + _tab + '"]').click();
                 }
             }
