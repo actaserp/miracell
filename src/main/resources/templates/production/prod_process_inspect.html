@@ -55,6 +55,51 @@
         body.touch-mode .work-action-buttons .btn { font-size: 1.1rem !important; min-height: 48px !important; min-width: 90px !important; }
         /* PC: 목록 탭 콘텐츠 자체를 강제 숨김 (빈 박스 방지) */
         body:not(.touch-mode) #tabList { display: none !important; }
+        /* ════════ 검사 탭 ════════ */
+        #tabInspect .res-btn { border:none; border-radius:8px; padding:10px 18px; font-weight:700; cursor:pointer; min-width:74px; font-size:1rem; }
+        #tabInspect .res-btn.pass { background:#e8f5e9; color:#2e7d32; }
+        #tabInspect .res-btn.fail { background:#ffebee; color:#c62828; }
+        #tabInspect tr.failrow { background:#fff5f5; }
+        #tabInspect .insp-scroll { max-height:48vh; overflow:auto; }
+        #tabInspect .insp-summary { display:flex; gap:16px; align-items:center; margin-left:auto; }
+        #tabInspect .insp-summary b { font-size:1.2rem; }
+        #tabInspect .pass { color:#2e7d32; } #tabInspect .fail { color:#c62828; }
+        #tabInspect .muted { color:#90a4ae; font-size:.85rem; }
+        /* 헤더(라벨 위, 겹침 방지) */
+        #tabInspect .insp-head-grid { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:12px 18px; align-items:end; }
+        #tabInspect .insp-head-grid .hf.full { grid-column:1 / -1; }
+        #tabInspect .hf { display:flex; flex-direction:column; gap:4px; font-size:.82rem; color:#607d8b; min-width:0; }
+        #tabInspect .hf select, #tabInspect .hf input { height:40px; width:100%; box-sizing:border-box; border:1px solid #cfd8dc; border-radius:6px; padding:0 10px; }
+        body.touch-mode #tabInspect .insp-head-grid { grid-template-columns:repeat(2, minmax(0,1fr)); }
+        /* 진행 툴바 */
+        #tabInspect .insp-toolbar { display:flex; gap:14px 22px; align-items:flex-end; flex-wrap:wrap; padding:10px 12px; border-bottom:1px solid #eee; }
+        #tabInspect .insp-progress { margin-left:auto; font-size:1rem; }
+        #tabInspect .insp-progress b { font-size:1.2rem; }
+        /* 현재 회차 카드 */
+        #tabInspect .insp-active { padding:14px; background:#f1f8ff; border-top:2px solid #1976d2; }
+        #tabInspect .ac-title { font-size:1.05rem; margin-bottom:10px; }
+        #tabInspect .ac-fields { display:flex; gap:12px 18px; flex-wrap:wrap; align-items:flex-end; margin-bottom:12px; }
+        #tabInspect .ac-fields input { height:40px; border:1px solid #cfd8dc; border-radius:6px; padding:0 10px; }
+        #tabInspect .ac-btns { display:flex; gap:14px; }
+        #tabInspect .res-btn.big { min-width:160px; min-height:56px; font-size:1.2rem; }
+        #tabInspect .res-tag { padding:4px 12px; border-radius:6px; font-weight:700; }
+        #tabInspect .res-tag.pass { background:#e8f5e9; color:#2e7d32; }
+        #tabInspect .res-tag.fail { background:#ffebee; color:#c62828; }
+        #tabInspect .btn-mini { border:1px solid #cfd8dc; background:#fff; border-radius:6px; padding:4px 10px; cursor:pointer; }
+        #tabInspect .insp-complete { padding:18px; text-align:center; color:#2e7d32; font-size:1.1rem; font-weight:600; }
+        /* 베이스 grid_box(절대배치 그리드 패널) 회피용 자체 박스 */
+        #tabInspect .insp-box { position:static; background:#fff; border:1px solid #e8edf2; border-radius:8px; margin:0 0 12px; overflow:visible; }
+        #tabInspect .insp-secttitle { padding:10px 14px; font-weight:600; color:#37474f; border-bottom:1px solid #eef1f5; }
+        #tabInspect .insp-head-wrap { padding:12px 14px; }
+        body.touch-mode #tabInspect .res-btn.big { min-width:220px; min-height:66px; font-size:1.35rem; }
+        body.touch-mode #tabInspect .ac-fields input, body.touch-mode #tabInspect .hf input, body.touch-mode #tabInspect .hf select { min-height:48px; font-size:1.08rem; }
+        /* 태블릿(touch-mode) = 실제 입력자용 → 탭 타깃 크게 */
+        body.touch-mode #tabInspect .res-btn { min-width:100px; min-height:54px; font-size:1.2rem; }
+        body.touch-mode #tabInspect .work-table th,
+        body.touch-mode #tabInspect .work-table td { font-size:1.05rem; padding:12px 10px; }
+        body.touch-mode #tabInspect input[type=text],
+        body.touch-mode #tabInspect select { min-height:46px; font-size:1.05rem; }
+        body.touch-mode #tabInspect .insp-scroll { max-height:60vh; }
     </style>
     <th:block th:replace="fragments/prod_process_common :: processCommonCss"></th:block>
 </head>
@@ -141,6 +186,7 @@
                     <li><a href="#tabConsumed" name="tabConsumed">투입 내역</a></li>
                     <li><a href="#tabChasu" name="tabChasu">차수별 생산</a></li>
                     <li><a href="#tabDefect" name="tabDefect">부적합 정보</a></li>
+                    <li><a href="#tabInspect" name="tabInspect">검사</a></li>
                 </ul>
 
                 <div>
@@ -344,6 +390,31 @@
                             </div>
                         </div>
                     </section>
+
+                    <!-- ──── 검사 (체크리스트) ──── -->
+                    <section class="tab-item" id="tabInspect" style="border-top-left-radius: 0;">
+                        <div class="insp-box">
+                            <div class="insp-secttitle">검사 — 대상 LOT</div>
+                            <div class="insp-head-wrap">
+                                <div class="insp-head-grid">
+                                    <label class="hf">검사양식<select id="inspTplSel"></select></label>
+                                    <label class="hf">대상 LOT<input type="text" id="inspLot" placeholder="로트번호 스캔" autocomplete="off"></label>
+                                    <label class="hf">검사자<input type="text" id="inspWorker"></label>
+                                    <label class="hf">검사일<input type="date" id="inspDate"></label>
+                                    <label class="hf full">제품 <strong id="inspProd" class="muted">작업을 선택하세요</strong></label>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="inspTplArea"></div>
+                        <div class="insp-box">
+                            <div class="button-wrap" style="padding:10px; display:flex; justify-content:flex-end; align-items:center; gap:14px;">
+                                <span id="inspSaveHint" class="muted"></span>
+                                <ul style="list-style:none; padding:0; margin:0;">
+                                    <li><button type="button" class="btn" id="btnInspSave"><i class="fas fa-save"></i> 검사 저장</button></li>
+                                </ul>
+                            </div>
+                        </div>
+                    </section>
                 </div>
             </div>
         </div>
@@ -357,6 +428,7 @@
     <script th:inline="javascript">
         const factory_id = [[${session.factory_id}]];
         const userid     = [[${session.userid}]];
+        const username   = [[${session.username}]];   // 검사자 표시용(이름)
         const GUI_CODE   = 'prod_process_inspect';   // 고정값 (공정별 분리)
     </script>
 
@@ -398,6 +470,7 @@
                 this.initInputLotGrid();
                 this.initTabs();
                 this.bindEvents();
+                this.initInspectTab();
                 this.fillChasuWorkers();
                 this.searchMainData();
                 this.initLayoutCollapse();
@@ -457,6 +530,171 @@
                         { binding: 'input_qty',  header: '투입량',   width: 90,  format: 'n2', align: 'right' },
                     ]
                 });
+            }
+
+            // ════════ 검사 탭 (lot 연결 · 템플릿 구동) ════════
+            // ※ INSP_TEMPLATES는 지금은 내장. 추후 insp_template/_item 테이블에서 AJAX 로드로 교체.
+            initInspectTab() {
+                const _this = this;
+                this.INSP_TEMPLATES = {
+                    'BASKET-50': { name:'#60 BASKET TEST 50회', type:'repeat', count:50,
+                        item:'BASKET LOCK ON/OFF', criteria:['BSC 30-30주','BSC 60-60주','BMSC-60주'], tool:true },
+                    'ROTOR': { name:'#50 ROTOR', type:'checklist', items:[
+                            {no:1,item:'전원 ON/OFF (3회)',criteria:'ON·OFF / 전원 LED·스위치 문제 없을 것',method:'육안'},
+                            {no:2,item:'외관 및 손잡이 고정',criteria:'파손·이물질·얼룩 없을 것 / 손잡이 헛돎 없이 고정',method:'육안'},
+                            {no:3,item:'배터리 충전',criteria:'충전 LED 점등·점멸 및 100% 충전',method:'육안'},
+                            {no:4,item:'블루투스',criteria:'연결 멘트 및 모니터에 ROTOR 배터리 잔량 표시',method:'육안'},
+                            {no:5,item:'BASKET',criteria:'움직임 부드럽고 소음 없을 것 / 챔버·모터 쏠림 없을 것',method:'육안'},
+                            {no:6,item:'ROTOR 진동 밸런스',criteria:'ROTOR 진동 및 소음 없을 것',method:'육안 / EAR'},
+                        ]},
+                };
+                this.inspRows = [];
+                $('#inspTplSel').html(Object.entries(this.INSP_TEMPLATES).map(([k,v])=>`<option value="${k}">${v.name}</option>`).join(''));
+                $('#inspDate').val(new Date().toISOString().slice(0,10));
+                $('#inspWorker').val(typeof username !== 'undefined' && username ? username : (typeof userid!=='undefined'?userid:''));
+                $('#inspTplSel').on('change', () => _this.renderInspectTemplate());
+                $('.tab-links a[name="tabInspect"]').on('click', () => _this.refreshInspectHead());
+                $('#btnInspSave').on('click', () => _this.saveInspect());
+                this.renderInspectTemplate();
+            }
+
+            refreshInspectHead() {
+                const t = ((($('#mat_code').val()||'') + ' ' + ($('#mat_name').val()||'')).trim());
+                $('#inspProd').text(t || '작업을 선택하세요');
+            }
+
+            renderInspectTemplate() {
+                const tpl = this.INSP_TEMPLATES[$('#inspTplSel').val()];
+                this.refreshInspectHead();
+                if (tpl.type === 'repeat') this.renderInspRepeat(tpl);
+                else this.renderInspChecklist(tpl);
+            }
+
+            // 반복형(BASKET 50회): 1회차 완료 → 다음 회차 생성 (증분). 직전 값 이월.
+            renderInspRepeat(tpl) {
+                const _this=this;
+                this.inspRounds = [];          // 완료된 회차
+                this.inspTotal  = tpl.count;   // 50
+                const crit = tpl.criteria.map(c=>`<option>${c}</option>`).join('');
+                $('#inspTplArea').html(`
+                  <div class="insp-box">
+                    <div class="insp-secttitle">${tpl.name} — ${tpl.item}</div>
+                    <div class="insp-toolbar">
+                      <label class="hf">합격기준<select id="inspCrit">${crit}</select></label>
+                      <div class="insp-progress">진행 <b id="inspDone">0</b> / ${tpl.count}
+                        &nbsp;·&nbsp; <span class="pass">합격 <b id="inspCp">0</b></span>
+                        &nbsp; <span class="fail">불합격 <b id="inspCf">0</b></span></div>
+                    </div>
+                    <table class="work-table">
+                      <thead><tr><th style="width:60px;">회차</th><th style="width:100px;">결과</th><th style="width:100px;">측정값</th><th>사유</th>${tpl.tool?'<th style="width:130px;">사용공구</th>':''}<th style="width:110px;">검사자</th><th style="width:60px;"></th></tr></thead>
+                      <tbody id="inspDoneBody"></tbody>
+                    </table>
+                    <div id="inspActiveCard" class="insp-active"></div>
+                  </div>`);
+                $('#inspCrit').on('change', ()=>_this.inspRounds.forEach(r=>r.criteria=$('#inspCrit').val()));
+                this.drawInspActive(tpl);
+                this.drawInspDone(tpl);
+            }
+
+            // 현재 회차 입력 카드 (직전 회차 값 이월: 측정값/사용공구/검사자)
+            drawInspActive(tpl) {
+                const _this=this;
+                const done = this.inspRounds.length;
+                if (done >= this.inspTotal) {
+                    $('#inspActiveCard').html(`<div class="insp-complete">✓ ${this.inspTotal}회 전수검사 완료 — 저장하세요.</div>`);
+                    return;
+                }
+                const prev = this.inspRounds[done-1] || {};
+                const card = { no: done+1, value: prev.value || 'OK', tool: prev.tool || '',
+                    inspector: prev.inspector || $('#inspWorker').val() };
+                this._activeCard = card;
+                $('#inspActiveCard').html(`
+                  <div class="ac-title">현재 회차 <b>${card.no}</b> / ${this.inspTotal}</div>
+                  <div class="ac-fields">
+                    <label class="hf">측정값<input type="text" id="acValue" value="${card.value}"></label>
+                    ${tpl.tool?`<label class="hf">사용공구<input type="text" id="acTool" value="${card.tool}" placeholder="관리번호"></label>`:''}
+                    <label class="hf">검사자<input type="text" id="acInspector" value="${card.inspector}"></label>
+                    <label class="hf" style="flex:1 1 240px;">사유 (불합격 시)<input type="text" id="acReason" placeholder="불합격일 때 입력"></label>
+                  </div>
+                  <div class="ac-btns">
+                    <button type="button" class="res-btn pass big" id="acPass">합격 (PASS)</button>
+                    <button type="button" class="res-btn fail big" id="acFail">불합격 (FAIL)</button>
+                  </div>`);
+                const commit = (result) => {
+                    const c = _this._activeCard;
+                    c.value = $('#acValue').val();
+                    c.tool = $('#acTool').length ? $('#acTool').val() : '';
+                    c.inspector = $('#acInspector').val();
+                    c.reason = $('#acReason').val();
+                    c.result = result;
+                    c.criteria = $('#inspCrit').val();
+                    _this.inspRounds.push(c);
+                    _this.drawInspDone(tpl);
+                    _this.drawInspActive(tpl);
+                    document.getElementById('inspActiveCard')?.scrollIntoView({ block:'center', behavior:'smooth' });
+                };
+                $('#acPass').on('click', ()=>commit('PASS'));
+                $('#acFail').on('click', ()=>{ if(!$('#acReason').val()){ alert('불합격 사유를 입력하세요.'); $('#acReason').focus(); return; } commit('FAIL'); });
+            }
+
+            // 완료 회차 목록 (취소 가능)
+            drawInspDone(tpl) {
+                const _this=this;
+                $('#inspDoneBody').html(this.inspRounds.map((r,i)=>`
+                  <tr class="${r.result==='FAIL'?'failrow':''}">
+                    <td>${r.no}</td>
+                    <td><span class="res-tag ${r.result==='PASS'?'pass':'fail'}">${r.result}</span></td>
+                    <td>${r.value||''}</td><td style="text-align:left;">${r.reason||''}</td>
+                    ${tpl.tool?`<td>${r.tool||''}</td>`:''}<td>${r.inspector||''}</td>
+                    <td><button type="button" class="btn-mini" data-i="${i}">취소</button></td>
+                  </tr>`).join(''));
+                $('#inspDoneBody .btn-mini').off('click').on('click',function(){
+                    const i=+$(this).data('i'); _this.inspRounds.splice(i,1);
+                    _this.inspRounds.forEach((r,k)=>r.no=k+1);
+                    _this.drawInspDone(tpl); _this.drawInspActive(tpl);
+                });
+                const p=this.inspRounds.filter(r=>r.result==='PASS').length;
+                $('#inspDone').text(this.inspRounds.length);
+                $('#inspCp').text(p); $('#inspCf').text(this.inspRounds.length-p);
+            }
+
+            // 항목형(ROTOR): 고정 항목 PASS/FAIL
+            renderInspChecklist(tpl) {
+                this.inspRows = tpl.items.map(it=>({no:it.no,item:it.item,result:'PASS',value:''}));
+                $('#inspTplArea').html(`
+                  <div class="insp-box">
+                    <div class="insp-secttitle">${tpl.name} — 항목별 검사</div>
+                    <div class="insp-scroll">
+                      <table class="work-table">
+                        <thead><tr><th style="width:54px;">No</th><th style="width:170px;">검사항목</th><th>합격기준</th><th style="width:90px;">판정</th><th style="width:130px;">결과</th><th style="width:140px;">측정값/비고</th></tr></thead>
+                        <tbody>${tpl.items.map((it,i)=>`<tr id="inspCk${i}"><td>${it.no}</td><td style="text-align:left;">${it.item}</td><td style="text-align:left;" class="muted">${it.criteria}</td><td>${it.method}</td><td><button type="button" class="res-btn pass" data-i="${i}">PASS</button></td><td><input type="text" data-i="${i}" style="width:120px;"></td></tr>`).join('')}</tbody>
+                      </table>
+                    </div>
+                  </div>`);
+                const _this=this;
+                $('#inspTplArea .res-btn').on('click',function(){const i=+$(this).data('i');const r=_this.inspRows[i];r.result=r.result==='PASS'?'FAIL':'PASS';$(this).text(r.result).attr('class','res-btn '+(r.result==='PASS'?'pass':'fail'));$('#inspCk'+i).css('background',r.result==='FAIL'?'#fff5f5':'');});
+                $('#inspTplArea input').on('change',function(){_this.inspRows[+$(this).data('i')].value=this.value;});
+            }
+
+            buildInspPayload() {
+                const tpl = this.INSP_TEMPLATES[$('#inspTplSel').val()];
+                const rows = tpl.type === 'repeat' ? (this.inspRounds||[]) : (this.inspRows||[]);
+                const pass = rows.filter(r=>r.result==='PASS').length;
+                return { template_code:$('#inspTplSel').val(), lot_number:$('#inspLot').val(),
+                    job_res_id:this.jobres?.id||null, mat_code:$('#mat_code').val()||null,
+                    inspector:$('#inspWorker').val(), insp_date:$('#inspDate').val(),
+                    criteria:$('#inspCrit').val()||null, total_qty:rows.length,
+                    pass_qty:pass, fail_qty:rows.length-pass,
+                    judge:(rows.length-pass)===0?'합격':'불합격', details:rows };
+            }
+
+            saveInspect() {
+                const p=this.buildInspPayload();
+                if(!p.lot_number){ alert('대상 LOT을 스캔/입력하세요.'); return; }
+                // 실제 저장: insp_result(헤더) + insp_result_detail(항목) INSERT
+                AjaxUtil.postAsyncData(this.baseUrl + '/insp_save',
+                    { payload: JSON.stringify(p), spjangcd: this.spjangcd || '' },
+                    () => { $('#inspSaveHint').text(`저장 완료: ${p.judge} (합격 ${p.pass_qty}/${p.total_qty})`); });
             }
 
         }  // end class ProcInspectPage

@@ -210,6 +210,17 @@ public class ProductionResultController {
         return result;
     }
 
+    @GetMapping("/wash_session_list")
+    public AjaxResult getWashSessionList(
+            @RequestParam(value = "jr_pk", required = false) Integer jrPk) {
+
+        List<Map<String, Object>> items = this.productionResultService.getWashSessionList(jrPk);
+
+        AjaxResult result = new AjaxResult();
+        result.data = items;
+        return result;
+    }
+
     @GetMapping("/input_lot_list")
     public AjaxResult getInputLotList(
             @RequestParam(value = "jr_pk", required = false) Integer jrPk,
@@ -895,6 +906,14 @@ public class ProductionResultController {
         MaterialLot ml = this.matLotRepository.getMatLotById(lotId);
 
         if (ml != null) {
+            // 자기참조 차단: 현재 공정이 생산하는 품목(자기 산출물)은 자기 투입으로 등록 불가
+            // (로트검색 팝업/스캔 어느 경로든, mat_produce·mat_inout 어느 출처든 품목 기준으로 차단)
+            if (this.productionResultService.isOwnOutputMaterialLot(jrPk, ml.getId())) {
+                result.message = "현재 공정이 생산하는 품목은 투입으로 등록할 수 없습니다.(" + ml.getLotNumber() + ")";
+                result.success = false;
+                return result;
+            }
+
             if (ml.getCurrentStock() <= 0) {
                 result.message = "가용한 재고가 없는 LOT을 지정했습니다.(" + ml.getLotNumber() + ")";
                 result.success = false;
@@ -978,6 +997,13 @@ public class ProductionResultController {
             Float inputQty = Float.parseFloat(lotMap.get("cur_stock").toString());
 
             MaterialLot ml = this.matLotRepository.getMatLotById(lotId);
+
+            // 자기참조 차단: 현재 공정이 생산하는 품목(자기 산출물)은 자기 투입으로 등록 불가
+            if (this.productionResultService.isOwnOutputMaterialLot(jrPk, ml.getId())) {
+                result.message = "현재 공정이 생산하는 품목은 투입으로 등록할 수 없습니다.(" + ml.getLotNumber() + ")";
+                result.success = false;
+                return result;
+            }
 
             if (ml.getCurrentStock() <= 0) {
                 result.message = "가용한 재고가 없는 LOT을 지정했습니다.(" + ml.getLotNumber() + ")";
@@ -1208,7 +1234,28 @@ public class ProductionResultController {
         JobRes jr = this.jobResRepository.getJobResById(mp.getJobResponseId());
         Material m = this.materialRepository.getMaterialById(jr.getMaterialId());
         Workcenter wc = this.workcenterRepository.getWorkcenterById(jr.getWorkCenter_id());
-        boolean isLast = this.productionResultService.isLastProcessOfRouting(jr.getRouting_id(), wc.getProcessId());
+        boolean isFirst = this.productionResultService.isFirstProcessOfRouting(jr.getRouting_id(), wc.getProcessId());
+        boolean isLast  = this.productionResultService.isLastProcessOfRouting(jr.getRouting_id(), wc.getProcessId());
+
+        // ★ 1. 수동투입 필요 공정 체크 (BOM에 semi 아닌 품목 있으면 로트 투입 확인)
+        boolean needsManualInput = this.productionResultService.hasNonSemiInBom(jr.getMaterialId());
+        if (needsManualInput) {
+            boolean hasLotInput = this.productionResultService.hasLotInput(jr.getId());
+            if (!hasLotInput) {
+                result.message = "투입된 자재 로트가 없습니다. 투입내역을 먼저 등록해주세요.";
+                result.success = false;
+                return result;
+            }
+        }
+
+        // ★ 2. 중간/마지막 공정: 전공정 WIP 자동투입 (배정 차수는 chasu_start에서 안 했으니 여기서)
+        if (!isFirst) {
+            AjaxResult r = this.productionResultService.consumePrevWipForChasu(mp.getId(), jr, user, spjangcd);
+            if (!r.success) {
+                TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+                return r;
+            }
+        }
 
         mp.setGoodQty(goodQty);
         mp.setDefectQty(defectQty);
@@ -1217,14 +1264,15 @@ public class ProductionResultController {
         mp.set_audit(user);
         this.matProduceRepository.saveAndFlush(mp);
 
-        // 종료 시 완성품 입고 (마지막 공정만)
+        // ★ 3. 모든 공정에서 산출품목 입고 (WIP 또는 완제품)
+        if (m.getStoreHouseId() == null) {
+            result.message = "생산제품의 기본 창고가 설정되어 있지 않습니다.";
+            result.success = false;
+            return result;
+        }
+        this.productionResultService.produceInForChasu(mpId, m, user, spjangcd);
+
         if (isLast) {
-            if (m.getStoreHouseId() == null) {
-                result.message = "생산제품의 기본 창고가 설정되어 있지 않습니다.";
-                result.success = false;
-                return result;
-            }
-            this.productionResultService.produceInForChasu(mpId, m, user, spjangcd);
             this.productionResultService.calculate_balance_mat_lot_with_job_res(jr.getId());
         }
 
@@ -1235,6 +1283,106 @@ public class ProductionResultController {
         item.put("job_finished", jobFinished);
         result.data = item;
         result.success = true;
+        return result;
+    }
+
+    // ★ 세척 세션 시작 — mat_produce(working) + equ_run 시작
+    @PostMapping("/wash_start")
+    @Transactional
+    public AjaxResult washStart(
+            @RequestParam(value = "jr_pk") Integer jrPk,
+            @RequestParam(value = "equipment_id") Integer equipmentId,
+            @RequestParam(value = "worker_id") Integer workerId,
+            @RequestParam("spjangcd") String spjangcd,
+            Authentication auth) {
+
+        User user = (User) auth.getPrincipal();
+        AjaxResult r = this.productionResultService.washStartProcess(
+                jrPk, equipmentId, workerId, user, spjangcd);
+        if (!r.success) {
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+        }
+        return r;
+    }
+
+    // ★ 세척 세션 완료 — 생산창고 선입선출 차감 + 클린룸 입고 + equ_run 종료
+    @PostMapping("/wash_finish")
+    @Transactional
+    public AjaxResult washFinish(
+            @RequestParam(value = "mp_id") Integer mpId,
+            @RequestParam(value = "input_store_id") Integer inputStoreId,
+            @RequestParam(value = "items") String itemsJson,
+            @RequestParam(value = "start_time", required = false) String startTime,
+            @RequestParam(value = "end_time", required = false) String endTime,
+            @RequestParam("spjangcd") String spjangcd,
+            Authentication auth) {
+
+        User user = (User) auth.getPrincipal();
+        List<Map<String, Object>> items = CommonUtil.loadJsonListMap(itemsJson);
+
+        AjaxResult r = this.productionResultService.washFinishProcess(
+                mpId, inputStoreId, items, startTime, endTime, user, spjangcd);
+
+        if (!r.success) {
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+        }
+        return r;
+    }
+
+    // ★ 세척 세션 삭제 (working 세션)
+    @PostMapping("/wash_delete")
+    @Transactional
+    public AjaxResult washDelete(
+            @RequestParam(value = "mp_id") Integer mpId,
+            Authentication auth) {
+        User user = (User) auth.getPrincipal();
+        AjaxResult r = this.productionResultService.washDeleteSession(mpId, user);
+        if (!r.success) TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+        return r;
+    }
+
+    // ★ 세척 세션 시간 수정
+    @PostMapping("/wash_update_time")
+    @Transactional
+    public AjaxResult washUpdateTime(
+            @RequestParam(value = "mp_id") Integer mpId,
+            @RequestParam(value = "start_time", required = false) String startTime,
+            @RequestParam(value = "end_time", required = false) String endTime,
+            Authentication auth) {
+        User user = (User) auth.getPrincipal();
+        AjaxResult r = this.productionResultService.washUpdateTime(mpId, startTime, endTime, user);
+        if (!r.success) TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+        return r;
+    }
+
+    // ★ 세척 완료취소 (후속 소진 체크 + 롤백)
+    @PostMapping("/wash_cancel")
+    @Transactional
+    public AjaxResult washCancel(
+            @RequestParam(value = "mp_id") Integer mpId,
+            Authentication auth) {
+        User user = (User) auth.getPrincipal();
+        AjaxResult r = this.productionResultService.washCancelProcess(mpId, user);
+        if (!r.success) TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+        return r;
+    }
+
+    // ★ 완료 세션이 사용한 로트 목록 (투입로트 표시용)
+    @GetMapping("/wash_session_lots")
+    public AjaxResult washSessionLots(
+            @RequestParam(value = "mp_id") Integer mpId) {
+        AjaxResult result = new AjaxResult();
+        result.data = this.productionResultService.getWashSessionLots(mpId);
+        return result;
+    }
+
+    // ★ 세척 전용 투입계획 (소요량/완료량/잔여/생산창고재고)
+    @GetMapping("/wash_consumed_list")
+    public AjaxResult washConsumedList(
+            @RequestParam(value = "jr_pk") Integer jrPk,
+            @RequestParam(value = "input_store_id", required = false) Integer inputStoreId) {
+        AjaxResult result = new AjaxResult();
+        result.data = this.productionResultService.getWashConsumedList(jrPk, inputStoreId);
         return result;
     }
 

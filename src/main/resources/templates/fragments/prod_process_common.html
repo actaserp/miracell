@@ -915,9 +915,9 @@
                     _this.selectedIndex = ht.row;
                     _this.jobres = item;
 
-                    // ★ 전 공정 미완료: 경고만 표시, 선택은 허용 (작업시작 시 서버에서 검증)
+                    // ★ 전 공정 미생산: 경고만 표시, 선택은 허용 (전 공정에 차수가 하나라도 생산되면 잠금 해제)
                     if (item._locked) {
-                        Notify.warning('전 공정이 완료되지 않았습니다. 확인 후 진행하세요.');
+                        Notify.warning('전 공정에서 아직 생산된 차수가 없습니다. 확인 후 진행하세요.');
                     }
                     _this.showBasicInfo(item.id);
                 });

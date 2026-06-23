@@ -55,6 +55,37 @@
         body.touch-mode .work-action-buttons .btn { font-size: 1.1rem !important; min-height: 48px !important; min-width: 90px !important; }
         /* PC: 목록 탭 콘텐츠 자체를 강제 숨김 (빈 박스 방지) */
         body:not(.touch-mode) #tabList { display: none !important; }
+
+        /* ════════ 세척 투입 레이아웃: PC 위아래 / 태블릿 좌우 ════════ */
+        .wash-flex { display: flex; gap: 10px; margin-top: 8px; flex-direction: column; }
+        .wash-col { flex: 1; min-width: 0; }
+        /* 태블릿(touch-mode): 좌우 2단 */
+        body.touch-mode .wash-flex { flex-direction: row !important; }
+
+        /* 선택 셀 글자 보이게 (배경색 칠한 셀에서 흰글자 충돌 방지) */
+        #wash-session-grid .wj-cell.wj-state-selected,
+        #consumed-grid .wj-cell.wj-state-selected,
+        #wash-session-grid .wj-cell.wj-state-multi-selected,
+        #consumed-grid .wj-cell.wj-state-multi-selected {
+            background: #0078d7 !important;
+            color: #fff !important;
+        }
+        body.touch-mode .wash-input-bar select,
+        body.touch-mode .wash-input-bar label { font-size: 1.1rem !important; }
+        body.touch-mode .wash-input-bar select { min-height: 44px !important; }
+        body.touch-mode #btnWashFinish { font-size: 1.15rem !important; min-height: 50px !important; }
+
+        /* ════════ 태블릿: 세척 투입 탭 단순화 (세척 수량 입력 + 세척완료만) ════════ */
+        /* 투입창고/시작/종료(시간 수정) 영역은 PC 전용 → 태블릿 숨김 */
+        body.touch-mode #tabConsumed .wash-control-bar { display: none !important; }
+        /* 시간저장 버튼도 PC 전용 → 태블릿 숨김 (타이틀바엔 세척완료만 노출) */
+        body.touch-mode #tabConsumed #btnWashTimeSave { display: none !important; }
+        /* 투입 로트 컬럼 전체 숨김 → 투입계획(세척수량) 영역이 가로폭 꽉 차게 */
+        body.touch-mode #tabConsumed .wash-col:has(#input_lot_div) { display: none !important; }
+        /* 타이틀바의 세척완료 버튼은 태블릿에서 크게 */
+        body.touch-mode #tabConsumed .title-actions #btnWashFinish {
+            min-height: 46px !important; min-width: 130px !important;
+        }
     </style>
     <th:block th:replace="fragments/prod_process_common :: processCommonCss"></th:block>
 </head>
@@ -129,6 +160,33 @@
                 <div class="container-fluid">
                     <div id="proc-main-grid"></div>
                     <div id="proc-card-list"></div>
+
+                    <!-- 세척 시작 바 + 세션 목록 (메인 그리드와 같은 컨테이너 → 레이아웃 이동 시 함께 이동) -->
+                    <div class="wash-session-wrap" style="margin-top:10px;">
+                        <div class="wash-input-bar">
+                            <ul style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; list-style:none; padding:8px; margin:0; background:#f4f8fb; border-radius:6px;">
+                                <li><label for="washEquip" style="font-weight:bold;">세척기</label>
+                                    <select id="washEquip" style="min-width:110px; height:36px;"></select></li>
+                                <li><label for="washWorker" style="font-weight:bold;">담당자</label>
+                                    <select id="washWorker" style="min-width:110px; height:36px;"></select></li>
+                                <li><button type="button" class="btn" id="btnWashStart"
+                                            style="background:#4caf50; color:#fff; min-width:90px; height:40px; font-weight:bold;"
+                                            disabled>세척 시작</button></li>
+                                <li style="margin-left:auto;">
+                                    <button type="button" class="btn" id="btnWashDelete" title="시작 세션 삭제"
+                                            style="height:40px;" disabled><i class="fas fa-trash"></i> 삭제</button>
+                                    <button type="button" class="btn" id="btnWashCancel" title="완료취소"
+                                            style="height:40px;" disabled>완료취소</button>
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="grid_box" style="margin-top:6px;">
+                            <div class="title_box">세척 작업 목록</div>
+                            <div class="container-fluid">
+                                <div id="wash-session-grid" style="height: 22vh;"></div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </section>
 
@@ -138,8 +196,7 @@
                 <ul class="tab-links">
                     <li><a href="#tabList" name="tabList">목록</a></li>
                     <li><a href="#tabBasic" name="tabBasic">기본 정보</a></li>
-                    <li><a href="#tabConsumed" name="tabConsumed">투입 내역</a></li>
-                    <li><a href="#tabChasu" name="tabChasu">차수별 생산</a></li>
+                    <li><a href="#tabConsumed" name="tabConsumed">세척 투입</a></li>
                     <li><a href="#tabDefect" name="tabDefect">부적합 정보</a></li>
                 </ul>
 
@@ -209,10 +266,10 @@
                                         </tr>
                                         <tr>
                                             <th><label for="workcenter_name">워크센터</label></th>
-                                            <td><input id="workcenter_name" name="workcenter_name" readonly style="width: 160px"/></td>
-                                            <th><label for="equipment_id">설비</label></th>
-                                            <td><select id="equipment_id" name="equipment_id" disabled></select></td>
+                                            <td colspan="3"><input id="workcenter_name" name="workcenter_name" readonly style="width: 160px"/></td>
                                         </tr>
+                                        <!-- 세척: 설비는 작지가 아니라 세척 세션에 붙으므로 기본정보에서 제외 -->
+                                        <input type="hidden" id="equipment_id" name="equipment_id"/>
                                         <tr>
                                             <th><label for="manager_id">관리자</label></th>
                                             <td colspan="3"><select id="manager_id" name="manager_id" disabled></select></td>
@@ -267,65 +324,69 @@
                         </div>
                     </section>
 
-                    <!-- ──── 투입 내역 ──── -->
+                    <!-- ──── 세척 투입 ──── -->
                     <section class="tab-item" id="tabConsumed" style="border-top-left-radius: 0;">
-                        <div class="grid_box">
-                            <div class="title_box">투입 계획</div>
-                            <div class="container-fluid">
-                                <div id="consumed-grid" style="height: 20vh;"></div>
-                            </div>
-                        </div>
-                        <div>
-                            <label class="switch">
-                                <input type="checkbox" id="btnToggle"><span class="slider round"></span>
-                            </label> 투입로트 보기/감추기
-                        </div>
-                        <div>&nbsp;</div>
-                        <div class="grid_box" id="input_lot_div">
-                            <div class="button-wrap">
-                                <ul>
-                                    <li><button type="button" class="btn" id="btnInputLotList" title="조회"><i class="fas fa-search"></i></button></li>
-                                    <li><button type="button" class="btn" id="btnInputLotSelect" title="로트검색"><i class="fas fa-plus"></i></button></li>
-                                    <li><button type="button" class="btn" id="btnLotSelectDel" title="로트삭제"><i class="fas fa-trash"></i></button></li>
-                                    <li>로트번호 <input type="text" id="txtInputLot" class="w-200 tac" placeholder="로트번호를 스캔하세요" autocomplete="off" style="height: 36px;"/></li>
-                                    <li><button type="button" class="btn" id="btnInputLotSave" title="로트투입 저장"><i class="fas fa-edit"></i></button></li>
-                                    <li>품목코드 필터 : <input type="text" id="txtInputCode" placeholder="계획 선택" autocomplete="off" style="width:100px; height: 36px;"/></li>
-                                </ul>
-                            </div>
-                            <div class="container-fluid">
-                                <div id="input-lot-grid" style="height: 20vh;"></div>
-                            </div>
-                        </div>
-                    </section>
 
-                    <!-- ──── 차수별 생산 ──── -->
-                    <section class="tab-item" id="tabChasu" style="border-top-left-radius: 0;">
+                        <!-- 완료 컨트롤 바 -->
                         <div class="grid_box">
-                            <!-- 배정 입력 영역 -->
-                            <div class="button-wrap" style="padding:8px; background:#fafafa; border-radius:6px;">
-                                <ul style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; list-style:none; padding:0; margin:0;">
-                                    <li>지시량 <strong id="ordqty">0</strong></li>
-                                    <li style="color:#999;">|</li>
-                                    <li>잔여 <strong id="remainQty" style="color:#1976d2;">0</strong></li>
-                                    <li style="color:#999;">|</li>
-                                    <li>
-                                        작업자
-                                        <select id="chasuWorker" style="width:120px;">
-                                            <option value="">미지정(즉시생산)</option>
-                                        </select>
-                                    </li>
-                                    <li>
-                                        수량
-                                        <input type="number" class="w-80" id="chasuQty" value="0" min="0" style="width:80px;">
-                                    </li>
-                                    <li><button type="button" class="btn" id="btnAddChasu" title="차수 추가" disabled><i class="fas fa-plus"></i> 추가</button></li>
-                                    <li><button type="button" class="btn" id="btnDeleteChasu" title="마지막 차수 삭제" disabled><i class="fas fa-trash"></i></button></li>
-                                    <li><button type="button" class="btn" id="btnLOTbarcode" title="LOT 바코드 출력" disabled><i class="fas fa-barcode"></i> LOT 바코드</button></li>
-                                </ul>
+                            <div class="title_box" style="display:flex; align-items:center; gap:10px;">
+                                <span id="washSelInfo" style="font-weight:bold; color:#888;">세척 작업 목록에서 작업을 선택하세요</span>
+                                <!-- 시간저장 / 세척완료 버튼 → 타이틀바 우측 정렬 -->
+                                <span class="title-actions" style="margin-left:auto; display:inline-flex; align-items:center; gap:8px;">
+                                    <button type="button" class="btn" id="btnWashTimeSave" title="시간 저장"
+                                            style="height:34px; white-space:nowrap;" disabled>시간저장</button>
+                                    <button type="button" class="btn" id="btnWashFinish"
+                                            style="background:#1976d2; color:#fff; min-width:100px; height:36px; font-weight:bold; white-space:nowrap;"
+                                            disabled>세척 완료</button>
+                                </span>
                             </div>
-                            <div class="content-wrap" style="margin-top:8px;">
-                                <div>
-                                    <div id="chasu-grid" style="height: 200px;"></div>
+                            <!-- 시간 수정 영역(투입창고/시작/종료) : PC 전용, 태블릿 숨김 -->
+                            <div class="button-wrap wash-control-bar"
+                                 style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:8px;">
+                                <span style="display:inline-flex; align-items:center; gap:4px;">
+                                    <label for="washInputStore" style="white-space:nowrap;">투입창고</label>
+                                    <select id="washInputStore" style="min-width:110px; height:36px;" disabled></select>
+                                </span>
+                                <span style="display:inline-flex; align-items:center; gap:4px;">
+                                    <label for="washStartEdit" style="white-space:nowrap;">시작</label>
+                                    <input type="datetime-local" id="washStartEdit" style="height:36px;" disabled/>
+                                </span>
+                                <span style="display:inline-flex; align-items:center; gap:4px;">
+                                    <label for="washEndEdit" style="white-space:nowrap;">종료</label>
+                                    <input type="datetime-local" id="washEndEdit" style="height:36px;" disabled/>
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- 본문: PC 위아래 / 태블릿 좌우 -->
+                        <div class="wash-flex" style="margin-top:8px;">
+                            <!-- 투입 계획 (BOM=세척 수량 입력) -->
+                            <div class="wash-col">
+                                <div class="grid_box">
+                                    <div class="title_box">투입 계획 (세척 수량 입력)</div>
+                                    <div class="container-fluid">
+                                        <div id="consumed-grid" style="height: 26vh;"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 투입 로트 지정/확인 -->
+                            <div class="wash-col">
+                                <div class="grid_box" id="input_lot_div">
+                                    <div class="title_box">투입 로트</div>
+                                    <div class="button-wrap">
+                                        <ul>
+                                            <li><button type="button" class="btn" id="btnInputLotList" title="조회"><i class="fas fa-search"></i></button></li>
+                                            <li><button type="button" class="btn" id="btnInputLotSelect" title="로트검색"><i class="fas fa-plus"></i></button></li>
+                                            <li><button type="button" class="btn" id="btnLotSelectDel" title="로트삭제"><i class="fas fa-trash"></i></button></li>
+                                            <li>로트번호 <input type="text" id="txtInputLot" class="w-200 tac" placeholder="로트번호를 스캔하세요" autocomplete="off" style="height: 34px;"/></li>
+                                            <li><button type="button" class="btn" id="btnInputLotSave" title="로트투입 저장"><i class="fas fa-edit"></i></button></li>
+                                            <li>품목필터 <input type="text" id="txtInputCode" placeholder="계획 선택" autocomplete="off" style="width:90px; height:34px;"/></li>
+                                        </ul>
+                                    </div>
+                                    <div class="container-fluid">
+                                        <div id="input-lot-grid" style="height: 24vh;"></div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -392,15 +453,15 @@
             init() {
                 AjaxUtil.fillSelectOptions($('#Factory_id'), 'factory', 'all', false);
                 this.initMainGrid();
-                this.initChasuGrid();
                 this.initDefectGrid();
                 this.initConsumedGrid();
                 this.initInputLotGrid();
+                this.initWashSessionGrid();
                 this.initTabs();
                 this.bindEvents();
-                this.fillChasuWorkers();
                 this.searchMainData();
                 this.initLayoutCollapse();
+                this.curMpId = null;   // 선택된 세척 세션
             }
 
             initDefectGrid() {
@@ -419,44 +480,420 @@
                 this.consumedGrid = new wijmo.grid.FlexGrid('#consumed-grid', {
                     autoGenerateColumns: false,
                     selectionMode: wijmo.grid.SelectionMode.Row,
-                    isReadOnly: true,
+                    isReadOnly: false,
                     headersVisibility: wijmo.grid.HeadersVisibility.Column,
-                    allowSorting: true,
+                    allowSorting: false,
                     formatItem: (s, e) => {
                         if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader)
                             e.cell.style.textAlign = 'center';
                     },
                     columns: [
-                        { binding: 'mat_code',        header: '품목코드',    width: 100, align: 'left' },
-                        { binding: 'mat_name',        header: '품목',        width: '*',  align: 'left', minWidth: 120 },
-                        { binding: 'request_qty_sum', header: '로트투입량',  width: 100, format: 'n2', align: 'right' },
-                        { binding: 'bom_consumed',    header: '소요량(BOM)', width: 110, format: 'n2', align: 'right' },
-                        { binding: 'remain_input_qty',header: '잔여량',      width: 90,  format: 'n2', align: 'right' },
-                        { binding: 'mc_qty',          header: '실생산소모량', width: 110, format: 'n2', align: 'right' },
-                        { binding: 'currentStock',    header: '현재재고',    width: 90,  format: 'n2', align: 'right' },
-                        { binding: 'unit',            header: '단위',        width: 60,  align: 'center' },
+                        { binding: 'mat_code',     header: '품목코드',  width: 100, align: 'left',  isReadOnly: true },
+                        { binding: 'mat_name',     header: '품목',      width: '*',  align: 'left',  minWidth: 110, isReadOnly: true },
+                        { binding: 'bom_consumed', header: '소요량',    width: 80,  format: 'n0', align: 'right', isReadOnly: true },
+                        { binding: 'done_qty',     header: '완료량',    width: 80,  format: 'n0', align: 'right', isReadOnly: true },
+                        { binding: 'currentStock', header: '생산창고재고', width: 100, format: 'n0', align: 'right', isReadOnly: true },
+                        { binding: 'work_qty',     header: '세척수량',  width: 90,  format: 'n0', align: 'right', isReadOnly: false, cssClass: 'wash-edit' },
+                        { binding: 'unit',         header: '단위',      width: 55,  align: 'center', isReadOnly: true },
                     ],
                     itemFormatter: (panel, row, col, cell) => {
                         if (panel.cellType === wijmo.grid.CellType.Cell) {
-                            const item = panel.rows[row].dataItem;
-                            if (item && item.useyn === 'Y') cell.style.backgroundColor = '#f8d2cb';
+                            const binding = panel.columns[col].binding;
+                            const isSel = panel.rows[row].isSelected;
+                            if (binding === 'work_qty' && !isSel) {
+                                cell.style.backgroundColor = '#fff7e0';
+                                cell.style.fontWeight = 'bold';
+                                cell.style.color = '#000';
+                            }
                         }
                     }
                 });
+                // 태블릿 넘패드 입력 (base 제공)
+                if (typeof this.enableGridNumpad === 'function') {
+                    this.enableGridNumpad(this.consumedGrid, 'work_qty', '세척수량');
+                }
+
+                // ── 행 아무 셀이나 클릭해도 세척수량 입력칸이 열리게 ──
+                //   (기존: 세척수량 셀을 직접 눌러야만 입력)
+                const _this = this;
+                this.consumedGrid.hostElement.addEventListener('click', (ev) => {
+                    const grid = _this.consumedGrid;
+                    const ht = grid.hitTest(ev);
+                    if (ht.cellType !== wijmo.grid.CellType.Cell || ht.row < 0) return;
+                    const qtyCol = grid.columns.findIndex(c => c.binding === 'work_qty');
+                    if (qtyCol < 0) return;
+                    if (ht.col === qtyCol) return;   // 세척수량 셀은 기본 동작/넘패드에 맡김
+                    const item = grid.rows[ht.row] && grid.rows[ht.row].dataItem;
+                    if (!item) return;
+
+                    if (TouchKeypad.isTouch()) {
+                        // 태블릿: 넘패드 (enableGridNumpad와 동일 동작)
+                        if (item.state === 'finished') return;
+                        TouchKeypad.openNumber({
+                            label: '세척수량',
+                            value: item.work_qty != null ? item.work_qty : '',
+                            allowDecimal: false,
+                            onConfirm: (n) => {
+                                item.work_qty = n;
+                                if (grid.collectionView) grid.collectionView.refresh();
+                                grid.invalidate();
+                            }
+                        });
+                    } else {
+                        // PC: 해당 행 세척수량 셀로 이동 후 인라인 편집 시작
+                        setTimeout(() => {
+                            try {
+                                grid.select(new wijmo.grid.CellRange(ht.row, qtyCol));
+                                grid.startEditing(true, ht.row, qtyCol);
+                            } catch (e) {}
+                        }, 0);
+                    }
+                });
+            }
+
+            /* 세척 투입계획 로딩 — work_qty 입력칸 부여 */
+            showConsumedList(jr_pk) {
+                this._loadWashConsumed(jr_pk, true);   // 진행중 선택: 세척수량 기본=잔여
+            }
+
+            /* 세척 투입계획 로딩 — 투입창고 기준 재고 + 완료량/잔여
+               fillQty=true면 세척수량 기본값을 잔여량으로, false면 0 */
+            _loadWashConsumed(jr_pk, fillQty) {
+                if (!this.consumedGrid) return;
+                if (!jr_pk) jr_pk = $('#jr_id').val();
+                if (!jr_pk) { this.consumedGrid.itemsSource = new wijmo.collections.CollectionView([]); return; }
+                const inStore = $('#washInputStore').val() || '';
+                const result = AjaxUtil.getSyncData(this.baseUrl + '/wash_consumed_list',
+                    { jr_pk, input_store_id: inStore });
+                const rows = (result && result.data) ? result.data : [];
+                rows.forEach(r => {
+                    const remain = parseFloat(r.remain_qty);
+                    r.work_qty = fillQty ? (isNaN(remain) ? 0 : remain) : 0;
+                });
+                this.consumedGrid.itemsSource = new wijmo.collections.CollectionView(rows);
+            }
+
+            /* 세척은 차수 그리드 없음 → 세션 목록으로 대체 */
+            showChasuList(jr_pk) {
+                this.showWashSessionList(jr_pk);
             }
 
             initInputLotGrid() {
                 this.inputLotGrid = new wijmo.grid.FlexGrid('#input-lot-grid', {
                     autoGenerateColumns: false,
                     selectionMode: wijmo.grid.SelectionMode.Row,
-                    isReadOnly: false,
+                    isReadOnly: true,
                     columns: [
                         { binding: 'lot_number', header: '로트번호', width: 140, align: 'center' },
-                        { binding: 'mat_code',   header: '품목코드', width: 120, align: 'center' },
+                        { binding: 'mat_code',   header: '품목코드', width: 110, align: 'center' },
                         { binding: 'mat_name',   header: '품목명',   width: '*',  align: 'left' },
                         { binding: 'input_qty',  header: '투입량',   width: 90,  format: 'n2', align: 'right' },
                     ]
                 });
+            }
+
+            /* ── 세척 세션 그리드 (좌측) ── */
+            initWashSessionGrid() {
+                const _this = this;
+                this.washSessionGrid = new wijmo.grid.FlexGrid('#wash-session-grid', {
+                    autoGenerateColumns: false,
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    isReadOnly: true,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    columns: [
+                        { binding: 'chasu',          header: '회차',   width: 55,  align: 'center' },
+                        { binding: 'equipment_name', header: '세척기', width: 100, align: 'center' },
+                        { binding: 'worker_name',    header: '담당자', width: 90,  align: 'center' },
+                        { binding: 'start_time',     header: '시작',   width: 120, align: 'center' },
+                        { binding: 'end_time',       header: '종료',   width: 120, align: 'center' },
+                        { binding: 'good_qty',       header: '수량',   width: 70,  format: 'n0', align: 'right' },
+                        { binding: 'state_name',     header: '상태',   width: 70,  align: 'center' },
+                    ],
+                    itemFormatter: (panel, row, col, cell) => {
+                        if (panel.cellType === wijmo.grid.CellType.Cell) {
+                            const item = panel.rows[row].dataItem;
+                            const isSel = panel.rows[row].isSelected;
+                            if (isSel) return;   // 선택 행은 기본 스타일 유지(글자 보임)
+                            if (item && item.state === 'working') cell.style.backgroundColor = '#e8f5e9';
+                            else if (item && item.state === 'finished') cell.style.backgroundColor = '#eef3f8';
+                        }
+                    }
+                });
+                this.washSessionGrid.selectionChanged.addHandler(() => {
+                    const item = _this.washSessionGrid.collectionView?.currentItem;
+                    _this._onSelectSession(item);
+                });
+            }
+
+            showWashSessionList(jr_pk) {
+                if (!this.washSessionGrid) return;
+                if (!jr_pk) jr_pk = $('#jr_id').val();
+                const result = AjaxUtil.getSyncData(this.baseUrl + '/wash_session_list', { jr_pk });
+                const rows = (result && result.data) ? result.data : [];
+                this.washSessionGrid.itemsSource = new wijmo.collections.CollectionView(rows);
+                this._onSelectSession(null);
+            }
+
+            /* 세션 선택 처리 — 상태별로 우측 투입탭 컨트롤/그리드 구성 */
+            _onSelectSession(session) {
+                const _this = this;
+                if (!session) {
+                    this.curMpId = null;
+                    this.curSessionState = null;
+                    $('#washSelInfo').text('세척 작업 목록에서 작업을 선택하세요').css('color', '#888');
+                    $('#washInputStore, #washStartEdit, #washEndEdit, #btnWashFinish, #btnWashTimeSave').prop('disabled', true);
+                    $('#btnWashDelete, #btnWashCancel').prop('disabled', true);
+                    $('#washStartEdit, #washEndEdit').val('');
+                    this._loadEmptyConsumed();
+                    if (this.inputLotGrid) this.inputLotGrid.itemsSource = new wijmo.collections.CollectionView([]);
+                    return;
+                }
+
+                this.curMpId = session.mp_id;
+                this.curSessionState = session.state;
+
+                // 시간 입력칸 채우기
+                const toLocal = (s) => s ? s.replace(' ', 'T') : '';
+                $('#washStartEdit').val(toLocal(session.start_time));
+                if (session.end_time) {
+                    $('#washEndEdit').val(toLocal(session.end_time));
+                } else {
+                    const now = new Date();
+                    const pad = n => String(n).padStart(2, '0');
+                    $('#washEndEdit').val(`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`);
+                }
+
+                // 투입창고 옵션 + 생산창고 디폴트, 설정 후 투입계획 로딩
+                AjaxUtil.fillSelectOptions($('#washInputStore'), 'store_house', 'all', false);
+                $('#washInputStore option').each(function () {
+                    if ($(this).text().indexOf('생산창고') >= 0) $('#washInputStore').val($(this).val());
+                });
+
+                // 우측 투입 탭으로 자동 전환
+                $('.tab-links a[name="tabConsumed"]').click();
+
+                if (session.state === 'working') {
+                    // 진행중: 수량 입력 + 완료 가능, 삭제 가능
+                    $('#washSelInfo').text('세척기: ' + (session.equipment_name || '-') + ' / 담당자: ' + (session.worker_name || '-') + ' [진행중]').css('color', '#1976d2');
+                    $('#washInputStore, #washStartEdit, #washEndEdit, #btnWashFinish, #btnWashTimeSave').prop('disabled', false);
+                    $('#btnWashDelete').prop('disabled', false);
+                    $('#btnWashCancel').prop('disabled', true);
+                    this.showConsumedList($('#jr_id').val());      // 세척수량 기본=잔여
+                    if (this.inputLotGrid) this.inputLotGrid.itemsSource = new wijmo.collections.CollectionView([]);
+                } else if (session.state === 'finished') {
+                    // 완료: 시간만 수정 가능, 완료취소 가능, 사용 로트 표시
+                    $('#washSelInfo').text('세척기: ' + (session.equipment_name || '-') + ' / 담당자: ' + (session.worker_name || '-') + ' [완료]').css('color', '#1976d2');
+                    $('#washStartEdit, #washEndEdit, #btnWashTimeSave').prop('disabled', false);
+                    $('#washInputStore, #btnWashFinish').prop('disabled', true);
+                    $('#btnWashDelete').prop('disabled', true);
+                    $('#btnWashCancel').prop('disabled', false);
+                    this._loadEmptyConsumed();                      // 완료분은 입력 불가
+                    this._loadSessionLots(session.mp_id);           // 사용한 로트 표시
+                }
+            }
+
+            /* 완료 세션이 사용한 로트 → 투입로트 그리드 */
+            _loadSessionLots(mpId) {
+                if (!this.inputLotGrid) return;
+                const result = AjaxUtil.getSyncData(this.baseUrl + '/wash_session_lots', { mp_id: mpId });
+                const rows = (result && result.data) ? result.data : [];
+                this.inputLotGrid.itemsSource = new wijmo.collections.CollectionView(rows);
+            }
+
+            /* 미선택/완료 시 BOM 자재 목록을 빈 수량으로 표시 */
+            _loadEmptyConsumed() {
+                this._loadWashConsumed($('#jr_id').val(), false);   // 미선택/완료: 세척수량 0
+            }
+
+            /* ── 기본정보 표시 후: 세척기/담당자 채우고 세션목록 로딩 ── */
+            afterShowBasicInfo(d) {
+                const wcId = d.workcenter_id || $('#workcenter_id').val();
+                AjaxUtil.fillSelectedOptions($('#washEquip'), 'equipment_code', 'choose', '', wcId);
+                AjaxUtil.fillSelectedOptions($('#washWorker'), 'person', 'choose', '', '');
+                this.showWashSessionList(d.id || $('#jr_id').val());
+                this._applyWashStartState();
+                if ($('body').hasClass('touch-mode')) {
+                    // ★ 메인 그리드 선택 시: 세척 투입 탭으로 바로 가지 않고
+                    //   목록 탭에 머문 채 '세척 작업 목록'으로 스크롤.
+                    //   (거기서 세척 작업을 클릭하면 _onSelectSession에서 투입 탭으로 이동)
+                    setTimeout(() => {
+                        $('.tab-links a[name="tabList"]').click();
+                        const g = document.getElementById('wash-session-grid');
+                        const target = g ? (g.closest('.wash-session-wrap') || g) : null;
+                        if (target && typeof target.scrollIntoView === 'function') {
+                            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }
+                    }, 60);
+                }
+            }
+
+            _applyWashStartState() {
+                const state = $('#state').val();
+                const canStart = (state === 'ordered' || state === 'working');
+                $('#btnWashStart').prop('disabled', !canStart);
+                $('#washEquip, #washWorker').prop('disabled', !canStart);
+            }
+
+            /* ── 세척 시작 ── */
+            washStart() {
+                const _this = this;
+                const jr_pk = $('#jr_id').val();
+                if (!jr_pk) { Alert.alert('', '작업을 먼저 선택해주세요.'); return; }
+                const equip  = $('#washEquip').val();
+                const worker = $('#washWorker').val();
+                if (!equip)  { Alert.alert('', '세척기를 선택해주세요.'); return; }
+                if (!worker) { Alert.alert('', '담당자를 선택해주세요.'); return; }
+
+                // 같은 설비가 이미 진행중인지 체크
+                const rows = _this.washSessionGrid?.collectionView?.items || [];
+                const dup = rows.some(r => String(r.equipment_id) === String(equip) && r.state === 'working');
+
+                const doStart = () => {
+                    AjaxUtil.postAsyncData(_this.baseUrl + '/wash_start', {
+                        jr_pk, equipment_id: equip, worker_id: worker, spjangcd: _this.spjangcd || ''
+                    }, (res) => {
+                        if (res?.success) {
+                            Notify.success('세척을 시작했습니다.');
+                            _this.showWashSessionList(jr_pk);
+                            _this.searchMainData();
+                        } else { Alert.alert('세척 시작 실패', res?.message || ''); }
+                    });
+                };
+
+                if (dup) {
+                    Alert.confirm('설비 중복', '동일한 세척기가 이미 운영중입니다. 그래도 시작하시겠습니까?', doStart);
+                } else {
+                    doStart();
+                }
+            }
+
+            /* ── 세척 완료 ── */
+            washFinish() {
+                const _this = this;
+                if (!this.curMpId) { Alert.alert('', '완료할 세척 작업을 선택해주세요.'); return; }
+                const inputStore = $('#washInputStore').val();
+                if (!inputStore) { Alert.alert('', '투입창고를 선택해주세요.'); return; }
+                const items = [];
+                const view = _this.consumedGrid?.collectionView;
+                const rows = view ? view.items : [];
+                rows.forEach(r => {
+                    const qty = parseFloat(r.work_qty) || 0;
+                    const matId = r.mat_pk || r.mat_id || r.material_id;
+                    if (qty > 0 && matId) items.push({ mat_id: matId, qty });
+                });
+                if (items.length === 0) { Alert.alert('완료 불가', '세척 수량을 1개 이상 입력해주세요.'); return; }
+                const st = ($('#washStartEdit').val() || '').replace('T', ' ');
+                const et = ($('#washEndEdit').val() || '').replace('T', ' ');
+                Alert.confirm('세척 완료', '입력한 수량으로 세척을 완료하시겠습니까?', () => {
+                    AjaxUtil.postAsyncData(_this.baseUrl + '/wash_finish', {
+                        mp_id: _this.curMpId, input_store_id: inputStore,
+                        items: JSON.stringify(items), start_time: st, end_time: et,
+                        spjangcd: _this.spjangcd || ''
+                    }, (res) => {
+                        if (res?.success) {
+                            Notify.success('세척이 완료되었습니다.');
+                            const jrPk = $('#jr_id').val();
+                            _this.showWashSessionList(jrPk);
+                            _this.searchMainData();
+                            // 투입계획/투입로트 새로고침 (재고·완료량 반영)
+                            _this._loadEmptyConsumed();
+                            _this.showInputLotList(jrPk);
+                        } else { Alert.alert('세척 완료 실패', res?.message || ''); }
+                    });
+                });
+            }
+
+            /* ── 세척 세션 삭제 (진행중만) ── */
+            washDelete() {
+                const _this = this;
+                if (!this.curMpId) { Alert.alert('', '삭제할 세척 작업을 선택해주세요.'); return; }
+                if (this.curSessionState !== 'working') { Alert.alert('', '진행중인 세척만 삭제할 수 있습니다.'); return; }
+                Alert.confirm('세척 삭제', '선택한 세척 작업을 삭제하시겠습니까?', () => {
+                    AjaxUtil.postAsyncData(_this.baseUrl + '/wash_delete', { mp_id: _this.curMpId }, (res) => {
+                        if (res?.success) {
+                            Notify.success('삭제되었습니다.');
+                            _this.showWashSessionList($('#jr_id').val());
+                            _this.searchMainData();
+                        } else { Alert.alert('삭제 실패', res?.message || ''); }
+                    });
+                });
+            }
+
+            /* ── 세척 완료취소 (완료만, 후속 소진 없을 때) ── */
+            washCancel() {
+                const _this = this;
+                if (!this.curMpId) { Alert.alert('', '완료취소할 세척 작업을 선택해주세요.'); return; }
+                if (this.curSessionState !== 'finished') { Alert.alert('', '완료된 세척만 취소할 수 있습니다.'); return; }
+                Alert.confirm('완료취소', '세척 완료를 취소하시겠습니까? (재고가 롤백됩니다)', () => {
+                    AjaxUtil.postAsyncData(_this.baseUrl + '/wash_cancel', { mp_id: _this.curMpId }, (res) => {
+                        if (res?.success) {
+                            Notify.success('완료가 취소되었습니다.');
+                            _this.showWashSessionList($('#jr_id').val());
+                            _this.searchMainData();
+                        } else { Alert.alert('완료취소 실패', res?.message || ''); }
+                    });
+                });
+            }
+
+            /* ── 세션 시간 저장 ── */
+            washTimeSave() {
+                const _this = this;
+                if (!this.curMpId) { Alert.alert('', '세척 작업을 선택해주세요.'); return; }
+                const st = ($('#washStartEdit').val() || '').replace('T', ' ');
+                const et = ($('#washEndEdit').val() || '').replace('T', ' ');
+                AjaxUtil.postAsyncData(_this.baseUrl + '/wash_update_time', {
+                    mp_id: _this.curMpId, start_time: st, end_time: et
+                }, (res) => {
+                    if (res?.success) {
+                        Notify.success('시간이 저장되었습니다.');
+                        _this.showWashSessionList($('#jr_id').val());
+                    } else { Alert.alert('시간 저장 실패', res?.message || ''); }
+                });
+            }
+
+            /* 세척: 작지 버튼 단순화 */
+            setButtonState() {
+                const state = $('#state').val();
+                const $finish = $('#btnWorkFinish');
+                const $cancel = $('#btnFinishCancel');
+                const $save   = $('#btnSave');
+                const $del    = $('#btnDel');
+                [$finish, $cancel, $save, $del].forEach(b => b.prop('disabled', true));
+                switch (state) {
+                    case 'ordered':
+                        $save.prop('disabled', false); $del.prop('disabled', false); $finish.prop('disabled', false);
+                        this.toggleFormEditable(true); break;
+                    case 'working':
+                        $finish.prop('disabled', false); $save.prop('disabled', false);
+                        $('#btnDefectSave').prop('disabled', false); this.toggleFormEditable(false); break;
+                    case 'finished':
+                        $cancel.prop('disabled', false); this.toggleFormEditable(false); break;
+                    default:
+                        $save.prop('disabled', false); $finish.prop('disabled', false); this.toggleFormEditable(true);
+                }
+                this._applyWashStartState();
+                const $sb = $('#stickyActionBar');
+                if ($sb.length) $sb.toggleClass('is-empty', $sb.find('button:not([disabled])').length === 0);
+            }
+
+            toggleFormEditable(editable) { /* 세척은 기본정보에 설비/담당자 없음 */ }
+
+            bindEvents() {
+                super.bindEvents();
+                const _this = this;
+                // base가 input_lot_div를 hide()하므로 세척은 다시 강제 표시 (토글 없이 항상 보임)
+                $('#input_lot_div').show();
+                // 투입창고 변경 시 재고/잔여 재조회 (진행중 세션일 때만 수량 채움)
+                $('#washInputStore').off('change').on('change', function () {
+                    if (_this.curSessionState === 'working') _this.showConsumedList($('#jr_id').val());
+                    else _this._loadEmptyConsumed();
+                });
+                $('#btnWashStart').off('click').on('click', () => _this.washStart());
+                $('#btnWashFinish').off('click').on('click', () => _this.washFinish());
+                $('#btnWashDelete').off('click').on('click', () => _this.washDelete());
+                $('#btnWashCancel').off('click').on('click', () => _this.washCancel());
+                $('#btnWashTimeSave').off('click').on('click', () => _this.washTimeSave());
+                $('#btnInputLotList').off('click').on('click', () => _this.showInputLotList());
             }
 
         }  // end class ProcWashPage

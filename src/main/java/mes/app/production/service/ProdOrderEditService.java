@@ -425,72 +425,62 @@ public class ProdOrderEditService {
 	private int explodeProcessRows(JobRes header, Integer rootMatPk, Float orderQty,
 								   Timestamp prodDate, String shiftCode, String spjangcd, User user) {
 
+		Material rootMat = materialRepository.getMaterialById(rootMatPk);
+		Integer routingId = rootMat.getRoutingId();
+		if (routingId == null) return 0;
+
+		Integer factoryId = rootMat.getFactory_id();
+
+		// routing_proc + work_center 조인해서 산출창고 가져오기
 		String sql = """
-        WITH RECURSIVE tree AS (
-            SELECT :rootMat AS mat_id, CAST(1 AS numeric) AS ratio
-            UNION ALL
-            SELECT bc."Material_id",
-                   t.ratio * (bc."Amount" / COALESCE(b."OutputAmount",1))::numeric
-            FROM tree t
-            JOIN bom b       ON b."Material_id" = t.mat_id AND b."BOMType" = 'manufacturing'
-            JOIN bom_comp bc ON bc."BOM_id" = b.id
-        )
-        SELECT t.mat_id,
-               SUM(t.ratio)      AS cum_ratio,
-               m."Routing_id"    AS routing_id,
-               m."Factory_id"    AS factory_id,
-               m."StoreHouse_id" AS store_id
-        FROM tree t
-        JOIN material m ON m.id = t.mat_id
-        WHERE EXISTS (SELECT 1 FROM bom b2
-                      WHERE b2."Material_id" = t.mat_id AND b2."BOMType" = 'manufacturing')
-          AND m."Routing_id" IS NOT NULL
-        GROUP BY t.mat_id, m."Routing_id", m."Factory_id", m."StoreHouse_id"
+        SELECT rp.id, rp."ProcessOrder", rp."Process_id",
+               rp."Material_id" AS step_mat_id,
+               wc."ProcessStoreHouse_id" AS step_store_id
+        FROM routing_proc rp
+        LEFT JOIN work_center wc ON wc."Process_id" = rp."Process_id"
+                                 AND wc."Factory_id" = :factoryId
+        WHERE rp."Routing_id" = :routingId
+        ORDER BY rp."ProcessOrder"
         """;
 		MapSqlParameterSource p = new MapSqlParameterSource();
-		p.addValue("rootMat", rootMatPk);
-		List<Map<String,Object>> produced = sqlRunner.getRows(sql, p);
+		p.addValue("routingId", routingId);
+		p.addValue("factoryId", factoryId);
+		List<Map<String, Object>> steps = sqlRunner.getRows(sql, p);
+		if (steps == null || steps.isEmpty()) return 0;
+
+		Integer firstProcessId = ((Number) steps.get(0).get("Process_id")).intValue();
+		Workcenter firstWc = workcenterRepository.findByProcessIdAndFactoryId(firstProcessId, factoryId);
+		Integer firstWcId = (firstWc != null ? firstWc.getId() : null);
 
 		int count = 0;
-		for (Map<String,Object> row : produced) {
-			Integer matId     = ((Number) row.get("mat_id")).intValue();
-			Integer routingId = ((Number) row.get("routing_id")).intValue();
-			Integer factoryId = row.get("factory_id") != null ? ((Number) row.get("factory_id")).intValue() : null;
-			Integer storeId   = row.get("store_id")   != null ? ((Number) row.get("store_id")).intValue()   : null;
-			java.math.BigDecimal cum = (java.math.BigDecimal) row.get("cum_ratio");
-			float reqQty = (orderQty != null ? orderQty : 0f) * (cum != null ? cum.floatValue() : 1f);
+		for (Map<String, Object> step : steps) {
+			Integer processId    = ((Number) step.get("Process_id")).intValue();
+			Integer stepMatId    = step.get("step_mat_id")    != null ? ((Number) step.get("step_mat_id")).intValue()    : rootMatPk;
+			Integer stepStoreId  = step.get("step_store_id")  != null ? ((Number) step.get("step_store_id")).intValue()  : null;
+			Integer processOrder = ((Number) step.get("ProcessOrder")).intValue();
 
-			List<RoutingProc> steps = routingProcRepository.findByRoutingIdOrderByProcessOrder(routingId);
-			if (steps == null || steps.isEmpty()) continue;
+			Workcenter wc = workcenterRepository.findByProcessIdAndFactoryId(processId, factoryId);
+			Integer wcId = (wc != null ? wc.getId() : null);
 
-			Workcenter firstWc = workcenterRepository.findByProcessIdAndFactoryId(steps.get(0).getProcessId(), factoryId);
-			Integer firstWcId = (firstWc != null ? firstWc.getId() : null);
-
-			for (RoutingProc step : steps) {
-				Workcenter wc = workcenterRepository.findByProcessIdAndFactoryId(step.getProcessId(), factoryId);
-				Integer wcId = (wc != null ? wc.getId() : null);
-
-				JobRes child = new JobRes();
-				child.set_audit(user);
-				child.setParentId(header.getId());
-				child.setMaterialId(matId);
-				child.setOrderQty(reqQty);
-				child.setProductionDate(prodDate);
-				child.setProductionPlanDate(prodDate);
-				child.setRouting_id(routingId);
-				child.setProcessCount(steps.size());
-				child.setWorkIndex(step.getProcessOrder());   // 공정 순서(단계 게이팅용)
-				child.setWorkCenter_id(wcId);
-				child.setFirstWorkCenter_id(firstWcId != null ? firstWcId : wcId);
-				child.setShiftCode(shiftCode);
-				child.setStoreHouse_id(storeId);
-				child.setState("ordered");
-				child.setSpjangcd(spjangcd);
-				jobResRepository.save(child);
-				count++;
-			}
+			JobRes child = new JobRes();
+			child.set_audit(user);
+			child.setParentId(header.getId());
+			child.setMaterialId(stepMatId);
+			child.setOrderQty(orderQty != null ? orderQty : 0f);
+			child.setProductionDate(prodDate);
+			child.setProductionPlanDate(prodDate);
+			child.setRouting_id(routingId);
+			child.setProcessCount(steps.size());
+			child.setWorkIndex(processOrder);
+			child.setWorkCenter_id(wcId);
+			child.setFirstWorkCenter_id(firstWcId != null ? firstWcId : wcId);
+			child.setShiftCode(shiftCode);
+			child.setStoreHouse_id(stepStoreId);
+			child.setState("ordered");
+			child.setSpjangcd(spjangcd);
+			jobResRepository.save(child);
+			count++;
 		}
 		return count;
 	}
-
 }

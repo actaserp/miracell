@@ -706,6 +706,36 @@ public class ProductionResultService {
         return this.sqlRunner.getRows(sql, p);
     }
 
+    /**
+     * 세척 세션 목록 — 설비명 + 수정 가능한 시각 포맷 포함
+     */
+    public List<Map<String, Object>> getWashSessionList(Integer jrPk) {
+        MapSqlParameterSource p = new MapSqlParameterSource().addValue("jrPk", jrPk);
+        String sql = """
+                    SELECT mp.id AS mp_id
+                         , mp."LotIndex" AS chasu
+                         , mp."State" AS state
+                         , CASE mp."State"
+                             WHEN 'working'  THEN '진행중'
+                             WHEN 'finished' THEN '완료'
+                             ELSE mp."State"
+                           END AS state_name
+                         , ROUND(COALESCE(mp."GoodQty",0)::numeric, 0) AS good_qty
+                         , mp."Equipment_id" AS equipment_id
+                         , eq."Name" AS equipment_name
+                         , mp."Actor_id" AS worker_id
+                         , per."Name" AS worker_name
+                         , to_char(mp."StartTime", 'YYYY-MM-DD HH24:MI') AS start_time
+                         , to_char(mp."EndTime",   'YYYY-MM-DD HH24:MI') AS end_time
+                    FROM mat_produce mp
+                    LEFT JOIN person per ON per.id = mp."Actor_id"
+                    LEFT JOIN equ eq ON eq.id = mp."Equipment_id"
+                    WHERE mp."JobResponse_id" = :jrPk
+                    ORDER BY mp."LotIndex"
+                """;
+        return this.sqlRunner.getRows(sql, p);
+    }
+
     public List<Map<String, Object>> getInputLotList(Integer jrPk, String mat_code) {
 
         MapSqlParameterSource dicParam = new MapSqlParameterSource();
@@ -1426,6 +1456,7 @@ public class ProductionResultService {
                         AND sibling.id != j.id
                         AND srp."ProcessOrder" < j."ProcessOrder"
                         AND sibling."State" != 'finished'
+                        AND COALESCE(sibling."GoodQty", 0) = 0   -- ★ 느슨한 게이팅: 전 공정이 'finished'가 아니어도, 차수가 하나라도 생산(GoodQty>0)됐으면 다음 공정 시작 허용. 한 차수도 생산 안 된 전공정이 있을 때만 잠금.
                 ) THEN true ELSE false END AS _locked
             FROM jr_with_order j
             ORDER BY
@@ -1854,5 +1885,667 @@ public class ProductionResultService {
         }
 
         return result;
+    }
+
+    /**
+     * BOM 구성품 중 semi 그룹이 아닌 품목(외부자재)이 있는지 확인
+     * → true면 수동 로트 투입 필요
+     */
+    public boolean hasNonSemiInBom(Integer materialId) {
+        String sql = """
+        SELECT COUNT(*) AS cnt
+        FROM bom b
+        JOIN bom_comp bc ON bc."BOM_id" = b.id
+        JOIN material m  ON m.id = bc."Material_id"
+        JOIN mat_grp mg  ON mg.id = m."MaterialGroup_id"
+        WHERE b."Material_id" = :materialId
+          AND b."BOMType" = 'manufacturing'
+          AND mg."MaterialType" != 'semi'
+    """;
+        MapSqlParameterSource p = new MapSqlParameterSource();
+        p.addValue("materialId", materialId);
+        Map<String, Object> row = this.sqlRunner.getRow(sql, p);
+        if (row == null) return false;
+        long cnt = ((Number) row.get("cnt")).longValue();
+        return cnt > 0;
+    }
+
+    /**
+     * 해당 작지에 투입된 로트가 있는지 확인 (mat_proc_input)
+     */
+    public boolean hasLotInput(Integer jrId) {
+        String sql = """
+        SELECT COUNT(*) AS cnt
+        FROM mat_proc_input mpi
+        JOIN job_res jr ON jr."MaterialProcessInputRequest_id" = mpi."MaterialProcessInputRequest_id"
+        WHERE jr.id = :jrId
+    """;
+        MapSqlParameterSource p = new MapSqlParameterSource();
+        p.addValue("jrId", jrId);
+        Map<String, Object> row = this.sqlRunner.getRow(sql, p);
+        if (row == null) return false;
+        long cnt = ((Number) row.get("cnt")).longValue();
+        return cnt > 0;
+    }
+
+    /**
+     * 세척 공정 전용 처리.
+     * 투입창고(생산창고)에서 BOM 자재를 선입선출로 부분 차감하고,
+     * 동일 로트번호로 클린룸창고에 입고(재고이동)한다.
+     * 차수(mat_produce)는 공정 실적용으로 1건만 생성한다.
+     *
+     * - mat_lot_cons: 생산창고 로트 부분 차감 (트리거가 mat_lot.CurrentStock 자동 갱신)
+     * - mat_lot 신규: 클린룸창고에 동일 로트번호로 입고 (조립 공정 선입선출 투입용)
+     * - mat_consu: 자재별 투입 실적
+     * - mat_inout out/in: 창고총량 이동 (트리거가 mat_in_house 자동 갱신)
+     *
+     * @param jrId          세척 job_res id
+     * @param equipmentId   세척기 설비 id
+     * @param workerId      담당자 id
+     * @param inputStoreId  투입창고 id (생산창고)
+     * @param outStoreId    산출창고 id (클린룸창고)
+     * @param items         자재별 [{mat_id, qty}]
+     */
+    /**
+     * 세척 세션 시작 — mat_produce(working) 1건 생성 + equ_run 시작.
+     * 설비/담당자별로 여러 세션 동시 진행 가능.
+     */
+    public AjaxResult washStartProcess(Integer jrId, Integer equipmentId, Integer workerId,
+                                       User user, String spjangcd) {
+        AjaxResult result = new AjaxResult();
+        result.success = true;
+
+        JobRes jr = this.jobResRepository.getJobResById(jrId);
+        if (jr == null) {
+            result.success = false; result.message = "작업지를 찾을 수 없습니다."; return result;
+        }
+        if (equipmentId == null) {
+            result.success = false; result.message = "세척기를 선택해주세요."; return result;
+        }
+        if (workerId == null) {
+            result.success = false; result.message = "담당자를 선택해주세요."; return result;
+        }
+
+        Timestamp now = DateUtil.getNowTimeStamp();
+        Workcenter wc = this.workcenterRepository.getWorkcenterById(jr.getWorkCenter_id());
+
+        // 산출창고 = 워크센터 ProcessStoreHouse_id (클린룸창고)
+        Integer outStoreId = null;
+        MapSqlParameterSource sp = new MapSqlParameterSource();
+        sp.addValue("wcId", jr.getWorkCenter_id());
+        Map<String, Object> shRow = this.sqlRunner.getRow(
+                "SELECT \"ProcessStoreHouse_id\" AS sh FROM work_center WHERE id = :wcId", sp);
+        if (shRow != null && shRow.get("sh") != null) {
+            outStoreId = ((Number) shRow.get("sh")).intValue();
+        }
+
+        int chasu = this.matProduceRepository.findByJobResponseId(jrId).size() + 1;
+        String lotNumber = this.lotService.make_production_lot_in_number("W");
+
+        MaterialProduce mp = new MaterialProduce();
+        mp.setJobResponseId(jrId);
+        mp.setMaterialId(jr.getMaterialId());
+        if (wc != null) mp.setProcessId(wc.getProcessId());
+        mp.setProcessOrder(jr.getWorkIndex() != null ? jr.getWorkIndex() : 1);
+        mp.setLotIndex(chasu);
+        mp.set_status("a");
+        mp.setStoreHouseId(outStoreId);
+        mp.setProductionDate(jr.getProductionDate());
+        mp.setShiftCode(jr.getShiftCode());
+        mp.setWorkCenterId(jr.getWorkCenter_id());
+        mp.setEquipmentId(equipmentId);
+        mp.setActorId(workerId);
+        mp.set_audit(user);
+        mp.setLastProcessYN("N");
+        mp.setLotNumber(lotNumber);
+        mp.setSpjangcd(spjangcd);
+        mp.setInputQty(0f);
+        mp.setGoodQty(0f);
+        mp.setDefectQty(0f);
+        mp.setState("working");
+        mp.setStartTime(now);
+        mp.setDescription("세척");
+        mp = this.matProduceRepository.save(mp);
+
+        // equ_run 시작 (세척 세션 = 설비 가동 시작)
+        EquRun er = new EquRun();
+        er.setEquipmentId(equipmentId);
+        er.setStartDate(now);
+        er.setWorkOrderNumber(jr.getWorkOrderNumber());
+        er.setJobResponseId(jrId);
+        er.setActorId(workerId);
+        er.setRunState("run");
+        er.set_audit(user);
+        er.setSpjangcd(spjangcd);
+        this.equRunRepository.save(er);
+
+        // job_res 가 ordered면 working 으로
+        if ("ordered".equals(jr.getState())) {
+            jr.setState("working");
+            if (jr.getStartTime() == null) jr.setStartTime(now);
+            jr.set_audit(user);
+            this.jobResRepository.save(jr);
+        }
+
+        Map<String, Object> data = new java.util.HashMap<>();
+        data.put("mp_id", mp.getId());
+        result.data = data;
+        return result;
+    }
+
+    /**
+     * 세척 세션 완료 — 시작된 세션(mpId)에 대해
+     * 생산창고 선입선출 차감 + 클린룸창고 입고(재고이동) + 세션 완료 + equ_run 종료.
+     * 시작/종료 시각은 화면에서 수정 가능(startTimeStr/endTimeStr).
+     *
+     * @param mpId          세척 세션 mat_produce id
+     * @param inputStoreId  투입창고(생산창고)
+     * @param items         자재별 [{mat_id, qty}]
+     * @param startTimeStr  시작시각 (yyyy-MM-dd HH:mm) — null이면 기존 유지
+     * @param endTimeStr    종료시각 (yyyy-MM-dd HH:mm) — null이면 now
+     */
+    public AjaxResult washFinishProcess(Integer mpId, Integer inputStoreId,
+                                        List<Map<String, Object>> items,
+                                        String startTimeStr, String endTimeStr,
+                                        User user, String spjangcd) {
+        AjaxResult result = new AjaxResult();
+        result.success = true;
+
+        MaterialProduce mp = this.matProduceRepository.getMatProduceById(mpId);
+        if (mp == null) {
+            result.success = false; result.message = "세척 세션을 찾을 수 없습니다."; return result;
+        }
+        if (!"working".equals(mp.getState())) {
+            result.success = false; result.message = "완료할 수 없는 상태입니다."; return result;
+        }
+        if (items == null || items.isEmpty()) {
+            result.success = false; result.message = "세척 수량을 입력해주세요."; return result;
+        }
+        if (inputStoreId == null) {
+            result.success = false; result.message = "투입 창고가 지정되지 않았습니다."; return result;
+        }
+
+        JobRes jr = this.jobResRepository.getJobResById(mp.getJobResponseId());
+        Integer outStoreId = mp.getStoreHouseId();
+        if (outStoreId == null) {
+            result.success = false; result.message = "산출(클린룸) 창고가 지정되지 않았습니다."; return result;
+        }
+
+        Timestamp now = DateUtil.getNowTimeStamp();
+        LocalDate date = LocalDate.now();
+        LocalTime time = LocalTime.now();
+        DateTimeFormatter df = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+        DateTimeFormatter tf = DateTimeFormatter.ofPattern("HH:mm:ss");
+        DateTimeFormatter dtm = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+
+        // 시작/종료 시각 (수정값 우선)
+        Timestamp startTs = mp.getStartTime();
+        if (startTimeStr != null && !startTimeStr.isBlank()) {
+            startTs = Timestamp.valueOf(java.time.LocalDateTime.parse(startTimeStr, dtm));
+        }
+        Timestamp endTs = now;
+        if (endTimeStr != null && !endTimeStr.isBlank()) {
+            endTs = Timestamp.valueOf(java.time.LocalDateTime.parse(endTimeStr, dtm));
+        }
+
+        // 합계 수량
+        float totalQty = 0f;
+        for (Map<String, Object> it : items) {
+            Object q = it.get("qty");
+            if (q == null) continue;
+            totalQty += Float.parseFloat(String.valueOf(q));
+        }
+        if (totalQty <= 0) {
+            result.success = false; result.message = "세척 수량이 0입니다."; return result;
+        }
+
+        // ── 자재별 선입선출 차감 + 클린룸 입고 + 재고이동 ──
+        for (Map<String, Object> it : items) {
+            Integer matId = ((Number) it.get("mat_id")).intValue();
+            Object q = it.get("qty");
+            float qty = (q == null) ? 0f : Float.parseFloat(String.valueOf(q));
+            if (qty <= 0) continue;
+
+            Material consMat = this.materialRepository.getMaterialById(matId);
+
+            // 자재의 로트관리 여부(LotUseYN). 'Y'면 작업자 지정분(mat_proc_input) 우선 소비,
+            // 나머지(미지정분/비로트 자재)는 생산창고 FIFO로 폴백 → 다른 공정(consumeBomForChasu)과 동일한 C안.
+            String lotUseYn = "N";
+            {
+                MapSqlParameterSource yp = new MapSqlParameterSource().addValue("matId", matId);
+                Map<String, Object> ynRow = this.sqlRunner.getRow(
+                        "SELECT COALESCE(\"LotUseYN\",'N') AS yn FROM material WHERE id = :matId", yp);
+                if (ynRow != null && ynRow.get("yn") != null) lotUseYn = String.valueOf(ynRow.get("yn"));
+            }
+
+            float remain = qty;
+
+            // (1) 로트관리 자재: 작업자가 지정한 로트(mat_proc_input)를 먼저 차감
+            if ("Y".equals(lotUseYn)) {
+                List<Map<String, Object>> mpiList = this.getMaterialProcessInputList(jr.getId(), matId);
+                for (Map<String, Object> mpiMap : mpiList) {
+                    if (remain <= 0) break;
+                    int matLotId = ((Number) mpiMap.get("ml_id")).intValue();
+                    float currentStock = Float.parseFloat(String.valueOf(mpiMap.get("curr_qty")));
+                    if (currentStock <= 0) continue;
+                    float reqQty = Float.parseFloat(String.valueOf(mpiMap.get("req_qty")));
+                    // 지정량·잔여·로트재고 중 최솟값만큼 차감
+                    float take = Math.min(Math.min(reqQty, remain), currentStock);
+                    if (take <= 0) continue;
+
+                    MatLotCons mlc = new MatLotCons();
+                    mlc.setMaterialLotId(matLotId);
+                    mlc.setOutputDateTime(now);
+                    mlc.setSourceDataPk(mp.getId());
+                    mlc.setSourceTableName("mat_produce");
+                    mlc.setCurrentStock(currentStock);
+                    mlc.setOutputQty(take);
+                    mlc.set_audit(user);
+                    mlc.setSpjangcd(spjangcd);
+                    this.matLotConsRepository.save(mlc);
+
+                    remain -= take;
+                }
+            }
+
+            // (2) 폴백: 미지정 잔여분(또는 비로트 자재)은 생산창고 FIFO로 차감
+            if (remain > 0) {
+                String lotSql = """
+                        SELECT ml.id AS ml_id, ml."LotNumber", ml."CurrentStock"
+                        FROM mat_lot ml
+                        WHERE ml."Material_id" = :matId
+                          AND ml."StoreHouse_id" = :inStore
+                          AND ml."CurrentStock" > 0
+                        ORDER BY ml."InputDateTime" ASC, ml.id ASC
+                        """;
+                MapSqlParameterSource lp = new MapSqlParameterSource();
+                lp.addValue("matId", matId);
+                lp.addValue("inStore", inputStoreId);
+                List<Map<String, Object>> lots = this.sqlRunner.getRows(lotSql, lp);
+                for (Map<String, Object> lot : lots) {
+                    if (remain <= 0) break;
+                    Integer mlId = (Integer) lot.get("ml_id");
+                    float cs = Float.parseFloat(lot.get("currentstock").toString());
+                    float take = Math.min(cs, remain);
+
+                    MatLotCons mlc = new MatLotCons();
+                    mlc.setMaterialLotId(mlId);
+                    mlc.setOutputDateTime(now);
+                    mlc.setSourceDataPk(mp.getId());
+                    mlc.setSourceTableName("mat_produce");
+                    mlc.setCurrentStock(cs);
+                    mlc.setOutputQty(take);
+                    mlc.set_audit(user);
+                    mlc.setSpjangcd(spjangcd);
+                    this.matLotConsRepository.save(mlc);
+
+                    remain -= take;
+                }
+            }
+
+            if (remain > 0) {
+                result.success = false;
+                result.message = "투입 가능한 재고가 부족합니다. ("
+                        + (consMat != null ? consMat.getName() : ("자재" + matId))
+                        + ", 부족수량: " + remain + ")";
+                return result;
+            }
+
+            MaterialConsume mc = new MaterialConsume();
+            mc.setJobResponseId(jr.getId());
+            mc.setMaterialId(matId);
+            mc.setProcessOrder(mp.getProcessOrder());
+            mc.setLotIndex(mp.getLotIndex());
+            mc.setStartTime(startTs);
+            mc.setEndTime(endTs);
+            mc.setDescription("세척투입");
+            mc.setBomQty(qty);
+            mc.setConsumedQty(qty);
+            mc.set_audit(user);
+            mc.setState("finished");
+            mc.set_status("a");
+            mc.setStoreHouseId(inputStoreId);
+            mc.setSpjangcd(spjangcd);
+            this.matConsuRepository.save(mc);
+
+            MaterialInout moOut = new MaterialInout();
+            moOut.setMaterialId(matId);
+            moOut.setStoreHouseId(inputStoreId);
+            moOut.setInOut("out");
+            moOut.setOutputType("move_out");
+            moOut.setOutputQty(qty);
+            moOut.setInoutDate(LocalDate.parse(date.format(df)));
+            moOut.setInoutTime(LocalTime.parse(time.format(tf)));
+            moOut.setDescription("세척 투입(생산창고 출고)");
+            moOut.setState("confirmed");
+            moOut.set_status("a");
+            moOut.setSourceDataPk(mp.getId());
+            moOut.setSourceTableName("mat_produce");
+            moOut.set_audit(user);
+            moOut.setSpjangcd(spjangcd);
+            this.matInoutRepository.save(moOut);
+        }
+
+        // ── 세척 산출 WIP 1건 입고 (새 로트번호 = 세션 로트번호, 품목 = 작지 산출품목) ──
+        //    기존: 투입 원자재의 로트번호/품목을 그대로 베껴 per-로트 다건 생성 → 로트번호 중복 + 산출품목이 원자재로 잘못 찍힘.
+        //    수정: produceInForChasu와 동일하게 '새 W… 로트번호 + WIP 품목'으로 1건만 생성.
+        MaterialLot outLot = new MaterialLot();
+        outLot.setLotNumber(mp.getLotNumber());     // 세척 시작 시 부여된 새 'W…' 로트번호
+        outLot.setMaterialId(mp.getMaterialId());   // 세척 산출 품목(WIP) = 작지 품목
+        outLot.setInputDateTime(now);
+        outLot.setInputQty(totalQty);
+        outLot.setCurrentStock(totalQty);
+        outLot.setDescription("세척완료 입고");
+        outLot.setSourceDataPk(mp.getId());
+        outLot.setSourceTableName("mat_produce");
+        outLot.setStoreHouseId(outStoreId);
+        outLot.set_audit(user);
+        outLot.setSpjangcd(spjangcd);
+        this.matLotRepository.save(outLot);
+
+        MaterialInout outIn = new MaterialInout();
+        outIn.setMaterialId(mp.getMaterialId());
+        outIn.setStoreHouseId(outStoreId);
+        outIn.setLotNumber(mp.getLotNumber());
+        outIn.setInOut("in");
+        outIn.setInputType("produced_in");
+        outIn.setInputQty(totalQty);
+        outIn.setInoutDate(LocalDate.parse(date.format(df)));
+        outIn.setInoutTime(LocalTime.parse(time.format(tf)));
+        outIn.setDescription("세척 완료(클린룸창고 입고)");
+        outIn.setState("confirmed");
+        outIn.set_status("a");
+        outIn.setSourceDataPk(mp.getId());
+        outIn.setSourceTableName("mat_produce");
+        outIn.set_audit(user);
+        outIn.setSpjangcd(spjangcd);
+        this.matInoutRepository.save(outIn);
+
+        // ── 세션 완료 처리 ──
+        mp.setInputQty(totalQty);
+        mp.setGoodQty(totalQty);
+        mp.setState("finished");
+        mp.setStartTime(startTs);
+        mp.setEndTime(endTs);
+        mp.set_audit(user);
+        this.matProduceRepository.save(mp);
+
+        // ── equ_run 종료 ──
+        try {
+            java.util.Optional<EquRun> runOpt =
+                    this.equRunRepository.findLatestRunningByJobResponseId(jr.getId());
+            if (runOpt != null && runOpt.isPresent()) {
+                EquRun er = runOpt.get();
+                er.setEndDate(endTs);
+                er.setRunState("complete");
+                er.set_audit(user);
+                this.equRunRepository.save(er);
+            }
+        } catch (Exception e) {
+            // equ_run 종료 실패는 세척 완료를 막지 않음
+        }
+
+        Map<String, Object> data = new java.util.HashMap<>();
+        data.put("mp_id", mp.getId());
+        data.put("total_qty", totalQty);
+        result.data = data;
+        return result;
+    }
+
+    /**
+     * 세척 세션 삭제 — working(미완료) 세션만. 재고 미반영 상태이므로
+     * mat_produce 행과 equ_run만 삭제한다.
+     */
+    public AjaxResult washDeleteSession(Integer mpId, User user) {
+        AjaxResult result = new AjaxResult();
+        MaterialProduce mp = this.matProduceRepository.getMatProduceById(mpId);
+        if (mp == null) {
+            result.success = false; result.message = "세척 세션을 찾을 수 없습니다."; return result;
+        }
+        if ("finished".equals(mp.getState())) {
+            result.success = false; result.message = "완료된 세척은 삭제할 수 없습니다. (완료취소 후 삭제)"; return result;
+        }
+
+        // equ_run 삭제 (해당 세션의 진행중 가동기록)
+        MapSqlParameterSource ep = new MapSqlParameterSource();
+        ep.addValue("jrId", mp.getJobResponseId());
+        ep.addValue("eqId", mp.getEquipmentId());
+        this.sqlRunner.execute(
+                "DELETE FROM equ_run WHERE \"JobResponse_id\" = :jrId AND \"Equipment_id\" = :eqId AND \"RunState\" = 'run'", ep);
+
+        // mat_produce 삭제
+        this.matProduceRepository.deleteById(mpId);
+
+        result.success = true;
+        return result;
+    }
+
+    /**
+     * 세척 세션 시간 수정 — 시작/종료 시각만 갱신 (재고 무관, 항상 허용)
+     */
+    public AjaxResult washUpdateTime(Integer mpId, String startTimeStr, String endTimeStr, User user) {
+        AjaxResult result = new AjaxResult();
+        MaterialProduce mp = this.matProduceRepository.getMatProduceById(mpId);
+        if (mp == null) {
+            result.success = false; result.message = "세척 세션을 찾을 수 없습니다."; return result;
+        }
+        DateTimeFormatter dtm = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+        if (startTimeStr != null && !startTimeStr.isBlank()) {
+            mp.setStartTime(Timestamp.valueOf(java.time.LocalDateTime.parse(startTimeStr, dtm)));
+        }
+        if (endTimeStr != null && !endTimeStr.isBlank()) {
+            mp.setEndTime(Timestamp.valueOf(java.time.LocalDateTime.parse(endTimeStr, dtm)));
+        }
+        mp.set_audit(user);
+        this.matProduceRepository.save(mp);
+        result.success = true;
+        return result;
+    }
+
+    /**
+     * 지정 로트의 품목이 '해당 작지(jrPk)가 생산하는 산출 품목'과 같은지 여부.
+     * 어떤 공정도 자기 산출물(WIP/완제품)을 자기 투입으로 넣을 수 없으므로,
+     * 출처(mat_produce/mat_inout) 무관하게 '품목' 기준으로 자기참조를 차단한다.
+     * (같은 로트번호가 mat_produce/mat_inout 두 벌로 존재하는 경우까지 모두 차단)
+     */
+    public boolean isOwnOutputMaterialLot(Integer jrPk, Integer lotId) {
+        if (jrPk == null || lotId == null) return false;
+        String sql = """
+                SELECT COUNT(*) AS cnt
+                FROM mat_lot ml
+                JOIN job_res jr ON jr.id = :jrPk
+                WHERE ml.id = :lotId
+                  AND ml."Material_id" = jr."Material_id"
+                """;
+        MapSqlParameterSource p = new MapSqlParameterSource()
+                .addValue("lotId", lotId)
+                .addValue("jrPk", jrPk);
+        Map<String, Object> row = this.sqlRunner.getRow(sql, p);
+        long cnt = (row != null && row.get("cnt") != null) ? ((Number) row.get("cnt")).longValue() : 0;
+        return cnt > 0;
+    }
+
+    /**
+     * 세척 완료취소 — 후속 공정에서 산출물이 소진됐으면 차단,
+     * 아니면 클린룸 입고 + 생산창고 차감을 롤백하고 세션을 working 으로 복귀.
+     */
+    public AjaxResult washCancelProcess(Integer mpId, User user) {
+        AjaxResult result = new AjaxResult();
+        MaterialProduce mp = this.matProduceRepository.getMatProduceById(mpId);
+        if (mp == null) {
+            result.success = false; result.message = "세척 세션을 찾을 수 없습니다."; return result;
+        }
+        if (!"finished".equals(mp.getState())) {
+            result.success = false; result.message = "완료 상태가 아닙니다."; return result;
+        }
+
+        MapSqlParameterSource up = new MapSqlParameterSource().addValue("mpId", mpId);
+        up.addValue("jobResId", mp.getJobResponseId());
+
+        // 1) 후속 '사용' 체크 — 산출 로트(mat_lot)가
+        //    (a) 실제 소비(mat_lot_cons) 됐거나
+        //    (b) '다른(후속) 작지'에서 투입 등록(mat_proc_input) 됐으면 → 완료취소 차단.
+        //    ※ 이 세척 작지 '자신'에 잘못 걸린 자기참조 투입 등록(로트검색 팝업으로 자기 산출 로트를
+        //      투입 지정한 케이스)은 차단 대상이 아니라 아래 1-1)에서 정리한다.
+        String usedSql = """
+                SELECT COUNT(*) AS cnt
+                FROM mat_lot ml
+                WHERE ml."SourceTableName" = 'mat_produce'
+                  AND ml."SourceDataPk" = :mpId
+                  AND (
+                        EXISTS (SELECT 1 FROM mat_lot_cons mlc WHERE mlc."MaterialLot_id" = ml.id)
+                     OR EXISTS (
+                            SELECT 1
+                            FROM mat_proc_input mpi
+                            JOIN mat_proc_input_req mpir ON mpir.id = mpi."MaterialProcessInputRequest_id"
+                            JOIN job_res jr2 ON jr2."MaterialProcessInputRequest_id" = mpir.id
+                            WHERE mpi."MaterialLot_id" = ml.id
+                              AND jr2.id <> :jobResId        -- ★ 후속 작지만 차단 (자기참조 제외)
+                        )
+                      )
+                """;
+        Map<String, Object> usedRow = this.sqlRunner.getRow(usedSql, up);
+        long usedCnt = (usedRow != null && usedRow.get("cnt") != null) ? ((Number) usedRow.get("cnt")).longValue() : 0;
+        if (usedCnt > 0) {
+            result.success = false;
+            result.message = "세척 완료품이 후속 공정에 이미 투입(또는 사용)되어 완료취소가 불가합니다. 후속 공정에서 해당 로트 투입을 먼저 취소해 주세요.";
+            return result;
+        }
+
+        // 1-1) 자기참조 정리 — 이 작지 자신에 잘못 등록된 '자기 산출 품목' 투입(mat_proc_input)을
+        //      mat_lot 삭제 '전에' 제거해 FK(fk_mat_proc_input_mat_lot) 위반(25P02)을 방지한다.
+        //      ※ 같은 로트번호가 mat_produce/mat_inout 두 벌로 존재해도 '품목' 기준이라 모두 정리됨.
+        this.sqlRunner.execute("""
+                DELETE FROM mat_proc_input
+                WHERE "MaterialProcessInputRequest_id" = (
+                          SELECT "MaterialProcessInputRequest_id" FROM job_res WHERE id = :jobResId
+                      )
+                  AND "MaterialLot_id" IN (
+                          SELECT ml.id FROM mat_lot ml
+                          JOIN job_res jr ON jr.id = :jobResId
+                          WHERE ml."Material_id" = jr."Material_id"
+                      )
+                """, up);
+
+        // 2) 클린룸 입고 롤백: 이 세션이 만든 클린룸 mat_lot 삭제 + 입고 mat_inout(in/move_in) 삭제
+        //    (트리거가 mat_in_house 자동 재계산)
+        this.sqlRunner.execute(
+                "DELETE FROM mat_lot WHERE \"SourceTableName\" = 'mat_produce' AND \"SourceDataPk\" = :mpId", up);
+        this.sqlRunner.execute(
+                "DELETE FROM mat_inout WHERE \"SourceTableName\" = 'mat_produce' AND \"SourceDataPk\" = :mpId AND \"InOut\" = 'in'", up);
+
+        // 3) 생산창고 차감 롤백: 이 세션의 mat_lot_cons 삭제(트리거가 원 로트 CurrentStock 복원)
+        //    + 출고 mat_inout(out) 삭제 + mat_consu 삭제
+        List<Map<String, Object>> consRows = this.sqlRunner.getRows(
+                "SELECT id FROM mat_lot_cons WHERE \"SourceTableName\" = 'mat_produce' AND \"SourceDataPk\" = :mpId", up);
+        for (Map<String, Object> r : consRows) {
+            Integer mlcId = ((Number) r.get("id")).intValue();
+            this.matLotConsRepository.deleteById(mlcId);
+        }
+        this.sqlRunner.execute(
+                "DELETE FROM mat_inout WHERE \"SourceTableName\" = 'mat_produce' AND \"SourceDataPk\" = :mpId AND \"InOut\" = 'out'", up);
+
+        // mat_consu (해당 세션 processOrder+lotIndex) 삭제
+        MapSqlParameterSource mcp = new MapSqlParameterSource();
+        mcp.addValue("jrId", mp.getJobResponseId());
+        mcp.addValue("po", mp.getProcessOrder());
+        mcp.addValue("li", mp.getLotIndex());
+        this.sqlRunner.execute(
+                "DELETE FROM mat_consu WHERE \"JobResponse_id\" = :jrId AND \"ProcessOrder\" = :po AND \"LotIndex\" = :li", mcp);
+
+        // 4) 세션 working 복귀
+        mp.setState("working");
+        mp.setEndTime(null);
+        mp.setGoodQty(0f);
+        mp.setInputQty(0f);
+        mp.set_audit(user);
+        this.matProduceRepository.save(mp);
+
+        // equ_run 다시 run 으로 (종료된 것을 재가동)
+        MapSqlParameterSource ep = new MapSqlParameterSource();
+        ep.addValue("jrId", mp.getJobResponseId());
+        ep.addValue("eqId", mp.getEquipmentId());
+        this.sqlRunner.execute(
+                "UPDATE equ_run SET \"RunState\" = 'run', \"EndDate\" = NULL " +
+                        "WHERE \"JobResponse_id\" = :jrId AND \"Equipment_id\" = :eqId AND \"RunState\" = 'complete'", ep);
+
+        result.success = true;
+        return result;
+    }
+
+    /**
+     * 세척 전용 투입계획 — 소요량(BOM), 완료량(누적 mat_consu), 잔여,
+     * 생산창고(투입창고) 기준 재고를 반환.
+     * @param jrPk          세척 job_res
+     * @param inputStoreId  투입창고(생산창고) — 재고 기준
+     */
+    public List<Map<String, Object>> getWashConsumedList(Integer jrPk, Integer inputStoreId) {
+        MapSqlParameterSource p = new MapSqlParameterSource();
+        p.addValue("jrPk", jrPk);
+        p.addValue("inStore", inputStoreId);
+
+        String sql = """
+                WITH bom1 AS (
+                    SELECT b1.id AS bom_pk, b1."Material_id" AS prod_pk,
+                           b1."OutputAmount" AS produced_qty, jr."OrderQty" AS order_qty,
+                           row_number() OVER (PARTITION BY b1."Material_id" ORDER BY b1."Version" DESC) AS g_idx
+                    FROM bom b1
+                    INNER JOIN job_res jr ON jr."Material_id" = b1."Material_id" AND jr.id = :jrPk
+                    WHERE b1."BOMType" = 'manufacturing'
+                      AND jr."ProductionDate" BETWEEN b1."StartDate" AND b1."EndDate"
+                ), BT AS (
+                    SELECT bc."Material_id" AS mat_pk,
+                           round((bc."Amount" / NULLIF(bom1.produced_qty,0) * bom1.order_qty)::numeric, 0) AS bom_requ_qty
+                    FROM bom_comp bc
+                    INNER JOIN bom1 ON bom1.bom_pk = bc."BOM_id"
+                    WHERE bom1.g_idx = 1
+                ), DONE AS (
+                    -- 이 작지에서 지금까지 완료된 자재별 누적 소모량
+                    SELECT mc."Material_id" AS mat_pk, SUM(mc."ConsumedQty") AS done_qty
+                    FROM mat_consu mc
+                    WHERE mc."JobResponse_id" = :jrPk
+                    GROUP BY mc."Material_id"
+                ), STK AS (
+                    -- 투입창고(생산창고) 기준 재고
+                    SELECT mh."Material_id" AS mat_pk, mh."CurrentStock" AS cur_stock
+                    FROM mat_in_house mh
+                    WHERE mh."StoreHouse_id" = :inStore
+                )
+                SELECT BT.mat_pk,
+                       m."Code" AS mat_code,
+                       m."Name" AS mat_name,
+                       u."Name" AS unit,
+                       round(BT.bom_requ_qty::numeric, 0) AS bom_consumed,
+                       COALESCE(DONE.done_qty, 0) AS done_qty,
+                       GREATEST(round(BT.bom_requ_qty::numeric,0) - COALESCE(DONE.done_qty,0), 0) AS remain_qty,
+                       COALESCE(STK.cur_stock, 0) AS "currentStock"
+                FROM BT
+                INNER JOIN material m ON m.id = BT.mat_pk
+                LEFT JOIN unit u ON u.id = m."Unit_id"
+                LEFT JOIN DONE ON DONE.mat_pk = BT.mat_pk
+                LEFT JOIN STK ON STK.mat_pk = BT.mat_pk
+                ORDER BY m."Code"
+                """;
+        return this.sqlRunner.getRows(sql, p);
+    }
+
+    /**
+     * 완료된 세척 세션이 사용한 로트 목록 (투입로트 표시용)
+     */
+    public List<Map<String, Object>> getWashSessionLots(Integer mpId) {
+        MapSqlParameterSource p = new MapSqlParameterSource().addValue("mpId", mpId);
+        String sql = """
+                SELECT ml."LotNumber" AS lot_number
+                     , m."Code" AS mat_code
+                     , m."Name" AS mat_name
+                     , mlc."OutputQty" AS input_qty
+                FROM mat_lot_cons mlc
+                JOIN mat_lot ml ON ml.id = mlc."MaterialLot_id"
+                JOIN material m ON m.id = ml."Material_id"
+                WHERE mlc."SourceTableName" = 'mat_produce'
+                  AND mlc."SourceDataPk" = :mpId
+                ORDER BY m."Code"
+                """;
+        return this.sqlRunner.getRows(sql, p);
     }
 }
