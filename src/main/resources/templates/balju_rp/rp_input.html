@@ -350,6 +350,11 @@
                                 로트 입고 등록
                             </a>
                         </li>
+                        <li>
+                            <a class="btn" title="스캐너 입고" id="btnScanInput">
+                            스캐너 입고
+                            </a>
+                        </li>
                     </ul>
                 </div>
             </div>
@@ -663,7 +668,6 @@
 
     </script>
 
-
     <script type="text/x-tmpl" id="addMultiDataPopup">
         <div class="content_wrap popup">
             <div class="table-wrap">
@@ -781,8 +785,6 @@
 
         </div>
     </script>
-
-
 
     <script type="text/x-tmpl" id="matMovePopup">
         <div class="content_wrap popup">
@@ -1119,6 +1121,70 @@
         <div style="width:auto;height;0px;page-break-before:always;line-height:5px;">&nbsp;</div>
 
     </script>
+
+    <script type="text/x-tmpl" id="scan_input_tmpl">
+        <div class="content_wrap popup">
+            <div class="table-wrap">
+                <form id="scanInputForm">
+                    <table class="write-table">
+                        <tbody>
+                            <tr>
+                                <th style="text-align: center; width:120px;">
+                                    <label for="scanCompany">구매처</label>
+                                </th>
+                                <td>
+                                    <input id="scanCompany" name="scanCompany" type="hidden">
+                                    <input class="form-control2" type="text" id="scanCompanyName" name="scanCompanyName"
+                                           placeholder="검색버튼을 클릭하여 구매처를 검색하세요" readonly style="width:200px;"/>
+                                    &nbsp;
+                                    <a class="btn btn-delete" title="검색" id="btnScanCompanySearch">
+                                        <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                        구매처 검색
+                                    </a>
+                                </td>
+                                <th style="text-align: center; width:120px;">
+                                    <label for="scanStoreHouse">입고창고</label>
+                                </th>
+                                <td>
+                                    <select class="form-control2" id="scanStoreHouse" name="scanStoreHouse"></select>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </form>
+            </div>
+
+            <div class="section-top" style="margin-top:10px; align-items:center;">
+                <div style="display:flex; align-items:center; gap:8px; width:100%;">
+                    <label for="scanBarcode" style="white-space:nowrap; font-weight:600;">바코드 스캔</label>
+                    <input type="text" id="scanBarcode" name="scanBarcode" autocomplete="off"
+                           placeholder="이 칸에 커서를 두고 스캐너로 스캔하세요"
+                           style="flex:1; height:38px; font-size:16px; padding:0 10px; border:2px solid #03428E; border-radius:4px;"/>
+                    <button type="button" class="btn" id="btnScanClear">초기화</button>
+                </div>
+            </div>
+            <div style="margin-top:4px; color:#888; font-size:12px;">
+                연속 스캔 가능 · 동일 로트는 수량이 합산됩니다 · 미등록 GTIN은 빨간색으로 표시됩니다
+            </div>
+
+            <div class="grid_box" style="margin-top:8px;">
+                <div id="scan-result-grid" style="height: 360px;"></div>
+            </div>
+
+            <div class="section-top" style="margin-top:6px; justify-content:flex-end;">
+                <span style="font-weight:600;">총 <span id="scanRowCount" style="color:#03428E;">0</span>건 ·
+                    합계수량 <span id="scanTotalQty" style="color:#03428E;">0</span></span>
+            </div>
+
+            <div class="popup-button">
+                <button type="button" class="btn-popup y_write_auth" id="btnScanSave"><span data-labelCd="입고저장">입고저장</span></button>
+                <button type="button" class="btn-popup" id="btnScanRowDelete"><span data-labelCd="선택삭제">선택삭제</span></button>
+                <button type="button" class="btn-popup" id="modal-close-button"><span data-labelCd="닫기">닫기</span></button>
+            </div>
+        </div>
+    </script>
+
+
 </th:block>
 
 
@@ -2589,6 +2655,107 @@
                     popupWindow.print();
                 });
             }
+
+            //스캐너 입고
+            showScanInputPopup() {
+                let _this = this;
+                let content = tmpl('scan_input_tmpl', {});
+                let $content = $(content);
+                let modalContainer = new PopupDraggable('스캐너 입고');
+                modalContainer.open({width: 1100, height: 640, $content});
+
+                // 입고창고 옵션 채우기
+                AjaxUtil.fillSelectOptions($content.find('#scanStoreHouse'), 'store_house', 'choose', '');
+
+                // 스캔 결과 그리드 생성
+                this.scanResultGrid = new wijmo.grid.FlexGrid('#scan-result-grid', {
+                    autoGenerateColumns: false,
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.All,
+                    formatItem: (sender, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.RowHeader) {
+                            e.cell.textContent = (e.row + 1).toString();
+                        }
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                    },
+                    columns: [
+                        {binding: 'gtin', header: 'GTIN', width: 130, align: 'center', isReadOnly: true},
+                        {binding: 'materialCode', header: '품목코드', width: 100, align: 'center', isReadOnly: true},
+                        {binding: 'materialName', header: '품목명', width: 180, align: 'left', isReadOnly: true},
+                        {binding: 'lotNumber', header: '로트번호', width: 130, align: 'center', isReadOnly: true},
+                        {binding: 'manufactureDate', header: '제조일', width: 100, align: 'center', isReadOnly: true},
+                        {binding: 'effectiveDate', header: '유효기한', width: 100, align: 'center', isReadOnly: true},
+                        {binding: 'qty', header: '수량', width: 90, align: 'right', format: 'n0', isReadOnly: false},
+                        {binding: 'statusText', header: '상태', width: 110, align: 'center', isReadOnly: true}
+                    ],
+                    itemsSource: new wijmo.collections.CollectionView([]),
+                    itemFormatter: (panel, row, col, cell) => {
+                        if (panel.cellType === wijmo.grid.CellType.Cell) {
+                            const item = panel.rows[row].dataItem;
+                            const column = panel.columns[col];
+                            // 미등록 GTIN 행 빨간색 표시
+                            if (item && item.status === 'unmatched') {
+                                cell.classList.add('grid-cell-red');
+                            }
+                        }
+                    }
+                });
+                new FlexGridContextMenu(this.scanResultGrid);
+                this.scanResultGrid.downloadFileName = '스캐너 입고 내역';
+
+                // 구매처 검색
+                $content.find('#btnScanCompanySearch').click(function () {
+                    let poppage = new PopCompComponent();
+                    let searchcallback = function (items) {
+                        $content.find('#scanCompany').val(items.id);
+                        $content.find('#scanCompanyName').val(items.compname);
+                        $content.find('#scanBarcode').focus();
+                    };
+                    poppage.show(searchcallback);
+                });
+
+                // 초기화 버튼
+                $content.find('#btnScanClear').on('click', function () {
+                    _this.scanResultGrid.itemsSource = new wijmo.collections.CollectionView([]);
+                    _this.updateScanSummary($content);
+                    $content.find('#scanBarcode').val('').focus();
+                });
+
+                // 선택 행 삭제
+                $content.find('#btnScanRowDelete').on('click', function () {
+                    let cv = _this.scanResultGrid.itemsSource;
+                    let selected = _this.scanResultGrid.rows
+                    .filter(r => r.isSelected)
+                    .map(r => r.dataItem);
+                    if (selected.length === 0) {
+                        Alert.alert('', '삭제할 행을 선택하세요.');
+                        return;
+                    }
+                    selected.forEach(item => cv.remove(item));
+                    _this.updateScanSummary($content);
+                    $content.find('#scanBarcode').focus();
+                });
+
+                // 닫기 시 그리드 참조 정리
+                $content.find('#modal-close-button').on('click', function () {
+                    _this.scanResultGrid = null;
+                });
+
+                // 팝업 열리면 스캔 입력창에 포커스
+                setTimeout(function () {
+                    $content.find('#scanBarcode').focus();
+                }, 100);
+            }
+
+            updateScanSummary($content) {
+                if (!this.scanResultGrid) return;
+                let items = this.scanResultGrid.itemsSource.items;
+                let totalQty = items.reduce((sum, it) => sum + (Number(it.qty) || 0), 0);
+                $content.find('#scanRowCount').text(items.length);
+                $content.find('#scanTotalQty').text(totalQty.toLocaleString());
+            }
         }
 
         class materialInoutPopup {
@@ -2997,6 +3164,7 @@
                 });
 
             }
+
         }
 
 
@@ -3053,6 +3221,11 @@
             $('#btnShowMovePopup').click(function (e) {
                 let movePopupPage = new MaterialMove();
                 movePopupPage.showMovePopup();
+            });
+
+            // 스캐너 입고
+            $('#btnScanInput').on('click', function () {
+                page.showScanInputPopup();
             });
 
             page.searchDataBind();
