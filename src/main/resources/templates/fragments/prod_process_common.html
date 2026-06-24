@@ -862,6 +862,7 @@
                 this.jobres = null;
                 this.selectedIndex = null;
                 this.$form = $('#basicForm');
+                this._comboCache = {};   // 콤보 인스턴스 캐시(이 페이지 안에서만 재사용)
             }
 
             /* ── 메인 그리드 초기화 ── */
@@ -1060,6 +1061,43 @@
                 });
             }
 
+            /* ── 콤보 캐시 헬퍼 ──
+               person/equipment_code 처럼 잘 안 바뀌는 콤보를 페이지 내에서 1회만 로딩해 재사용.
+               common.js(getSelectData)는 공용이라 손대지 않고, 캐시는 이 인스턴스에만 둔다.
+               설비/담당자 master가 바뀌면 clearComboCache() 호출. */
+            _getComboRows(combo_type, cond1) {
+                this._comboCache = this._comboCache || {};
+                const key = combo_type + '|' + (cond1 == null ? '' : cond1);
+                if (!this._comboCache[key]) {
+                    this._comboCache[key] = AjaxUtil.getSelectData(combo_type, cond1) || [];
+                }
+                return this._comboCache[key];
+            }
+
+            fillComboCached($combo, combo_type, null_option, selected_value, cond1) {
+                const rows = this._getComboRows(combo_type, cond1);
+                $combo.empty();
+                if (null_option === 'choose' || null_option === 'all') {
+                    const text = (null_option === 'choose')
+                        ? i18n.getCommonText('선택') : i18n.getCommonText('전체');
+                    $combo.append($('<option>').val('').text(text));
+                }
+                $.each(rows, function (i, row) {
+                    const opt = $('<option>').val(row['value']).text(row['text']);
+                    Object.keys(row).forEach(function (k) {
+                        if (k !== 'value' && k !== 'text') opt.data(k, row[k]);
+                    });
+                    $combo.append(opt);
+                });
+                if (selected_value) {
+                    $combo.val(selected_value).change();
+                } else if (rows.length > 0) {
+                    $combo.val(rows[0].value).change();   // 기존 fillSelectedOptions 와 동일하게 첫 항목 선택
+                }
+            }
+
+            clearComboCache() { this._comboCache = {}; }
+
             /* ── 기본정보 표시 ── */
             showBasicInfo(jr_pk) {
                 const res = AjaxUtil.getSyncData(this.baseUrl + '/detail_process', { jr_pk });
@@ -1101,8 +1139,8 @@
                 $('#prod_mat_nm').val(d.prod_mat_nm || '');
                 $('#need_pro_mat_qty').val(d.need_pro_mat_qty || '');
 
-                AjaxUtil.fillSelectedOptions($('#manager_id'), 'person', 'choose', d.manager_id || '', '');
-                AjaxUtil.fillSelectedOptions($('#equipment_id'), 'equipment_code', 'choose', d.equipment_id || '', d.workcenter_id);
+                this.fillComboCached($('#manager_id'), 'person', 'choose', d.manager_id || '', '');
+                this.fillComboCached($('#equipment_id'), 'equipment_code', 'choose', d.equipment_id || '', d.workcenter_id);
 
                 this.showChasuList(jr_pk);
                 this.showConsumedList(jr_pk);

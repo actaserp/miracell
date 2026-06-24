@@ -2464,9 +2464,9 @@ public class ProductionResultService {
     }
 
     /**
-     * 세척 전용 투입계획 — 소요량(BOM), 완료량(누적 mat_consu), 잔여,
-     * 생산창고(투입창고) 기준 재고를 반환.
-     * @param jrPk          세척 job_res
+     * 세척 전용 투입계획 — 완제품 BOM을 다단계로 전개하여
+     * WashYN='Y'(세척 대상=용기 raw)만 집계. 소요량/완료량/잔여/투입창고 재고 반환.
+     * @param jrPk          세척 job_res (완제품 작지)
      * @param inputStoreId  투입창고(생산창고) — 재고 기준
      */
     public List<Map<String, Object>> getWashConsumedList(Integer jrPk, Integer inputStoreId) {
@@ -2475,50 +2475,84 @@ public class ProductionResultService {
         p.addValue("inStore", inputStoreId);
 
         String sql = """
-                WITH bom1 AS (
-                    SELECT b1.id AS bom_pk, b1."Material_id" AS prod_pk,
-                           b1."OutputAmount" AS produced_qty, jr."OrderQty" AS order_qty,
-                           row_number() OVER (PARTITION BY b1."Material_id" ORDER BY b1."Version" DESC) AS g_idx
-                    FROM bom b1
-                    INNER JOIN job_res jr ON jr."Material_id" = b1."Material_id" AND jr.id = :jrPk
-                    WHERE b1."BOMType" = 'manufacturing'
-                      AND jr."ProductionDate" BETWEEN b1."StartDate" AND b1."EndDate"
-                ), BT AS (
-                    SELECT bc."Material_id" AS mat_pk,
-                           round((bc."Amount" / NULLIF(bom1.produced_qty,0) * bom1.order_qty)::numeric, 0) AS bom_requ_qty
-                    FROM bom_comp bc
-                    INNER JOIN bom1 ON bom1.bom_pk = bc."BOM_id"
-                    WHERE bom1.g_idx = 1
-                ), DONE AS (
-                    -- 이 작지에서 지금까지 완료된 자재별 누적 소모량
-                    SELECT mc."Material_id" AS mat_pk, SUM(mc."ConsumedQty") AS done_qty
-                    FROM mat_consu mc
-                    WHERE mc."JobResponse_id" = :jrPk
-                    GROUP BY mc."Material_id"
-                ), STK AS (
-                    -- 투입창고(생산창고) 기준 재고
-                    SELECT mh."Material_id" AS mat_pk, mh."CurrentStock" AS cur_stock
-                    FROM mat_in_house mh
-                    WHERE mh."StoreHouse_id" = :inStore
-                )
-                SELECT BT.mat_pk,
-                       m."Code" AS mat_code,
-                       m."Name" AS mat_name,
-                       u."Name" AS unit,
-                       round(BT.bom_requ_qty::numeric, 0) AS bom_consumed,
-                       COALESCE(DONE.done_qty, 0) AS done_qty,
-                       GREATEST(round(BT.bom_requ_qty::numeric,0) - COALESCE(DONE.done_qty,0), 0) AS remain_qty,
-                       COALESCE(STK.cur_stock, 0) AS "currentStock"
-                FROM BT
-                INNER JOIN material m ON m.id = BT.mat_pk
-                LEFT JOIN unit u ON u.id = m."Unit_id"
-                LEFT JOIN DONE ON DONE.mat_pk = BT.mat_pk
-                LEFT JOIN STK ON STK.mat_pk = BT.mat_pk
-                ORDER BY m."Code"
-                """;
+            WITH RECURSIVE
+            -- 작지(완제품)의 주문수량
+            ord AS (
+                SELECT jr."Material_id" AS top_pk, jr."OrderQty" AS order_qty
+                FROM job_res jr
+                WHERE jr.id = :jrPk
+            ),
+            -- 각 품목의 "대표 BOM"(최신 버전) 1개만 선택 (버전 여러개 대비)
+            bom_pick AS (
+                SELECT b.id AS bom_pk, b."Material_id" AS prod_pk, b."OutputAmount" AS produced_qty
+                FROM (
+                    SELECT b.*,
+                           row_number() OVER (PARTITION BY b."Material_id" ORDER BY b."Version" DESC, b.id DESC) AS rn
+                    FROM bom b
+                    WHERE b."BOMType" = 'manufacturing'
+                ) b
+                WHERE b.rn = 1
+            ),
+            -- BOM 트리 재귀 전개: 완제품에서 시작해 구성품으로 내려가며 소요수량 누적
+            tree AS (
+                -- 시작점: 완제품의 직접 구성품
+                SELECT bc."Material_id"   AS mat_pk,
+                       (bc."Amount" / NULLIF(bp.produced_qty,0) * ord.order_qty) AS req_qty,
+                       bc."WashYN"        AS wash_yn,
+                       1                  AS lvl
+                FROM ord
+                JOIN bom_pick bp ON bp.prod_pk = ord.top_pk
+                JOIN bom_comp  bc ON bc."BOM_id" = bp.bom_pk
+
+                UNION ALL
+
+                -- 하위 전개: 구성품이 자기 BOM을 가지면 그 아래로 (수량 = 상위 소요 × 하위 Amount/Output)
+                SELECT bc."Material_id"   AS mat_pk,
+                       (t.req_qty * bc."Amount" / NULLIF(bp.produced_qty,0)) AS req_qty,
+                       bc."WashYN"        AS wash_yn,
+                       t.lvl + 1          AS lvl
+                FROM tree t
+                JOIN bom_pick bp ON bp.prod_pk = t.mat_pk          -- 더 펼칠 BOM이 있으면
+                JOIN bom_comp  bc ON bc."BOM_id" = bp.bom_pk
+                WHERE t.lvl < 10                                    -- 무한루프 가드
+            ),
+            -- 말단(leaf) 중 WashYN='Y'만 집계 : 자기 BOM이 없는(= 더 못 펼치는) raw
+            wash_req AS (
+                SELECT t.mat_pk,
+                       round(SUM(t.req_qty)::numeric, 0) AS bom_requ_qty
+                FROM tree t
+                WHERE t.wash_yn = 'Y'
+                  AND NOT EXISTS (SELECT 1 FROM bom_pick bp WHERE bp.prod_pk = t.mat_pk)  -- leaf만
+                GROUP BY t.mat_pk
+            ),
+            DONE AS (
+                SELECT mc."Material_id" AS mat_pk, SUM(mc."ConsumedQty") AS done_qty
+                FROM mat_consu mc
+                WHERE mc."JobResponse_id" = :jrPk
+                GROUP BY mc."Material_id"
+            ),
+            STK AS (
+                SELECT mh."Material_id" AS mat_pk, mh."CurrentStock" AS cur_stock
+                FROM mat_in_house mh
+                WHERE mh."StoreHouse_id" = :inStore
+            )
+            SELECT wr.mat_pk,
+                   m."Code" AS mat_code,
+                   m."Name" AS mat_name,
+                   u."Name" AS unit,
+                   round(wr.bom_requ_qty::numeric, 0) AS bom_consumed,
+                   COALESCE(DONE.done_qty, 0) AS done_qty,
+                   GREATEST(round(wr.bom_requ_qty::numeric,0) - COALESCE(DONE.done_qty,0), 0) AS remain_qty,
+                   COALESCE(STK.cur_stock, 0) AS "currentStock"
+            FROM wash_req wr
+            INNER JOIN material m ON m.id = wr.mat_pk
+            LEFT JOIN unit u ON u.id = m."Unit_id"
+            LEFT JOIN DONE ON DONE.mat_pk = wr.mat_pk
+            LEFT JOIN STK  ON STK.mat_pk  = wr.mat_pk
+            ORDER BY m."Code"
+            """;
         return this.sqlRunner.getRows(sql, p);
     }
-
     /**
      * 완료된 세척 세션이 사용한 로트 목록 (투입로트 표시용)
      */
