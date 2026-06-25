@@ -216,4 +216,80 @@ public class UdiSupplyReportService {
 
 		return this.sqlRunner.getRows(sql, paramMap);
 	}
+
+	// ===================== 식약처 보고확정 연동용 =====================
+
+	/**
+	 * 보고확정 대상(임시 't') 조회.
+	 * 식약처 26번(보고자료 추가) 본문에 바로 매핑할 수 있도록 API 필드명으로 alias 한다.
+	 */
+	public List<Map<String, Object>> getReportsByIds(List<Integer> ids) {
+		MapSqlParameterSource paramMap = new MapSqlParameterSource();
+		paramMap.addValue("ids", ids);
+		String sql = """
+				select r.id
+				, r."StdMonth"            as "suplyContStdmt"
+				, r."SupplyFlagCode"      as "suplyFlagCode"
+				, r."SupplyTypeCode"      as "suplyTypeCode"
+				, r."MeddevItemSeq"       as "meddevItemSeq"
+				, r."ModelSeq"            as "seq"
+				, r."UdiDiSeq"            as "udiDiSeq"
+				, r."StdCode"             as "stdCode"
+				, r."UdiDiCode"           as "udiDiCode"
+				, r."UdiPiCode"           as "udiPiCode"
+				, r."LotNo"               as "lotNo"
+				, r."ItemSerialNo"        as "itemSeq"
+				, r."ManufYm"             as "manufYm"
+				, r."UseTmlmt"            as "useTmlmt"
+				, r."BcncCode"            as "bcncCode"
+				, r."IsDiffDvyfg"         as "isDiffDvyfg"
+				, r."DvyfgPlaceBcncCode"  as "dvyfgPlaceBcncCode"
+				, r."SupplyDate"          as "suplyDate"
+				, r."SupplyQty"           as "suplyQty"
+				, r."IndvdlzSupplyQty"    as "indvdlzSuplyQty"
+				, r."SupplyUnitPrice"     as "suplyUntpc"
+				, r."SupplyAmt"           as "suplyAmt"
+				, r."Remark"              as "remark"
+				from udi_supply_report r
+				where r.id in (:ids) and r."ReportState" = 't'
+				order by r."StdMonth", r.id
+				""";
+		return this.sqlRunner.getRows(sql, paramMap);
+	}
+
+	/** 보고확정 성공 처리: 상태 'r' + 보고일시 + 식약처 응답 메시지 저장 */
+	public void markReported(List<Integer> ids, String message, Integer userId) {
+		if (ids == null || ids.isEmpty()) return;
+		MapSqlParameterSource paramMap = new MapSqlParameterSource();
+		paramMap.addValue("ids", ids);
+		paramMap.addValue("message", message);
+		paramMap.addValue("userId", userId);
+		String sql = """
+				update udi_supply_report set
+				  "ReportState"       = 'r',
+				  "ReportedAt"        = now(),
+				  "MfdsResultMessage" = :message,
+				  "_modified"         = now(),
+				  "_modifier_id"      = :userId
+				where id in (:ids) and "ReportState" = 't'
+				""";
+		this.sqlRunner.execute(sql, paramMap);
+	}
+
+	/** 보고확정 실패 처리: 상태는 't' 유지, 식약처 오류 메시지만 저장 */
+	public void markReportFailed(List<Integer> ids, String message, Integer userId) {
+		if (ids == null || ids.isEmpty()) return;
+		MapSqlParameterSource paramMap = new MapSqlParameterSource();
+		paramMap.addValue("ids", ids);
+		paramMap.addValue("message", message);
+		paramMap.addValue("userId", userId);
+		String sql = """
+				update udi_supply_report set
+				  "MfdsResultMessage" = :message,
+				  "_modified"         = now(),
+				  "_modifier_id"      = :userId
+				where id in (:ids) and "ReportState" = 't'
+				""";
+		this.sqlRunner.execute(sql, paramMap);
+	}
 }

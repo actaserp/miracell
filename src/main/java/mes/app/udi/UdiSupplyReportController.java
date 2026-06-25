@@ -26,6 +26,26 @@ public class UdiSupplyReportController {
 	@Autowired
 	private UdiSupplyReportService supplyReportService;
 
+	@Autowired
+	private mes.app.udi.service.UdiReportSubmitService reportSubmitService;
+
+	@Autowired
+	private mes.app.udi.service.UdiApiClient udiApiClient;
+
+	/**
+	 * 식약처 연동 점검(토큰 발급 테스트).
+	 * Access Token 만 발급해보고 결과를 반환한다. 보고(26/34) 호출은 하지 않으므로 안전하다.
+	 * 사용: GET /api/udi/supply_report/ping
+	 */
+	@GetMapping("/ping")
+	public AjaxResult ping() {
+		AjaxResult result = new AjaxResult();
+		mes.app.udi.service.UdiApiClient.Result r = this.udiApiClient.ping();
+		result.success = r.success;
+		result.message = r.message;
+		return result;
+	}
+
 	/** 보고자료 목록 조회 */
 	@GetMapping("/list")
 	public AjaxResult getList(
@@ -124,8 +144,7 @@ public class UdiSupplyReportController {
 		return result;
 	}
 
-	/** 보고확정 (식약처 보고 처리 — 현재는 상태전환, API 연동은 다음 단계) */
-	@Transactional
+	/** 보고확정 (식약처 OpenAPI 26 등록 → 34 보고확정 실연동) */
 	@PostMapping("/confirm")
 	public AjaxResult confirm(
 			@RequestParam(value = "ids[]", required = false) List<Integer> ids,
@@ -140,14 +159,19 @@ public class UdiSupplyReportController {
 			return result;
 		}
 		try {
-			this.supplyReportService.confirmReports(ids, user.getId());
-			result.success = true;
-			result.message = "보고확정 처리되었습니다.";
+			mes.app.udi.service.UdiReportSubmitService.SubmitResult sr =
+					this.reportSubmitService.submit(ids, user.getId());
+			result.success = sr.success;
+			result.message = (sr.message == null || sr.message.isBlank())
+					? (sr.success ? "보고확정 처리되었습니다." : "보고확정에 실패했습니다.")
+					: sr.message;
+			result.data = java.util.Map.of(
+					"reported", sr.reportedCount,
+					"failed", sr.failedCount);
 		} catch (Exception ex) {
 			result.success = false;
 			result.message = "보고확정 중 오류 발생: " + ex.getMessage();
 			ex.printStackTrace();
-			TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
 		}
 		return result;
 	}
