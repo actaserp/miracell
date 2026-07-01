@@ -40,7 +40,7 @@
         .sbtn{height:48px;padding:0 22px;border:none;border-radius:12px;background:var(--teal);color:#fff;
             font-weight:800;font-size:16px;cursor:pointer;margin-left:auto}
         .sbtn:active{background:var(--teal-d)}
-        .qgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px}
+        .qgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
         .wo{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px 18px 16px;
             cursor:pointer;box-shadow:var(--shadow);transition:transform .12s ease;position:relative;overflow:hidden}
         .wo:active{transform:scale(.985)}
@@ -721,9 +721,9 @@
             if(b.dataset.t==='h+')h=(h+1)%24;if(b.dataset.t==='h-')h=(h+23)%24;if(b.dataset.t==='m+')m=(m+1)%60;if(b.dataset.t==='m-')m=(m+59)%60;
             H.textContent=String(h).padStart(2,'0');M.textContent=String(m).padStart(2,'0');});
         document.getElementById('timeOk').onclick=function(){
-            var ds=editDate.getFullYear()+'-'+String(editDate.getMonth()+1).padStart(2,'0')+'-'+String(editDate.getDate()).padStart(2,'0');
-            var v=ds+' '+document.getElementById('tH').textContent+':'+document.getElementById('tM').textContent;
-            if(timeWhich==='start')curS.start=v;else curS.end=v;
+            var ds= editDate.getFullYear() + '-' + String(editDate.getMonth() + 1).padStart(2, '0') + '-' + String(editDate.getDate()).padStart(2, '0');
+            var v = ds + ' ' + document.getElementById('tH').textContent + ':' + document.getElementById('tM').textContent;
+            if (timeWhich === 'start') curS.start = v; else curS.end = v;
             hideMask('timeMask');
             renderCHead();
             renderSessList();

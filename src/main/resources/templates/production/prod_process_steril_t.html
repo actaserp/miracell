@@ -40,7 +40,7 @@
         .sbtn{height:48px;padding:0 22px;border:none;border-radius:12px;background:var(--teal);color:#fff;
             font-weight:800;font-size:16px;cursor:pointer;margin-left:auto}
         .sbtn:active{background:var(--teal-d)}
-        .qgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px}
+        .qgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
         .wo{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px 18px 16px;
             cursor:pointer;box-shadow:var(--shadow);transition:transform .12s ease;position:relative;overflow:hidden}
         .wo:active{transform:scale(.985)}
@@ -629,152 +629,331 @@
         }
         function finLotOf(l){return l.lot.replace(/-PK.*/,'').replace(/PK/,'')+'-'+(curS.start?curS.start.slice(0,10).replace(/-/g,''):'LOT');}
 
-        document.getElementById('cBody').addEventListener('click',function(e){
-            var bi=e.target.closest('[data-bi]');if(bi){curS.bi=bi.dataset.bi;renderCBody();renderCAction();renderSessList();return;}
-            var rm=e.target.closest('[data-rmlot]');if(rm){curS.lots=curS.lots.filter(function(l){return l.lot!==rm.dataset.rmlot;});renderCBody();renderCAction();renderSessList();return;}
+        document.getElementById('cBody').addEventListener('click',function(e) {
+            var bi = e.target.closest('[data-bi]');
+            if (bi) {
+                curS.bi = bi.dataset.bi;
+                renderCBody();
+                renderCAction();
+                renderSessList();
+                return;
+            }
+            var rm = e.target.closest('[data-rmlot]');
+            if (rm) {
+                curS.lots = curS.lots.filter(function (l) {
+                    return l.lot !== rm.dataset.rmlot;
+                });
+                renderCBody();
+                renderCAction();
+                renderSessList();
+                return;
+            }
             // 담은 로트 수량 조절
-            var st=e.target.closest('[data-lotstep]');
-            if(st&&(e.target.classList.contains('plus')||e.target.classList.contains('minus'))){
-                var li=+st.dataset.lotstep,ll=curS.lots[li],d=e.target.classList.contains('plus')?1:-1;
-                ll.qty=Math.max(1,Math.min(lotCap(ll.lot),ll.qty+d));renderCBody();renderCAction();renderSessList();return;}
-            var lp=e.target.closest('[data-lotpad]');if(lp){var i2=+lp.dataset.lotpad,l2=curS.lots[i2];
-                openQtyPad('담을 수량',l2.qty,lotCap(l2.lot),function(v){l2.qty=Math.max(1,v);renderCBody();renderCAction();renderSessList();});return;}
-            if(e.target.id==='addLot'){openLotAdd();return;}
+            var st = e.target.closest('[data-lotstep]');
+            if (st && (e.target.classList.contains('plus') || e.target.classList.contains('minus'))) {
+                var li = +st.dataset.lotstep, ll = curS.lots[li], d = e.target.classList.contains('plus') ? 1 : -1;
+                ll.qty = Math.max(1, Math.min(lotCap(ll.lot), ll.qty + d));
+                renderCBody();
+                renderCAction();
+                renderSessList();
+                return;
+            }
+            var lp = e.target.closest('[data-lotpad]');
+            if (lp) {
+                var i2 = +lp.dataset.lotpad, l2 = curS.lots[i2];
+                openQtyPad('담을 수량', l2.qty, lotCap(l2.lot), function (v) {
+                    l2.qty = Math.max(1, v);
+                    renderCBody();
+                    renderCAction();
+                    renderSessList();
+                });
+                return;
+            }
+            if (e.target.id === 'addLot') {
+                openLotAdd();
+                return;
+            }
         });
-        document.getElementById('cHead').addEventListener('click',function(e){var t=e.target.closest('[data-time]');if(t)openTime(t.dataset.time);});
-        // 이 세션이 특정 로트에 담을 수 있는 상한(원 로트 가용 − 타 세션 소비)
-        function lotCap(lotId){var base=(PK_LOTS.filter(function(x){return x.lot===lotId;})[0]||{qty:0}).qty;return Math.max(0,base-lotUsed(lotId,curS));}
+        document.getElementById('cHead').addEventListener('click', function (e) {
+            var t = e.target.closest('[data-time]');
+            if (t) openTime(t.dataset.time);
+        });
 
-        function openLotAdd(){
-            var have={};curS.lots.forEach(function(l){have[l.lot]=1;});
-            var avail=PK_LOTS.filter(function(l){return !have[l.lot]&&lotAvail(l)>0&&(!curO.fam||true);});
-            document.getElementById('lotTitle').textContent='멸균할 PK 로트 담기';
-            document.getElementById('lotList').innerHTML=avail.length?avail.map(function(l){
-                var av=lotAvail(l);
-                return '<div class="lotopt" data-lot="'+l.lot+'"><div><span class="ln">'+l.lot+'</span>'+
-                    '<div class="meta" style="margin:0">'+l.name+'</div></div>'+
-                    '<div class="meta" style="margin-left:auto;text-align:right"><div style="font-size:20px;font-weight:800;color:var(--teal-d)">가용 '+av+'</div><div>탭하여 수량 선택</div></div></div>';
-            }).join(''):'<div class="emptysess">담을 PK 로트가 없습니다.</div>';
-            document.getElementById('lotList').onclick=function(e){var o=e.target.closest('[data-lot]');if(!o)return;
-                var f=PK_LOTS.filter(function(l){return l.lot===o.dataset.lot;})[0];var av=lotAvail(f);
+        // 이 세션이 특정 로트에 담을 수 있는 상한(원 로트 가용 − 타 세션 소비)
+        function lotCap(lotId) {
+            var base = (PK_LOTS.filter(function (x) {
+                return x.lot === lotId;
+            })[0] || {qty: 0}).qty;
+            return Math.max(0, base - lotUsed(lotId, curS));
+        }
+
+        function openLotAdd() {
+            var have = {};
+            curS.lots.forEach(function (l) {
+                have[l.lot] = 1;
+            });
+            var avail = PK_LOTS.filter(function (l) {
+                return !have[l.lot] && lotAvail(l) > 0 && (!curO.fam || true);
+            });
+            document.getElementById('lotTitle').textContent = '멸균할 PK 로트 담기';
+            document.getElementById('lotList').innerHTML = avail.length ? avail.map(function (l) {
+                var av = lotAvail(l);
+                return '<div class="lotopt" data-lot="' + l.lot + '"><div><span class="ln">' + l.lot + '</span>' +
+                    '<div class="meta" style="margin:0">' + l.name + '</div></div>' +
+                    '<div class="meta" style="margin-left:auto;text-align:right"><div style="font-size:20px;font-weight:800;color:var(--teal-d)">가용 ' + av + '</div><div>탭하여 수량 선택</div></div></div>';
+            }).join('') : '<div class="emptysess">담을 PK 로트가 없습니다.</div>';
+            document.getElementById('lotList').onclick = function (e) {
+                var o = e.target.closest('[data-lot]');
+                if (!o) return;
+                var f = PK_LOTS.filter(function (l) {
+                    return l.lot === o.dataset.lot;
+                })[0];
+                var av = lotAvail(f);
                 hideMask('lotMask');
-                openQtyPad(f.lot+' 담을 수량',av,av,function(v){
-                    if(v<=0){flash('수량을 입력하세요');return;}
-                    curS.lots.push({lot:f.lot,qty:v,gtin:f.gtin,name:f.name});
-                    renderCBody();renderCAction();renderSessList();flash(f.lot+' · '+v+' EA 담음');
+                openQtyPad(f.lot + ' 담을 수량', av, av, function (v) {
+                    if (v <= 0) {
+                        flash('수량을 입력하세요');
+                        return;
+                    }
+                    curS.lots.push({lot: f.lot, qty: v, gtin: f.gtin, name: f.name});
+                    renderCBody();
+                    renderCAction();
+                    renderSessList();
+                    flash(f.lot + ' · ' + v + ' EA 담음');
                 });
             };
             showMask('lotMask');
         }
+
         // 수량 넘패드(로트 부분 적재 공용)
-        var _qpVal='',_qpMax=0,_qpCb=null;
-        function openQtyPad(title,initial,max,cb){_qpVal=String(initial||0);_qpMax=max;_qpCb=cb;
-            document.getElementById('qpTitle').textContent=title;
-            document.getElementById('qpMax').textContent='최대 '+max;
-            document.getElementById('qpDisp').textContent=_qpVal;showMask('qtyMask');}
-        document.querySelector('#qtyMask .keys').addEventListener('click',function(e){var k=e.target.dataset.k;if(!k)return;
-            if(k==='C')_qpVal='';
-            else if(k==='OK'){var v=Math.min(_qpMax,parseInt(_qpVal||'0',10));hideMask('qtyMask');if(_qpCb)_qpCb(v);return;}
-            else _qpVal=(_qpVal==='0'?'':_qpVal)+k;
-            var pv=Math.min(_qpMax,parseInt(_qpVal||'0',10));document.getElementById('qpDisp').textContent=_qpVal||'0';
-            document.getElementById('qpDisp').style.color=(parseInt(_qpVal||'0',10)>_qpMax)?'var(--red)':'';});
+        var _qpVal = '', _qpMax = 0, _qpCb = null;
+
+        function openQtyPad(title, initial, max, cb) {
+            _qpVal = String(initial || 0);
+            _qpMax = max;
+            _qpCb = cb;
+            document.getElementById('qpTitle').textContent = title;
+            document.getElementById('qpMax').textContent = '최대 ' + max;
+            document.getElementById('qpDisp').textContent = _qpVal;
+            showMask('qtyMask');
+        }
+
+        document.querySelector('#qtyMask .keys').addEventListener('click', function (e) {
+            var k = e.target.dataset.k;
+            if (!k) return;
+            if (k === 'C') _qpVal = '';
+            else if (k === 'OK') {
+                var v = Math.min(_qpMax, parseInt(_qpVal || '0', 10));
+                hideMask('qtyMask');
+                if (_qpCb) _qpCb(v);
+                return;
+            } else _qpVal = (_qpVal === '0' ? '' : _qpVal) + k;
+            var pv = Math.min(_qpMax, parseInt(_qpVal || '0', 10));
+            document.getElementById('qpDisp').textContent = _qpVal || '0';
+            document.getElementById('qpDisp').style.color = (parseInt(_qpVal || '0', 10) > _qpMax) ? 'var(--red)' : '';
+        });
+
         // 멸균일지 양식 출력 (이미지/그래프 포함)
-        function printLog(){
-            var rows=LOG_STEPS.map(function(st){
-                var rec=st.fields.map(function(f){var v=curS.log[st.no+'_'+f.k]||'-';return f.lab+': '+v;}).join(' / ');
-                return '<tr><td>'+st.no+'</td><td>'+st.name+'</td><td>'+st.crit+'</td><td>'+rec+'</td></tr>';
+        function printLog() {
+            var rows = LOG_STEPS.map(function (st) {
+                var rec = st.fields.map(function (f) {
+                    var v = curS.log[st.no + '_' + f.k] || '-';
+                    return f.lab + ': ' + v;
+                }).join(' / ');
+                return '<tr><td>' + st.no + '</td><td>' + st.name + '</td><td>' + st.crit + '</td><td>' + rec + '</td></tr>';
             }).join('');
-            var meta='<table class="form-tbl" style="margin-bottom:8px"><tr><th>멸균일</th><td>'+pill(curS.start)+'</td><th>멸균기 관리번호</th><td>'+curO.mgmt+'</td></tr>'+
-                '<tr><th>담당자</th><td>'+curS.worker+'</td><th>멸균수량(블리스터)</th><td>'+batchQty(curS)+' EA</td></tr>'+
-                '<tr><th>멸균품목</th><td colspan="3">'+curS.lots.map(function(l){return l.name+' '+l.lot+'('+l.qty+')';}).join(', ')+'</td></tr>'+
-                '<tr><th>BI 판정</th><td colspan="3"><b>'+(curS.bi==='pass'?'PASS (녹색·투명)':curS.bi==='fail'?'FAIL (황색·불투명)':'-')+'</b></td></tr></table>';
-            var note='<div style="font-size:11px;color:#555;margin-bottom:6px">※ 멸균일지의 압력은 게이지압력임. 게이지압력 = 절대압력 − 대기압(1bar)</div>';
-            var chart=curS.usb?'<div style="margin-top:10px"><b>멸균 데이터 그래프</b><div style="border:1px solid #000;border-radius:4px;padding:6px">'+chartSvg().replace('chart-svg','')+'</div></div>':'';
-            openPrintForm('멸 균 일 지 (F710-3)', meta+note+'<table class="form-tbl"><tr><th>번호</th><th>공정 단계</th><th>작업절차 및 기준</th><th>기록</th></tr>'+rows+'</table>'+chart);
+            var meta = '<table class="form-tbl" style="margin-bottom:8px"><tr><th>멸균일</th><td>' + pill(curS.start) + '</td><th>멸균기 관리번호</th><td>' + curO.mgmt + '</td></tr>' +
+                '<tr><th>담당자</th><td>' + curS.worker + '</td><th>멸균수량(블리스터)</th><td>' + batchQty(curS) + ' EA</td></tr>' +
+                '<tr><th>멸균품목</th><td colspan="3">' + curS.lots.map(function (l) {
+                    return l.name + ' ' + l.lot + '(' + l.qty + ')';
+                }).join(', ') + '</td></tr>' +
+                '<tr><th>BI 판정</th><td colspan="3"><b>' + (curS.bi === 'pass' ? 'PASS (녹색·투명)' : curS.bi === 'fail' ? 'FAIL (황색·불투명)' : '-') + '</b></td></tr></table>';
+            var note = '<div style="font-size:11px;color:#555;margin-bottom:6px">※ 멸균일지의 압력은 게이지압력임. 게이지압력 = 절대압력 − 대기압(1bar)</div>';
+            var chart = curS.usb ? '<div style="margin-top:10px"><b>멸균 데이터 그래프</b><div style="border:1px solid #000;border-radius:4px;padding:6px">' + chartSvg().replace('chart-svg', '') + '</div></div>' : '';
+            openPrintForm('멸 균 일 지 (F710-3)', meta + note + '<table class="form-tbl"><tr><th>번호</th><th>공정 단계</th><th>작업절차 및 기준</th><th>기록</th></tr>' + rows + '</table>' + chart);
         }
 
 
         /* ── 시작 시트 ── */
-        function showMask(id){document.getElementById(id).classList.add('show');}
-        function hideMask(id){document.getElementById(id).classList.remove('show');}
-        document.querySelectorAll('.mask').forEach(function(m){m.addEventListener('click',function(e){
-            if(e.target===m||(e.target.closest&&e.target.closest('[data-close]')))m.classList.remove('show');});});
+        function showMask(id) {
+            document.getElementById(id).classList.add('show');
+        }
 
-        let selW=null,selE=null;
-        function openStart(){selW=null;selE=null;
-            document.getElementById('workerOpts').innerHTML=WORKERS.map(function(w){return '<button class="opt" data-w="'+w+'">'+w+'</button>';}).join('');
-            document.getElementById('equipOpts').innerHTML=EQUIPS.map(function(e){return '<button class="opt" data-e="'+e[0]+'">'+e[0]+' <span class="sub">'+e[1]+'</span></button>';}).join('');
-            var so=document.getElementById('startOk');so.disabled=true;
-            if(typeof beforeStartSheet==='function')beforeStartSheet();
-            showMask('startMask');}
-        document.getElementById('workerOpts').addEventListener('click',function(e){var b=e.target.closest('[data-w]');if(!b)return;
-            document.querySelectorAll('#workerOpts .opt').forEach(function(x){x.classList.remove('sel');});b.classList.add('sel');selW=b.dataset.w;ckStart();});
-        document.getElementById('equipOpts').addEventListener('click',function(e){var b=e.target.closest('[data-e]');if(!b)return;
-            document.querySelectorAll('#equipOpts .opt').forEach(function(x){x.classList.remove('sel');});b.classList.add('sel');selE=b.dataset.e;ckStart();});
-        function ckStart(){document.getElementById('startOk').disabled=!(selW&&selE&&(typeof startReady!=='function'||startReady()));}
-        window.ckStart=ckStart;
-        document.getElementById('startOk').onclick=function(){
-            var se=mkSess(selW,selE);curO.sessions.push(se);
-            if(curO.st==='wait')curO.st='working';
-            hideMask('startMask');renderSessList();openSess(curO.sessions.length-1);flash('작업 시작 · '+selW+' / '+selE);};
+        function hideMask(id) {
+            document.getElementById(id).classList.remove('show');
+        }
+
+        document.querySelectorAll('.mask').forEach(function (m) {
+            m.addEventListener('click', function (e) {
+                if (e.target === m || (e.target.closest && e.target.closest('[data-close]'))) m.classList.remove('show');
+            });
+        });
+
+        let selW = null, selE = null;
+
+        function openStart() {
+            selW = null;
+            selE = null;
+            document.getElementById('workerOpts').innerHTML = WORKERS.map(function (w) {
+                return '<button class="opt" data-w="' + w + '">' + w + '</button>';
+            }).join('');
+            document.getElementById('equipOpts').innerHTML = EQUIPS.map(function (e) {
+                return '<button class="opt" data-e="' + e[0] + '">' + e[0] + ' <span class="sub">' + e[1] + '</span></button>';
+            }).join('');
+            var so = document.getElementById('startOk');
+            so.disabled = true;
+            if (typeof beforeStartSheet === 'function') beforeStartSheet();
+            showMask('startMask');
+        }
+
+        document.getElementById('workerOpts').addEventListener('click', function (e) {
+            var b = e.target.closest('[data-w]');
+            if (!b) return;
+            document.querySelectorAll('#workerOpts .opt').forEach(function (x) {
+                x.classList.remove('sel');
+            });
+            b.classList.add('sel');
+            selW = b.dataset.w;
+            ckStart();
+        });
+        document.getElementById('equipOpts').addEventListener('click', function (e) {
+            var b = e.target.closest('[data-e]');
+            if (!b) return;
+            document.querySelectorAll('#equipOpts .opt').forEach(function (x) {
+                x.classList.remove('sel');
+            });
+            b.classList.add('sel');
+            selE = b.dataset.e;
+            ckStart();
+        });
+
+        function ckStart() {
+            document.getElementById('startOk').disabled = !(selW && selE && (typeof startReady !== 'function' || startReady()));
+        }
+
+        window.ckStart = ckStart;
+        document.getElementById('startOk').onclick = function () {
+            var se = mkSess(selW, selE);
+            curO.sessions.push(se);
+            if (curO.st === 'wait') curO.st = 'working';
+            hideMask('startMask');
+            renderSessList();
+            openSess(curO.sessions.length - 1);
+            flash('작업 시작 · ' + selW + ' / ' + selE);
+        };
 
         /* 토스트 */
-        let tT;function flash(m){var t=document.getElementById('toast');
-            if(!t){t=document.createElement('div');t.id='toast';
-                t.style.cssText='position:fixed;left:50%;bottom:110px;transform:translateX(-50%);background:#15222B;color:#fff;padding:14px 22px;border-radius:14px;font-weight:700;z-index:60;box-shadow:0 12px 30px -10px rgba(0,0,0,.5);transition:opacity .3s';
-                document.body.appendChild(t);}t.textContent=m;t.style.opacity='1';clearTimeout(tT);tT=setTimeout(function(){t.style.opacity='0';},1700);}
-        window.flash=flash;window.showMask=showMask;window.hideMask=hideMask;window.pill=pill;window.nowHM=nowHM;window.STLAB=STLAB;window.WD=WD;
+        let tT;
+
+        function flash(m) {
+            var t = document.getElementById('toast');
+            if (!t) {
+                t = document.createElement('div');
+                t.id = 'toast';
+                t.style.cssText = 'position:fixed;left:50%;bottom:110px;transform:translateX(-50%);background:#15222B;color:#fff;padding:14px 22px;border-radius:14px;font-weight:700;z-index:60;box-shadow:0 12px 30px -10px rgba(0,0,0,.5);transition:opacity .3s';
+                document.body.appendChild(t);
+            }
+            t.textContent = m;
+            t.style.opacity = '1';
+            clearTimeout(tT);
+            tT = setTimeout(function () {
+                t.style.opacity = '0';
+            }, 1700);
+        }
+
+        window.flash = flash;
+        window.showMask = showMask;
+        window.hideMask = hideMask;
+        window.pill = pill;
+        window.nowHM = nowHM;
+        window.STLAB = STLAB;
+        window.WD = WD;
 
         /* ── 바코드/출력 공통 ── */
-        function bcCard(d){
-            return '<div class="bc-card"><div class="bc-bars"></div>'+
-                '<div class="bc-data">'+d.line+'</div>'+
-                (d.sub?'<div class="bc-sub">'+d.sub+'</div>':'')+'</div>';
+        function bcCard(d) {
+            return '<div class="bc-card"><div class="bc-bars"></div>' +
+                '<div class="bc-data">' + d.line + '</div>' +
+                (d.sub ? '<div class="bc-sub">' + d.sub + '</div>' : '') + '</div>';
         }
-        window.openBarcode=function(title, labels){
-            document.getElementById('bcTitle').textContent=title;
-            document.getElementById('bcList').innerHTML=labels.map(function(l){
-                return '<div style="margin-bottom:12px">'+bcCard(l)+
-                    (l.copies>1?'<div class="bc-sub" style="text-align:center">× '+l.copies+'장 출력</div>':'')+'</div>';
+
+        window.openBarcode = function (title, labels) {
+            document.getElementById('bcTitle').textContent = title;
+            document.getElementById('bcList').innerHTML = labels.map(function (l) {
+                return '<div style="margin-bottom:12px">' + bcCard(l) +
+                    (l.copies > 1 ? '<div class="bc-sub" style="text-align:center">× ' + l.copies + '장 출력</div>' : '') + '</div>';
             }).join('');
-            window.__printLabels=labels; showMask('bcMask');
+            window.__printLabels = labels;
+            showMask('bcMask');
         };
-        document.getElementById('bcPrint').onclick=function(){
-            var labels=window.__printLabels||[];var html='';
-            labels.forEach(function(l){var n=l.copies||1;for(var i=0;i<n;i++){
-                html+='<div style="border:1px solid #000;border-radius:6px;padding:12px;margin:6px;display:inline-block;width:220px;text-align:center;page-break-inside:avoid">'+
-                    '<div style="height:54px;background:repeating-linear-gradient(90deg,#000 0 2px,#fff 2px 4px,#000 4px 5px,#fff 5px 9px,#000 9px 12px,#fff 12px 13px);border-radius:2px;margin-bottom:6px"></div>'+
-                    '<div style="font-size:12px;font-weight:700">'+l.line+'</div>'+(l.sub?'<div style="font-size:11px;color:#555">'+l.sub+'</div>':'')+'</div>';
-            }});
-            var pa=document.getElementById('printArea');pa.innerHTML='<h3 style="margin:0 0 10px">'+document.getElementById('bcTitle').textContent+'</h3>'+html;
-            hideMask('bcMask');setTimeout(function(){window.print();},100);
+        document.getElementById('bcPrint').onclick = function () {
+            var labels = window.__printLabels || [];
+            var html = '';
+            labels.forEach(function (l) {
+                var n = l.copies || 1;
+                for (var i = 0; i < n; i++) {
+                    html += '<div style="border:1px solid #000;border-radius:6px;padding:12px;margin:6px;display:inline-block;width:220px;text-align:center;page-break-inside:avoid">' +
+                        '<div style="height:54px;background:repeating-linear-gradient(90deg,#000 0 2px,#fff 2px 4px,#000 4px 5px,#fff 5px 9px,#000 9px 12px,#fff 12px 13px);border-radius:2px;margin-bottom:6px"></div>' +
+                        '<div style="font-size:12px;font-weight:700">' + l.line + '</div>' + (l.sub ? '<div style="font-size:11px;color:#555">' + l.sub + '</div>' : '') + '</div>';
+                }
+            });
+            var pa = document.getElementById('printArea');
+            pa.innerHTML = '<h3 style="margin:0 0 10px">' + document.getElementById('bcTitle').textContent + '</h3>' + html;
+            hideMask('bcMask');
+            setTimeout(function () {
+                window.print();
+            }, 100);
         };
-        window.openPrintForm=function(title, innerHtml){
-            var pa=document.getElementById('printArea');pa.innerHTML='<h2 style="text-align:center;margin:0 0 14px">'+title+'</h2>'+innerHtml;
-            setTimeout(function(){window.print();},100);
+        window.openPrintForm = function (title, innerHtml) {
+            var pa = document.getElementById('printArea');
+            pa.innerHTML = '<h2 style="text-align:center;margin:0 0 14px">' + title + '</h2>' + innerHtml;
+            setTimeout(function () {
+                window.print();
+            }, 100);
         };
 
 
         /* 시간 수정 */
-        let timeWhich='start',editDate=new Date();
-        function fmtD(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')+' ('+WD[d.getDay()]+')';}
-        function openTime(which){timeWhich=which;
-            document.getElementById('timeTitle').textContent=(which==='start'?'시작':'종료')+' 일시 수정';
-            var saved=which==='start'?curS.start:curS.end;
-            if(saved&&saved.indexOf(' ')>=0){var a=saved.split(' ');editDate=new Date(a[0]+'T'+a[1]);}else editDate=new Date();
-            document.getElementById('tDate').textContent=fmtD(editDate);
-            document.getElementById('tH').textContent=String(editDate.getHours()).padStart(2,'0');
-            document.getElementById('tM').textContent=String(editDate.getMinutes()).padStart(2,'0');
-            showMask('timeMask');}
-        window.openTime=openTime;
-        document.querySelector('#timeMask .dateedit').addEventListener('click',function(e){var b=e.target.closest('[data-d]');if(!b)return;
-            editDate.setDate(editDate.getDate()+(+b.dataset.d));document.getElementById('tDate').textContent=fmtD(editDate);});
-        document.querySelector('#timeMask .timeedit').addEventListener('click',function(e){var b=e.target.closest('[data-t]');if(!b)return;
-            var H=document.getElementById('tH'),M=document.getElementById('tM');var h=+H.textContent,m=+M.textContent;
-            if(b.dataset.t==='h+')h=(h+1)%24;if(b.dataset.t==='h-')h=(h+23)%24;if(b.dataset.t==='m+')m=(m+1)%60;if(b.dataset.t==='m-')m=(m+59)%60;
-            H.textContent=String(h).padStart(2,'0');M.textContent=String(m).padStart(2,'0');});
-        document.getElementById('timeOk').onclick=function(){
-            var ds=editDate.getFullYear() + '-' + String(editDate.getMonth() + 1).padStart(2, '0') + '-' + String(editDate.getDate()).padStart(2, '0');
+        let timeWhich = 'start', editDate = new Date();
+
+        function fmtD(d) {
+            return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0') + ' (' + WD[d.getDay()] + ')';
+        }
+
+        function openTime(which) {
+            timeWhich = which;
+            document.getElementById('timeTitle').textContent = (which === 'start' ? '시작' : '종료') + ' 일시 수정';
+            var saved = which === 'start' ? curS.start : curS.end;
+            if (saved && saved.indexOf(' ') >= 0) {
+                var a = saved.split(' ');
+                editDate = new Date(a[0] + 'T' + a[1]);
+            } else editDate = new Date();
+            document.getElementById('tDate').textContent = fmtD(editDate);
+            document.getElementById('tH').textContent = String(editDate.getHours()).padStart(2, '0');
+            document.getElementById('tM').textContent = String(editDate.getMinutes()).padStart(2, '0');
+            showMask('timeMask');
+        }
+
+        window.openTime = openTime;
+        document.querySelector('#timeMask .dateedit').addEventListener('click', function (e) {
+            var b = e.target.closest('[data-d]');
+            if (!b) return;
+            editDate.setDate(editDate.getDate() + (+b.dataset.d));
+            document.getElementById('tDate').textContent = fmtD(editDate);
+        });
+        document.querySelector('#timeMask .timeedit').addEventListener('click', function (e) {
+            var b = e.target.closest('[data-t]');
+            if (!b) return;
+            var H = document.getElementById('tH'), M = document.getElementById('tM');
+            var h = +H.textContent, m = +M.textContent;
+            if (b.dataset.t === 'h+') h = (h + 1) % 24;
+            if (b.dataset.t === 'h-') h = (h + 23) % 24;
+            if (b.dataset.t === 'm+') m = (m + 1) % 60;
+            if (b.dataset.t === 'm-') m = (m + 59) % 60;
+            H.textContent = String(h).padStart(2, '0');
+            M.textContent = String(m).padStart(2, '0');
+        });
+        document.getElementById('timeOk').onclick = function () {
+            var ds = editDate.getFullYear() + '-' + String(editDate.getMonth() + 1).padStart(2, '0') + '-' + String(editDate.getDate()).padStart(2, '0');
             var v = ds + ' ' + document.getElementById('tH').textContent + ':' + document.getElementById('tM').textContent;
             if (timeWhich === 'start') curS.start = v; else curS.end = v;
             hideMask('timeMask');

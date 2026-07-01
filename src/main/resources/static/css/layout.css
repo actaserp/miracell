@@ -40,7 +40,7 @@
     background: #fff;
     transition: all .3s;
     z-index: 11;
-    overflow: hidden;
+    /*overflow: hidden;*/
     max-height: 80px;
 }
 .dashboard-layout-header.header-collapsed {
