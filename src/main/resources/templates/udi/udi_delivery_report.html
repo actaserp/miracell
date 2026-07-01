@@ -80,10 +80,17 @@
             <!-- 우측: 입력 폼 -->
             <section class="section" style="flex: 1; min-width: 0;">
                 <div class="title_box">
+                    <div class="left_align">
+                        <a class="btn btn-add" title="바코드 조회" id="btnBarcodeSearch">바코드 조회</a>
+                    </div>
                     <span class="right_align rpt">납품 상세입력</span>
                 </div>
                 <form id="editForm" autocomplete="off" class="udi-edit-form" style="overflow:auto;">
                     <input type="hidden" id="id" name="id"/>
+                    <input type="hidden" id="matchId" name="match_id"/>
+                    <input type="hidden" id="meddevItemSeq" name="meddev_item_seq"/>
+                    <input type="hidden" id="modelSeq" name="model_seq"/>
+                    <input type="hidden" id="udiDiSeq" name="udi_di_seq"/>
                     <table class="table_input">
                         <colgroup>
                             <col style="width:30%"><col style="width:70%">
@@ -186,6 +193,7 @@
 </th:block>
 
 <th:block layout:fragment="scripts">
+    <th:block th:replace="/common/popup_udi_barcode :: popup_udi_barcode"></th:block>
     <script type="text/javascript">
 
         // 화면 구분값: 납품(1). 반품/폐기 화면은 이 값과 일부 표시만 바꿔 재사용한다.
@@ -278,7 +286,36 @@
             newRow() {
                 $('#editForm')[0].reset();
                 $('#id').val('');
+                $('#matchId').val('');
                 this.toggleDvyfgRow();
+            }
+
+            /** 바코드 매칭 팝업에서 선택한 행을 입력폼에 바인드 */
+            bindFromMatch(item) {
+                if (item.supply_type_code) $('#supplyTypeCode').val(item.supply_type_code);
+                $('#udiDiCode').val(item.udi_di_code || '');
+                $('#stdCode').val(item.std_code || '');
+                $('#udiPiCode').val(item.udi_pi_code || '');
+                $('#lotNo').val(item.lot_no || '');
+                $('#itemSerialNo').val(item.item_serial_no || '');
+                $('#manufYm').val(item.manuf_ym || '');
+                $('#useTmlmt').val(item.use_tmlmt || '');
+                if (item.bcnc_code) $('#bcncCode').val(item.bcnc_code);
+                if (item.supply_date) $('#supplyDate').val(this.toDateInput(item.supply_date));
+                if (item.supply_qty != null) $('#supplyQty').val(item.supply_qty);
+                if (item.indvdlz_supply_qty != null) $('#indvdlzSupplyQty').val(item.indvdlz_supply_qty);
+                if (item.supply_unit_price != null) $('#supplyUnitPrice').val(item.supply_unit_price);
+                if (item.supply_amt != null) $('#supplyAmt').val(item.supply_amt);
+                // 식약처 26번 식별자(seq) — 화면엔 숨겨두고 보고 시 함께 전송
+                $('#meddevItemSeq').val(item.meddev_item_seq || '');
+                $('#modelSeq').val(item.model_seq || '');
+                $('#udiDiSeq').val(item.udi_di_seq || '');
+                $('#matchId').val(item.match_id || '');
+                // 보고 기준월 미선택 시 출고일 기준으로 자동 세팅
+                if (item.supply_date && item.supply_date.length === 8 && !$('#stdMonth').val()) {
+                    $('#stdMonth').val(item.supply_date.substr(0,4) + '-' + item.supply_date.substr(4,2));
+                }
+                Notify.success('바코드 정보를 불러왔습니다.');
             }
 
             toggleDvyfgRow() {
@@ -288,6 +325,10 @@
             collectForm() {
                 return {
                     id: $('#id').val(),
+                    match_id: $('#matchId').val(),
+                    meddev_item_seq: $('#meddevItemSeq').val(),
+                    model_seq: $('#modelSeq').val(),
+                    udi_di_seq: $('#udiDiSeq').val(),
                     std_month: ($('#stdMonth').val() || '').replace('-', ''),
                     supply_flag_code: SUPPLY_FLAG_CODE,
                     supply_type_code: $('#supplyTypeCode').val(),
@@ -380,6 +421,10 @@
             $('#btnDelete').click(function () { page.del(); });
             $('#btnConfirm').click(function () { page.confirm(); });
             $('#isDiffDvyfg').change(function () { page.toggleDvyfgRow(); });
+            $('#btnBarcodeSearch').click(function () {
+                let pop = new PopupUdiBarcodePage();
+                pop.show(function (item) { page.bindFromMatch(item); });
+            });
 
             page.searchList();
         });

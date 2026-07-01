@@ -1126,4 +1126,73 @@ public class PopupController {
 		return result;
 	}
 
+	/**
+	 * UDI 바코드 매칭 조회 (보고 화면 "바코드 조회" 팝업용)
+	 * 미보고('N') 매칭건을 조회하고, 보고 입력폼 필드명에 맞춰 alias 한다.
+	 */
+	@RequestMapping("/search_udi_barcode")
+	public AjaxResult getSearchUdiBarcode(
+			@RequestParam(value = "date_from", required = false) String dateFrom,
+			@RequestParam(value = "date_to", required = false) String dateTo,
+			@RequestParam(value = "keyword", required = false) String keyword) {
+
+		AjaxResult result = new AjaxResult();
+		MapSqlParameterSource paramMap = new MapSqlParameterSource();
+
+		String sql = """
+				select b.id                 as match_id
+				, b."OwnBarcode"            as own_barcode
+				, b."UdiBarcode"            as udi_barcode
+				, b."StdCode"               as std_code
+				, b."UdiDiCode"             as udi_di_code
+				, b."UdiPiCode"             as udi_pi_code
+				, b."MeddevItemSeq"         as meddev_item_seq
+				, b."ModelSeq"              as model_seq
+				, b."UdiDiSeq"              as udi_di_seq
+				, b."LotNo"                 as lot_no
+				, b."ItemSerialNo"          as item_serial_no
+				, b."ManufYm"               as manuf_ym
+				, b."UseTmlmt"              as use_tmlmt
+				, b."BcncCode"              as bcnc_code
+				, b."SupplyDate"            as supply_date
+				, b."SupplyQty"             as supply_qty
+				, b."IndvdlzSupplyQty"      as indvdlz_supply_qty
+				, b."SupplyUnitPrice"       as supply_unit_price
+				, b."SupplyAmt"             as supply_amt
+				, b."SupplyTypeCode"        as supply_type_code
+				, b."StdMonth"              as std_month
+				, m."Name"                  as material_name
+				, m."Code"                  as material_code
+				, c."Name"                  as company_name
+				from udi_barcode_match b
+				left join material m on m.id = b."Material_id"
+				left join company  c on c.id = b."Company_id"
+				where b."ReportedYN" = 'N'
+				""";
+
+		if (StringUtils.hasText(dateFrom)) {
+			sql += " and b.\"SupplyDate\" >= :dateFrom ";
+			paramMap.addValue("dateFrom", dateFrom);
+		}
+		if (StringUtils.hasText(dateTo)) {
+			sql += " and b.\"SupplyDate\" <= :dateTo ";
+			paramMap.addValue("dateTo", dateTo);
+		}
+		if (StringUtils.hasText(keyword)) {
+			sql += """
+					 and ( b."OwnBarcode" ilike concat('%%',:keyword,'%%')
+						or b."UdiBarcode" ilike concat('%%',:keyword,'%%')
+						or b."UdiDiCode"  ilike concat('%%',:keyword,'%%')
+						or b."LotNo"      ilike concat('%%',:keyword,'%%')
+						or m."Name"       ilike concat('%%',:keyword,'%%') )
+					""";
+			paramMap.addValue("keyword", keyword);
+		}
+
+		sql += " order by b.\"SupplyDate\" desc, b.id desc ";
+
+		result.data = this.sqlRunner.getRows(sql, paramMap);
+		return result;
+	}
+
 	}
