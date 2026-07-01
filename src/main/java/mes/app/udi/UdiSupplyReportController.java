@@ -3,6 +3,7 @@ package mes.app.udi;
 import java.util.List;
 import java.util.Map;
 
+import mes.app.udi.service.UdiApiClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.security.core.Authentication;
@@ -30,7 +31,7 @@ public class UdiSupplyReportController {
 	private mes.app.udi.service.UdiReportSubmitService reportSubmitService;
 
 	@Autowired
-	private mes.app.udi.service.UdiApiClient udiApiClient;
+	private UdiApiClient udiApiClient;
 
 	/**
 	 * 식약처 연동 점검(토큰 발급 테스트).

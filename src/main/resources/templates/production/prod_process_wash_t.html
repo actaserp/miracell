@@ -1,0 +1,941 @@
+<html layout:decorate="~{layout_page}">
+
+<th:block layout:fragment="content">
+    <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet"/>
+    <style>
+
+        :root{--bg:#E9EEF1;--surface:#FFF;--surface-2:#F4F7F9;--ink:#15222B;--ink-2:#5A6B76;--line:#D8E0E5;
+            --teal:#0E7C86;--teal-d:#0A5C64;--teal-bg:#E2F1F2;--green:#1E9D58;--green-bg:#E4F4EA;
+            --amber:#C77A00;--amber-bg:#FBEFD8;--red:#C8483B;--red-bg:#F7E4E1;--r:18px;--tap:60px;
+            --shadow:0 1px 0 rgba(21,34,43,.04),0 8px 24px -16px rgba(21,34,43,.28)}
+        *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+        .ms-wash-root{font-family:"Pretendard","Noto Sans KR",-apple-system,sans-serif;color:var(--ink);font-size:17px;line-height:1.45;-webkit-font-smoothing:antialiased;flex:1 1 auto;min-height:0;height:var(--wash-h,100%);max-height:var(--wash-h,none);display:flex;flex-direction:column}
+        /* 앱 높이: JS가 측정한 상단 오프셋만큼 빼서 화면 바닥까지 채움 */
+        .ms-wash-root .app{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;background:var(--bg);border-radius:12px;overflow:hidden}
+        .topbar{flex:0 0 auto;height:64px;display:flex;align-items:center;gap:14px;padding:0 20px;
+            background:var(--surface);border-bottom:1px solid var(--line);box-shadow:var(--shadow)}
+        .brand{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:-.02em}
+        .brand .dot{width:12px;height:12px;border-radius:50%;background:var(--teal);box-shadow:0 0 0 4px var(--teal-bg)}
+        .brand small{font-weight:600;color:var(--ink-2);margin-left:2px}
+        .proc-chip{margin-left:4px;padding:6px 12px;border-radius:999px;background:var(--teal-bg);color:var(--teal-d);font-weight:800;font-size:14px}
+        .spacer{flex:1}.clock{font-variant-numeric:tabular-nums;font-weight:700}
+        .screen{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden}.screen.hide{display:none}
+
+        /* 큐 */
+        .wrap{padding:22px 20px 28px;max-width:1180px;margin:0 auto;width:100%;overflow:auto;-webkit-overflow-scrolling:touch;flex:1 1 auto;min-height:0}
+        .qhead{display:flex;align-items:baseline;gap:12px;margin:2px 2px 18px}
+        .qhead h1{font-size:26px;font-weight:800;letter-spacing:-.03em;margin:0}
+        .qhead .cnt{color:var(--ink-2);font-weight:700}
+        .qfilter{display:flex;gap:8px;margin-left:auto}
+        .qfilter button{min-height:44px;padding:0 16px;border-radius:999px;border:1px solid var(--line);
+            background:var(--surface);color:var(--ink-2);font-weight:700;font-size:15px;cursor:pointer}
+        .qfilter button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+        .searchbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 2px 18px;
+            background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px;box-shadow:var(--shadow)}
+        .searchbar .slab{font-weight:800;color:var(--ink-2);font-size:14px}
+        .searchbar .tilde{font-weight:800;color:var(--ink-2)}
+        .dinput{height:48px;border:1px solid var(--line);border-radius:12px;padding:0 12px;font-size:16px;
+            font-weight:700;color:var(--ink);background:var(--surface-2);font-variant-numeric:tabular-nums;min-width:160px}
+        .sbtn{height:48px;padding:0 22px;border:none;border-radius:12px;background:var(--teal);color:#fff;
+            font-weight:800;font-size:16px;cursor:pointer;margin-left:auto}
+        .sbtn:active{background:var(--teal-d)}
+        .qgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px}
+        .wo{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px 18px 16px;
+            cursor:pointer;box-shadow:var(--shadow);transition:transform .12s ease;position:relative;overflow:hidden}
+        .wo:active{transform:scale(.985)}
+        .wo .edge{position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--line)}
+        .wo[data-st="working"] .edge{background:var(--teal)}.wo[data-st="wait"] .edge{background:var(--amber)}.wo[data-st="done"] .edge{background:var(--green)}
+        .wo .row1{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+        .wo .wono{font-weight:800;font-size:15px;color:var(--ink-2)}
+        .chip{margin-left:auto;padding:5px 11px;border-radius:999px;font-size:13px;font-weight:800}
+        .chip.working{background:var(--teal-bg);color:var(--teal-d)}.chip.wait{background:var(--amber-bg);color:var(--amber)}.chip.done{background:var(--green-bg);color:var(--green)}
+        .wo .name{font-size:19px;font-weight:800;letter-spacing:-.02em;line-height:1.3;margin:2px 0 14px}
+        .wo .meta{display:flex;gap:18px;align-items:flex-end}
+        .wo .meta .blk{display:flex;flex-direction:column;gap:2px}
+        .wo .meta .lab{font-size:12.5px;color:var(--ink-2);font-weight:700}
+        .wo .meta .val{font-size:18px;font-weight:800}
+        .wo .prog{margin-left:auto;text-align:right}
+        .wo .bar{height:8px;width:120px;background:var(--surface-2);border-radius:999px;overflow:hidden;margin-top:6px}
+        .wo .bar>i{display:block;height:100%;background:var(--teal);border-radius:999px}
+
+        /* 공통 상단바(B,C) */
+        .topbar2{flex:0 0 auto;background:var(--surface);border-bottom:1px solid var(--line);
+            padding:12px 18px;display:flex;align-items:center;gap:14px;box-shadow:var(--shadow);z-index:2}
+        .back{width:48px;height:48px;border-radius:14px;border:1px solid var(--line);background:var(--surface-2);
+            display:grid;place-items:center;cursor:pointer;font-size:22px;flex:0 0 auto}
+        .back:active{background:var(--line)}
+        .htitle{min-width:0;flex:1}
+        .htitle .t{font-size:18px;font-weight:800;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .htitle .s{font-size:13.5px;color:var(--ink-2);font-weight:700;margin-top:1px}
+
+        /* B. 세션 목록 */
+        .col-stack{display:flex;flex-direction:column;flex:1 1 auto;min-height:0;height:100%}
+        .bscroll{flex:1 1 auto;min-height:0;overflow:auto;-webkit-overflow-scrolling:touch;padding:18px}
+        .bgrid{max-width:1000px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+        .ovbox{display:flex;gap:12px;flex-wrap:wrap}
+        .ov{flex:1;min-width:130px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
+            padding:14px 16px;box-shadow:var(--shadow)}
+        .ov .l{font-size:13px;color:var(--ink-2);font-weight:700}
+        .ov .v{font-size:28px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+        .ov.left .v{color:var(--teal-d)}
+        .secline{display:flex;align-items:center;gap:10px;margin:6px 2px 0;color:var(--ink-2);font-weight:800;font-size:14px}
+        .secline .ln{flex:1;height:1px;background:var(--line)}
+        .sess{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;
+            box-shadow:var(--shadow);cursor:pointer;display:flex;align-items:center;gap:16px;position:relative;overflow:hidden;
+            transition:transform .12s ease}
+        .sess:active{transform:scale(.99)}
+        .sess .edge{position:absolute;left:0;top:0;bottom:0;width:5px}
+        .sess[data-st="working"] .edge{background:var(--teal)}.sess[data-st="done"] .edge{background:var(--green)}
+        .sess .who{display:flex;flex-direction:column;gap:2px;min-width:120px}
+        .sess .who .nm{font-size:18px;font-weight:800}
+        .sess .who .eq{font-size:13px;color:var(--ink-2);font-weight:700}
+        .sess .time{font-size:13.5px;color:var(--ink-2);font-weight:700;font-variant-numeric:tabular-nums}
+        .sess .qty{margin-left:auto;text-align:right}
+        .sess .qty .v{font-size:24px;font-weight:800;font-variant-numeric:tabular-nums}
+        .sess .qty .l{font-size:12px;color:var(--ink-2);font-weight:700}
+        .sess .badge{padding:6px 12px;border-radius:999px;font-size:13px;font-weight:800}
+        .sess .badge.working{background:var(--teal-bg);color:var(--teal-d)}.sess .badge.done{background:var(--green-bg);color:var(--green)}
+        .sess .bad{padding:5px 10px;border-radius:999px;background:var(--red-bg);color:var(--red);font-weight:800;font-size:12.5px}
+        .emptysess{text-align:center;color:var(--ink-2);font-weight:700;padding:30px;border:1.5px dashed var(--line);border-radius:var(--r)}
+
+        /* C. 세션 작업(부품) */
+        .infopill{display:flex;gap:7px;align-items:center;background:var(--surface-2);border:1px solid var(--line);
+            border-radius:12px;padding:8px 12px;font-size:13px;font-weight:700;color:var(--ink-2);cursor:default}
+        .infopill.tap{cursor:pointer}.infopill.tap:active{background:var(--line)}
+        .infopill b{color:var(--ink);font-variant-numeric:tabular-nums}
+        .infopill.tap b{color:var(--teal-d);text-decoration:underline dotted}
+        .sstate{padding:8px 14px;border-radius:999px;font-weight:800;font-size:14px}
+        .sstate.working{background:var(--teal-bg);color:var(--teal-d)}.sstate.done{background:var(--green-bg);color:var(--green)}
+        .part{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;
+            display:flex;align-items:center;gap:14px;box-shadow:var(--shadow);flex-wrap:wrap}
+        .part.locked{opacity:.7}
+        .part .id{display:flex;flex-direction:column;min-width:0;flex:1}
+        .part .pn{font-size:18px;font-weight:800;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+        .part .pc{font-size:13px;color:var(--ink-2);font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+        .part .stat{display:flex;gap:20px;align-items:center;flex:0 0 auto}
+        .part .col{display:flex;flex-direction:column;align-items:flex-end;gap:1px;flex:0 0 auto}
+        .part .col .l{font-size:12px;font-weight:700;color:var(--ink-2);white-space:nowrap}
+        .part .col .v{font-size:20px;font-weight:800;font-variant-numeric:tabular-nums}
+        .part .col .v.left{color:var(--teal-d)}.part .col .v.bad{color:var(--red)}
+        .stepper{display:flex;align-items:center;flex:0 0 auto}
+        .stepper button{width:50px;height:54px;border:1px solid var(--line);background:var(--surface-2);font-size:25px;font-weight:700;cursor:pointer;display:grid;place-items:center}
+        .stepper button:active{background:var(--line)}
+        .stepper button.minus{border-radius:14px 0 0 14px}.stepper button.plus{border-radius:0 14px 14px 0}
+        .stepper .qty{width:90px;height:54px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+            background:#FFFDF4;text-align:center;font-size:23px;font-weight:800;font-variant-numeric:tabular-nums;display:grid;place-items:center;cursor:pointer}
+        .defbtn{height:54px;padding:0 16px;border-radius:14px;border:1px solid var(--line);background:var(--surface);
+            color:var(--ink-2);font-weight:800;font-size:14px;cursor:pointer;flex:0 0 auto}
+        .defbtn:active{background:var(--surface-2)}.defbtn.has{background:var(--red-bg);color:var(--red);border-color:transparent}
+        .done-tag{padding:7px 14px;border-radius:999px;background:var(--green-bg);color:var(--green);font-weight:800;font-size:14px}
+
+        .actionbar{flex:0 0 auto;background:var(--surface);border-top:1px solid var(--line);
+            padding:14px 18px calc(14px + env(safe-area-inset-bottom));display:flex;gap:12px;align-items:center;
+            box-shadow:0 -8px 24px -18px rgba(21,34,43,.4)}
+        .actionbar .actsum{display:flex;flex-direction:column;margin-right:auto}
+        .actionbar .actsum .l{font-size:12.5px;color:var(--ink-2);font-weight:700}
+        .actionbar .actsum .v{font-size:21px;font-weight:800;font-variant-numeric:tabular-nums}
+        .btn{min-height:var(--tap);padding:0 24px;border-radius:16px;border:none;cursor:pointer;font-size:18px;font-weight:800;display:inline-flex;align-items:center;gap:8px}
+        .btn.ghost{background:var(--surface-2);color:var(--ink-2);border:1px solid var(--line)}.btn.ghost:active{background:var(--line)}
+        .btn.primary{background:var(--teal);color:#fff;padding:0 36px;box-shadow:0 8px 18px -8px rgba(14,124,134,.7)}.btn.primary:active{background:var(--teal-d)}
+        .btn.start{background:var(--teal);color:#fff;flex:1;justify-content:center;font-size:20px}
+        .btn.danger{background:var(--red-bg);color:var(--red)}
+
+        /* 시트 */
+        .mask{position:fixed;inset:0;background:rgba(21,34,43,.42);display:none;z-index:40;align-items:flex-end}
+        .mask.show{display:flex;animation:fade .15s ease}@keyframes fade{from{opacity:0}to{opacity:1}}
+        .sheet{width:100%;background:var(--surface);border-radius:24px 24px 0 0;padding:20px 20px calc(40px + env(safe-area-inset-bottom));
+            box-shadow:0 -20px 40px -20px rgba(0,0,0,.4);animation:rise .2s cubic-bezier(.2,.7,.3,1);max-height:88dvh;overflow:auto}
+        @keyframes rise{from{transform:translateY(40px)}to{transform:translateY(0)}}
+        .sheet .sh{display:flex;align-items:center;margin-bottom:16px}
+        .sheet .sh h3{font-size:20px;font-weight:800;margin:0;letter-spacing:-.02em}
+        .sheet .sh .x{margin-left:auto;width:44px;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--surface-2);font-size:20px;cursor:pointer}
+        .sheet .body{max-width:640px;margin:0 auto}
+        .fieldlab{font-size:14px;font-weight:800;color:var(--ink-2);margin:14px 2px 8px}
+        .opts{display:flex;flex-wrap:wrap;gap:10px}
+        .opt{min-height:54px;padding:0 18px;border-radius:14px;border:1.5px solid var(--line);background:var(--surface);font-weight:800;font-size:16px;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+        .opt:active{background:var(--surface-2)}.opt.sel{border-color:var(--teal);background:var(--teal-bg);color:var(--teal-d)}
+        .opt .sub{font-size:12.5px;color:var(--ink-2);font-weight:700}
+        .sheet .ok{width:100%;margin-top:20px;background:var(--teal);color:#fff;min-height:var(--tap);border:none;border-radius:16px;font-size:19px;font-weight:800;cursor:pointer}
+        .sheet .ok:disabled{background:var(--line);color:var(--ink-2)}
+        .pad .disp{margin-left:auto;min-width:140px;text-align:right;font-size:30px;font-weight:800;font-variant-numeric:tabular-nums;background:var(--surface-2);border:1px solid var(--line);border-radius:14px;padding:8px 16px}
+        .keys{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:520px;margin:6px auto 0}
+        .keys button{height:62px;border-radius:14px;border:1px solid var(--line);background:var(--surface);font-size:25px;font-weight:800;cursor:pointer;font-variant-numeric:tabular-nums}
+        .keys button:active{background:var(--surface-2)}.keys button.ok{background:var(--teal);color:#fff;border-color:var(--teal)}.keys button.clr{color:var(--red)}
+        .dateedit{display:flex;align-items:center;justify-content:center;gap:14px;margin:4px 0 10px}
+        .dateedit .dbtn{width:56px;height:52px;border-radius:14px;border:1px solid var(--line);background:var(--surface-2);font-size:22px;font-weight:700;cursor:pointer}
+        .dateedit .dbtn:active{background:var(--line)}
+        .dateedit .dval{min-width:200px;text-align:center;font-size:22px;font-weight:800;font-variant-numeric:tabular-nums}
+        .timeedit{display:flex;align-items:center;justify-content:center;gap:6px;margin:8px 0}
+        .tcol{display:flex;flex-direction:column;align-items:center;gap:8px}
+        .tcol button{width:84px;height:52px;border-radius:14px;border:1px solid var(--line);background:var(--surface-2);font-size:24px;font-weight:700;cursor:pointer}
+        .tcol .tv{font-size:42px;font-weight:800;font-variant-numeric:tabular-nums;width:84px;text-align:center}
+        .tsep{font-size:40px;font-weight:800;padding-bottom:4px}
+        .photos{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px}
+        .photo{width:84px;height:84px;border-radius:12px;object-fit:cover;border:1px solid var(--line)}
+        .photo-add{width:84px;height:84px;border-radius:12px;border:1.5px dashed var(--line);background:var(--surface-2);display:grid;place-items:center;cursor:pointer;color:var(--ink-2);font-size:13px;font-weight:800;text-align:center}
+        .photo-wrap{position:relative}
+        .photo-wrap .del{position:absolute;top:-6px;right:-6px;width:24px;height:24px;border-radius:50%;background:var(--red);color:#fff;border:2px solid #fff;font-size:13px;cursor:pointer;line-height:1}
+        @media (max-width:680px){.part .stat{order:3;width:100%;justify-content:space-between}.qgrid{grid-template-columns:1fr}.sess{flex-wrap:wrap}}
+        @media (prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important}}
+
+    </style>
+
+    <div class="ms-wash-root">
+        <div class="app">
+            <!-- A. 큐 -->
+            <div class="screen" id="scA"><div class="wrap">
+                <div class="qhead"><h1>세척 작업지시</h1><span class="cnt" id="qcnt"></span>
+                    <div class="qfilter"><button class="on" data-f="all">전체</button>
+                        <button data-f="wait">대기</button><button data-f="working">작업중</button></div></div>
+                <div class="searchbar">
+                    <span class="slab">작업지시일</span>
+                    <input type="date" id="dFrom" class="dinput"/>
+                    <span class="tilde">~</span>
+                    <input type="date" id="dTo" class="dinput"/>
+                    <button class="sbtn" id="btnSearch">조회</button>
+                </div>
+                <div class="qgrid" id="qgrid"></div>
+            </div></div>
+
+            <!-- B. 세션 목록 -->
+            <div class="screen hide" id="scB"><div class="col-stack">
+                <div class="topbar2">
+                    <button class="back" data-back="A">‹</button>
+                    <div class="htitle"><div class="t" id="bName">—</div><div class="s" id="bSub">—</div></div>
+                </div>
+                <div class="bscroll"><div class="bgrid">
+                    <div class="ovbox">
+                        <div class="ov"><div class="l">계획</div><div class="v" id="ovPlan">0</div></div>
+                        <div class="ov"><div class="l">세척 완료</div><div class="v" id="ovDone">0</div></div>
+                        <div class="ov left"><div class="l">잔여</div><div class="v" id="ovRemain">0</div></div>
+                        <div class="ov"><div class="l">부적합</div><div class="v" id="ovBad" style="color:var(--red)">0</div></div>
+                    </div>
+                    <div class="secline">작업 목록 <span class="ln"></span><span class="" id="sessCnt"></span></div>
+                    <div id="sessList"></div>
+                </div></div>
+                <div class="actionbar">
+                    <div class="actsum"><span class="l">한 작지를 여러 작업자가 나눠 작업</span></div>
+                    <button class="btn start" id="btnNewSess">＋ 세척 시작</button>
+                </div>
+            </div></div>
+
+            <!-- C. 세션 작업(부품) -->
+            <div class="screen hide" id="scC"><div class="col-stack">
+                <div class="topbar2">
+                    <button class="back" data-back="B">‹</button>
+                    <div class="htitle"><div class="t" id="cName">—</div><div class="s" id="cSub">—</div></div>
+                    <div style="display:flex;gap:8px;align-items:center" id="cHead"></div>
+                </div>
+                <div class="bscroll"><div class="bgrid">
+                    <div class="secline">세척 대상 용기 부품 <span class="ln"></span><span class="" id="partcnt"></span></div>
+                    <div id="parts"></div>
+                </div></div>
+                <div class="actionbar" id="cAction"></div>
+            </div></div>
+        </div>
+
+        <!-- 시작 시트 -->
+        <div class="mask" id="startMask"><div class="sheet"><div class="body">
+            <div class="sh"><h3>세척 작업 · 새 작업자</h3><button class="x" data-close>✕</button></div>
+            <div class="fieldlab">작업자</div><div class="opts" id="workerOpts"></div>
+            <div class="fieldlab">세척 설비</div><div class="opts" id="equipOpts"></div>
+            <button class="ok" id="startOk" disabled>이 작업자로 시작</button>
+        </div></div></div>
+
+        <!-- 시간 시트 -->
+        <div class="mask" id="timeMask"><div class="sheet"><div class="body">
+            <div class="sh"><h3 id="timeTitle">시작 일시 수정</h3><button class="x" data-close>✕</button></div>
+            <div class="dateedit"><button class="dbtn" data-d="-1">◀</button><div class="dval" id="tDate">—</div><button class="dbtn" data-d="1">▶</button></div>
+            <div class="timeedit">
+                <div class="tcol"><button data-t="h+">▲</button><div class="tv" id="tH">09</div><button data-t="h-">▼</button></div>
+                <div class="tsep">:</div>
+                <div class="tcol"><button data-t="m+">▲</button><div class="tv" id="tM">12</div><button data-t="m-">▼</button></div>
+            </div>
+            <button class="ok" id="timeOk">저장</button>
+        </div></div></div>
+
+        <!-- 부적합 시트 -->
+        <div class="mask" id="defMask"><div class="sheet"><div class="body">
+            <div class="sh"><h3 id="defTitle">부적합 등록</h3><button class="x" data-close>✕</button></div>
+            <div class="fieldlab">불량 수량</div>
+            <div style="display:flex;align-items:center;max-width:240px">
+                <button class="opt" id="defMinus" style="border-radius:14px 0 0 14px;width:56px;justify-content:center;padding:0">−</button>
+                <div id="defQty" class="" style="flex:1;text-align:center;height:54px;line-height:54px;border-top:1.5px solid var(--line);border-bottom:1.5px solid var(--line);font-size:24px;font-weight:800;background:#FFFDF4">0</div>
+                <button class="opt" id="defPlus" style="border-radius:0 14px 14px 0;width:56px;justify-content:center;padding:0">+</button>
+            </div>
+            <div class="fieldlab">불량 유형</div><div class="opts" id="defTypes"></div>
+            <div class="fieldlab">사진 첨부</div><div class="photos" id="defPhotos"></div>
+            <input type="file" id="defFile" accept="image/*" capture="environment" style="display:none"/>
+            <button class="ok" id="defOk">부적합 저장</button>
+        </div></div></div>
+
+        <!-- 넘패드 -->
+        <div class="mask" id="padMask"><div class="sheet pad"><div class="body">
+            <div class="sh"><h3 id="padLab">세척수량</h3><span class="disp" id="padDisp" style="margin-left:auto">0</span></div>
+            <div class="keys"><button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
+                <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
+                <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
+                <button class="clr" data-k="C">C</button><button data-k="0">0</button><button class="ok" data-k="OK">확인</button></div>
+        </div></div></div>
+    </div>
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <script th:inline="none">
+        /* ── 높이 자동 맞춤 ──
+           root 윗변 위치(=상단 헤더 높이)를 실측하고, 페이지 푸터 높이를 빼서
+           root 높이를 화면 바닥(푸터 위)까지 정확히 채운다.
+           헤더/푸터 크기가 바뀌어도 actionbar(시작/완료)가 푸터에 가리지 않음. */
+        (function () {
+            const root = document.querySelector('.ms-wash-root');
+            if (!root) return;
+
+            // 내부(같은 문서) 푸터: 흐름 형제 + fixed/sticky
+            function localBelow() {
+                let below = 0, node = root;
+                while (node && node !== document.body) {
+                    let sib = node.nextElementSibling;
+                    while (sib) {
+                        const r = sib.getBoundingClientRect();
+                        if (r.height > 0 && getComputedStyle(sib).position !== 'fixed') below += r.height;
+                        sib = sib.nextElementSibling;
+                    }
+                    node = node.parentElement;
+                }
+                let fx = 0;
+                document.querySelectorAll('body *').forEach(el => {
+                    if (root.contains(el)) return;
+                    const cs = getComputedStyle(el);
+                    if (cs.position !== 'fixed' && cs.position !== 'sticky') return;
+                    const r = el.getBoundingClientRect();
+                    if (r.height > 0 && r.height < innerHeight * 0.5 && r.bottom > innerHeight - 2) fx = Math.max(fx, r.height);
+                });
+                return Math.max(below, fx);
+            }
+
+            // 화면에서 실제로 사용 가능한 바닥(px, iframe 내부 좌표). 부모 푸터까지 고려.
+            function availBottom() {
+                let bottom = window.innerHeight;          // 기본: iframe 자체 높이
+                try {
+                    const fe = window.frameElement;       // 같은 출처일 때만 접근 가능
+                    if (fe) {
+                        const pWin = window.parent, pDoc = pWin.document;
+                        const feTop = fe.getBoundingClientRect().top;   // 부모 좌표계 iframe 상단
+                        // (1) 흐름상 iframe 뒤에 오는 형제(푸터) 높이 합
+                        let flow = 0, node = fe;
+                        while (node && node !== pDoc.body) {
+                            let sib = node.nextElementSibling;
+                            while (sib) {
+                                const cs = pWin.getComputedStyle(sib), r = sib.getBoundingClientRect();
+                                if (r.height > 0 && cs.position !== 'fixed' && cs.position !== 'absolute') flow += r.height;
+                                sib = sib.nextElementSibling;
+                            }
+                            node = node.parentElement;
+                        }
+                        // (2) 부모 바닥에 걸친 푸터 바(fixed/sticky/absolute, 작은 높이만 인정)
+                        let fx = 0;
+                        pDoc.querySelectorAll('body *').forEach(el => {
+                            if (el === fe || el.contains(fe)) return;
+                            const cs = pWin.getComputedStyle(el);
+                            if (cs.position !== 'fixed' && cs.position !== 'sticky' && cs.position !== 'absolute') return;
+                            const r = el.getBoundingClientRect();
+                            if (r.height > 0 && r.height <= 160 && r.top > feTop && r.bottom > pWin.innerHeight - 40)
+                                fx = Math.max(fx, r.bottom - r.top);
+                        });
+                        const pFooter = Math.max(flow, fx);
+                        // 부모 가용 바닥(부모 좌표) → iframe 내부 좌표로 환산
+                        bottom = Math.min(bottom, (pWin.innerHeight - pFooter) - feTop);
+                    }
+                } catch (e) {/* 교차 출처: iframe 자체 높이로 폴백 */
+                }
+                return bottom;
+            }
+
+            function fit() {
+                const top = root.getBoundingClientRect().top;
+                const avail = availBottom() - top - localBelow();
+                root.style.setProperty('--wash-h', Math.max(320, Math.floor(avail)) + 'px');
+            }
+
+            window.addEventListener('resize', fit);
+            window.addEventListener('orientationchange', fit);
+            try {
+                window.parent.addEventListener('resize', fit);
+            } catch (e) {
+            }
+            fit();
+            requestAnimationFrame(fit);
+            setTimeout(fit, 200);
+            setTimeout(fit, 600);
+            if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
+        })();
+
+
+        const WD = ['일', '월', '화', '수', '목', '금', '토'];
+        const BASE_PARTS = [{code: "M-DD00003", name: "BSC+③ 30 상부"}, {
+            code: "M-DD00004",
+            name: "BSC+③ 30 하부"
+        }, {code: "M-DD00029", name: "혈액주입포트(RHAN-빨강)_R-Rub"}, {
+            code: "M-DD00030",
+            name: "셀추출포트(고무-아이보리)_Iv-Rub"
+        }, {code: "M-DD00033", name: "플로팅 혈액 30"}, {code: "M-DP00058", name: "에어밴트"}, {
+            code: "M-DS00053",
+            name: "오링 040"
+        }];
+        const WORKERS = ['정우철', '김민수', '이서연', '박지훈'];
+        const EQUIPS = [['세척기 A', 'WS-01'], ['세척기 B', 'WS-02']];
+        const DEFTYPES = ['이물', '파손', '변형', '오염', '기타'];
+        const STLAB = {working: '작업중', wait: '대기', done: '완료'};
+
+        function nowHM() {
+            const d = new Date();
+            return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0') + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+        }
+
+        function pill(v) {
+            if (!v) return '--:--';
+            if (v.includes(' ')) {
+                const [d, t] = v.split(' ');
+                return d.slice(5) + ' ' + t;
+            }
+            return v;
+        }
+
+        /* 세션이 부품배열을 가진다. 세션.parts[i].qty / defQty / defType / photos */
+        function newParts() {
+            return BASE_PARTS.map(p => ({...p, qty: 0, defQty: 0, defType: null, photos: []}));
+        }
+
+        function mkSess(worker, equip) {
+            return {worker, equip, start: nowHM(), end: null, st: 'working', parts: newParts()};
+        }
+
+        const ORDERS = [
+            {
+                id: 'WO-2406-018',
+                odate: '2026-06-25',
+                st: 'working',
+                name: 'BSC+③ 30ml 00차수(3버전)+00차수',
+                chasu: 1,
+                plan: 120,
+                sessions: [
+                    {
+                        worker: '정우철', equip: '세척기 A', start: '2026-06-25 09:12', end: '2026-06-25 10:40', st: 'done',
+                        parts: BASE_PARTS.map(p => ({
+                            ...p,
+                            qty: 44,
+                            defQty: p.code === 'M-DD00030' ? 2 : 0,
+                            defType: p.code === 'M-DD00030' ? '오염' : null,
+                            photos: []
+                        }))
+                    },
+                    {
+                        worker: '김민수', equip: '세척기 B', start: '2026-06-25 10:55', end: null, st: 'working',
+                        parts: BASE_PARTS.map(p => ({...p, qty: 30, defQty: 0, defType: null, photos: []}))
+                    },
+                ]
+            },
+            {
+                id: 'WO-2406-019',
+                odate: '2026-06-25',
+                st: 'wait',
+                name: 'BSC+③ 30ml 00차수(3버전)+01차수(해외용)',
+                chasu: 1,
+                plan: 90,
+                sessions: []
+            },
+            {
+                id: 'WO-2406-021',
+                odate: '2026-06-26',
+                st: 'wait',
+                name: 'BmSC+③ 60ml 00차수(3버전)+02차수(국내용)',
+                chasu: 2,
+                plan: 60,
+                sessions: []
+            },
+            {
+                id: 'WO-2406-015',
+                odate: '2026-06-24',
+                st: 'done',
+                name: 'BSC+③ 30ml 01차수(호환형)+00차수',
+                chasu: 1,
+                plan: 120,
+                sessions: [{
+                    worker: '김민수', equip: '세척기 B', start: '2026-06-24 08:05', end: '2026-06-24 11:30', st: 'done',
+                    parts: BASE_PARTS.map(p => ({...p, qty: 120, defQty: 0, defType: null, photos: []}))
+                }]
+            },
+        ];
+
+        /* 집계 단위
+           - sessQty: 세션 대표 '키트수'(=부품 최대값). 부품별 잔여/캡 계산에만 사용
+           - sessSum: 세척수량 = 부품 전체 합계(피스). 화면 표기는 모두 이 값
+           - bomPieces: 키트당 BOM 총 피스(부품 qty 합). 목업은 부품 1개씩=부품수
+           - planTotal: 계획수량(피스) = 계획키트 × bomPieces */
+        function sessQty(se) {
+            return Math.max(...se.parts.map(p => p.qty), 0);
+        }      // 대표 키트수(캡 계산용)
+        function sessSum(se) {
+            return se.parts.reduce((a, p) => a + (p.qty || 0), 0);
+        }     // 세척수량(부품 합계)
+        function bomPieces() {
+            return BASE_PARTS.reduce((a, p) => a + (p.bom || 1), 0);
+        }   // 키트당 BOM 피스
+        function planTotal(o) {
+            return o.plan * bomPieces();
+        }                        // 계획수량(피스)
+        function orderDone(o) {
+            return o.sessions.reduce((a, se) => a + sessSum(se), 0);
+        } // 완료(피스 합계)
+        function orderBad(o) {
+            return o.sessions.reduce((a, se) => a + se.parts.reduce((b, p) => b + (p.defQty || 0), 0), 0);
+        }
+
+        let curO = null, curS = null;
+
+        /* A 큐 */
+        const qgrid = document.getElementById('qgrid');
+        let filter = 'all';
+
+        function inRange(o) {
+            const f = document.getElementById('dFrom').value, t = document.getElementById('dTo').value;
+            if (f && o.odate < f) return false;
+            if (t && o.odate > t) return false;
+            return true;
+        }
+
+        function renderQueue() {
+            const list = ORDERS.filter(o => (filter === 'all' || o.st === filter) && inRange(o));
+            document.getElementById('qcnt').textContent = list.length + '건';
+            qgrid.innerHTML = list.map(o => {
+                const done = orderDone(o);
+                const pct = Math.round(done / planTotal(o) * 100);
+                return `<div class="wo" data-st="${o.st}" data-id="${o.id}"><div class="edge"></div>
+      <div class="row1"><span class="wono">${o.id}</span>
+        <span style="font-size:13px;color:var(--ink-2);font-weight:700" class="">${o.odate}</span>
+        <span class="chip ${o.st}">${STLAB[o.st]}</span></div>
+      <div class="name">${o.name}</div>
+      <div class="meta"><div class="blk"><span class="lab">계획</span><span class="val">${planTotal(o)}</span></div>
+        <div class="blk"><span class="lab">완료</span><span class="val">${orderDone(o)}</span></div>
+        <div class="blk"><span class="lab">작업</span><span class="val">${o.sessions.filter(s => s.st === 'working').length}</span></div>
+        <div class="prog"><span class="lab">${o.st === 'wait' ? '미시작' : '진행 ' + pct + '%'}</span>
+          <div class="bar"><i style="width:${pct}%"></i></div></div></div></div>`;
+            }).join('');
+        }
+
+        qgrid.addEventListener('click', e => {
+            const c = e.target.closest('.wo');
+            if (c) openOrder(c.dataset.id);
+        });
+        document.querySelectorAll('.qfilter button').forEach(b => b.addEventListener('click', () => {
+            document.querySelectorAll('.qfilter button').forEach(x => x.classList.remove('on'));
+            b.classList.add('on');
+            filter = b.dataset.f;
+            renderQueue();
+        }));
+
+        /* 화면 전환 */
+        const SC = {
+            A: document.getElementById('scA'),
+            B: document.getElementById('scB'),
+            C: document.getElementById('scC')
+        };
+
+        function show(k) {
+            for (const x in SC) SC[x].classList.toggle('hide', x !== k);
+        }
+
+        document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', () => {
+            const to = b.dataset.back;
+            if (to === 'A') {
+                renderQueue();
+                show('A');
+            } else {
+                renderSessList();
+                show('B');
+            }
+        }));
+
+        /* B 세션 목록 */
+        function openOrder(id) {
+            curO = ORDERS.find(x => x.id === id);
+            document.getElementById('bName').textContent = curO.name;
+            document.getElementById('bSub').textContent = `${curO.id} `;
+            renderSessList();
+            show('B');
+        }
+
+        function renderSessList() {
+            const o = curO, done = orderDone(o), bad = orderBad(o), remain = Math.max(0, planTotal(o) - done);
+            document.getElementById('ovPlan').textContent = planTotal(o);
+            document.getElementById('ovDone').textContent = done;
+            document.getElementById('ovRemain').textContent = remain;
+            document.getElementById('ovBad').textContent = bad;
+            document.getElementById('sessCnt').textContent = o.sessions.length + '건';
+            const box = document.getElementById('sessList');
+            if (!o.sessions.length) {
+                box.innerHTML = `<div class="emptysess">아직 작업이 없습니다. 아래 ‘세척 시작’으로 작업을 추가하세요.</div>`;
+                return;
+            }
+            box.innerHTML = o.sessions.map((se, i) => {
+                const q = sessSum(se), b = se.parts.reduce((a, p) => a + (p.defQty || 0), 0);
+                return `<div class="sess" data-st="${se.st}" data-i="${i}"><div class="edge"></div>
+      <div class="who"><span class="nm">${se.worker}</span><span class="eq">${se.equip}</span></div>
+      <div class="time">${pill(se.start)} ~ ${pill(se.end)}</div>
+      <div class="qty"><div class="l">세척수량</div><div class="v">${q}</div></div>
+      ${b > 0 ? `<span class="bad">불량 ${b}</span>` : ''}
+      <span class="badge ${se.st}">${STLAB[se.st]}</span></div>`;
+            }).join('');
+        }
+
+        document.getElementById('sessList').addEventListener('click', e => {
+            const s = e.target.closest('.sess');
+            if (s) openSess(+s.dataset.i);
+        });
+        document.getElementById('btnNewSess').onclick = openStart;
+
+        /* C 세션 작업 */
+        function openSess(i) {
+            curS = curO.sessions[i];
+            curS._idx = i;
+            document.getElementById('cName').textContent = curS.worker + ' · ' + curO.name;
+            document.getElementById('cSub').textContent = `${curO.id} · 계획 ${planTotal(curO)}`;
+            renderCHead();
+            renderParts();
+            renderCAction();
+            show('C');
+        }
+
+        function orderRemainExcluding(se) { // 잔여(작지 전체) — 이 세션 제외 합산 차감
+            const others = curO.sessions.filter(x => x !== se).reduce((a, x) => a + sessQty(x), 0);
+            return Math.max(0, curO.plan - others);
+        }
+
+        function renderCHead() {
+            document.getElementById('cHead').innerHTML = `
+    <div class="infopill"><span>설비</span><b>${curS.equip}</b></div>
+    <div class="infopill tap" data-time="start"><span>시작</span><b>${pill(curS.start)}</b></div>
+    <div class="infopill tap" data-time="end"><span>종료</span><b>${pill(curS.end)}</b></div>
+    <span class="sstate ${curS.st}">${STLAB[curS.st]}</span>`;
+        }
+
+        function renderParts() {
+            const locked = curS.st !== 'working';
+            const remainBase = orderRemainExcluding(curS); // 이 세션이 채울 수 있는 상한(작지 전체 잔여)
+            document.getElementById('partcnt').textContent = curS.parts.length + '종';
+            document.getElementById('parts').innerHTML = curS.parts.map((p, i) => {
+                const ctrl = locked
+                    ? `<span class="done-tag" style="background:var(--surface-2);color:var(--ink-2)">완료</span>`
+                    : `<div class="stepper" data-i="${i}"><button class="minus">−</button>
+          <div class="qty" data-pad="${i}">${p.qty}</div><button class="plus">+</button></div>`;
+                const defBadge = p.defQty > 0 ? `<button class="defbtn has" data-def="${i}">부적합 ${p.defQty}</button>`
+                    : (locked ? '' : `<button class="defbtn" data-def="${i}">부적합</button>`);
+                return `<div class="part ${locked ? 'locked' : ''}">
+      <div class="id"><span class="pn">${p.name}</span><span class="pc">${p.code}</span></div>
+      <div class="stat">
+        <div class="col"><span class="l">계획수량</span><span class="v left">${Math.max(0, remainBase)}</span></div>
+
+      </div>${ctrl}${defBadge}</div>`;
+            }).join('');
+            updateSum();
+        }
+
+        function updateSum() {
+            const el = document.getElementById('cSum');
+            if (el) el.textContent = sessSum(curS);
+        }
+
+        function renderCAction() {
+            const bar = document.getElementById('cAction');
+            if (curS.st === 'done') {
+                bar.innerHTML = `<div class="actsum"><span class="l">세척수량</span><span class="v">${sessSum(curS)} EA</span></div>
+      <button class="btn danger" id="cCancel">완료취소</button>`;
+                document.getElementById('cCancel').onclick = () => {
+                    curS.st = 'working';
+                    curS.end = null;
+                    renderCHead();
+                    renderParts();
+                    renderCAction();
+                    renderSessList();
+                    flash('완료취소 (목업)');
+                };
+            } else {
+                bar.innerHTML = `<div class="actsum"><span class="l">이 세션 세척수량</span><span class="v"><span id="cSum">0</span> EA</span></div>
+      <button class="btn ghost" id="cDelete">삭제</button>
+      <button class="btn primary" id="cFinish">세척 완료</button>`;
+                document.getElementById('cFinish').onclick = () => {
+                    curS.st = 'done';
+                    curS.end = nowHM();
+                    renderCHead();
+                    renderParts();
+                    renderCAction();
+                    renderSessList();
+                    flash('세척 완료 (목업)');
+                };
+                document.getElementById('cDelete').onclick = () => {
+                    curO.sessions.splice(curS._idx, 1);
+                    renderSessList();
+                    show('B');
+                    flash('작업 삭제 (목업)');
+                };
+                updateSum();
+            }
+        }
+
+        document.getElementById('parts').addEventListener('click', e => {
+            const step = e.target.closest('.stepper');
+            if (step && (e.target.classList.contains('plus') || e.target.classList.contains('minus'))) {
+                const i = +step.dataset.i, d = e.target.classList.contains('plus') ? 1 : -1;
+                const cap = orderRemainExcluding(curS);
+                curS.parts[i].qty = Math.max(0, Math.min(cap, (+curS.parts[i].qty || 0) + d));
+                renderParts();
+                return;
+            }
+            const pad = e.target.closest('[data-pad]');
+            if (pad) {
+                openPad(+pad.dataset.pad);
+                return;
+            }
+            const def = e.target.closest('[data-def]');
+            if (def) {
+                openDef(+def.dataset.def);
+            }
+        });
+        document.getElementById('cHead').addEventListener('click', e => {
+            const t = e.target.closest('[data-time]');
+            if (t) openTime(t.dataset.time);
+        });
+
+        /* 시트 공통 */
+        function showMask(id) {
+            document.getElementById(id).classList.add('show');
+        }
+
+        function hideMask(id) {
+            document.getElementById(id).classList.remove('show');
+        }
+
+        document.querySelectorAll('.mask').forEach(m => m.addEventListener('click', e => {
+            if (e.target === m || e.target.closest('[data-close]')) m.classList.remove('show');
+        }));
+
+        /* 시작(새 세션) */
+        let selW = null, selE = null;
+
+        function openStart() {
+            selW = null;
+            selE = null;
+            document.getElementById('workerOpts').innerHTML = WORKERS.map(w => `<button class="opt" data-w="${w}">${w}</button>`).join('');
+            document.getElementById('equipOpts').innerHTML = EQUIPS.map(([n, c]) => `<button class="opt" data-e="${n}">${n} <span class="sub">${c}</span></button>`).join('');
+            document.getElementById('startOk').disabled = true;
+            showMask('startMask');
+        }
+
+        document.getElementById('workerOpts').addEventListener('click', e => {
+            const b = e.target.closest('[data-w]');
+            if (!b) return;
+            document.querySelectorAll('#workerOpts .opt').forEach(x => x.classList.remove('sel'));
+            b.classList.add('sel');
+            selW = b.dataset.w;
+            ckStart();
+        });
+        document.getElementById('equipOpts').addEventListener('click', e => {
+            const b = e.target.closest('[data-e]');
+            if (!b) return;
+            document.querySelectorAll('#equipOpts .opt').forEach(x => x.classList.remove('sel'));
+            b.classList.add('sel');
+            selE = b.dataset.e;
+            ckStart();
+        });
+
+        function ckStart() {
+            document.getElementById('startOk').disabled = !(selW && selE);
+        }
+
+        document.getElementById('startOk').onclick = () => {
+            const se = mkSess(selW, selE);
+            curO.sessions.push(se);
+            if (curO.st === 'wait') curO.st = 'working';
+            hideMask('startMask');
+            renderSessList();
+            openSess(curO.sessions.length - 1);
+            flash(`작업 시작 · ${selW} / ${selE}`);
+        };
+
+        /* 시간 수정 */
+        let timeWhich = 'start', editDate = new Date();
+
+        function fmtD(d) {
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} (${WD[d.getDay()]})`;
+        }
+
+        function openTime(which) {
+            timeWhich = which;
+            document.getElementById('timeTitle').textContent = (which === 'start' ? '시작' : '종료') + ' 일시 수정';
+            const saved = which === 'start' ? curS.start : curS.end;
+            if (saved && saved.includes(' ')) {
+                const [ds, ts] = saved.split(' ');
+                editDate = new Date(ds + 'T' + ts);
+            } else editDate = new Date();
+            document.getElementById('tDate').textContent = fmtD(editDate);
+            document.getElementById('tH').textContent = String(editDate.getHours()).padStart(2, '0');
+            document.getElementById('tM').textContent = String(editDate.getMinutes()).padStart(2, '0');
+            showMask('timeMask');
+        }
+
+        document.querySelector('#timeMask .dateedit').addEventListener('click', e => {
+            const b = e.target.closest('[data-d]');
+            if (!b) return;
+            editDate.setDate(editDate.getDate() + (+b.dataset.d));
+            document.getElementById('tDate').textContent = fmtD(editDate);
+        });
+        document.querySelector('#timeMask .timeedit').addEventListener('click', e => {
+            const b = e.target.closest('[data-t]');
+            if (!b) return;
+            const H = document.getElementById('tH'), M = document.getElementById('tM');
+            let h = +H.textContent, m = +M.textContent;
+            if (b.dataset.t === 'h+') h = (h + 1) % 24;
+            if (b.dataset.t === 'h-') h = (h + 23) % 24;
+            if (b.dataset.t === 'm+') m = (m + 1) % 60;
+            if (b.dataset.t === 'm-') m = (m + 59) % 60;
+            H.textContent = String(h).padStart(2, '0');
+            M.textContent = String(m).padStart(2, '0');
+        });
+        document.getElementById('timeOk').onclick = () => {
+            const ds = `${editDate.getFullYear()}-${String(editDate.getMonth() + 1).padStart(2, '0')}-${String(editDate.getDate()).padStart(2, '0')}`;
+            const v = ds + ' ' + document.getElementById('tH').textContent + ':' + document.getElementById('tM').textContent;
+            if (timeWhich === 'start') curS.start = v; else curS.end = v;
+            hideMask('timeMask');
+            renderCHead();
+            renderSessList();
+            flash((timeWhich === 'start' ? '시작' : '종료') + ' 저장 ' + pill(v));
+        };
+
+        /* 부적합(세션별 부품) */
+        let defIdx = null, defQ = 0, defT = null, defPhotos = [];
+
+        function openDef(i) {
+            defIdx = i;
+            const p = curS.parts[i];
+            defQ = p.defQty || 0;
+            defT = p.defType || null;
+            defPhotos = (p.photos || []).slice();
+            document.getElementById('defTitle').textContent = p.name + ' · 부적합';
+            document.getElementById('defQty').textContent = defQ;
+            document.getElementById('defTypes').innerHTML = DEFTYPES.map(t => `<button class="opt ${t === defT ? 'sel' : ''}" data-dt="${t}">${t}</button>`).join('');
+            renderPhotos();
+            showMask('defMask');
+        }
+
+        document.getElementById('defMinus').onclick = () => {
+            defQ = Math.max(0, defQ - 1);
+            document.getElementById('defQty').textContent = defQ;
+        };
+        document.getElementById('defPlus').onclick = () => {
+            defQ++;
+            document.getElementById('defQty').textContent = defQ;
+        };
+        document.getElementById('defTypes').addEventListener('click', e => {
+            const b = e.target.closest('[data-dt]');
+            if (!b) return;
+            document.querySelectorAll('#defTypes .opt').forEach(x => x.classList.remove('sel'));
+            b.classList.add('sel');
+            defT = b.dataset.dt;
+        });
+
+        function renderPhotos() {
+            const box = document.getElementById('defPhotos');
+            box.innerHTML = defPhotos.map((src, k) => `<div class="photo-wrap"><img class="photo" src="${src}"/><button class="del" data-rm="${k}">✕</button></div>`).join('')
+                + `<div class="photo-add" id="photoAdd">＋<br>사진</div>`;
+        }
+
+        document.getElementById('defPhotos').addEventListener('click', e => {
+            if (e.target.id === 'photoAdd' || e.target.closest('#photoAdd')) {
+                document.getElementById('defFile').click();
+                return;
+            }
+            const rm = e.target.closest('[data-rm]');
+            if (rm) {
+                defPhotos.splice(+rm.dataset.rm, 1);
+                renderPhotos();
+            }
+        });
+        document.getElementById('defFile').addEventListener('change', e => {
+            [...e.target.files].forEach(f => defPhotos.push(URL.createObjectURL(f)));
+            e.target.value = '';
+            renderPhotos();
+        });
+        document.getElementById('defOk').onclick = () => {
+            const p = curS.parts[defIdx];
+            p.defQty = defQ;
+            p.defType = defT;
+            p.photos = defPhotos.slice();
+            hideMask('defMask');
+            renderParts();
+            renderSessList();
+            flash(defQ > 0 ? `부적합 ${defQ} (${defT || '유형미지정'})` : '부적합 0 저장');
+        };
+
+        /* 넘패드 */
+        let padIdx = null, padVal = '';
+
+        function openPad(i) {
+            padIdx = i;
+            padVal = String(curS.parts[i].qty || 0);
+            document.getElementById('padLab').textContent = curS.parts[i].name + ' · 세척수량';
+            document.getElementById('padDisp').textContent = padVal;
+            showMask('padMask');
+        }
+
+        document.querySelector('#padMask .keys').addEventListener('click', e => {
+            const k = e.target.dataset.k;
+            if (!k) return;
+            if (k === 'C') padVal = ''; else if (k === 'OK') {
+                const cap = orderRemainExcluding(curS);
+                curS.parts[padIdx].qty = Math.max(0, Math.min(cap, parseInt(padVal || '0', 10)));
+                hideMask('padMask');
+                renderParts();
+                return;
+            } else padVal = (padVal === '0' ? '' : padVal) + k;
+            document.getElementById('padDisp').textContent = padVal || '0';
+        });
+
+        /* 토스트/시계 */
+        let tT;
+
+        function flash(m) {
+            let t = document.getElementById('toast');
+            if (!t) {
+                t = document.createElement('div');
+                t.id = 'toast';
+                t.style.cssText = 'position:fixed;left:50%;bottom:110px;transform:translateX(-50%);background:#15222B;color:#fff;padding:14px 22px;border-radius:14px;font-weight:700;z-index:60;box-shadow:0 12px 30px -10px rgba(0,0,0,.5);transition:opacity .3s';
+                document.body.appendChild(t);
+            }
+            t.textContent = m;
+            t.style.opacity = '1';
+            clearTimeout(tT);
+            tT = setTimeout(() => t.style.opacity = '0', 1700);
+        }
+
+        function tick() {
+            const c = document.getElementById('clock');
+            if (c) c.textContent = String(new Date().getHours()).padStart(2, '0') + ':' + String(new Date().getMinutes()).padStart(2, '0');
+        }
+
+        document.getElementById('btnSearch').addEventListener('click', renderQueue);
+        // 기본: 최근 7일
+        (function initDates() {
+            const t = new Date();
+            const f = new Date();
+            f.setDate(f.getDate() - 7);
+            const fmt = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            document.getElementById('dFrom').value = fmt(f);
+            document.getElementById('dTo').value = fmt(t);
+        })();
+        renderQueue();
+
+    </script>
+</th:block>
+
+</html>

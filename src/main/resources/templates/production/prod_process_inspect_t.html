@@ -1,0 +1,1333 @@
+<html layout:decorate="~{layout_page}">
+
+<th:block layout:fragment="content">
+    <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet"/>
+    <style>
+
+
+        :root{--bg:#E9EEF1;--surface:#FFF;--surface-2:#F4F7F9;--ink:#15222B;--ink-2:#5A6B76;--line:#D8E0E5;
+            --teal:#0E7C86;--teal-d:#0A5C64;--teal-bg:#E2F1F2;--green:#1E9D58;--green-bg:#E4F4EA;
+            --amber:#C77A00;--amber-bg:#FBEFD8;--red:#C8483B;--red-bg:#F7E4E1;--r:18px;--tap:60px;
+            --shadow:0 1px 0 rgba(21,34,43,.04),0 8px 24px -16px rgba(21,34,43,.28)}
+        *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+        .ms-wash-root{font-family:"Pretendard","Noto Sans KR",-apple-system,sans-serif;color:var(--ink);font-size:17px;line-height:1.45;-webkit-font-smoothing:antialiased;flex:1 1 auto;min-height:0;height:var(--wash-h,100%);max-height:var(--wash-h,none);display:flex;flex-direction:column}
+        /* 앱 높이: JS가 측정한 상단 오프셋만큼 빼서 화면 바닥까지 채움 */
+        .ms-wash-root .app{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;background:var(--bg);border-radius:12px;overflow:hidden}
+        .topbar{flex:0 0 auto;height:64px;display:flex;align-items:center;gap:14px;padding:0 20px;
+            background:var(--surface);border-bottom:1px solid var(--line);box-shadow:var(--shadow)}
+        .brand{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:-.02em}
+        .brand .dot{width:12px;height:12px;border-radius:50%;background:var(--teal);box-shadow:0 0 0 4px var(--teal-bg)}
+        .brand small{font-weight:600;color:var(--ink-2);margin-left:2px}
+        .proc-chip{margin-left:4px;padding:6px 12px;border-radius:999px;background:var(--teal-bg);color:var(--teal-d);font-weight:800;font-size:14px}
+        .spacer{flex:1}.clock{font-variant-numeric:tabular-nums;font-weight:700}
+        .screen{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden}.screen.hide{display:none}
+
+        /* 큐 */
+        .wrap{padding:22px 20px 28px;max-width:1180px;margin:0 auto;width:100%;overflow:auto;-webkit-overflow-scrolling:touch;flex:1 1 auto;min-height:0}
+        .qhead{display:flex;align-items:baseline;gap:12px;margin:2px 2px 18px}
+        .qhead h1{font-size:26px;font-weight:800;letter-spacing:-.03em;margin:0}
+        .qhead .cnt{color:var(--ink-2);font-weight:700}
+        .qfilter{display:flex;gap:8px;margin-left:auto}
+        .qfilter button{min-height:44px;padding:0 16px;border-radius:999px;border:1px solid var(--line);
+            background:var(--surface);color:var(--ink-2);font-weight:700;font-size:15px;cursor:pointer}
+        .qfilter button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+        .searchbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 2px 18px;
+            background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px;box-shadow:var(--shadow)}
+        .searchbar .slab{font-weight:800;color:var(--ink-2);font-size:14px}
+        .searchbar .tilde{font-weight:800;color:var(--ink-2)}
+        .dinput{height:48px;border:1px solid var(--line);border-radius:12px;padding:0 12px;font-size:16px;
+            font-weight:700;color:var(--ink);background:var(--surface-2);font-variant-numeric:tabular-nums;min-width:160px}
+        .sbtn{height:48px;padding:0 22px;border:none;border-radius:12px;background:var(--teal);color:#fff;
+            font-weight:800;font-size:16px;cursor:pointer;margin-left:auto}
+        .sbtn:active{background:var(--teal-d)}
+        .qgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px}
+        .wo{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px 18px 16px;
+            cursor:pointer;box-shadow:var(--shadow);transition:transform .12s ease;position:relative;overflow:hidden}
+        .wo:active{transform:scale(.985)}
+        .wo .edge{position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--line)}
+        .wo[data-st="working"] .edge{background:var(--teal)}.wo[data-st="wait"] .edge{background:var(--amber)}.wo[data-st="done"] .edge{background:var(--green)}
+        .wo .row1{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+        .wo .wono{font-weight:800;font-size:15px;color:var(--ink-2)}
+        .chip{margin-left:auto;padding:5px 11px;border-radius:999px;font-size:13px;font-weight:800}
+        .chip.working{background:var(--teal-bg);color:var(--teal-d)}.chip.wait{background:var(--amber-bg);color:var(--amber)}.chip.done{background:var(--green-bg);color:var(--green)}
+        .wo .name{font-size:19px;font-weight:800;letter-spacing:-.02em;line-height:1.3;margin:2px 0 14px}
+        .wo .meta{display:flex;gap:18px;align-items:flex-end}
+        .wo .meta .blk{display:flex;flex-direction:column;gap:2px}
+        .wo .meta .lab{font-size:12.5px;color:var(--ink-2);font-weight:700}
+        .wo .meta .val{font-size:18px;font-weight:800}
+        .wo .prog{margin-left:auto;text-align:right}
+        .wo .bar{height:8px;width:120px;background:var(--surface-2);border-radius:999px;overflow:hidden;margin-top:6px}
+        .wo .bar>i{display:block;height:100%;background:var(--teal);border-radius:999px}
+
+        /* 공통 상단바(B,C) */
+        .topbar2{flex:0 0 auto;background:var(--surface);border-bottom:1px solid var(--line);
+            padding:12px 18px;display:flex;align-items:center;gap:14px;box-shadow:var(--shadow);z-index:2}
+        .back{width:48px;height:48px;border-radius:14px;border:1px solid var(--line);background:var(--surface-2);
+            display:grid;place-items:center;cursor:pointer;font-size:22px;flex:0 0 auto}
+        .back:active{background:var(--line)}
+        .htitle{min-width:0;flex:1}
+        .htitle .t{font-size:18px;font-weight:800;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .htitle .s{font-size:13.5px;color:var(--ink-2);font-weight:700;margin-top:1px}
+
+        /* B. 세션 목록 */
+        .col-stack{display:flex;flex-direction:column;flex:1 1 auto;min-height:0;height:100%}
+        .bscroll{flex:1 1 auto;min-height:0;overflow:auto;-webkit-overflow-scrolling:touch;padding:18px}
+        .bgrid{max-width:1000px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+        .ovbox{display:flex;gap:12px;flex-wrap:wrap}
+        .ov{flex:1;min-width:130px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
+            padding:14px 16px;box-shadow:var(--shadow)}
+        .ov .l{font-size:13px;color:var(--ink-2);font-weight:700}
+        .ov .v{font-size:28px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+        .ov.left .v{color:var(--teal-d)}
+        .secline{display:flex;align-items:center;gap:10px;margin:6px 2px 0;color:var(--ink-2);font-weight:800;font-size:14px}
+        .secline .ln{flex:1;height:1px;background:var(--line)}
+        .sess{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;
+            box-shadow:var(--shadow);cursor:pointer;display:flex;align-items:center;gap:16px;position:relative;overflow:hidden;
+            transition:transform .12s ease}
+        .sess:active{transform:scale(.99)}
+        .sess .edge{position:absolute;left:0;top:0;bottom:0;width:5px}
+        .sess[data-st="working"] .edge{background:var(--teal)}.sess[data-st="done"] .edge{background:var(--green)}
+        .sess .who{display:flex;flex-direction:column;gap:2px;min-width:120px}
+        .sess .who .nm{font-size:18px;font-weight:800}
+        .sess .who .eq{font-size:13px;color:var(--ink-2);font-weight:700}
+        .sess .time{font-size:13.5px;color:var(--ink-2);font-weight:700;font-variant-numeric:tabular-nums}
+        .sess .qty{margin-left:auto;text-align:right}
+        .sess .qty .v{font-size:24px;font-weight:800;font-variant-numeric:tabular-nums}
+        .sess .qty .l{font-size:12px;color:var(--ink-2);font-weight:700}
+        .sess .badge{padding:6px 12px;border-radius:999px;font-size:13px;font-weight:800}
+        .sess .badge.working{background:var(--teal-bg);color:var(--teal-d)}.sess .badge.done{background:var(--green-bg);color:var(--green)}
+        .sess .bad{padding:5px 10px;border-radius:999px;background:var(--red-bg);color:var(--red);font-weight:800;font-size:12.5px}
+        .emptysess{text-align:center;color:var(--ink-2);font-weight:700;padding:30px;border:1.5px dashed var(--line);border-radius:var(--r)}
+
+        /* C. 세션 작업(부품) */
+        .infopill{display:flex;gap:7px;align-items:center;background:var(--surface-2);border:1px solid var(--line);
+            border-radius:12px;padding:8px 12px;font-size:13px;font-weight:700;color:var(--ink-2);cursor:default}
+        .infopill.tap{cursor:pointer}.infopill.tap:active{background:var(--line)}
+        .infopill b{color:var(--ink);font-variant-numeric:tabular-nums}
+        .infopill.tap b{color:var(--teal-d);text-decoration:underline dotted}
+        .sstate{padding:8px 14px;border-radius:999px;font-weight:800;font-size:14px}
+        .sstate.working{background:var(--teal-bg);color:var(--teal-d)}.sstate.done{background:var(--green-bg);color:var(--green)}
+        .part{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;
+            display:flex;align-items:center;gap:14px;box-shadow:var(--shadow);flex-wrap:wrap}
+        .part.locked{opacity:.7}
+        .part .id{display:flex;flex-direction:column;min-width:0;flex:1}
+        .part .pn{font-size:18px;font-weight:800;letter-spacing:-.02em}
+        .part .pc{font-size:13px;color:var(--ink-2);font-weight:700;font-variant-numeric:tabular-nums}
+        .part .stat{display:flex;gap:20px;align-items:center;flex:0 0 auto}
+        .part .col{display:flex;flex-direction:column;align-items:flex-end;gap:1px}
+        .part .col .l{font-size:12px;font-weight:700;color:var(--ink-2)}
+        .part .col .v{font-size:20px;font-weight:800;font-variant-numeric:tabular-nums}
+        .part .col .v.left{color:var(--teal-d)}.part .col .v.bad{color:var(--red)}
+        .stepper{display:flex;align-items:center;flex:0 0 auto}
+        .stepper button{width:50px;height:54px;border:1px solid var(--line);background:var(--surface-2);font-size:25px;font-weight:700;cursor:pointer;display:grid;place-items:center}
+        .stepper button:active{background:var(--line)}
+        .stepper button.minus{border-radius:14px 0 0 14px}.stepper button.plus{border-radius:0 14px 14px 0}
+        .stepper .qty{width:90px;height:54px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+            background:#FFFDF4;text-align:center;font-size:23px;font-weight:800;font-variant-numeric:tabular-nums;display:grid;place-items:center;cursor:pointer}
+        .defbtn{height:54px;padding:0 16px;border-radius:14px;border:1px solid var(--line);background:var(--surface);
+            color:var(--ink-2);font-weight:800;font-size:14px;cursor:pointer;flex:0 0 auto}
+        .defbtn:active{background:var(--surface-2)}.defbtn.has{background:var(--red-bg);color:var(--red);border-color:transparent}
+        .done-tag{padding:7px 14px;border-radius:999px;background:var(--green-bg);color:var(--green);font-weight:800;font-size:14px}
+        /* 판정 태그 통일: 크기·패딩 동일, 색만 다름 */
+        .ms-wash-root .vtag{padding:7px 14px;border-radius:999px;font-weight:800;font-size:14px;flex:0 0 auto;min-width:64px;text-align:center}
+        .ms-wash-root .vtag.pass{background:var(--green-bg);color:var(--green)}
+        .ms-wash-root .vtag.fail{background:var(--red-bg);color:var(--red)}
+        /* 측정값 칩(입력 시 크게) */
+        .ms-wash-root .valchip{font-size:19px;font-weight:800;padding:7px 14px;border-radius:12px;background:var(--teal-bg);color:var(--teal-d);font-variant-numeric:tabular-nums;flex:0 0 auto}
+
+        .actionbar{flex:0 0 auto;background:var(--surface);border-top:1px solid var(--line);
+            padding:14px 18px calc(14px + env(safe-area-inset-bottom));display:flex;gap:12px;align-items:center;
+            box-shadow:0 -8px 24px -18px rgba(21,34,43,.4)}
+        .actionbar .actsum{display:flex;flex-direction:column;margin-right:auto}
+        .actionbar .actsum .l{font-size:12.5px;color:var(--ink-2);font-weight:700}
+        .actionbar .actsum .v{font-size:21px;font-weight:800;font-variant-numeric:tabular-nums}
+        .btn{min-height:var(--tap);padding:0 24px;border-radius:16px;border:none;cursor:pointer;font-size:18px;font-weight:800;display:inline-flex;align-items:center;gap:8px}
+        .btn.ghost{background:var(--surface-2);color:var(--ink-2);border:1px solid var(--line)}.btn.ghost:active{background:var(--line)}
+        .btn.primary{background:var(--teal);color:#fff;padding:0 36px;box-shadow:0 8px 18px -8px rgba(14,124,134,.7)}.btn.primary:active{background:var(--teal-d)}
+        .btn.start{background:var(--teal);color:#fff;flex:1;justify-content:center;font-size:20px}
+        .btn.danger{background:var(--red-bg);color:var(--red)}
+
+        /* 시트 */
+        .mask{position:fixed;inset:0;background:rgba(21,34,43,.42);display:none;z-index:40;align-items:flex-end}
+        .mask.show{display:flex;animation:fade .15s ease}@keyframes fade{from{opacity:0}to{opacity:1}}
+        .sheet{width:100%;background:var(--surface);border-radius:24px 24px 0 0;padding:20px 20px calc(40px + env(safe-area-inset-bottom));
+            box-shadow:0 -20px 40px -20px rgba(0,0,0,.4);animation:rise .2s cubic-bezier(.2,.7,.3,1);max-height:88dvh;overflow:auto}
+        @keyframes rise{from{transform:translateY(40px)}to{transform:translateY(0)}}
+        .sheet .sh{display:flex;align-items:center;margin-bottom:16px}
+        .sheet .sh h3{font-size:20px;font-weight:800;margin:0;letter-spacing:-.02em}
+        .sheet .sh .x{margin-left:auto;width:44px;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--surface-2);font-size:20px;cursor:pointer}
+        .sheet .body{max-width:640px;margin:0 auto}
+        .fieldlab{font-size:14px;font-weight:800;color:var(--ink-2);margin:14px 2px 8px}
+        .opts{display:flex;flex-wrap:wrap;gap:10px}
+        .opt{min-height:54px;padding:0 18px;border-radius:14px;border:1.5px solid var(--line);background:var(--surface);font-weight:800;font-size:16px;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+        .opt:active{background:var(--surface-2)}.opt.sel{border-color:var(--teal);background:var(--teal-bg);color:var(--teal-d)}
+        .opt .sub{font-size:12.5px;color:var(--ink-2);font-weight:700}
+        .sheet .ok{width:100%;margin-top:20px;background:var(--teal);color:#fff;min-height:var(--tap);border:none;border-radius:16px;font-size:19px;font-weight:800;cursor:pointer}
+        .sheet .ok:disabled{background:var(--line);color:var(--ink-2)}
+        .pad .disp{margin-left:auto;min-width:140px;text-align:right;font-size:30px;font-weight:800;font-variant-numeric:tabular-nums;background:var(--surface-2);border:1px solid var(--line);border-radius:14px;padding:8px 16px}
+        .keys{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:520px;margin:6px auto 0}
+        .keys button{height:62px;border-radius:14px;border:1px solid var(--line);background:var(--surface);font-size:25px;font-weight:800;cursor:pointer;font-variant-numeric:tabular-nums}
+        .keys button:active{background:var(--surface-2)}.keys button.ok{background:var(--teal);color:#fff;border-color:var(--teal)}.keys button.clr{color:var(--red)}
+        .dateedit{display:flex;align-items:center;justify-content:center;gap:14px;margin:4px 0 10px}
+        .dateedit .dbtn{width:56px;height:52px;border-radius:14px;border:1px solid var(--line);background:var(--surface-2);font-size:22px;font-weight:700;cursor:pointer}
+        .dateedit .dbtn:active{background:var(--line)}
+        .dateedit .dval{min-width:200px;text-align:center;font-size:22px;font-weight:800;font-variant-numeric:tabular-nums}
+        .timeedit{display:flex;align-items:center;justify-content:center;gap:6px;margin:8px 0}
+        .tcol{display:flex;flex-direction:column;align-items:center;gap:8px}
+        .tcol button{width:84px;height:52px;border-radius:14px;border:1px solid var(--line);background:var(--surface-2);font-size:24px;font-weight:700;cursor:pointer}
+        .tcol .tv{font-size:42px;font-weight:800;font-variant-numeric:tabular-nums;width:84px;text-align:center}
+        .tsep{font-size:40px;font-weight:800;padding-bottom:4px}
+        .photos{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px}
+        .photo{width:84px;height:84px;border-radius:12px;object-fit:cover;border:1px solid var(--line)}
+        .photo-add{width:84px;height:84px;border-radius:12px;border:1.5px dashed var(--line);background:var(--surface-2);display:grid;place-items:center;cursor:pointer;color:var(--ink-2);font-size:13px;font-weight:800;text-align:center}
+        .photo-wrap{position:relative}
+        .photo-wrap .del{position:absolute;top:-6px;right:-6px;width:24px;height:24px;border-radius:50%;background:var(--red);color:#fff;border:2px solid #fff;font-size:13px;cursor:pointer;line-height:1}
+        @media (max-width:680px){.part .stat{order:3;width:100%;justify-content:space-between}.qgrid{grid-template-columns:1fr}.sess{flex-wrap:wrap}}
+        @media (prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important}}
+
+
+        /* ── 멸균일지/그래프 ── */
+        .ms-wash-root .log-step{border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:10px;background:var(--surface)}
+        .ms-wash-root .log-step .h{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+        .ms-wash-root .log-step .no{width:30px;height:30px;border-radius:8px;background:var(--teal-bg);color:var(--teal-d);font-weight:800;display:grid;place-items:center;font-size:14px}
+        .ms-wash-root .log-step .nm{font-weight:800;font-size:16px}
+        .ms-wash-root .log-step .crit{font-size:12.5px;color:var(--ink-2);font-weight:700;margin-left:auto;text-align:right;max-width:50%}
+        .ms-wash-root .log-field{display:flex;align-items:center;gap:8px;margin-top:6px}
+        .ms-wash-root .log-field label{font-size:13px;color:var(--ink-2);font-weight:700;min-width:84px}
+        .ms-wash-root .log-field input{flex:1;height:44px;border:1px solid var(--line);border-radius:10px;padding:0 10px;font-size:15px;font-weight:700;background:var(--surface-2)}
+        .ms-wash-root .upbox{border:1.5px dashed var(--teal);border-radius:14px;padding:18px;text-align:center;background:#F0FAFB;cursor:pointer}
+        .ms-wash-root .upbox .ic{font-size:30px}
+        .ms-wash-root .chartwrap{border:1px solid var(--line);border-radius:14px;padding:12px;background:#fff}
+        .ms-wash-root .chart-svg{width:100%;height:200px;display:block}
+        .ms-wash-root .chip-row{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+        .ms-wash-root .legend{display:flex;gap:14px;font-size:12px;font-weight:700;color:var(--ink-2);flex-wrap:wrap}
+        .ms-wash-root .legend i{display:inline-block;width:12px;height:3px;border-radius:2px;margin-right:4px;vertical-align:middle}
+
+        /* ── 바코드/출력/품목 ── */
+        .ms-wash-root .fam-badge{padding:4px 10px;border-radius:8px;font-size:12px;font-weight:800;margin-left:6px}
+        .ms-wash-root .fam-badge.bsc{background:#E2F1F2;color:#0A5C64}
+        .ms-wash-root .fam-badge.mcell{background:#EEE7FA;color:#6B3FA0}
+        .ms-wash-root .lotopt{min-height:72px;padding:18px 18px}      /* 터치 크게 */
+        .ms-wash-root .lotopt .ln{font-size:18px}
+        .ms-wash-root .lotopt.sel{box-shadow:0 0 0 3px var(--teal-bg)}
+        .ms-wash-root .lotstep{display:flex;align-items:center;margin-left:auto}
+        .ms-wash-root .lotstep button{width:48px;height:50px;border:1px solid var(--line);background:var(--surface-2);font-size:24px;font-weight:700;cursor:pointer}
+        .ms-wash-root .lotstep button:first-child{border-radius:12px 0 0 12px}
+        .ms-wash-root .lotstep button:last-child{border-radius:0 12px 12px 0}
+        .ms-wash-root .lotstep .n{width:64px;height:50px;display:grid;place-items:center;border-top:1px solid var(--line);border-bottom:1px solid var(--line);font-weight:800;font-variant-numeric:tabular-nums;background:#FFFDF4}
+        .ms-wash-root .bc{font-family:'Libre Barcode 128',monospace}
+        .ms-wash-root .bc-card{border:1px solid var(--line);border-radius:14px;padding:16px;background:#fff;text-align:center}
+        .ms-wash-root .bc-bars{height:64px;background:repeating-linear-gradient(90deg,#15222B 0 2px,#fff 2px 4px,#15222B 4px 5px,#fff 5px 9px,#15222B 9px 12px,#fff 12px 13px);border-radius:3px;margin-bottom:8px}
+        .ms-wash-root .bc-data{font-size:13px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;letter-spacing:.02em}
+        .ms-wash-root .bc-sub{font-size:12px;color:var(--ink-2);font-weight:700;margin-top:2px}
+        .ms-wash-root .printrow{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
+        .ms-wash-root .form-tbl{width:100%;border-collapse:collapse;font-size:13px}
+        .ms-wash-root .form-tbl th,.ms-wash-root .form-tbl td{border:1px solid var(--line);padding:8px 10px;text-align:left}
+        .ms-wash-root .form-tbl th{background:var(--surface-2);font-weight:800}
+        @media print{ body *{visibility:hidden} #printArea,#printArea *{visibility:visible}
+            #printArea{position:absolute;left:0;top:0;width:100%;padding:20px} .mask{display:none !important} }
+        #printArea{display:none}
+
+        /* ── 공정 공통 추가 ── */
+        .ms-wash-root .pick-row{display:flex;gap:10px;flex-wrap:wrap;margin:2px 0 6px}
+        .ms-wash-root .pick{min-height:52px;padding:0 16px;border-radius:14px;border:1.5px solid var(--line);
+            background:var(--surface);font-weight:800;font-size:15px;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+        .ms-wash-root .pick.sel{border-color:var(--teal);background:var(--teal-bg);color:var(--teal-d)}
+        .ms-wash-root .pick .sub{font-size:12px;color:var(--ink-2);font-weight:700}
+        .ms-wash-root .whbadge{padding:4px 9px;border-radius:8px;font-size:11.5px;font-weight:800}
+        .ms-wash-root .whbadge.clean{background:#E2F1F2;color:#0A5C64}
+        .ms-wash-root .whbadge.prod{background:#EEF0F2;color:#5A6B76}
+        .ms-wash-root .auto-box{background:linear-gradient(180deg,#F0FAFB,#FFF);border:1px solid var(--teal-bg);
+            border-radius:var(--r);padding:16px;display:flex;align-items:center;gap:16px;box-shadow:var(--shadow)}
+        .ms-wash-root .auto-box .ic{width:46px;height:46px;border-radius:12px;background:var(--teal-bg);display:grid;place-items:center;font-size:22px}
+        .ms-wash-root .auto-box .big{font-size:30px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--teal-d)}
+        .ms-wash-root .lotpick{display:flex;flex-direction:column;gap:8px}
+        .ms-wash-root .lotopt{display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:14px;
+            border:1.5px solid var(--line);background:var(--surface);cursor:pointer}
+        .ms-wash-root .lotopt.sel{border-color:var(--teal);background:var(--teal-bg)}
+        .ms-wash-root .lotopt .ln{font-weight:800;font-size:16px;font-variant-numeric:tabular-nums}
+        .ms-wash-root .lotopt .meta{font-size:12.5px;color:var(--ink-2);font-weight:700;margin-left:auto;text-align:right}
+        .ms-wash-root .judge{display:flex;gap:12px}
+        .ms-wash-root .judge button{flex:1;min-height:64px;border-radius:16px;border:2px solid var(--line);
+            background:var(--surface);font-size:20px;font-weight:800;cursor:pointer}
+        .ms-wash-root .judge button.pass.on{border-color:var(--green);background:var(--green-bg);color:var(--green)}
+        .ms-wash-root .judge button.fail.on{border-color:var(--red);background:var(--red-bg);color:var(--red)}
+        .ms-wash-root .warn-banner{background:var(--red-bg);color:var(--red);border-radius:14px;padding:14px 16px;
+            font-weight:800;display:flex;align-items:center;gap:10px;margin-bottom:4px}
+
+    </style>
+
+    <div class="ms-wash-root">
+        <div class="app">
+
+            <!-- A. 큐 -->
+            <div class="screen" id="scA"><div class="wrap">
+                <div class="qhead"><h1>검사 작업지시</h1><span class="cnt" id="qcnt"></span>
+                    <div class="qfilter"><button class="on" data-f="all">전체</button>
+                        <button data-f="wait">대기</button><button data-f="working">작업중</button></div></div>
+                <div class="searchbar">
+                    <span class="slab">작업지시일</span>
+                    <input type="date" id="dFrom" class="dinput"/>
+                    <span class="tilde">~</span>
+                    <input type="date" id="dTo" class="dinput"/>
+                    <button class="sbtn" id="btnSearch">조회</button>
+                </div>
+                <div class="qgrid" id="qgrid"></div>
+            </div></div>
+
+            <!-- B. 세션 목록 -->
+            <div class="screen hide" id="scB"><div class="col-stack">
+                <div class="topbar2">
+                    <button class="back" data-back="A">‹</button>
+                    <div class="htitle"><div class="t" id="bName">—</div><div class="s" id="bSub">—</div></div>
+                </div>
+                <div class="bscroll"><div class="bgrid">
+                    <div class="ovbox" id="ovbox"></div>
+                    <div class="secline">작업 목록 <span class="ln"></span><span id="sessCnt"></span></div>
+                    <div id="sessList"></div>
+                </div></div>
+                <div class="actionbar">
+                    <div class="actsum"><span class="l">한 작지를 여러 작업자가 나눠 작업</span></div>
+                    <button class="btn start" id="btnNewSess">＋ 작업 추가</button>
+                </div>
+            </div></div>
+
+            <!-- C. 세션 작업 -->
+            <div class="screen hide" id="scC"><div class="col-stack">
+                <div class="topbar2">
+                    <button class="back" data-back="B">‹</button>
+                    <div class="htitle"><div class="t" id="cName">—</div><div class="s" id="cSub">—</div></div>
+                    <div style="display:flex;gap:8px;align-items:center" id="cHead"></div>
+                </div>
+                <div class="bscroll"><div class="bgrid" id="cBody"></div></div>
+                <div class="actionbar" id="cAction"></div>
+            </div></div>
+
+        </div>
+    </div>
+
+    <!-- 시작 시트 -->
+    <div class="mask" id="startMask"><div class="sheet"><div class="body">
+        <div class="sh"><h3 id="startTitle">작업 추가 · 새 작업자</h3><button class="x" data-close>✕</button></div>
+        <div id="startExtra"></div>
+        <div class="fieldlab">작업자</div><div class="opts" id="workerOpts"></div>
+        <div class="fieldlab">설비</div><div class="opts" id="equipOpts"></div>
+        <button class="ok" id="startOk" disabled>이 작업자로 시작</button>
+    </div></div></div>
+    <!-- 시간 시트 -->
+    <div class="mask" id="timeMask"><div class="sheet"><div class="body">
+        <div class="sh"><h3 id="timeTitle">시작 일시 수정</h3><button class="x" data-close>✕</button></div>
+        <div class="dateedit"><button class="dbtn" data-d="-1">◀</button><div class="dval" id="tDate">—</div><button class="dbtn" data-d="1">▶</button></div>
+        <div class="timeedit">
+            <div class="tcol"><button data-t="h+">▲</button><div class="tv" id="tH">09</div><button data-t="h-">▼</button></div>
+            <div class="tsep">:</div>
+            <div class="tcol"><button data-t="m+">▲</button><div class="tv" id="tM">12</div><button data-t="m-">▼</button></div>
+        </div>
+        <button class="ok" id="timeOk">저장</button>
+    </div></div></div>
+    <!-- 넘패드 -->
+    <div class="mask" id="padMask"><div class="sheet pad"><div class="body">
+        <div class="sh"><h3 id="padLab">수량</h3><span class="disp" id="padDisp" style="margin-left:auto">0</span></div>
+        <div class="keys"><button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
+            <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
+            <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
+            <button class="clr" data-k="C">C</button><button data-k="0">0</button><button class="ok" data-k="OK">확인</button></div>
+    </div></div></div>
+
+    <!-- 바코드 출력 시트 (공통) -->
+    <div class="mask" id="bcMask"><div class="sheet"><div class="body">
+        <div class="sh"><h3 id="bcTitle">바코드 출력</h3><button class="x" data-close>✕</button></div>
+        <div id="bcList"></div>
+        <button class="ok" id="bcPrint">출력 (인쇄)</button>
+    </div></div></div>
+
+    <!-- 인쇄 영역 (공통) -->
+    <div id="printArea"></div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <script th:inline="none">
+        /* ── 높이 자동 맞쫐 ──
+           root 윗변 위치(=상단 헤더 높이)를 실측하고, 페이지 푸터 높이를 빼서
+           root 높이를 화면 바닥(푸터 위)까지 정확히 채운다.
+           헤더/푸터 크기가 바뀜도 actionbar(시작/완료)가 푸터에 가리지 않음. */
+        (function () {
+            const root = document.querySelector('.ms-wash-root');
+            if (!root) return;
+
+            // 내부(같은 문서) 푸터: 흐름 형제 + fixed/sticky
+            function localBelow() {
+                let below = 0, node = root;
+                while (node && node !== document.body) {
+                    let sib = node.nextElementSibling;
+                    while (sib) {
+                        const r = sib.getBoundingClientRect();
+                        if (r.height > 0 && getComputedStyle(sib).position !== 'fixed') below += r.height;
+                        sib = sib.nextElementSibling;
+                    }
+                    node = node.parentElement;
+                }
+                let fx = 0;
+                document.querySelectorAll('body *').forEach(el => {
+                    if (root.contains(el)) return;
+                    const cs = getComputedStyle(el);
+                    if (cs.position !== 'fixed' && cs.position !== 'sticky') return;
+                    const r = el.getBoundingClientRect();
+                    if (r.height > 0 && r.height < innerHeight * 0.5 && r.bottom > innerHeight - 2) fx = Math.max(fx, r.height);
+                });
+                return Math.max(below, fx);
+            }
+
+            // 화면에서 실제로 사용 가능한 바닥(px, iframe 내부 좌표). 부모 푸터까지 고려.
+            function availBottom() {
+                let bottom = window.innerHeight;          // 기본: iframe 자체 높이
+                try {
+                    const fe = window.frameElement;       // 같은 출처일 때만 접근 가능
+                    if (fe) {
+                        const pWin = window.parent, pDoc = pWin.document;
+                        const feTop = fe.getBoundingClientRect().top;   // 부모 좌표계 iframe 상단
+                        // (1) 흐름상 iframe 뒤에 오는 형제(푸터) 높이 합
+                        let flow = 0, node = fe;
+                        while (node && node !== pDoc.body) {
+                            let sib = node.nextElementSibling;
+                            while (sib) {
+                                const cs = pWin.getComputedStyle(sib), r = sib.getBoundingClientRect();
+                                if (r.height > 0 && cs.position !== 'fixed' && cs.position !== 'absolute') flow += r.height;
+                                sib = sib.nextElementSibling;
+                            }
+                            node = node.parentElement;
+                        }
+                        // (2) 부모 바닥에 걸친 푸터 바(fixed/sticky/absolute, 작은 높이만 인정)
+                        let fx = 0;
+                        pDoc.querySelectorAll('body *').forEach(el => {
+                            if (el === fe || el.contains(fe)) return;
+                            const cs = pWin.getComputedStyle(el);
+                            if (cs.position !== 'fixed' && cs.position !== 'sticky' && cs.position !== 'absolute') return;
+                            const r = el.getBoundingClientRect();
+                            if (r.height > 0 && r.height <= 160 && r.top > feTop && r.bottom > pWin.innerHeight - 40)
+                                fx = Math.max(fx, r.bottom - r.top);
+                        });
+                        const pFooter = Math.max(flow, fx);
+                        // 부모 가용 바닥(부모 좌표) → iframe 내부 좌표로 환산
+                        bottom = Math.min(bottom, (pWin.innerHeight - pFooter) - feTop);
+                    }
+                } catch (e) {/* 교차 출처: iframe 자체 높이로 폴백 */
+                }
+                return bottom;
+            }
+
+            function fit() {
+                const top = root.getBoundingClientRect().top;
+                const avail = availBottom() - top - localBelow();
+                root.style.setProperty('--wash-h', Math.max(320, Math.floor(avail)) + 'px');
+            }
+
+            window.addEventListener('resize', fit);
+            window.addEventListener('orientationchange', fit);
+            try {
+                window.parent.addEventListener('resize', fit);
+            } catch (e) {
+            }
+            fit();
+            requestAnimationFrame(fit);
+            setTimeout(fit, 200);
+            setTimeout(fit, 600);
+            if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
+        })();
+
+        const PROC_CHIP = '검사';
+        const WD = ['일', '월', '화', '수', '목', '금', '토'];
+        const WORKERS = ['정우철', '김민수', '이서연', '박지훈'];
+        const EQUIPS = [['조립기 A', 'AS-01'], ['조립기 B', 'AS-02'], ['수동 조립대', 'MN-01']];
+        const STLAB = {working: '작업중', wait: '대기', done: '완료'};
+
+        function nowHM() {
+            var d = new Date();
+            return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0') + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+        }
+
+        function pill(v) {
+            if (!v) return '--:--';
+            if (v.indexOf(' ') >= 0) {
+                var a = v.split(' ');
+                return a[0].slice(5) + ' ' + a[1];
+            }
+            return v;
+        }
+
+
+        /* REAL_INJECTED */
+        // ════ 실제 BSC30 BOM (DB 매칭) ════
+        var REAL = {
+            routing: {id: 38, name: "BSC 키트공정", steps: ["세척", "조립", "블리스터 포장", "멸균", "외포장"]},
+            fin: {code: "BSC30-PK00-CK00", name: "BSC+③ 30ml 00차수(3버전)+00차수", grp: 112},
+            PK: {code: "BSC30-PK00", name: "BSC+③ 30ml PK 00차수(3버전)"},
+            CK: {code: "BSC30-CK00", name: "BSC+③ 30ml CK 00차수"},
+            VES: {code: "BSC30-PK00-VES", name: "BSC+③ 30ml 00차수(3버전) 용기"},
+            vesInputs: [{code: "M-DD00003", name: "BSC+③ 30 상부", grp: 117, wash: "Y"}, {
+                code: "M-DD00004",
+                name: "BSC+③ 30 하부",
+                grp: 117,
+                wash: "Y"
+            }, {code: "M-DD00029", name: "혈액주입포트(RHAN-빨강)_R-Rub", grp: 117, wash: "Y"}, {
+                code: "M-DD00030",
+                name: "셀추출포트(고무-아이보리)_Iv-Rub",
+                grp: 117,
+                wash: "Y"
+            }, {code: "M-DD00033", name: "플로팅 혈액 30", grp: 117, wash: "Y"}, {
+                code: "M-DP00058",
+                name: "에어밴트",
+                grp: 117,
+                wash: "Y"
+            }, {code: "M-DS00053", name: "오링 040", grp: 117, wash: "Y"}],
+            pkInputs: [{code: "BSC30-PK00-VES", name: "BSC+③ 30ml 00차수(3버전) 용기", grp: 113}, {
+                code: "M-DE00016",
+                name: "주사기 세트 소",
+                grp: 116
+            }, {code: "M-DT00014", name: "BLD-30P", grp: 116}, {
+                code: "M-DT00015",
+                name: "BLD-30R",
+                grp: 116
+            }, {code: "M-DT00012", name: "분리형캐뉼라 BLD-60R", grp: 116}, {
+                code: "M-DS00024",
+                name: "BD락주사기 10CC",
+                grp: 116
+            }, {code: "M-DS00025", name: "BD락주사기 20CC", grp: 116}, {
+                code: "M-DU00074-1",
+                name: "캐뉼라 캡 - 60mm",
+                grp: 116
+            }, {code: "M-DU00074-3", name: "캐뉼라 캡 - 74mm", grp: 116}, {
+                code: "M-DD00070",
+                name: "스페이서",
+                grp: 116
+            }, {code: "M-PR00040", name: "멸균지 소", grp: 116}],
+            ckInputs: [{code: "M-DS00024", name: "BD락주사기 10CC", grp: 116}, {
+                code: "M-DS00026",
+                name: "BD락주사기 30CC",
+                grp: 116
+            }, {code: "M-DDW00037", name: "G.P.카테터 I.V.CATHETER", grp: 116}, {
+                code: "M-DDW00038",
+                name: "18G-S34(니들)",
+                grp: 116
+            }, {code: "M-DE00019", name: "부속품 소", grp: 116}, {
+                code: "ETC-STK-LOT-30",
+                name: "혈액 LOT 스티커(30ml)",
+                grp: 116
+            }, {code: "M-GP00003", name: "혈액 30ml/60ml/120ml 커버박스", grp: 116}],
+            outer: [{
+                code: "M-HS00003",
+                name: "IN BOX BSC+③ 30, 60",
+                grp: 116,
+                amount: 0.3333,
+                per: 3
+            }, {code: "M-HS00010", name: "OUT BOX BSC+③ 30, 60", grp: 116, amount: 0.0833, per: 12}],
+            gtin: "08801234560018"
+        };
+
+        function mkSess(worker, equip, tpl) {
+            return {
+                worker: worker,
+                equip: equip,
+                tpl: tpl || 'ROTOR',
+                start: nowHM(),
+                end: null,
+                st: 'working',
+                units: [],
+                cur: null
+            };
+        }
+
+        // 검사 템플릿 2종 (PC판 INSP_TEMPLATES와 동일: M-CELL 디바이스 검사)
+        //  · #50 ROTOR       : 항목형 체크리스트(6항목) 합/불
+        //  · #60 BASKET TEST : 반복형 LOCK ON/OFF 50회
+        const INSP_TEMPLATES = {
+            'ROTOR': {
+                key: 'ROTOR', name: '#50 ROTOR', type: 'checklist', items: [
+                    {no: 1, item: '전원 ON/OFF (3회)', criteria: 'ON·OFF / 전원 LED·스위치 문제 없을 것', method: '육안'},
+                    {no: 2, item: '외관 및 손잡이 고정', criteria: '파손·이물질·얼룩 없을 것 / 손잡이 헛돎 없이 고정', method: '육안'},
+                    {no: 3, item: '배터리 충전', criteria: '충전 LED 점등·점멸 및 100% 충전', method: '육안'},
+                    {no: 4, item: '블루투스', criteria: '연결 멘트 및 모니터에 ROTOR 배터리 잔량 표시', method: '육안'},
+                    {no: 5, item: 'BASKET', criteria: '움직임 부드럽고 소음 없을 것 / 챔버·모터 쏠림 없을 것', method: '육안'},
+                    {no: 6, item: 'ROTOR 진동 밸런스', criteria: 'ROTOR 진동 및 소음 없을 것', method: '육안 / EAR'},
+                ]
+            },
+            'BASKET-50': {
+                key: 'BASKET-50', name: '#60 BASKET TEST 50회', type: 'repeat', count: 50,
+                item: 'BASKET LOCK ON/OFF',
+                // 합격기준 → 사용공구(추) 자동 매핑 (체크시트 기준)
+                criteria: [
+                    {label: 'BSC 30 - 30 추', tool: '30ml 추'},
+                    {label: 'BSC 60 - 60 추', tool: '60ml 추'},
+                    {label: 'BMSC - 60 추', tool: '60ml 추'},
+                ]
+            },
+        };
+        const TPL_ORDER = ['ROTOR', 'BASKET-50'];
+
+        function curTpl() {
+            return INSP_TEMPLATES[(curS && curS.tpl) || 'ROTOR'];
+        }
+
+        function critTool(t, label) {
+            var c = (t.criteria || []).filter(function (x) {
+                return x.label === label;
+            })[0];
+            return c ? c.tool : '';
+        }
+
+        const ORDERS = [
+            {
+                id: 'QC-2406-014',
+                odate: '2026-06-26',
+                st: 'working',
+                name: 'M-CELL 디바이스 본체',
+                code: 'SM-CELL-2',
+                fam: 'MCELL',
+                chasu: 1,
+                plan: 20,
+                sessions: [
+                    {
+                        worker: '이서연',
+                        equip: '검사대 1',
+                        tpl: 'ROTOR',
+                        start: '2026-06-26 10:00',
+                        end: null,
+                        st: 'working',
+                        units: [{
+                            no: 1,
+                            lot: 'MC20260626-001',
+                            res: {1: 'pass', 2: 'pass', 3: 'pass', 4: 'pass', 5: 'pass', 6: 'pass'},
+                            val: {6: '0.03mm'},
+                            verdict: 'pass'
+                        },
+                            {
+                                no: 2,
+                                lot: 'MC20260626-002',
+                                res: {1: 'pass', 2: 'pass', 3: 'pass', 4: 'pass', 5: 'pass', 6: 'fail'},
+                                val: {6: '0.08mm'},
+                                verdict: 'fail'
+                            }],
+                        cur: null
+                    },
+                ]
+            },
+            {
+                id: 'QC-2406-010',
+                odate: '2026-06-25',
+                st: 'wait',
+                name: 'M-CELL 디바이스 본체',
+                code: 'SM-CELL-2',
+                fam: 'MCELL',
+                chasu: 2,
+                plan: 15,
+                sessions: []
+            },
+        ];
+
+        function orderPct(o) {
+            var done = o.sessions.reduce(function (a, s) {
+                return a + s.units.length;
+            }, 0);
+            return Math.min(100, Math.round(done / o.plan * 100));
+        }
+        ;EQUIPS.length = 0;
+        [['검사대 1', 'QC-01'], ['검사대 2', 'QC-02']].forEach(function (e) {
+            EQUIPS.push(e);
+        });
+
+
+        let curO = null, curS = null, filter = 'all';
+        const qgrid = document.getElementById('qgrid');
+        const SC = {
+            A: document.getElementById('scA'),
+            B: document.getElementById('scB'),
+            C: document.getElementById('scC')
+        };
+
+        function show(k) {
+            for (var x in SC) SC[x].classList.toggle('hide', x !== k);
+        }
+
+        function orderDoneQty(o) {
+            return (o.sessions || []).reduce(function (a, s) {
+                return a + (s.qty || s.outQty || s.packQty || (s.lots ? s.lots.reduce(function (b, l) {
+                    return b + l.qty;
+                }, 0) : 0) || 0);
+            }, 0);
+        }
+
+        function workingCount(o) {
+            return (o.sessions || []).filter(function (s) {
+                return s.st === 'working';
+            }).length;
+        }
+
+        function inRange(o) {
+            var f = document.getElementById('dFrom').value, t = document.getElementById('dTo').value;
+            if (f && o.odate < f) return false;
+            if (t && o.odate > t) return false;
+            return true;
+        }
+
+        function renderQueue() {
+            var list = ORDERS.filter(function (o) {
+                return (filter === 'all' || o.st === filter) && inRange(o);
+            });
+            document.getElementById('qcnt').textContent = list.length + '건';
+            qgrid.innerHTML = list.map(function (o) {
+                var pct = orderPct(o);
+                return '<div class="wo" data-st="' + o.st + '" data-id="' + o.id + '"><div class="edge"></div>' +
+                    '<div class="row1"><span class="wono">' + o.id + '</span>' +
+                    '<span style="font-size:13px;color:var(--ink-2);font-weight:700">' + o.odate + '</span>' +
+                    '<span class="chip ' + o.st + '">' + STLAB[o.st] + '</span></div>' +
+                    '<div class="name">' + o.name + (o.fam ? ('<span class="fam-badge ' + (o.fam === 'MCELL' ? 'mcell' : 'bsc') + '">' + (o.fam === 'MCELL' ? 'M-CELL' : o.fam) + '</span>') : '') + '</div>' +
+                    '<div class="meta"><div class="blk"><span class="lab">계획</span><span class="val">' + o.plan + '</span></div>' +
+                    '<div class="blk"><span class="lab">완료</span><span class="val">' + orderDoneQty(o) + '</span></div>' +
+                    '<div class="blk"><span class="lab">작업</span><span class="val">' + workingCount(o) + '</span></div>' +
+                    '<div class="prog"><span class="lab">' + (o.st === 'wait' ? '미시작' : '진행 ' + pct + '%') + '</span>' +
+                    '<div class="bar"><i style="width:' + pct + '%"></i></div></div></div></div>';
+            }).join('');
+        }
+
+        qgrid.addEventListener('click', function (e) {
+            var c = e.target.closest('.wo');
+            if (c) openOrder(c.dataset.id);
+        });
+        document.querySelectorAll('.qfilter button').forEach(function (b) {
+            b.addEventListener('click', function () {
+                document.querySelectorAll('.qfilter button').forEach(function (x) {
+                    x.classList.remove('on');
+                });
+                b.classList.add('on');
+                filter = b.dataset.f;
+                renderQueue();
+            });
+        });
+        document.getElementById('btnSearch').addEventListener('click', renderQueue);
+        (function () {
+            var t = new Date(), f = new Date();
+            f.setDate(f.getDate() - 7);
+            var fmt = function (d) {
+                return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+            };
+            document.getElementById('dFrom').value = fmt(f);
+            document.getElementById('dTo').value = fmt(t);
+        })();
+
+        document.querySelectorAll('[data-back]').forEach(function (b) {
+            b.addEventListener('click', function () {
+                var to = b.dataset.back;
+                if (to === 'A') {
+                    renderQueue();
+                    show('A');
+                } else {
+                    renderSessList();
+                    show('B');
+                }
+            });
+        });
+
+        function openOrder(id) {
+            curO = ORDERS.filter(function (x) {
+                return x.id === id;
+            })[0];
+            document.getElementById('bName').textContent = curO.name;
+            document.getElementById('bSub').textContent = curO.id;
+            renderSessList();
+            show('B');
+        }
+
+        document.getElementById('btnNewSess').onclick = openStart;
+
+        /* ── 공정별 세션작업 렌더 ── */
+
+        function sPass(se) {
+            return se.units.filter(function (u) {
+                return u.verdict === 'pass';
+            }).length;
+        }
+
+        function sFail(se) {
+            return se.units.filter(function (u) {
+                return u.verdict === 'fail';
+            }).length;
+        }
+
+        function renderSessList() {
+            var o = curO, p = o.sessions.reduce(function (a, s) {
+                return a + sPass(s);
+            }, 0), f = o.sessions.reduce(function (a, s) {
+                return a + sFail(s);
+            }, 0);
+            document.getElementById('ovbox').innerHTML =
+                '<div class="ov"><div class="l">계획</div><div class="v">' + o.plan + '</div></div>' +
+                '<div class="ov"><div class="l">합격</div><div class="v" style="color:var(--green)">' + p + '</div></div>' +
+                '<div class="ov"><div class="l">불합격</div><div class="v" style="color:var(--red)">' + f + '</div></div>' +
+                '<div class="ov left"><div class="l">잔여</div><div class="v">' + Math.max(0, o.plan - p - f) + '</div></div>';
+            document.getElementById('sessCnt').textContent = o.sessions.length + '건';
+            var box = document.getElementById('sessList');
+            if (!o.sessions.length) {
+                box.innerHTML = '<div class="emptysess">작업이 없습니다. ‘작업 시작’으로 검사를 시작하세요.</div>';
+                return;
+            }
+            box.innerHTML = o.sessions.map(function (se, i) {
+                return '<div class="sess" data-st="' + se.st + '" data-i="' + i + '"><div class="edge"></div>' +
+                    '<div class="who"><span class="nm">' + se.worker + '</span><span class="eq">' + se.equip + '</span></div>' +
+                    '<div class="time">' + pill(se.start) + ' ~ ' + pill(se.end) + '</div>' +
+                    '<div class="qty"><div class="l">합/불</div><div class="v" style="font-size:18px"><span style="color:var(--green)">' + sPass(se) + '</span> / <span style="color:var(--red)">' + sFail(se) + '</span></div></div>' +
+                    '<span class="badge ' + se.st + '">' + STLAB[se.st] + '</span></div>';
+            }).join('');
+        }
+
+        document.getElementById('sessList').addEventListener('click', function (e) {
+            var s = e.target.closest('.sess');
+            if (s) openSess(+s.dataset.i);
+        });
+
+        function openSess(i) {
+            curS = curO.sessions[i];
+            curS._idx = i;
+            document.getElementById('cName').textContent = curS.worker + ' · 검사';
+            document.getElementById('cSub').textContent = curO.id + ' · ' + curO.name + ' (' + curO.code + ') · 계획 ' + curO.plan;
+            if (!curS.cur) curS.cur = newUnit();
+            renderCHead();
+            renderCBody();
+            renderCAction();
+            show('C');
+        }
+
+        function newUnit() {
+            var t = curTpl();
+            var base = {no: (curS.units.length + 1), lot: 'MC' + (new Date().getFullYear()) + '-NEW', verdict: null};
+            if (t.type === 'repeat') {
+                base.cycles = [];
+                base.cur = {result: null, val: '', reason: t.criteria[0].label, tool: t.criteria[0].tool};
+            } else {
+                base.res = {};
+                base.val = {};
+            }
+            return base;
+        }
+
+        function renderCHead() {
+            document.getElementById('cHead').innerHTML =
+                '<div class="infopill"><span>검사자</span><b>' + curS.worker + '</b></div>' +
+                '<div class="infopill tap" data-time="start"><span>시작</span><b>' + pill(curS.start) + '</b></div>' +
+                '<div class="infopill tap" data-time="end"><span>종료</span><b>' + pill(curS.end) + '</b></div>' +
+                '<span class="sstate ' + curS.st + '">' + STLAB[curS.st] + '</span>';
+        }
+
+        function renderCBody() {
+            var locked = curS.st !== 'working';
+            var t = curTpl();
+            var u = curS.cur;
+            var html = '';
+            html += '<div class="secline">검사 유형 <span class="ln"></span><span>' + t.name + '</span></div>';
+            html += '<div class="secline">현재 검사 대상 <span class="ln"></span><span>' + (u ? ('#' + u.no + ' · ' + u.lot) : '') + '</span></div>';
+            if (u) {
+                html += (t.type === 'repeat') ? basketBody(u, t, locked) : rotorBody(u, t, locked);
+            }
+            // 검사 완료 목록
+            html += '<div class="secline">검사 완료 <span class="ln"></span><span>' + curS.units.length + '대</span></div>';
+            html += curS.units.map(function (uu, idx) {
+                var det = uu.cycles ? (uu.cycles.length + '/' + (t.count || 50) + '회') : (Object.keys(uu.res || {}).length + '항목');
+                return '<div class="part"><div class="id"><span class="pn">#' + uu.no + ' ' + uu.lot + '</span><span class="pc">' + det + ' 검사</span></div>' +
+                    '<span class="vtag ' + (uu.verdict === 'pass' ? 'pass' : 'fail') + '">' + (uu.verdict === 'pass' ? '합격' : '불합격') + '</span>' +
+                    (locked ? '' : '<div style="display:flex;gap:8px;flex:0 0 auto;margin-left:8px">' +
+                        '<button class="defbtn" data-reopen="' + idx + '">수정</button>' +
+                        '<button class="defbtn" data-del="' + idx + '" style="color:var(--red);border-color:var(--red-bg);background:var(--red-bg)">삭제</button></div>') + '</div>';
+            }).join('');
+            document.getElementById('cBody').innerHTML = html;
+        }
+
+        // #50 ROTOR : 6항목 체크리스트
+        function rotorBody(u, t, locked) {
+            var html = t.items.map(function (it) {
+                var r = u.res[it.no], val = (u.val && u.val[it.no]) || '';
+                return '<div class="part"><div class="id"><span class="pn">' + it.no + '. ' + it.item + '</span>' +
+                    '<span class="pc">기준: ' + it.criteria + ' · 공구: ' + it.method + '</span></div>' +
+                    (val ? '<span class="valchip">' + val + '</span>' : '') +
+                    '<button class="defbtn' + (val ? ' has' : '') + '" data-val="' + it.no + '">측정값</button>' +
+                    '<div class="judge" style="flex:0 0 auto;gap:8px;margin-left:8px">' +
+                    '<button class="pass ' + (r === 'pass' ? 'on' : '') + '" data-chk="' + it.no + '" data-v="pass" style="min-height:48px;padding:0 14px">합</button>' +
+                    '<button class="fail ' + (r === 'fail' ? 'on' : '') + '" data-chk="' + it.no + '" data-v="fail" style="min-height:48px;padding:0 14px">불</button></div></div>';
+            }).join('');
+            var allPass = t.items.every(function (it) {
+                return u.res[it.no] === 'pass';
+            });
+            var anyFail = t.items.some(function (it) {
+                return u.res[it.no] === 'fail';
+            });
+            var verdict = anyFail ? '불합격' : (allPass ? '합격' : '미완료');
+            var col = anyFail ? 'var(--red)' : (allPass ? 'var(--green)' : 'var(--ink-2)');
+            html += '<div class="auto-box"><div class="ic" style="background:' + (anyFail ? 'var(--red-bg)' : allPass ? 'var(--green-bg)' : 'var(--surface-2)') + '">' + (anyFail ? '✕' : allPass ? '✓' : '…') + '</div>' +
+                '<div style="flex:1"><div style="font-size:13px;color:var(--ink-2);font-weight:700">#' + u.no + ' 종합 판정</div>' +
+                '<div class="big" style="color:' + col + ';font-size:24px">' + verdict + '</div></div>' +
+                (locked ? '' : '<button class="btn ghost" id="resetCur">초기화</button><button class="btn primary" id="commitJudge" ' + ((allPass || anyFail) ? '' : 'disabled style="opacity:.5"') + '>이 대상 확정 → 다음</button>') + '</div>';
+            return html;
+        }
+
+        // #60 BASKET TEST : LOCK ON/OFF 50회 반복
+        function basketBody(u, t, locked) {
+            var done = u.cycles.length, finished = done >= t.count;
+            var failN = u.cycles.filter(function (c) {
+                return c.result === 'fail';
+            }).length;
+            var html = '<div class="auto-box"><div style="flex:1"><div style="font-size:13px;color:var(--ink-2);font-weight:700">' + t.item + ' 진행' + (failN ? ' · 불 ' + failN + '회' : '') + '</div>' +
+                '<div class="big" style="font-size:24px">' + done + ' / ' + t.count + '</div>' +
+                '<div class="bar" style="margin-top:6px;height:8px;background:var(--surface-2);border-radius:6px;overflow:hidden"><i style="display:block;height:100%;width:' + Math.round(done / t.count * 100) + '%;background:var(--green)"></i></div></div></div>';
+            if (!finished && !locked) {
+                var c = u.cur;
+                html += '<div class="part"><div class="id"><span class="pn">' + (done + 1) + '회차 · LOCK ON/OFF</span>' +
+                    '<span class="pc">규격: ' + c.reason + (c.tool ? ' · 공구 ' + c.tool : '') + '</span></div>' +
+                    (c.val ? '<span class="valchip">' + c.val + '</span>' : '') +
+                    '<button class="defbtn' + (c.val ? ' has' : '') + '" data-bval="1">측정값</button>' +
+                    '<div class="judge" style="flex:0 0 auto;gap:8px;margin-left:8px">' +
+                    '<button class="pass ' + (c.result === 'pass' ? 'on' : '') + '" data-bres="pass" style="min-height:48px;padding:0 14px">합</button>' +
+                    '<button class="fail ' + (c.result === 'fail' ? 'on' : '') + '" data-bres="fail" style="min-height:48px;padding:0 14px">불</button></div></div>';
+                html += '<div class="part"><div class="id"><span class="pn">적용 규격(합격기준)</span></div>' +
+                    '<div style="display:flex;gap:6px;flex-wrap:wrap">' + t.criteria.map(function (cr) {
+                        return '<button class="opt ' + (c.reason === cr.label ? 'sel' : '') + '" data-bcrit="' + cr.label + '" style="min-height:44px;padding:8px 14px;font-size:14px">' + cr.label + '</button>';
+                    }).join('') + '</div></div>';
+                html += '<div class="part"><div class="id"><span class="pn">사용공구</span><span class="pc">합격기준에 따라 자동 지정</span></div><span class="done-tag" style="background:var(--surface-2);color:var(--ink)">' + (c.tool || '-') + '</span></div>';
+                html += '<div style="display:flex;gap:10px"><button class="btn ghost" id="resetCur">초기화</button><button class="btn primary" id="commitCycle" style="flex:1" ' + (c.result ? '' : 'disabled style="opacity:.5"') + '>이 회차 기록 → 다음</button></div>';
+            } else if (finished) {
+                var pass = failN === 0;
+                html += '<div class="auto-box"><div class="ic" style="background:' + (pass ? 'var(--green-bg)' : 'var(--red-bg)') + '">' + (pass ? '✓' : '✕') + '</div>' +
+                    '<div style="flex:1"><div style="font-size:13px;color:var(--ink-2);font-weight:700">#' + u.no + ' 50회 완료</div>' +
+                    '<div class="big" style="color:' + (pass ? 'var(--green)' : 'var(--red)') + ';font-size:24px">' + (pass ? '합격' : '불합격') + '</div></div>' +
+                    (locked ? '' : '<button class="btn ghost" id="resetCur">초기화</button><button class="btn primary" id="commitJudge">이 대상 확정 → 다음</button>') + '</div>';
+            }
+            // 기록된 회차 (잘못 입력 시 삭제로 수정)
+            if (done > 0) {
+                html += '<div class="secline">기록된 회차 <span class="ln"></span><span>' + done + '회</span></div>';
+                html += u.cycles.slice().reverse().map(function (cy) {
+                    return '<div class="part"><div class="id"><span class="pn">' + cy.n + '회차 · ' + (cy.result === 'pass' ? '합' : '불') + '</span>' +
+                        '<span class="pc">' + cy.reason + (cy.tool ? ' · ' + cy.tool : '') + (cy.val ? ' · 측정 ' + cy.val : '') + '</span></div>' +
+                        '<span class="vtag ' + (cy.result === 'pass' ? 'pass' : 'fail') + '">' + (cy.result === 'pass' ? '합격' : '불합격') + '</span>' +
+                        (locked ? '' : '<button class="defbtn" data-cycledel="' + cy.n + '" style="margin-left:8px;color:var(--red);border-color:var(--red-bg);background:var(--red-bg)">삭제</button>') + '</div>';
+                }).join('');
+            }
+            return html;
+        }
+
+        function renderCAction() {
+            var bar = document.getElementById('cAction');
+            if (curS.st === 'done') {
+                bar.innerHTML = '<div class="actsum"><span class="l">합/불</span><span class="v">' + sPass(curS) + ' / ' + sFail(curS) + '</span></div>';
+                document.getElementById('cCancel').onclick = function () {
+                    curS.st = 'working';
+                    curS.end = null;
+                    if (!curS.cur) curS.cur = newUnit();
+                    renderCHead();
+                    renderCBody();
+                    renderCAction();
+                    renderSessList();
+                    flash('완료취소 (목업)');
+                };
+            } else {
+                bar.innerHTML = '<div class="actsum"><span class="l">누적 합/불</span><span class="v"><span style="color:var(--green)">' + sPass(curS) + '</span> / <span style="color:var(--red)">' + sFail(curS) + '</span></span></div>' +
+                    '<button class="btn ghost" id="cDelete">삭제</button><button class="btn primary" id="cFinish">검사 완료</button>';
+                document.getElementById('cFinish').onclick = function () {
+                    curS.st = 'done';
+                    curS.end = nowHM();
+                    renderCHead();
+                    renderCBody();
+                    renderCAction();
+                    renderSessList();
+                    flash('검사 완료 (목업)');
+                };
+                document.getElementById('cDelete').onclick = function () {
+                    curO.sessions.splice(curS._idx, 1);
+                    renderSessList();
+                    show('B');
+                    flash('작업 삭제 (목업)');
+                };
+            }
+        }
+
+        document.getElementById('cBody').addEventListener('click', function (e) {
+            var t = curTpl();
+            // ── ROTOR 항목 합/불 ──
+            var chk = e.target.closest('[data-chk]');
+            if (chk) {
+                curS.cur.res[chk.dataset.chk] = chk.dataset.v;
+                renderCBody();
+                return;
+            }
+            var val = e.target.closest('[data-val]');
+            if (val) {
+                openVal(val.dataset.val, 'item');
+                return;
+            }
+            // ── BASKET 회차 ──
+            var bres = e.target.closest('[data-bres]');
+            if (bres) {
+                curS.cur.cur.result = bres.dataset.bres;
+                renderCBody();
+                return;
+            }
+            var bcrit = e.target.closest('[data-bcrit]');
+            if (bcrit) {
+                var lb = bcrit.dataset.bcrit;
+                curS.cur.cur.reason = lb;
+                curS.cur.cur.tool = critTool(curTpl(), lb);
+                renderCBody();
+                return;
+            }
+            if (e.target.closest('[data-bval]')) {
+                openVal('__cycleval__', 'cycleval');
+                return;
+            }
+            if (e.target.id === 'commitCycle') {
+                var u = curS.cur, c = u.cur;
+                u.cycles.push({n: u.cycles.length + 1, result: c.result, val: c.val, reason: c.reason, tool: c.tool});
+                if (u.cycles.length >= t.count) {
+                    u.cur = null;
+                    flash('50회 완료 · #' + u.no);
+                } else {
+                    u.cur = {result: null, val: '', reason: c.reason, tool: c.tool};
+                } // 규격·공구 이월
+                renderCBody();
+                return;
+            }
+            // ── 대상 확정 → 다음 (공통) ──
+            if (e.target.id === 'commitJudge') {
+                var uu = curS.cur, fail;
+                if (t.type === 'repeat') fail = uu.cycles.some(function (cy) {
+                    return cy.result === 'fail';
+                });
+                else fail = t.items.some(function (it) {
+                    return uu.res[it.no] === 'fail';
+                });
+                uu.verdict = fail ? 'fail' : 'pass';
+                curS.units.push(uu);
+                curS.cur = newUnit();
+                renderCBody();
+                renderCAction();
+                renderSessList();
+                flash((fail ? '불합격' : '합격') + ' #' + uu.no + ' 기록');
+                return;
+            }
+            // ── 완료 대상 수정(재검사) ──
+            var rop = e.target.closest('[data-reopen]');
+            if (rop) {
+                var ru = curS.units.splice(+rop.dataset.reopen, 1)[0];
+                ru.verdict = null;
+                if (t.type === 'repeat' && !ru.cur) {
+                    var last = ru.cycles[ru.cycles.length - 1] || {
+                        reason: t.criteria[0].label,
+                        tool: t.criteria[0].tool
+                    };
+                    if (ru.cycles.length < t.count) ru.cur = {
+                        result: null,
+                        val: '',
+                        reason: last.reason,
+                        tool: last.tool
+                    };
+                }
+                curS.cur = ru;
+                renderCBody();
+                renderCAction();
+                renderSessList();
+                flash('재검사 · #' + ru.no + ' (다시 판정하세요)');
+                return;
+            }
+            // ── 현재 검사 대상 초기화 ──
+            if (e.target.id === 'resetCur') {
+                curS.cur = newUnit();
+                renderCBody();
+                renderCAction();
+                flash('현재 대상 초기화');
+                return;
+            }
+            // ── 완료 대상 삭제 ──
+            var del = e.target.closest('[data-del]');
+            if (del) {
+                curS.units.splice(+del.dataset.del, 1);
+                curS.units.forEach(function (x, k) {
+                    x.no = k + 1;
+                });          // 번호 재정렬
+                if (curS.cur) curS.cur.no = curS.units.length + 1;
+                renderCBody();
+                renderCAction();
+                renderSessList();
+                flash('완료 대상 삭제 (목업)');
+                return;
+            }
+            // ── BASKET 회차 삭제(잘못 입력 수정) ──
+            var cdel = e.target.closest('[data-cycledel]');
+            if (cdel) {
+                var n = +cdel.dataset.cycledel, cu = curS.cur;
+                cu.cycles = cu.cycles.filter(function (cy) {
+                    return cy.n !== n;
+                });
+                cu.cycles.forEach(function (cy, k) {
+                    cy.n = k + 1;
+                });           // 회차 재정렬
+                if (!cu.cur) {
+                    var lc = cu.cycles[cu.cycles.length - 1] || {reason: t.criteria[0].label, tool: t.criteria[0].tool};
+                    cu.cur = {result: null, val: '', reason: lc.reason, tool: lc.tool};
+                }
+                renderCBody();
+                flash(n + '회차 삭제');
+                return;
+            }
+        });
+        document.getElementById('cHead').addEventListener('click', function (e) {
+            var t = e.target.closest('[data-time]');
+            if (t) openTime(t.dataset.time);
+        });
+
+        // 측정값 입력(간이 패드). mode: item(ROTOR 항목) · cycleval(BASKET 회차)
+        var valKey = null, valMode = null, valBuf = '';
+
+        function openVal(k, mode) {
+            valMode = mode || 'item';
+            valKey = k;
+            var cur = curS.cur;
+            valBuf = (valMode === 'cycleval') ? (cur.cur.val || '') : ((cur.val && cur.val[k]) || '');
+            document.getElementById('padLab').textContent = (valMode === 'cycleval' ? (curTpl().item + ' 측정값') : (padItemName(k) + ' 측정값'));
+            document.getElementById('padDisp').textContent = valBuf || '-';
+            showMask('padMask');
+        }
+
+        function padItemName(no) {
+            var it = (INSP_TEMPLATES['ROTOR'].items.filter(function (x) {
+                return String(x.no) === String(no);
+            })[0]);
+            return it ? it.item : ('항목 ' + no);
+        }
+
+        document.querySelector('#padMask .keys').addEventListener('click', function (e) {
+            var key = e.target.dataset.k;
+            if (!key) return;
+            if (key === 'C') valBuf = '';
+            else if (key === 'OK') {
+                if (valMode === 'cycleval') curS.cur.cur.val = valBuf;
+                else curS.cur.val[valKey] = valBuf;
+                hideMask('padMask');
+                renderCBody();
+                return;
+            } else valBuf = valBuf + key;
+            document.getElementById('padDisp').textContent = valBuf || '-';
+        });
+
+        /* ── 시작 시트 ── */
+        function showMask(id) {
+            document.getElementById(id).classList.add('show');
+        }
+
+        function hideMask(id) {
+            document.getElementById(id).classList.remove('show');
+        }
+
+        document.querySelectorAll('.mask').forEach(function (m) {
+            m.addEventListener('click', function (e) {
+                if (e.target === m || (e.target.closest && e.target.closest('[data-close]'))) m.classList.remove('show');
+            });
+        });
+
+        let selW = null, selE = null, selTpl = null;
+
+        // 시작 시트: 검사유형 선택 UI 주입
+        function beforeStartSheet() {
+            selTpl = null;
+            document.getElementById('startExtra').innerHTML =
+                '<div class="fieldlab">검사유형</div><div class="opts" id="tplOpts">' +
+                TPL_ORDER.map(function (k) {
+                    return '<button class="opt" data-tpl="' + k + '">' + INSP_TEMPLATES[k].name + '</button>';
+                }).join('') + '</div>';
+        }
+
+        function startReady() {
+            return !!selTpl;
+        }
+
+        function openStart() {
+            selW = null;
+            selE = null;
+            document.getElementById('workerOpts').innerHTML = WORKERS.map(function (w) {
+                return '<button class="opt" data-w="' + w + '">' + w + '</button>';
+            }).join('');
+            document.getElementById('equipOpts').innerHTML = EQUIPS.map(function (e) {
+                return '<button class="opt" data-e="' + e[0] + '">' + e[0] + ' <span class="sub">' + e[1] + '</span></button>';
+            }).join('');
+            var so = document.getElementById('startOk');
+            so.disabled = true;
+            if (typeof beforeStartSheet === 'function') beforeStartSheet();
+            showMask('startMask');
+        }
+
+        document.getElementById('startExtra').addEventListener('click', function (e) {
+            var b = e.target.closest('[data-tpl]');
+            if (!b) return;
+            document.querySelectorAll('#tplOpts .opt').forEach(function (x) {
+                x.classList.remove('sel');
+            });
+            b.classList.add('sel');
+            selTpl = b.dataset.tpl;
+            ckStart();
+        });
+        document.getElementById('workerOpts').addEventListener('click', function (e) {
+            var b = e.target.closest('[data-w]');
+            if (!b) return;
+            document.querySelectorAll('#workerOpts .opt').forEach(function (x) {
+                x.classList.remove('sel');
+            });
+            b.classList.add('sel');
+            selW = b.dataset.w;
+            ckStart();
+        });
+        document.getElementById('equipOpts').addEventListener('click', function (e) {
+            var b = e.target.closest('[data-e]');
+            if (!b) return;
+            document.querySelectorAll('#equipOpts .opt').forEach(function (x) {
+                x.classList.remove('sel');
+            });
+            b.classList.add('sel');
+            selE = b.dataset.e;
+            ckStart();
+        });
+
+        function ckStart() {
+            document.getElementById('startOk').disabled = !(selW && selE && (typeof startReady !== 'function' || startReady()));
+        }
+
+        window.ckStart = ckStart;
+        document.getElementById('startOk').onclick = function () {
+            var se = mkSess(selW, selE, selTpl);
+            curO.sessions.push(se);
+            if (curO.st === 'wait') curO.st = 'working';
+            hideMask('startMask');
+            renderSessList();
+            openSess(curO.sessions.length - 1);
+            flash('작업 시작 · ' + selW + ' / ' + INSP_TEMPLATES[selTpl].name);
+        };
+
+        /* 토스트 */
+        let tT;
+
+        function flash(m) {
+            var t = document.getElementById('toast');
+            if (!t) {
+                t = document.createElement('div');
+                t.id = 'toast';
+                t.style.cssText = 'position:fixed;left:50%;bottom:110px;transform:translateX(-50%);background:#15222B;color:#fff;padding:14px 22px;border-radius:14px;font-weight:700;z-index:60;box-shadow:0 12px 30px -10px rgba(0,0,0,.5);transition:opacity .3s';
+                document.body.appendChild(t);
+            }
+            t.textContent = m;
+            t.style.opacity = '1';
+            clearTimeout(tT);
+            tT = setTimeout(function () {
+                t.style.opacity = '0';
+            }, 1700);
+        }
+
+        window.flash = flash;
+        window.showMask = showMask;
+        window.hideMask = hideMask;
+        window.pill = pill;
+        window.nowHM = nowHM;
+        window.STLAB = STLAB;
+        window.WD = WD;
+
+        /* ── 바코드/출력 공통 ── */
+        function bcCard(d) {
+            return '<div class="bc-card"><div class="bc-bars"></div>' +
+                '<div class="bc-data">' + d.line + '</div>' +
+                (d.sub ? '<div class="bc-sub">' + d.sub + '</div>' : '') + '</div>';
+        }
+
+        window.openBarcode = function (title, labels) {
+            document.getElementById('bcTitle').textContent = title;
+            document.getElementById('bcList').innerHTML = labels.map(function (l) {
+                return '<div style="margin-bottom:12px">' + bcCard(l) +
+                    (l.copies > 1 ? '<div class="bc-sub" style="text-align:center">× ' + l.copies + '장 출력</div>' : '') + '</div>';
+            }).join('');
+            window.__printLabels = labels;
+            showMask('bcMask');
+        };
+        document.getElementById('bcPrint').onclick = function () {
+            var labels = window.__printLabels || [];
+            var html = '';
+            labels.forEach(function (l) {
+                var n = l.copies || 1;
+                for (var i = 0; i < n; i++) {
+                    html += '<div style="border:1px solid #000;border-radius:6px;padding:12px;margin:6px;display:inline-block;width:220px;text-align:center;page-break-inside:avoid">' +
+                        '<div style="height:54px;background:repeating-linear-gradient(90deg,#000 0 2px,#fff 2px 4px,#000 4px 5px,#fff 5px 9px,#000 9px 12px,#fff 12px 13px);border-radius:2px;margin-bottom:6px"></div>' +
+                        '<div style="font-size:12px;font-weight:700">' + l.line + '</div>' + (l.sub ? '<div style="font-size:11px;color:#555">' + l.sub + '</div>' : '') + '</div>';
+                }
+            });
+            var pa = document.getElementById('printArea');
+            pa.innerHTML = '<h3 style="margin:0 0 10px">' + document.getElementById('bcTitle').textContent + '</h3>' + html;
+            hideMask('bcMask');
+            setTimeout(function () {
+                window.print();
+            }, 100);
+        };
+        window.openPrintForm = function (title, innerHtml) {
+            var pa = document.getElementById('printArea');
+            pa.innerHTML = '<h2 style="text-align:center;margin:0 0 14px">' + title + '</h2>' + innerHtml;
+            setTimeout(function () {
+                window.print();
+            }, 100);
+        };
+
+
+        /* 시간 수정 */
+        let timeWhich = 'start', editDate = new Date();
+
+        function fmtD(d) {
+            return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0') + ' (' + WD[d.getDay()] + ')';
+        }
+
+        function openTime(which) {
+            timeWhich = which;
+            document.getElementById('timeTitle').textContent = (which === 'start' ? '시작' : '종료') + ' 일시 수정';
+            var saved = which === 'start' ? curS.start : curS.end;
+            if (saved && saved.indexOf(' ') >= 0) {
+                var a = saved.split(' ');
+                editDate = new Date(a[0] + 'T' + a[1]);
+            } else editDate = new Date();
+            document.getElementById('tDate').textContent = fmtD(editDate);
+            document.getElementById('tH').textContent = String(editDate.getHours()).padStart(2, '0');
+            document.getElementById('tM').textContent = String(editDate.getMinutes()).padStart(2, '0');
+            showMask('timeMask');
+        }
+
+        window.openTime = openTime;
+        document.querySelector('#timeMask .dateedit').addEventListener('click', function (e) {
+            var b = e.target.closest('[data-d]');
+            if (!b) return;
+            editDate.setDate(editDate.getDate() + (+b.dataset.d));
+            document.getElementById('tDate').textContent = fmtD(editDate);
+        });
+        document.querySelector('#timeMask .timeedit').addEventListener('click', function (e) {
+            var b = e.target.closest('[data-t]');
+            if (!b) return;
+            var H = document.getElementById('tH'), M = document.getElementById('tM');
+            var h = +H.textContent, m = +M.textContent;
+            if (b.dataset.t === 'h+') h = (h + 1) % 24;
+            if (b.dataset.t === 'h-') h = (h + 23) % 24;
+            if (b.dataset.t === 'm+') m = (m + 1) % 60;
+            if (b.dataset.t === 'm-') m = (m + 59) % 60;
+            H.textContent = String(h).padStart(2, '0');
+            M.textContent = String(m).padStart(2, '0');
+        });
+        document.getElementById('timeOk').onclick = function () {
+            var ds = editDate.getFullYear() + '-' + String(editDate.getMonth() + 1).padStart(2, '0') + '-' + String(editDate.getDate()).padStart(2, '0');
+            var v = ds + ' ' + document.getElementById('tH').textContent + ':' + document.getElementById('tM').textContent;
+            if (timeWhich === 'start') curS.start = v; else curS.end = v;
+            hideMask('timeMask');
+            renderCHead();
+            renderSessList();
+            flash((timeWhich === 'start' ? '시작' : '종료') + ' 저장 ' + pill(v));
+        };
+
+
+        renderQueue();
+    </script>
+</th:block>
+
+</html>
