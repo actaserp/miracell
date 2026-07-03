@@ -249,6 +249,43 @@
         .ms-wash-root .warn-banner{background:var(--red-bg);color:var(--red);border-radius:14px;padding:14px 16px;
             font-weight:800;display:flex;align-items:center;gap:10px;margin-bottom:4px}
 
+        /* ── ★ M-CELL 국내/해외 포장 분기 추가 ── */
+        .ms-wash-root .region-seg{display:flex;gap:12px;margin:4px 0 2px}
+        .ms-wash-root .region-seg .rseg{flex:1;min-height:78px;border-radius:16px;border:2px solid var(--line);
+            background:var(--surface);cursor:pointer;display:flex;flex-direction:column;align-items:flex-start;
+            justify-content:center;gap:3px;padding:0 20px;transition:transform .1s ease}
+        .ms-wash-root .region-seg .rseg:active{transform:scale(.985)}
+        .ms-wash-root .region-seg .rseg .rt{font-size:20px;font-weight:800;letter-spacing:-.02em}
+        .ms-wash-root .region-seg .rseg .rs{font-size:12.5px;font-weight:700;color:var(--ink-2)}
+        .ms-wash-root .region-seg .rseg.sel.dom{border-color:var(--teal);background:var(--teal-bg)}
+        .ms-wash-root .region-seg .rseg.sel.dom .rt{color:var(--teal-d)}
+        .ms-wash-root .region-seg .rseg.sel.ovs{border-color:#6B3FA0;background:#EEE7FA}
+        .ms-wash-root .region-seg .rseg.sel.ovs .rt{color:#6B3FA0}
+        .ms-wash-root .region-seg .rseg .flag{font-size:26px;line-height:1}
+        .ms-wash-root .region-seg .rseg .rhead{display:flex;align-items:center;gap:8px}
+        .ms-wash-root .mat{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px;
+            display:flex;align-items:center;gap:12px;box-shadow:var(--shadow);margin-bottom:10px;flex-wrap:wrap}
+        .ms-wash-root .mat.on{border-color:var(--green);background:linear-gradient(180deg,#F2FBF5,#FFF)}
+        .ms-wash-root .mat .chk{width:34px;height:34px;border-radius:10px;border:2px solid var(--line);
+            display:grid;place-items:center;font-size:19px;font-weight:800;color:transparent;flex:0 0 auto;cursor:pointer;background:var(--surface-2)}
+        .ms-wash-root .mat.on .chk{border-color:var(--green);background:var(--green);color:#fff}
+        .ms-wash-root .mat .mid{flex:1;min-width:0}
+        .ms-wash-root .mat .mn{font-size:16px;font-weight:800;letter-spacing:-.01em;line-height:1.3}
+        .ms-wash-root .mat .mc{font-size:12.5px;color:var(--ink-2);font-weight:700;font-variant-numeric:tabular-nums}
+        .ms-wash-root .mat .need{font-size:12px;color:var(--ink-2);font-weight:700}
+        .ms-wash-root .mat .mstep{display:flex;align-items:center;flex:0 0 auto}
+        .ms-wash-root .mat .mstep button{width:44px;height:48px;border:1px solid var(--line);background:var(--surface-2);font-size:22px;font-weight:700;cursor:pointer}
+        .ms-wash-root .mat .mstep button:first-child{border-radius:12px 0 0 12px}
+        .ms-wash-root .mat .mstep button:last-child{border-radius:0 12px 12px 0}
+        .ms-wash-root .mat .mstep .n{width:58px;height:48px;display:grid;place-items:center;border-top:1px solid var(--line);border-bottom:1px solid var(--line);font-weight:800;font-variant-numeric:tabular-nums;background:#FFFDF4}
+        .ms-wash-root .mat .mstep.locked{opacity:.55;pointer-events:none}
+        .ms-wash-root .mat-tools{display:flex;gap:8px;margin:2px 2px 10px;flex-wrap:wrap}
+        .ms-wash-root .mat-tools button{min-height:44px;padding:0 16px;border-radius:12px;border:1px solid var(--line);
+            background:var(--surface);color:var(--ink-2);font-weight:800;font-size:14px;cursor:pointer}
+        .ms-wash-root .mat-tools button:active{background:var(--surface-2)}
+        .ms-wash-root .common-tag{padding:3px 8px;border-radius:6px;background:var(--surface-2);color:var(--ink-2);font-size:11px;font-weight:800;margin-left:6px}
+        .ms-wash-root .region-warn{background:var(--amber-bg);color:var(--amber);border-radius:14px;padding:13px 16px;font-weight:800;font-size:14px;display:flex;align-items:center;gap:10px}
+
     </style>
 
     <div class="ms-wash-root">
@@ -521,6 +558,46 @@
             gtin: "08801234560018"
         };
 
+        // ════ ★ M-CELL4(Rotor A) 국내/해외 포장 BOM (엑셀 매칭) ════
+        // 본체 조립(WIP-MC60066)은 공통, 포장 자재만 국내/해외 상이.
+        // 두 시트는 별도 완제품 코드(국내 MRCN-61066 / 해외 MRCN-61067).
+        var MCELL_PACK = {
+            device: {code: "WIP-MC60066", name: "SMART-M-CELL4(재공품, 로터A타입)"}, // 공통 본체
+            dom: {
+                prod: "MRCN-61066",
+                label: "SMART-M-CELL4 (국내, 로터A타입)",
+                mats: [
+                    {code: "M-IY00024", name: "엠셀 내수용 IN BOX 200*160*50", qty: 2},
+                    {code: "M-IY00023", name: "엠셀 내수용 C/T BOX 615*515*350", qty: 1},
+                    {code: "M-IY00025", name: "엠셀 내수용 TOP FOAM 55T*500*600", qty: 1},
+                    {code: "M-IY00123", name: "BOTTOM FOAM1 (내수용)", qty: 1},
+                    {code: "M-IY00124", name: "BOTTOM FOAM 2 (내수용)", qty: 1},
+                    {code: "M-IY00127", name: "IN FOAM 2 (원형)", qty: 1, common: true},
+                    {code: "M-IO00127", name: "본체 전원 케이블( 3m )", qty: 1, common: true},
+                    {code: "M-IPD00027", name: "전원케이블 (1m 3구)", qty: 1, common: true},
+                    {code: "M-IPD00026", name: "어댑터-19V SW60-19003160-W (19V 3.16A)", qty: 1, common: true}
+                ]
+            },
+            ovs: {
+                prod: "MRCN-61067",
+                label: "SMART-M-CELL4 (해외, 로터A타입)",
+                mats: [
+                    {code: "M-IY10123", name: "수출용-PE-BOTTOM FOAM", qty: 2},
+                    {code: "M-IY10025", name: "수출용-PE-TOP COVER", qty: 1},
+                    {code: "M-IY10023", name: "수출용박스(유공) 685*575*450", qty: 1},
+                    {code: "M-IY00026", name: "수출용-PE-MIDDLE FOAM", qty: 1},
+                    {code: "M-IY00127", name: "IN FOAM 2 (원형)", qty: 1, common: true},
+                    {code: "M-IO00127", name: "본체 전원 케이블( 3m )", qty: 1, common: true},
+                    {code: "M-IPD00027", name: "전원케이블 (1m 3구)", qty: 1, common: true},
+                    {code: "M-IPD00026", name: "어댑터-19V SW60-19003160-W (19V 3.16A)", qty: 1, common: true}
+                ]
+            }
+        };
+
+        function regionBom(region) {
+            return region === 'ovs' ? MCELL_PACK.ovs : (region === 'dom' ? MCELL_PACK.dom : null);
+        }
+
         // 멸균필 완제품(PK) 로트 — 내가 발번한 시스템 로트
         const PK_READY = [{lot: 'BSC30-PK00-260626', name: REAL.fin.name, gtin: REAL.gtin, qty: 40}];
 
@@ -552,7 +629,8 @@
         function mkSess(worker, equip) {
             return {
                 worker: worker, equip: equip, start: nowHM(), end: null, st: 'working',
-                units: 0, pkLot: null, labelLot: null, outbox: 0
+                units: 0, pkLot: null, labelLot: null, outbox: 0,
+                region: null, mat: {}   // ★ M-CELL: 선택 지역 + 자재별 투입수량
             };
         }
 
@@ -588,8 +666,8 @@
                 odate: '2026-06-26',
                 fam: 'MCELL',
                 st: 'wait',
-                name: 'M-CELL 디바이스 본체',
-                code: 'SM-CELL-2',
+                name: 'M-CELL4 디바이스 (로터A)',
+                code: MCELL_PACK.device.code,
                 gtin: '08801234569990',
                 chasu: 1,
                 plan: 10,
@@ -599,7 +677,7 @@
 
         function orderPct(o) {
             var packed = o.sessions.reduce(function (a, s) {
-                return a + (s.units || 0);
+                return a + (o.fam === 'MCELL' ? (s.outbox || 0) : (s.units || 0));
             }, 0);
             return o.plan ? Math.min(100, Math.round(packed / o.plan * 100)) : 0;
         }
@@ -721,26 +799,35 @@
         function renderSessList() {
             var o = curO, cap = inboxCap(o);
             var packed = o.sessions.reduce(function (a, s) {
-                return a + (s.units || 0);
+                return a + (o.fam === 'MCELL' ? (s.outbox || 0) : (s.units || 0));
             }, 0);
             document.getElementById('ovbox').innerHTML =
                 '<div class="ov"><div class="l">계획수량</div><div class="v">' + o.plan + '</div></div>' +
-                '<div class="ov"><div class="l">완제품 포장</div><div class="v">' + packed + '</div></div>' +
+                '<div class="ov"><div class="l">' + (o.fam === 'MCELL' ? '박스 포장' : '완제품 포장') + '</div><div class="v">' + packed + '</div></div>' +
                 '<div class="ov left"><div class="l">잔여수량</div><div class="v">' + Math.max(0, o.plan - packed) + '</div></div>' +
                 (o.fam === 'BSC' ? '<div class="ov"><div class="l">인박스 입수</div><div class="v">' + cap + '</div></div>' : '');
             document.getElementById('sessCnt').textContent = o.sessions.length + '건';
             var box = document.getElementById('sessList');
             if (!o.sessions.length) {
-                box.innerHTML = '<div class="emptysess">작업이 없습니다. ‘작업 시작’으로 외포장을 시작하세요.</div>';
+                box.innerHTML = '<div class="emptysess">작업이 없습니다. ‘작업 추가’로 외포장을 시작하세요.</div>';
                 return;
             }
             box.innerHTML = o.sessions.map(function (se, i) {
-                var _pv = packView(o, se.units || 0);
-                var lab = o.fam === 'MCELL' ? ('박스 ' + se.outbox) : ('완제품 ' + (se.units || 0) + ' · 인박스 ' + _pv.inbox + ' · 아웃 ' + _pv.outbox);
+                var qtyShow, regionTag = '';
+                if (o.fam === 'MCELL') {
+                    qtyShow = se.outbox || 0;
+                    if (se.region) {
+                        var rb = regionBom(se.region);
+                        regionTag = '<span class="fam-badge ' + (se.region === 'ovs' ? 'mcell' : 'bsc') + '" style="margin-left:0">' +
+                            (se.region === 'ovs' ? '해외' : '국내') + '</span>';
+                    }
+                } else {
+                    qtyShow = se.units || 0;
+                }
                 return '<div class="sess" data-st="' + se.st + '" data-i="' + i + '"><div class="edge"></div>' +
                     '<div class="who"><span class="nm">' + se.worker + '</span><span class="eq">' + se.equip + '</span></div>' +
                     '<div class="time">' + pill(se.start) + ' ~ ' + pill(se.end) + '</div>' +
-                    '<div class="qty"><div class="l">완제품</div><div class="v">' + (o.fam === 'MCELL' ? se.outbox : (se.units || 0)) + '</div></div>' +
+                    '<div class="qty"><div class="l">' + (o.fam === 'MCELL' ? '박스' : '완제품') + regionTag + '</div><div class="v">' + qtyShow + '</div></div>' +
                     '<span class="badge ' + se.st + '">' + STLAB[se.st] + '</span></div>';
             }).join('');
         }
@@ -769,16 +856,90 @@
                 '<span class="sstate ' + curS.st + '">' + STLAB[curS.st] + '</span>';
         }
 
+        /* ── ★ M-CELL 포장 자재 리스트 렌더 ── */
+        function mcellMatCount(region) {
+            var rb = regionBom(region);
+            if (!rb) return {done: 0, total: 0};
+            var done = 0;
+            rb.mats.forEach(function (m) {
+                var need = (m.qty || 1) * (curS.outbox || 0);
+                if ((curS.mat[m.code] || 0) >= need && need > 0) done++;
+            });
+            return {done: done, total: rb.mats.length};
+        }
+
+        function renderMcellBody() {
+            var locked = curS.st !== 'working';
+            var html = '';
+
+            // ① 지역(포장 방식) 선택
+            html += '<div class="secline">① 포장 방식 (국내 / 해외) <span class="ln"></span><span>선택 시 해당 포장 자재만 표시</span></div>';
+            html += '<div class="region-seg">' +
+                '<div class="rseg dom ' + (curS.region === 'dom' ? 'sel' : '') + '" data-region="dom">' +
+                '<div class="rhead"><span class="flag">🇰🇷</span><span class="rt">국내</span></div>' +
+                '<span class="rs">' + MCELL_PACK.dom.prod + ' · 내수용 포장 (' + MCELL_PACK.dom.mats.length + '종)</span></div>' +
+                '<div class="rseg ovs ' + (curS.region === 'ovs' ? 'sel' : '') + '" data-region="ovs">' +
+                '<div class="rhead"><span class="flag">✈️</span><span class="rt">해외</span></div>' +
+                '<span class="rs">' + MCELL_PACK.ovs.prod + ' · 수출용 포장 (' + MCELL_PACK.ovs.mats.length + '종)</span></div>' +
+                '</div>';
+
+            if (!curS.region) {
+                html += '<div class="region-warn">⚠️ 포장 방식(국내/해외)을 먼저 선택하세요. 국내와 해외는 박스·폼 자재가 다릅니다.</div>';
+                document.getElementById('cBody').innerHTML = html;
+                return;
+            }
+
+            var rb = regionBom(curS.region);
+
+            // ② 박스 포장 수량
+            html += '<div class="secline">② 박스 포장 수량 <span class="ln"></span><span>' + rb.prod + '</span></div>';
+            html += '<div class="part"><div class="id"><span class="pn">박스 포장수량</span><span class="pc">' + rb.label + '</span></div>' +
+                (locked ? '<span class="done-tag">' + curS.outbox + ' EA</span>'
+                    : '<div class="stepper" data-mbox="1"><button class="minus">−</button><div class="qty" data-padbox="1">' + curS.outbox + '</div><button class="plus">+</button></div>') + '</div>';
+
+            // ③ 포장 자재 투입 (선택 지역 BOM)
+            var mc = mcellMatCount(curS.region);
+            html += '<div class="secline">③ ' + (curS.region === 'ovs' ? '수출용' : '내수용') + ' 포장 자재 투입 <span class="ln"></span><span>' + mc.done + ' / ' + mc.total + ' 충족</span></div>';
+
+            if (!locked) {
+                html += '<div class="mat-tools">' +
+                    '<button data-matfill="1">📥 필요수량 일괄 채우기</button>' +
+                    '<button data-matclear="1">비우기</button></div>';
+            }
+
+            rb.mats.forEach(function (m, idx) {
+                var per = m.qty || 1;
+                var need = per * (curS.outbox || 0);
+                var cur = curS.mat[m.code] || 0;
+                var ok = need > 0 && cur >= need;
+                html += '<div class="mat ' + (ok ? 'on' : '') + '" data-mrow="' + m.code + '">' +
+                    '<div class="chk" data-mtoggle="' + m.code + '">' + (ok ? '✓' : '') + '</div>' +
+                    '<div class="mid"><div class="mn">' + m.name + (m.common ? '<span class="common-tag">공통</span>' : '') + '</div>' +
+                    '<div class="mc">' + m.code + ' · BOM ' + per + ' /대 → 필요 <b>' + need + '</b></div></div>' +
+                    '<div class="mstep ' + (locked ? 'locked' : '') + '">' +
+                    '<button data-mminus="' + m.code + '">−</button>' +
+                    '<div class="n" data-mpad="' + m.code + '">' + cur + '</div>' +
+                    '<button data-mplus="' + m.code + '">＋</button></div>' +
+                    '</div>';
+            });
+
+            document.getElementById('cBody').innerHTML = html + mcellLabelSection();
+        }
+
+        function mcellLabelSection() {
+            if (!curS.region || curS.outbox <= 0) return '';
+            var rb = regionBom(curS.region);
+            return '<div class="secline">라벨 출력 <span class="ln"></span><span>박스</span></div>' +
+                '<div class="printrow"><button class="btn ghost" id="bcBoxM" style="flex:1;min-height:56px">📦 ' +
+                (curS.region === 'ovs' ? '수출용' : '내수용') + ' 박스 라벨 (' + curS.outbox + '장)</button></div>';
+        }
+
         function renderCBody() {
             var locked = curS.st !== 'working';
             var o = curO;
             var html = '';
             if (o.fam === 'MCELL') {
-                html += '<div class="secline">M-CELL 박스 포장 <span class="ln"></span><span>디바이스</span></div>';
-                html += '<div class="part"><div class="id"><span class="pn">박스 포장수량</span><span class="pc">M-CELL 디바이스 박스 포장</span></div>' +
-                    (locked ? '<span class="done-tag">' + curS.outbox + ' EA</span>' : '<div class="stepper" data-mbox="1"><button class="minus">−</button><div class="qty">' + curS.outbox + '</div><button class="plus">+</button></div>') + '</div>';
-                html += labelButtons(html);
-                document.getElementById('cBody').innerHTML = html + labelSection();
+                renderMcellBody();
                 return;
             }
             var pv = packView(o, curS.units);
@@ -812,10 +973,6 @@
 
         function labelSection() {
             var o = curO;
-            if (o.fam === 'MCELL') {
-                if (curS.outbox <= 0) return '';
-                return '<div class="secline">라벨 출력 <span class="ln"></span><span>박스</span></div><div class="printrow"><button class="btn ghost" id="bcBoxM" style="flex:1;min-height:56px">📦 박스 라벨 (' + curS.outbox + '장)</button></div>';
-            }
             if (!curS.pkLot || curS.units <= 0) return '';
             var pv = packView(o, curS.units);
             var scanNote = '<div class="part locked"><div class="id"><span class="pn">PK · CK · 인박스 라벨</span><span class="pc">외부(ERP/UDI) 인쇄물 — MES는 스캔으로 지정만, 출력 안 함</span></div><span class="done-tag" style="background:var(--surface-2);color:var(--ink-2)">스캔 지정</span></div>';
@@ -826,16 +983,12 @@
                 '<div class="printrow">' + outBtn + '</div>';
         }
 
-        function labelButtons() {
-            return '';
-        }
-
         function renderCAction() {
             var bar = document.getElementById('cAction');
             var o = curO;
             var packed = o.fam === 'MCELL' ? curS.outbox : curS.units;
             if (curS.st === 'done') {
-                bar.innerHTML = '<div class="actsum"><span class="l">완제품 포장</span><span class="v">' + packed + ' EA</span></div><button class="btn danger" id="cCancel">완료취소</button>';
+                bar.innerHTML = '<div class="actsum"><span class="l">' + (o.fam === 'MCELL' ? '박스 포장' : '완제품 포장') + '</span><span class="v">' + packed + ' EA</span></div><button class="btn danger" id="cCancel">완료취소</button>';
                 document.getElementById('cCancel').onclick = function () {
                     curS.st = 'working';
                     curS.end = null;
@@ -846,12 +999,24 @@
                     flash('완료취소 (목업)');
                 };
             } else {
-                var ready = o.fam === 'MCELL' ? (curS.outbox > 0) : (curS.pkLot && curS.units > 0 && curS.labelLot);
-                bar.innerHTML = '<div class="actsum"><span class="l">완제품 포장</span><span class="v">' + packed + ' EA</span></div>' +
+                var ready;
+                if (o.fam === 'MCELL') {
+                    var mc = curS.region ? mcellMatCount(curS.region) : {done: 0, total: 1};
+                    ready = curS.region && curS.outbox > 0 && mc.done === mc.total;
+                } else {
+                    ready = curS.pkLot && curS.units > 0 && curS.labelLot;
+                }
+                bar.innerHTML = '<div class="actsum"><span class="l">' + (o.fam === 'MCELL' ? '박스 포장' : '완제품 포장') + '</span><span class="v">' + packed + ' EA</span></div>' +
                     '<button class="btn ghost" id="cDelete">삭제</button><button class="btn primary" id="cFinish" ' + (ready ? '' : 'disabled style="opacity:.5"') + '>외포장 완료</button>';
                 document.getElementById('cFinish').onclick = function () {
                     if (!ready) {
-                        flash('PK로트·완제품수량·라벨스캔이 필요합니다');
+                        if (o.fam === 'MCELL') {
+                            if (!curS.region) flash('포장 방식(국내/해외)을 선택하세요');
+                            else if (curS.outbox <= 0) flash('박스 포장수량을 입력하세요');
+                            else flash('포장 자재 투입수량이 필요수량에 미달합니다');
+                        } else {
+                            flash('PK로트·완제품수량·라벨스캔이 필요합니다');
+                        }
                         return;
                     }
                     curS.st = 'done';
@@ -860,7 +1025,10 @@
                     renderCBody();
                     renderCAction();
                     renderSessList();
-                    flash('외포장 완료 → 출하대기 (목업)');
+                    var msg = o.fam === 'MCELL'
+                        ? ('외포장 완료 → ' + (curS.region === 'ovs' ? '수출용' : '내수용') + ' 포장 · 출하대기 (목업)')
+                        : '외포장 완료 → 출하대기 (목업)';
+                    flash(msg);
                 };
                 document.getElementById('cDelete').onclick = function () {
                     curO.sessions.splice(curS._idx, 1);
@@ -887,6 +1055,68 @@
 
             if (step('units', 'units')) return;
             if (step('mbox', 'outbox')) return;
+
+            // ── ★ M-CELL 지역 선택 ──
+            var rg = e.target.closest('[data-region]');
+            if (rg) {
+                var newR = rg.dataset.region;
+                if (curS.region !== newR) {
+                    // 지역 바뀌면 자재 투입 초기화(자재 목록 자체가 달라지므로)
+                    if (curS.region) curS.mat = {};
+                    curS.region = newR;
+                    renderCBody();
+                    renderCAction();
+                    renderSessList();
+                    flash((newR === 'ovs' ? '해외(수출용)' : '국내(내수용)') + ' 포장 자재로 전환');
+                }
+                return;
+            }
+
+            // 자재 스텝 +/-
+            var mp = e.target.closest('[data-mplus]');
+            if (mp) {
+                var c = mp.dataset.mplus;
+                curS.mat[c] = (curS.mat[c] || 0) + 1;
+                renderCBody(); renderCAction();
+                return;
+            }
+            var mm = e.target.closest('[data-mminus]');
+            if (mm) {
+                var c2 = mm.dataset.mminus;
+                curS.mat[c2] = Math.max(0, (curS.mat[c2] || 0) - 1);
+                renderCBody(); renderCAction();
+                return;
+            }
+            // 자재 체크(=필요수량 채움 토글)
+            var mt = e.target.closest('[data-mtoggle]');
+            if (mt) {
+                var c3 = mt.dataset.mtoggle;
+                var rb = regionBom(curS.region);
+                var mo = rb.mats.filter(function (x) { return x.code === c3; })[0];
+                var need = (mo.qty || 1) * (curS.outbox || 0);
+                curS.mat[c3] = (curS.mat[c3] || 0) >= need && need > 0 ? 0 : need;
+                renderCBody(); renderCAction();
+                return;
+            }
+            // 자재 수량 넘패드
+            var mpad = e.target.closest('[data-mpad]');
+            if (mpad) { openPadMat(mpad.dataset.mpad); return; }
+            // 박스 수량 넘패드
+            var pb = e.target.closest('[data-padbox]');
+            if (pb) { openPadBox(); return; }
+            // 일괄 채우기 / 비우기
+            if (e.target.closest('[data-matfill]')) {
+                var rbf = regionBom(curS.region);
+                rbf.mats.forEach(function (m) { curS.mat[m.code] = (m.qty || 1) * (curS.outbox || 0); });
+                renderCBody(); renderCAction();
+                flash('필요수량 일괄 채움'); return;
+            }
+            if (e.target.closest('[data-matclear]')) {
+                curS.mat = {};
+                renderCBody(); renderCAction();
+                flash('자재 투입 비움'); return;
+            }
+
             var padu = e.target.closest('[data-padunits]');
             if (padu) {
                 openPadUnits();
@@ -913,9 +1143,11 @@
                 return;
             }
             if (e.target.id === 'bcBoxM') {
-                openBarcode('M-CELL 박스 라벨', [{
-                    line: '(01)' + curO.gtin + '(10)MC' + (curS.start || '').slice(0, 10).replace(/-/g, ''),
-                    sub: curO.name,
+                var rb2 = regionBom(curS.region);
+                var rcode = curS.region === 'ovs' ? 'MC-OVS' : 'MC-DOM';
+                openBarcode((curS.region === 'ovs' ? '수출용' : '내수용') + ' M-CELL 박스 라벨', [{
+                    line: '(01)' + curO.gtin + '(10)' + rcode + (curS.start || '').slice(2, 10).replace(/-/g, ''),
+                    sub: rb2.label + ' · ' + rb2.prod,
                     copies: curS.outbox
                 }]);
                 return;
@@ -961,11 +1193,30 @@
             showMask('lotMask');
         }
 
-        var padVal = '';
+        var padVal = '', padMode = 'units', padMatCode = null;
 
         function openPadUnits() {
+            padMode = 'units'; padMatCode = null;
             padVal = String(curS.units || 0);
             document.getElementById('padLab').textContent = '완제품 수량';
+            document.getElementById('padDisp').textContent = padVal;
+            showMask('padMask');
+        }
+
+        function openPadBox() {
+            padMode = 'box'; padMatCode = null;
+            padVal = String(curS.outbox || 0);
+            document.getElementById('padLab').textContent = '박스 포장수량';
+            document.getElementById('padDisp').textContent = padVal;
+            showMask('padMask');
+        }
+
+        function openPadMat(code) {
+            padMode = 'mat'; padMatCode = code;
+            padVal = String(curS.mat[code] || 0);
+            var rb = regionBom(curS.region);
+            var mo = rb.mats.filter(function (x) { return x.code === code; })[0];
+            document.getElementById('padLab').textContent = mo ? mo.name : '자재 수량';
             document.getElementById('padDisp').textContent = padVal;
             showMask('padMask');
         }
@@ -973,8 +1224,12 @@
         document.querySelector('#padMask .keys').addEventListener('click', function (e) {
             var k = e.target.dataset.k;
             if (!k) return;
-            if (k === 'C') padVal = ''; else if (k === 'OK') {
-                curS.units = parseInt(padVal || '0', 10);
+            if (k === 'C') padVal = '';
+            else if (k === 'OK') {
+                var n = parseInt(padVal || '0', 10);
+                if (padMode === 'units') curS.units = n;
+                else if (padMode === 'box') curS.outbox = n;
+                else if (padMode === 'mat' && padMatCode) curS.mat[padMatCode] = n;
                 hideMask('padMask');
                 renderCBody();
                 renderCAction();
