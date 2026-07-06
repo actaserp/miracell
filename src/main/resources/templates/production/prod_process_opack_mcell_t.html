@@ -1,0 +1,1207 @@
+<html layout:decorate="~{layout_page}">
+
+<th:block layout:fragment="content">
+  <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet"/>
+  <style>
+
+      :root{--bg:#E9EEF1;--surface:#FFF;--surface-2:#F4F7F9;--ink:#15222B;--ink-2:#5A6B76;--line:#D8E0E5;
+          --teal:#0E7C86;--teal-d:#0A5C64;--teal-bg:#E2F1F2;--green:#1E9D58;--green-bg:#E4F4EA;
+          --amber:#C77A00;--amber-bg:#FBEFD8;--red:#C8483B;--red-bg:#F7E4E1;--r:18px;--tap:60px;
+          --shadow:0 1px 0 rgba(21,34,43,.04),0 8px 24px -16px rgba(21,34,43,.28)}
+      *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+      .ms-wash-root{font-family:"Pretendard","Noto Sans KR",-apple-system,sans-serif;color:var(--ink);font-size:17px;line-height:1.45;-webkit-font-smoothing:antialiased;flex:1 1 auto;min-height:0;height:var(--wash-h,100%);max-height:var(--wash-h,none);display:flex;flex-direction:column}
+      .ms-wash-root .app{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;background:var(--bg);border-radius:12px;overflow:hidden}
+      .screen{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden}.screen.hide{display:none}
+
+      /* 큐 */
+      .wrap{padding:22px 20px 28px;max-width:1180px;margin:0 auto;width:100%;overflow:auto;-webkit-overflow-scrolling:touch;flex:1 1 auto;min-height:0}
+      .qhead{display:flex;align-items:baseline;gap:12px;margin:2px 2px 18px}
+      .qhead h1{font-size:26px;font-weight:800;letter-spacing:-.03em;margin:0}
+      .qhead .cnt{color:var(--ink-2);font-weight:700}
+      .qfilter{display:flex;gap:8px;margin-left:auto}
+      .qfilter button{min-height:44px;padding:0 16px;border-radius:999px;border:1px solid var(--line);
+          background:var(--surface);color:var(--ink-2);font-weight:700;font-size:15px;cursor:pointer}
+      .qfilter button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+      .searchbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 2px 18px;
+          background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px;box-shadow:var(--shadow)}
+      .searchbar .slab{font-weight:800;color:var(--ink-2);font-size:14px}
+      .searchbar .tilde{font-weight:800;color:var(--ink-2)}
+      .dinput{height:48px;border:1px solid var(--line);border-radius:12px;padding:0 12px;font-size:16px;
+          font-weight:700;color:var(--ink);background:var(--surface-2);font-variant-numeric:tabular-nums;min-width:160px}
+      .sbtn{height:48px;padding:0 22px;border:none;border-radius:12px;background:var(--teal);color:#fff;
+          font-weight:800;font-size:16px;cursor:pointer;margin-left:auto}
+      .sbtn:active{background:var(--teal-d)}
+      .qgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+      .wo{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px 18px 16px;
+          cursor:pointer;box-shadow:var(--shadow);transition:transform .12s ease;position:relative;overflow:hidden}
+      .wo:active{transform:scale(.985)}
+      .wo .edge{position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--line)}
+      .wo[data-st="working"] .edge{background:var(--teal)}.wo[data-st="wait"] .edge{background:var(--amber)}.wo[data-st="done"] .edge{background:var(--green)}
+      .wo .row1{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+      .wo .wono{font-weight:800;font-size:15px;color:var(--ink-2)}
+      .chip{margin-left:auto;padding:5px 11px;border-radius:999px;font-size:13px;font-weight:800}
+      .chip.working{background:var(--teal-bg);color:var(--teal-d)}.chip.wait{background:var(--amber-bg);color:var(--amber)}.chip.done{background:var(--green-bg);color:var(--green)}
+      .wo .name{font-size:19px;font-weight:800;letter-spacing:-.02em;line-height:1.3;margin:2px 0 14px}
+      .wo .meta{display:flex;gap:18px;align-items:flex-end}
+      .wo .meta .blk{display:flex;flex-direction:column;gap:2px}
+      .wo .meta .lab{font-size:12.5px;color:var(--ink-2);font-weight:700}
+      .wo .meta .val{font-size:18px;font-weight:800}
+      .wo .prog{margin-left:auto;text-align:right}
+      .wo .bar{height:8px;width:120px;background:var(--surface-2);border-radius:999px;overflow:hidden;margin-top:6px}
+      .wo .bar>i{display:block;height:100%;background:var(--teal);border-radius:999px}
+
+      /* 공통 상단바(B,C) */
+      .topbar2{flex:0 0 auto;background:var(--surface);border-bottom:1px solid var(--line);
+          padding:12px 18px;display:flex;align-items:center;gap:14px;box-shadow:var(--shadow);z-index:2}
+      .back{width:48px;height:48px;border-radius:14px;border:1px solid var(--line);background:var(--surface-2);
+          display:grid;place-items:center;cursor:pointer;font-size:22px;flex:0 0 auto}
+      .back:active{background:var(--line)}
+      .htitle{min-width:0;flex:1}
+      .htitle .t{font-size:18px;font-weight:800;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .htitle .s{font-size:13.5px;color:var(--ink-2);font-weight:700;margin-top:1px}
+
+      /* B. 세션 목록 */
+      .col-stack{display:flex;flex-direction:column;flex:1 1 auto;min-height:0;height:100%}
+      .bscroll{flex:1 1 auto;min-height:0;overflow:auto;-webkit-overflow-scrolling:touch;padding:18px}
+      .bgrid{max-width:1000px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+      .ovbox{display:flex;gap:12px;flex-wrap:wrap}
+      .ov{flex:1;min-width:130px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
+          padding:14px 16px;box-shadow:var(--shadow)}
+      .ov .l{font-size:13px;color:var(--ink-2);font-weight:700}
+      .ov .v{font-size:28px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+      .ov.left .v{color:var(--teal-d)}
+      .secline{display:flex;align-items:center;gap:10px;margin:6px 2px 0;color:var(--ink-2);font-weight:800;font-size:14px}
+      .secline .ln{flex:1;height:1px;background:var(--line)}
+      .sess{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;
+          box-shadow:var(--shadow);cursor:pointer;display:flex;align-items:center;gap:16px;position:relative;overflow:hidden;
+          transition:transform .12s ease}
+      .sess:active{transform:scale(.99)}
+      .sess .edge{position:absolute;left:0;top:0;bottom:0;width:5px}
+      .sess[data-st="working"] .edge{background:var(--teal)}.sess[data-st="done"] .edge{background:var(--green)}
+      .sess .who{display:flex;flex-direction:column;gap:2px;min-width:120px}
+      .sess .who .nm{font-size:18px;font-weight:800}
+      .sess .who .eq{font-size:13px;color:var(--ink-2);font-weight:700}
+      .sess .time{font-size:13.5px;color:var(--ink-2);font-weight:700;font-variant-numeric:tabular-nums}
+      .sess .qty{margin-left:auto;text-align:right}
+      .sess .qty .v{font-size:24px;font-weight:800;font-variant-numeric:tabular-nums}
+      .sess .qty .l{font-size:12px;color:var(--ink-2);font-weight:700}
+      .sess .badge{padding:6px 12px;border-radius:999px;font-size:13px;font-weight:800}
+      .sess .badge.working{background:var(--teal-bg);color:var(--teal-d)}.sess .badge.done{background:var(--green-bg);color:var(--green)}
+      .emptysess{text-align:center;color:var(--ink-2);font-weight:700;padding:30px;border:1.5px dashed var(--line);border-radius:var(--r)}
+
+      /* C. 세션 작업(부품) */
+      .infopill{display:flex;gap:7px;align-items:center;background:var(--surface-2);border:1px solid var(--line);
+          border-radius:12px;padding:8px 12px;font-size:13px;font-weight:700;color:var(--ink-2);cursor:default}
+      .infopill.tap{cursor:pointer}.infopill.tap:active{background:var(--line)}
+      .infopill b{color:var(--ink);font-variant-numeric:tabular-nums}
+      .infopill.tap b{color:var(--teal-d);text-decoration:underline dotted}
+      .sstate{padding:8px 14px;border-radius:999px;font-weight:800;font-size:14px}
+      .sstate.working{background:var(--teal-bg);color:var(--teal-d)}.sstate.done{background:var(--green-bg);color:var(--green)}
+      .part{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;
+          display:flex;align-items:center;gap:14px;box-shadow:var(--shadow);flex-wrap:wrap}
+      .part.locked{opacity:.7}
+      .part .id{display:flex;flex-direction:column;min-width:0;flex:1}
+      .part .pn{font-size:18px;font-weight:800;letter-spacing:-.02em}
+      .part .pc{font-size:13px;color:var(--ink-2);font-weight:700;font-variant-numeric:tabular-nums}
+      .stepper{display:flex;align-items:center;flex:0 0 auto}
+      .stepper button{width:50px;height:54px;border:1px solid var(--line);background:var(--surface-2);font-size:25px;font-weight:700;cursor:pointer;display:grid;place-items:center}
+      .stepper button:active{background:var(--line)}
+      .stepper button.minus{border-radius:14px 0 0 14px}.stepper button.plus{border-radius:0 14px 14px 0}
+      .stepper .qty{width:90px;height:54px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+          background:#FFFDF4;text-align:center;font-size:23px;font-weight:800;font-variant-numeric:tabular-nums;display:grid;place-items:center;cursor:pointer}
+      .done-tag{padding:7px 14px;border-radius:999px;background:var(--green-bg);color:var(--green);font-weight:800;font-size:14px}
+
+      .actionbar{flex:0 0 auto;background:var(--surface);border-top:1px solid var(--line);
+          padding:14px 18px calc(14px + env(safe-area-inset-bottom));display:flex;gap:12px;align-items:center;
+          box-shadow:0 -8px 24px -18px rgba(21,34,43,.4)}
+      .actionbar .actsum{display:flex;flex-direction:column;margin-right:auto}
+      .actionbar .actsum .l{font-size:12.5px;color:var(--ink-2);font-weight:700}
+      .actionbar .actsum .v{font-size:21px;font-weight:800;font-variant-numeric:tabular-nums}
+      .btn{min-height:var(--tap);padding:0 24px;border-radius:16px;border:none;cursor:pointer;font-size:18px;font-weight:800;display:inline-flex;align-items:center;gap:8px}
+      .btn.ghost{background:var(--surface-2);color:var(--ink-2);border:1px solid var(--line)}.btn.ghost:active{background:var(--line)}
+      .btn.primary{background:var(--teal);color:#fff;padding:0 36px;box-shadow:0 8px 18px -8px rgba(14,124,134,.7)}.btn.primary:active{background:var(--teal-d)}
+      .btn.start{background:var(--teal);color:#fff;flex:1;justify-content:center;font-size:20px}
+      .btn.danger{background:var(--red-bg);color:var(--red)}
+
+      /* 시트 */
+      .mask{position:fixed;inset:0;background:rgba(21,34,43,.42);display:none;z-index:40;align-items:flex-end}
+      .mask.show{display:flex;animation:fade .15s ease}@keyframes fade{from{opacity:0}to{opacity:1}}
+      .sheet{width:100%;background:var(--surface);border-radius:24px 24px 0 0;padding:20px 20px calc(40px + env(safe-area-inset-bottom));
+          box-shadow:0 -20px 40px -20px rgba(0,0,0,.4);animation:rise .2s cubic-bezier(.2,.7,.3,1);max-height:88dvh;overflow:auto}
+      @keyframes rise{from{transform:translateY(40px)}to{transform:translateY(0)}}
+      .sheet .sh{display:flex;align-items:center;margin-bottom:16px}
+      .sheet .sh h3{font-size:20px;font-weight:800;margin:0;letter-spacing:-.02em}
+      .sheet .sh .x{margin-left:auto;width:44px;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--surface-2);font-size:20px;cursor:pointer}
+      .sheet .body{max-width:640px;margin:0 auto}
+      .fieldlab{font-size:14px;font-weight:800;color:var(--ink-2);margin:14px 2px 8px}
+      .opts{display:flex;flex-wrap:wrap;gap:10px}
+      .opt{min-height:54px;padding:0 18px;border-radius:14px;border:1.5px solid var(--line);background:var(--surface);font-weight:800;font-size:16px;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+      .opt:active{background:var(--surface-2)}.opt.sel{border-color:var(--teal);background:var(--teal-bg);color:var(--teal-d)}
+      .opt .sub{font-size:12.5px;color:var(--ink-2);font-weight:700}
+      .sheet .ok{width:100%;margin-top:20px;background:var(--teal);color:#fff;min-height:var(--tap);border:none;border-radius:16px;font-size:19px;font-weight:800;cursor:pointer}
+      .sheet .ok:disabled{background:var(--line);color:var(--ink-2)}
+      .pad .disp{margin-left:auto;min-width:140px;text-align:right;font-size:30px;font-weight:800;font-variant-numeric:tabular-nums;background:var(--surface-2);border:1px solid var(--line);border-radius:14px;padding:8px 16px}
+      .keys{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:520px;margin:6px auto 0}
+      .keys button{height:62px;border-radius:14px;border:1px solid var(--line);background:var(--surface);font-size:25px;font-weight:800;cursor:pointer;font-variant-numeric:tabular-nums}
+      .keys button:active{background:var(--surface-2)}.keys button.ok{background:var(--teal);color:#fff;border-color:var(--teal);width:auto;margin-top:0;min-height:0;height:62px;border-radius:14px}.keys button.clr{color:var(--red)}
+      .dateedit{display:flex;align-items:center;justify-content:center;gap:14px;margin:4px 0 10px}
+      .dateedit .dbtn{width:56px;height:52px;border-radius:14px;border:1px solid var(--line);background:var(--surface-2);font-size:22px;font-weight:700;cursor:pointer}
+      .dateedit .dbtn:active{background:var(--line)}
+      .dateedit .dval{min-width:200px;text-align:center;font-size:22px;font-weight:800;font-variant-numeric:tabular-nums}
+      .timeedit{display:flex;align-items:center;justify-content:center;gap:6px;margin:8px 0}
+      .tcol{display:flex;flex-direction:column;align-items:center;gap:8px}
+      .tcol button{width:84px;height:52px;border-radius:14px;border:1px solid var(--line);background:var(--surface-2);font-size:24px;font-weight:700;cursor:pointer}
+      .tcol .tv{font-size:42px;font-weight:800;font-variant-numeric:tabular-nums;width:84px;text-align:center}
+      .tsep{font-size:40px;font-weight:800;padding-bottom:4px}
+      @media (max-width:680px){.part .stat{order:3;width:100%;justify-content:space-between}.qgrid{grid-template-columns:1fr}.sess{flex-wrap:wrap}}
+      @media (prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important}}
+
+      /* ── 카메라 스캔 시트 ── */
+      .scanbox{position:relative;width:100%;aspect-ratio:16/10;border-radius:18px;overflow:hidden;
+          background:radial-gradient(120% 120% at 50% 20%,#26333c 0%,#141d24 70%,#0c1319 100%);
+          box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}
+      .scanbox .noise{position:absolute;inset:0;opacity:.10;
+          background-image:radial-gradient(#fff 1px,transparent 1px);background-size:5px 5px}
+      .scanbox .frame{position:absolute;inset:14% 12%;border-radius:14px}
+      .scanbox .frame span{position:absolute;width:34px;height:34px;border:3px solid #fff;opacity:.92}
+      .scanbox .frame .tl{top:0;left:0;border-right:none;border-bottom:none;border-radius:12px 0 0 0}
+      .scanbox .frame .tr{top:0;right:0;border-left:none;border-bottom:none;border-radius:0 12px 0 0}
+      .scanbox .frame .bl{bottom:0;left:0;border-right:none;border-top:none;border-radius:0 0 0 12px}
+      .scanbox .frame .br{bottom:0;right:0;border-left:none;border-top:none;border-radius:0 0 12px 0}
+      .scanbox .laser{position:absolute;left:12%;right:12%;top:14%;height:3px;border-radius:3px;
+          background:linear-gradient(90deg,transparent,#31E0C4,#31E0C4,transparent);
+          box-shadow:0 0 14px 2px rgba(49,224,196,.7);animation:scanmove 2s ease-in-out infinite}
+      @keyframes scanmove{0%{top:16%}50%{top:82%}100%{top:16%}}
+      .scanbox .ghostbc{position:absolute;left:22%;right:22%;top:44%;height:46px;opacity:.28;border-radius:3px;
+          background:repeating-linear-gradient(90deg,#fff 0 2px,transparent 2px 4px,#fff 4px 5px,transparent 5px 9px,#fff 9px 12px,transparent 12px 13px)}
+      .scanbox .hint{position:absolute;left:0;right:0;bottom:10px;text-align:center;color:#DCE7EA;
+          font-size:12.5px;font-weight:700;text-shadow:0 1px 2px rgba(0,0,0,.5)}
+      .scanbox .cam{position:absolute;top:10px;left:12px;display:flex;align-items:center;gap:7px;
+          color:#EAF3F4;font-size:12px;font-weight:800}
+      .scanbox .cam i{width:9px;height:9px;border-radius:50%;background:#31E0C4;box-shadow:0 0 8px #31E0C4;animation:blink 1.1s infinite}
+      @keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+      .scanbox.recognized{background:radial-gradient(120% 120% at 50% 30%,#12503f 0%,#0d2f2a 70%,#0a1f1c 100%)}
+      .scanbox.recognized .laser{animation:none;top:50%;opacity:0}
+      .scan-result{margin-top:14px;border:1.5px solid var(--green);background:var(--green-bg);border-radius:14px;
+          padding:14px 16px;display:none;align-items:center;gap:12px}
+      .scan-result.show{display:flex;animation:fade .2s ease}
+      .scan-result .ic{width:38px;height:38px;border-radius:10px;background:var(--green);color:#fff;display:grid;place-items:center;font-size:20px;flex:0 0 auto}
+      .scan-result .rl{font-size:12.5px;color:var(--ink-2);font-weight:700}
+      .scan-result .rv{font-size:18px;font-weight:800;font-variant-numeric:tabular-nums}
+      .scan-actions{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
+      .scan-actions .btn{flex:1;justify-content:center;min-height:56px}
+      .manual{margin-top:14px}
+      .manual .mrow{display:flex;gap:10px}
+      .manual input{flex:1;height:52px;border:1px solid var(--line);border-radius:12px;padding:0 14px;
+          font-size:16px;font-weight:700;background:var(--surface-2);font-variant-numeric:tabular-nums}
+      .manual .mbtn{height:52px;padding:0 18px;border-radius:12px;border:1px solid var(--line);background:var(--surface);font-weight:800;cursor:pointer}
+
+      /* ── 바코드/출력 ── */
+      .bc-card{border:1px solid var(--line);border-radius:14px;padding:16px;background:#fff;text-align:center}
+      .bc-bars{height:64px;background:repeating-linear-gradient(90deg,#15222B 0 2px,#fff 2px 4px,#15222B 4px 5px,#fff 5px 9px,#15222B 9px 12px,#fff 12px 13px);border-radius:3px;margin-bottom:8px}
+      .bc-data{font-size:13px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;letter-spacing:.02em}
+      .bc-sub{font-size:12px;color:var(--ink-2);font-weight:700;margin-top:2px}
+      .printrow{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
+      .form-tbl{width:100%;border-collapse:collapse;font-size:13px}
+      .form-tbl th,.form-tbl td{border:1px solid var(--line);padding:8px 10px;text-align:left}
+      .form-tbl th{background:var(--surface-2);font-weight:800}
+      @media print{ body *{visibility:hidden} #printArea,#printArea *{visibility:visible}
+          #printArea{position:absolute;left:0;top:0;width:100%;padding:20px} .mask{display:none !important} }
+      #printArea{display:none}
+
+      /* ── M-CELL 국내/해외 포장 분기 ── */
+      .region-seg{display:flex;gap:12px;margin:4px 0 2px}
+      .region-seg .rseg{flex:1;min-height:78px;border-radius:16px;border:2px solid var(--line);
+          background:var(--surface);cursor:pointer;display:flex;flex-direction:column;align-items:flex-start;
+          justify-content:center;gap:3px;padding:0 20px;transition:transform .1s ease}
+      .region-seg .rseg:active{transform:scale(.985)}
+      .region-seg .rseg .rt{font-size:20px;font-weight:800;letter-spacing:-.02em}
+      .region-seg .rseg .rs{font-size:12.5px;font-weight:700;color:var(--ink-2)}
+      .region-seg .rseg.sel.dom{border-color:var(--teal);background:var(--teal-bg)}
+      .region-seg .rseg.sel.dom .rt{color:var(--teal-d)}
+      .region-seg .rseg.sel.ovs{border-color:#6B3FA0;background:#EEE7FA}
+      .region-seg .rseg.sel.ovs .rt{color:#6B3FA0}
+      .region-seg .rseg .flag{font-size:26px;line-height:1}
+      .region-seg .rseg .rhead{display:flex;align-items:center;gap:8px}
+      .mat{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px;
+          display:flex;align-items:center;gap:12px;box-shadow:var(--shadow);margin-bottom:10px;flex-wrap:wrap}
+      .mat.on{border-color:var(--green);background:linear-gradient(180deg,#F2FBF5,#FFF)}
+      .mat .chk{width:34px;height:34px;border-radius:10px;border:2px solid var(--line);
+          display:grid;place-items:center;font-size:19px;font-weight:800;color:transparent;flex:0 0 auto;cursor:pointer;background:var(--surface-2)}
+      .mat.on .chk{border-color:var(--green);background:var(--green);color:#fff}
+      .mat .mid{flex:1;min-width:0}
+      .mat .mn{font-size:16px;font-weight:800;letter-spacing:-.01em;line-height:1.3}
+      .mat .mc{font-size:12.5px;color:var(--ink-2);font-weight:700;font-variant-numeric:tabular-nums}
+      .mat .mstep{display:flex;align-items:center;flex:0 0 auto}
+      .mat .mstep button{width:44px;height:48px;border:1px solid var(--line);background:var(--surface-2);font-size:22px;font-weight:700;cursor:pointer}
+      .mat .mstep button:first-child{border-radius:12px 0 0 12px}
+      .mat .mstep button:last-child{border-radius:0 12px 12px 0}
+      .mat .mstep .n{width:58px;height:48px;display:grid;place-items:center;border-top:1px solid var(--line);border-bottom:1px solid var(--line);font-weight:800;font-variant-numeric:tabular-nums;background:#FFFDF4}
+      .mat .mstep.locked{opacity:.55;pointer-events:none}
+      .mat-tools{display:flex;gap:8px;margin:2px 2px 10px;flex-wrap:wrap}
+      .mat-tools button{min-height:44px;padding:0 16px;border-radius:12px;border:1px solid var(--line);
+          background:var(--surface);color:var(--ink-2);font-weight:800;font-size:14px;cursor:pointer}
+      .mat-tools button:active{background:var(--surface-2)}
+      .common-tag{padding:3px 8px;border-radius:6px;background:var(--surface-2);color:var(--ink-2);font-size:11px;font-weight:800;margin-left:6px}
+      .region-warn{background:var(--amber-bg);color:var(--amber);border-radius:14px;padding:13px 16px;font-weight:800;font-size:14px;display:flex;align-items:center;gap:10px}
+      .fam-badge{padding:4px 10px;border-radius:8px;font-size:12px;font-weight:800;margin-left:6px}
+      .fam-badge.dom{background:#E2F1F2;color:#0A5C64}
+      .fam-badge.ovs{background:#EEE7FA;color:#6B3FA0}
+
+  </style>
+
+  <div class="ms-wash-root">
+    <div class="app">
+
+      <!-- A. 큐 -->
+      <div class="screen" id="scA"><div class="wrap">
+        <div class="qhead"><h1>M-CELL 외포장 작업지시</h1><span class="cnt" id="qcnt"></span>
+          <div class="qfilter"><button class="on" data-f="all">전체</button>
+            <button data-f="wait">대기</button><button data-f="working">작업중</button></div></div>
+        <div class="searchbar">
+          <span class="slab">작업지시일</span>
+          <input type="date" id="dFrom" class="dinput"/>
+          <span class="tilde">~</span>
+          <input type="date" id="dTo" class="dinput"/>
+          <button class="sbtn" id="btnSearch">조회</button>
+        </div>
+        <div class="qgrid" id="qgrid"></div>
+      </div></div>
+
+      <!-- B. 세션 목록 -->
+      <div class="screen hide" id="scB"><div class="col-stack">
+        <div class="topbar2">
+          <button class="back" data-back="A">‹</button>
+          <div class="htitle"><div class="t" id="bName">—</div><div class="s" id="bSub">—</div></div>
+        </div>
+        <div class="bscroll"><div class="bgrid">
+          <div class="ovbox" id="ovbox"></div>
+          <div class="secline">작업 목록 <span class="ln"></span><span id="sessCnt"></span></div>
+          <div id="sessList"></div>
+        </div></div>
+        <div class="actionbar">
+          <div class="actsum"><span class="l">한 작지를 여러 작업자가 나눠 작업</span></div>
+          <button class="btn start" id="btnNewSess">＋ 작업 추가</button>
+        </div>
+      </div></div>
+
+      <!-- C. 세션 작업 -->
+      <div class="screen hide" id="scC"><div class="col-stack">
+        <div class="topbar2">
+          <button class="back" data-back="B">‹</button>
+          <div class="htitle"><div class="t" id="cName">—</div><div class="s" id="cSub">—</div></div>
+          <div style="display:flex;gap:8px;align-items:center" id="cHead"></div>
+        </div>
+        <div class="bscroll"><div class="bgrid" id="cBody"></div></div>
+        <div class="actionbar" id="cAction"></div>
+      </div></div>
+
+    </div>
+  </div>
+
+  <!-- 시작 시트 -->
+  <div class="mask" id="startMask"><div class="sheet"><div class="body">
+    <div class="sh"><h3 id="startTitle">작업 추가 · 새 작업자</h3><button class="x" data-close>✕</button></div>
+    <div class="fieldlab">작업자</div><div class="opts" id="workerOpts"></div>
+    <div class="fieldlab">설비</div><div class="opts" id="equipOpts"></div>
+    <button class="ok" id="startOk" disabled>이 작업자로 시작</button>
+  </div></div></div>
+  <!-- 시간 시트 -->
+  <div class="mask" id="timeMask"><div class="sheet"><div class="body">
+    <div class="sh"><h3 id="timeTitle">시작 일시 수정</h3><button class="x" data-close>✕</button></div>
+    <div class="dateedit"><button class="dbtn" data-d="-1">◀</button><div class="dval" id="tDate">—</div><button class="dbtn" data-d="1">▶</button></div>
+    <div class="timeedit">
+      <div class="tcol"><button data-t="h+">▲</button><div class="tv" id="tH">09</div><button data-t="h-">▼</button></div>
+      <div class="tsep">:</div>
+      <div class="tcol"><button data-t="m+">▲</button><div class="tv" id="tM">12</div><button data-t="m-">▼</button></div>
+    </div>
+    <button class="ok" id="timeOk">저장</button>
+  </div></div></div>
+  <!-- 넘패드 -->
+  <div class="mask" id="padMask"><div class="sheet pad"><div class="body">
+    <div class="sh"><h3 id="padLab">수량</h3><span class="disp" id="padDisp" style="margin-left:auto">0</span></div>
+    <div class="keys"><button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
+      <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
+      <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
+      <button class="clr" data-k="C">C</button><button data-k="0">0</button><button class="ok" data-k="OK">확인</button></div>
+  </div></div></div>
+
+  <!-- 카메라 스캔 시트 -->
+  <div class="mask" id="scanMask"><div class="sheet"><div class="body">
+    <div class="sh"><h3>박스 라벨 스캔</h3><button class="x" data-close>✕</button></div>
+    <div class="scanbox" id="scanBox">
+      <div class="noise"></div>
+      <div class="cam"><i></i> CAM · 후면</div>
+      <div class="ghostbc"></div>
+      <div class="frame"><span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span></div>
+      <div class="laser"></div>
+      <div class="hint" id="scanHint">바코드를 사각형 안에 맞추세요 · GS1-128 (01)GTIN(10)LOT …</div>
+    </div>
+    <div class="scan-result" id="scanResult">
+      <div class="ic">✓</div>
+      <div><div class="rl">인식된 박스 라벨 로트</div><div class="rv" id="scanLotVal">—</div></div>
+    </div>
+    <div class="scan-actions">
+      <button class="btn primary" id="scanCapture">📷 스캔 인식</button>
+      <button class="btn ghost" id="scanRetry" style="display:none">다시 스캔</button>
+    </div>
+    <div class="manual">
+      <div class="fieldlab">수동 입력 (스캔 불가 시)</div>
+      <div class="mrow">
+        <input id="scanManual" placeholder="박스 라벨 로트 직접 입력 (예: MCK260706)" autocomplete="off"/>
+        <button class="mbtn" id="scanManualBtn">입력</button>
+      </div>
+    </div>
+    <button class="ok" id="scanApply" disabled>이 로트로 지정</button>
+  </div></div></div>
+
+  <!-- 바코드 출력 시트 -->
+  <div class="mask" id="bcMask"><div class="sheet"><div class="body">
+    <div class="sh"><h3 id="bcTitle">바코드 출력</h3><button class="x" data-close>✕</button></div>
+    <div id="bcList"></div>
+    <button class="ok" id="bcPrint">출력 (인쇄)</button>
+  </div></div></div>
+
+  <!-- 인쇄 영역 -->
+  <div id="printArea"></div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+  <script th:inline="none">
+   /* ── 높이 자동 맞춤 ── */
+   (function () {
+    const root = document.querySelector('.ms-wash-root');
+    if (!root) return;
+
+    function localBelow() {
+     let below = 0, node = root;
+     while (node && node !== document.body) {
+      let sib = node.nextElementSibling;
+      while (sib) {
+       const r = sib.getBoundingClientRect();
+       if (r.height > 0 && getComputedStyle(sib).position !== 'fixed') below += r.height;
+       sib = sib.nextElementSibling;
+      }
+      node = node.parentElement;
+     }
+     let fx = 0;
+     document.querySelectorAll('body *').forEach(el => {
+      if (root.contains(el)) return;
+      const cs = getComputedStyle(el);
+      if (cs.position !== 'fixed' && cs.position !== 'sticky') return;
+      const r = el.getBoundingClientRect();
+      if (r.height > 0 && r.height < innerHeight * 0.5 && r.bottom > innerHeight - 2) fx = Math.max(fx, r.height);
+     });
+     return Math.max(below, fx);
+    }
+
+    function availBottom() {
+     let bottom = window.innerHeight;
+     try {
+      const fe = window.frameElement;
+      if (fe) {
+       const pWin = window.parent, pDoc = pWin.document;
+       const feTop = fe.getBoundingClientRect().top;
+       let flow = 0, node = fe;
+       while (node && node !== pDoc.body) {
+        let sib = node.nextElementSibling;
+        while (sib) {
+         const cs = pWin.getComputedStyle(sib), r = sib.getBoundingClientRect();
+         if (r.height > 0 && cs.position !== 'fixed' && cs.position !== 'absolute') flow += r.height;
+         sib = sib.nextElementSibling;
+        }
+        node = node.parentElement;
+       }
+       let fx = 0;
+       pDoc.querySelectorAll('body *').forEach(el => {
+        if (el === fe || el.contains(fe)) return;
+        const cs = pWin.getComputedStyle(el);
+        if (cs.position !== 'fixed' && cs.position !== 'sticky' && cs.position !== 'absolute') return;
+        const r = el.getBoundingClientRect();
+        if (r.height > 0 && r.height <= 160 && r.top > feTop && r.bottom > pWin.innerHeight - 40)
+         fx = Math.max(fx, r.bottom - r.top);
+       });
+       const pFooter = Math.max(flow, fx);
+       bottom = Math.min(bottom, (pWin.innerHeight - pFooter) - feTop);
+      }
+     } catch (e) {}
+     return bottom;
+    }
+
+    function fit() {
+     const top = root.getBoundingClientRect().top;
+     const avail = availBottom() - top - localBelow();
+     root.style.setProperty('--wash-h', Math.max(320, Math.floor(avail)) + 'px');
+    }
+
+    window.addEventListener('resize', fit);
+    window.addEventListener('orientationchange', fit);
+    try { window.parent.addEventListener('resize', fit); } catch (e) {}
+    fit();
+    requestAnimationFrame(fit);
+    setTimeout(fit, 200);
+    setTimeout(fit, 600);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
+   })();
+
+   const WD = ['일', '월', '화', '수', '목', '금', '토'];
+   const WORKERS = ['정우철', '김민수', '이서연', '박지훈'];
+   const EQUIPS = [['디바이스 박스대', 'DV-01'], ['외포장대 A', 'OP-01'], ['외포장대 B', 'OP-02']];
+   const STLAB = {working: '작업중', wait: '대기', done: '완료'};
+
+   function nowHM() {
+    var d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0') + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+   }
+
+   function pill(v) {
+    if (!v) return '--:--';
+    if (v.indexOf(' ') >= 0) {
+     var a = v.split(' ');
+     return a[0].slice(5) + ' ' + a[1];
+    }
+    return v;
+   }
+
+   // ════ M-CELL4(Rotor A) 국내/해외 포장 BOM ════
+   // 본체 조립(WIP-MC60066)은 공통, 포장 자재만 국내/해외 상이.
+   // 두 시트는 별도 완제품 코드(국내 MRCN-61066 / 해외 MRCN-61067).
+   var MCELL_PACK = {
+    device: {code: "WIP-MC60066", name: "SMART-M-CELL4(재공품, 로터A타입)"},
+    dom: {
+     prod: "MRCN-61066",
+     label: "SMART-M-CELL4 (국내, 로터A타입)",
+     mats: [
+      {code: "M-IY00024", name: "엠셀 내수용 IN BOX 200*160*50", qty: 2},
+      {code: "M-IY00023", name: "엠셀 내수용 C/T BOX 615*515*350", qty: 1},
+      {code: "M-IY00025", name: "엠셀 내수용 TOP FOAM 55T*500*600", qty: 1},
+      {code: "M-IY00123", name: "BOTTOM FOAM1 (내수용)", qty: 1},
+      {code: "M-IY00124", name: "BOTTOM FOAM 2 (내수용)", qty: 1},
+      {code: "M-IY00127", name: "IN FOAM 2 (원형)", qty: 1, common: true},
+      {code: "M-IO00127", name: "본체 전원 케이블( 3m )", qty: 1, common: true},
+      {code: "M-IPD00027", name: "전원케이블 (1m 3구)", qty: 1, common: true},
+      {code: "M-IPD00026", name: "어댑터-19V SW60-19003160-W (19V 3.16A)", qty: 1, common: true}
+     ]
+    },
+    ovs: {
+     prod: "MRCN-61067",
+     label: "SMART-M-CELL4 (해외, 로터A타입)",
+     mats: [
+      {code: "M-IY10123", name: "수출용-PE-BOTTOM FOAM", qty: 2},
+      {code: "M-IY10025", name: "수출용-PE-TOP COVER", qty: 1},
+      {code: "M-IY10023", name: "수출용박스(유공) 685*575*450", qty: 1},
+      {code: "M-IY00026", name: "수출용-PE-MIDDLE FOAM", qty: 1},
+      {code: "M-IY00127", name: "IN FOAM 2 (원형)", qty: 1, common: true},
+      {code: "M-IO00127", name: "본체 전원 케이블( 3m )", qty: 1, common: true},
+      {code: "M-IPD00027", name: "전원케이블 (1m 3구)", qty: 1, common: true},
+      {code: "M-IPD00026", name: "어댑터-19V SW60-19003160-W (19V 3.16A)", qty: 1, common: true}
+     ]
+    }
+   };
+
+   function regionBom(region) {
+    return region === 'ovs' ? MCELL_PACK.ovs : (region === 'dom' ? MCELL_PACK.dom : null);
+   }
+
+   function mkSess(worker, equip) {
+    return {
+     worker: worker, equip: equip, start: nowHM(), end: null, st: 'working',
+     outbox: 0, region: null, mat: {}, labelLot: null
+    };
+   }
+
+   const ORDERS = [
+    {
+     id: 'OUT-2406-050',
+     odate: '2026-06-26',
+     st: 'wait',
+     name: 'M-CELL4 디바이스 (로터A)',
+     code: MCELL_PACK.device.code,
+     gtin: '08801234569990',
+     chasu: 1,
+     plan: 10,
+     sessions: []
+    },
+    {
+     id: 'OUT-2607-051',
+     odate: '2026-07-06',
+     st: 'wait',
+     name: 'M-CELL4 디바이스 (로터A)',
+     code: MCELL_PACK.device.code,
+     gtin: '08801234569990',
+     chasu: 1,
+     plan: 8,
+     sessions: []
+    },
+    {
+     id: 'OUT-2607-052',
+     odate: '2026-07-06',
+     st: 'working',
+     name: 'M-CELL4 디바이스 (로터A)',
+     code: MCELL_PACK.device.code,
+     gtin: '08801234569990',
+     chasu: 1,
+     plan: 12,
+     sessions: [
+      {
+       worker: '정우철',
+       equip: '디바이스 박스대',
+       start: '2026-07-06 09:20',
+       end: null,
+       st: 'working',
+       outbox: 5,
+       region: 'dom',
+       mat: {
+        'M-IY00024': 10, 'M-IY00023': 5, 'M-IY00025': 5, 'M-IY00123': 5,
+        'M-IY00124': 0, 'M-IY00127': 0, 'M-IO00127': 0, 'M-IPD00027': 0, 'M-IPD00026': 0
+       },
+       labelLot: null
+      }
+     ]
+    },
+    {
+     id: 'OUT-2607-053',
+     odate: '2026-07-06',
+     st: 'done',
+     name: 'M-CELL4 디바이스 (로터A)',
+     code: MCELL_PACK.device.code,
+     gtin: '08801234569990',
+     chasu: 1,
+     plan: 6,
+     sessions: [
+      {
+       worker: '이서연',
+       equip: '외포장대 B',
+       start: '2026-07-06 08:40',
+       end: '2026-07-06 10:15',
+       st: 'done',
+       outbox: 6,
+       region: 'ovs',
+       mat: {
+        'M-IY10123': 12, 'M-IY10025': 6, 'M-IY10023': 6, 'M-IY00026': 6,
+        'M-IY00127': 6, 'M-IO00127': 6, 'M-IPD00027': 6, 'M-IPD00026': 6
+       },
+       labelLot: 'MCX260706'
+      }
+     ]
+    },
+   ];
+
+   function orderPct(o) {
+    var packed = o.sessions.reduce(function (a, s) { return a + (s.outbox || 0); }, 0);
+    return o.plan ? Math.min(100, Math.round(packed / o.plan * 100)) : 0;
+   }
+
+   let curO = null, curS = null, filter = 'all';
+   const qgrid = document.getElementById('qgrid');
+   const SC = {
+    A: document.getElementById('scA'),
+    B: document.getElementById('scB'),
+    C: document.getElementById('scC')
+   };
+
+   function show(k) {
+    for (var x in SC) SC[x].classList.toggle('hide', x !== k);
+   }
+
+   function orderDoneQty(o) {
+    return (o.sessions || []).reduce(function (a, s) { return a + (s.outbox || 0); }, 0);
+   }
+
+   function workingCount(o) {
+    return (o.sessions || []).filter(function (s) { return s.st === 'working'; }).length;
+   }
+
+   function inRange(o) {
+    var f = document.getElementById('dFrom').value, t = document.getElementById('dTo').value;
+    if (f && o.odate < f) return false;
+    if (t && o.odate > t) return false;
+    return true;
+   }
+
+   function renderQueue() {
+    var list = ORDERS.filter(function (o) {
+     return (filter === 'all' || o.st === filter) && inRange(o);
+    });
+    document.getElementById('qcnt').textContent = list.length + '건';
+    qgrid.innerHTML = list.map(function (o) {
+     var pct = orderPct(o);
+     return '<div class="wo" data-st="' + o.st + '" data-id="' + o.id + '"><div class="edge"></div>' +
+      '<div class="row1"><span class="wono">' + o.id + '</span>' +
+      '<span style="font-size:13px;color:var(--ink-2);font-weight:700">' + o.odate + '</span>' +
+      '<span class="chip ' + o.st + '">' + STLAB[o.st] + '</span></div>' +
+      '<div class="name">' + o.name + '</div>' +
+      '<div class="meta"><div class="blk"><span class="lab">계획</span><span class="val">' + o.plan + '</span></div>' +
+      '<div class="blk"><span class="lab">완료</span><span class="val">' + orderDoneQty(o) + '</span></div>' +
+      '<div class="blk"><span class="lab">작업</span><span class="val">' + workingCount(o) + '</span></div>' +
+      '<div class="prog"><span class="lab">' + (o.st === 'wait' ? '미시작' : '진행 ' + pct + '%') + '</span>' +
+      '<div class="bar"><i style="width:' + pct + '%"></i></div></div></div></div>';
+    }).join('');
+   }
+
+   qgrid.addEventListener('click', function (e) {
+    var c = e.target.closest('.wo');
+    if (c) openOrder(c.dataset.id);
+   });
+   document.querySelectorAll('.qfilter button').forEach(function (b) {
+    b.addEventListener('click', function () {
+     document.querySelectorAll('.qfilter button').forEach(function (x) { x.classList.remove('on'); });
+     b.classList.add('on');
+     filter = b.dataset.f;
+     renderQueue();
+    });
+   });
+   document.getElementById('btnSearch').addEventListener('click', renderQueue);
+   (function () {
+    var t = new Date(), f = new Date();
+    f.setDate(f.getDate() - 7);
+    var fmt = function (d) {
+     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    };
+    document.getElementById('dFrom').value = fmt(f);
+    document.getElementById('dTo').value = fmt(t);
+   })();
+
+   document.querySelectorAll('[data-back]').forEach(function (b) {
+    b.addEventListener('click', function () {
+     var to = b.dataset.back;
+     if (to === 'A') { renderQueue(); show('A'); }
+     else { renderSessList(); show('B'); }
+    });
+   });
+
+   function openOrder(id) {
+    curO = ORDERS.filter(function (x) { return x.id === id; })[0];
+    document.getElementById('bName').textContent = curO.name;
+    document.getElementById('bSub').textContent = curO.id + ' · 차수 ' + curO.chasu;
+    renderSessList();
+    show('B');
+   }
+
+   document.getElementById('btnNewSess').onclick = openStart;
+
+   function renderSessList() {
+    var o = curO;
+    var packed = o.sessions.reduce(function (a, s) { return a + (s.outbox || 0); }, 0);
+    document.getElementById('ovbox').innerHTML =
+     '<div class="ov"><div class="l">계획수량</div><div class="v">' + o.plan + '</div></div>' +
+     '<div class="ov"><div class="l">박스 포장</div><div class="v">' + packed + '</div></div>' +
+     '<div class="ov left"><div class="l">잔여수량</div><div class="v">' + Math.max(0, o.plan - packed) + '</div></div>';
+    document.getElementById('sessCnt').textContent = o.sessions.length + '건';
+    var box = document.getElementById('sessList');
+    if (!o.sessions.length) {
+     box.innerHTML = '<div class="emptysess">작업이 없습니다. ‘작업 추가’로 외포장을 시작하세요.</div>';
+     return;
+    }
+    box.innerHTML = o.sessions.map(function (se, i) {
+     var regionTag = se.region
+      ? '<span class="fam-badge ' + se.region + '">' + (se.region === 'ovs' ? '해외' : '국내') + '</span>'
+      : '';
+     return '<div class="sess" data-st="' + se.st + '" data-i="' + i + '"><div class="edge"></div>' +
+      '<div class="who"><span class="nm">' + se.worker + '</span><span class="eq">' + se.equip + '</span></div>' +
+      '<div class="time">' + pill(se.start) + ' ~ ' + pill(se.end) + '</div>' +
+      '<div class="qty"><div class="l">박스' + regionTag + '</div><div class="v">' + (se.outbox || 0) + '</div></div>' +
+      '<span class="badge ' + se.st + '">' + STLAB[se.st] + '</span></div>';
+    }).join('');
+   }
+
+   document.getElementById('sessList').addEventListener('click', function (e) {
+    var s = e.target.closest('.sess');
+    if (s) openSess(+s.dataset.i);
+   });
+
+   function openSess(i) {
+    curS = curO.sessions[i];
+    curS._idx = i;
+    document.getElementById('cName').textContent = curS.worker + ' · 외포장(M-CELL 박스)';
+    document.getElementById('cSub').textContent = curO.id + ' · ' + curO.name + ' · 계획 ' + curO.plan;
+    renderCHead();
+    renderCBody();
+    renderCAction();
+    show('C');
+   }
+
+   function renderCHead() {
+    document.getElementById('cHead').innerHTML =
+     '<div class="infopill"><span>설비</span><b>' + curS.equip + '</b></div>' +
+     '<div class="infopill tap" data-time="start"><span>시작</span><b>' + pill(curS.start) + '</b></div>' +
+     '<div class="infopill tap" data-time="end"><span>종료</span><b>' + pill(curS.end) + '</b></div>' +
+     '<span class="sstate ' + curS.st + '">' + STLAB[curS.st] + '</span>';
+   }
+
+   function mcellMatCount(region) {
+    var rb = regionBom(region);
+    if (!rb) return {done: 0, total: 0};
+    var done = 0;
+    rb.mats.forEach(function (m) {
+     var need = (m.qty || 1) * (curS.outbox || 0);
+     if ((curS.mat[m.code] || 0) >= need && need > 0) done++;
+    });
+    return {done: done, total: rb.mats.length};
+   }
+
+   function renderCBody() {
+    var locked = curS.st !== 'working';
+    var html = '';
+
+    // ① 지역(포장 방식) 선택
+    html += '<div class="secline">① 포장 방식 (국내 / 해외) <span class="ln"></span><span>선택 시 해당 포장 자재만 표시</span></div>';
+    html += '<div class="region-seg">' +
+     '<div class="rseg dom ' + (curS.region === 'dom' ? 'sel' : '') + '" data-region="dom">' +
+     '<div class="rhead"><span class="flag">🇰🇷</span><span class="rt">국내</span></div>' +
+     '<span class="rs">' + MCELL_PACK.dom.prod + ' · 내수용 포장 (' + MCELL_PACK.dom.mats.length + '종)</span></div>' +
+     '<div class="rseg ovs ' + (curS.region === 'ovs' ? 'sel' : '') + '" data-region="ovs">' +
+     '<div class="rhead"><span class="flag">✈️</span><span class="rt">해외</span></div>' +
+     '<span class="rs">' + MCELL_PACK.ovs.prod + ' · 수출용 포장 (' + MCELL_PACK.ovs.mats.length + '종)</span></div>' +
+     '</div>';
+
+    if (!curS.region) {
+     html += '<div class="region-warn">⚠️ 포장 방식(국내/해외)을 먼저 선택하세요. 국내와 해외는 박스·폼 자재가 다릅니다.</div>';
+     document.getElementById('cBody').innerHTML = html;
+     return;
+    }
+
+    var rb = regionBom(curS.region);
+
+    // ② 박스 포장 수량
+    html += '<div class="secline">② 박스 포장 수량 <span class="ln"></span><span>' + rb.prod + '</span></div>';
+    html += '<div class="part"><div class="id"><span class="pn">박스 포장수량</span><span class="pc">' + rb.label + '</span></div>' +
+     (locked ? '<span class="done-tag">' + curS.outbox + ' EA</span>'
+      : '<div class="stepper" data-mbox="1"><button class="minus">−</button><div class="qty" data-padbox="1">' + curS.outbox + '</div><button class="plus">+</button></div>') + '</div>';
+
+    // ③ 포장 자재 투입 (선택 지역 BOM)
+    var mc = mcellMatCount(curS.region);
+    html += '<div class="secline">③ ' + (curS.region === 'ovs' ? '수출용' : '내수용') + ' 포장 자재 투입 <span class="ln"></span><span>' + mc.done + ' / ' + mc.total + ' 충족</span></div>';
+
+    if (!locked) {
+     html += '<div class="mat-tools">' +
+      '<button data-matfill="1">📥 필요수량 일괄 채우기</button>' +
+      '<button data-matclear="1">비우기</button></div>';
+    }
+
+    rb.mats.forEach(function (m) {
+     var per = m.qty || 1;
+     var need = per * (curS.outbox || 0);
+     var cur = curS.mat[m.code] || 0;
+     var ok = need > 0 && cur >= need;
+     html += '<div class="mat ' + (ok ? 'on' : '') + '" data-mrow="' + m.code + '">' +
+      '<div class="chk" data-mtoggle="' + m.code + '">' + (ok ? '✓' : '') + '</div>' +
+      '<div class="mid"><div class="mn">' + m.name + (m.common ? '<span class="common-tag">공통</span>' : '') + '</div>' +
+      '<div class="mc">' + m.code + ' · BOM ' + per + ' /대 → 필요 <b>' + need + '</b></div></div>' +
+      '<div class="mstep ' + (locked ? 'locked' : '') + '">' +
+      '<button data-mminus="' + m.code + '">−</button>' +
+      '<div class="n" data-mpad="' + m.code + '">' + cur + '</div>' +
+      '<button data-mplus="' + m.code + '">＋</button></div>' +
+      '</div>';
+    });
+
+    // ④ 박스 라벨 스캔
+    html += '<div class="secline">④ 박스 라벨 스캔 <span class="ln"></span><span>' + (curS.region === 'ovs' ? '수출용' : '내수용') + ' 박스 라벨 스캔 지정</span></div>';
+    if (!curS.labelLot) {
+     html += '<div class="part"><div class="id"><span class="pn">📷 박스 라벨 바코드 스캔</span><span class="pc">' + rb.prod + ' 박스 라벨(GS1-128)을 카메라로 스캔해 로트를 지정합니다.</span></div>' +
+      (locked ? '' : '<button class="btn primary" id="scanIn" style="min-height:54px">스캔</button>') + '</div>';
+    } else {
+     html += '<table class="form-tbl"><tr><th>구분</th><th>완제품 코드</th><th>라벨 로트(스캔)</th></tr>' +
+      '<tr><td>' + (curS.region === 'ovs' ? '수출용' : '내수용') + ' 박스</td><td>' + rb.prod + '</td><td><b>' + curS.labelLot + '</b></td></tr></table>' +
+      (locked ? '' : '<div style="margin-top:6px"><button class="btn ghost" id="rescanIn">다시 스캔</button></div>');
+    }
+
+    document.getElementById('cBody').innerHTML = html + mcellLabelSection();
+   }
+
+   function mcellLabelSection() {
+    if (!curS.region || curS.outbox <= 0) return '';
+    return '<div class="secline">라벨 출력 <span class="ln"></span><span>박스</span></div>' +
+     '<div class="printrow"><button class="btn ghost" id="bcBoxM" style="flex:1;min-height:56px">📦 ' +
+     (curS.region === 'ovs' ? '수출용' : '내수용') + ' 박스 라벨 (' + curS.outbox + '장)</button></div>';
+   }
+
+   function renderCAction() {
+    var bar = document.getElementById('cAction');
+    var packed = curS.outbox;
+    if (curS.st === 'done') {
+     bar.innerHTML = '<div class="actsum"><span class="l">박스 포장</span><span class="v">' + packed + ' EA</span></div><button class="btn danger" id="cCancel">완료취소</button>';
+     document.getElementById('cCancel').onclick = function () {
+      curS.st = 'working';
+      curS.end = null;
+      renderCHead(); renderCBody(); renderCAction(); renderSessList();
+      flash('완료취소 (목업)');
+     };
+    } else {
+     var mc = curS.region ? mcellMatCount(curS.region) : {done: 0, total: 1};
+     var ready = curS.region && curS.outbox > 0 && mc.done === mc.total && curS.labelLot;
+     bar.innerHTML = '<div class="actsum"><span class="l">박스 포장</span><span class="v">' + packed + ' EA</span></div>' +
+      '<button class="btn ghost" id="cDelete">삭제</button><button class="btn primary" id="cFinish" ' + (ready ? '' : 'disabled style="opacity:.5"') + '>외포장 완료</button>';
+     document.getElementById('cFinish').onclick = function () {
+      if (!ready) {
+       if (!curS.region) flash('포장 방식(국내/해외)을 선택하세요');
+       else if (curS.outbox <= 0) flash('박스 포장수량을 입력하세요');
+       else if (mc.done !== mc.total) flash('포장 자재 투입수량이 필요수량에 미달합니다');
+       else flash('박스 라벨 스캔이 필요합니다');
+       return;
+      }
+      curS.st = 'done';
+      curS.end = nowHM();
+      renderCHead(); renderCBody(); renderCAction(); renderSessList();
+      flash('외포장 완료 → ' + (curS.region === 'ovs' ? '수출용' : '내수용') + ' 포장 · 출하대기 (목업)');
+     };
+     document.getElementById('cDelete').onclick = function () {
+      curO.sessions.splice(curS._idx, 1);
+      renderSessList();
+      show('B');
+      flash('작업 삭제 (목업)');
+     };
+    }
+   }
+
+   document.getElementById('cBody').addEventListener('click', function (e) {
+    function step(sel, key, max) {
+     var st = e.target.closest('[data-' + sel + ']');
+     if (st && (e.target.classList.contains('plus') || e.target.classList.contains('minus'))) {
+      var d = e.target.classList.contains('plus') ? 1 : -1;
+      curS[key] = Math.max(0, (max ? Math.min(max, curS[key] + d) : curS[key] + d));
+      renderCBody(); renderCAction(); renderSessList();
+      return true;
+     }
+     return false;
+    }
+
+    if (step('mbox', 'outbox')) return;
+
+    // 지역 선택
+    var rg = e.target.closest('[data-region]');
+    if (rg) {
+     var newR = rg.dataset.region;
+     if (curS.region !== newR) {
+      if (curS.region) { curS.mat = {}; curS.labelLot = null; }
+      curS.region = newR;
+      renderCBody(); renderCAction(); renderSessList();
+      flash((newR === 'ovs' ? '해외(수출용)' : '국내(내수용)') + ' 포장 자재로 전환');
+     }
+     return;
+    }
+
+    // 라벨 스캔
+    if (e.target.id === 'scanIn' || e.target.id === 'rescanIn') { openScan(); return; }
+
+    // 자재 스텝 +/-
+    var mp = e.target.closest('[data-mplus]');
+    if (mp) {
+     var c = mp.dataset.mplus;
+     curS.mat[c] = (curS.mat[c] || 0) + 1;
+     renderCBody(); renderCAction();
+     return;
+    }
+    var mm = e.target.closest('[data-mminus]');
+    if (mm) {
+     var c2 = mm.dataset.mminus;
+     curS.mat[c2] = Math.max(0, (curS.mat[c2] || 0) - 1);
+     renderCBody(); renderCAction();
+     return;
+    }
+    // 자재 체크(=필요수량 채움 토글)
+    var mt = e.target.closest('[data-mtoggle]');
+    if (mt) {
+     var c3 = mt.dataset.mtoggle;
+     var rb = regionBom(curS.region);
+     var mo = rb.mats.filter(function (x) { return x.code === c3; })[0];
+     var need = (mo.qty || 1) * (curS.outbox || 0);
+     curS.mat[c3] = (curS.mat[c3] || 0) >= need && need > 0 ? 0 : need;
+     renderCBody(); renderCAction();
+     return;
+    }
+    // 자재 수량 넘패드
+    var mpad = e.target.closest('[data-mpad]');
+    if (mpad) { openPadMat(mpad.dataset.mpad); return; }
+    // 박스 수량 넘패드
+    var pb = e.target.closest('[data-padbox]');
+    if (pb) { openPadBox(); return; }
+    // 일괄 채우기 / 비우기
+    if (e.target.closest('[data-matfill]')) {
+     var rbf = regionBom(curS.region);
+     rbf.mats.forEach(function (m) { curS.mat[m.code] = (m.qty || 1) * (curS.outbox || 0); });
+     renderCBody(); renderCAction();
+     flash('필요수량 일괄 채움'); return;
+    }
+    if (e.target.closest('[data-matclear]')) {
+     curS.mat = {};
+     renderCBody(); renderCAction();
+     flash('자재 투입 비움'); return;
+    }
+    if (e.target.id === 'bcBoxM') {
+     var rb2 = regionBom(curS.region);
+     var rcode = curS.region === 'ovs' ? 'MC-OVS' : 'MC-DOM';
+     var lot = curS.labelLot || (rcode + (curS.start || '').slice(2, 10).replace(/-/g, ''));
+     openBarcode((curS.region === 'ovs' ? '수출용' : '내수용') + ' M-CELL 박스 라벨', [{
+      line: '(01)' + curO.gtin + '(10)' + lot,
+      sub: rb2.label + ' · ' + rb2.prod,
+      copies: curS.outbox
+     }]);
+     return;
+    }
+   });
+   document.getElementById('cHead').addEventListener('click', function (e) {
+    var t = e.target.closest('[data-time]');
+    if (t) openTime(t.dataset.time);
+   });
+
+   /* ── 박스 라벨 카메라 스캔(모의) ── */
+   var scanPendingLot = null;
+
+   function sampleLabelLot() {
+    var pre = curS && curS.region === 'ovs' ? 'MCX' : 'MCK';
+    var dt = ((curS && curS.start) || '260706').slice(2, 10).replace(/-/g, '') || '260706';
+    return pre + dt;
+   }
+
+   function scanReset() {
+    scanPendingLot = null;
+    document.getElementById('scanBox').classList.remove('recognized');
+    document.getElementById('scanHint').textContent = '바코드를 사각형 안에 맞추세요 · GS1-128 (01)GTIN(10)LOT …';
+    document.getElementById('scanResult').classList.remove('show');
+    document.getElementById('scanLotVal').textContent = '—';
+    document.getElementById('scanCapture').style.display = '';
+    document.getElementById('scanCapture').disabled = false;
+    document.getElementById('scanRetry').style.display = 'none';
+    document.getElementById('scanApply').disabled = true;
+   }
+
+   function openScan() {
+    scanReset();
+    document.getElementById('scanManual').value = '';
+    showMask('scanMask');
+   }
+
+   function scanRecognize(lot, viaManual) {
+    scanPendingLot = lot;
+    document.getElementById('scanBox').classList.add('recognized');
+    document.getElementById('scanHint').textContent = viaManual ? '수동 입력 로트 확인' : '인식 완료 — GS1-128 디코딩';
+    document.getElementById('scanLotVal').textContent = lot;
+    document.getElementById('scanResult').classList.add('show');
+    document.getElementById('scanCapture').style.display = 'none';
+    document.getElementById('scanRetry').style.display = '';
+    document.getElementById('scanApply').disabled = false;
+   }
+
+   document.getElementById('scanCapture').onclick = function () {
+    var btn = this;
+    btn.disabled = true;
+    document.getElementById('scanHint').textContent = '인식 중…';
+    setTimeout(function () {
+     var raw = '(01)' + (curO ? curO.gtin : '') + '(10)' + sampleLabelLot() + '(30)1';
+     var m = raw.match(/\(10\)([^()]+)/);
+     scanRecognize(m ? m[1] : sampleLabelLot(), false);
+    }, 650);
+   };
+   document.getElementById('scanRetry').onclick = function () { scanReset(); };
+   document.getElementById('scanManualBtn').onclick = function () {
+    var v = (document.getElementById('scanManual').value || '').trim();
+    if (!v) { flash('박스 라벨 로트를 입력하세요'); return; }
+    var m = v.match(/\(10\)([^()]+)/);
+    scanRecognize(m ? m[1] : v, true);
+   };
+   document.getElementById('scanManual').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') document.getElementById('scanManualBtn').click();
+   });
+   document.getElementById('scanApply').onclick = function () {
+    if (!scanPendingLot) return;
+    curS.labelLot = scanPendingLot;
+    hideMask('scanMask');
+    renderCBody(); renderCAction(); renderSessList();
+    flash('박스 라벨 로트 ' + curS.labelLot + ' 지정 (목업)');
+   };
+
+   var padVal = '', padMode = 'box', padMatCode = null;
+
+   function openPadBox() {
+    padMode = 'box'; padMatCode = null;
+    padVal = String(curS.outbox || 0);
+    document.getElementById('padLab').textContent = '박스 포장수량';
+    document.getElementById('padDisp').textContent = padVal;
+    showMask('padMask');
+   }
+
+   function openPadMat(code) {
+    padMode = 'mat'; padMatCode = code;
+    padVal = String(curS.mat[code] || 0);
+    var rb = regionBom(curS.region);
+    var mo = rb.mats.filter(function (x) { return x.code === code; })[0];
+    document.getElementById('padLab').textContent = mo ? mo.name : '자재 수량';
+    document.getElementById('padDisp').textContent = padVal;
+    showMask('padMask');
+   }
+
+   document.querySelector('#padMask .keys').addEventListener('click', function (e) {
+    var k = e.target.dataset.k;
+    if (!k) return;
+    if (k === 'C') padVal = '';
+    else if (k === 'OK') {
+     var n = parseInt(padVal || '0', 10);
+     if (padMode === 'box') curS.outbox = n;
+     else if (padMode === 'mat' && padMatCode) curS.mat[padMatCode] = n;
+     hideMask('padMask');
+     renderCBody(); renderCAction(); renderSessList();
+     return;
+    } else padVal = (padVal === '0' ? '' : padVal) + k;
+    document.getElementById('padDisp').textContent = padVal || '0';
+   });
+
+   /* ── 시작 시트 ── */
+   function showMask(id) { document.getElementById(id).classList.add('show'); }
+   function hideMask(id) { document.getElementById(id).classList.remove('show'); }
+
+   document.querySelectorAll('.mask').forEach(function (m) {
+    m.addEventListener('click', function (e) {
+     if (e.target === m || (e.target.closest && e.target.closest('[data-close]'))) m.classList.remove('show');
+    });
+   });
+
+   let selW = null, selE = null;
+
+   function openStart() {
+    selW = null; selE = null;
+    document.getElementById('workerOpts').innerHTML = WORKERS.map(function (w) {
+     return '<button class="opt" data-w="' + w + '">' + w + '</button>';
+    }).join('');
+    document.getElementById('equipOpts').innerHTML = EQUIPS.map(function (e) {
+     return '<button class="opt" data-e="' + e[0] + '">' + e[0] + ' <span class="sub">' + e[1] + '</span></button>';
+    }).join('');
+    document.getElementById('startOk').disabled = true;
+    showMask('startMask');
+   }
+
+   document.getElementById('workerOpts').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-w]');
+    if (!b) return;
+    document.querySelectorAll('#workerOpts .opt').forEach(function (x) { x.classList.remove('sel'); });
+    b.classList.add('sel');
+    selW = b.dataset.w;
+    ckStart();
+   });
+   document.getElementById('equipOpts').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-e]');
+    if (!b) return;
+    document.querySelectorAll('#equipOpts .opt').forEach(function (x) { x.classList.remove('sel'); });
+    b.classList.add('sel');
+    selE = b.dataset.e;
+    ckStart();
+   });
+
+   function ckStart() {
+    document.getElementById('startOk').disabled = !(selW && selE);
+   }
+
+   document.getElementById('startOk').onclick = function () {
+    var se = mkSess(selW, selE);
+    curO.sessions.push(se);
+    if (curO.st === 'wait') curO.st = 'working';
+    hideMask('startMask');
+    renderSessList();
+    openSess(curO.sessions.length - 1);
+    flash('작업 시작 · ' + selW + ' / ' + selE);
+   };
+
+   /* 토스트 */
+   let tT;
+   function flash(m) {
+    var t = document.getElementById('toast');
+    if (!t) {
+     t = document.createElement('div');
+     t.id = 'toast';
+     t.style.cssText = 'position:fixed;left:50%;bottom:110px;transform:translateX(-50%);background:#15222B;color:#fff;padding:14px 22px;border-radius:14px;font-weight:700;z-index:60;box-shadow:0 12px 30px -10px rgba(0,0,0,.5);transition:opacity .3s';
+     document.body.appendChild(t);
+    }
+    t.textContent = m;
+    t.style.opacity = '1';
+    clearTimeout(tT);
+    tT = setTimeout(function () { t.style.opacity = '0'; }, 1700);
+   }
+
+   /* ── 바코드/출력 ── */
+   function bcCard(d) {
+    return '<div class="bc-card"><div class="bc-bars"></div>' +
+     '<div class="bc-data">' + d.line + '</div>' +
+     (d.sub ? '<div class="bc-sub">' + d.sub + '</div>' : '') + '</div>';
+   }
+
+   function openBarcode(title, labels) {
+    document.getElementById('bcTitle').textContent = title;
+    document.getElementById('bcList').innerHTML = labels.map(function (l) {
+     return '<div style="margin-bottom:12px">' + bcCard(l) +
+      (l.copies > 1 ? '<div class="bc-sub" style="text-align:center">× ' + l.copies + '장 출력</div>' : '') + '</div>';
+    }).join('');
+    window.__printLabels = labels;
+    showMask('bcMask');
+   }
+
+   document.getElementById('bcPrint').onclick = function () {
+    var labels = window.__printLabels || [];
+    var html = '';
+    labels.forEach(function (l) {
+     var n = l.copies || 1;
+     for (var i = 0; i < n; i++) {
+      html += '<div style="border:1px solid #000;border-radius:6px;padding:12px;margin:6px;display:inline-block;width:220px;text-align:center;page-break-inside:avoid">' +
+       '<div style="height:54px;background:repeating-linear-gradient(90deg,#000 0 2px,#fff 2px 4px,#000 4px 5px,#fff 5px 9px,#000 9px 12px,#fff 12px 13px);border-radius:2px;margin-bottom:6px"></div>' +
+       '<div style="font-size:12px;font-weight:700">' + l.line + '</div>' + (l.sub ? '<div style="font-size:11px;color:#555">' + l.sub + '</div>' : '') + '</div>';
+     }
+    });
+    var pa = document.getElementById('printArea');
+    pa.innerHTML = '<h3 style="margin:0 0 10px">' + document.getElementById('bcTitle').textContent + '</h3>' + html;
+    hideMask('bcMask');
+    setTimeout(function () { window.print(); }, 100);
+   };
+
+   /* 시간 수정 */
+   let timeWhich = 'start', editDate = new Date();
+
+   function fmtD(d) {
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0') + ' (' + WD[d.getDay()] + ')';
+   }
+
+   function openTime(which) {
+    timeWhich = which;
+    document.getElementById('timeTitle').textContent = (which === 'start' ? '시작' : '종료') + ' 일시 수정';
+    var saved = which === 'start' ? curS.start : curS.end;
+    if (saved && saved.indexOf(' ') >= 0) {
+     var a = saved.split(' ');
+     editDate = new Date(a[0] + 'T' + a[1]);
+    } else editDate = new Date();
+    document.getElementById('tDate').textContent = fmtD(editDate);
+    document.getElementById('tH').textContent = String(editDate.getHours()).padStart(2, '0');
+    document.getElementById('tM').textContent = String(editDate.getMinutes()).padStart(2, '0');
+    showMask('timeMask');
+   }
+
+   document.querySelector('#timeMask .dateedit').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-d]');
+    if (!b) return;
+    editDate.setDate(editDate.getDate() + (+b.dataset.d));
+    document.getElementById('tDate').textContent = fmtD(editDate);
+   });
+   document.querySelector('#timeMask .timeedit').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-t]');
+    if (!b) return;
+    var H = document.getElementById('tH'), M = document.getElementById('tM');
+    var h = +H.textContent, m = +M.textContent;
+    if (b.dataset.t === 'h+') h = (h + 1) % 24;
+    if (b.dataset.t === 'h-') h = (h + 23) % 24;
+    if (b.dataset.t === 'm+') m = (m + 1) % 60;
+    if (b.dataset.t === 'm-') m = (m + 59) % 60;
+    H.textContent = String(h).padStart(2, '0');
+    M.textContent = String(m).padStart(2, '0');
+   });
+   document.getElementById('timeOk').onclick = function () {
+    var ds = editDate.getFullYear() + '-' + String(editDate.getMonth() + 1).padStart(2, '0') + '-' + String(editDate.getDate()).padStart(2, '0');
+    var v = ds + ' ' + document.getElementById('tH').textContent + ':' + document.getElementById('tM').textContent;
+    if (timeWhich === 'start') curS.start = v; else curS.end = v;
+    hideMask('timeMask');
+    renderCHead();
+    renderSessList();
+    flash((timeWhich === 'start' ? '시작' : '종료') + ' 저장 ' + pill(v));
+   };
+
+   renderQueue();
+  </script>
+</th:block>
+
+</html>
