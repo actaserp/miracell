@@ -248,6 +248,22 @@
       .fam-badge.dom{background:#E2F1F2;color:#0A5C64}
       .fam-badge.ovs{background:#EEE7FA;color:#6B3FA0}
 
+      /* ── 부적합(조립에서 이식) ── */
+      .mat .stat{display:flex;gap:16px;align-items:center;flex:0 0 auto}
+      .mat .col{display:flex;flex-direction:column;align-items:flex-end;gap:1px}
+      .mat .col .l{font-size:11.5px;font-weight:700;color:var(--ink-2)}
+      .mat .col .v{font-size:18px;font-weight:800;font-variant-numeric:tabular-nums}
+      .mat .col .v.bad{color:var(--red)}
+      .defbtn{height:48px;padding:0 15px;border-radius:12px;border:1px solid var(--line);background:var(--surface);
+          color:var(--ink-2);font-weight:800;font-size:14px;cursor:pointer;flex:0 0 auto}
+      .defbtn:active{background:var(--surface-2)}.defbtn.has{background:var(--red-bg);color:var(--red);border-color:transparent}
+      .sess .bad{padding:5px 10px;border-radius:999px;background:var(--red-bg);color:var(--red);font-weight:800;font-size:12.5px}
+      .photos{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px}
+      .photo{width:84px;height:84px;border-radius:12px;object-fit:cover;border:1px solid var(--line)}
+      .photo-add{width:84px;height:84px;border-radius:12px;border:1.5px dashed var(--line);background:var(--surface-2);display:grid;place-items:center;cursor:pointer;color:var(--ink-2);font-size:13px;font-weight:800;text-align:center}
+      .photo-wrap{position:relative}
+      .photo-wrap .del{position:absolute;top:-6px;right:-6px;width:24px;height:24px;border-radius:50%;background:var(--red);color:#fff;border:2px solid #fff;font-size:13px;cursor:pointer;line-height:1}
+
   </style>
 
   <div class="ms-wash-root">
@@ -255,7 +271,7 @@
 
       <!-- A. 큐 -->
       <div class="screen" id="scA"><div class="wrap">
-        <div class="qhead"><h1>M-CELL 외포장 작업지시</h1><span class="cnt" id="qcnt"></span>
+        <div class="qhead"><h1>M-CELL 포장 공정</h1><span class="cnt" id="qcnt"></span>
           <div class="qfilter"><button class="on" data-f="all">전체</button>
             <button data-f="wait">대기</button><button data-f="working">작업중</button></div></div>
         <div class="searchbar">
@@ -362,6 +378,21 @@
     <button class="ok" id="bcPrint">출력 (인쇄)</button>
   </div></div></div>
 
+  <!-- 부적합 시트 (조립에서 이식) -->
+  <div class="mask" id="defMask"><div class="sheet"><div class="body">
+    <div class="sh"><h3 id="defTitle">부적합 등록</h3><button class="x" data-close>✕</button></div>
+    <div class="fieldlab">불량 수량</div>
+    <div style="display:flex;align-items:center;max-width:240px">
+      <button class="opt" id="defMinus" style="border-radius:14px 0 0 14px;width:56px;justify-content:center;padding:0">−</button>
+      <div id="defQty" style="flex:1;text-align:center;height:54px;line-height:54px;border-top:1.5px solid var(--line);border-bottom:1.5px solid var(--line);font-size:24px;font-weight:800;background:#FFFDF4;font-variant-numeric:tabular-nums">0</div>
+      <button class="opt" id="defPlus" style="border-radius:0 14px 14px 0;width:56px;justify-content:center;padding:0">+</button>
+    </div>
+    <div class="fieldlab">불량 유형</div><div class="opts" id="defTypes"></div>
+    <div class="fieldlab">사진 첨부</div><div class="photos" id="defPhotos"></div>
+    <input type="file" id="defFile" accept="image/*" capture="environment" style="display:none"/>
+    <button class="ok" id="defOk">부적합 저장</button>
+  </div></div></div>
+
   <!-- 인쇄 영역 -->
   <div id="printArea"></div>
 </th:block>
@@ -446,7 +477,7 @@
 
    const WD = ['일', '월', '화', '수', '목', '금', '토'];
    const WORKERS = ['정우철', '김민수', '이서연', '박지훈'];
-   const EQUIPS = [['디바이스 박스대', 'DV-01'], ['외포장대 A', 'OP-01'], ['외포장대 B', 'OP-02']];
+   const EQUIPS = [['디바이스 박스대', 'DV-01'], ['포장대 A', 'OP-01'], ['포장대 B', 'OP-02']];
    const STLAB = {working: '작업중', wait: '대기', done: '완료'};
 
    function nowHM() {
@@ -506,7 +537,7 @@
    function mkSess(worker, equip) {
     return {
      worker: worker, equip: equip, start: nowHM(), end: null, st: 'working',
-     outbox: 0, region: null, mat: {}, labelLot: null
+     outbox: 0, region: null, mat: {}, matDef: {}, labelLot: null
     };
    }
 
@@ -571,7 +602,7 @@
      sessions: [
       {
        worker: '이서연',
-       equip: '외포장대 B',
+       equip: '포장대 B',
        start: '2026-07-06 08:40',
        end: '2026-07-06 10:15',
        st: 'done',
@@ -683,24 +714,28 @@
    function renderSessList() {
     var o = curO;
     var packed = o.sessions.reduce(function (a, s) { return a + (s.outbox || 0); }, 0);
+    var bad = o.sessions.reduce(function (a, s) { return a + sessBad(s); }, 0);
     document.getElementById('ovbox').innerHTML =
      '<div class="ov"><div class="l">계획수량</div><div class="v">' + o.plan + '</div></div>' +
      '<div class="ov"><div class="l">박스 포장</div><div class="v">' + packed + '</div></div>' +
-     '<div class="ov left"><div class="l">잔여수량</div><div class="v">' + Math.max(0, o.plan - packed) + '</div></div>';
+     '<div class="ov left"><div class="l">잔여수량</div><div class="v">' + Math.max(0, o.plan - packed) + '</div></div>' +
+     '<div class="ov"><div class="l">부적합</div><div class="v" style="color:var(--red)">' + bad + '</div></div>';
     document.getElementById('sessCnt').textContent = o.sessions.length + '건';
     var box = document.getElementById('sessList');
     if (!o.sessions.length) {
-     box.innerHTML = '<div class="emptysess">작업이 없습니다. ‘작업 추가’로 외포장을 시작하세요.</div>';
+     box.innerHTML = '<div class="emptysess">작업이 없습니다. ‘작업 추가’로 포장을 시작하세요.</div>';
      return;
     }
     box.innerHTML = o.sessions.map(function (se, i) {
      var regionTag = se.region
       ? '<span class="fam-badge ' + se.region + '">' + (se.region === 'ovs' ? '해외' : '국내') + '</span>'
       : '';
+     var b = sessBad(se);
      return '<div class="sess" data-st="' + se.st + '" data-i="' + i + '"><div class="edge"></div>' +
       '<div class="who"><span class="nm">' + se.worker + '</span><span class="eq">' + se.equip + '</span></div>' +
       '<div class="time">' + pill(se.start) + ' ~ ' + pill(se.end) + '</div>' +
       '<div class="qty"><div class="l">박스' + regionTag + '</div><div class="v">' + (se.outbox || 0) + '</div></div>' +
+      (b > 0 ? '<span class="bad">불량 ' + b + '</span>' : '') +
       '<span class="badge ' + se.st + '">' + STLAB[se.st] + '</span></div>';
     }).join('');
    }
@@ -713,7 +748,7 @@
    function openSess(i) {
     curS = curO.sessions[i];
     curS._idx = i;
-    document.getElementById('cName').textContent = curS.worker + ' · 외포장(M-CELL 박스)';
+    document.getElementById('cName').textContent = curS.worker + ' · 포장(M-CELL 박스)';
     document.getElementById('cSub').textContent = curO.id + ' · ' + curO.name + ' · 계획 ' + curO.plan;
     renderCHead();
     renderCBody();
@@ -784,14 +819,20 @@
      var need = per * (curS.outbox || 0);
      var cur = curS.mat[m.code] || 0;
      var ok = need > 0 && cur >= need;
+     var dq = (curS.matDef && curS.matDef[m.code] && curS.matDef[m.code].defQty) || 0;
+     var defBadge = dq > 0
+      ? '<button class="defbtn has" data-def="' + m.code + '">부적합 ' + dq + '</button>'
+      : (locked ? '' : '<button class="defbtn" data-def="' + m.code + '">부적합</button>');
      html += '<div class="mat ' + (ok ? 'on' : '') + '" data-mrow="' + m.code + '">' +
       '<div class="chk" data-mtoggle="' + m.code + '">' + (ok ? '✓' : '') + '</div>' +
       '<div class="mid"><div class="mn">' + m.name + (m.common ? '<span class="common-tag">공통</span>' : '') + '</div>' +
       '<div class="mc">' + m.code + ' · BOM ' + per + ' /대 → 필요 <b>' + need + '</b></div></div>' +
+      (dq > 0 ? '<div class="stat"><div class="col"><span class="l">불량</span><span class="v bad">' + dq + '</span></div></div>' : '') +
       '<div class="mstep ' + (locked ? 'locked' : '') + '">' +
       '<button data-mminus="' + m.code + '">−</button>' +
       '<div class="n" data-mpad="' + m.code + '">' + cur + '</div>' +
       '<button data-mplus="' + m.code + '">＋</button></div>' +
+      defBadge +
       '</div>';
     });
 
@@ -831,7 +872,7 @@
      var mc = curS.region ? mcellMatCount(curS.region) : {done: 0, total: 1};
      var ready = curS.region && curS.outbox > 0 && mc.done === mc.total && curS.labelLot;
      bar.innerHTML = '<div class="actsum"><span class="l">박스 포장</span><span class="v">' + packed + ' EA</span></div>' +
-      '<button class="btn ghost" id="cDelete">삭제</button><button class="btn primary" id="cFinish" ' + (ready ? '' : 'disabled style="opacity:.5"') + '>외포장 완료</button>';
+      '<button class="btn ghost" id="cDelete">삭제</button><button class="btn primary" id="cFinish" ' + (ready ? '' : 'disabled style="opacity:.5"') + '>포장 완료</button>';
      document.getElementById('cFinish').onclick = function () {
       if (!ready) {
        if (!curS.region) flash('포장 방식(국내/해외)을 선택하세요');
@@ -843,7 +884,7 @@
       curS.st = 'done';
       curS.end = nowHM();
       renderCHead(); renderCBody(); renderCAction(); renderSessList();
-      flash('외포장 완료 → ' + (curS.region === 'ovs' ? '수출용' : '내수용') + ' 포장 · 출하대기 (목업)');
+      flash('포장 완료 → ' + (curS.region === 'ovs' ? '수출용' : '내수용') + ' 포장 · 출하대기 (목업)');
      };
      document.getElementById('cDelete').onclick = function () {
       curO.sessions.splice(curS._idx, 1);
@@ -883,6 +924,10 @@
 
     // 라벨 스캔
     if (e.target.id === 'scanIn' || e.target.id === 'rescanIn') { openScan(); return; }
+
+    // 자재 부적합 등록 (조립에서 이식)
+    var defb = e.target.closest('[data-def]');
+    if (defb) { openDef(defb.dataset.def); return; }
 
     // 자재 스텝 +/-
     var mp = e.target.closest('[data-mplus]');
@@ -1009,6 +1054,87 @@
     hideMask('scanMask');
     renderCBody(); renderCAction(); renderSessList();
     flash('박스 라벨 로트 ' + curS.labelLot + ' 지정 (목업)');
+   };
+
+   /* ── 부적합 등록 (조립 작업지시에서 이식) ── */
+   function matDefOf(code) {
+    if (!curS.matDef) curS.matDef = {};
+    if (!curS.matDef[code]) curS.matDef[code] = {defQty: 0, defType: null, photos: []};
+    return curS.matDef[code];
+   }
+
+   function sessBad(se) {
+    var d = se.matDef || {};
+    return Object.keys(d).reduce(function (a, k) { return a + (d[k].defQty || 0); }, 0);
+   }
+
+   var DEFTYPES = ['이물', '파손', '변형', '오염', '기타'];
+   var defCode = null, defQ = 0, defT = null, defPhotos = [];
+
+   function openDef(code) {
+    defCode = code;
+    var d = matDefOf(code);
+    var rb = regionBom(curS.region);
+    var m = rb ? rb.mats.filter(function (x) { return x.code === code; })[0] : null;
+    defQ = d.defQty || 0;
+    defT = d.defType || null;
+    defPhotos = (d.photos || []).slice();
+    document.getElementById('defTitle').textContent = (m ? m.name : '포장 자재') + ' · 부적합';
+    document.getElementById('defQty').textContent = defQ;
+    document.getElementById('defTypes').innerHTML = DEFTYPES.map(function (t) {
+     return '<button class="opt ' + (t === defT ? 'sel' : '') + '" data-dt="' + t + '">' + t + '</button>';
+    }).join('');
+    renderPhotos();
+    showMask('defMask');
+   }
+
+   document.getElementById('defMinus').onclick = function () {
+    defQ = Math.max(0, defQ - 1);
+    document.getElementById('defQty').textContent = defQ;
+   };
+   document.getElementById('defPlus').onclick = function () {
+    defQ++;
+    document.getElementById('defQty').textContent = defQ;
+   };
+   document.getElementById('defTypes').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-dt]');
+    if (!b) return;
+    document.querySelectorAll('#defTypes .opt').forEach(function (x) { x.classList.remove('sel'); });
+    b.classList.add('sel');
+    defT = b.dataset.dt;
+   });
+
+   function renderPhotos() {
+    var box = document.getElementById('defPhotos');
+    box.innerHTML = defPhotos.map(function (src, k) {
+     return '<div class="photo-wrap"><img class="photo" src="' + src + '"/><button class="del" data-rm="' + k + '">✕</button></div>';
+    }).join('') + '<div class="photo-add" id="photoAdd">＋<br>사진</div>';
+   }
+
+   document.getElementById('defPhotos').addEventListener('click', function (e) {
+    if (e.target.id === 'photoAdd' || e.target.closest('#photoAdd')) {
+     document.getElementById('defFile').click();
+     return;
+    }
+    var rm = e.target.closest('[data-rm]');
+    if (rm) {
+     defPhotos.splice(+rm.dataset.rm, 1);
+     renderPhotos();
+    }
+   });
+   document.getElementById('defFile').addEventListener('change', function (e) {
+    [].forEach.call(e.target.files, function (f) { defPhotos.push(URL.createObjectURL(f)); });
+    e.target.value = '';
+    renderPhotos();
+   });
+   document.getElementById('defOk').onclick = function () {
+    var d = matDefOf(defCode);
+    d.defQty = defQ;
+    d.defType = defT;
+    d.photos = defPhotos.slice();
+    hideMask('defMask');
+    renderCBody(); renderCAction(); renderSessList();
+    flash(defQ > 0 ? '부적합 ' + defQ + ' (' + (defT || '유형미지정') + ')' : '부적합 0 저장');
    };
 
    var padVal = '', padMode = 'box', padMatCode = null;
