@@ -184,6 +184,39 @@
           background:var(--surface);color:var(--ink-2);font-weight:800;font-size:14px;cursor:pointer}
       .mat-tools button:active{background:var(--surface-2)}
 
+      /* ── 부적합(조립에서 이식) ── */
+      .part .stat{display:flex;gap:20px;align-items:center;flex:0 0 auto}
+      .part .col{display:flex;flex-direction:column;align-items:flex-end;gap:1px}
+      .part .col .l{font-size:12px;font-weight:700;color:var(--ink-2)}
+      .part .col .v{font-size:20px;font-weight:800;font-variant-numeric:tabular-nums}
+      .part .col .v.bad{color:var(--red)}
+      .mat .stat{display:flex;gap:16px;align-items:center;flex:0 0 auto}
+      .mat .col{display:flex;flex-direction:column;align-items:flex-end;gap:1px}
+      .mat .col .l{font-size:11.5px;font-weight:700;color:var(--ink-2)}
+      .mat .col .v{font-size:18px;font-weight:800;font-variant-numeric:tabular-nums}
+      .mat .col .v.bad{color:var(--red)}
+      .defbtn{height:48px;padding:0 15px;border-radius:12px;border:1px solid var(--line);background:var(--surface);
+          color:var(--ink-2);font-weight:800;font-size:14px;cursor:pointer;flex:0 0 auto}
+      .defbtn:active{background:var(--surface-2)}.defbtn.has{background:var(--red-bg);color:var(--red);border-color:transparent}
+      .sess .bad{padding:5px 10px;border-radius:999px;background:var(--red-bg);color:var(--red);font-weight:800;font-size:12.5px}
+      .photos{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px}
+      .photo{width:84px;height:84px;border-radius:12px;object-fit:cover;border:1px solid var(--line)}
+      .photo-add{width:84px;height:84px;border-radius:12px;border:1.5px dashed var(--line);background:var(--surface-2);display:grid;place-items:center;cursor:pointer;color:var(--ink-2);font-size:13px;font-weight:800;text-align:center}
+      .photo-wrap{position:relative}
+      .photo-wrap .del{position:absolute;top:-6px;right:-6px;width:24px;height:24px;border-radius:50%;background:var(--red);color:#fff;border:2px solid #fff;font-size:13px;cursor:pointer;line-height:1}
+
+      /* ── 단계(phase) 표시 ── */
+      .phasebar{display:flex;align-items:center;gap:8px;margin:2px 2px 8px;flex-wrap:wrap}
+      .pstep{display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:999px;border:1px solid var(--line);
+          background:var(--surface);font-weight:800;font-size:14px;color:var(--ink-2)}
+      .pstep .pn2{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-size:13px;background:var(--surface-2);color:var(--ink-2)}
+      .pstep.active{border-color:var(--teal);background:var(--teal-bg);color:var(--teal-d)}
+      .pstep.active .pn2{background:var(--teal);color:#fff}
+      .pstep.done{border-color:var(--green);background:var(--green-bg);color:var(--green)}
+      .pstep.done .pn2{background:var(--green);color:#fff}
+      .pline{flex:0 0 18px;height:2px;background:var(--line)}
+      .pline.on{background:var(--green)}
+
       /* ── 카메라 스캔 시트 ── */
       .scanbox{position:relative;width:100%;aspect-ratio:16/10;border-radius:18px;overflow:hidden;
           background:radial-gradient(120% 120% at 50% 20%,#26333c 0%,#141d24 70%,#0c1319 100%);
@@ -244,7 +277,7 @@
 
       <!-- A. 큐 -->
       <div class="screen" id="scA"><div class="wrap">
-        <div class="qhead"><h1>BSC 외포장 작업지시</h1><span class="cnt" id="qcnt"></span>
+        <div class="qhead"><h1>BSC 포장 공정</h1><span class="cnt" id="qcnt"></span>
           <div class="qfilter"><button class="on" data-f="all">전체</button>
             <button data-f="wait">대기</button><button data-f="working">작업중</button></div></div>
         <div class="searchbar">
@@ -318,6 +351,21 @@
   <div class="mask" id="lotMask"><div class="sheet"><div class="body">
     <div class="sh"><h3 id="lotTitle">완제품 로트</h3><button class="x" data-close>✕</button></div>
     <div class="lotpick" id="lotList"></div></div></div></div>
+
+  <!-- 부적합 시트 (조립에서 이식) -->
+  <div class="mask" id="defMask"><div class="sheet"><div class="body">
+    <div class="sh"><h3 id="defTitle">부적합 등록</h3><button class="x" data-close>✕</button></div>
+    <div class="fieldlab">불량 수량</div>
+    <div style="display:flex;align-items:center;max-width:240px">
+      <button class="opt" id="defMinus" style="border-radius:14px 0 0 14px;width:56px;justify-content:center;padding:0">−</button>
+      <div id="defQty" style="flex:1;text-align:center;height:54px;line-height:54px;border-top:1.5px solid var(--line);border-bottom:1.5px solid var(--line);font-size:24px;font-weight:800;background:#FFFDF4;font-variant-numeric:tabular-nums">0</div>
+      <button class="opt" id="defPlus" style="border-radius:0 14px 14px 0;width:56px;justify-content:center;padding:0">+</button>
+    </div>
+    <div class="fieldlab">불량 유형</div><div class="opts" id="defTypes"></div>
+    <div class="fieldlab">사진 첨부</div><div class="photos" id="defPhotos"></div>
+    <input type="file" id="defFile" accept="image/*" capture="environment" style="display:none"/>
+    <button class="ok" id="defOk">부적합 저장</button>
+  </div></div></div>
 
   <!-- 카메라 스캔 시트 -->
   <div class="mask" id="scanMask"><div class="sheet"><div class="body">
@@ -489,10 +537,8 @@
     return {ic: ic, oc: oc, inbox: inbox, loose: loose, outbox: outbox, inLoose: inLoose};
    }
 
-   // 인박스/아웃박스 입수 규칙(모델별, BOM 기준)
+   // 인박스 입수: 완제품 1개당 인박스 1개(1:1)
    function inboxCap(o) {
-    if (o.vol === 30 || o.vol === 60) return o.blood === '골수' ? 1 : 3;
-    if (o.vol === 120) return o.blood === '골수' ? 1 : 2;
     return 1;
    }
 
@@ -504,7 +550,7 @@
    function mkSess(worker, equip) {
     return {
      worker: worker, equip: equip, start: nowHM(), end: null, st: 'working',
-     units: 0, ckLot: null, ckMat: {}, pkLot: null, pkUnits: 0, labelLot: null
+     units: 0, ckLot: (CK_READY[0] ? CK_READY[0].lot : null), ckMat: {}, ckDef: {}, pkLot: null, pkUnits: 0, labelLot: null, phase: 'ck'
     };
    }
 
@@ -686,22 +732,37 @@
    }
 
    function ckMatCount(units) {
+    // CK 로트가 자동 지정되므로, 완제품 수량이 정해지면 BOM대로 자동 투입된 것으로 간주
     var done = 0;
     CK_INPUTS.forEach(function (m) {
      var need = (m.qty || 1) * (units || 0);
-     if ((curS.ckMat[m.code] || 0) >= need && need > 0) done++;
+     if (need > 0) done++;
     });
     return {done: done, total: CK_INPUTS.length};
+   }
+
+   // 세션의 CK 부적합 상태 접근(없으면 생성)
+   function ckDefOf(code) {
+    if (!curS.ckDef) curS.ckDef = {};
+    if (!curS.ckDef[code]) curS.ckDef[code] = {defQty: 0, defType: null, photos: []};
+    return curS.ckDef[code];
+   }
+
+   // 세션 내 CK 부적합 합계
+   function sessBad(se) {
+    var d = se.ckDef || {};
+    return Object.keys(d).reduce(function (a, k) { return a + (d[k].defQty || 0); }, 0);
    }
 
    function renderSessList() {
     var o = curO, cap = inboxCap(o);
     var packed = o.sessions.reduce(function (a, s) { return a + (s.units || 0); }, 0);
+    var bad = o.sessions.reduce(function (a, s) { return a + sessBad(s); }, 0);
     document.getElementById('ovbox').innerHTML =
      '<div class="ov"><div class="l">계획수량</div><div class="v">' + o.plan + '</div></div>' +
      '<div class="ov"><div class="l">완제품 포장</div><div class="v">' + packed + '</div></div>' +
      '<div class="ov left"><div class="l">잔여수량</div><div class="v">' + Math.max(0, o.plan - packed) + '</div></div>' +
-     '<div class="ov"><div class="l">인박스 입수</div><div class="v">' + cap + '</div></div>';
+     '<div class="ov"><div class="l">부적합</div><div class="v" style="color:var(--red)">' + bad + '</div></div>';
     document.getElementById('sessCnt').textContent = o.sessions.length + '건';
     var box = document.getElementById('sessList');
     if (!o.sessions.length) {
@@ -709,10 +770,12 @@
      return;
     }
     box.innerHTML = o.sessions.map(function (se, i) {
+     var b = sessBad(se);
      return '<div class="sess" data-st="' + se.st + '" data-i="' + i + '"><div class="edge"></div>' +
       '<div class="who"><span class="nm">' + se.worker + '</span><span class="eq">' + se.equip + '</span></div>' +
       '<div class="time">' + pill(se.start) + ' ~ ' + pill(se.end) + '</div>' +
       '<div class="qty"><div class="l">완제품</div><div class="v">' + (se.units || 0) + '</div></div>' +
+      (b > 0 ? '<span class="bad">불량 ' + b + '</span>' : '') +
       '<span class="badge ' + se.st + '">' + STLAB[se.st] + '</span></div>';
     }).join('');
    }
@@ -725,7 +788,8 @@
    function openSess(i) {
     curS = curO.sessions[i];
     curS._idx = i;
-    document.getElementById('cName').textContent = curS.worker + ' · 외포장';
+    if (!curS.phase) curS.phase = curS.st === 'done' ? 'done' : 'ck';
+    document.getElementById('cName').textContent = curS.worker + ' · 포장';
     document.getElementById('cSub').textContent = curO.id + ' · ' + curO.name + ' · 계획 ' + curO.plan;
     renderCHead();
     renderCBody();
@@ -741,72 +805,61 @@
      '<span class="sstate ' + curS.st + '">' + STLAB[curS.st] + '</span>';
    }
 
-   function renderCBody() {
-    var locked = curS.st !== 'working';
-    var o = curO;
-    var html = '';
-    var pv = packView(o, curS.units);
+   /* ── 단계(phase) 유틸 ── */
+   function phaseIndex() {
+    return {ck: 0, pk: 1, out: 2, done: 3}[curS.phase || 'ck'];
+   }
+
+   function phaseBar() {
+    var idx = phaseIndex();
+    var steps = ['CK 투입', 'PK·외포장', '아웃포장'];
+    return '<div class="phasebar">' + steps.map(function (s, i) {
+     var cls = i < idx ? 'done' : (i === idx ? 'active' : 'idle');
+     return (i > 0 ? '<div class="pline ' + (i <= idx ? 'on' : '') + '"></div>' : '') +
+      '<div class="pstep ' + cls + '"><span class="pn2">' + (i + 1) + '</span>' + s + '</div>';
+    }).join('') + '</div>';
+   }
+
+   /* ── 블록 헬퍼 ── */
+   function matList(locked) {
+    return CK_INPUTS.map(function (m) {
+     var per = m.qty || 1;
+     var need = per * (curS.units || 0);
+     var ok = need > 0;
+     var dq = (curS.ckDef && curS.ckDef[m.code] && curS.ckDef[m.code].defQty) || 0;
+     var defBadge = dq > 0
+      ? '<button class="defbtn has" data-def="' + m.code + '">부적합 ' + dq + '</button>'
+      : (locked ? '' : '<button class="defbtn" data-def="' + m.code + '">부적합</button>');
+     return '<div class="mat ' + (ok ? 'on' : '') + '">' +
+      '<div class="chk">' + (ok ? '✓' : '') + '</div>' +
+      '<div class="mid"><div class="mn">' + m.name + '</div>' +
+      '<div class="mc">' + m.code + ' · BOM ' + per + ' /EA → 필요 <b>' + need + '</b></div></div>' +
+      (dq > 0 ? '<div class="stat"><div class="col"><span class="l">불량</span><span class="v bad">' + dq + '</span></div></div>' : '') +
+      defBadge +
+      '</div>';
+    }).join('');
+   }
+
+   function ckSummary() {
     var cm = ckMeta(curS.ckLot);
+    var bad = 0, d = curS.ckDef || {};
+    Object.keys(d).forEach(function (k) { bad += (d[k].defQty || 0); });
+    return '<div class="secline">① CK 투입 <span class="ln"></span><span>완료</span></div>' +
+     '<div class="part"><div class="id"><span class="pn">CK 투입 완료</span><span class="pc">' +
+     (cm ? cm.lot + ' · ' + cm.name : '') + (bad > 0 ? ' · 부적합 ' + bad : '') +
+     '</span></div><span class="done-tag">' + curS.units + ' EA</span></div>';
+   }
+
+   function pkSummary() {
     var pm = pkMeta(curS.pkLot);
+    return '<div class="secline">② PK 및 외포장 <span class="ln"></span><span>완료</span></div>' +
+     '<div class="part"><div class="id"><span class="pn">블리스터 로트</span><span class="pc">' +
+     (pm ? pm.lot : '-') + ' · 라벨 ' + (curS.labelLot || '-') +
+     '</span></div><span class="done-tag">' + curS.pkUnits + ' EA</span></div>';
+   }
 
-    // ① 완제품 = CK + PK (CK부터 투입 → 이후 PK, 수량은 1:1 공통)
-    html += '<div class="secline">① 완제품 (CK + PK) <span class="ln"></span><span>완제품 1개 = CK1 + PK1 (1:1)</span></div>';
-
-    // CK 로트 선택 (먼저 투입)
-    var ckRemain = cm ? cm.qty - curS.units : null;
-    html += '<div class="part"><div class="id"><span class="pn">CK 로트</span><span class="pc">' +
-     (cm ? cm.lot + ' · ' + cm.name + ' · 재고 ' + cm.qty + ' EA' + (curS.units > 0 ? ' · 투입 ' + curS.units + ' EA · 잔여 ' + ckRemain + ' EA' : '') : '미선택') +
-     '</span></div>' +
-     (locked ? '<span class="done-tag" style="background:var(--surface-2);color:var(--ink-2)">' + (curS.ckLot || '-') + '</span>' : '<button class="btn ghost" data-pickck="1" style="min-height:54px">' + (curS.ckLot ? '변경' : '선택') + '</button>') + '</div>';
-    if (cm && ckRemain !== null && ckRemain < 0) {
-     html += '<div class="region-warn">⚠️ CK 재고(' + cm.qty + ' EA)보다 투입 수량(' + curS.units + ' EA)이 많습니다. 수량을 확인하세요.</div>';
-    }
-
-    // 완제품 수량 (CK·PK 공통, 1:1)
-    html += '<div class="part"><div class="id"><span class="pn">완제품 수량</span><span class="pc">이 세션에서 포장할 완제품(키트) 총개수 · CK·PK 동일 수량(1:1) 적용</span></div>' +
-     (locked ? '<span class="done-tag">' + curS.units + ' EA</span>' : '<div class="stepper" data-units="1"><button class="minus">−</button><div class="qty" data-padunits="1">' + curS.units + '</div><button class="plus">+</button></div>') + '</div>';
-
-    // CK 자재 투입 체크리스트 (CK 로트 선택 후, BOM 00차수 기준 7종)
-    if (curS.ckLot) {
-     var ckmc = ckMatCount(curS.units);
-     html += '<div class="secline">CK 자재 투입 <span class="ln"></span><span>' + ckmc.done + ' / ' + ckmc.total + ' 충족</span></div>';
-     if (!locked) {
-      html += '<div class="mat-tools">' +
-       '<button data-ckmatfill="1">📥 필요수량 일괄 채우기</button>' +
-       '<button data-ckmatclear="1">비우기</button></div>';
-     }
-     CK_INPUTS.forEach(function (m) {
-      var per = m.qty || 1;
-      var need = per * (curS.units || 0);
-      var cur = curS.ckMat[m.code] || 0;
-      var ok = need > 0 && cur >= need;
-      html += '<div class="mat ' + (ok ? 'on' : '') + '">' +
-       '<div class="chk" data-ckmtoggle="' + m.code + '">' + (ok ? '✓' : '') + '</div>' +
-       '<div class="mid"><div class="mn">' + m.name + '</div>' +
-       '<div class="mc">' + m.code + ' · BOM ' + per + ' /EA → 필요 <b>' + need + '</b></div></div>' +
-       '<div class="mstep ' + (locked ? 'locked' : '') + '">' +
-       '<button data-ckmminus="' + m.code + '">−</button>' +
-       '<div class="n" data-ckmpad="' + m.code + '">' + cur + '</div>' +
-       '<button data-ckmplus="' + m.code + '">＋</button></div>' +
-       '</div>';
-     });
-    }
-
-    // PK 로트 선택 (CK 선택 후 진행)
-    if (!curS.ckLot) {
-     html += '<div class="part locked"><div class="id"><span class="pn">완제품(PK) 로트</span><span class="pc">CK 로트를 먼저 선택하세요</span></div><span class="done-tag" style="background:var(--surface-2);color:var(--ink-2)">대기</span></div>';
-    } else {
-     html += '<div class="part"><div class="id"><span class="pn">완제품(PK) 로트</span><span class="pc">' + (pm ? pm.lot + ' · ' + pm.name + ' · 멸균필 ' + pm.qty : '미선택') + '</span></div>' +
-      (locked ? '<span class="done-tag" style="background:var(--surface-2);color:var(--ink-2)">' + (curS.pkLot || '-') + '</span>' : '<button class="btn ghost" data-pickpk="1" style="min-height:54px">' + (curS.pkLot ? '변경' : '선택') + '</button>') + '</div>';
-     html += '<div class="part"><div class="id"><span class="pn">완제품(PK) 수량</span><span class="pc">이 세션에서 투입할 PK 총개수 · CK와 별개로 개별 조정 가능</span></div>' +
-      (locked ? '<span class="done-tag">' + curS.pkUnits + ' EA</span>' : '<div class="stepper" data-pkunits="1"><button class="minus">−</button><div class="qty" data-padpkunits="1">' + curS.pkUnits + '</div><button class="plus">+</button></div>') + '</div>';
-     if (curS.pkUnits !== curS.units) {
-      html += '<div class="region-warn">⚠️ PK 수량(' + curS.pkUnits + ' EA)이 완제품 수량(' + curS.units + ' EA)과 다릅니다. 확인하세요.</div>';
-     }
-    }
-
-    // ② 라벨 로트 스캔
-    html += '<div class="secline">② 라벨 로트 스캔 <span class="ln"></span><span>인박스 라벨 1회 → PK·CK 자동매핑</span></div>';
+   function labelScanBlock(locked) {
+    var html = '<div class="secline" style="margin-top:10px">라벨 로트 스캔 <span class="ln"></span><span>인박스 라벨 1회 → PK·CK 자동매핑</span></div>';
     if (!curS.labelLot) {
      html += '<div class="part"><div class="id"><span class="pn">📷 인박스 라벨 바코드 스캔</span><span class="pc">인박스 라벨엔 PK·CK 로트가 같이 있어, 1회 스캔으로 셋 다 매핑됩니다.</span></div>' +
       (locked ? '' : '<button class="btn primary" id="scanIn" style="min-height:54px">스캔</button>') + '</div>';
@@ -817,19 +870,17 @@
       }).join('') + '</table>' +
       (locked ? '' : '<div style="margin-top:6px"><button class="btn ghost" id="rescanIn">다시 스캔</button></div>');
     }
-    // ③ 포장 계층 (자동 계산)
-    html += '<div class="secline">③ 포장 계층 (자동) <span class="ln"></span><span>인박스 ' + pv.ic + '입 / 아웃박스 ' + pv.oc + '입</span></div>';
-    html += '<div class="part"><div class="id"><span class="pn">인박스</span><span class="pc">완제품 ' + curS.units + ' ÷ ' + pv.ic + '입 = 인박스 ' + pv.inbox + (pv.loose ? ' + 낱개 ' + pv.loose : '') + '</span></div>' +
-     '<span class="done-tag">' + pv.inbox + ' 박스</span></div>';
-    html += '<div class="part"><div class="id"><span class="pn">아웃박스</span><span class="pc">인박스 ' + pv.inbox + ' ÷ ' + pv.oc + '입 = 아웃박스 ' + pv.outbox + (pv.inLoose ? ' + 인박스 잔여 ' + pv.inLoose : '') + '</span></div>' +
-     '<span class="done-tag">' + pv.outbox + ' 박스</span></div>';
-    document.getElementById('cBody').innerHTML = html + labelSection();
+    return html;
    }
 
-   function labelSection() {
-    var o = curO;
-    if (!curS.ckLot || !curS.pkLot || curS.units <= 0) return '';
-    var pv = packView(o, curS.units);
+   function packHierarchy(pv) {
+    return '<div class="part"><div class="id"><span class="pn">인박스</span><span class="pc">완제품 ' + curS.units + '개 = 인박스 ' + pv.inbox + ' (완제품 1개당 인박스 1개)</span></div>' +
+     '<span class="done-tag">' + pv.inbox + ' 박스</span></div>' +
+     '<div class="part"><div class="id"><span class="pn">아웃박스</span><span class="pc">인박스 ' + pv.inbox + ' ÷ ' + pv.oc + '입 = 아웃박스 ' + pv.outbox + (pv.inLoose ? ' + 인박스 잔여 ' + pv.inLoose : '') + '</span></div>' +
+     '<span class="done-tag">' + pv.outbox + ' 박스</span></div>';
+   }
+
+   function outPrintBlock(pv) {
     var scanNote = '<div class="part locked"><div class="id"><span class="pn">PK · CK · 인박스 라벨</span><span class="pc">외부(ERP/UDI) 인쇄물 — MES는 스캔으로 지정만, 출력 안 함</span></div><span class="done-tag" style="background:var(--surface-2);color:var(--ink-2)">스캔 지정</span></div>';
     var outBtn = pv.outbox > 0
      ? '<button class="btn primary" id="bcOut" style="flex:1;min-height:56px">🗳 아웃박스 바코드 출력 (' + pv.outbox + '장)</button>'
@@ -838,44 +889,137 @@
      '<div class="printrow">' + outBtn + '</div>';
    }
 
+   function renderCBody() {
+    var locked = curS.st !== 'working';
+    var o = curO;
+    var ph = curS.phase || 'ck';
+    var idx = phaseIndex();
+    var cm = ckMeta(curS.ckLot);
+    var pm = pkMeta(curS.pkLot);
+    var pv = packView(o, curS.units);
+    var html = phaseBar();
+
+    /* ── ① CK 투입 ── */
+    if (ph === 'ck') {
+     html += '<div class="secline">① CK 투입 <span class="ln"></span><span>완제품 수량 → CK 자재 자동 투입</span></div>';
+     // 완제품 수량
+     html += '<div class="part"><div class="id"><span class="pn">완제품 수량</span><span class="pc">이 세션에서 포장할 완제품(키트) 총개수</span></div>' +
+      (locked ? '<span class="done-tag">' + curS.units + ' EA</span>' : '<div class="stepper" data-units="1"><button class="minus">−</button><div class="qty" data-padunits="1">' + curS.units + '</div><button class="plus">+</button></div>') + '</div>';
+     // CK 로트 자동 지정
+     html += '<div class="part"><div class="id"><span class="pn">CK 로트</span><span class="pc">' +
+      (cm ? cm.lot + ' · ' + cm.name + ' · 재고 ' + cm.qty + ' EA' + (curS.units > 0 ? ' · 투입 ' + curS.units + ' EA' : '') : '미지정') +
+      '</span></div><span class="done-tag">자동 지정</span></div>';
+     // CK 자재 투입
+     var ckmc = ckMatCount(curS.units);
+     html += '<div class="secline">CK 자재 투입 <span class="ln"></span><span>' + ckmc.done + ' / ' + ckmc.total + ' 충족 (BOM 자동)</span></div>';
+     html += matList(locked);
+    } else {
+     html += ckSummary();
+    }
+
+    /* ── ② PK 및 외포장 ── */
+    if (ph === 'pk') {
+     html += '<div class="secline">② PK 및 외포장 <span class="ln"></span><span>블리스터 로트 + 라벨 스캔</span></div>';
+     // 블리스터 로트
+     html += '<div class="part"><div class="id"><span class="pn">블리스터 로트</span><span class="pc">' + (pm ? pm.lot + ' · ' + pm.name + ' · 멸균필 ' + pm.qty : '미선택') + '</span></div>' +
+      (locked ? '<span class="done-tag" style="background:var(--surface-2);color:var(--ink-2)">' + (curS.pkLot || '-') + '</span>' : '<button class="btn ghost" data-pickpk="1" style="min-height:54px">' + (curS.pkLot ? '변경' : '선택') + '</button>') + '</div>';
+     // 완제품 수량(PK)
+     html += '<div class="part"><div class="id"><span class="pn">완제품 수량</span><span class="pc">블리스터(PK) 투입 총개수</span></div>' +
+      (locked ? '<span class="done-tag">' + curS.pkUnits + ' EA</span>' : '<div class="stepper" data-pkunits="1"><button class="minus">−</button><div class="qty" data-padpkunits="1">' + curS.pkUnits + '</div><button class="plus">+</button></div>') + '</div>';
+     // 라벨 스캔
+     html += labelScanBlock(locked);
+    } else if (idx > 1) {
+     html += pkSummary();
+    }
+
+    /* ── ③ 아웃포장 ── */
+    if (ph === 'out' || ph === 'done') {
+     html += '<div class="secline">③ 아웃포장 <span class="ln"></span><span>인박스 1:1 / 아웃박스 ' + pv.oc + '입</span></div>';
+     html += packHierarchy(pv);
+     if (ph === 'out') html += outPrintBlock(pv);
+    }
+
+    document.getElementById('cBody').innerHTML = html;
+   }
+
+   function delSess() {
+    curO.sessions.splice(curS._idx, 1);
+    renderSessList();
+    show('B');
+    flash('작업 삭제 (목업)');
+   }
+
    function renderCAction() {
     var bar = document.getElementById('cAction');
-    var packed = curS.units;
-    if (curS.st === 'done') {
-     bar.innerHTML = '<div class="actsum"><span class="l">완제품 포장</span><span class="v">' + packed + ' EA</span></div><button class="btn danger" id="cCancel">완료취소</button>';
+    var ph = curS.phase || 'ck';
+
+    // 완료(포장 공정 완료) 상태
+    if (curS.st === 'done' || ph === 'done') {
+     bar.innerHTML = '<div class="actsum"><span class="l">완제품 포장</span><span class="v">' + curS.units + ' EA</span></div><button class="btn danger" id="cCancel">완료취소</button>';
      document.getElementById('cCancel').onclick = function () {
       curS.st = 'working';
+      curS.phase = 'out';
       curS.end = null;
       renderCHead(); renderCBody(); renderCAction(); renderSessList();
-      flash('완료취소 (목업)');
+      flash('완료취소 → 아웃포장 (목업)');
      };
-    } else {
-     var ckmc = curS.ckLot ? ckMatCount(curS.units) : {done: 0, total: 1};
-     var ready = curS.ckLot && ckmc.done === ckmc.total && curS.pkLot && curS.pkUnits > 0 && curS.units > 0 && curS.labelLot;
-     bar.innerHTML = '<div class="actsum"><span class="l">완제품 포장</span><span class="v">' + packed + ' EA</span></div>' +
-      '<button class="btn ghost" id="cDelete">삭제</button><button class="btn primary" id="cFinish" ' + (ready ? '' : 'disabled style="opacity:.5"') + '>외포장 완료</button>';
-     document.getElementById('cFinish').onclick = function () {
-      if (!ready) {
-       if (!curS.ckLot) flash('CK 로트를 먼저 선택하세요');
-       else if (curS.units <= 0) flash('완제품 수량을 입력하세요');
-       else if (ckmc.done !== ckmc.total) flash('CK 자재 투입수량이 필요수량에 미달합니다');
-       else if (!curS.pkLot) flash('PK 로트를 선택하세요');
-       else if (curS.pkUnits <= 0) flash('PK 수량을 입력하세요');
-       else flash('라벨 스캔이 필요합니다');
-       return;
-      }
-      curS.st = 'done';
-      curS.end = nowHM();
-      renderCHead(); renderCBody(); renderCAction(); renderSessList();
-      flash('외포장 완료 → 출하대기 (목업)');
-     };
-     document.getElementById('cDelete').onclick = function () {
-      curO.sessions.splice(curS._idx, 1);
-      renderSessList();
-      show('B');
-      flash('작업 삭제 (목업)');
-     };
+     return;
     }
+
+    // ① CK 투입 → CK 완료
+    if (ph === 'ck') {
+     var ckReady = curS.units > 0;
+     bar.innerHTML = '<div class="actsum"><span class="l">CK 투입 수량</span><span class="v">' + curS.units + ' EA</span></div>' +
+      '<button class="btn ghost" id="cDelete">삭제</button>' +
+      '<button class="btn primary" id="ckDone" ' + (ckReady ? '' : 'disabled style="opacity:.5"') + '>CK 완료</button>';
+     document.getElementById('ckDone').onclick = function () {
+      if (curS.units <= 0) { flash('완제품 수량을 입력하세요'); return; }
+      if (!curS.pkUnits) curS.pkUnits = curS.units;
+      curS.phase = 'pk';
+      renderCBody(); renderCAction(); renderSessList();
+      flash('CK 완료 → PK·외포장 (목업)');
+     };
+     document.getElementById('cDelete').onclick = delSess;
+     return;
+    }
+
+    // ② PK 및 외포장 → 외포장 완료
+    if (ph === 'pk') {
+     var pkReady = curS.pkLot && curS.pkUnits > 0 && curS.labelLot;
+     bar.innerHTML = '<div class="actsum"><span class="l">PK 수량</span><span class="v">' + curS.pkUnits + ' EA</span></div>' +
+      '<button class="btn ghost" id="pkBack">‹ CK</button>' +
+      '<button class="btn primary" id="pkDone" ' + (pkReady ? '' : 'disabled style="opacity:.5"') + '>외포장 완료</button>';
+     document.getElementById('pkBack').onclick = function () {
+      curS.phase = 'ck';
+      renderCBody(); renderCAction();
+     };
+     document.getElementById('pkDone').onclick = function () {
+      if (!curS.pkLot) { flash('블리스터 로트를 선택하세요'); return; }
+      if (curS.pkUnits <= 0) { flash('완제품 수량을 입력하세요'); return; }
+      if (!curS.labelLot) { flash('라벨 스캔이 필요합니다'); return; }
+      curS.phase = 'out';
+      renderCBody(); renderCAction(); renderSessList();
+      flash('외포장 완료 → 아웃포장 (목업)');
+     };
+     return;
+    }
+
+    // ③ 아웃포장 → 포장 공정 완료
+    var pv = packView(curO, curS.units);
+    bar.innerHTML = '<div class="actsum"><span class="l">아웃박스</span><span class="v">' + pv.outbox + ' 박스</span></div>' +
+     '<button class="btn ghost" id="outBack">‹ PK</button>' +
+     '<button class="btn primary" id="outDone">포장 공정 완료</button>';
+    document.getElementById('outBack').onclick = function () {
+     curS.phase = 'pk';
+     renderCBody(); renderCAction();
+    };
+    document.getElementById('outDone').onclick = function () {
+     curS.st = 'done';
+     curS.phase = 'done';
+     curS.end = nowHM();
+     renderCHead(); renderCBody(); renderCAction(); renderSessList();
+     flash('포장 공정 완료 → 출하대기 (목업)');
+    };
    }
 
    document.getElementById('cBody').addEventListener('click', function (e) {
@@ -907,47 +1051,9 @@
     }
     if (e.target.id === 'scanIn' || e.target.id === 'rescanIn') { openScan(); return; }
 
-    // CK 자재 +/-
-    var ckmp = e.target.closest('[data-ckmplus]');
-    if (ckmp) {
-     var cc = ckmp.dataset.ckmplus;
-     curS.ckMat[cc] = (curS.ckMat[cc] || 0) + 1;
-     renderCBody(); renderCAction();
-     return;
-    }
-    var ckmm = e.target.closest('[data-ckmminus]');
-    if (ckmm) {
-     var cc2 = ckmm.dataset.ckmminus;
-     curS.ckMat[cc2] = Math.max(0, (curS.ckMat[cc2] || 0) - 1);
-     renderCBody(); renderCAction();
-     return;
-    }
-    // CK 자재 체크(필요수량 채움 토글)
-    var ckmt = e.target.closest('[data-ckmtoggle]');
-    if (ckmt) {
-     var cc3 = ckmt.dataset.ckmtoggle;
-     var mo = CK_INPUTS.filter(function (x) { return x.code === cc3; })[0];
-     var need = (mo.qty || 1) * (curS.units || 0);
-     curS.ckMat[cc3] = (curS.ckMat[cc3] || 0) >= need && need > 0 ? 0 : need;
-     renderCBody(); renderCAction();
-     return;
-    }
-    // CK 자재 수량 넘패드
-    var ckmpad = e.target.closest('[data-ckmpad]');
-    if (ckmpad) { openPadCkMat(ckmpad.dataset.ckmpad); return; }
-    // 일괄 채우기 / 비우기
-    if (e.target.closest('[data-ckmatfill]')) {
-     CK_INPUTS.forEach(function (m) { curS.ckMat[m.code] = (m.qty || 1) * (curS.units || 0); });
-     renderCBody(); renderCAction();
-     flash('CK 필요수량 일괄 채움');
-     return;
-    }
-    if (e.target.closest('[data-ckmatclear]')) {
-     curS.ckMat = {};
-     renderCBody(); renderCAction();
-     flash('CK 자재 투입 비움');
-     return;
-    }
+    // CK 자재 부적합 등록 (조립에서 이식)
+    var defb = e.target.closest('[data-def]');
+    if (defb) { openDef(defb.dataset.def); return; }
 
     if (e.target.id === 'bcOut') {
      var pv = packView(curO, curS.units);
@@ -1036,7 +1142,7 @@
    };
 
    function openPk() {
-    document.getElementById('lotTitle').textContent = '멸균필 완제품(PK) 로트 선택';
+    document.getElementById('lotTitle').textContent = '블리스터 로트 선택 (멸균필 PK)';
     document.getElementById('lotList').innerHTML = PK_READY.map(function (l) {
      return '<div class="lotopt ' + (l.lot === curS.pkLot ? 'sel' : '') + '" data-lot="' + l.lot + '"><div><span class="ln">' + l.lot + '</span><div class="meta" style="margin:0">' + l.name + ' · 멸균필 ' + l.qty + ' EA</div></div></div>';
     }).join('');
@@ -1067,6 +1173,75 @@
     showMask('lotMask');
    }
 
+   /* ── 부적합 등록 (조립 작업지시에서 이식) ── */
+   var DEFTYPES = ['이물', '파손', '변형', '오염', '기타'];
+   var defCode = null, defQ = 0, defT = null, defPhotos = [];
+
+   function openDef(code) {
+    defCode = code;
+    var d = ckDefOf(code);
+    var m = CK_INPUTS.filter(function (x) { return x.code === code; })[0];
+    defQ = d.defQty || 0;
+    defT = d.defType || null;
+    defPhotos = (d.photos || []).slice();
+    document.getElementById('defTitle').textContent = (m ? m.name : 'CK 자재') + ' · 부적합';
+    document.getElementById('defQty').textContent = defQ;
+    document.getElementById('defTypes').innerHTML = DEFTYPES.map(function (t) {
+     return '<button class="opt ' + (t === defT ? 'sel' : '') + '" data-dt="' + t + '">' + t + '</button>';
+    }).join('');
+    renderPhotos();
+    showMask('defMask');
+   }
+
+   document.getElementById('defMinus').onclick = function () {
+    defQ = Math.max(0, defQ - 1);
+    document.getElementById('defQty').textContent = defQ;
+   };
+   document.getElementById('defPlus').onclick = function () {
+    defQ++;
+    document.getElementById('defQty').textContent = defQ;
+   };
+   document.getElementById('defTypes').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-dt]');
+    if (!b) return;
+    document.querySelectorAll('#defTypes .opt').forEach(function (x) { x.classList.remove('sel'); });
+    b.classList.add('sel');
+    defT = b.dataset.dt;
+   });
+
+   function renderPhotos() {
+    var box = document.getElementById('defPhotos');
+    box.innerHTML = defPhotos.map(function (src, k) {
+     return '<div class="photo-wrap"><img class="photo" src="' + src + '"/><button class="del" data-rm="' + k + '">✕</button></div>';
+    }).join('') + '<div class="photo-add" id="photoAdd">＋<br>사진</div>';
+   }
+
+   document.getElementById('defPhotos').addEventListener('click', function (e) {
+    if (e.target.id === 'photoAdd' || e.target.closest('#photoAdd')) {
+     document.getElementById('defFile').click();
+     return;
+    }
+    var rm = e.target.closest('[data-rm]');
+    if (rm) {
+     defPhotos.splice(+rm.dataset.rm, 1);
+     renderPhotos();
+    }
+   });
+   document.getElementById('defFile').addEventListener('change', function (e) {
+    [].forEach.call(e.target.files, function (f) { defPhotos.push(URL.createObjectURL(f)); });
+    e.target.value = '';
+    renderPhotos();
+   });
+   document.getElementById('defOk').onclick = function () {
+    var d = ckDefOf(defCode);
+    d.defQty = defQ;
+    d.defType = defT;
+    d.photos = defPhotos.slice();
+    hideMask('defMask');
+    renderCBody(); renderCAction(); renderSessList();
+    flash(defQ > 0 ? '부적합 ' + defQ + ' (' + (defT || '유형미지정') + ')' : '부적합 0 저장');
+   };
+
    var padVal = '', padMode = 'units', padCkCode = null;
 
    function openPadUnits() {
@@ -1080,7 +1255,7 @@
    function openPadPkUnits() {
     padMode = 'pkunits'; padCkCode = null;
     padVal = String(curS.pkUnits || 0);
-    document.getElementById('padLab').textContent = '완제품(PK) 수량';
+    document.getElementById('padLab').textContent = '완제품 수량';
     document.getElementById('padDisp').textContent = padVal;
     showMask('padMask');
    }
