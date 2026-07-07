@@ -190,7 +190,7 @@
           padding:14px 16px;display:none;align-items:center;gap:12px}
       .scan-result.show{display:flex;animation:fade .2s ease}
       .scan-result .ic{width:38px;height:38px;border-radius:10px;background:var(--green);color:#fff;display:grid;place-items:center;font-size:20px;flex:0 0 auto}
-      /* ── 검증 강화(BSC 방식 이식): 불일치 시 빨간 상태 + 검증 메시지 ── */
+      /* ── 검증(BSC 방식 이식): 불일치 시 빨간 상태 + 검증 메시지 ── */
       .scan-result.bad{border-color:var(--red);background:var(--red-bg)}
       .scan-result.bad .ic{background:var(--red)}
       .scan-valnote{font-size:12.5px;font-weight:800;margin-top:6px}
@@ -352,17 +352,17 @@
       <button class="clr" data-k="C">C</button><button data-k="0">0</button><button class="ok" data-k="OK">확인</button></div>
   </div></div></div>
 
-  <!-- 카메라 스캔 시트 -->
+  <!-- 카메라 스캔 시트 (목업) -->
   <div class="mask" id="scanMask"><div class="sheet"><div class="body">
-    <div class="sh"><h3>박스 라벨 스캔</h3><button class="x" data-close>✕</button></div>
+    <div class="sh"><h3>박스 라벨 스캔 (모의)</h3><button class="x" data-close>✕</button></div>
     <div class="scanbox" id="scanBox">
       <video id="scanVideo" playsinline muted style="display:none"></video>
       <div class="noise"></div>
-      <div class="cam"><i></i> CAM · 후면</div>
+      <div class="cam"><i></i> CAM · 모의</div>
       <div class="ghostbc"></div>
       <div class="frame"><span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span></div>
       <div class="laser"></div>
-      <div class="hint" id="scanHint">바코드를 사각형 안에 맞추세요 · GS1-128 (01)GTIN(10)LOT …</div>
+      <div class="hint" id="scanHint">모의 스캔 — "스캔 인식" 버튼으로 라벨을 인식합니다</div>
     </div>
     <div class="scan-result" id="scanResult">
       <div class="ic">✓</div>
@@ -374,12 +374,11 @@
       </div>
     </div>
     <div class="scan-actions">
-      <button class="btn ghost" id="scanTorch" style="display:none">🔦 조명</button>
+      <button class="btn primary" id="scanCapture">스캔 인식 (모의)</button>
       <button class="btn ghost" id="scanRetry" style="display:none">다시 스캔</button>
-      <button class="btn primary" id="scanRestart" style="display:none">카메라 다시 시작</button>
     </div>
     <div class="manual">
-      <div class="fieldlab">수동 입력 (스캔 불가 시 · GS1-128 전체)</div>
+      <div class="fieldlab">수동 입력 (GS1-128 전체)</div>
       <div class="mrow">
         <input id="scanManual" placeholder="(01)GTIN(10)LOT(11)제조일 …" autocomplete="off"/>
         <button class="mbtn" id="scanManualBtn">입력</button>
@@ -472,8 +471,7 @@
        const pFooter = Math.max(flow, fx);
        bottom = Math.min(bottom, (pWin.innerHeight - pFooter) - feTop);
       }
-     } catch (e) {
-     }
+     } catch (e) {}
      return bottom;
     }
 
@@ -485,10 +483,7 @@
 
     window.addEventListener('resize', fit);
     window.addEventListener('orientationchange', fit);
-    try {
-     window.parent.addEventListener('resize', fit);
-    } catch (e) {
-    }
+    try { window.parent.addEventListener('resize', fit); } catch (e) {}
     fit();
     requestAnimationFrame(fit);
     setTimeout(fit, 200);
@@ -535,7 +530,6 @@
     var s = raw.replace(/^\]C1/, '').replace(/^\u001d/, ''); // 심볼로지 식별자/선행 FNC1 제거
     var FIXED = {'00': 18, '01': 14, '02': 14, '11': 6, '12': 6, '13': 6, '15': 6, '16': 6, '17': 6, '20': 2};
     var i = 0;
-
     function assign(ai, v) {
      if (ai === '01') out.gtin = v;
      else if (ai === '10') out.lot = v;
@@ -543,23 +537,15 @@
      else if (ai === '17') out.expiry = v;
      else if (ai === '30') out.qty = parseInt(v, 10);
     }
-
     while (i < s.length) {
-     if (s[i] === GS) {
-      i++;
-      continue;
-     }
-     var ai = s.substr(i, 2);
-     i += 2;
+     if (s[i] === GS) { i++; continue; }
+     var ai = s.substr(i, 2); i += 2;
      var flen = FIXED[ai];
-     if (flen != null) {
-      assign(ai, s.substr(i, flen));
-      i += flen;
-     } else {
+     if (flen != null) { assign(ai, s.substr(i, flen)); i += flen; }
+     else {
       var g = s.indexOf(GS, i);
       var end = g < 0 ? s.length : g;
-      assign(ai, s.substring(i, end));
-      i = end;
+      assign(ai, s.substring(i, end)); i = end;
      }
     }
     if (!out.gtin && !out.lot && s) out.lot = s.trim();
@@ -696,22 +682,14 @@
         'M-IY00127': 6, 'M-IO00127': 6, 'M-IPD00027': 6, 'M-IPD00026': 6
        },
        labelLot: 'MCX260706',
-       scanBox: {
-        raw: '(01)08801234569990(10)MCX260706(11)260706',
-        gtin: '08801234569990',
-        lot: 'MCX260706',
-        date: '260706',
-        qty: null
-       }
+       scanBox: {raw: '(01)08801234569990(10)MCX260706(11)260706', gtin: '08801234569990', lot: 'MCX260706', date: '260706', qty: null}
       }
      ]
     },
    ];
 
    function orderPct(o) {
-    var packed = o.sessions.reduce(function (a, s) {
-     return a + (s.outbox || 0);
-    }, 0);
+    var packed = o.sessions.reduce(function (a, s) { return a + (s.outbox || 0); }, 0);
     return o.plan ? Math.min(100, Math.round(packed / o.plan * 100)) : 0;
    }
 
@@ -728,15 +706,11 @@
    }
 
    function orderDoneQty(o) {
-    return (o.sessions || []).reduce(function (a, s) {
-     return a + (s.outbox || 0);
-    }, 0);
+    return (o.sessions || []).reduce(function (a, s) { return a + (s.outbox || 0); }, 0);
    }
 
    function workingCount(o) {
-    return (o.sessions || []).filter(function (s) {
-     return s.st === 'working';
-    }).length;
+    return (o.sessions || []).filter(function (s) { return s.st === 'working'; }).length;
    }
 
    function inRange(o) {
@@ -772,9 +746,7 @@
    });
    document.querySelectorAll('.qfilter button').forEach(function (b) {
     b.addEventListener('click', function () {
-     document.querySelectorAll('.qfilter button').forEach(function (x) {
-      x.classList.remove('on');
-     });
+     document.querySelectorAll('.qfilter button').forEach(function (x) { x.classList.remove('on'); });
      b.classList.add('on');
      filter = b.dataset.f;
      renderQueue();
@@ -794,20 +766,13 @@
    document.querySelectorAll('[data-back]').forEach(function (b) {
     b.addEventListener('click', function () {
      var to = b.dataset.back;
-     if (to === 'A') {
-      renderQueue();
-      show('A');
-     } else {
-      renderSessList();
-      show('B');
-     }
+     if (to === 'A') { renderQueue(); show('A'); }
+     else { renderSessList(); show('B'); }
     });
    });
 
    function openOrder(id) {
-    curO = ORDERS.filter(function (x) {
-     return x.id === id;
-    })[0];
+    curO = ORDERS.filter(function (x) { return x.id === id; })[0];
     document.getElementById('bName').textContent = curO.name;
     document.getElementById('bSub').textContent = curO.id + ' · 차수 ' + curO.chasu;
     renderSessList();
@@ -818,12 +783,8 @@
 
    function renderSessList() {
     var o = curO;
-    var packed = o.sessions.reduce(function (a, s) {
-     return a + (s.outbox || 0);
-    }, 0);
-    var bad = o.sessions.reduce(function (a, s) {
-     return a + sessBad(s);
-    }, 0);
+    var packed = o.sessions.reduce(function (a, s) { return a + (s.outbox || 0); }, 0);
+    var bad = o.sessions.reduce(function (a, s) { return a + sessBad(s); }, 0);
     document.getElementById('ovbox').innerHTML =
      '<div class="ov"><div class="l">계획수량</div><div class="v">' + o.plan + '</div></div>' +
      '<div class="ov"><div class="l">박스 포장</div><div class="v">' + packed + '</div></div>' +
@@ -948,7 +909,7 @@
     // ④ 박스 라벨 스캔
     html += '<div class="secline">④ 박스 라벨 스캔 <span class="ln"></span><span>' + (curS.region === 'ovs' ? '수출용' : '내수용') + ' 박스 라벨 GS1-128 전체 스캔</span></div>';
     if (!curS.labelLot) {
-     html += '<div class="part"><div class="id"><span class="pn">📷 박스 라벨 바코드 스캔</span><span class="pc">' + rb.prod + ' 박스 라벨(GS1-128)을 스캔합니다. 로트만이 아니라 (01)(10)(11)(30) 전체 데이터를 그대로 가져옵니다. 스캔한 GTIN이 이 작업지시 제품(' + curO.gtin + ')과 일치해야 지정됩니다.</span></div>' +
+     html += '<div class="part"><div class="id"><span class="pn">📷 박스 라벨 바코드 스캔</span><span class="pc">' + rb.prod + ' 박스 라벨 스캔 (GTIN 불일치 시 지정 불가)</span></div>' +
       (locked ? '' : '<button class="btn primary" id="scanIn" style="min-height:54px">스캔</button>') + '</div>';
     } else {
      html += '<table class="form-tbl"><tr><th>구분</th><th>완제품 코드</th><th>라벨 로트</th><th>스캔 데이터(GS1-128)</th></tr>' +
@@ -974,10 +935,7 @@
      document.getElementById('cCancel').onclick = function () {
       curS.st = 'working';
       curS.end = null;
-      renderCHead();
-      renderCBody();
-      renderCAction();
-      renderSessList();
+      renderCHead(); renderCBody(); renderCAction(); renderSessList();
       flash('완료취소 (목업)');
      };
     } else {
@@ -995,10 +953,7 @@
       }
       curS.st = 'done';
       curS.end = nowHM();
-      renderCHead();
-      renderCBody();
-      renderCAction();
-      renderSessList();
+      renderCHead(); renderCBody(); renderCAction(); renderSessList();
       flash('포장 완료 → ' + (curS.region === 'ovs' ? '수출용' : '내수용') + ' 포장 · 출하대기 (목업)');
      };
      document.getElementById('cDelete').onclick = function () {
@@ -1016,9 +971,7 @@
      if (st && (e.target.classList.contains('plus') || e.target.classList.contains('minus'))) {
       var d = e.target.classList.contains('plus') ? 1 : -1;
       curS[key] = Math.max(0, (max ? Math.min(max, curS[key] + d) : curS[key] + d));
-      renderCBody();
-      renderCAction();
-      renderSessList();
+      renderCBody(); renderCAction(); renderSessList();
       return true;
      }
      return false;
@@ -1031,48 +984,34 @@
     if (rg) {
      var newR = rg.dataset.region;
      if (curS.region !== newR) {
-      if (curS.region) {
-       curS.mat = {};
-       curS.labelLot = null;
-       curS.scanBox = null;
-      }
+      if (curS.region) { curS.mat = {}; curS.labelLot = null; curS.scanBox = null; }
       curS.region = newR;
-      renderCBody();
-      renderCAction();
-      renderSessList();
+      renderCBody(); renderCAction(); renderSessList();
       flash((newR === 'ovs' ? '해외(수출용)' : '국내(내수용)') + ' 포장 자재로 전환');
      }
      return;
     }
 
     // 라벨 스캔
-    if (e.target.id === 'scanIn' || e.target.id === 'rescanIn') {
-     openScan();
-     return;
-    }
+    if (e.target.id === 'scanIn' || e.target.id === 'rescanIn') { openScan(); return; }
 
     // 자재 부적합 등록 (조립에서 이식)
     var defb = e.target.closest('[data-def]');
-    if (defb) {
-     openDef(defb.dataset.def);
-     return;
-    }
+    if (defb) { openDef(defb.dataset.def); return; }
 
     // 자재 스텝 +/-
     var mp = e.target.closest('[data-mplus]');
     if (mp) {
      var c = mp.dataset.mplus;
      curS.mat[c] = (curS.mat[c] || 0) + 1;
-     renderCBody();
-     renderCAction();
+     renderCBody(); renderCAction();
      return;
     }
     var mm = e.target.closest('[data-mminus]');
     if (mm) {
      var c2 = mm.dataset.mminus;
      curS.mat[c2] = Math.max(0, (curS.mat[c2] || 0) - 1);
-     renderCBody();
-     renderCAction();
+     renderCBody(); renderCAction();
      return;
     }
     // 자재 체크(=필요수량 채움 토글)
@@ -1080,44 +1019,29 @@
     if (mt) {
      var c3 = mt.dataset.mtoggle;
      var rb = regionBom(curS.region);
-     var mo = rb.mats.filter(function (x) {
-      return x.code === c3;
-     })[0];
+     var mo = rb.mats.filter(function (x) { return x.code === c3; })[0];
      var need = (mo.qty || 1) * (curS.outbox || 0);
      curS.mat[c3] = (curS.mat[c3] || 0) >= need && need > 0 ? 0 : need;
-     renderCBody();
-     renderCAction();
+     renderCBody(); renderCAction();
      return;
     }
     // 자재 수량 넘패드
     var mpad = e.target.closest('[data-mpad]');
-    if (mpad) {
-     openPadMat(mpad.dataset.mpad);
-     return;
-    }
+    if (mpad) { openPadMat(mpad.dataset.mpad); return; }
     // 박스 수량 넘패드
     var pb = e.target.closest('[data-padbox]');
-    if (pb) {
-     openPadBox();
-     return;
-    }
+    if (pb) { openPadBox(); return; }
     // 일괄 채우기 / 비우기
     if (e.target.closest('[data-matfill]')) {
      var rbf = regionBom(curS.region);
-     rbf.mats.forEach(function (m) {
-      curS.mat[m.code] = (m.qty || 1) * (curS.outbox || 0);
-     });
-     renderCBody();
-     renderCAction();
-     flash('필요수량 일괄 채움');
-     return;
+     rbf.mats.forEach(function (m) { curS.mat[m.code] = (m.qty || 1) * (curS.outbox || 0); });
+     renderCBody(); renderCAction();
+     flash('필요수량 일괄 채움'); return;
     }
     if (e.target.closest('[data-matclear]')) {
      curS.mat = {};
-     renderCBody();
-     renderCAction();
-     flash('자재 투입 비움');
-     return;
+     renderCBody(); renderCAction();
+     flash('자재 투입 비움'); return;
     }
     if (e.target.id === 'bcBoxM') {
      var rb2 = regionBom(curS.region);
@@ -1139,33 +1063,28 @@
     if (t) openTime(t.dataset.time);
    });
 
-   /* ── 박스 라벨 스캔 (실사용) · GS1-128 전체 데이터 저장 ──
-      입력원: ① 카메라(BarcodeDetector, 미지원 시 ZXing) ② USB/BT 스캐너건(HID) ③ 수동입력.
+   /* ── 박스 라벨 스캔 (모의) · GS1-128 전체 데이터 저장 ──
+      실제 카메라/스캐너건 없이 '스캔 인식(모의)' 버튼 + 수동입력으로 동작.
       로트만이 아니라 (01)GTIN (10)LOT (11)제조일 (30)수량 전체를 파싱해 세션에 저장.
-      ★검증 강화(BSC 방식): 스캔 GTIN이 이 작업지시 제품 GTIN과 일치 + 로트(10) 존재해야만 지정 허용. */
+      ★검증(BSC 방식): 스캔 GTIN이 이 작업지시 제품 GTIN과 일치 + 로트(10) 존재해야만 지정 허용. */
    var scanPending = null;   // 현재 인식된 파싱 객체
    var scanFrozen = false;   // 인식 후 정지(중복 인식 방지)
 
-   // UI를 '스캔 대기(라이브)' 상태로 되돌림(카메라는 유지)
+   // UI를 '스캔 대기' 상태로 되돌림
    function scanReset() {
     scanPending = null;
     scanFrozen = false;
     document.getElementById('scanBox').classList.remove('recognized');
-    document.getElementById('scanHint').textContent = '박스 라벨을 사각형 안에 맞추세요 · GS1-128 (01)GTIN(10)LOT …';
+    document.getElementById('scanHint').textContent = '모의 스캔 — "스캔 인식" 버튼으로 라벨을 인식합니다';
     var res = document.getElementById('scanResult');
     res.classList.remove('show');
     res.classList.remove('bad');
-    var ic = res.querySelector('.ic');
-    if (ic) ic.textContent = '✓';
+    var ic = res.querySelector('.ic'); if (ic) ic.textContent = '✓';
     document.getElementById('scanLotVal').textContent = '—';
     document.getElementById('scanRaw').textContent = '—';
-    var note = document.getElementById('scanValNote');
-    if (note) {
-     note.textContent = '';
-     note.className = 'scan-valnote';
-    }
+    var note = document.getElementById('scanValNote'); if (note) { note.textContent = ''; note.className = 'scan-valnote'; }
+    var cap = document.getElementById('scanCapture'); if (cap) { cap.style.display = ''; cap.disabled = false; }
     document.getElementById('scanRetry').style.display = 'none';
-    document.getElementById('scanRestart').style.display = 'none';
     document.getElementById('scanApply').disabled = true;
    }
 
@@ -1173,18 +1092,9 @@
     scanReset();
     document.getElementById('scanManual').value = '';
     showMask('scanMask');
-    startScanner();
    }
 
-   // 인식된 GS1-128 텍스트 처리(카메라/스캐너건 공통 진입점)
-   function onScanText(text) {
-    if (!scanActive || scanFrozen) return;
-    var d = parseGs1(text);
-    if (!d.gtin && !d.lot) return;
-    scanRecognize(d, false);
-   }
-
-   // 검증 강화(BSC 방식 이식): 스캔한 박스 라벨의 GTIN이 이 작업지시 제품 GTIN과
+   // 검증(BSC 방식 이식): 스캔한 박스 라벨의 GTIN이 이 작업지시 제품 GTIN과
    // 일치하는지 + 로트(10)가 있는지 확인. 하나라도 어긋나면 '이 데이터로 지정'을 막는다.
    // (도메인: 외부 GS1-128은 GTIN+LOT 공유 → GTIN 일치가 제품 매칭의 핵심)
    function scanRecognize(d, viaManual) {
@@ -1202,43 +1112,35 @@
     var res = document.getElementById('scanResult');
     res.classList.add('show');
     res.classList.toggle('bad', !valid);
-    var ic = res.querySelector('.ic');
-    if (ic) ic.textContent = valid ? '✓' : '!';
+    var ic = res.querySelector('.ic'); if (ic) ic.textContent = valid ? '✓' : '!';
 
     document.getElementById('scanLotVal').textContent = d.lot || '(로트 없음)';
     document.getElementById('scanRaw').textContent = gs1Line(d);
 
     var reason;
-    if (valid) reason = 'GTIN 일치 · 로트 확인 — 검증 통과';
-    else if (!hasGtin) reason = 'GTIN(01)이 없는 라벨입니다. 박스 라벨을 스캔하세요.';
+    if (!hasGtin) reason = 'GTIN(01)이 없는 라벨입니다. 박스 라벨을 스캔하세요.';
     else if (expect && d.gtin !== expect) reason = 'GTIN 불일치 — 이 작업지시 제품이 아닙니다 (기대 ' + expect + ' / 스캔 ' + d.gtin + ')';
     else if (!lotOk) reason = '로트(10)가 없는 라벨입니다.';
     else reason = '검증 실패';
 
-    document.getElementById('scanHint').textContent = (viaManual ? '수동 입력 — ' : '인식 완료 — ') + (valid ? '검증 통과' : '검증 실패');
+    document.getElementById('scanHint').textContent = valid
+     ? (viaManual ? '수동 입력 확인' : '인식 완료')
+     : (viaManual ? '수동 입력 — 검증 실패' : '인식 완료 — 검증 실패');
     var note = document.getElementById('scanValNote');
     if (note) {
-     note.textContent = (valid ? '✓ ' : '⚠️ ') + reason;
-     note.className = 'scan-valnote ' + (valid ? 'ok' : 'bad');
+     if (valid) { note.textContent = ''; note.className = 'scan-valnote'; }   // 통과 시 메시지 없음
+     else { note.textContent = '⚠️ ' + reason; note.className = 'scan-valnote bad'; }
     }
 
+    var cap = document.getElementById('scanCapture'); if (cap) cap.style.display = 'none';
     document.getElementById('scanRetry').style.display = '';
     document.getElementById('scanApply').disabled = !valid;   // 검증 실패면 지정 불가
    }
 
-   document.getElementById('scanRetry').onclick = function () {
-    scanReset();
-   };
-   document.getElementById('scanRestart').onclick = function () {
-    scanReset();
-    startScanner();
-   };
+   document.getElementById('scanRetry').onclick = function () { scanReset(); };
    document.getElementById('scanManualBtn').onclick = function () {
     var v = (document.getElementById('scanManual').value || '').trim();
-    if (!v) {
-     flash('박스 라벨 데이터를 입력하세요');
-     return;
-    }
+    if (!v) { flash('박스 라벨 데이터를 입력하세요'); return; }
     scanRecognize(parseGs1(v), true);
    };
    document.getElementById('scanManual').addEventListener('keydown', function (e) {
@@ -1248,273 +1150,40 @@
     if (!scanPending) return;
     // 지정 직전 최종 가드 — 검증 실패 데이터는 저장 불가
     var expect = curO ? curO.gtin : null;
-    if (expect && scanPending.gtin && scanPending.gtin !== expect) {
-     flash('GTIN 불일치 — 지정할 수 없습니다');
-     return;
-    }
-    if (!scanPending.gtin) {
-     flash('GTIN(01) 없는 라벨은 지정할 수 없습니다');
-     return;
-    }
-    if (!scanPending.lot) {
-     flash('로트(10) 없는 라벨은 지정할 수 없습니다');
-     return;
-    }
+    if (expect && scanPending.gtin && scanPending.gtin !== expect) { flash('GTIN 불일치 — 지정할 수 없습니다'); return; }
+    if (!scanPending.gtin) { flash('GTIN(01) 없는 라벨은 지정할 수 없습니다'); return; }
+    if (!scanPending.lot) { flash('로트(10) 없는 라벨은 지정할 수 없습니다'); return; }
     curS.scanBox = scanPending;          // GS1-128 전체 데이터 저장
     curS.labelLot = scanPending.lot;     // 기존 표시 호환
     stopScanner();
     hideMask('scanMask');
-    renderCBody();
-    renderCAction();
-    renderSessList();
-    flash('박스 라벨 ' + (curS.labelLot || '') + ' → 검증 통과 · 전체 데이터 저장');
+    renderCBody(); renderCAction(); renderSessList();
+    flash('박스 라벨 ' + (curS.labelLot || '') + ' 지정 · 전체 데이터 저장');
    };
 
-   /* ═══════════ 실 카메라 / 스캐너건 스캐너 모듈 ═══════════ */
-   var scanVideo = null, scanStream = null, scanTrack = null, scanDetector = null;
-   var scanLoopId = null, scanActive = false, scanTorchOn = false;
-   var scanZXControls = null, _zxingP = null;
+   /* ═══════════ (모의) 스캐너 — 카메라/하드웨어 없이 시뮬레이션 ═══════════ */
+   // 실제 카메라(getUserMedia/BarcodeDetector/ZXing)·스캐너건(HID)을 쓰지 않고,
+   // '스캔 인식(모의)' 버튼으로 이 작업지시의 GTIN이 담긴 샘플 GS1-128을 만들어 인식한 것처럼 처리.
+   function stopScanner() {}   // 카메라 없음 → no-op (시트 닫기 핸들러 호환용)
 
-   function cameraErrMsg(err) {
-    var n = (err && err.name) || '';
-    if (n === 'NotAllowedError' || n === 'SecurityError') return '카메라 권한이 거부되었습니다. 주소창 카메라 권한을 허용하거나, 스캐너건/수동 입력을 사용하세요.';
-    if (n === 'NotFoundError' || n === 'DevicesNotFoundError' || n === 'OverconstrainedError') return '카메라 장치를 찾을 수 없습니다. 스캐너건 또는 수동 입력을 사용하세요.';
-    if (n === 'NotReadableError' || n === 'TrackStartError') return '카메라를 다른 앱이 사용 중입니다. 해당 앱을 종료하고 다시 시도하세요.';
-    return '카메라를 열 수 없습니다(' + (n || (err && err.message) || '오류') + '). 스캐너건/수동 입력을 사용하세요.';
+   // 모의 라벨 로트 생성(세션 시작일 기준)
+   function sampleLabelLot() {
+    var dt = (((curS && curS.start) || '260706').slice(2, 10).replace(/-/g, '')) || '260706';
+    return 'MCX' + dt;
    }
 
-   function scanCamFail(msg) {
-    scanActive = false;
-    document.getElementById('scanHint').textContent = msg;
-    var rs = document.getElementById('scanRestart');
-    if (rs) rs.style.display = '';
-   }
-
-   function stopScanner() {
-    scanActive = false;
-    if (scanLoopId) {
-     cancelAnimationFrame(scanLoopId);
-     scanLoopId = null;
-    }
-    try {
-     if (scanZXControls && scanZXControls.stop) scanZXControls.stop();
-    } catch (e) {
-    }
-    scanZXControls = null;
-    scanDetector = null;
-    scanTorchOn = false;
-    if (scanStream) {
-     scanStream.getTracks().forEach(function (t) {
-      try {
-       t.stop();
-      } catch (e) {
-      }
-     });
-     scanStream = null;
-    }
-    scanTrack = null;
-    if (scanVideo) {
-     try {
-      scanVideo.srcObject = null;
-     } catch (e) {
-     }
-     scanVideo.style.display = 'none';
-    }
-    var sb = document.getElementById('scanBox');
-    if (sb) sb.classList.remove('live');
-    var tb = document.getElementById('scanTorch');
-    if (tb) {
-     tb.style.display = 'none';
-     tb.classList.remove('on');
-    }
-   }
-
-   function startScanner() {
-    scanVideo = document.getElementById('scanVideo');
-    scanActive = true;
-    document.getElementById('scanRestart').style.display = 'none';
-    if (typeof window.isSecureContext !== 'undefined' && !window.isSecureContext) {
-     scanCamFail('카메라는 HTTPS(또는 localhost)에서만 동작합니다. http 접속이면 스캐너건/수동 입력을 사용하세요.');
-     return;
-    }
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-     scanCamFail('이 브라우저는 카메라 API를 지원하지 않습니다. 스캐너건/수동 입력을 사용하세요.');
-     return;
-    }
-    document.getElementById('scanHint').textContent = '카메라 여는 중…';
-    navigator.mediaDevices.getUserMedia({video: {facingMode: {ideal: 'environment'}}, audio: false})
-    .then(function (stream) {
-     if (!scanActive) {
-      stream.getTracks().forEach(function (t) {
-       try {
-        t.stop();
-       } catch (e) {
-       }
-      });
-      return;
-     }
-     scanStream = stream;
-     scanVideo.srcObject = stream;
-     scanVideo.setAttribute('playsinline', '');
-     scanVideo.muted = true;
-     scanTrack = stream.getVideoTracks()[0];
-     var p = scanVideo.play();
-     if (p && p.catch) p.catch(function () {
-     });
-     scanVideo.style.display = 'block';
-     document.getElementById('scanBox').classList.add('live');
-     setupTorch();
-     document.getElementById('scanHint').textContent = '박스 라벨을 사각형 안에 맞추세요';
-     startDecoder();
-    })
-    .catch(function (err) {
-     scanCamFail(cameraErrMsg(err));
-    });
-   }
-
-   function startDecoder() {
-    if ('BarcodeDetector' in window) {
-     try {
-      window.BarcodeDetector.getSupportedFormats().then(function (fmts) {
-       if (!scanActive) return;
-       var want = ['code_128', 'ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_39', 'codabar', 'itf', 'qr_code', 'data_matrix'];
-       var use = (fmts || []).filter(function (f) {
-        return want.indexOf(f) >= 0;
-       });
-       if (use.length) {
-        try {
-         scanDetector = new window.BarcodeDetector({formats: use});
-        } catch (e) {
-         scanDetector = null;
-        }
-       }
-       if (scanDetector) detectLoop(); else tryZXing();
-      }).catch(function () {
-       tryZXing();
-      });
-      return;
-     } catch (e) { /* fallthrough */
-     }
-    }
-    tryZXing();
-   }
-
-   function detectLoop() {
-    var run = function () {
-     if (!scanActive || !scanDetector) return;
-     if (!scanFrozen && scanVideo && scanVideo.readyState >= 2) {
-      scanDetector.detect(scanVideo).then(function (codes) {
-       if (!scanActive || scanFrozen) return;
-       if (codes && codes.length) onScanText(codes[0].rawValue);
-      }).catch(function () {
-      });
-     }
-     scanLoopId = requestAnimationFrame(run);
-    };
-    scanLoopId = requestAnimationFrame(run);
-   }
-
-   function tryZXing() {
-    document.getElementById('scanHint').textContent = '디코더 준비 중…';
-    loadZXing().then(function (NS) {
-     if (!scanActive) return;
-     var reader = new NS.BrowserMultiFormatReader();
-     var cb = function (result, err, controls) {
-      if (controls && !scanZXControls) scanZXControls = controls;
-      if (result && scanActive && !scanFrozen) onScanText(result.getText());
-     };
-     var ok = false;
-     try {
-      if (reader.decodeFromStream) {
-       reader.decodeFromStream(scanStream, scanVideo, cb).then(function (c) {
-        scanZXControls = c;
-       }).catch(function () {
-       });
-       ok = true;
-      } else if (reader.decodeFromVideoElementContinuously) {
-       reader.decodeFromVideoElementContinuously(scanVideo, cb);
-       ok = true;
-      } else if (reader.decodeContinuously) {
-       reader.decodeContinuously(scanVideo, cb);
-       ok = true;
-      }
-     } catch (e) {
-      ok = false;
-     }
-     if (ok) document.getElementById('scanHint').textContent = '박스 라벨을 사각형 안에 맞추세요';
-     else scanCamFail('이 브라우저는 카메라 자동 인식을 지원하지 않습니다. 스캐너건/수동 입력을 사용하세요.');
-    }).catch(function () {
-     scanCamFail('카메라 자동 인식 미지원 브라우저입니다. USB/BT 스캐너건 또는 아래 수동 입력을 사용하세요.');
-    });
-   }
-
-   function loadZXing() {
-    if (_zxingP) return _zxingP;
-    _zxingP = new Promise(function (res, rej) {
-     var g = window.ZXingBrowser || window.ZXing;
-     if (g && g.BrowserMultiFormatReader) return res(g);
-     var s = document.createElement('script');
-     s.src = 'https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/umd/index.min.js';
-     s.async = true;
-     s.onload = function () {
-      var gg = window.ZXingBrowser || window.ZXing;
-      (gg && gg.BrowserMultiFormatReader) ? res(gg) : rej(new Error('no zxing'));
-     };
-     s.onerror = function () {
-      rej(new Error('zxing load fail'));
-     };
-     document.head.appendChild(s);
-    });
-    return _zxingP;
-   }
-
-   function setupTorch() {
-    var tb = document.getElementById('scanTorch');
-    if (!tb) return;
-    var caps = null;
-    try {
-     caps = scanTrack && scanTrack.getCapabilities ? scanTrack.getCapabilities() : null;
-    } catch (e) {
-    }
-    if (caps && caps.torch) {
-     tb.style.display = '';
-     tb.onclick = toggleTorch;
-    } else tb.style.display = 'none';
-   }
-
-   function toggleTorch() {
-    if (!scanTrack) return;
-    scanTorchOn = !scanTorchOn;
-    try {
-     scanTrack.applyConstraints({advanced: [{torch: scanTorchOn}]});
-    } catch (e) {
-    }
-    var tb = document.getElementById('scanTorch');
-    if (tb) tb.classList.toggle('on', scanTorchOn);
-   }
-
-   // USB/블루투스 스캐너건(HID·키보드 웨지): 시트가 열려 있을 때 빠른 키 입력을 자동 캡처
-   // (예: Zebra DS2278 등 블루투스 HID 스캐너 — 스캔 = 문자열 타이핑 + Enter/Tab)
-   var wedgeBuf = '', wedgeLast = 0;
-   document.addEventListener('keydown', function (e) {
-    var sm = document.getElementById('scanMask');
-    if (!sm || !sm.classList.contains('show')) return;
-    if (document.activeElement === document.getElementById('scanManual')) return;
-    if (scanFrozen) return;
-    var now = Date.now();
-    if (now - wedgeLast > 120) wedgeBuf = '';
-    wedgeLast = now;
-    if (e.key === 'Enter' || e.key === 'Tab') {
-     if (wedgeBuf.length >= 4) {
-      var b = wedgeBuf;
-      wedgeBuf = '';
-      onScanText(b);
-     }
-     e.preventDefault();
-     return;
-    }
-    if (e.key && e.key.length === 1) wedgeBuf += e.key;
-   }, true);
+   document.getElementById('scanCapture').onclick = function () {
+    var btn = this;
+    btn.disabled = true;
+    document.getElementById('scanHint').textContent = '인식 중…';
+    setTimeout(function () {
+     btn.disabled = false;
+     var dt = (((curS && curS.start) || '260706').slice(2, 10).replace(/-/g, '')) || '260706';
+     var gtin = curO ? curO.gtin : '';
+     var raw = '(01)' + gtin + '(10)' + sampleLabelLot() + '(11)' + dt;   // 박스 라벨(수량 없음)
+     scanRecognize(parseGs1(raw), false);
+    }, 650);
+   };
 
    /* ── 부적합 등록 (조립 작업지시에서 이식) ── */
    function matDefOf(code) {
@@ -1525,9 +1194,7 @@
 
    function sessBad(se) {
     var d = se.matDef || {};
-    return Object.keys(d).reduce(function (a, k) {
-     return a + (d[k].defQty || 0);
-    }, 0);
+    return Object.keys(d).reduce(function (a, k) { return a + (d[k].defQty || 0); }, 0);
    }
 
    var DEFTYPES = ['이물', '파손', '변형', '오염', '기타'];
@@ -1537,9 +1204,7 @@
     defCode = code;
     var d = matDefOf(code);
     var rb = regionBom(curS.region);
-    var m = rb ? rb.mats.filter(function (x) {
-     return x.code === code;
-    })[0] : null;
+    var m = rb ? rb.mats.filter(function (x) { return x.code === code; })[0] : null;
     defQ = d.defQty || 0;
     defT = d.defType || null;
     defPhotos = (d.photos || []).slice();
@@ -1563,9 +1228,7 @@
    document.getElementById('defTypes').addEventListener('click', function (e) {
     var b = e.target.closest('[data-dt]');
     if (!b) return;
-    document.querySelectorAll('#defTypes .opt').forEach(function (x) {
-     x.classList.remove('sel');
-    });
+    document.querySelectorAll('#defTypes .opt').forEach(function (x) { x.classList.remove('sel'); });
     b.classList.add('sel');
     defT = b.dataset.dt;
    });
@@ -1589,9 +1252,7 @@
     }
    });
    document.getElementById('defFile').addEventListener('change', function (e) {
-    [].forEach.call(e.target.files, function (f) {
-     defPhotos.push(URL.createObjectURL(f));
-    });
+    [].forEach.call(e.target.files, function (f) { defPhotos.push(URL.createObjectURL(f)); });
     e.target.value = '';
     renderPhotos();
    });
@@ -1601,17 +1262,14 @@
     d.defType = defT;
     d.photos = defPhotos.slice();
     hideMask('defMask');
-    renderCBody();
-    renderCAction();
-    renderSessList();
+    renderCBody(); renderCAction(); renderSessList();
     flash(defQ > 0 ? '부적합 ' + defQ + ' (' + (defT || '유형미지정') + ')' : '부적합 0 저장');
    };
 
    var padVal = '', padMode = 'box', padMatCode = null;
 
    function openPadBox() {
-    padMode = 'box';
-    padMatCode = null;
+    padMode = 'box'; padMatCode = null;
     padVal = String(curS.outbox || 0);
     document.getElementById('padLab').textContent = '박스 포장수량';
     document.getElementById('padDisp').textContent = padVal;
@@ -1619,13 +1277,10 @@
    }
 
    function openPadMat(code) {
-    padMode = 'mat';
-    padMatCode = code;
+    padMode = 'mat'; padMatCode = code;
     padVal = String(curS.mat[code] || 0);
     var rb = regionBom(curS.region);
-    var mo = rb.mats.filter(function (x) {
-     return x.code === code;
-    })[0];
+    var mo = rb.mats.filter(function (x) { return x.code === code; })[0];
     document.getElementById('padLab').textContent = mo ? mo.name : '자재 수량';
     document.getElementById('padDisp').textContent = padVal;
     showMask('padMask');
@@ -1640,22 +1295,15 @@
      if (padMode === 'box') curS.outbox = n;
      else if (padMode === 'mat' && padMatCode) curS.mat[padMatCode] = n;
      hideMask('padMask');
-     renderCBody();
-     renderCAction();
-     renderSessList();
+     renderCBody(); renderCAction(); renderSessList();
      return;
     } else padVal = (padVal === '0' ? '' : padVal) + k;
     document.getElementById('padDisp').textContent = padVal || '0';
    });
 
    /* ── 시작 시트 ── */
-   function showMask(id) {
-    document.getElementById(id).classList.add('show');
-   }
-
-   function hideMask(id) {
-    document.getElementById(id).classList.remove('show');
-   }
+   function showMask(id) { document.getElementById(id).classList.add('show'); }
+   function hideMask(id) { document.getElementById(id).classList.remove('show'); }
 
    document.querySelectorAll('.mask').forEach(function (m) {
     m.addEventListener('click', function (e) {
@@ -1669,8 +1317,7 @@
    let selW = null, selE = null;
 
    function openStart() {
-    selW = null;
-    selE = null;
+    selW = null; selE = null;
     document.getElementById('workerOpts').innerHTML = WORKERS.map(function (w) {
      return '<button class="opt" data-w="' + w + '">' + w + '</button>';
     }).join('');
@@ -1684,9 +1331,7 @@
    document.getElementById('workerOpts').addEventListener('click', function (e) {
     var b = e.target.closest('[data-w]');
     if (!b) return;
-    document.querySelectorAll('#workerOpts .opt').forEach(function (x) {
-     x.classList.remove('sel');
-    });
+    document.querySelectorAll('#workerOpts .opt').forEach(function (x) { x.classList.remove('sel'); });
     b.classList.add('sel');
     selW = b.dataset.w;
     ckStart();
@@ -1694,9 +1339,7 @@
    document.getElementById('equipOpts').addEventListener('click', function (e) {
     var b = e.target.closest('[data-e]');
     if (!b) return;
-    document.querySelectorAll('#equipOpts .opt').forEach(function (x) {
-     x.classList.remove('sel');
-    });
+    document.querySelectorAll('#equipOpts .opt').forEach(function (x) { x.classList.remove('sel'); });
     b.classList.add('sel');
     selE = b.dataset.e;
     ckStart();
@@ -1718,7 +1361,6 @@
 
    /* 토스트 */
    let tT;
-
    function flash(m) {
     var t = document.getElementById('toast');
     if (!t) {
@@ -1730,9 +1372,7 @@
     t.textContent = m;
     t.style.opacity = '1';
     clearTimeout(tT);
-    tT = setTimeout(function () {
-     t.style.opacity = '0';
-    }, 1700);
+    tT = setTimeout(function () { t.style.opacity = '0'; }, 1700);
    }
 
    /* ── 바코드/출력 ── */
@@ -1766,9 +1406,7 @@
     var pa = document.getElementById('printArea');
     pa.innerHTML = '<h3 style="margin:0 0 10px">' + document.getElementById('bcTitle').textContent + '</h3>' + html;
     hideMask('bcMask');
-    setTimeout(function () {
-     window.print();
-    }, 100);
+    setTimeout(function () { window.print(); }, 100);
    };
 
    /* 시간 수정 */
