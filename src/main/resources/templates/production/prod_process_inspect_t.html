@@ -578,7 +578,7 @@
         const ORDERS = [
             {
                 id: 'QC-2406-014',
-                odate: '2026-06-26',
+                odate: '2026-07-06',
                 st: 'working',
                 name: 'M-CELL 디바이스 본체',
                 code: 'SM-CELL-2',
@@ -590,21 +590,39 @@
                         worker: '이서연',
                         equip: '검사대 1',
                         tpl: 'ROTOR',
-                        start: '2026-06-26 10:00',
+                        start: '2026-07-06 10:00',
                         end: null,
                         st: 'working',
                         units: [{
                             no: 1,
                             lot: 'MC20260626-001',
-                            res: {1: 'pass', 2: 'pass', 3: 'pass', 4: 'pass', 5: 'pass', 6: 'pass'},
-                            val: {6: '0.03mm'},
+                            res: {
+                                '1_1': 'pass',
+                                '1_2': 'pass',
+                                '1_3': 'pass',
+                                2: 'pass',
+                                3: 'pass',
+                                4: 'pass',
+                                5: 'pass',
+                                6: 'pass'
+                            },
+                            val: {'1_1': 'OK', '1_2': 'OK', '1_3': 'OK', 6: '0.03mm'},
                             verdict: 'pass'
                         },
                             {
                                 no: 2,
                                 lot: 'MC20260626-002',
-                                res: {1: 'pass', 2: 'pass', 3: 'pass', 4: 'pass', 5: 'pass', 6: 'fail'},
-                                val: {6: '0.08mm'},
+                                res: {
+                                    '1_1': 'pass',
+                                    '1_2': 'pass',
+                                    '1_3': 'pass',
+                                    2: 'pass',
+                                    3: 'pass',
+                                    4: 'pass',
+                                    5: 'pass',
+                                    6: 'fail'
+                                },
+                                val: {'1_1': 'OK', '1_2': 'OK', '1_3': 'OK', 6: '0.08mm'},
                                 verdict: 'fail'
                             }],
                         cur: null
@@ -613,7 +631,7 @@
             },
             {
                 id: 'QC-2406-010',
-                odate: '2026-06-25',
+                odate: '2026-07-05',
                 st: 'wait',
                 name: 'M-CELL 디바이스 본체',
                 code: 'SM-CELL-2',
@@ -772,7 +790,8 @@
             }
             box.innerHTML = o.sessions.map(function (se, i) {
                 return '<div class="sess" data-st="' + se.st + '" data-i="' + i + '"><div class="edge"></div>' +
-                    '<div class="who"><span class="nm">' + se.worker + '</span><span class="eq">' + se.equip + '</span></div>' +
+                    '<div class="who"><span class="nm">' + se.worker + '</span><span class="eq">' + se.equip + '</span>' +
+                    '<span class="tp" style="font-size:12.5px;font-weight:800;color:var(--teal-d);background:var(--teal-bg);padding:2px 8px;border-radius:8px;align-self:flex-start;margin-top:3px">' + ((INSP_TEMPLATES[se.tpl] || INSP_TEMPLATES.ROTOR).name) + '</span></div>' +
                     '<div class="time">' + pill(se.start) + ' ~ ' + pill(se.end) + '</div>' +
                     '<div class="qty"><div class="l">합/불</div><div class="v" style="font-size:18px"><span style="color:var(--green)">' + sPass(se) + '</span> / <span style="color:var(--red)">' + sFail(se) + '</span></div></div>' +
                     '<span class="badge ' + se.st + '">' + STLAB[se.st] + '</span></div>';
@@ -830,7 +849,7 @@
             // 검사 완료 목록
             html += '<div class="secline">검사 완료 <span class="ln"></span><span>' + curS.units.length + '대</span></div>';
             html += curS.units.map(function (uu, idx) {
-                var det = uu.cycles ? (uu.cycles.length + '/' + (t.count || 50) + '회') : (Object.keys(uu.res || {}).length + '항목');
+                var det = uu.cycles ? (uu.cycles.length + '/' + (t.count || 50) + '회') : ((t.items ? t.items.length : Object.keys(uu.res || {}).length) + '항목');
                 return '<div class="part"><div class="id"><span class="pn">#' + uu.no + ' ' + uu.lot + '</span><span class="pc">' + det + ' 검사</span></div>' +
                     '<span class="vtag ' + (uu.verdict === 'pass' ? 'pass' : 'fail') + '">' + (uu.verdict === 'pass' ? '합격' : '불합격') + '</span>' +
                     (locked ? '' : '<div style="display:flex;gap:8px;flex:0 0 auto;margin-left:8px">' +
@@ -840,23 +859,44 @@
             document.getElementById('cBody').innerHTML = html;
         }
 
+        // #1 전원 ON/OFF(3회) → 측정 3로우. 항목별 판정/측정 키 목록
+        function rotorItemKeys(no) {
+            return no === 1 ? ['1_1', '1_2', '1_3'] : [String(no)];
+        }
+
+        function rotorAllKeys(t) {
+            var ks = [];
+            t.items.forEach(function (it) {
+                ks = ks.concat(rotorItemKeys(it.no));
+            });
+            return ks;
+        }
+
         // #50 ROTOR : 6항목 체크리스트
         function rotorBody(u, t, locked) {
             var html = t.items.map(function (it) {
-                var r = u.res[it.no], val = (u.val && u.val[it.no]) || '';
-                return '<div class="part"><div class="id"><span class="pn">' + it.no + '. ' + it.item + '</span>' +
-                    '<span class="pc">기준: ' + it.criteria + ' · 공구: ' + it.method + '</span></div>' +
-                    (val ? '<span class="valchip">' + val + '</span>' : '') +
-                    '<button class="defbtn' + (val ? ' has' : '') + '" data-val="' + it.no + '">측정값</button>' +
-                    '<div class="judge" style="flex:0 0 auto;gap:8px;margin-left:8px">' +
-                    '<button class="pass ' + (r === 'pass' ? 'on' : '') + '" data-chk="' + it.no + '" data-v="pass" style="min-height:48px;padding:0 14px">합</button>' +
-                    '<button class="fail ' + (r === 'fail' ? 'on' : '') + '" data-chk="' + it.no + '" data-v="fail" style="min-height:48px;padding:0 14px">불</button></div></div>';
+                var keys = rotorItemKeys(it.no);
+                return keys.map(function (key, ki) {
+                    var r = u.res[key], val = (u.val && u.val[key]) || '';
+                    var pn = keys.length > 1
+                        ? (it.no + '. ' + it.item.replace(/\s*\(3회\)/, '') + ' — 측정 ' + (ki + 1) + '회')
+                        : (it.no + '. ' + it.item);
+                    var pc = (keys.length > 1 && ki > 0) ? '' : ('기준: ' + it.criteria + ' · 공구: ' + it.method);
+                    return '<div class="part"><div class="id"><span class="pn">' + pn + '</span>' +
+                        (pc ? '<span class="pc">' + pc + '</span>' : '') + '</div>' +
+                        (val ? '<span class="valchip">' + val + '</span>' : '') +
+                        '<button class="defbtn' + (val ? ' has' : '') + '" data-val="' + key + '">측정값</button>' +
+                        '<div class="judge" style="flex:0 0 auto;gap:8px;margin-left:8px">' +
+                        '<button class="pass ' + (r === 'pass' ? 'on' : '') + '" data-chk="' + key + '" data-v="pass" style="min-height:48px;padding:0 14px">합</button>' +
+                        '<button class="fail ' + (r === 'fail' ? 'on' : '') + '" data-chk="' + key + '" data-v="fail" style="min-height:48px;padding:0 14px">불</button></div></div>';
+                }).join('');
             }).join('');
-            var allPass = t.items.every(function (it) {
-                return u.res[it.no] === 'pass';
+            var allKeys = rotorAllKeys(t);
+            var allPass = allKeys.every(function (k) {
+                return u.res[k] === 'pass';
             });
-            var anyFail = t.items.some(function (it) {
-                return u.res[it.no] === 'fail';
+            var anyFail = allKeys.some(function (k) {
+                return u.res[k] === 'fail';
             });
             var verdict = anyFail ? '불합격' : (allPass ? '합격' : '미완료');
             var col = anyFail ? 'var(--red)' : (allPass ? 'var(--green)' : 'var(--ink-2)');
@@ -911,10 +951,36 @@
             return html;
         }
 
+        function printMcell() {
+            var t = INSP_TEMPLATES[(curS && curS.tpl) || 'ROTOR'];
+            var pass = sPass(curS), fail = sFail(curS);
+            var dev = (curS && (curS.serial || curS.device || curS.name)) || 'M-CELL';
+            var html = '<div style="font-family:sans-serif;padding:20px;color:#000">' +
+                '<h2 style="text-align:center;letter-spacing:6px;margin:0 0 4px">M-CELL 검사 성적서</h2>' +
+                '<div style="text-align:center;color:#555;margin-bottom:14px">' + (t ? t.name : '') + '</div>' +
+                '<table style="width:100%;border-collapse:collapse" border="1" cellpadding="7">' +
+                '<tr><th style="width:130px;background:#eee;text-align:left">디바이스</th><td>' + dev + '</td>' +
+                '<th style="width:130px;background:#eee;text-align:left">검사일</th><td>' + ((curS && curS.end) || '') + '</td></tr>' +
+                '<tr><th style="background:#eee;text-align:left">검사 템플릿</th><td>' + (t ? t.name : '') + '</td>' +
+                '<th style="background:#eee;text-align:left">작업자</th><td>' + ((curS && curS.worker) || '') + '</td></tr>' +
+                '<tr><th style="background:#eee;text-align:left">합격 / 불합격</th><td>' + pass + ' / ' + fail + '</td>' +
+                '<th style="background:#eee;text-align:left">종합 판정</th><td style="font-weight:800;color:' + (fail > 0 ? '#c62828' : '#2e7d32') + '">' + (fail > 0 ? '불합격' : '합격') + '</td></tr>' +
+                '</table>' +
+                '<div style="margin-top:30px;text-align:right">검사 책임자 : ______________ (인)</div></div>';
+            var pa = document.getElementById('printArea');
+            pa.innerHTML = html;
+            window.print();
+        }
+
         function renderCAction() {
             var bar = document.getElementById('cAction');
             if (curS.st === 'done') {
-                bar.innerHTML = '<div class="actsum"><span class="l">합/불</span><span class="v">' + sPass(curS) + ' / ' + sFail(curS) + '</span></div>';
+                bar.innerHTML = '<div class="actsum"><span class="l">합/불</span><span class="v">' + sPass(curS) + ' / ' + sFail(curS) + '</span></div>' +
+                    '<button class="btn ghost" id="cPrint">출력</button>' +
+                    '<button class="btn primary" id="cCancel">수정 (완료취소)</button>';
+                document.getElementById('cPrint').onclick = function () {
+                    printMcell();
+                };
                 document.getElementById('cCancel').onclick = function () {
                     curS.st = 'working';
                     curS.end = null;
@@ -997,8 +1063,8 @@
                 if (t.type === 'repeat') fail = uu.cycles.some(function (cy) {
                     return cy.result === 'fail';
                 });
-                else fail = t.items.some(function (it) {
-                    return uu.res[it.no] === 'fail';
+                else fail = rotorAllKeys(t).some(function (k) {
+                    return uu.res[k] === 'fail';
                 });
                 uu.verdict = fail ? 'fail' : 'pass';
                 curS.units.push(uu);
@@ -1093,10 +1159,15 @@
         }
 
         function padItemName(no) {
+            var s = String(no), sub = '';
+            if (s.indexOf('_') >= 0) {
+                sub = ' — 측정 ' + s.split('_')[1] + '회';
+                s = s.split('_')[0];
+            }
             var it = (INSP_TEMPLATES['ROTOR'].items.filter(function (x) {
-                return String(x.no) === String(no);
+                return String(x.no) === s;
             })[0]);
-            return it ? it.item : ('항목 ' + no);
+            return (it ? it.item.replace(/\s*\(3회\)/, '') : ('항목 ' + s)) + sub;
         }
 
         document.querySelector('#padMask .keys').addEventListener('click', function (e) {

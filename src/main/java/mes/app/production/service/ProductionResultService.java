@@ -93,6 +93,9 @@ public class ProductionResultService {
     @Autowired
     EquRunRepository equRunRepository;
 
+    @Autowired
+    DefectTypeResultRepository defectTypeResultRepository;
+
     public void add_jobres_defectqty_inout(Integer jrPk, int id) {
 
         List<StoreHouse> sh = this.storehouseRepository.findByHouseType("defect");
@@ -2079,11 +2082,12 @@ public class ProductionResultService {
         }
 
         // 합계 수량
-        float totalQty = 0f;
+        float totalQty = 0f;            // 양품 = 클린룸 입고량
+        float defTotalAll = 0f;         // [추가] 불량 = mat_produce.DefectQty
         for (Map<String, Object> it : items) {
             Object q = it.get("qty");
-            if (q == null) continue;
-            totalQty += Float.parseFloat(String.valueOf(q));
+            if (q != null) totalQty += Float.parseFloat(String.valueOf(q));
+            defTotalAll += sumItemDef(it);   // [추가]
         }
         if (totalQty <= 0) {
             result.success = false; result.message = "세척 수량이 0입니다."; return result;
@@ -2093,7 +2097,9 @@ public class ProductionResultService {
         for (Map<String, Object> it : items) {
             Integer matId = ((Number) it.get("mat_id")).intValue();
             Object q = it.get("qty");
-            float qty = (q == null) ? 0f : Float.parseFloat(String.valueOf(q));
+            float qty     = (q == null) ? 0f : Float.parseFloat(String.valueOf(q));
+            float defQty  = sumItemDef(it);
+            float consume = qty + defQty;
             if (qty <= 0) continue;
 
             Material consMat = this.materialRepository.getMaterialById(matId);
@@ -2108,7 +2114,7 @@ public class ProductionResultService {
                 if (ynRow != null && ynRow.get("yn") != null) lotUseYn = String.valueOf(ynRow.get("yn"));
             }
 
-            float remain = qty;
+            float remain = consume;
 
             // (1) 로트관리 자재: 작업자가 지정한 로트(mat_proc_input)를 먼저 차감
             if ("Y".equals(lotUseYn)) {
@@ -2189,8 +2195,8 @@ public class ProductionResultService {
             mc.setStartTime(startTs);
             mc.setEndTime(endTs);
             mc.setDescription("세척투입");
-            mc.setBomQty(qty);
-            mc.setConsumedQty(qty);
+            mc.setBomQty(consume);
+            mc.setConsumedQty(consume);
             mc.set_audit(user);
             mc.setState("finished");
             mc.set_status("a");
@@ -2203,7 +2209,7 @@ public class ProductionResultService {
             moOut.setStoreHouseId(inputStoreId);
             moOut.setInOut("out");
             moOut.setOutputType("move_out");
-            moOut.setOutputQty(qty);
+            moOut.setOutputQty(consume);
             moOut.setInoutDate(LocalDate.parse(date.format(df)));
             moOut.setInoutTime(LocalTime.parse(time.format(tf)));
             moOut.setDescription("세척 투입(생산창고 출고)");
@@ -2252,13 +2258,15 @@ public class ProductionResultService {
         this.matInoutRepository.save(outIn);
 
         // ── 세션 완료 처리 ──
-        mp.setInputQty(totalQty);
+        mp.setInputQty(totalQty + defTotalAll);
         mp.setGoodQty(totalQty);
+        mp.setDefectQty(defTotalAll);
         mp.setState("finished");
         mp.setStartTime(startTs);
         mp.setEndTime(endTs);
         mp.set_audit(user);
         this.matProduceRepository.save(mp);
+        this.saveProcDefects("mat_produce", mp.getId(), items, user);
 
         // ── equ_run 종료 ──
         try {
@@ -2571,5 +2579,66 @@ public class ProductionResultService {
                 ORDER BY m."Code"
                 """;
         return this.sqlRunner.getRows(sql, p);
+    }
+
+    /** 공정(워크센터)별 부적합 유형 목록 — 콤보용 */
+    public List<Map<String, Object>> getProcDefectTypes(Integer workcenterId) {
+        MapSqlParameterSource p = new MapSqlParameterSource().addValue("wcId", workcenterId);
+        String sql = """
+                SELECT dt.id AS defect_type_id, dt."Name" AS defect_type_name
+                FROM work_center wc
+                JOIN proc_defect_type pdt ON pdt."Process_id" = wc."Process_id"
+                JOIN defect_type dt       ON dt.id = pdt."DefectType_id"
+                WHERE wc.id = :wcId
+                ORDER BY dt.id
+                """;
+        return this.sqlRunner.getRows(sql, p);
+    }
+
+    private float sumItemDef(Map<String, Object> it) {
+        Object defs = it.get("defects");
+        if (!(defs instanceof List)) return 0f;
+        float s = 0f;
+        for (Object d : (List<?>) defs) {
+            Object dq = ((Map<?, ?>) d).get("def_qty");
+            if (dq != null) s += Float.parseFloat(String.valueOf(dq));
+        }
+        return s;
+    }
+
+    /**
+     * 공정 공통: 소스(세션/작지) 단위 투입자재 부적합 저장.
+     * 세척 finish 임베드 호출 + 조립/검사 화면의 독립 저장 둘 다 이 메서드를 사용.
+     * 재-확정 대비 delete → reinsert. 창고 이동 없음.
+     */
+    public void saveProcDefects(String sourceTable, Integer sourcePk,
+                                List<Map<String, Object>> items, User user) {
+        this.defectTypeResultRepository.deleteBySource(sourceTable, sourcePk);
+
+        for (Map<String, Object> it : items) {
+            Object defsObj = it.get("defects");
+            if (!(defsObj instanceof List)) continue;
+            Integer matId = ((Number) it.get("mat_id")).intValue();
+
+            for (Object dObj : (List<?>) defsObj) {
+                Map<?, ?> d = (Map<?, ?>) dObj;
+                double dq = d.get("def_qty") == null ? 0d
+                        : Double.parseDouble(String.valueOf(d.get("def_qty")));
+                if (dq <= 0) continue;
+
+                DefectTypeResult r = new DefectTypeResult();
+                r.setSourceTableName(sourceTable);   // 세척: "mat_produce"
+                r.setSourceDataPk(sourcePk);         // 세척: mp_id
+                r.setDefectTypeId(((Number) d.get("defect_type_id")).intValue());
+                r.setDefectQty(dq);
+                r.setMaterialId(matId);
+                r.setMatLotId(d.get("mat_lot_id") == null ? null
+                        : ((Number) d.get("mat_lot_id")).intValue());
+                r.setDescription(d.get("remark") == null ? null : String.valueOf(d.get("remark")));
+                r.set_status("a");
+                r.set_audit(user);                   // ★ AbstractAuditModel 이 _creater_id/_created 채움
+                this.defectTypeResultRepository.save(r);
+            }
+        }
     }
 }

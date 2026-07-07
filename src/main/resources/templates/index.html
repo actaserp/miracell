@@ -5,7 +5,14 @@
     <meta name="ctx" th:content="@{/}">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport"
-          content="width=device-width, user-scalable=no, initial-scale=1, minimum-scale=1, maximum-scale=1">
+          content="width=device-width, user-scalable=no, initial-scale=1, minimum-scale=1, maximum-scale=1, viewport-fit=cover">
+    <!-- 홈 화면에 추가 후 실행 시 주소창 숨김(전체화면) -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="미라셀 MES">
+    <meta name="theme-color" content="#2f2f2f">
+    <link rel="manifest" href="/manifest.json">
     <link rel="icon" th:href="@{/images/logo/actas_log_a.png}">
     <title th:text="${ system_title }"></title>
     <!-- CSS -->
@@ -336,6 +343,33 @@
 
         .dashboard-layout-header.tablet-header-hidden {
             display: none;
+        }
+
+        /* ───── 태블릿(768~1366) 반응형 보정 ───── */
+        @media (min-width: 768px) and (max-width: 1366px) {
+            /* 유지보수 버튼 숨김 */
+            header .right .help { display: none !important; }
+
+            /* 알림 드롭다운: 화면 중앙 고정 → 휠 시 페이지(푸터) 안 밀림 */
+            header .right .alarm-box.open {
+                position: fixed;
+                top: 72px;
+                left: 50%;
+                transform: translateX(-50%);
+                width: min(440px, 92vw);
+                max-height: 70vh;
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+                overscroll-behavior: contain;
+                z-index: 1200;
+                background: #fff;
+                box-shadow: 0 8px 30px rgba(0, 0, 0, .18);
+                border-radius: 12px;
+            }
+            /* 알림 메시지 반응형: 줄바꿈·폭 축소 */
+            header .right .alarm-box .alarm-table { width: 100%; table-layout: fixed; }
+            header .right .alarm-box .notif-msg { white-space: normal; word-break: break-word; }
+            header .right .alarm-box .notif-time { width: 84px; }
         }
 
     </style>
@@ -1444,6 +1478,89 @@
         border-left: 4px solid #4caf50;
     }
 
+    /* ===== 태블릿(터치) : 알림을 화면 중앙에 크게, 자동으로 안 사라지게 ===== */
+    @media (pointer: coarse) {
+        #toastContainer {
+            inset: 0;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            left: 0;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            gap: 16px;
+            pointer-events: none; /* 알림이 없을 때 화면 클릭 막지 않도록 */
+        }
+
+        /* 알림이 하나라도 떠 있으면 배경을 어둡게(모달처럼) */
+        #toastContainer:not(:empty) {
+            background: rgba(0, 0, 0, 0.45);
+            pointer-events: auto;
+        }
+
+        .toast {
+            width: min(560px, 92vw);
+            padding: 24px 26px;
+            border-radius: 14px;
+            font-size: 17px;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+            animation: popIn 0.2s ease-out;
+        }
+
+        .toast.expanded {
+            width: min(600px, 94vw);
+        }
+
+        .toast-header {
+            font-size: 18px;
+            margin-bottom: 12px;
+        }
+
+        .toast-message {
+            font-size: 23px;
+            line-height: 1.45;
+            margin-bottom: 10px;
+        }
+
+        .toast-meta {
+            font-size: 14px;
+        }
+
+        .toast-actions {
+            margin-top: 16px;
+            gap: 10px;
+        }
+
+        .toast-actions button {
+            font-size: 16px;
+            padding: 12px 22px;
+            border-radius: 8px;
+        }
+
+        .toast textarea {
+            height: 110px;
+            font-size: 16px;
+            padding: 10px;
+        }
+
+        .toast .close-btn {
+            font-size: 20px;
+            padding: 0 6px;
+        }
+    }
+
+    @keyframes popIn {
+        from {
+            transform: scale(0.92);
+            opacity: 0;
+        }
+        to {
+            transform: scale(1);
+            opacity: 1;
+        }
+    }
+
     /* 오버레이 */
     .modal-overlay {
         position: fixed;
@@ -1848,6 +1965,70 @@
 
     const toastMap = new Map();
 
+    /* ===== 태블릿(터치) 여부 ===== */
+    function isTabletNoti() {
+        return window.matchMedia("(pointer: coarse)").matches;
+    }
+
+    /* ===== 알림 소리 (WebAudio 비프음, 별도 음원 파일 불필요) ===== */
+    const NotiSound = (function () {
+        let ctx = null;
+
+        function ensureCtx() {
+            if (!ctx) {
+                try {
+                    ctx = new (window.AudioContext || window.webkitAudioContext)();
+                } catch (e) {
+                    return null;
+                }
+            }
+            if (ctx.state === "suspended") {
+                ctx.resume();
+            }
+            return ctx;
+        }
+
+        // 브라우저 자동재생 정책: 첫 사용자 터치/클릭 때 오디오 잠금 해제
+        function unlock() {
+            ensureCtx();
+        }
+
+        document.addEventListener("click", unlock, {once: true});
+        document.addEventListener("touchstart", unlock, {once: true});
+
+        function play() {
+            const c = ensureCtx();
+            if (!c) return;
+            const now = c.currentTime;
+
+            // 클리핑 방지용 리미터 (볼륨 크게 올려도 찢어지지 않게)
+            const limiter = c.createDynamicsCompressor();
+            limiter.threshold.value = -6;
+            limiter.knee.value = 0;
+            limiter.ratio.value = 20;
+            limiter.attack.value = 0.001;
+            limiter.release.value = 0.1;
+            limiter.connect(c.destination);
+
+            // 딩-동 2음 (triangle = sine보다 더 크게 들림, 연속 대괄호는 Thymeleaf와 충돌하니 객체 배열)
+            const tones = [ {f: 880, off: 0}, {f: 1174, off: 0.18} ];
+            tones.forEach(function (t) {
+                const osc = c.createOscillator();
+                const gain = c.createGain();
+                osc.type = "triangle";
+                osc.frequency.value = t.f;
+                gain.gain.setValueAtTime(0.0001, now + t.off);
+                gain.gain.exponentialRampToValueAtTime(0.9, now + t.off + 0.02);
+                gain.gain.exponentialRampToValueAtTime(0.0001, now + t.off + 0.22);
+                osc.connect(gain).connect(limiter);
+                osc.start(now + t.off);
+                osc.stop(now + t.off + 0.24);
+            });
+        }
+
+        return {play: play, unlock: unlock};
+    })();
+
     function showToast(noti) {
 
         const uiType = getUiType(noti);
@@ -1862,12 +2043,14 @@
             // 앞으로 가져오기
             existing.toast.style.zIndex = Date.now();
 
-            // 타이머 리셋
-            clearTimeout(existing.timer);
-            existing.timer = setTimeout(() => {
-                existing.toast.remove();
-                toastMap.delete(notiId);
-            }, 5000);
+            // 타이머 리셋 (태블릿은 자동으로 안 사라지게 → 타이머 없음)
+            if (!isTabletNoti()) {
+                clearTimeout(existing.timer);
+                existing.timer = setTimeout(() => {
+                    existing.toast.remove();
+                    toastMap.delete(notiId);
+                }, 5000);
+            }
 
             return;
         }
@@ -1914,11 +2097,17 @@
 
         container.appendChild(toast);
 
-        // ✅ 자동 제거 타이머
-        let autoClose = setTimeout(() => {
-            toast.remove();
-            toastMap.delete(notiId);
-        }, 5000);
+        // ✅ 알림 소리
+        NotiSound.play();
+
+        // ✅ 자동 제거 타이머 (태블릿은 자동으로 안 사라지게 → 사용자가 닫을 때까지 유지)
+        let autoClose = null;
+        if (!isTabletNoti()) {
+            autoClose = setTimeout(() => {
+                toast.remove();
+                toastMap.delete(notiId);
+            }, 5000);
+        }
 
         // Map에 등록
         toastMap.set(notiId, {
@@ -2567,5 +2756,128 @@
         <span></span>
     </div>
 </div>
+
+<!-- ===== 태블릿: 당겨서 새로고침 (Pull to refresh) ===== -->
+<style>
+    #ptrIndicator {
+        position: fixed;
+        top: 8px;
+        left: 50%;
+        width: 40px;
+        height: 40px;
+        margin-top: 0;
+        border-radius: 50%;
+        background: #fff;
+        box-shadow: 0 3px 12px rgba(0, 0, 0, 0.25);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 40000;
+        opacity: 0;
+        pointer-events: none;
+        transform: translateX(-50%) translateY(-60px);
+    }
+
+    .ptr-spinner {
+        width: 20px;
+        height: 20px;
+        border: 3px solid #d0d0d0;
+        border-top-color: #2f2f2f;
+        border-radius: 50%;
+    }
+
+    #ptrIndicator.ready .ptr-spinner {
+        border-top-color: #4caf50;
+    }
+
+    #ptrIndicator.refreshing .ptr-spinner {
+        animation: ptrSpin 0.7s linear infinite;
+    }
+
+    @keyframes ptrSpin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+</style>
+<script type="text/javascript">
+    (function () {
+        // 태블릿(터치)에서만 동작
+        if (!window.matchMedia("(pointer: coarse)").matches) return;
+
+        const THRESHOLD = 70;   // 이만큼 당기면 새로고침
+        const MAX_PULL = 130;   // 최대 표시 거리
+        let startY = 0;
+        let pulling = false;
+        let curDist = 0;
+
+        const ptr = document.createElement("div");
+        ptr.id = "ptrIndicator";
+        ptr.innerHTML = '<div class="ptr-spinner"></div>';
+        document.body.appendChild(ptr);
+
+        function atTop() {
+            const se = document.scrollingElement || document.documentElement;
+            return (window.scrollY || se.scrollTop || 0) <= 0;
+        }
+
+        // 알림 모달/드롭다운이 열려 있으면 새로고침 제스처 무시
+        function blocked() {
+            const tc = document.getElementById("toastContainer");
+            if (tc && tc.children.length > 0) return true;
+            return false;
+        }
+
+        function setDist(d) {
+            curDist = d;
+            ptr.style.transform = "translateX(-50%) translateY(" + (d - 60) + "px)";
+            ptr.style.opacity = Math.min(1, d / THRESHOLD);
+            if (d >= THRESHOLD) ptr.classList.add("ready");
+            else ptr.classList.remove("ready");
+        }
+
+        window.addEventListener("touchstart", function (e) {
+            if (e.touches.length !== 1 || blocked() || !atTop()) {
+                pulling = false;
+                return;
+            }
+            startY = e.touches[0].clientY;
+            pulling = true;
+        }, {passive: true});
+
+        window.addEventListener("touchmove", function (e) {
+            if (!pulling) return;
+            if (!atTop()) {
+                pulling = false;
+                setDist(0);
+                return;
+            }
+            const dy = e.touches[0].clientY - startY;
+            if (dy <= 0) {
+                setDist(0);
+                return;
+            }
+            const dist = Math.min(MAX_PULL, dy * 0.5); // 저항감
+            setDist(dist);
+            if (dist > 5) e.preventDefault(); // 화면 바운스/스크롤 막기
+        }, {passive: false});
+
+        window.addEventListener("touchend", function () {
+            if (!pulling) return;
+            pulling = false;
+            if (curDist >= THRESHOLD) {
+                ptr.classList.add("refreshing");
+                setDist(THRESHOLD);
+                location.reload();
+            } else {
+                ptr.style.transition = "transform .2s, opacity .2s";
+                setDist(0);
+                setTimeout(function () {
+                    ptr.style.transition = "";
+                }, 220);
+            }
+        }, {passive: true});
+    })();
+</script>
 </body>
 </html>

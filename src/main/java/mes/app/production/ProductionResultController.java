@@ -103,6 +103,9 @@ public class ProductionResultController {
     @Autowired
     EquRunRepository equRunRepository;
 
+    @Autowired
+    DefectTypeResultRepository defectTypeResultRepository;
+
     @GetMapping("/read")
     public AjaxResult getProdResult(
             @RequestParam(value = "date_from", required = false) String dateFrom,
@@ -2302,5 +2305,36 @@ public class ProductionResultController {
         result.data = productionResultService.getProdResultDetailByChild(jrPk);
         result.success = true;
         return result;
+    }
+
+    // 유형 콤보
+    @GetMapping("/proc_defect_types")
+    public AjaxResult getProcDefectTypes(@RequestParam("workcenter_id") Integer workcenterId) {
+        AjaxResult r = new AjaxResult();
+        r.data = this.productionResultService.getProcDefectTypes(workcenterId);
+        r.success = true;
+        return r;
+    }
+
+    // 공통 자재부적합 저장 (조립/검사 등 chasuSave 구조 화면용 — 독립 호출)
+    // 세척은 wash_finish 안에서 서비스 메서드를 직접 호출하므로 이 엔드포인트 불필요.
+    @PostMapping("/proc_defect_save")
+    @Transactional
+    public AjaxResult procDefectSave(
+            @RequestParam("source_table") String sourceTable,   // 예: "mat_produce"
+            @RequestParam("source_pk") Integer sourcePk,        // 예: mp_id
+            @RequestParam("items") String itemsJson,
+            Authentication auth) {
+        User user = (User) auth.getPrincipal();
+        List<Map<String, Object>> items = CommonUtil.loadJsonListMap(itemsJson);
+        AjaxResult r = new AjaxResult();
+        try {
+            this.productionResultService.saveProcDefects(sourceTable, sourcePk, items, user);
+            r.success = true;
+        } catch (Exception e) {
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            r.success = false; r.message = e.getMessage();
+        }
+        return r;
     }
 }

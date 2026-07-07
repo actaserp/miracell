@@ -1,0 +1,392 @@
+<html layout:decorate="~{layout_page}">
+
+<head>
+    <meta charset="UTF-8">
+    <title>검사정보 기준정보</title>
+</head>
+
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2 id="pageTitle">검사정보</h2>
+                <a title="북마크" class="bookmark toggle">내 메뉴</a>
+            </div>
+            <ul class="page-navi">
+                <li>기준정보 관리</li>
+                <li>검사정보</li>
+            </ul>
+        </div>
+
+        <div style="display: flex; gap: 5px;" class="prod-flex">
+
+            <!-- ═══ 좌: 검사 템플릿 목록 ═══ -->
+            <section class="section" style="width: 30%;">
+                <div class="section-top">
+                    <div class="search-wrap">
+                        <dl>
+                            <dt><label>검사명</label></dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <input type="text" class="form-control2" id="txtInspect" name="txtInspect">
+                                </div>
+                            </dd>
+                        </dl>
+                        <dl>
+                            <dt><span class="eq"></span></dt>
+                            <dd>
+                                <li>
+                                    <a class="btn btn-delete" title="검색" id="btnSearch">
+                                        <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                        검색
+                                    </a>
+                                </li>
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+
+                <div class="container-fluid">
+                    <p id="selectedItem"></p>
+                    <div id="theGrid"></div>
+                </div>
+            </section>
+
+            <!-- ═══ 우: 상세 ═══ -->
+            <div class="tab-wrap" style="width: 40%;">
+                <ul class="tab-links">
+                    <li><a href="#tabs_first">검사 기본정보</a></li>
+                    <li><a href="#tabs_second">검사 항목</a></li>
+                </ul>
+
+                <div>
+                    <!-- 검사 기본정보 -->
+                    <section class="tab-item" id="tabs_first" style="border-top-left-radius: 0;">
+                        <div class="section-top">
+                            <div class="button-wrap">
+                                <ul>
+                                    <li>
+                                        <button type="button" class="btn-excellt btn-default" id="btnNewInspect" name="btnNew"
+                                                style="width: 115px; height: 36px;"><i class="fas fa-plus"></i>신규등록</button>
+                                    </li>
+                                    <li>
+                                        <button type="button" class="btn-delete btn-danger" id="btnDelInspect"
+                                                style="width: 115px; height: 36px;"><i class="fas fa-trash"></i>삭제</button>
+                                    </li>
+                                    <li>
+                                        <button disabled type="button" class="btn-excellt btn-default" id="btnSaveInspect"
+                                                style="width: 115px; height: 36px;"><i class="fas fa-save"></i>저장</button>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div>
+                            <form id="inspectForm">
+                                <table class="write-table" style="width: 100%; border-collapse: collapse; table-layout: fixed;">
+                                    <caption style="text-align: left; margin-bottom: 8px;">검사 기본정보</caption>
+                                    <input type="hidden" id="id" name="id"/>
+                                    <col class="wp20">
+                                    <col class="wp80">
+                                    <tbody>
+                                    <tr>
+                                        <th><label for="inspect_code">검사 코드</label></th>
+                                        <td><input type="text" id="inspect_code" name="inspect_code" style="width: 100%;" placeholder="예: INS-ROTOR"></td>
+                                    </tr>
+                                    <tr>
+                                        <th><label for="inspect_name">검사명</label><span class="eq">*</span></th>
+                                        <td><input type="text" id="inspect_name" name="inspect_name" style="width: 100%;"></td>
+                                    </tr>
+                                    <tr>
+                                        <th><label for="inspect_type">검사 유형</label></th>
+                                        <td>
+                                            <select id="inspect_type" name="inspect_type" style="width: 100%;">
+                                                <option value="checklist">체크리스트 (항목 합/불)</option>
+                                                <option value="repeat">반복 (횟수 반복 검사)</option>
+                                                <option value="measure">측정 (수치 규격)</option>
+                                            </select>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <th><label for="apply_target">적용 대상</label></th>
+                                        <td>
+                                            <select id="apply_target" name="apply_target" style="width: 100%;">
+                                                <option value="device">디바이스 (M-CELL)</option>
+                                                <option value="product">제품</option>
+                                                <option value="process">공정</option>
+                                            </select>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <th><label for="use_yn">사용 여부</label></th>
+                                        <td>
+                                            <select id="use_yn" name="use_yn" style="width: 100%;">
+                                                <option value="Y">사용</option>
+                                                <option value="N">미사용</option>
+                                            </select>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <th><label for="description">비고</label></th>
+                                        <td style="text-align: center; vertical-align: middle;">
+                                            <div><textarea id="description" name="description"></textarea></div>
+                                        </td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </form>
+                        </div>
+                    </section>
+
+                    <!-- 검사 항목 -->
+                    <section class="tab-item" id="tabs_second" style="border-top-left-radius: 0;">
+                        <div class="section-top">
+                            <div class="button-wrap">
+                                <ul>
+                                    <li>
+                                        <button type="button" class="btn-excellt btn-default" id="btnNewItem" name="btnNew"
+                                                style="width: 115px; height: 36px;"><i class="fas fa-plus"></i>항목추가</button>
+                                    </li>
+                                    <li>
+                                        <button type="button" class="btn-delete btn-danger" id="btnDelItem"
+                                                style="float:none; width: 115px; height: 36px;"><i class="fas fa-trash"></i>삭제</button>
+                                    </li>
+                                    <li><a class="btn" title="위" id="btnUp"><i class="fas fa-arrow-up"></i></a></li>
+                                    <li><a class="btn" title="아래" id="btnDown"><i class="fas fa-arrow-down"></i></a></li>
+                                    <li><a class="btn btn-excell" title="순서 저장" id="btnIndexSave">순서 저장</a></li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <div class="container-fluid">
+                            <div id="inspect-item-grid"></div>
+                        </div>
+                    </section>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <script type="text/javascript">
+
+        var theGrid, viewdata;      // 마스터: 검사 템플릿
+        var theGrid2, viewdata2;    // 디테일: 검사 항목
+        var curCode = null;         // 선택된 템플릿 코드
+
+        // ── 목데이터 (실제로는 /api/definition/inspect/read 로 대체) ──
+        var TYPE_LABEL = {checklist:'체크리스트', repeat:'반복', measure:'측정'};
+        var TARGET_LABEL = {device:'디바이스', product:'제품', process:'공정'};
+        var MASTER = [
+            {id:1, inspect_code:'INS-ROTOR', inspect_name:'#50 ROTOR', inspect_type:'checklist', apply_target:'device', use_yn:'Y',
+                description:'ROTOR 디바이스 출하 검사(체크리스트 6항목)',
+                items:[
+                    {no:1, item:'전원 ON/OFF (3회)', criteria:'ON·OFF / 전원 LED·스위치 문제 없을 것', method:'육안', unit:'', lower:'', upper:''},
+                    {no:2, item:'외관 및 손잡이 고정', criteria:'파손·이물질·얼룩 없을 것 / 손잡이 헛돎 없이 고정', method:'육안', unit:'', lower:'', upper:''},
+                    {no:3, item:'배터리 충전', criteria:'충전 LED 점등·점멸 및 100% 충전', method:'육안', unit:'', lower:'', upper:''},
+                    {no:4, item:'블루투스', criteria:'연결 멘트 및 모니터에 ROTOR 배터리 잔량 표시', method:'육안', unit:'', lower:'', upper:''},
+                    {no:5, item:'BASKET', criteria:'움직임 부드럽고 소음 없을 것 / 챔버·모터 쏠림 없을 것', method:'육안', unit:'', lower:'', upper:''},
+                    {no:6, item:'ROTOR 진동 밸런스', criteria:'ROTOR 진동 및 소음 없을 것', method:'육안 / EAR', unit:'', lower:'', upper:''}
+                ]},
+            {id:2, inspect_code:'INS-BASKET', inspect_name:'#60 BASKET TEST', inspect_type:'repeat', apply_target:'device', use_yn:'Y',
+                description:'BASKET LOCK ON/OFF 50회 반복 검사',
+                items:[
+                    {no:1, item:'BASKET LOCK ON/OFF', criteria:'50회 반복 · LOCK 정상 체결/해제', method:'반복(추)', unit:'회', lower:'50', upper:'50'}
+                ]}
+        ];
+
+        document.readyState === 'complete' ? init() : window.onload = init;
+
+        var columns = [
+            {binding:'id', header:'id', width:60, visible:false},
+            {binding:'inspect_code', header:'검사코드', width:130, align:'left'},
+            {binding:'inspect_name', header:'검사명', width:'*', align:'left', minWidth:140},
+            {binding:'type_label', header:'유형', width:90, align:'center'},
+            {binding:'target_label', header:'적용대상', width:90, align:'center'},
+            {binding:'item_count', header:'항목수', width:70, align:'right'},
+            {binding:'use_yn', header:'사용', width:60, align:'center'}
+        ];
+        var columns2 = [
+            {binding:'no', header:'순서', width:60, align:'center', isReadOnly:true},
+            {binding:'item', header:'검사 항목', width:200, align:'left'},
+            {binding:'criteria', header:'합격 기준', width:'*', align:'left', minWidth:180},
+            {binding:'method', header:'검사방법', width:110, align:'center'},
+            {binding:'unit', header:'단위', width:60, align:'center'},
+            {binding:'lower', header:'하한', width:70, align:'right'},
+            {binding:'upper', header:'상한', width:70, align:'right'}
+        ];
+
+        function decorate(row) {
+            return Object.assign({}, row, {
+                type_label: TYPE_LABEL[row.inspect_type] || row.inspect_type,
+                target_label: TARGET_LABEL[row.apply_target] || row.apply_target,
+                item_count: (row.items || []).length
+            });
+        }
+
+        function init() {
+            viewdata = new wijmo.collections.CollectionView([]);
+            theGrid = new wijmo.grid.FlexGrid('#theGrid', {
+                autoGenerateColumns: false,
+                showMarquee: true,
+                isReadOnly: true,
+                columns: columns,
+                itemsSource: viewdata
+            });
+            theGrid.hostElement.addEventListener('dblclick', function () {
+                var sel = theGrid.selectedItems[0];
+                if (!sel) return;
+                loadInspect(sel.inspect_code);
+            });
+            if (theGrid.rowHeaders.columns.length) theGrid.rowHeaders.columns.splice(0, 1);
+
+            viewdata2 = new wijmo.collections.CollectionView([]);
+            theGrid2 = new wijmo.grid.FlexGrid('#inspect-item-grid', {
+                autoGenerateColumns: false,
+                isReadOnly: false,
+                allowSorting: false,
+                columns: columns2,
+                itemsSource: viewdata2
+            });
+            if (theGrid2.rowHeaders.columns.length) theGrid2.rowHeaders.columns.splice(0, 1);
+
+            bindEvents();
+            searchMainData();
+        }
+
+        function bindEvents() {
+            document.getElementById('btnSearch').addEventListener('click', searchMainData);
+            document.getElementById('btnNewInspect').addEventListener('click', newInspect);
+            document.getElementById('btnSaveInspect').addEventListener('click', saveInspect);
+            document.getElementById('btnDelInspect').addEventListener('click', delInspect);
+            document.getElementById('btnNewItem').addEventListener('click', addItem);
+            document.getElementById('btnDelItem').addEventListener('click', delItem);
+            document.getElementById('btnUp').addEventListener('click', function () { moveItem(-1); });
+            document.getElementById('btnDown').addEventListener('click', function () { moveItem(1); });
+            document.getElementById('btnIndexSave').addEventListener('click', saveOrder);
+        }
+
+        // ── 마스터 검색 (목업: MASTER 필터) ──
+        function searchMainData() {
+            var kw = (document.getElementById('txtInspect').value || '').trim();
+            var rows = MASTER.filter(function (m) { return !kw || (m.inspect_name.indexOf(kw) >= 0 || m.inspect_code.indexOf(kw) >= 0); });
+            viewdata.sourceCollection = rows.map(decorate);
+            resetForm();
+            setButtonState(false);
+        }
+
+        function loadInspect(code) {
+            var m = MASTER.filter(function (x) { return x.inspect_code === code; })[0];
+            if (!m) return;
+            curCode = code;
+            document.getElementById('id').value = m.id;
+            document.getElementById('inspect_code').value = m.inspect_code;
+            document.getElementById('inspect_name').value = m.inspect_name;
+            document.getElementById('inspect_type').value = m.inspect_type;
+            document.getElementById('apply_target').value = m.apply_target;
+            document.getElementById('use_yn').value = m.use_yn;
+            document.getElementById('description').value = m.description || '';
+            document.getElementById('selectedItem').textContent = '선택: ' + m.inspect_name + ' (' + m.inspect_code + ')';
+            // 검사 항목 로드
+            viewdata2.sourceCollection = (m.items || []).map(function (it) { return Object.assign({}, it); });
+            setButtonState(true);
+        }
+
+        function newInspect() {
+            curCode = null;
+            document.getElementById('inspectForm').reset();
+            document.getElementById('id').value = '';
+            document.getElementById('selectedItem').textContent = '신규 검사 등록';
+            viewdata2.sourceCollection = [];
+            setButtonState(true);
+            document.getElementById('inspect_name').focus();
+        }
+
+        function saveInspect() {
+            var name = document.getElementById('inspect_name').value.trim();
+            if (!name) { alert('검사명을 입력해주세요.'); document.getElementById('inspect_name').focus(); return; }
+            var code = document.getElementById('inspect_code').value.trim() || ('INS-' + Date.now());
+            var payload = {
+                inspect_code: code,
+                inspect_name: name,
+                inspect_type: document.getElementById('inspect_type').value,
+                apply_target: document.getElementById('apply_target').value,
+                use_yn: document.getElementById('use_yn').value,
+                description: document.getElementById('description').value,
+                items: viewdata2.sourceCollection.map(function (r, i) {
+                    return {no: i + 1, item: r.item || '', criteria: r.criteria || '', method: r.method || '', unit: r.unit || '', lower: r.lower || '', upper: r.upper || ''};
+                })
+            };
+            // 실제로는 POST /api/definition/inspect/save
+            var idx = MASTER.map(function (m) { return m.inspect_code; }).indexOf(curCode || code);
+            if (idx >= 0) { payload.id = MASTER[idx].id; MASTER[idx] = payload; }
+            else { payload.id = MASTER.length + 1; MASTER.unshift(payload); }
+            curCode = code;
+            searchMainData();
+            alert('검사정보 저장 완료 (목업)\n검사 화면에는 이 코드(' + code + ')의 항목이 반영됩니다.');
+        }
+
+        function delInspect() {
+            if (!curCode) { alert('삭제할 검사를 선택하세요.'); return; }
+            if (!confirm('이 검사정보를 삭제할까요?')) return;
+            var idx = MASTER.map(function (m) { return m.inspect_code; }).indexOf(curCode);
+            if (idx >= 0) MASTER.splice(idx, 1);
+            curCode = null;
+            searchMainData();
+        }
+
+        // ── 검사 항목 추가/삭제/이동 ──
+        function addItem() {
+            var arr = viewdata2.sourceCollection;
+            arr.push({no: arr.length + 1, item: '', criteria: '', method: '육안', unit: '', lower: '', upper: ''});
+            viewdata2.refresh();
+            renumber();
+            // 새 행 편집 진입
+            viewdata2.moveCurrentToLast();
+        }
+        function delItem() {
+            var cur = viewdata2.currentItem;
+            if (!cur) { alert('삭제할 항목을 선택하세요.'); return; }
+            var arr = viewdata2.sourceCollection;
+            var i = arr.indexOf(cur);
+            if (i >= 0) arr.splice(i, 1);
+            viewdata2.refresh();
+            renumber();
+        }
+        function moveItem(dir) {
+            var arr = viewdata2.sourceCollection;
+            var cur = viewdata2.currentItem;
+            var i = arr.indexOf(cur);
+            if (i < 0) return;
+            var j = i + dir;
+            if (j < 0 || j >= arr.length) return;
+            var tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
+            viewdata2.refresh();
+            renumber();
+            viewdata2.moveCurrentToPosition(j);
+        }
+        function renumber() {
+            viewdata2.sourceCollection.forEach(function (r, i) { r.no = i + 1; });
+            viewdata2.refresh();
+        }
+        function saveOrder() {
+            renumber();
+            // 실제로는 POST /api/definition/inspect/item/order
+            alert('검사 항목 순서 저장 (목업)');
+        }
+
+        function resetForm() {
+            curCode = null;
+            document.getElementById('inspectForm').reset();
+            document.getElementById('id').value = '';
+            document.getElementById('selectedItem').textContent = '';
+            if (viewdata2) viewdata2.sourceCollection = [];
+        }
+        function setButtonState(hasSel) {
+            document.getElementById('btnSaveInspect').disabled = !hasSel;
+        }
+    </script>
+</th:block>
+</html>

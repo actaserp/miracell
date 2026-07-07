@@ -236,13 +236,6 @@
         .ms-wash-root .auto-box .ic{width:46px;height:46px;border-radius:12px;background:var(--teal-bg);display:grid;place-items:center;font-size:22px}
         .ms-wash-root .auto-box .big{font-size:30px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--teal-d)}
         .ms-wash-root .lotpick{display:flex;flex-direction:column;gap:8px}
-        /* 모달은 .ms-wash-root 밖에 있어 전역 규칙 필요 (opack 디자인 동일) */
-        .lotpick{display:flex;flex-direction:column;gap:8px}
-        .lotopt{display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:14px;
-            border:1.5px solid var(--line);background:var(--surface);cursor:pointer;min-height:72px}
-        .lotopt.sel{border-color:var(--teal);background:var(--teal-bg);box-shadow:0 0 0 3px var(--teal-bg)}
-        .lotopt .ln{font-weight:800;font-size:18px;font-variant-numeric:tabular-nums}
-        .lotopt .meta{font-size:12.5px;color:var(--ink-2);font-weight:700;margin-left:auto;text-align:right}
         .ms-wash-root .lotopt{display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:14px;
             border:1.5px solid var(--line);background:var(--surface);cursor:pointer}
         .ms-wash-root .lotopt.sel{border-color:var(--teal);background:var(--teal-bg)}
@@ -263,7 +256,7 @@
 
             <!-- A. 큐 -->
             <div class="screen" id="scA"><div class="wrap">
-                <div class="qhead"><h1>블리스터 포장 작업지시</h1><span class="cnt" id="qcnt"></span>
+                <div class="qhead"><h1>조립 작업지시</h1><span class="cnt" id="qcnt"></span>
                     <div class="qfilter"><button class="on" data-f="all">전체</button>
                         <button data-f="wait">대기</button><button data-f="working">작업중</button></div></div>
                 <div class="searchbar">
@@ -348,9 +341,6 @@
         <input type="file" id="defFile" accept="image/*" capture="environment" style="display:none"/>
         <button class="ok" id="defOk">부적합 저장</button>
     </div></div></div>
-    <div class="mask" id="lotMask"><div class="sheet"><div class="body">
-        <div class="sh"><h3 id="lotTitle">로트 선택</h3><button class="x" data-close>✕</button></div>
-        <div class="lotpick" id="lotList"></div></div></div></div>
 
     <!-- 바코드 출력 시트 (공통) -->
     <div class="mask" id="bcMask"><div class="sheet"><div class="body">
@@ -369,307 +359,123 @@
            root 윗변 위치(=상단 헤더 높이)를 실측하고, 페이지 푸터 높이를 빼서
            root 높이를 화면 바닥(푸터 위)까지 정확히 채운다.
            헤더/푸터 크기가 바뀜도 actionbar(시작/완료)가 푸터에 가리지 않음. */
-        (function () {
-            const root = document.querySelector('.ms-wash-root');
-            if (!root) return;
-
+        (function(){
+            const root=document.querySelector('.ms-wash-root');
+            if(!root) return;
             // 내부(같은 문서) 푸터: 흐름 형제 + fixed/sticky
-            function localBelow() {
-                let below = 0, node = root;
-                while (node && node !== document.body) {
-                    let sib = node.nextElementSibling;
-                    while (sib) {
-                        const r = sib.getBoundingClientRect();
-                        if (r.height > 0 && getComputedStyle(sib).position !== 'fixed') below += r.height;
-                        sib = sib.nextElementSibling;
+            function localBelow(){
+                let below=0,node=root;
+                while(node&&node!==document.body){
+                    let sib=node.nextElementSibling;
+                    while(sib){
+                        const r=sib.getBoundingClientRect();
+                        if(r.height>0&&getComputedStyle(sib).position!=='fixed') below+=r.height;
+                        sib=sib.nextElementSibling;
                     }
-                    node = node.parentElement;
+                    node=node.parentElement;
                 }
-                let fx = 0;
-                document.querySelectorAll('body *').forEach(el => {
-                    if (root.contains(el)) return;
-                    const cs = getComputedStyle(el);
-                    if (cs.position !== 'fixed' && cs.position !== 'sticky') return;
-                    const r = el.getBoundingClientRect();
-                    if (r.height > 0 && r.height < innerHeight * 0.5 && r.bottom > innerHeight - 2) fx = Math.max(fx, r.height);
+                let fx=0;
+                document.querySelectorAll('body *').forEach(el=>{
+                    if(root.contains(el))return;
+                    const cs=getComputedStyle(el);
+                    if(cs.position!=='fixed'&&cs.position!=='sticky')return;
+                    const r=el.getBoundingClientRect();
+                    if(r.height>0&&r.height<innerHeight*0.5&&r.bottom>innerHeight-2)fx=Math.max(fx,r.height);
                 });
-                return Math.max(below, fx);
+                return Math.max(below,fx);
             }
-
             // 화면에서 실제로 사용 가능한 바닥(px, iframe 내부 좌표). 부모 푸터까지 고려.
-            function availBottom() {
-                let bottom = window.innerHeight;          // 기본: iframe 자체 높이
-                try {
-                    const fe = window.frameElement;       // 같은 출처일 때만 접근 가능
-                    if (fe) {
-                        const pWin = window.parent, pDoc = pWin.document;
-                        const feTop = fe.getBoundingClientRect().top;   // 부모 좌표계 iframe 상단
+            function availBottom(){
+                let bottom=window.innerHeight;          // 기본: iframe 자체 높이
+                try{
+                    const fe=window.frameElement;       // 같은 출처일 때만 접근 가능
+                    if(fe){
+                        const pWin=window.parent,pDoc=pWin.document;
+                        const feTop=fe.getBoundingClientRect().top;   // 부모 좌표계 iframe 상단
                         // (1) 흐름상 iframe 뒤에 오는 형제(푸터) 높이 합
-                        let flow = 0, node = fe;
-                        while (node && node !== pDoc.body) {
-                            let sib = node.nextElementSibling;
-                            while (sib) {
-                                const cs = pWin.getComputedStyle(sib), r = sib.getBoundingClientRect();
-                                if (r.height > 0 && cs.position !== 'fixed' && cs.position !== 'absolute') flow += r.height;
-                                sib = sib.nextElementSibling;
+                        let flow=0,node=fe;
+                        while(node&&node!==pDoc.body){
+                            let sib=node.nextElementSibling;
+                            while(sib){
+                                const cs=pWin.getComputedStyle(sib),r=sib.getBoundingClientRect();
+                                if(r.height>0&&cs.position!=='fixed'&&cs.position!=='absolute') flow+=r.height;
+                                sib=sib.nextElementSibling;
                             }
-                            node = node.parentElement;
+                            node=node.parentElement;
                         }
                         // (2) 부모 바닥에 걸친 푸터 바(fixed/sticky/absolute, 작은 높이만 인정)
-                        let fx = 0;
-                        pDoc.querySelectorAll('body *').forEach(el => {
-                            if (el === fe || el.contains(fe)) return;
-                            const cs = pWin.getComputedStyle(el);
-                            if (cs.position !== 'fixed' && cs.position !== 'sticky' && cs.position !== 'absolute') return;
-                            const r = el.getBoundingClientRect();
-                            if (r.height > 0 && r.height <= 160 && r.top > feTop && r.bottom > pWin.innerHeight - 40)
-                                fx = Math.max(fx, r.bottom - r.top);
+                        let fx=0;
+                        pDoc.querySelectorAll('body *').forEach(el=>{
+                            if(el===fe||el.contains(fe))return;
+                            const cs=pWin.getComputedStyle(el);
+                            if(cs.position!=='fixed'&&cs.position!=='sticky'&&cs.position!=='absolute')return;
+                            const r=el.getBoundingClientRect();
+                            if(r.height>0&&r.height<=160&&r.top>feTop&&r.bottom>pWin.innerHeight-40)
+                                fx=Math.max(fx,r.bottom-r.top);
                         });
-                        const pFooter = Math.max(flow, fx);
+                        const pFooter=Math.max(flow,fx);
                         // 부모 가용 바닥(부모 좌표) → iframe 내부 좌표로 환산
-                        bottom = Math.min(bottom, (pWin.innerHeight - pFooter) - feTop);
+                        bottom=Math.min(bottom,(pWin.innerHeight-pFooter)-feTop);
                     }
-                } catch (e) {/* 교차 출처: iframe 자체 높이로 폴백 */
-                }
+                }catch(e){/* 교차 출처: iframe 자체 높이로 폴백 */}
                 return bottom;
             }
-
-            function fit() {
-                const top = root.getBoundingClientRect().top;
-                const avail = availBottom() - top - localBelow();
-                root.style.setProperty('--wash-h', Math.max(320, Math.floor(avail)) + 'px');
+            function fit(){
+                const top=root.getBoundingClientRect().top;
+                const avail=availBottom()-top-localBelow();
+                root.style.setProperty('--wash-h',Math.max(320,Math.floor(avail))+'px');
             }
-
-            window.addEventListener('resize', fit);
-            window.addEventListener('orientationchange', fit);
-            try {
-                window.parent.addEventListener('resize', fit);
-            } catch (e) {
-            }
+            window.addEventListener('resize',fit);
+            window.addEventListener('orientationchange',fit);
+            try{window.parent.addEventListener('resize',fit);}catch(e){}
             fit();
             requestAnimationFrame(fit);
-            setTimeout(fit, 200);
-            setTimeout(fit, 600);
-            if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
+            setTimeout(fit,200);
+            setTimeout(fit,600);
+            if(document.fonts&&document.fonts.ready) document.fonts.ready.then(fit);
         })();
 
-        const PROC_CHIP = '블리스터';
-        const WD = ['일', '월', '화', '수', '목', '금', '토'];
-        const WORKERS = ['정우철', '김민수', '이서연', '박지훈'];
-        const EQUIPS = [['조립기 A', 'AS-01'], ['조립기 B', 'AS-02'], ['수동 조립대', 'MN-01']];
-        const STLAB = {working: '작업중', wait: '대기', done: '완료'};
-
-        function nowHM() {
-            var d = new Date();
-            return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0') + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
-        }
-
-        function pill(v) {
-            if (!v) return '--:--';
-            if (v.indexOf(' ') >= 0) {
-                var a = v.split(' ');
-                return a[0].slice(5) + ' ' + a[1];
-            }
-            return v;
-        }
+        const PROC_CHIP='조립';
+        const WD=['일','월','화','수','목','금','토'];
+        const WORKERS=['정우철','김민수','이서연','박지훈'];
+        const EQUIPS=[['조립기 A','AS-01'],['조립기 B','AS-02'],['수동 조립대','MN-01']];
+        const STLAB={working:'작업중',wait:'대기',done:'완료'};
+        function nowHM(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}
+        function pill(v){if(!v)return'--:--';if(v.indexOf(' ')>=0){var a=v.split(' ');return a[0].slice(5)+' '+a[1];}return v;}
 
 
         /* REAL_INJECTED */
         // ════ 실제 BSC30 BOM (DB 매칭) ════
-        var REAL = {
-            routing: {id: 38, name: "BSC 키트공정", steps: ["세척", "조립", "블리스터 포장", "멸균", "외포장"]},
-            fin: {code: "BSC30-PK00-CK00", name: "BSC+③ 30ml 00차수(3버전)+00차수", grp: 112},
-            PK: {code: "BSC30-PK00", name: "BSC+③ 30ml PK 00차수(3버전)"},
-            CK: {code: "BSC30-CK00", name: "BSC+③ 30ml CK 00차수"},
-            VES: {code: "BSC30-PK00-VES", name: "BSC+③ 30ml 00차수(3버전) 용기"},
-            vesInputs: [{code: "M-DD00003", name: "BSC+③ 30 상부", grp: 117, wash: "Y"}, {
-                code: "M-DD00004",
-                name: "BSC+③ 30 하부",
-                grp: 117,
-                wash: "Y"
-            }, {code: "M-DD00029", name: "혈액주입포트(RHAN-빨강)_R-Rub", grp: 117, wash: "Y"}, {
-                code: "M-DD00030",
-                name: "셀추출포트(고무-아이보리)_Iv-Rub",
-                grp: 117,
-                wash: "Y"
-            }, {code: "M-DD00033", name: "플로팅 혈액 30", grp: 117, wash: "Y"}, {
-                code: "M-DP00058",
-                name: "에어밴트",
-                grp: 117,
-                wash: "Y"
-            }, {code: "M-DS00053", name: "오링 040", grp: 117, wash: "Y"}],
-            pkInputs: [{code: "BSC30-PK00-VES", name: "BSC+③ 30ml 00차수(3버전) 용기", grp: 113}, {
-                code: "M-DE00016",
-                name: "주사기 세트 소",
-                grp: 116
-            }, {code: "M-DT00014", name: "BLD-30P", grp: 116}, {
-                code: "M-DT00015",
-                name: "BLD-30R",
-                grp: 116
-            }, {code: "M-DT00012", name: "분리형캐뉼라 BLD-60R", grp: 116}, {
-                code: "M-DS00024",
-                name: "BD락주사기 10CC",
-                grp: 116
-            }, {code: "M-DS00025", name: "BD락주사기 20CC", grp: 116}, {
-                code: "M-DU00074-1",
-                name: "캐뉼라 캡 - 60mm",
-                grp: 116
-            }, {code: "M-DU00074-3", name: "캐뉼라 캡 - 74mm", grp: 116}, {
-                code: "M-DD00070",
-                name: "스페이서",
-                grp: 116
-            }, {code: "M-PR00040", name: "멸균지 소", grp: 116}],
-            ckInputs: [{code: "M-DS00024", name: "BD락주사기 10CC", grp: 116}, {
-                code: "M-DS00026",
-                name: "BD락주사기 30CC",
-                grp: 116
-            }, {code: "M-DDW00037", name: "G.P.카테터 I.V.CATHETER", grp: 116}, {
-                code: "M-DDW00038",
-                name: "18G-S34(니들)",
-                grp: 116
-            }, {code: "M-DE00019", name: "부속품 소", grp: 116}, {
-                code: "ETC-STK-LOT-30",
-                name: "혈액 LOT 스티커(30ml)",
-                grp: 116
-            }, {code: "M-GP00003", name: "혈액 30ml/60ml/120ml 커버박스", grp: 116}],
-            outer: [{
-                code: "M-HS00003",
-                name: "IN BOX BSC+③ 30, 60",
-                grp: 116,
-                amount: 0.3333,
-                per: 3
-            }, {code: "M-HS00010", name: "OUT BOX BSC+③ 30, 60", grp: 116, amount: 0.0833, per: 12}],
-            gtin: "08801234560018"
+        var REAL={
+            routing:{id:38,name:"BSC 키트공정",steps:["세척","조립","블리스터 포장","멸균","외포장"]},
+            fin:{code:"BSC30-PK00-CK00",name:"BSC+③ 30ml 00차수(3버전)+00차수",grp:112},
+            PK:{code:"BSC30-PK00",name:"BSC+③ 30ml PK 00차수(3버전)"}, CK:{code:"BSC30-CK00",name:"BSC+③ 30ml CK 00차수"}, VES:{code:"BSC30-PK00-VES",name:"BSC+③ 30ml 00차수(3버전) 용기"},
+            vesInputs:[{code:"M-DD00003",name:"BSC+③ 30 상부",grp:117,wash:"Y"},{code:"M-DD00004",name:"BSC+③ 30 하부",grp:117,wash:"Y"},{code:"M-DD00029",name:"혈액주입포트(RHAN-빨강)_R-Rub",grp:117,wash:"Y"},{code:"M-DD00030",name:"셀추출포트(고무-아이보리)_Iv-Rub",grp:117,wash:"Y"},{code:"M-DD00033",name:"플로팅 혈액 30",grp:117,wash:"Y"},{code:"M-DP00058",name:"에어밴트",grp:117,wash:"Y"},{code:"M-DS00053",name:"오링 040",grp:117,wash:"Y"}], pkInputs:[{code:"BSC30-PK00-VES",name:"BSC+③ 30ml 00차수(3버전) 용기",grp:113},{code:"M-DE00016",name:"주사기 세트 소",grp:116},{code:"M-DT00014",name:"BLD-30P",grp:116},{code:"M-DT00015",name:"BLD-30R",grp:116},{code:"M-DT00012",name:"분리형캐뉼라 BLD-60R",grp:116},{code:"M-DS00024",name:"BD락주사기 10CC",grp:116},{code:"M-DS00025",name:"BD락주사기 20CC",grp:116},{code:"M-DU00074-1",name:"캐뉼라 캡 - 60mm",grp:116},{code:"M-DU00074-3",name:"캐뉼라 캡 - 74mm",grp:116},{code:"M-DD00070",name:"스페이서",grp:116},{code:"M-PR00040",name:"멸균지 소",grp:116}], ckInputs:[{code:"M-DS00024",name:"BD락주사기 10CC",grp:116},{code:"M-DS00026",name:"BD락주사기 30CC",grp:116},{code:"M-DDW00037",name:"G.P.카테터 I.V.CATHETER",grp:116},{code:"M-DDW00038",name:"18G-S34(니들)",grp:116},{code:"M-DE00019",name:"부속품 소",grp:116},{code:"ETC-STK-LOT-30",name:"혈액 LOT 스티커(30ml)",grp:116},{code:"M-GP00003",name:"혈액 30ml/60ml/120ml 커버박스",grp:116}], outer:[{code:"M-HS00003",name:"IN BOX BSC+③ 30, 60",grp:116,amount:0.3333,per:3},{code:"M-HS00010",name:"OUT BOX BSC+③ 30, 60",grp:116,amount:0.0833,per:12}], gtin:"08801234560018"
         };
 
-        // 가용 용기 반제품 로트(조립 산출물)
-        const VES_LOTS = [
-            {lot: 'VES-260625-30B', name: REAL.VES.name, fam: 'BSC', vol: 30, qty: 80, wh: '클린부스'},
-            {lot: 'VES-260624-30B', name: REAL.VES.name, fam: 'BSC', vol: 30, qty: 40, wh: '클린부스'},
+        // 용기 BOM (혈액/골수 × 용량). 조립은 용기만!
+        var VES_INPUTS={'WIP-ON00001':REAL.vesInputs.map(function(p){return {code:p.code,name:p.name,wh:'clean'};})};
+        const MCELL_INPUTS=[{code:'MC-ROTOR',name:'ROTOR 모듈',wh:'prod'},{code:'MC-BASKET',name:'BASKET 모듈',wh:'prod'},
+            {code:'MC-CTRL',name:'제어보드',wh:'prod'},{code:'MC-HOUS',name:'하우징',wh:'prod'},{code:'MC-PWR',name:'전원부',wh:'prod'}];
+        function inputsFor(o){if(o.fam==='MCELL')return MCELL_INPUTS;return REAL.vesInputs.map(function(p){return {code:p.code,name:p.name,wh:'clean'};});}
+        function buildParts(o){return inputsFor(o).map(function(p){return {code:p.code,name:p.name,wh:p.wh,defQty:0,defType:null,photos:[]};});}
+        function mkSess(worker,equip){return {worker:worker,equip:equip,start:nowHM(),end:null,st:'working',qty:0,parts:buildParts(curO)};}
+
+        const ORDERS=[
+            {id:'WO-2406-040',odate:'2026-07-05',fam:'MCELL',st:'wait',name:'SMART M-CELL 2',chasu:1,plan:10,sessions:[]},
         ];
-
-        // 작업지시(완제/차수)에 대응하는 용기 반제품 로트를 선입선출로 자동 지정
-        function autoVes(o) {
-            return VES_LOTS.filter(function (l) {
-                return l.fam === (o && o.fam) && l.qty > 0;
-            })
-                .sort(function (a, b) {
-                    return a.lot < b.lot ? -1 : a.lot > b.lot ? 1 : 0;
-                })[0];
-        } // 로트명 오름차순=오래된 것 먼저
-        // PK BOM 부가자재(용기 외)
-        var PK_INPUTS = REAL.pkInputs.filter(function (p) {
-            return p.code !== REAL.VES.code;
-        }).map(function (p) {
-            return {code: p.code, name: p.name, wh: 'clean'};
-        });
-
-        function buildParts() {
-            return PK_INPUTS.map(function (p) {
-                return {code: p.code, name: p.name, wh: p.wh, defQty: 0, defType: null, photos: []};
-            });
-        }
-
-        function mkSess(worker, equip) {
-            return {
-                worker: worker,
-                equip: equip,
-                start: nowHM(),
-                end: null,
-                st: 'working',
-                ves: null,
-                qty: 0,
-                defQty: 0,
-                defType: null,
-                photos: [],
-                parts: buildParts()
-            };
-        }
-
-        const ORDERS = [
-            {
-                id: 'PK-2406-031',
-                odate: '2026-07-06',
-                st: 'working',
-                name: REAL.PK.name,
-                code: REAL.PK.code,
-                fam: 'BSC',
-                chasu: 1,
-                plan: 60,
-                sessions: [
-                    {
-                        worker: '정우철',
-                        equip: '블리스터 A',
-                        start: '2026-06-26 09:30',
-                        end: null,
-                        st: 'working',
-                        ves: 'VES-260625-30B',
-                        qty: 40,
-                        defQty: 0,
-                        defType: null,
-                        photos: [],
-                        parts: buildParts()
-                    },
-                ]
-            },
-            {
-                id: 'PK-2406-032',
-                odate: '2026-07-06',
-                st: 'wait',
-                name: 'BmSC+③ 30ml PK 00차수(3버전)',
-                code: 'BmSC30-PK00',
-                fam: 'BmSC',
-                chasu: 1,
-                plan: 45,
-                sessions: []
-            },
-        ];
-
-        function orderPct(o) {
-            var done = o.sessions.reduce(function (a, s) {
-                return a + (s.qty || 0);
-            }, 0);
-            return Math.min(100, Math.round(done / o.plan * 100));
-        }
-        ;EQUIPS.length = 0;
-        [['블리스터 A', 'BL-01'], ['블리스터 B', 'BL-02']].forEach(function (e) {
-            EQUIPS.push(e);
-        });
+        function orderPct(o){var done=o.sessions.reduce(function(a,s){return a+(s.qty||0);},0);return Math.min(100,Math.round(done/o.plan*100));}
 
 
-        let curO = null, curS = null, filter = 'all';
-        const qgrid = document.getElementById('qgrid');
-        const SC = {
-            A: document.getElementById('scA'),
-            B: document.getElementById('scB'),
-            C: document.getElementById('scC')
-        };
+        let curO=null,curS=null,filter='all';
+        const qgrid=document.getElementById('qgrid');
+        const SC={A:document.getElementById('scA'),B:document.getElementById('scB'),C:document.getElementById('scC')};
+        function show(k){for(var x in SC)SC[x].classList.toggle('hide',x!==k);}
 
-        function show(k) {
-            for (var x in SC) SC[x].classList.toggle('hide', x !== k);
-        }
-
-        function orderDoneQty(o) {
-            return (o.sessions || []).reduce(function (a, s) {
-                return a + (s.qty || s.outQty || s.packQty || (s.lots ? s.lots.reduce(function (b, l) {
-                    return b + l.qty;
-                }, 0) : 0) || 0);
-            }, 0);
-        }
-
-        function workingCount(o) {
-            return (o.sessions || []).filter(function (s) {
-                return s.st === 'working';
-            }).length;
-        }
-
-        function inRange(o) {
-            var f = document.getElementById('dFrom').value, t = document.getElementById('dTo').value;
-            if (f && o.odate < f) return false;
-            if (t && o.odate > t) return false;
-            return true;
-        }
-
+        function orderDoneQty(o){return (o.sessions||[]).reduce(function(a,s){return a+(s.qty||s.outQty||s.packQty||(s.lots?s.lots.reduce(function(b,l){return b+l.qty;},0):0)||0);},0);}
+        function workingCount(o){return (o.sessions||[]).filter(function(s){return s.st==='working';}).length;}
+        function inRange(o){var f=document.getElementById('dFrom').value,t=document.getElementById('dTo').value;
+            if(f&&o.odate<f)return false;if(t&&o.odate>t)return false;return true;}
         function renderQueue() {
             var list = ORDERS.filter(function (o) {
                 return (filter === 'all' || o.st === filter) && inRange(o);
@@ -681,7 +487,7 @@
                     '<div class="row1"><span class="wono">' + o.id + '</span>' +
                     '<span style="font-size:13px;color:var(--ink-2);font-weight:700">' + o.odate + '</span>' +
                     '<span class="chip ' + o.st + '">' + STLAB[o.st] + '</span></div>' +
-                    '<div class="name">' + o.name + (o.fam ? ('<span class="fam-badge ' + (o.fam === 'MCELL' ? 'mcell' : 'bsc') + '">' + o.fam + '</span>') : '') + '</div>' +
+                    '<div class="name">' + o.name + '<span class="fam-badge ' + (o.fam === 'MCELL' ? 'mcell' : 'bsc') + '">' + o.fam + '</span></div>' +
                     '<div class="meta"><div class="blk"><span class="lab">계획</span><span class="val">' + o.plan + '</span></div>' +
                     '<div class="blk"><span class="lab">완료</span><span class="val">' + orderDoneQty(o) + '</span></div>' +
                     '<div class="blk"><span class="lab">작업</span><span class="val">' + workingCount(o) + '</span></div>' +
@@ -733,7 +539,7 @@
                 return x.id === id;
             })[0];
             document.getElementById('bName').textContent = curO.name;
-            document.getElementById('bSub').textContent = curO.id + ' · 차수 ' + curO.chasu;
+            document.getElementById('bSub').textContent = curO.id;
             renderSessList();
             show('B');
         }
@@ -742,29 +548,23 @@
 
         /* ── 공정별 세션작업 렌더 ── */
 
-        function vesMeta(lot) {
-            return VES_LOTS.filter(function (l) {
-                return l.lot === lot;
-            })[0];
-        }
-
         function renderSessList() {
             var o = curO, done = o.sessions.reduce(function (a, s) {
                 return a + (s.qty || 0);
             }, 0), bad = o.sessions.reduce(function (a, s) {
-                return a + (s.parts || []).reduce(function (b, p) {
+                return a + s.parts.reduce(function (b, p) {
                     return b + (p.defQty || 0);
                 }, 0);
             }, 0);
             document.getElementById('ovbox').innerHTML =
                 '<div class="ov"><div class="l">계획수량</div><div class="v">' + o.plan + '</div></div>' +
-                '<div class="ov"><div class="l">블리스터수량</div><div class="v">' + done + '</div></div>' +
+                '<div class="ov"><div class="l">조립수량</div><div class="v">' + done + '</div></div>' +
                 '<div class="ov left"><div class="l">잔여수량</div><div class="v">' + Math.max(0, o.plan - done) + '</div></div>' +
                 '<div class="ov"><div class="l">부적합</div><div class="v" style="color:var(--red)">' + bad + '</div></div>';
             document.getElementById('sessCnt').textContent = o.sessions.length + '건';
             var box = document.getElementById('sessList');
             if (!o.sessions.length) {
-                box.innerHTML = '<div class="emptysess">작업이 없습니다. ‘작업 시작’으로 블리스터 포장(PK)을 시작하세요.</div>';
+                box.innerHTML = '<div class="emptysess">작업이 없습니다. ‘작업 시작’으로 용기 조립을 시작하세요.</div>';
                 return;
             }
             box.innerHTML = o.sessions.map(function (se, i) {
@@ -774,7 +574,7 @@
                 return '<div class="sess" data-st="' + se.st + '" data-i="' + i + '"><div class="edge"></div>' +
                     '<div class="who"><span class="nm">' + se.worker + '</span><span class="eq">' + se.equip + '</span></div>' +
                     '<div class="time">' + pill(se.start) + ' ~ ' + pill(se.end) + '</div>' +
-                    '<div class="qty"><div class="l">블리스터수량</div><div class="v">' + se.qty + '</div></div>' +
+                    '<div class="qty"><div class="l">조립수량</div><div class="v">' + se.qty + '</div></div>' +
                     (b > 0 ? '<span class="bad">불량 ' + b + '</span>' : '') +
                     '<span class="badge ' + se.st + '">' + STLAB[se.st] + '</span></div>';
             }).join('');
@@ -788,12 +588,9 @@
         function openSess(i) {
             curS = curO.sessions[i];
             curS._idx = i;
-            if (!curS.ves) {
-                var av = autoVes(curO);
-                if (av) curS.ves = av.lot;
-            }   // 완제/차수에 대응하는 용기 반제품 자동 지정(FIFO)
-            document.getElementById('cName').textContent = curS.worker + ' · 블리스터 포장';
-            document.getElementById('cSub').textContent = curO.id + ' · ' + curO.name + ' (' + curO.code + ') · 계획 ' + curO.plan;
+            var sub = curO.fam === 'MCELL' ? 'M-CELL 디바이스' : (curO.blood + ' ' + curO.vol + 'ml 용기 · ' + curO.ver);
+            document.getElementById('cName').textContent = curS.worker + ' · 조립';
+            document.getElementById('cSub').textContent = curO.id + ' · ' + sub + ' · 계획 ' + curO.plan;
             renderCHead();
             renderCBody();
             renderCAction();
@@ -816,33 +613,27 @@
                 return a + (x.qty || 0);
             }, 0);
             var remain = Math.max(0, curO.plan - done);
-            var vm = vesMeta(curS.ves);
             var html = '';
-            // 용기 로트 투입
-            html += '<div class="secline">투입 용기 반제품 로트 <span class="ln"></span><span>클린부스</span></div>';
-            html += '<div class="part"><div class="id"><span class="pn">용기 반제품 로트</span><span class="pc">' + (vm ? vm.lot + ' · ' + vm.name + ' · 가용 ' + vm.qty + ' · 자동선택(FIFO)' : '미선택') + '</span></div>' +
-                (locked ? '<span class="done-tag" style="background:var(--surface-2);color:var(--ink-2)">' + (curS.ves || '-') + '</span>' : '<button class="btn ghost" data-pickves="1" style="min-height:54px">' + (curS.ves ? '변경' : '선택') + '</button>') + '</div>';
-            // 블리스터 산출 (용기 반제품 로트 바로 아래로 이동)
-            html += '<div class="secline">블리스터 포장 산출 (PK) <span class="ln"></span><span>잔여수량 ' + remain + '</span></div>';
-            html += '<div class="part"><div class="id"><span class="pn">블리스터수량</span><span class="pc">용기+주사기 블리스터 끼우고 멸균지 압착 → PK</span></div>' +
+            // 산출 수량
+            html += '<div class="secline">' + (curO.fam === 'MCELL' ? '디바이스 조립' : '용기 조립') + ' 수량 <span class="ln"></span><span>잔여수량 ' + remain + '</span></div>';
+            html += '<div class="part"><div class="id"><span class="pn">조립수량</span><span class="pc">' + (curO.fam === 'MCELL' ? 'M-CELL 디바이스' : curO.vcode + ' · 조립 후 클린부스 보관') + '</span></div>' +
                 (locked ? '<span class="done-tag">' + curS.qty + ' EA</span>' :
                     '<div class="stepper" data-out="1"><button class="minus">−</button><div class="qty" data-padout="1">' + curS.qty + '</div><button class="plus">+</button></div>') + '</div>';
-            // PK 부가자재 (클린룸창고에서 투입·소비만)
-            html += '<div class="secline">PK 부가 자재 <span class="ln"></span><span>' + curS.parts.length + '종</span></div>';
+            // 투입 자재
+            html += '<div class="secline">투입 자재 <span class="ln"></span><span>' + curS.parts.length + '종</span></div>';
             html += curS.parts.map(function (p, i) {
-                var defBadge = p.defQty > 0 ? '<button class="defbtn has" data-def="' + i + '">부적합 ' + p.defQty + '</button>' : (locked ? '<span class="done-tag" style="background:var(--surface-2);color:var(--ink-2)">투입</span>' : '<button class="defbtn" data-def="' + i + '">부적합</button>');
-                return '<div class="part"><div class="id"><span class="pn">' + p.name + '</span><span class="pc">' + p.code + ' <span class="whbadge clean">클린룸창고</span></span></div>' +
+                var wb = p.wh === 'clean' ? '<span class="whbadge clean">클린룸창고</span>' : '<span class="whbadge prod">생산창고</span>';
+                var defBadge = p.defQty > 0 ? '<button class="defbtn has" data-def="' + i + '">부적합 ' + p.defQty + '</button>' : (locked ? '' : '<button class="defbtn" data-def="' + i + '">부적합</button>');
+                return '<div class="part ' + (locked ? 'locked' : '') + '"><div class="id"><span class="pn">' + p.name + '</span><span class="pc">' + p.code + ' ' + wb + '</span></div>' +
                     (p.defQty > 0 ? '<div class="stat"><div class="col"><span class="l">불량</span><span class="v bad">' + p.defQty + '</span></div></div>' : '') + defBadge + '</div>';
             }).join('');
-            // (부적합은 위 PK 부가자재 각 항목에 등록 — 기존 조립 방식과 동일)
-            // PK 반제품 로트 표시 제거 — 최종 PK 로트·라벨은 외포장(opack) 단계에서 처리
             document.getElementById('cBody').innerHTML = html;
         }
 
         function renderCAction() {
             var bar = document.getElementById('cAction');
             if (curS.st === 'done') {
-                bar.innerHTML = '<div class="actsum"><span class="l">블리스터수량</span><span class="v">' + curS.qty + ' EA</span></div><button class="btn danger" id="cCancel">완료취소</button>';
+                bar.innerHTML = '<div class="actsum"><span class="l">조립수량</span><span class="v">' + curS.qty + ' EA</span></div><button class="btn danger" id="cCancel">완료취소</button>';
                 document.getElementById('cCancel').onclick = function () {
                     curS.st = 'working';
                     curS.end = null;
@@ -853,21 +644,16 @@
                     flash('완료취소 (목업)');
                 };
             } else {
-                var ready = curS.ves && curS.qty > 0;
-                bar.innerHTML = '<div class="actsum"><span class="l">이 세션 블리스터수량</span><span class="v">' + curS.qty + ' EA</span></div>' +
-                    '<button class="btn ghost" id="cDelete">삭제</button><button class="btn primary" id="cFinish" ' + (ready ? '' : 'disabled style="opacity:.5"') + '>블리스터 완료</button>';
+                bar.innerHTML = '<div class="actsum"><span class="l">이 세션 조립수량</span><span class="v">' + curS.qty + ' EA</span></div>' +
+                    '<button class="btn ghost" id="cDelete">삭제</button><button class="btn primary" id="cFinish">조립 완료</button>';
                 document.getElementById('cFinish').onclick = function () {
-                    if (!ready) {
-                        flash('용기 로트와 수량을 입력하세요');
-                        return;
-                    }
                     curS.st = 'done';
                     curS.end = nowHM();
                     renderCHead();
                     renderCBody();
                     renderCAction();
                     renderSessList();
-                    flash('블리스터 포장 완료 → 멸균 대기 (목업)');
+                    flash('조립 완료 → 클린부스 보관 (목업)');
                 };
                 document.getElementById('cDelete').onclick = function () {
                     curO.sessions.splice(curS._idx, 1);
@@ -898,11 +684,6 @@
                 openPadOut();
                 return;
             }
-            var pv = e.target.closest('[data-pickves]');
-            if (pv) {
-                openVes();
-                return;
-            }
             var def = e.target.closest('[data-def]');
             if (def) {
                 openDef(+def.dataset.def);
@@ -913,29 +694,11 @@
             if (t) openTime(t.dataset.time);
         });
 
-        function openVes() {
-            document.getElementById('lotTitle').textContent = '용기 반제품 로트 선택';
-            document.getElementById('lotList').innerHTML = VES_LOTS.filter(function (l) {
-                return l.fam === curO.fam;
-            }).map(function (l) {
-                return '<div class="lotopt ' + (l.lot === curS.ves ? 'sel' : '') + '" data-lot="' + l.lot + '"><div><span class="ln">' + l.lot + '</span><div class="meta" style="margin:0">' + l.name + ' · 가용 ' + l.qty + ' · ' + l.wh + '</div></div></div>';
-            }).join('');
-            document.getElementById('lotList').onclick = function (e) {
-                var o = e.target.closest('[data-lot]');
-                if (!o) return;
-                curS.ves = o.dataset.lot;
-                hideMask('lotMask');
-                renderCBody();
-                renderCAction();
-            };
-            showMask('lotMask');
-        }
-
         var padVal = '';
 
         function openPadOut() {
             padVal = String(curS.qty || 0);
-            document.getElementById('padLab').textContent = '블리스터수량';
+            document.getElementById('padLab').textContent = '조립수량';
             document.getElementById('padDisp').textContent = padVal;
             showMask('padMask');
         }
@@ -959,8 +722,8 @@
             } else padVal = (padVal === '0' ? '' : padVal) + k;
             document.getElementById('padDisp').textContent = padVal || '0';
         });
-        var DEFTYPES = ['실링불량', '이물', '파손', '오염', '기타'];
-        var defIdx = -1, defQ = 0, defT = null, defPhotos = [];
+        var DEFTYPES = ['이물', '파손', '변형', '오염', '기타'];
+        var defIdx = null, defQ = 0, defT = null, defPhotos = [];
 
         function openDef(i) {
             defIdx = i;

@@ -142,8 +142,15 @@
         .btn.danger{background:var(--red-bg);color:var(--red)}
 
         /* 시트 */
-        .mask{position:fixed;inset:0;background:rgba(21,34,43,.42);display:none;z-index:40;align-items:flex-end}
-        .mask.show{display:flex;animation:fade .15s ease}@keyframes fade{from{opacity:0}to{opacity:1}}
+        .pad .disp{margin-left:auto;min-width:140px;text-align:right;font-size:30px;font-weight:800;font-variant-numeric:tabular-nums;background:var(--surface-2);border:1px solid var(--line);border-radius:14px;padding:8px 16px}
+        .keys{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:520px;margin:6px auto 0}
+        .keys button{height:62px;border-radius:14px;border:1px solid var(--line);background:var(--surface);font-size:25px;font-weight:800;cursor:pointer;font-variant-numeric:tabular-nums}
+        .keys button:active{background:var(--surface-2)}.keys button.ok{background:var(--teal);color:#fff;border-color:var(--teal)}.keys button.clr{color:var(--red)}
+        .wcard{cursor:pointer}
+        .wcard.sel{border-color:var(--teal) !important;box-shadow:0 0 0 2px var(--teal-bg)}
+        .wchk{width:30px;height:30px;border:2px solid var(--line);border-radius:9px;flex:0 0 auto;display:grid;place-items:center;font-weight:900}
+        .wchk.on{background:var(--teal);border-color:var(--teal);color:#fff}
+        .mask{position:fixed;inset:0;background:rgba(21,34,43,.42);display:none;z-index:40;align-items:flex-end}        .mask.show{display:flex;animation:fade .15s ease}@keyframes fade{from{opacity:0}to{opacity:1}}
         .sheet{width:100%;background:var(--surface);border-radius:24px 24px 0 0;padding:20px 20px calc(40px + env(safe-area-inset-bottom));
             box-shadow:0 -20px 40px -20px rgba(0,0,0,.4);animation:rise .2s cubic-bezier(.2,.7,.3,1);max-height:88dvh;overflow:auto}
         @keyframes rise{from{transform:translateY(40px)}to{transform:translateY(0)}}
@@ -256,17 +263,25 @@
 
             <!-- A. 큐 -->
             <div class="screen" id="scA"><div class="wrap">
-                <div class="qhead"><h1>멸균 작업지시</h1><span class="cnt" id="qcnt"></span>
-                    <div class="qfilter"><button class="on" data-f="all">전체</button>
+                <div class="qhead"><h1 id="scaTitle">멸균 대기</h1><span class="cnt" id="qcnt"></span>
+                    <div class="qfilter qmode" style="margin-left:auto"><button class="on" data-mode="wait">멸균 대기</button><button data-mode="batch">멸균 작업</button></div>
+                    <div class="qfilter" id="batchFilter" style="margin-left:12px;display:none"><button class="on" data-f="all">전체</button>
                         <button data-f="wait">대기</button><button data-f="working">작업중</button></div></div>
-                <div class="searchbar">
+                <div class="searchbar" id="batchSearchbar" style="display:none">
                     <span class="slab">작업지시일</span>
                     <input type="date" id="dFrom" class="dinput"/>
                     <span class="tilde">~</span>
                     <input type="date" id="dTo" class="dinput"/>
                     <button class="sbtn" id="btnSearch">조회</button>
                 </div>
-                <div class="qgrid" id="qgrid"></div>
+                <div id="waitPane">
+                    <div style="display:flex;align-items:center;gap:10px;margin:2px 2px 14px">
+                        <span class="cnt">블리스터 완료 · 멸균 전 PK 로트 (섞어 담기 가능)</span>
+                        <button class="sbtn" id="btnCreateFromWait" style="margin-left:auto">선택 멸균 작업 생성</button>
+                    </div>
+                    <div id="waitList" class="qgrid" style="grid-template-columns:1fr"></div>
+                </div>
+                <div class="qgrid" id="qgrid" style="display:none"></div>
             </div></div>
 
             <!-- B. 세션 목록 -->
@@ -289,9 +304,10 @@
             <!-- C. 세션 작업 -->
             <div class="screen hide" id="scC"><div class="col-stack">
                 <div class="topbar2">
-                    <button class="back" data-back="B">‹</button>
+                    <button class="back" data-back="A">‹</button>
                     <div class="htitle"><div class="t" id="cName">—</div><div class="s" id="cSub">—</div></div>
                     <div style="display:flex;gap:8px;align-items:center" id="cHead"></div>
+                    <button class="x" id="btnDelOrder" title="작업 삭제" style="margin-left:8px;width:44px;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--surface-2);font-size:18px;cursor:pointer">🗑</button>
                 </div>
                 <div class="bscroll"><div class="bgrid" id="cBody"></div></div>
                 <div class="actionbar" id="cAction"></div>
@@ -299,6 +315,15 @@
 
         </div>
     </div>
+
+    <!-- 숫자패드 -->
+    <div class="mask" id="padMask"><div class="sheet pad"><div class="body">
+        <div class="sh"><h3 id="padLab">담을 수량</h3><span class="disp" id="padDisp" style="margin-left:auto">0</span></div>
+        <div class="keys"><button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
+            <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
+            <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
+            <button class="clr" data-k="C">C</button><button data-k="0">0</button><button class="ok" data-k="OK">확인</button></div>
+    </div></div></div>
 
     <!-- 시작 시트 -->
     <div class="mask" id="startMask"><div class="sheet"><div class="body">
@@ -465,10 +490,10 @@
         ];
         function mkSess(worker,equip){return {worker:worker,equip:equip,start:nowHM(),end:null,st:'working',lots:[],bi:null,log:{},usb:null};}
         const ORDERS=[
-            {id:'EO-2406-007',odate:'2026-06-26',st:'working',name:'멸균 작업 · 6/26',mgmt:'KM-MRM-M060',chasu:1,plan:120,sessions:[
+            {id:'EO-2406-007',odate:'2026-07-06',st:'working',name:'멸균 작업 · 6/26',mgmt:'KM-MRM-M060',chasu:1,plan:120,sessions:[
                     {worker:'정우철',equip:'멸균기',start:'2026-06-26 11:00',end:null,st:'working',lots:[{lot:'BSC30-PK00-260626',qty:40,gtin:REAL.gtin,name:REAL.PK.name}],bi:null,log:{},usb:null},
                 ]},
-            {id:'EO-2406-006',odate:'2026-06-25',st:'done',name:'멸균 작업 · 6/25',mgmt:'KM-MRM-M060',chasu:1,plan:38,sessions:[
+            {id:'EO-2406-006',odate:'2026-07-05',st:'done',name:'멸균 작업 · 6/25',mgmt:'KM-MRM-M060',chasu:1,plan:38,sessions:[
                     {worker:'김민수',equip:'멸균기',start:'2026-06-25 14:00',end:'2026-06-25 22:00',st:'done',lots:[{lot:'BSC30-PK00-260625',qty:38,gtin:REAL.gtin,name:REAL.PK.name}],bi:'pass',log:{},usb:'(USB 데이터 업로드됨)'},
                 ]},
         ];
@@ -515,10 +540,72 @@
             }).join('');
         }
         qgrid.addEventListener('click',function(e){var c=e.target.closest('.wo');if(c)openOrder(c.dataset.id);});
-        document.querySelectorAll('.qfilter button').forEach(function(b){b.addEventListener('click',function(){
-            document.querySelectorAll('.qfilter button').forEach(function(x){x.classList.remove('on');});
+
+        // ── 멸균 대기 목록 (블리스터 완료 · 가용>0) ──
+        var waitSel={}, waitQty={};
+        function avOf(lot){var l=PK_LOTS.filter(function(x){return x.lot===lot;})[0];return l?lotAvail(l):1;}
+        function renderWait(){
+            var cand=PK_LOTS.filter(function(l){return lotAvail(l)>0;});
+            document.getElementById('waitList').innerHTML = cand.length ? cand.map(function(l){
+                var av=lotAvail(l); if(waitQty[l.lot]==null)waitQty[l.lot]=av; var q=Math.min(waitQty[l.lot],av); if(q<1)q=1; waitQty[l.lot]=q;
+                var sel=!!waitSel[l.lot];
+                return '<div class="wo wcard'+(sel?' sel':'')+'" data-wcard="'+l.lot+'">'+
+                    '<div style="display:flex;align-items:center;gap:12px">'+
+                    '<div class="wchk'+(sel?' on':'')+'">'+(sel?'✓':'')+'</div>'+
+                    '<div style="flex:1;min-width:0"><div style="font-weight:800">'+l.lot+'</div><div class="meta">'+l.name+' · 가용 '+av+'</div></div>'+
+                    '</div>'+
+                    '<div style="display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:12px">'+
+                    '<span class="meta">담을 수량</span>'+
+                    '<div class="stepper"><button class="minus" data-wminus="'+l.lot+'">−</button>'+
+                    '<div class="qty" data-wpad="'+l.lot+'">'+q+'</div>'+
+                    '<button class="plus" data-wplus="'+l.lot+'">+</button></div>'+
+                    '</div></div>';
+            }).join('') : '<div class="emptysess">멸균 대기 PK 로트가 없습니다.</div>';
+        }
+        document.getElementById('waitList').addEventListener('click',function(e){
+            var m=e.target.closest('[data-wminus]'); if(m){var lot=m.dataset.wminus;waitQty[lot]=Math.max(1,(waitQty[lot]||avOf(lot))-1);renderWait();return;}
+            var p=e.target.closest('[data-wplus]'); if(p){var lot=p.dataset.wplus;var av=avOf(lot);waitQty[lot]=Math.min(av,(waitQty[lot]||av)+1);renderWait();return;}
+            var pd=e.target.closest('[data-wpad]'); if(pd){var lot=pd.dataset.wpad;var av=avOf(lot);openPad(waitQty[lot]||av,av,function(v){waitQty[lot]=v;renderWait();});return;}
+            var c=e.target.closest('[data-wcard]'); if(c){var lot=c.dataset.wcard;waitSel[lot]=!waitSel[lot];renderWait();}
+        });
+        // 숫자패드 (다른 공정 화면과 동일)
+        var padVal='', padCb=null, padMax=0;
+        function openPad(cur,max,cb){padVal=String(cur);padMax=max;padCb=cb;document.getElementById('padDisp').textContent=padVal;showMask('padMask');}
+        document.querySelector('#padMask .keys').addEventListener('click',function(e){var k=e.target.dataset.k;if(!k)return;
+            if(k==='C'){padVal='';}
+            else if(k==='OK'){var n=parseInt(padVal||'0',10);if(isNaN(n)||n<1)n=1;if(n>padMax)n=padMax;hideMask('padMask');if(padCb)padCb(n);return;}
+            else padVal=(padVal==='0'?'':padVal)+k;
+            document.getElementById('padDisp').textContent=padVal||'0';});
+        function createFromWait(){
+            var sel=Object.keys(waitSel).filter(function(k){return waitSel[k];});
+            if(!sel.length){flash('멸균할 PK 로트를 선택하세요');return;}
+            var d=nowHM().slice(0,10);
+            var seq=ORDERS.filter(function(o){return o.odate===d;}).length+1;
+            var se=mkSess('이서연','멸균기');
+            sel.forEach(function(lot){ var l=PK_LOTS.filter(function(x){return x.lot===lot;})[0]; if(!l)return;
+                var av=lotAvail(l); var q=Math.min(av,Math.max(1,waitQty[lot]||av));
+                se.lots.push({lot:l.lot,qty:q,gtin:l.gtin,name:l.name}); });
+            var nb={id:'EO-'+d.replace(/-/g,'').slice(2)+'-'+String(seq).padStart(2,'0'),odate:d,st:'working',name:'멸균 작업 · '+d,mgmt:'KM-MRM-M060',chasu:1,plan:0,sessions:[se]};
+            ORDERS.unshift(nb); waitSel={}; waitQty={}; renderQueue(); openOrder(nb.id);
+            flash('멸균 작업 생성 · '+sel.length+'개 로트 담김');
+        }
+        document.getElementById('btnCreateFromWait').addEventListener('click',createFromWait);
+        // 모드 토글 (대기/배치)
+        document.querySelectorAll('[data-mode]').forEach(function(b){b.addEventListener('click',function(){
+            document.querySelectorAll('[data-mode]').forEach(function(x){x.classList.remove('on');}); b.classList.add('on');
+            var m=b.dataset.mode, isWait=(m==='wait');
+            document.getElementById('waitPane').style.display=isWait?'':'none';
+            document.getElementById('qgrid').style.display=isWait?'none':'';
+            document.getElementById('batchSearchbar').style.display=isWait?'none':'';
+            document.getElementById('batchFilter').style.display=isWait?'none':'';
+            document.getElementById('scaTitle').textContent=isWait?'멸균 대기':'멸균 작업';
+            if(isWait)renderWait(); else renderQueue();
+        });});
+        document.querySelectorAll('#batchFilter button').forEach(function(b){b.addEventListener('click',function(){
+            document.querySelectorAll('#batchFilter button').forEach(function(x){x.classList.remove('on');});
             b.classList.add('on');filter=b.dataset.f;renderQueue();});});
         document.getElementById('btnSearch').addEventListener('click',renderQueue);
+        renderWait();
         (function(){var t=new Date(),f=new Date();f.setDate(f.getDate()-7);
             var fmt=function(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
             document.getElementById('dFrom').value=fmt(f);document.getElementById('dTo').value=fmt(t);})();
@@ -529,8 +616,16 @@
         function openOrder(id){curO=ORDERS.filter(function(x){return x.id===id;})[0];
             document.getElementById('bName').textContent=curO.name;
             document.getElementById('bSub').textContent=curO.id+' · 멸균 품목: '+batchProdLabel(curO);
-            renderSessList();show('B');}
+            if(curO.sessions&&curO.sessions.length){openSess(0);} else {renderSessList();show('B');}}
         document.getElementById('btnNewSess').onclick=openStart;
+        document.getElementById('btnDelOrder').onclick=function(){
+            if(!curO)return;
+            if(curS&&curS.st==='done'){flash('완료된 작업은 삭제할 수 없습니다');return;}
+            if(!confirm('이 멸균 작업을 삭제할까요? 담긴 PK 로트는 대기로 돌아갑니다.'))return;
+            var i=ORDERS.indexOf(curO); if(i>=0)ORDERS.splice(i,1);
+            curO=null;curS=null; renderQueue(); renderWait(); show('A');
+            flash('멸균 작업 삭제 — 담긴 로트 대기 복귀');
+        };
 
         /* ── 공정별 세션작업 렌더 ── */
 
@@ -556,6 +651,12 @@
             }).join('');
         }
         document.getElementById('sessList').addEventListener('click',function(e){var s=e.target.closest('.sess');if(s)openSess(+s.dataset.i);});
+        document.getElementById('cBody').addEventListener('change',function(e){
+            var fi=e.target.closest('#tUsbFile'); if(!fi)return;
+            var n=(fi.files||[]).length; var info=document.getElementById('tUsbInfo');
+            if(info) info.textContent = n ? ('USB 파일 '+n+'개 받아둠 — 초단위 파싱·그래프·10단계 일지는 PC 관리화면에서 작성합니다.') : '';
+            flash(n?('USB 파일 '+n+'개 첨부 (목업 · PC에서 일지 작성)'):'');
+        });
         function openSess(i){curS=curO.sessions[i];curS._idx=i;
             document.getElementById('cName').textContent=curS.equip+' · 멸균 (PK만)';
             document.getElementById('cSub').textContent=curO.id+' · 멸균기 '+curO.mgmt;
@@ -580,11 +681,12 @@
                         '<button class="defbtn" data-rmlot="'+l.lot+'" style="margin-left:8px">제외</button>')+'</div>';
             }).join('');
             if(!locked){html+='<div style="margin:6px 2px"><button class="btn ghost" id="addLot" style="width:100%">＋ PK 로트 담기</button></div>';}
-            // USB·일지는 PC 관리화면에서 (역할 분리)
-            html+='<div class="secline">멸균 데이터 · 일지 <span class="ln"></span><span>PC 작성</span></div>';
-            html+='<div class="part locked"><div class="id"><span class="pn">USB 데이터 · F710-3 10단계 일지</span>'+
-                '<span class="pc">초단위 온도·습도·압력 업로드와 10단계 일지는 PC 관리화면에서 작성합니다.</span></div>'+
-                '<span class="done-tag" style="background:var(--surface-2);color:var(--ink-2)">PC 전용</span></div>';
+            // USB·일지는 PC가 주 작성. 태블릿은 선택적 폴백(파일 받아두기)만.
+            html+='<div class="secline">멸균 데이터 · 일지 <span class="ln"></span><span>PC 작성 · 태블릿 선택</span></div>';
+            html+='<div class="part"><div class="id"><span class="pn">USB 데이터 · F710-3 10단계 일지</span>'+
+                '<span class="pc">초단위 온도·습도·압력 파싱·그래프·일지 작성은 <b>PC 관리화면</b>이 기본입니다. 태블릿에서는 USB 파일만 받아둘 수 있어요(선택).</span></div>'+
+                '<label class="btn ghost" style="min-height:44px;cursor:pointer">＋ USB 파일<input type="file" id="tUsbFile" accept=".xlsx,.xls,.csv" multiple style="display:none"></label></div>';
+            html+='<div id="tUsbInfo" class="pc" style="margin:4px 2px 0"></div>';
             // BI
             html+='<div class="secline">멸균검증(BI) 판정 <span class="ln"></span><span></span></div>';
             html+='<div class="judge"><button class="pass '+(curS.bi==='pass'?'on':'')+'" data-bi="pass">합격 PASS</button>'+
@@ -619,12 +721,12 @@
             }else if(curS.bi==='fail'){
                 bar.innerHTML='<div class="actsum"><span class="l">멸균검증 불합격</span><span class="v" style="color:var(--red);font-size:15px">재멸균 불가·전량폐기</span></div>'+
                     '<button class="btn danger" id="cScrap" style="background:var(--red);color:#fff">PK 전량 폐기</button>';
-                document.getElementById('cScrap').onclick=function(){curS.st='done';curS.end=nowHM();renderCHead();renderCBody();renderCAction();renderSessList();flash('멸균 FAIL — PK '+batchQty(curS)+'EA 전량 폐기 (목업)');};
+                document.getElementById('cScrap').onclick=function(){curS.st='done';curS.end=nowHM();(curS.lots||[]).forEach(function(l){l.sterilYN='X';});renderCHead();renderCBody();renderCAction();renderSessList();flash('멸균 FAIL — PK '+batchQty(curS)+'EA 전량 재고 소진(폐기) (목업)');};
             }else{
                 var ready=curS.bi==='pass'&&curS.lots.length>0;
                 bar.innerHTML='<div class="actsum"><span class="l">멸균수량</span><span class="v">'+batchQty(curS)+' EA</span></div>'+
-                    '<button class="btn primary" id="cFinish" '+(ready?'':'disabled style="opacity:.5"')+'>멸균 완료 → 완제품 로트 발번</button>';
-                document.getElementById('cFinish').onclick=function(){if(!ready){flash('BI 합격 + PK 로트가 있어야 합니다');return;}curS.st='done';curS.end=nowHM();renderCHead();renderCBody();renderCAction();renderSessList();flash('멸균 완료 → 완제품 로트 발번 (멸균일 기준) (목업)');};
+                    '<button class="btn primary" id="cFinish" '+(ready?'':'disabled style="opacity:.5"')+'>멸균 완료 → 담긴 PK 멸균완</button>';
+                document.getElementById('cFinish').onclick=function(){if(!ready){flash('BI 합격 + PK 로트가 있어야 합니다');return;}curS.st='done';curS.end=nowHM();(curS.lots||[]).forEach(function(l){l.sterilYN='Y';});renderCHead();renderCBody();renderCAction();renderSessList();flash('멸균 완료 — 담긴 PK 로트 멸균완(SterilYN=Y) (목업)');};
             }
         }
         function finLotOf(l){return l.lot.replace(/-PK.*/,'').replace(/PK/,'')+'-'+(curS.start?curS.start.slice(0,10).replace(/-/g,''):'LOT');}

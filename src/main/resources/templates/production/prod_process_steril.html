@@ -30,6 +30,15 @@
         .row-working  { background: #e8f5e9 !important; }
         .row-finished { background: #e3f2fd !important; }
         .row-stopped  { background: #fce4ec !important; }
+        /* 선택된 셀이 흰색으로 덮이는 문제 방지 — 행 상태색 유지 */
+        .wj-flexgrid .wj-cell.wj-state-selected { background:#eef4fb !important; color:#263238 !important; }
+        .wj-flexgrid .wj-cell.wj-state-multi-selected { background:#eef4fb !important; color:#263238 !important; }
+        .wj-flexgrid .wj-cell.wj-state-selected.row-working,
+        .wj-flexgrid .wj-cell.wj-state-multi-selected.row-working { background:#d7efdc !important; }
+        .wj-flexgrid .wj-cell.wj-state-selected.row-finished,
+        .wj-flexgrid .wj-cell.wj-state-multi-selected.row-finished { background:#d4e8fb !important; }
+        .wj-flexgrid .wj-cell.wj-state-selected.row-stopped,
+        .wj-flexgrid .wj-cell.wj-state-multi-selected.row-stopped { background:#f6d7e3 !important; }
         .row-locked   { color: #bbb !important; }
 
         /* ════════ 반응형: touch-mode(1600 밑) 기반 ════════ */
@@ -73,12 +82,64 @@
         #tabSteril .insp-box { position:static; background:#fff; border:1px solid #e8edf2; border-radius:8px; margin:0 0 12px; overflow:visible; }
         #tabSteril .insp-secttitle { padding:10px 14px; font-weight:600; color:#37474f; border-bottom:1px solid #eef1f5; }
         #tabSteril .insp-head-wrap { padding:12px 14px; }
+        #tabSteril .insp-head-wrap ul.hlist { display:flex; flex-direction:column; gap:10px; }
+        #tabSteril .insp-head-wrap ul.hlist li { display:flex; align-items:center; gap:10px; }
+        #tabSteril .insp-head-wrap ul.hlist li.multi { align-items:flex-start; }
+        #tabSteril .insp-head-wrap ul.hlist .lbl { flex:0 0 140px; color:#607d8b; font-weight:600; }
         body.touch-mode #tabSteril .rec input { min-height:46px; font-size:1.05rem; }
         body.touch-mode #tabSteril .judge-btn { min-height:54px; font-size:1.2rem; }
         body.touch-mode #tabSteril .work-table th,
         body.touch-mode #tabSteril .work-table td { font-size:1.05rem; padding:12px 10px; }
+
+        /* ── BI 판정 (기본정보 확장) ── */
+        #processExtension .insp-box { background:#fff; border:1px solid #e8edf2; border-radius:8px; margin:10px 0 0; }
+        #processExtension .insp-secttitle { padding:10px 14px; font-weight:600; color:#37474f; border-bottom:1px solid #eef1f5; }
+        #processExtension .judge-btn { border:2px solid #cfd8dc; background:#fff; color:#607d8b; border-radius:8px; padding:10px 22px; font-weight:700; cursor:pointer; }
+        #processExtension .judge-btn.pass.on { background:#e8f5e9; color:#2e7d32; border-color:#4caf50; }
+        #processExtension .judge-btn.fail.on { background:#ffebee; color:#c62828; border-color:#c62828; }
+        #processExtension .judge-btn:disabled { opacity:.45; cursor:not-allowed; }
+        /* ── USB/그래프 (멸균일지) ── */
+        #usbDrop { border:1.5px dashed #cfd8dc; border-radius:6px; padding:16px; text-align:center; background:#fafbfc; }
+        #usbDrop.has { border-color:#4caf50; background:#e8f5e9; }
+        #tabSteril .rec input.af { background:#e3f2fd; border-color:#1976d2; }
+        .autochip { display:inline-block; background:#e3f2fd; border:1px solid #1976d2; border-radius:5px; padding:6px 10px; margin:0 8px 8px 0; }
+        .autochip small { display:block; color:#125aa0; font-size:11px; }
+        /* ── 배치 방식: 기본 job_res 폼/버튼 숨김, 배치 상세 스타일 ── */
+        #tabBasic form#basicForm { display:none; }
+        #tabBasic > .section-top > .button-wrap.work-action-buttons { display:none; }
+        #batchDetail .work-table { width:100%; border-collapse:collapse; }
+        #batchDetail .work-table th, #batchDetail .work-table td { border:1px solid #e0e0e0; padding:8px 10px; }
+        #batchDetail .work-table th { background:#eceff1; color:#607d8b; font-weight:700; }
+        #batchDetail .judge-btn { border:2px solid #cfd8dc; background:#fff; color:#607d8b; border-radius:8px; padding:10px 22px; font-weight:700; cursor:pointer; }
+        #batchDetail .judge-btn.pass.on { background:#e8f5e9; color:#2e7d32; border-color:#4caf50; }
+        #batchDetail .judge-btn.fail.on { background:#ffebee; color:#c62828; border-color:#c62828; }
+        #batchDetail .b-btn { height:38px; padding:0 15px; border-radius:6px; border:1px solid #cfd8dc; background:#fff; font-weight:700; cursor:pointer; }
+        /* ── 좌측 대기/배치 탭 ── */
+        #btnNewBatch { display:none; }
+        .lt-tabs .lt-tab { height:34px; padding:0 18px; border:1px solid #e0e0e0; border-bottom:none; background:#dfe4e8; color:#607d8b; font-weight:700; cursor:pointer; border-radius:6px 6px 0 0; }
+        .lt-tabs .lt-tab.on { background:#fff; color:#125aa0; }
+        .lt-tabs { position:relative; z-index:1; }
+        .prod-flex > .section > .container-fluid { border:1px solid #e0e0e0; border-radius:0 6px 6px 6px; padding:12px; background:#fff; margin-top:-1px; }
+        #waitList .work-table th, #waitList .work-table td { border:1px solid #e0e0e0; padding:8px 10px; }
+        #waitList .work-table th { background:#eceff1; color:#607d8b; }
+        /* ── 멸균일지 테이블 레이아웃 정리 (색 없이 너비/높이만) ── */
+        #tabSteril .work-table { width:100%; table-layout:fixed; }
+        #tabSteril .work-table th, #tabSteril .work-table td { height:auto; padding:8px 10px; vertical-align:middle; word-break:keep-all; }
+        #tabSteril .work-table thead th { height:42px; font-weight:700; }
+        #tabSteril .work-table th:nth-child(1), #tabSteril .work-table td:nth-child(1) { width:40px; text-align:center; }
+        #tabSteril .work-table th:nth-child(2), #tabSteril .work-table td:nth-child(2) { width:88px; }
+        #tabSteril .work-table th:nth-child(3), #tabSteril .work-table td:nth-child(3) { width:150px; }
+        #tabSteril .work-table td:nth-child(4) { width:auto; }
+        #tabSteril .crit { font-size:.78rem; line-height:1.4; white-space:normal; }
+        #tabSteril .rec { display:flex; flex-wrap:wrap; gap:6px 10px; align-items:center; }
+        #tabSteril .rec > span { display:inline-flex; align-items:center; gap:5px; white-space:nowrap; margin:0 !important; font-size:.82rem; }
+        #tabSteril .rec input { height:34px; width:80px; border:1px solid #cfd8dc; border-radius:6px; padding:0 8px; box-sizing:border-box; }
+        #tabSteril .insp-scroll { max-height:60vh; overflow:auto; }
+        body.touch-mode #tabSteril .rec input { height:42px; width:96px; }
+        body.touch-mode #tabSteril .work-table thead th { height:48px; }
     </style>
     <th:block th:replace="fragments/prod_process_common :: processCommonCss"></th:block>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 
 <th:block layout:fragment="content">
@@ -100,7 +161,7 @@
         <div style="display: flex; gap: 5px;" class="prod-flex">
 
             <!-- ═══ 좌측: 작업 목록 ═══ -->
-            <section class="section" style="flex: 1;">
+            <section class="section" style="flex: 0.7;">
                 <div class="section-top" style="justify-content: left; gap: 15px;">
                     <div class="search-wrap">
                         <dl>
@@ -145,12 +206,32 @@
                                 </li>
                             </dd>
                         </dl>
+                        <dl>
+                            <dd>
+                                <li>
+                                    <button type="button" class="btn" id="btnNewBatch" style="background:#4caf50; color:#fff; height:34px; padding:0 14px;">＋ 멸균 작업 생성</button>
+                                </li>
+                            </dd>
+                        </dl>
                     </div>
                 </div>
 
+                <div class="lt-tabs" style="display:flex; gap:2px; margin-top:8px;">
+                    <button type="button" class="lt-tab on" data-ltab="wait">멸균 대기</button>
+                    <button type="button" class="lt-tab" data-ltab="batch">멸균 작업</button>
+                </div>
                 <div class="container-fluid">
-                    <div id="proc-main-grid"></div>
-                    <div id="proc-card-list"></div>
+                    <div id="waitPane">
+                        <div style="display:flex; align-items:center; gap:10px; padding:8px 0;">
+                            <span class="muted">블리스터 완료 · 멸균 전 PK 로트 — 담을 수량을 정하고 선택하세요 (품목 제한 없음, 섞어서 담기 가능)</span>
+                            <button type="button" class="btn" id="btnCreateFromWait" style="margin-left:auto; background:#4caf50; color:#fff;">선택 멸균 작업 생성</button>
+                        </div>
+                        <div id="waitList"></div>
+                    </div>
+                    <div id="batchPane" style="display:none;">
+                        <div id="proc-main-grid"></div>
+                        <div id="proc-card-list"></div>
+                    </div>
                 </div>
             </section>
 
@@ -285,7 +366,26 @@
                             </div>
                             <!-- 공정별 확장 영역 -->
                             <div id="processExtension">
-                                <!-- p05 멸균 확장 영역: 박스(4개) 단위 투입, 멸균일지 PDF 자동생성, 로트 매핑 (추후 추가) -->
+                                <!-- 배치 방식: 그리드=멸균 작업, 상세=로트 담기·시작·판정·멸균완/폐기 (목업) -->
+                                <div id="batchDetail" class="insp-box"><p class="muted" style="padding:16px;">멸균 작업를 선택하거나 <b>＋ 멸균 작업 생성</b>으로 시작하세요.</p></div>
+                                <div class="insp-box" id="biJudgeBox" style="display:none">
+                                    <div class="insp-secttitle">멸균검증 (BI) 판정
+                                        <span class="muted" style="font-weight:400;">— 완료 후 판정 → 이후 멸균일지 탭에서 USB 일지 작성</span>
+                                    </div>
+                                    <div style="padding:12px; display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+                                        <strong>BI 색상 변화</strong>
+                                        <button type="button" class="judge-btn pass" id="biPass" disabled>합격 PASS</button>
+                                        <button type="button" class="judge-btn fail" id="biFail" disabled>불합격 FAIL</button>
+                                        <span style="margin-left:auto;">BI 로트
+                                            <input type="text" id="biLot" placeholder="BI-YYYYMMDD-X" autocomplete="off" style="height:36px; width:180px;" disabled>
+                                        </span>
+                                    </div>
+                                    <div id="biWarn" style="display:none; margin:0 12px 12px; padding:10px; color:#c62828; background:#ffebee; border:1px solid #c62828; border-radius:6px; font-weight:700;"></div>
+                                    <div class="button-wrap" style="padding:0 12px 12px; display:flex; gap:12px; align-items:center;">
+                                        <button type="button" class="btn" id="btnBiConfirm" disabled></button>
+                                        <span class="muted" id="biHint">작업 완료 후 BI 판정을 입력할 수 있습니다.</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </section>
@@ -373,14 +473,35 @@
                         <div class="insp-box">
                             <div class="insp-secttitle">멸균일지 — 배치 정보</div>
                             <div class="insp-head-wrap">
-                                <ul style="list-style:none; padding:0; margin:0; display:flex; gap:14px; flex-wrap:wrap; align-items:center;">
-                                    <li>멸균기 <input type="text" id="strMachine" value="KM-MRM-M060" style="height:40px; width:140px;"></li>
-                                    <li>멸균일 <input type="date" id="strDate" style="height:40px;"></li>
-                                    <li>모델명 <strong id="strModel" class="muted">작업을 선택하세요</strong></li>
-                                    <li>멸균수량(블리스터) <input type="number" id="strQty" min="0" value="0" style="height:40px; width:90px;"> EA</li>
-                                    <li>대상 LOT <input type="text" id="strLot" placeholder="로트 스캔" autocomplete="off" style="height:40px; width:180px;"></li>
-                                    <li>담당자 <input type="text" id="strWorker" style="height:40px; width:100px;"></li>
+                                <ul class="hlist" style="list-style:none; padding:0; margin:0;">
+                                    <li><span class="lbl">멸균기</span><input type="text" id="strMachine" value="KM-MRM-M060" style="height:36px; width:160px;"></li>
+                                    <li><span class="lbl">멸균일</span><input type="date" id="strDate" style="height:36px;"></li>
+                                    <li><span class="lbl">모델명</span><strong id="strModel" class="muted">작업을 선택하세요</strong></li>
+                                    <li><span class="lbl">멸균수량(블리스터)</span><span><strong id="strQty">0</strong> EA</span></li>
+                                    <li class="multi"><span class="lbl">완제품 LOT(제품별)</span><span id="strLot" class="muted" style="flex:1; min-width:0;">—</span></li>
+                                    <li><span class="lbl">담당자</span><input type="text" id="strWorker" style="height:36px; width:120px;"></li>
                                 </ul>
+                            </div>
+                        </div>
+                        <div class="insp-box" id="usbBox">
+                            <div class="insp-secttitle">USB 멸균 데이터 (초단위 시간·온도·습도·압력)
+                                <span class="muted" style="font-weight:400;">— 엑셀/CSV 업로드 → 기준점 자동추출 → 그래프</span>
+                            </div>
+                            <div class="insp-head-wrap">
+                                <div id="usbDrop">
+                                    <div id="usbDropText" style="font-weight:700;">엑셀(.xlsx) 또는 CSV 파일을 올리세요 (여러 개 선택 가능)</div>
+                                    <div class="muted">USB 내보내기의 시간·온도·습도·압력 컬럼 자동 인식 · USB에 파일이 많으면 여러 개 올린 뒤 아래에서 선택</div>
+                                    <div class="button-wrap" style="justify-content:center; margin-top:10px; display:flex; gap:8px;">
+                                        <label class="btn" style="cursor:pointer;">USB 파일 업로드
+                                            <input type="file" id="usbFile" accept=".xlsx,.xls,.csv" multiple style="display:none;">
+                                        </label>
+                                        <button type="button" class="btn" id="btnUsbSample">샘플 데이터 불러오기</button>
+                                    </div>
+                                    <div class="muted" style="margin-top:8px; font-size:.8rem;">※ 파일명 기반 배치 자동 매칭은 추후 적용 (현재는 목록에서 직접 선택)</div>
+                                </div>
+                                <div id="usbFileList" style="display:none; margin-top:12px;"></div>
+                                <div id="usbExtract" style="display:none; margin-top:12px;"></div>
+                                <div id="usbChartWrap" style="display:none; margin-top:12px;"></div>
                             </div>
                         </div>
                         <div id="strFormArea"></div>
@@ -388,6 +509,7 @@
                             <div class="button-wrap" style="padding:10px; display:flex; justify-content:flex-end; align-items:center; gap:14px;">
                                 <span id="strSaveHint" class="muted"></span>
                                 <ul style="list-style:none; padding:0; margin:0;">
+                                    <li><button type="button" class="btn" id="btnSterilPrint"><i class="fas fa-print"></i> 일지 출력하기</button></li>
                                     <li><button type="button" class="btn" id="btnSterilSave"><i class="fas fa-save"></i> 멸균일지 저장</button></li>
                                 </ul>
                             </div>
@@ -570,16 +692,49 @@
                         },
                     ],
                 };
-                this.sterilJudge = 'PASS';
+                this.sterilJudge = null;   // 판정은 기본정보 탭에서 (완료 후)
+                this.biLot = '';
+                this.usbSeries = null;
                 $('#strDate').val(new Date().toISOString().slice(0, 10));
                 $('#strWorker').val(typeof userid !== 'undefined' ? userid : '');
                 $('.tab-links a[name="tabSteril"]').on('click', () => _this.refreshSterilHead());
                 $('#btnSterilSave').on('click', () => _this.saveSteril());
+                $('#btnSterilPrint').on('click', () => _this.printSterilLog());
+                this.initBiJudge();
+                this.initUsb();
                 this.renderSterilForm();
             }
 
             refreshSterilHead() {
-                $('#strModel').text(($('#mat_name').val() || '') || '작업을 선택하세요');
+                const b = this.curBatch; const _this = this;
+                if (!b) { $('#strModel').text('배치를 선택하세요'); $('#strLot').html('—'); $('#strQty').text('0'); return; }
+                const ls = this._lotsOf(b);
+                if (!b.prodLots) b.prodLots = {};
+                // 제품(코드)별 그룹
+                const groups = {};
+                ls.forEach(l => { (groups[l.mat] = groups[l.mat] || {mat:l.mat, matNm:l.matNm, qty:0, pk:[]});
+                    groups[l.mat].qty += (l.useQty != null ? l.useQty : l.qty); groups[l.mat].pk.push(l.lot); });
+                const gl = Object.keys(groups).map(k => groups[k]);
+                const models = gl.map(g => g.matNm);
+                $('#strModel').text(models.length ? models.join(', ') : '—');
+                $('#strMachine').val(b.machine);
+                $('#strDate').val(b.date);
+                if (b.worker) $('#strWorker').val(b.worker);
+                $('#strQty').text(this._qtyOf(b));
+                // 제품별 완제품 로트(수정 가능) — 제품 다르면 로트 각각
+                $('#strLot').html(gl.length ? gl.map(g => {
+                    const cur = b.prodLots[g.mat] || _this._autoLot(b, g.mat);
+                    b.prodLots[g.mat] = cur;
+                    return '<div style="display:flex;align-items:center;gap:8px;margin:2px 0;">'+
+                        '<span style="min-width:150px;">'+g.matNm+'</span>'+
+                        '<input type="text" data-prodlot="'+g.mat+'" value="'+cur+'" style="height:34px;width:200px;" title="담긴 PK: '+g.pk.join(', ')+'">'+
+                        '<span class="muted">('+g.qty+' EA)</span></div>';
+                }).join('') : '<span class="muted">담긴 로트 없음</span>');
+                $('#strLot [data-prodlot]').off('change').on('change', function(){ b.prodLots[this.dataset.prodlot] = this.value; });
+            }
+            _autoLot(b, matCode) {
+                // 완제품 로트 자동번호(수정 가능) — 멸균일 + 제품코드 기반. 포장 시 시스템 로트와 매칭/치환.
+                return 'LI-' + b.date.replace(/-/g,'').slice(2) + '-' + matCode;
             }
 
             renderSterilForm() {
@@ -604,18 +759,478 @@
                     </div>
                     <div class="button-wrap" style="padding:12px; display:flex; align-items:center; gap:14px; border-top:1px solid #eee;">
                       <strong>최종 판정 (BI)</strong>
-                      <button type="button" class="judge-btn pass" id="strJudgeBtn">PASS</button>
-                      <span class="muted">탭하여 PASS/FAIL 전환 — BI 색상: 녹색·투명=PASS / 황색·불투명=FAIL</span>
+                      <span id="strJudgeView" class="muted">기본정보 탭에서 BI 판정을 먼저 정하세요</span>
                     </div>
                   </div>`);
                 this.sterilData = tpl.steps.map(s => s.fields.map(() => ''));
                 $('#strFormArea .rec input').off('change').on('change', function () {
                     _this.sterilData[+$(this).data('s')][+$(this).data('f')] = this.value;
                 });
-                $('#strJudgeBtn').off('click').on('click', function () {
-                    _this.sterilJudge = _this.sterilJudge === 'PASS' ? 'FAIL' : 'PASS';
-                    $(this).text(_this.sterilJudge).attr('class', 'judge-btn ' + (_this.sterilJudge === 'PASS' ? 'pass' : 'fail'));
+                this.refreshJudgeView();
+            }
+
+            // ── BI 판정 (기본정보 탭, 완료 후) ──
+            initBiJudge() {
+                const _this = this;
+                $('#biPass').on('click', () => _this.setBiJudge('PASS'));
+                $('#biFail').on('click', () => _this.setBiJudge('FAIL'));
+                $('#biLot').on('change', function(){ _this.biLot = this.value; });
+                $('#btnBiConfirm').on('click', () => {
+                    if(_this.sterilJudge === 'FAIL') alert('PK 전량 폐기 처리 (목업)');
+                    else alert('합격 확정 — 멸균필 (목업)');
                 });
+                // 완료/완료취소 후 판정 활성화 반영 (기존 핸들러 뒤에 실행)
+                $('#btnWorkFinish').on('click', () => setTimeout(() => _this.refreshBiEnabled(), 50));
+                $('#btnFinishCancel').on('click', () => setTimeout(() => { _this.sterilJudge=null; _this.refreshBiEnabled(); _this.refreshJudgeView(); }, 50));
+                this.refreshBiEnabled();
+            }
+            isFinished() {
+                const st = ($('#job_state').val() || '').toString();
+                return /완료|종료|FINISH/i.test(st);
+            }
+            refreshBiEnabled() {
+                const ok = this.isFinished();
+                $('#biPass, #biFail, #biLot').prop('disabled', !ok);
+                $('#btnBiConfirm').prop('disabled', !ok || !this.sterilJudge);
+                $('#biHint').text(ok ? '합격/불합격을 선택하세요. 판정 후 멸균일지 탭에서 USB 데이터를 올립니다.'
+                    : '작업 완료 후 BI 판정을 입력할 수 있습니다.');
+                this.paintBiButtons();
+            }
+            paintBiButtons() {
+                $('#biPass').toggleClass('on', this.sterilJudge === 'PASS');
+                $('#biFail').toggleClass('on', this.sterilJudge === 'FAIL');
+            }
+            setBiJudge(v) {
+                if($('#biPass').prop('disabled')) return;  // 완료 전엔 무시
+                this.sterilJudge = v;
+                this.paintBiButtons();
+                const fail = v === 'FAIL';
+                $('#biWarn').toggle(fail).text(fail ? '⚠ BI 불합격 — 재멸균 불가. 이 배치 PK 전량 폐기 대상입니다.' : '');
+                $('#btnBiConfirm').prop('disabled', false)
+                    .text(fail ? 'PK 전량 폐기 처리' : '합격 확정 → 멸균필')
+                    .css({background: fail ? '#c62828' : '', color: fail ? '#fff' : ''});
+                this.refreshJudgeView();
+            }
+            refreshJudgeView() {
+                const v = this.sterilJudge;
+                $('#strJudgeView').text(v ? ('BI 판정: ' + v + (v === 'FAIL' ? ' (재멸균 불가·폐기)' : ' (멸균필)'))
+                    : '기본정보 탭에서 BI 판정을 먼저 정하세요');
+            }
+
+            // ── USB 엑셀 업로드 / 자동추출 / 그래프 ──
+            initUsb() {
+                const _this = this;
+                $('#usbFile').on('change', function(e){
+                    const files = Array.from(e.target.files || []);
+                    if (!files.length) return;
+                    _this._usbFiles = files;
+                    _this.renderUsbFileList();
+                    // 파일이 1개면 바로 적용, 여러 개면 목록에서 선택
+                    if (files.length === 1) _this.loadUsbFile(0);
+                });
+                $('#usbFileList').off('click').on('click', function(e){
+                    const t = e.target.closest('[data-usbidx]'); if (!t) return;
+                    _this.loadUsbFile(+t.dataset.usbidx);
+                });
+                $('#btnUsbSample').on('click', () => _this.applyUsb(_this.genSample(), '(샘플 데이터)'));
+            }
+            renderUsbFileList() {
+                const files = this._usbFiles || [];
+                if (files.length <= 1) { $('#usbFileList').hide().empty(); return; }
+                const rows = files.map((f, i) =>
+                    '<tr'+(this._usbActive===i?' style="background:#eef4fb;"':'')+'>'+
+                    '<td>'+f.name+'</td>'+
+                    '<td style="text-align:right;">'+Math.round(f.size/1024)+' KB</td>'+
+                    '<td style="text-align:center;"><button type="button" class="btn" data-usbidx="'+i+'" style="height:30px; padding:0 12px;">'+(this._usbActive===i?'선택됨':'이 파일 사용')+'</button></td></tr>'
+                ).join('');
+                $('#usbFileList').show().html(
+                    '<div class="muted" style="margin-bottom:6px;">업로드한 파일 '+files.length+'개 — 이 배치에 해당하는 파일을 선택하세요 <span style="opacity:.7;">(자동 매칭 추후)</span></div>'+
+                    '<table class="work-table" style="width:100%; border-collapse:collapse;"><thead><tr><th>파일명</th><th style="width:90px;">크기</th><th style="width:120px;">선택</th></tr></thead><tbody>'+rows+'</tbody></table>'
+                );
+            }
+            loadUsbFile(idx) {
+                const _this = this;
+                const f = (this._usbFiles || [])[idx]; if (!f) return;
+                this._usbActive = idx;
+                this.renderUsbFileList();
+                const rd = new FileReader();
+                rd.onload = function(ev){ try {
+                    const wb = XLSX.read(ev.target.result, {type:'array', cellDates:true});
+                    const s = _this.parseWorkbook(wb);
+                    if (!s.length) { alert('시간·온도·습도·압력 컬럼을 찾지 못했습니다.'); return; }
+                    _this.applyUsb(s, f.name);
+                } catch(err) { alert('파일을 읽지 못했습니다.'); } };
+                rd.readAsArrayBuffer(f);
+            }
+            applyUsb(series, label) {
+                this.usbSeries = series;
+                $('#usbDrop').addClass('has');
+                $('#usbDropText').text('✔ ' + label + ' · ' + series.length + '포인트 로드됨');
+                this.autoExtract(series);
+                this.drawChart(series);
+            }
+            parseWorkbook(wb) {
+                const ws=wb.Sheets[wb.SheetNames[0]];
+                const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
+                let hi=-1;
+                for(let r=0;r<Math.min(rows.length,10);r++){ const j=(rows[r]||[]).join(',').toLowerCase();
+                    if(/time|시간|온도|temp|압력|press/.test(j)){ hi=r; break; } }
+                if(hi<0) hi=0;
+                const head=(rows[hi]||[]).map(x=>String(x==null?'':x).toLowerCase());
+                const col=(reg)=>{ for(let c=0;c<head.length;c++){ if(reg.test(head[c])) return c; } return -1; };
+                const ct=col(/time|시간|시각/), cT=col(/temp|온도/), cH=col(/humi|습도/), cP=col(/press|압력|kpa/);
+                const num=(v)=>{ if(v==null||v==='')return null; const n=parseFloat(String(v).replace(/[^\d.\-]/g,'')); return isNaN(n)?null:n; };
+                const out=[];
+                for(let i=hi+1;i<rows.length;i++){ const row=rows[i]; if(!row) continue;
+                    const t=num(row[cT]), h=num(row[cH]), p=num(row[cP]); if(t==null&&h==null&&p==null) continue;
+                    let tm=row[ct]; tm=(tm instanceof Date)?tm:(new Date(tm)); if(isNaN(tm.getTime())) tm=new Date(Date.now()+i*1000);
+                    out.push({t:tm, temp:t==null?0:t, humid:h==null?0:h, press:p==null?0:p}); }
+                return out;
+            }
+            genSample() {
+                const pts=[], N=240, t0=new Date(($('#strDate').val()||'2026-06-26')+'T14:00:00').getTime();
+                const rnd=(()=>{let a=42;return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};})();
+                for(let i=0;i<N;i++){ const f=i/(N-1); let temp,humid,press;
+                    if(f<0.18){temp=25+25*(f/0.18);humid=40+15*(f/0.18);press=101;}
+                    else if(f<0.26){const g=(f-0.18)/0.08;temp=50-3*g;humid=55;press=101-86*g;}
+                    else if(f<0.34){temp=52+3*Math.sin(f*40);humid=52;press=15+30*((f-0.26)/0.08);}
+                    else if(f<0.40){temp=54;humid=55;press=45+80*((f-0.34)/0.06);}
+                    else if(f<0.78){temp=55+1.5*Math.sin(f*30);humid=62+3*Math.sin(f*22);press=165+4*Math.sin(f*35);}
+                    else if(f<0.88){const h=(f-0.78)/0.10;press=165-64*h+18*Math.sin(h*30);temp=50-10*h;humid=55-15*h;}
+                    else {const a=(f-0.88)/0.12;temp=30-18*a;humid=35-15*a;press=101;}
+                    pts.push({t:new Date(t0+i*90*1000), temp:Math.round((temp+(rnd()-0.5)*0.6)*10)/10, humid:Math.round((humid+(rnd()-0.5)*1.2)*10)/10, press:Math.round((press+(rnd()-0.5)*1.5)*10)/10}); }
+                return pts;
+            }
+            autoExtract(s) {
+                const r1=x=>Math.round(x*10)/10;
+                const arr=(k,idx)=>idx.map(i=>s[i][k]);
+                const mn=a=>a.length?r1(Math.min.apply(null,a)):0, mx=a=>a.length?r1(Math.max.apply(null,a)):0;
+                const avg=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:0;
+                const pre=[], ex=[]; for(let i=0;i<s.length;i++){ if(s[i].press>90)pre.push(i); if(s[i].press>=155)ex.push(i); }
+                const set=(si,fi,v)=>{ if(!this.sterilData) return;
+                    this.sterilData[si]=this.sterilData[si]||[]; this.sterilData[si][fi]=String(v);
+                    $('#strFormArea .rec input[data-s="'+si+'"][data-f="'+fi+'"]').val(v).addClass('af'); };
+                set(2,0,mn(arr('temp',pre))); set(2,1,mx(arr('temp',pre))); set(2,2,mn(arr('humid',pre))); set(2,3,mx(arr('humid',pre))); set(2,4,'4');
+                set(3,0,mn(s.map(x=>x.press)));
+                const cs=s.slice(Math.floor(s.length*0.26),Math.floor(s.length*0.34));
+                set(4,0,r1(avg(cs.map(x=>x.temp)))); set(4,1,r1(avg(cs.map(x=>x.temp)))); set(4,2,r1(avg(cs.map(x=>x.humid)))); set(4,3,r1(avg(cs.map(x=>x.humid))));
+                if(ex.length){ set(6,0,r1(avg(arr('press',ex)))); set(6,1,r1(avg(arr('temp',ex)))); set(6,2,r1(avg(arr('humid',ex))));
+                    set(6,3,((s[ex[ex.length-1]].t-s[ex[0]].t)/3600000).toFixed(1)); }
+                set(7,0,'5');
+                const aer=s.slice(Math.floor(s.length*0.88)); set(8,0,mn(aer.map(x=>x.temp))); set(8,1,'48');
+                const chip=(l,v,u)=>'<span class="autochip"><small>'+l+' · 자동추출</small><b>'+(v==null?'—':v)+(u?' '+u:'')+'</b></span>';
+                $('#usbExtract').show().html(
+                    chip('진공 최저압력', mn(s.map(x=>x.press)),'kPa')+
+                    chip('노출 압력(평균)', ex.length?r1(avg(arr('press',ex))):'—','kPa')+
+                    chip('노출 온도(평균)', ex.length?r1(avg(arr('temp',ex))):'—','℃')+
+                    chip('노출 시간', ex.length?((s[ex[ex.length-1]].t-s[ex[0]].t)/3600000).toFixed(1):'—','h'));
+            }
+            chartSVG(s) {
+                const W=820,H=240,padL=40,padR=14,padT=14,padB=24,n=s.length;
+                const xs=i=>padL+(W-padL-padR)*i/(n-1), ys=(v,mx)=>H-padB-(H-padT-padB)*(v/mx);
+                const path=(k,mx)=>{let d='';for(let i=0;i<n;i++)d+=(i?'L':'M')+xs(i).toFixed(1)+' '+ys(s[i][k],mx).toFixed(1)+' ';return d;};
+                let exA=-1,exB=-1; for(let i=0;i<n;i++){ if(s[i].press>=155){ if(exA<0)exA=i; exB=i; } }
+                const band=exA>=0?'<rect x="'+xs(exA).toFixed(1)+'" y="'+padT+'" width="'+(xs(exB)-xs(exA)).toFixed(1)+'" height="'+(H-padT-padB)+'" fill="#e3f2fd" opacity="0.6"/>':'';
+                const thY=ys(165,180);
+                return '<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" style="width:100%;height:240px;display:block;border:1px solid #e0e0e0;background:#fff;">'+
+                    '<rect x="0" y="0" width="'+W+'" height="'+H+'" fill="#fff"/>'+band+
+                    '<line x1="'+padL+'" y1="'+(H-padB)+'" x2="'+(W-padR)+'" y2="'+(H-padB)+'" stroke="#e0e0e0"/>'+
+                    '<line x1="'+padL+'" y1="'+thY.toFixed(1)+'" x2="'+(W-padR)+'" y2="'+thY.toFixed(1)+'" stroke="#5e35b1" stroke-width="1" stroke-dasharray="4 3" opacity="0.6"/>'+
+                    '<text x="'+(W-padR)+'" y="'+(thY-4).toFixed(1)+'" text-anchor="end" font-size="10" fill="#5e35b1" font-weight="700">노출기준 165kPa</text>'+
+                    '<path d="'+path('press',180)+'" fill="none" stroke="#5e35b1" stroke-width="1.6"/>'+
+                    '<path d="'+path('temp',70)+'" fill="none" stroke="#e53935" stroke-width="1.6"/>'+
+                    '<path d="'+path('humid',100)+'" fill="none" stroke="#00897b" stroke-width="1.6"/></svg>';
+            }
+            drawChart(s) {
+                const legend='<div class="muted" style="display:flex;gap:16px;flex-wrap:wrap;padding:8px 2px;">'+
+                    '<span><span style="display:inline-block;width:14px;height:3px;background:#e53935;"></span> 온도 ℃</span>'+
+                    '<span><span style="display:inline-block;width:14px;height:3px;background:#00897b;"></span> 습도 %RH</span>'+
+                    '<span><span style="display:inline-block;width:14px;height:3px;background:#5e35b1;"></span> 압력 kPa</span>'+
+                    '<span><span style="display:inline-block;width:14px;height:10px;background:#e3f2fd;"></span> 노출구간(≥155kPa)</span></div>';
+                $('#usbChartWrap').show().html(this.chartSVG(s)+legend);
+            }
+
+            // ═══════════════════════════════════════════════════════════
+            // 멸균 작업 방식 (목업) — 그리드=배치목록, 상세=로트 담기·시작·판정
+            //   실연동 시: /steril_batch_list, /steril_batch_create, 담긴 로트=mat_lot(SterilYN),
+            //   PASS→담긴 mat_lot.SterilYN='Y', FAIL→CurrentStock=0
+            // ═══════════════════════════════════════════════════════════
+            _seedBatch() {
+                if (this._seeded) return; this._seeded = true;
+                this.STLAB = {wait:'대기', working:'작업중', finished:'완료', done:'멸균완', scrap:'폐기'};
+                // 후보 PK 로트 (블리스터 완료 · 멸균 전) : mat_lot 형태
+                this.LOTS = [
+                    {id:1, lot:'BSC30-PK00-260626-01', mat:'BSC30-PK00', matNm:'BSC+③ 30ml PK 00차수', qty:40, blister:'2026-06-26', sterilYN:'N', batchId:null},
+                    {id:2, lot:'BSC30-PK00-260626-02', mat:'BSC30-PK00', matNm:'BSC+③ 30ml PK 00차수', qty:40, blister:'2026-06-26', sterilYN:'N', batchId:null},
+                    {id:3, lot:'BSC30-PK01-260626-01', mat:'BSC30-PK01', matNm:'BSC+③ 30ml PK 01차수(호환형)', qty:30, blister:'2026-06-26', sterilYN:'N', batchId:null},
+                    {id:4, lot:'BMSC60-PK00-260626-01', mat:'BMSC60-PK00', matNm:'BmSC+③ 60ml PK 00차수', qty:24, blister:'2026-06-26', sterilYN:'N', batchId:null},
+                    {id:5, lot:'BSC30-PK00-260625-01', mat:'BSC30-PK00', matNm:'BSC+③ 30ml PK 00차수', qty:38, blister:'2026-06-25', sterilYN:'Y', batchId:900}
+                ];
+                this.BATCHES = [
+                    {id:900, date:'2026-06-25', seq:1, machine:'KM-MRM-M060', worker:'김민수', st:'done', start:'2026-06-25 14:00', end:'2026-06-25 22:00', bi:'pass', biLot:'BI-20260625-A'}
+                ];
+                this._batchSeq = 901;
+            }
+            _lotsOf(b) { return this.LOTS.filter(l => l.batchId === b.id); }
+            _qtyOf(b) { return this._lotsOf(b).reduce((a,l) => a + (l.useQty != null ? l.useQty : l.qty), 0); }
+            _candidates() { return this.LOTS.filter(l => l.sterilYN === 'N' && l.batchId == null); }
+            _batchById(id) { return this.BATCHES.filter(b => b.id == id)[0]; }
+            _lotById(id) { return this.LOTS.filter(l => l.id == id)[0]; }
+            _batchNum(b) { return 'EO-' + b.date.replace(/-/g,'').slice(2) + '-' + String(b.seq).padStart(2,'0'); }
+            _now() { const d = new Date(); const p = n => String(n).padStart(2,'0');
+                return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes()); }
+            _batchRows() {
+                const _this = this;
+                return this.BATCHES.map(b => ({ id:b.id, num:_this._batchNum(b), date:b.date, machine:b.machine,
+                    lotCnt:_this._lotsOf(b).length, qty:_this._qtyOf(b), stt:_this.STLAB[b.st], st:b.st }));
+            }
+
+            // ── 그리드 override: 멸균 작업 목록 ──
+            initMainGrid() {
+                this._seedBatch();
+                const _this = this;
+                this.grid = new wijmo.grid.FlexGrid('#proc-main-grid', {
+                    autoGenerateColumns: false,
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    isReadOnly: true,
+                    columns: [
+                        { binding:'num',     header:'멸균번호', width:150, align:'center' },
+                        { binding:'date',    header:'멸균일',   width:110, align:'center' },
+                        { binding:'machine', header:'멸균기',   width:130, align:'center' },
+                        { binding:'lotCnt',  header:'담긴 PK',  width:80,  align:'right' },
+                        { binding:'qty',     header:'수량',     width:80,  format:'n0', align:'right' },
+                        { binding:'stt',     header:'상태',     width:90,  align:'center' }
+                    ],
+                    itemFormatter: (p, row, col, cell) => {
+                        if (p.cellType === wijmo.grid.CellType.Cell) {
+                            const it = p.rows[row].dataItem; if (!it) return;
+                            cell.classList.remove('row-working','row-finished','row-stopped');
+                            if (it.st === 'working') cell.classList.add('row-working');
+                            if (it.st === 'done')    cell.classList.add('row-finished');
+                            if (it.st === 'scrap')   cell.classList.add('row-stopped');
+                        }
+                    }
+                });
+                this.grid.hostElement.addEventListener('click', (e) => {
+                    const ht = _this.grid.hitTest(e);
+                    if (ht.cellType !== wijmo.grid.CellType.Cell) return;
+                    const it = _this.grid.rows[ht.row]?.dataItem; if (!it) return;
+                    _this.curBatch = _this._batchById(it.id);
+                    _this.renderBatchDetail();
+                });
+                // 생성 버튼 (구: 빈 배치) — 대기 리스트 방식으로 대체됨
+                $('#btnNewBatch').off('click').on('click', () => _this.createBatch());
+                // 배치 상세 액션(위임)
+                $('#batchDetail').off('click').on('click', (e) => _this._batchAction(e));
+                $('#batchDetail').off('change').on('change', (e) => {
+                    const t = e.target.closest('[data-bilot]'); if (t && _this.curBatch) _this.curBatch.biLot = t.value;
+                });
+                // ── 좌측 대기/배치 탭 ──
+                $('.lt-tab').off('click').on('click', function () {
+                    const t = this.dataset.ltab;
+                    $('.lt-tab').removeClass('on'); $(this).addClass('on');
+                    $('#waitPane').toggle(t === 'wait'); $('#batchPane').toggle(t === 'batch');
+                    if (t === 'batch' && _this.grid) _this.grid.refresh();
+                });
+                $('#btnCreateFromWait').off('click').on('click', () => _this.createFromWait());
+                this.renderWaitList();
+            }
+
+            // ── 멸균 대기 PK 로트 목록 (블리스터 완료 · SterilYN=N) ──
+            renderWaitList() {
+                this._seedBatch();
+                const cand = this._candidates();
+                const rows = cand.length ? cand.map(l =>
+                    '<tr><td style="text-align:center;"><input type="checkbox" data-wsel="'+l.id+'"></td>'+
+                    '<td>'+l.lot+'</td><td>'+l.matNm+'</td>'+
+                    '<td style="text-align:right;">'+l.qty+'</td>'+
+                    '<td style="text-align:center;"><input type="number" data-wqty="'+l.id+'" value="'+l.qty+'" min="1" max="'+l.qty+'" style="width:78px;height:32px;text-align:right;"></td>'+
+                    '<td>'+l.blister+'</td></tr>'
+                ).join('') : '<tr><td colspan="6" class="muted" style="text-align:center;padding:16px;">멸균 대기 PK 로트가 없습니다.</td></tr>';
+                $('#waitList').html('<table class="work-table" style="width:100%;border-collapse:collapse;"><thead><tr>'+
+                    '<th style="width:40px;"></th><th>로트번호</th><th>품목</th><th style="width:80px;">가용수량</th><th style="width:110px;">담을 수량</th><th style="width:100px;">블리스터일</th></tr></thead><tbody>'+rows+'</tbody></table>');
+            }
+
+            // ── 선택한 대기 로트로 멸균 작업(배치) 생성 ──
+            createFromWait() {
+                this._seedBatch();
+                const cks = document.querySelectorAll('#waitList input[data-wsel]:checked');
+                if (!cks.length) { if (typeof Notify !== 'undefined') Notify.warning('멸균할 PK 로트를 선택하세요.'); return; }
+                const d = ($('#date_from').val()) || this._now().slice(0,10);
+                const seq = this.BATCHES.filter(b => b.date === d).length + 1;
+                const nb = {id:this._batchSeq++, date:d, seq:seq, machine:'KM-MRM-M060', worker:'', st:'wait', start:null, end:null, bi:null, biLot:''};
+                cks.forEach(c => { const l = this._lotById(+c.dataset.wsel); if (!l) return;
+                    const qi = document.querySelector('#waitList input[data-wqty="'+l.id+'"]');
+                    let q = qi ? parseInt(qi.value, 10) : l.qty;
+                    if (isNaN(q) || q < 1) q = 1; if (q > l.qty) q = l.qty;
+                    l.batchId = nb.id; l.useQty = q; });
+                this.BATCHES.unshift(nb); this.curBatch = nb;
+                this.searchMainData(); this.renderWaitList(); this.renderBatchDetail();
+                // 배치 탭으로 전환
+                $('.lt-tab').removeClass('on'); $('.lt-tab[data-ltab="batch"]').addClass('on');
+                $('#waitPane').hide(); $('#batchPane').show(); if (this.grid) this.grid.refresh();
+                if (typeof Notify !== 'undefined') Notify.success('멸균 작업 생성 · ' + d + ' — ' + cks.length + '개 로트 담김');
+            }
+
+            // ── 검색 override: 배치 목록 로드 (목업) ──
+            searchMainData() {
+                this._seedBatch();
+                const rows = this._batchRows();
+                if (this.grid.itemsSource) {
+                    const v = this.grid.itemsSource;
+                    v.sourceCollection.splice(0, v.sourceCollection.length, ...rows);
+                    v.refresh();
+                } else {
+                    this.grid.itemsSource = new wijmo.collections.CollectionView(rows);
+                }
+            }
+            showBasicInfo() { /* 배치 방식에선 renderBatchDetail 사용 */ }
+
+            createBatch() {
+                this._seedBatch();
+                const d = ($('#date_from').val()) || this._now().slice(0,10);
+                const seq = this.BATCHES.filter(b => b.date === d).length + 1;
+                const nb = {id:this._batchSeq++, date:d, seq:seq, machine:'KM-MRM-M060', worker:'', st:'wait', start:null, end:null, bi:null, biLot:''};
+                this.BATCHES.unshift(nb);
+                this.curBatch = nb;
+                this.searchMainData();
+                this.renderBatchDetail();
+                if (typeof Notify !== 'undefined') Notify.success('멸균 작업 생성 · ' + d);
+            }
+
+            renderBatchDetail() {
+                const b = this.curBatch; const _this = this;
+                if (!b) { $('#batchDetail').html('<p class="muted" style="padding:16px;">배치를 선택하세요.</p>'); return; }
+                const st = b.st;
+                const canPick = st === 'wait';
+                const canStart = st === 'wait' && this._lotsOf(b).length > 0;
+                const canFinish = st === 'working';
+                const canCancel = (st==='finished'||st==='done'||st==='scrap');
+                const canJudge = (st==='finished'||st==='done'||st==='scrap');
+                const ls = this._lotsOf(b);
+                let h = '<div class="insp-secttitle">멸균 작업 — ' + this._batchNum(b) + '</div>';
+                // 액션 버튼
+                h += '<div class="button-wrap" style="padding:10px 12px; display:flex; gap:8px;">'+
+                    '<button class="b-btn" data-act="start" '+(canStart?'':'disabled')+' style="'+(canStart?'background:#4caf50;color:#fff;border-color:#4caf50;':'')+'">시작</button>'+
+                    '<button class="b-btn" data-act="finish" '+(canFinish?'':'disabled')+' style="'+(canFinish?'background:#1976d2;color:#fff;border-color:#1976d2;':'')+'">완료</button>'+
+                    '<button class="b-btn" data-act="cancel" '+(canCancel?'':'disabled')+'>완료 취소</button>'+
+                    (st==='wait' ? '<button class="b-btn" data-act="delete" style="margin-left:auto;color:#c62828;border-color:#e0b4b0;">작업 삭제</button>' : '')+
+                    '</div>';
+                // 배치 정보
+                h += '<div style="padding:0 12px;"><table class="work-table"><tbody>'+
+                    '<tr><th style="width:120px;">멸균일</th><td>'+b.date+'</td><th style="width:120px;">멸균기</th><td>'+b.machine+'</td></tr>'+
+                    '<tr><th>상태</th><td>'+this.STLAB[st]+'</td><th>담긴 수량</th><td>'+this._qtyOf(b)+' EA</td></tr>'+
+                    '<tr><th>시작</th><td>'+(b.start||'-')+'</td><th>완료</th><td>'+(b.end||'-')+'</td></tr></tbody></table></div>';
+                // 멸균 대상 PK 로트
+                h += '<div class="insp-secttitle" style="margin-top:12px;">멸균 대상 PK 로트 <span class="muted" style="font-weight:400;">— 블리스터 완료 로트 담기 (차수 생성 없음)</span></div>';
+                if (canPick) h += '<div class="button-wrap" style="padding:8px 12px;"><button class="b-btn" data-act="pick" style="background:#1976d2;color:#fff;border-color:#1976d2;">＋ 블리스터 PK 로트 담기</button></div>';
+                if (canPick && this._pickOpen) {
+                    const cand = this._candidates();
+                    h += '<div style="padding:0 12px 8px;"><table class="work-table"><thead><tr><th style="width:40px;"></th><th>로트번호</th><th>품목</th><th style="width:80px;">가용수량</th><th style="width:110px;">담을 수량</th><th style="width:100px;">블리스터일</th></tr></thead><tbody>'+
+                        (cand.length ? cand.map(l => '<tr><td style="text-align:center;"><input type="checkbox" data-pk="'+l.id+'"></td><td>'+l.lot+'</td><td>'+l.matNm+'</td><td style="text-align:right;">'+l.qty+'</td><td style="text-align:center;"><input type="number" data-pkqty="'+l.id+'" value="'+l.qty+'" min="1" max="'+l.qty+'" style="width:78px;height:32px;text-align:right;"></td><td>'+l.blister+'</td></tr>').join('')
+                            : '<tr><td colspan="6" class="muted" style="text-align:center;padding:14px;">담을 수 있는 블리스터 PK 로트가 없습니다.</td></tr>')+
+                        '</tbody></table><div style="text-align:right;margin-top:6px;"><button class="b-btn" data-act="add" style="background:#1976d2;color:#fff;border-color:#1976d2;">선택 로트 담기</button></div></div>';
+                }
+                h += '<div style="padding:0 12px 12px;"><table class="work-table"><thead><tr><th>로트번호</th><th>품목</th><th style="width:80px;">수량</th><th style="width:90px;">멸균상태</th>'+(canPick?'<th style="width:60px;"></th>':'')+'</tr></thead><tbody>'+
+                    (ls.length ? ls.map(l => {
+                        const sc = l.sterilYN==='Y'?'#2e7d32':(l.sterilYN==='X'?'#c62828':'#607d8b');
+                        const sl = l.sterilYN==='Y'?'멸균완':(l.sterilYN==='X'?'폐기(소진)':'멸균전');
+                        return '<tr><td>'+l.lot+'</td><td>'+l.matNm+'</td><td style="text-align:right;">'+(l.useQty != null ? l.useQty : l.qty)+'</td><td style="color:'+sc+';font-weight:700;">'+sl+'</td>'+(canPick?'<td><button class="b-btn" data-act="rm" data-id="'+l.id+'" style="color:#c62828;">빼기</button></td>':'')+'</tr>';
+                    }).join('') : '<tr><td colspan="'+(canPick?5:4)+'" class="muted" style="text-align:center;padding:14px;">담긴 로트가 없습니다.</td></tr>')+
+                    '</tbody></table></div>';
+                // BI 판정
+                h += '<div class="insp-secttitle" style="margin-top:12px;">멸균검증 (BI) 판정 <span class="muted" style="font-weight:400;">— 완료 후 · PASS: 담긴 PK 멸균완 / FAIL: 전량 재고 소진</span></div>';
+                if (!canJudge) {
+                    h += '<p class="muted" style="padding:14px;">담긴 로트로 <b>시작 → 완료</b> 후 BI 판정을 입력할 수 있습니다.</p>';
+                } else {
+                    h += '<div style="padding:12px; display:flex; gap:12px; align-items:center; flex-wrap:wrap;">'+
+                        '<strong>BI 색상 변화</strong>'+
+                        '<button class="judge-btn pass '+(b.bi==='pass'?'on':'')+'" data-act="pass">합격 PASS</button>'+
+                        '<button class="judge-btn fail '+(b.bi==='fail'?'on':'')+'" data-act="fail">불합격 FAIL</button>'+
+                        '<span style="margin-left:auto;">BI 로트 <input type="text" data-bilot value="'+(b.biLot||'')+'" style="height:34px;width:180px;" placeholder="BI-YYYYMMDD-X"></span></div>';
+                    if (b.bi==='fail') h += '<p style="margin:0 12px 12px;padding:10px;color:#c62828;background:#ffebee;border:1px solid #c62828;border-radius:6px;font-weight:700;">⚠ BI 불합격 — 재멸균 불가. 담긴 PK 로트 '+this._qtyOf(b)+' EA 전량 재고 소진(폐기) 대상입니다.</p>';
+                    h += '<div class="button-wrap" style="padding:0 12px 12px; display:flex; gap:12px; align-items:center;">'+
+                        (b.bi==='fail'
+                            ? '<button class="b-btn" data-act="scrap" style="background:#c62828;color:#fff;border-color:#c62828;">PK 로트 전량 재고 소진</button>'
+                            : '<button class="b-btn" data-act="done" '+(b.bi==='pass'?'':'disabled')+' style="background:#1976d2;color:#fff;border-color:#1976d2;">멸균완 확정 (담긴 PK SterilYN=Y)</button>')+
+                        '<span class="muted">확정 후 멸균일지 탭에서 USB 데이터를 올려 일지를 작성합니다.</span></div>';
+                }
+                $('#batchDetail').html(h);
+                // 멸균일지 탭 판정 연동
+                this.sterilJudge = b.bi ? (b.bi === 'pass' ? 'PASS' : 'FAIL') : null;
+                if (this.refreshJudgeView) this.refreshJudgeView();
+                if (this.refreshSterilHead) this.refreshSterilHead();
+            }
+
+            _batchAction(e) {
+                const t = e.target.closest('[data-act]'); if (!t) return;
+                const act = t.dataset.act, b = this.curBatch; if (!b) return;
+                if (act === 'pick') { this._pickOpen = !this._pickOpen; this.renderBatchDetail(); return; }
+                if (act === 'add') {
+                    const cks = document.querySelectorAll('#batchDetail input[data-pk]:checked');
+                    cks.forEach(c => { const l = this._lotById(+c.dataset.pk); if (!l) return;
+                        const qi = document.querySelector('#batchDetail input[data-pkqty="'+l.id+'"]');
+                        let q = qi ? parseInt(qi.value, 10) : l.qty;
+                        if (isNaN(q) || q < 1) q = 1; if (q > l.qty) q = l.qty;
+                        l.batchId = b.id; l.useQty = q; });
+                    this._pickOpen = false; this.renderBatchDetail(); this.searchMainData(); return;
+                }
+                if (act === 'rm') { const l = this._lotById(+t.dataset.id); if (l) { l.batchId = null; l.useQty = null; } this.renderBatchDetail(); this.searchMainData(); this.renderWaitList(); return; }
+                if (act === 'delete') {
+                    if (b.st !== 'wait') return;
+                    if (!confirm('이 멸균 작업을 삭제할까요? 담긴 PK 로트는 대기로 돌아갑니다.')) return;
+                    this._lotsOf(b).forEach(l => { l.batchId = null; l.useQty = null; });
+                    const i = this.BATCHES.indexOf(b); if (i >= 0) this.BATCHES.splice(i, 1);
+                    this.curBatch = null;
+                    $('#batchDetail').html('<p class="muted" style="padding:16px;">멸균 작업을 선택하세요.</p>');
+                    this.searchMainData(); this.renderWaitList();
+                    if (typeof Notify !== 'undefined') Notify.success('멸균 작업 삭제 — 담긴 로트 대기 복귀');
+                    return;
+                }
+                if (act === 'start') { if (this._lotsOf(b).length === 0) { if(typeof Notify!=='undefined')Notify.warning('담긴 PK 로트가 없습니다.'); return; } b.st='working'; b.start=this._now(); this.renderBatchDetail(); this.searchMainData(); return; }
+                if (act === 'finish') { b.st='finished'; b.end=this._now(); this.renderBatchDetail(); this.searchMainData(); return; }
+                if (act === 'cancel') { b.st='working'; b.end=null; b.bi=null; this.renderBatchDetail(); this.searchMainData(); return; }
+                if (act === 'pass') { b.bi='pass'; if(b.st==='scrap')b.st='finished'; this.renderBatchDetail(); this.searchMainData(); return; }
+                if (act === 'fail') { b.bi='fail'; this.renderBatchDetail(); this.searchMainData(); return; }
+                if (act === 'done') { b.st='done'; this._lotsOf(b).forEach(l => l.sterilYN='Y'); this.renderBatchDetail(); this.searchMainData(); if(typeof Notify!=='undefined')Notify.success('멸균완 확정 — 담긴 PK SterilYN=Y (목업)'); return; }
+                if (act === 'scrap') { b.st='scrap'; this._lotsOf(b).forEach(l => { l.sterilYN='X'; l.qty=0; }); this.renderBatchDetail(); this.searchMainData(); if(typeof Notify!=='undefined')Notify.warning('FAIL — 담긴 PK 전량 재고 소진 (목업)'); return; }
+            }
+
+            printSterilLog() {
+                const b = this.curBatch;
+                if (!b) { if (typeof Notify !== 'undefined') Notify.warning('배치를 선택하세요.'); return; }
+                const tpl = this.STERIL_TEMPLATE;
+                const data = this.sterilData || [];
+                const rows = tpl.steps.map((s, si) => {
+                    const rec = s.fields.map((f, fi) => f.label + ': ' + ((data[si] && data[si][fi]) ? data[si][fi] : '____') + (f.unit ? ' ' + f.unit : '')).join('<br>');
+                    return '<tr><td style="text-align:center">' + s.no + '</td><td><b>' + s.step + '</b></td><td>' + s.criteria + '</td><td>' + rec + '</td></tr>';
+                }).join('');
+                // 제품별 완제품 로트
+                const ls = this._lotsOf(b), groups = {};
+                ls.forEach(l => { (groups[l.mat] = groups[l.mat] || {matNm:l.matNm, qty:0}); groups[l.mat].qty += (l.useQty != null ? l.useQty : l.qty); });
+                const prodRows = Object.keys(groups).map(k => '<tr><td>' + groups[k].matNm + '</td><td>' + ((b.prodLots && b.prodLots[k]) || '') + '</td><td style="text-align:right">' + groups[k].qty + ' EA</td></tr>').join('');
+                const judge = this.sterilJudge;
+                const biTxt = judge === 'PASS' ? '☑ PASS  ☐ FAIL' : (judge === 'FAIL' ? '☐ PASS  ☑ FAIL' : '☐ PASS  ☐ FAIL');
+                const svg = $('#usbChartWrap').is(':visible') ? $('#usbChartWrap').html() : '';
+                const w = window.open('', '_blank');
+                w.document.write('<html><head><meta charset="utf-8"><title>멸균일지 ' + this._batchNum(b) + '</title><style>'+
+                    'body{font-family:"Noto Sans KR",sans-serif;color:#263238;padding:24px;font-size:12px}'+
+                    'h1{text-align:center;letter-spacing:8px;font-size:22px;margin:0 0 4px}.sub{text-align:center;color:#607d8b;margin-bottom:14px}'+
+                    'table{width:100%;border-collapse:collapse;margin-top:8px}th,td{border:1px solid #999;padding:6px 8px;text-align:left;vertical-align:top}'+
+                    'th{background:#eceff1}.judge{margin-top:10px;padding:10px;border:1.5px solid #263238;font-weight:700;font-size:14px}'+
+                    'svg{width:100%;height:220px;border:1px solid #ccc}@media print{button{display:none}}</style></head><body>'+
+                    '<h1>멸 균 일 지</h1><div class="sub">F710-3 · 멸균기 ' + b.machine + ' · ' + this._batchNum(b) + '</div>'+
+                    '<table><tr><th style="width:120px">멸균일</th><td>' + b.date + '</td><th style="width:120px">담당자</th><td>' + (b.worker || '') + '</td></tr>'+
+                    '<tr><th>멸균수량</th><td>' + this._qtyOf(b) + ' EA (블리스터)</td><th>BI 로트</th><td>' + (b.biLot || '') + '</td></tr></table>'+
+                    '<h3 style="margin:14px 0 4px">완제품 LOT (제품별)</h3>'+
+                    '<table><thead><tr><th>제품</th><th>완제품 로트</th><th style="width:100px">수량</th></tr></thead><tbody>' + (prodRows || '<tr><td colspan="3">담긴 로트 없음</td></tr>') + '</tbody></table>'+
+                    '<h3 style="margin:14px 0 4px">공정절차 및 기록</h3>'+
+                    '<table><thead><tr><th style="width:34px">No</th><th style="width:90px">단계</th><th>기준</th><th>기록</th></tr></thead><tbody>' + rows + '</tbody></table>'+
+                    '<div class="judge">최종 판정 (BI): ' + biTxt + (b.st === 'scrap' ? ' → 재멸균 불가·전량 소진' : (b.st === 'done' ? ' → 멸균완' : '')) + '</div>'+
+                    (svg ? '<h3 style="margin:14px 0 4px">멸균 프로파일</h3>' + svg : '')+
+                    '<div style="margin-top:16px;text-align:center"><button onclick="window.print()">인쇄</button></div></body></html>');
+                w.document.close();
             }
 
             buildSterilPayload() {
@@ -623,7 +1238,8 @@
                 return {
                     machine: $('#strMachine').val(), steril_date: $('#strDate').val(),
                     model: $('#mat_name').val() || null, mat_code: $('#mat_code').val() || null,
-                    qty: parseFloat($('#strQty').val()) || 0, lot_number: $('#strLot').val(),
+                    qty: this.curBatch ? this._qtyOf(this.curBatch) : 0,
+                    lot_number: this.curBatch ? this._lotsOf(this.curBatch).map(l => l.lot).join(',') : '',
                     job_res_id: this.jobres?.id || null, worker: $('#strWorker').val(),
                     judge: this.sterilJudge,
                     steps: tpl.steps.map((s, si) => ({
