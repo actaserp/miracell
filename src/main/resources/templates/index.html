@@ -334,6 +334,9 @@
             transform: scale(0.97);
         }
 
+        .dashboard-layout-header.tablet-header-hidden {
+            display: none;
+        }
 
     </style>
 </head>
@@ -801,12 +804,46 @@
 
             // 햄버거: 메뉴+헤더 함께 토글
             $('#navbarBarMenu2 .open_menu').click(function () {
+                const winWidth = window.innerWidth;
+                const isTabletSize = winWidth >= 768 && winWidth <= 1366;
+
+                if (isTabletSize) {
+                    toggleTabletFullscreen();
+                    return; // ★ 메뉴 토글(LayoutState) 로직은 절대 타지 않음
+                }
+
+                // PC: 기존 메뉴 토글 로직
                 userToggled = true;
-                // 현재 메뉴 상태 기준으로 동기화 (자동 숨김 상태에서 눌러도 일관되게)
                 const willCollapse = !$('.menu_area').hasClass('hidden');
                 window.LayoutState.set(willCollapse);
             });
         });
+
+        function toggleTabletFullscreen() {
+            if (document.fullscreenElement) {
+                exitTabletFullscreen();
+            } else {
+                enterTabletFullscreen();
+            }
+        }
+
+        function enterTabletFullscreen() {
+            $('.menu_area').addClass('hidden');
+            $('.dashboard-layout-header').addClass('tablet-header-hidden');
+            $('.con_area').css({ width: '100%', left: '0', top: '0' });
+            document.documentElement.requestFullscreen().catch(err => console.log(err));
+            setTimeout(() => $(window).trigger('resize'), 320);
+        }
+
+        function exitTabletFullscreen() {
+            $('.dashboard-layout-header').removeClass('tablet-header-hidden');
+            $('.con_area').css({ width: '', left: '', top: '' });
+            if (document.fullscreenElement) document.exitFullscreen();
+            setTimeout(() => $(window).trigger('resize'), 320);
+        }
+
+        window.enterTabletFullscreen = enterTabletFullscreen;
+        window.exitTabletFullscreen = exitTabletFullscreen;
 
         // 북마크 및 default_menu를 한 번에 처리
         $.getJSON(withCtx('/api/system/bookmark'), function (result) {

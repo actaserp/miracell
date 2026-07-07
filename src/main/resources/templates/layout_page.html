@@ -268,9 +268,25 @@
         if (!pwin._headerRestoreHandlerSet) {
             pwin._headerRestoreHandlerSet = true;
             pwin.$('.nth-tabs .roll-nav-left').on('click.headerRestore', function (e) {
+                const winWidth = pwin.window.innerWidth;
+                const isTabletSize = winWidth >= 768 && winWidth <= 1366;
+
+                if (isTabletSize) {
+                    // ★ 태블릿 풀스크린 상태면 화살표로 복원
+                    if (pwin.document.fullscreenElement) {
+                        e.stopImmediatePropagation();
+                        pwin.exitTabletFullscreen(); // toggleTabletFullscreen의 '복원' 분기만 호출하는 함수로 분리 추천
+                    }
+                    return;
+                }
+
+                // PC 로직 (기존 그대로)
                 if (pwin.LayoutState.get()) {
                     e.stopImmediatePropagation();
                     pwin.LayoutState.set(false);
+                    if (pwin.document.fullscreenElement) {
+                        pwin.document.exitFullscreen().catch(() => {});
+                    }
                     pwin.$('iframe').each(function () {
                         try {
                             this.contentWindow.$('#iCompress')
