@@ -346,7 +346,10 @@
         <div class="fieldlab">불량 유형</div><div class="opts" id="defTypes"></div>
         <div class="fieldlab">사진 첨부</div><div class="photos" id="defPhotos"></div>
         <input type="file" id="defFile" accept="image/*" capture="environment" style="display:none"/>
-        <button class="ok" id="defOk">부적합 저장</button>
+        <div style="display:flex;gap:10px;margin-top:20px">
+            <button class="ok" data-close style="flex:0 0 38%;margin-top:0;background:var(--surface-2);color:var(--ink);border:1.5px solid var(--line)">닫기</button>
+            <button class="ok" id="defOk" style="flex:1 1 auto;margin-top:0">부적합 저장</button>
+        </div>
     </div></div></div>
     <div class="mask" id="lotMask"><div class="sheet"><div class="body">
         <div class="sh"><h3 id="lotTitle">로트 선택</h3><button class="x" data-close>✕</button></div>
@@ -1223,6 +1226,68 @@
 
         renderQueue();
     </script>
+    <!-- ===== 스텝퍼 눌러서 빠르게 증감 (press & hold auto-repeat) — 태블릿/PC 공통 ===== -->
+    <style>
+        .stepper button, .lotstep button, .dateedit button, .timeedit button {
+            touch-action: manipulation;
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-touch-callout: none;
+        }
+    </style>
+    <script>
+        (function () {
+            var SEL = '.stepper button, .lotstep button, .dateedit button, .timeedit button';
+            var holdTimer = null, repeatTimer = null, maxTimer = null;
+            var curBtn = null;
+            var END_EVENTS = ['pointerup', 'pointercancel', 'lostpointercapture', 'touchend', 'touchcancel', 'mouseup'];
+
+            function stop() {
+                clearTimeout(holdTimer);
+                clearInterval(repeatTimer);
+                clearTimeout(maxTimer);
+                holdTimer = repeatTimer = maxTimer = null;
+                if (curBtn) {                                   // ★ 버튼에 직접 걸었던 리스너 정리
+                    END_EVENTS.forEach(function (ev) { curBtn.removeEventListener(ev, stop); });
+                    curBtn = null;
+                }
+            }
+
+            function tick(x, y) {
+                var el = document.elementFromPoint(x, y);
+                var b = (el && el.closest) ? el.closest(SEL) : null;
+                if (!b) { stop(); return; }
+                b.click();
+            }
+
+            document.addEventListener('pointerdown', function (e) {
+                if (e.button != null && e.button > 0) return;   // 좌클릭/터치만
+                var btn = e.target.closest ? e.target.closest(SEL) : null;
+                if (!btn) return;
+
+                var x = e.clientX, y = e.clientY;
+                stop();
+
+                // ★ 떼는 이벤트를 '눌린 버튼'에 직접 건다.
+                //   재렌더로 버튼이 DOM에서 사라져도 그 노드로 이벤트가 가므로 확실히 멈춘다.
+                curBtn = btn;
+                END_EVENTS.forEach(function (ev) { btn.addEventListener(ev, stop); });
+
+                holdTimer = setTimeout(function () {
+                    repeatTimer = setInterval(function () { tick(x, y); }, 80); // 반복 속도(ms)
+                    maxTimer = setTimeout(stop, 8000);                         // 안전장치: 최대 8초
+                }, 400); // 길게 누름 인식(ms)
+
+                // 손가락 안 뗐는데도 대비: 전역에도 백업으로 걸어둠 (날짜/시간 등 재렌더 없는 버튼용)
+                window.addEventListener('pointerup', stop, { once: true, capture: true });
+                window.addEventListener('touchend', stop, { once: true, capture: true });
+            });
+
+            window.addEventListener('blur', stop);
+            document.addEventListener('visibilitychange', function () { if (document.hidden) stop(); });
+        })();
+    </script>
+
 </th:block>
 
 </html>

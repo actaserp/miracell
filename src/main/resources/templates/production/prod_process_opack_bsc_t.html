@@ -4,271 +4,275 @@
   <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet"/>
   <style>
 
-      :root{--bg:#E9EEF1;--surface:#FFF;--surface-2:#F4F7F9;--ink:#15222B;--ink-2:#5A6B76;--line:#D8E0E5;
-          --teal:#0E7C86;--teal-d:#0A5C64;--teal-bg:#E2F1F2;--green:#1E9D58;--green-bg:#E4F4EA;
-          --amber:#C77A00;--amber-bg:#FBEFD8;--red:#C8483B;--red-bg:#F7E4E1;--r:18px;--tap:60px;
-          --shadow:0 1px 0 rgba(21,34,43,.04),0 8px 24px -16px rgba(21,34,43,.28)}
-      *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-      .ms-wash-root{font-family:"Pretendard","Noto Sans KR",-apple-system,sans-serif;color:var(--ink);font-size:17px;line-height:1.45;-webkit-font-smoothing:antialiased;flex:1 1 auto;min-height:0;height:var(--wash-h,100%);max-height:var(--wash-h,none);display:flex;flex-direction:column}
-      .ms-wash-root .app{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;background:var(--bg);border-radius:12px;overflow:hidden}
-      .screen{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden}.screen.hide{display:none}
+    :root{--bg:#E9EEF1;--surface:#FFF;--surface-2:#F4F7F9;--ink:#15222B;--ink-2:#5A6B76;--line:#D8E0E5;
+      --teal:#0E7C86;--teal-d:#0A5C64;--teal-bg:#E2F1F2;--green:#1E9D58;--green-bg:#E4F4EA;
+      --amber:#C77A00;--amber-bg:#FBEFD8;--red:#C8483B;--red-bg:#F7E4E1;--r:18px;--tap:60px;
+      --shadow:0 1px 0 rgba(21,34,43,.04),0 8px 24px -16px rgba(21,34,43,.28)}
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    .ms-wash-root{font-family:"Pretendard","Noto Sans KR",-apple-system,sans-serif;color:var(--ink);font-size:17px;line-height:1.45;-webkit-font-smoothing:antialiased;flex:1 1 auto;min-height:0;height:var(--wash-h,100%);max-height:var(--wash-h,none);display:flex;flex-direction:column}
+    .ms-wash-root .app{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;background:var(--bg);border-radius:12px;overflow:hidden}
+    .screen{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden}.screen.hide{display:none}
 
-      /* 큐 */
-      .wrap{padding:22px 20px 28px;max-width:1180px;margin:0 auto;width:100%;overflow:auto;-webkit-overflow-scrolling:touch;flex:1 1 auto;min-height:0}
-      .qhead{display:flex;align-items:baseline;gap:12px;margin:2px 2px 18px}
-      .qhead h1{font-size:26px;font-weight:800;letter-spacing:-.03em;margin:0}
-      .qhead .cnt{color:var(--ink-2);font-weight:700}
-      .qfilter{display:flex;gap:8px;margin-left:auto}
-      .qfilter button{min-height:44px;padding:0 16px;border-radius:999px;border:1px solid var(--line);
-          background:var(--surface);color:var(--ink-2);font-weight:700;font-size:15px;cursor:pointer}
-      .qfilter button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
-      .searchbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 2px 18px;
-          background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px;box-shadow:var(--shadow)}
-      .searchbar .slab{font-weight:800;color:var(--ink-2);font-size:14px}
-      .searchbar .tilde{font-weight:800;color:var(--ink-2)}
-      .dinput{height:48px;border:1px solid var(--line);border-radius:12px;padding:0 12px;font-size:16px;
-          font-weight:700;color:var(--ink);background:var(--surface-2);font-variant-numeric:tabular-nums;min-width:160px}
-      .sbtn{height:48px;padding:0 22px;border:none;border-radius:12px;background:var(--teal);color:#fff;
-          font-weight:800;font-size:16px;cursor:pointer;margin-left:auto}
-      .sbtn:active{background:var(--teal-d)}
-      .qgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
-      .wo{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px 18px 16px;
-          cursor:pointer;box-shadow:var(--shadow);transition:transform .12s ease;position:relative;overflow:hidden}
-      .wo:active{transform:scale(.985)}
-      .wo .edge{position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--line)}
-      .wo[data-st="working"] .edge{background:var(--teal)}.wo[data-st="wait"] .edge{background:var(--amber)}.wo[data-st="done"] .edge{background:var(--green)}
-      .wo .row1{display:flex;align-items:center;gap:10px;margin-bottom:8px}
-      .wo .wono{font-weight:800;font-size:15px;color:var(--ink-2)}
-      .chip{margin-left:auto;padding:5px 11px;border-radius:999px;font-size:13px;font-weight:800}
-      .chip.working{background:var(--teal-bg);color:var(--teal-d)}.chip.wait{background:var(--amber-bg);color:var(--amber)}.chip.done{background:var(--green-bg);color:var(--green)}
-      .wo .name{font-size:19px;font-weight:800;letter-spacing:-.02em;line-height:1.3;margin:2px 0 14px}
-      .wo .meta{display:flex;gap:18px;align-items:flex-end}
-      .wo .meta .blk{display:flex;flex-direction:column;gap:2px}
-      .wo .meta .lab{font-size:12.5px;color:var(--ink-2);font-weight:700}
-      .wo .meta .val{font-size:18px;font-weight:800}
-      .wo .prog{margin-left:auto;text-align:right}
-      .wo .bar{height:8px;width:120px;background:var(--surface-2);border-radius:999px;overflow:hidden;margin-top:6px}
-      .wo .bar>i{display:block;height:100%;background:var(--teal);border-radius:999px}
+    /* 큐 */
+    .wrap{padding:22px 20px 28px;max-width:1180px;margin:0 auto;width:100%;overflow:auto;-webkit-overflow-scrolling:touch;flex:1 1 auto;min-height:0}
+    .qhead{display:flex;align-items:baseline;gap:12px;margin:2px 2px 18px}
+    .qhead h1{font-size:26px;font-weight:800;letter-spacing:-.03em;margin:0}
+    .qhead .cnt{color:var(--ink-2);font-weight:700}
+    .qfilter{display:flex;gap:8px;margin-left:auto}
+    .qfilter button{min-height:44px;padding:0 16px;border-radius:999px;border:1px solid var(--line);
+      background:var(--surface);color:var(--ink-2);font-weight:700;font-size:15px;cursor:pointer}
+    .qfilter button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+    .searchbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 2px 18px;
+      background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px;box-shadow:var(--shadow)}
+    .searchbar .slab{font-weight:800;color:var(--ink-2);font-size:14px}
+    .searchbar .tilde{font-weight:800;color:var(--ink-2)}
+    .dinput{height:48px;border:1px solid var(--line);border-radius:12px;padding:0 12px;font-size:16px;
+      font-weight:700;color:var(--ink);background:var(--surface-2);font-variant-numeric:tabular-nums;min-width:160px}
+    .sbtn{height:48px;padding:0 22px;border:none;border-radius:12px;background:var(--teal);color:#fff;
+      font-weight:800;font-size:16px;cursor:pointer;margin-left:auto}
+    .sbtn:active{background:var(--teal-d)}
+    .qgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+    .wo{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px 18px 16px;
+      cursor:pointer;box-shadow:var(--shadow);transition:transform .12s ease;position:relative;overflow:hidden}
+    .wo:active{transform:scale(.985)}
+    .wo .edge{position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--line)}
+    .wo[data-st="working"] .edge{background:var(--teal)}.wo[data-st="wait"] .edge{background:var(--amber)}.wo[data-st="done"] .edge{background:var(--green)}
+    .wo .row1{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+    .wo .wono{font-weight:800;font-size:15px;color:var(--ink-2)}
+    .chip{margin-left:auto;padding:5px 11px;border-radius:999px;font-size:13px;font-weight:800}
+    .chip.working{background:var(--teal-bg);color:var(--teal-d)}.chip.wait{background:var(--amber-bg);color:var(--amber)}.chip.done{background:var(--green-bg);color:var(--green)}
+    .wo .name{font-size:19px;font-weight:800;letter-spacing:-.02em;line-height:1.3;margin:2px 0 14px}
+    .wo .meta{display:flex;gap:18px;align-items:flex-end}
+    .wo .meta .blk{display:flex;flex-direction:column;gap:2px}
+    .wo .meta .lab{font-size:12.5px;color:var(--ink-2);font-weight:700}
+    .wo .meta .val{font-size:18px;font-weight:800}
+    .wo .prog{margin-left:auto;text-align:right}
+    .wo .bar{height:8px;width:120px;background:var(--surface-2);border-radius:999px;overflow:hidden;margin-top:6px}
+    .wo .bar>i{display:block;height:100%;background:var(--teal);border-radius:999px}
 
-      /* 공통 상단바(B,C) */
-      .topbar2{flex:0 0 auto;background:var(--surface);border-bottom:1px solid var(--line);
-          padding:12px 18px;display:flex;align-items:center;gap:14px;box-shadow:var(--shadow);z-index:2}
-      .back{width:48px;height:48px;border-radius:14px;border:1px solid var(--line);background:var(--surface-2);
-          display:grid;place-items:center;cursor:pointer;font-size:22px;flex:0 0 auto}
-      .back:active{background:var(--line)}
-      .htitle{min-width:0;flex:1}
-      .htitle .t{font-size:18px;font-weight:800;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-      .htitle .s{font-size:13.5px;color:var(--ink-2);font-weight:700;margin-top:1px}
+    /* 공통 상단바(B,C) */
+    .topbar2{flex:0 0 auto;background:var(--surface);border-bottom:1px solid var(--line);
+      padding:12px 18px;display:flex;align-items:center;gap:14px;box-shadow:var(--shadow);z-index:2}
+    .back{width:48px;height:48px;border-radius:14px;border:1px solid var(--line);background:var(--surface-2);
+      display:grid;place-items:center;cursor:pointer;font-size:22px;flex:0 0 auto}
+    .back:active{background:var(--line)}
+    .htitle{min-width:0;flex:1}
+    .htitle .t{font-size:18px;font-weight:800;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .htitle .s{font-size:13.5px;color:var(--ink-2);font-weight:700;margin-top:1px}
 
-      /* B. 세션 목록 */
-      .col-stack{display:flex;flex-direction:column;flex:1 1 auto;min-height:0;height:100%}
-      .bscroll{flex:1 1 auto;min-height:0;overflow:auto;-webkit-overflow-scrolling:touch;padding:18px}
-      .bgrid{max-width:1000px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
-      .ovbox{display:flex;gap:12px;flex-wrap:wrap}
-      .ov{flex:1;min-width:130px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
-          padding:14px 16px;box-shadow:var(--shadow)}
-      .ov .l{font-size:13px;color:var(--ink-2);font-weight:700}
-      .ov .v{font-size:28px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
-      .ov.left .v{color:var(--teal-d)}
-      .secline{display:flex;align-items:center;gap:10px;margin:6px 2px 0;color:var(--ink-2);font-weight:800;font-size:14px}
-      .secline .ln{flex:1;height:1px;background:var(--line)}
-      .sess{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;
-          box-shadow:var(--shadow);cursor:pointer;display:flex;align-items:center;gap:16px;position:relative;overflow:hidden;
-          transition:transform .12s ease}
-      .sess:active{transform:scale(.99)}
-      .sess .edge{position:absolute;left:0;top:0;bottom:0;width:5px}
-      .sess[data-st="working"] .edge{background:var(--teal)}.sess[data-st="done"] .edge{background:var(--green)}
-      .sess .who{display:flex;flex-direction:column;gap:2px;min-width:120px}
-      .sess .who .nm{font-size:18px;font-weight:800}
-      .sess .who .eq{font-size:13px;color:var(--ink-2);font-weight:700}
-      .sess .time{font-size:13.5px;color:var(--ink-2);font-weight:700;font-variant-numeric:tabular-nums}
-      .sess .qty{margin-left:auto;text-align:right}
-      .sess .qty .v{font-size:24px;font-weight:800;font-variant-numeric:tabular-nums}
-      .sess .qty .l{font-size:12px;color:var(--ink-2);font-weight:700}
-      .sess .badge{padding:6px 12px;border-radius:999px;font-size:13px;font-weight:800}
-      .sess .badge.working{background:var(--teal-bg);color:var(--teal-d)}.sess .badge.done{background:var(--green-bg);color:var(--green)}
-      .emptysess{text-align:center;color:var(--ink-2);font-weight:700;padding:30px;border:1.5px dashed var(--line);border-radius:var(--r)}
+    /* B. 세션 목록 */
+    .col-stack{display:flex;flex-direction:column;flex:1 1 auto;min-height:0;height:100%}
+    .bscroll{flex:1 1 auto;min-height:0;overflow:auto;-webkit-overflow-scrolling:touch;padding:18px}
+    .bgrid{max-width:1000px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+    .ovbox{display:flex;gap:12px;flex-wrap:wrap}
+    .ov{flex:1;min-width:130px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
+      padding:14px 16px;box-shadow:var(--shadow)}
+    .ov .l{font-size:13px;color:var(--ink-2);font-weight:700}
+    .ov .v{font-size:28px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+    .ov.left .v{color:var(--teal-d)}
+    .secline{display:flex;align-items:center;gap:10px;margin:6px 2px 0;color:var(--ink-2);font-weight:800;font-size:14px}
+    .secline .ln{flex:1;height:1px;background:var(--line)}
+    .sess{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;
+      box-shadow:var(--shadow);cursor:pointer;display:flex;align-items:center;gap:16px;position:relative;overflow:hidden;
+      transition:transform .12s ease}
+    .sess:active{transform:scale(.99)}
+    .sess .edge{position:absolute;left:0;top:0;bottom:0;width:5px}
+    .sess[data-st="working"] .edge{background:var(--teal)}.sess[data-st="done"] .edge{background:var(--green)}
+    .sess .who{display:flex;flex-direction:column;gap:2px;min-width:120px}
+    .sess .who .nm{font-size:18px;font-weight:800}
+    .sess .who .eq{font-size:13px;color:var(--ink-2);font-weight:700}
+    .sess .time{font-size:13.5px;color:var(--ink-2);font-weight:700;font-variant-numeric:tabular-nums}
+    .sess .qty{margin-left:auto;text-align:right}
+    .sess .qty .v{font-size:24px;font-weight:800;font-variant-numeric:tabular-nums}
+    .sess .qty .l{font-size:12px;color:var(--ink-2);font-weight:700}
+    .sess .badge{padding:6px 12px;border-radius:999px;font-size:13px;font-weight:800}
+    .sess .badge.working{background:var(--teal-bg);color:var(--teal-d)}.sess .badge.done{background:var(--green-bg);color:var(--green)}
+    .emptysess{text-align:center;color:var(--ink-2);font-weight:700;padding:30px;border:1.5px dashed var(--line);border-radius:var(--r)}
 
-      /* C. 세션 작업(부품) */
-      .infopill{display:flex;gap:7px;align-items:center;background:var(--surface-2);border:1px solid var(--line);
-          border-radius:12px;padding:8px 12px;font-size:13px;font-weight:700;color:var(--ink-2);cursor:default}
-      .infopill.tap{cursor:pointer}.infopill.tap:active{background:var(--line)}
-      .infopill b{color:var(--ink);font-variant-numeric:tabular-nums}
-      .infopill.tap b{color:var(--teal-d);text-decoration:underline dotted}
-      .sstate{padding:8px 14px;border-radius:999px;font-weight:800;font-size:14px}
-      .sstate.working{background:var(--teal-bg);color:var(--teal-d)}.sstate.done{background:var(--green-bg);color:var(--green)}
-      .part{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;
-          display:flex;align-items:center;gap:14px;box-shadow:var(--shadow);flex-wrap:wrap}
-      .part.locked{opacity:.7}
-      .part .id{display:flex;flex-direction:column;min-width:0;flex:1}
-      .part .pn{font-size:18px;font-weight:800;letter-spacing:-.02em}
-      .part .pc{font-size:13px;color:var(--ink-2);font-weight:700;font-variant-numeric:tabular-nums}
-      .stepper{display:flex;align-items:center;flex:0 0 auto}
-      .stepper button{width:50px;height:54px;border:1px solid var(--line);background:var(--surface-2);font-size:25px;font-weight:700;cursor:pointer;display:grid;place-items:center}
-      .stepper button:active{background:var(--line)}
-      .stepper button.minus{border-radius:14px 0 0 14px}.stepper button.plus{border-radius:0 14px 14px 0}
-      .stepper .qty{width:90px;height:54px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);
-          background:#FFFDF4;text-align:center;font-size:23px;font-weight:800;font-variant-numeric:tabular-nums;display:grid;place-items:center;cursor:pointer}
-      .done-tag{padding:7px 14px;border-radius:999px;background:var(--green-bg);color:var(--green);font-weight:800;font-size:14px}
+    /* C. 세션 작업(부품) */
+    .infopill{display:flex;gap:7px;align-items:center;background:var(--surface-2);border:1px solid var(--line);
+      border-radius:12px;padding:8px 12px;font-size:13px;font-weight:700;color:var(--ink-2);cursor:default}
+    .infopill.tap{cursor:pointer}.infopill.tap:active{background:var(--line)}
+    .infopill b{color:var(--ink);font-variant-numeric:tabular-nums}
+    .infopill.tap b{color:var(--teal-d);text-decoration:underline dotted}
+    .sstate{padding:8px 14px;border-radius:999px;font-weight:800;font-size:14px}
+    .sstate.working{background:var(--teal-bg);color:var(--teal-d)}.sstate.done{background:var(--green-bg);color:var(--green)}
+    .part{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;
+      display:flex;align-items:center;gap:14px;box-shadow:var(--shadow);flex-wrap:wrap}
+    .part.locked{opacity:.7}
+    .part .id{display:flex;flex-direction:column;min-width:0;flex:1}
+    .part .pn{font-size:18px;font-weight:800;letter-spacing:-.02em}
+    .part .pc{font-size:13px;color:var(--ink-2);font-weight:700;font-variant-numeric:tabular-nums}
+    .stepper{display:flex;align-items:center;flex:0 0 auto}
+    .stepper button{width:50px;height:54px;border:1px solid var(--line);background:var(--surface-2);font-size:25px;font-weight:700;cursor:pointer;display:grid;place-items:center}
+    .stepper button:active{background:var(--line)}
+    .stepper button.minus{border-radius:14px 0 0 14px}.stepper button.plus{border-radius:0 14px 14px 0}
+    .stepper .qty{width:90px;height:54px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+      background:#FFFDF4;text-align:center;font-size:23px;font-weight:800;font-variant-numeric:tabular-nums;display:grid;place-items:center;cursor:pointer}
+    .done-tag{padding:7px 14px;border-radius:999px;background:var(--green-bg);color:var(--green);font-weight:800;font-size:14px}
 
-      .actionbar{flex:0 0 auto;background:var(--surface);border-top:1px solid var(--line);
-          padding:14px 18px calc(14px + env(safe-area-inset-bottom));display:flex;gap:12px;align-items:center;
-          box-shadow:0 -8px 24px -18px rgba(21,34,43,.4)}
-      .actionbar .actsum{display:flex;flex-direction:column;margin-right:auto}
-      .actionbar .actsum .l{font-size:12.5px;color:var(--ink-2);font-weight:700}
-      .actionbar .actsum .v{font-size:21px;font-weight:800;font-variant-numeric:tabular-nums}
-      .btn{min-height:var(--tap);padding:0 24px;border-radius:16px;border:none;cursor:pointer;font-size:18px;font-weight:800;display:inline-flex;align-items:center;gap:8px}
-      .btn.ghost{background:var(--surface-2);color:var(--ink-2);border:1px solid var(--line)}.btn.ghost:active{background:var(--line)}
-      .btn.primary{background:var(--teal);color:#fff;padding:0 36px;box-shadow:0 8px 18px -8px rgba(14,124,134,.7)}.btn.primary:active{background:var(--teal-d)}
-      .btn.start{background:var(--teal);color:#fff;flex:1;justify-content:center;font-size:20px}
-      .btn.danger{background:var(--red-bg);color:var(--red)}
+    .actionbar{flex:0 0 auto;background:var(--surface);border-top:1px solid var(--line);
+      padding:14px 18px calc(14px + env(safe-area-inset-bottom));display:flex;gap:12px;align-items:center;
+      box-shadow:0 -8px 24px -18px rgba(21,34,43,.4)}
+    .actionbar .actsum{display:flex;flex-direction:column;margin-right:auto}
+    .actionbar .actsum .l{font-size:12.5px;color:var(--ink-2);font-weight:700}
+    .actionbar .actsum .v{font-size:21px;font-weight:800;font-variant-numeric:tabular-nums}
+    .btn{min-height:var(--tap);padding:0 24px;border-radius:16px;border:none;cursor:pointer;font-size:18px;font-weight:800;display:inline-flex;align-items:center;gap:8px}
+    .btn.ghost{background:var(--surface-2);color:var(--ink-2);border:1px solid var(--line)}.btn.ghost:active{background:var(--line)}
+    .btn.primary{background:var(--teal);color:#fff;padding:0 36px;box-shadow:0 8px 18px -8px rgba(14,124,134,.7)}.btn.primary:active{background:var(--teal-d)}
+    .btn.start{background:var(--teal);color:#fff;flex:1;justify-content:center;font-size:20px}
+    .btn.danger{background:var(--red-bg);color:var(--red)}
 
-      /* 시트 */
-      .mask{position:fixed;inset:0;background:rgba(21,34,43,.42);display:none;z-index:40;align-items:flex-end}
-      .mask.show{display:flex;animation:fade .15s ease}@keyframes fade{from{opacity:0}to{opacity:1}}
-      .sheet{width:100%;background:var(--surface);border-radius:24px 24px 0 0;padding:20px 20px calc(40px + env(safe-area-inset-bottom));
-          box-shadow:0 -20px 40px -20px rgba(0,0,0,.4);animation:rise .2s cubic-bezier(.2,.7,.3,1);max-height:88dvh;overflow:auto}
-      @keyframes rise{from{transform:translateY(40px)}to{transform:translateY(0)}}
-      .sheet .sh{display:flex;align-items:center;margin-bottom:16px}
-      .sheet .sh h3{font-size:20px;font-weight:800;margin:0;letter-spacing:-.02em}
-      .sheet .sh .x{margin-left:auto;width:44px;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--surface-2);font-size:20px;cursor:pointer}
-      .sheet .body{max-width:640px;margin:0 auto}
-      .fieldlab{font-size:14px;font-weight:800;color:var(--ink-2);margin:14px 2px 8px}
-      .opts{display:flex;flex-wrap:wrap;gap:10px}
-      .opt{min-height:54px;padding:0 18px;border-radius:14px;border:1.5px solid var(--line);background:var(--surface);font-weight:800;font-size:16px;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
-      .opt:active{background:var(--surface-2)}.opt.sel{border-color:var(--teal);background:var(--teal-bg);color:var(--teal-d)}
-      .opt .sub{font-size:12.5px;color:var(--ink-2);font-weight:700}
-      .sheet .ok{width:100%;margin-top:20px;background:var(--teal);color:#fff;min-height:var(--tap);border:none;border-radius:16px;font-size:19px;font-weight:800;cursor:pointer}
-      .sheet .ok:disabled{background:var(--line);color:var(--ink-2)}
-      .pad .disp{margin-left:auto;min-width:140px;text-align:right;font-size:30px;font-weight:800;font-variant-numeric:tabular-nums;background:var(--surface-2);border:1px solid var(--line);border-radius:14px;padding:8px 16px}
-      .keys{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:520px;margin:6px auto 0}
-      .keys button{height:62px;border-radius:14px;border:1px solid var(--line);background:var(--surface);font-size:25px;font-weight:800;cursor:pointer;font-variant-numeric:tabular-nums}
-      .keys button:active{background:var(--surface-2)}.keys button.ok{background:var(--teal);color:#fff;border-color:var(--teal);width:auto;margin-top:0;min-height:0;height:62px;border-radius:14px}.keys button.clr{color:var(--red)}
-      .dateedit{display:flex;align-items:center;justify-content:center;gap:14px;margin:4px 0 10px}
-      .dateedit .dbtn{width:56px;height:52px;border-radius:14px;border:1px solid var(--line);background:var(--surface-2);font-size:22px;font-weight:700;cursor:pointer}
-      .dateedit .dbtn:active{background:var(--line)}
-      .dateedit .dval{min-width:200px;text-align:center;font-size:22px;font-weight:800;font-variant-numeric:tabular-nums}
-      .timeedit{display:flex;align-items:center;justify-content:center;gap:6px;margin:8px 0}
-      .tcol{display:flex;flex-direction:column;align-items:center;gap:8px}
-      .tcol button{width:84px;height:52px;border-radius:14px;border:1px solid var(--line);background:var(--surface-2);font-size:24px;font-weight:700;cursor:pointer}
-      .tcol .tv{font-size:42px;font-weight:800;font-variant-numeric:tabular-nums;width:84px;text-align:center}
-      .tsep{font-size:40px;font-weight:800;padding-bottom:4px}
-      @media (max-width:680px){.part .stat{order:3;width:100%;justify-content:space-between}.qgrid{grid-template-columns:1fr}.sess{flex-wrap:wrap}}
-      @media (prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important}}
+    /* 시트 */
+    .mask{position:fixed;inset:0;background:rgba(21,34,43,.42);display:none;z-index:40;align-items:flex-end}
+    .mask.show{display:flex;animation:fade .15s ease}@keyframes fade{from{opacity:0}to{opacity:1}}
+    .sheet{width:100%;background:var(--surface);border-radius:24px 24px 0 0;padding:20px 20px calc(40px + env(safe-area-inset-bottom));
+      box-shadow:0 -20px 40px -20px rgba(0,0,0,.4);animation:rise .2s cubic-bezier(.2,.7,.3,1);max-height:88dvh;overflow:auto}
+    @keyframes rise{from{transform:translateY(40px)}to{transform:translateY(0)}}
+    .sheet .sh{display:flex;align-items:center;margin-bottom:16px}
+    .sheet .sh h3{font-size:20px;font-weight:800;margin:0;letter-spacing:-.02em}
+    .sheet .sh .x{margin-left:auto;width:44px;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--surface-2);font-size:20px;cursor:pointer}
+    .sheet .body{max-width:640px;margin:0 auto}
+    .fieldlab{font-size:14px;font-weight:800;color:var(--ink-2);margin:14px 2px 8px}
+    .opts{display:flex;flex-wrap:wrap;gap:10px}
+    .opt{min-height:54px;padding:0 18px;border-radius:14px;border:1.5px solid var(--line);background:var(--surface);font-weight:800;font-size:16px;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+    .opt:active{background:var(--surface-2)}.opt.sel{border-color:var(--teal);background:var(--teal-bg);color:var(--teal-d)}
+    .opt .sub{font-size:12.5px;color:var(--ink-2);font-weight:700}
+    .sheet .ok{width:100%;margin-top:20px;background:var(--teal);color:#fff;min-height:var(--tap);border:none;border-radius:16px;font-size:19px;font-weight:800;cursor:pointer}
+    .sheet .ok:disabled{background:var(--line);color:var(--ink-2)}
+    .pad .disp{margin-left:auto;min-width:140px;text-align:right;font-size:30px;font-weight:800;font-variant-numeric:tabular-nums;background:var(--surface-2);border:1px solid var(--line);border-radius:14px;padding:8px 16px}
+    .keys{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:520px;margin:6px auto 0}
+    .keys button{height:62px;border-radius:14px;border:1px solid var(--line);background:var(--surface);font-size:25px;font-weight:800;cursor:pointer;font-variant-numeric:tabular-nums}
+    .keys button:active{background:var(--surface-2)}.keys button.ok{background:var(--teal);color:#fff;border-color:var(--teal);width:auto;margin-top:0;min-height:0;height:62px;border-radius:14px}.keys button.clr{color:var(--red)}
+    .dateedit{display:flex;align-items:center;justify-content:center;gap:14px;margin:4px 0 10px}
+    .dateedit .dbtn{width:56px;height:52px;border-radius:14px;border:1px solid var(--line);background:var(--surface-2);font-size:22px;font-weight:700;cursor:pointer}
+    .dateedit .dbtn:active{background:var(--line)}
+    .dateedit .dval{min-width:200px;text-align:center;font-size:22px;font-weight:800;font-variant-numeric:tabular-nums}
+    .timeedit{display:flex;align-items:center;justify-content:center;gap:6px;margin:8px 0}
+    .tcol{display:flex;flex-direction:column;align-items:center;gap:8px}
+    .tcol button{width:84px;height:52px;border-radius:14px;border:1px solid var(--line);background:var(--surface-2);font-size:24px;font-weight:700;cursor:pointer}
+    .tcol .tv{font-size:42px;font-weight:800;font-variant-numeric:tabular-nums;width:84px;text-align:center}
+    .tsep{font-size:40px;font-weight:800;padding-bottom:4px}
+    @media (max-width:680px){.part .stat{order:3;width:100%;justify-content:space-between}.qgrid{grid-template-columns:1fr}.sess{flex-wrap:wrap}}
+    @media (prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important}}
 
-      /* ── 로트 선택 ── */
-      .lotpick{display:flex;flex-direction:column;gap:8px}
-      .lotopt{display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:14px;
-          border:1.5px solid var(--line);background:var(--surface);cursor:pointer}
-      .lotopt.sel{border-color:var(--teal);background:var(--teal-bg)}
-      .lotopt .ln{font-weight:800;font-size:16px;font-variant-numeric:tabular-nums}
-      .lotopt .meta{font-size:12.5px;color:var(--ink-2);font-weight:700;margin-left:auto;text-align:right}
-      .region-warn{background:var(--amber-bg);color:var(--amber);border-radius:14px;padding:13px 16px;font-weight:800;font-size:14px;display:flex;align-items:center;gap:10px}
-      .mat{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px;
-          display:flex;align-items:center;gap:12px;box-shadow:var(--shadow);margin-bottom:10px;flex-wrap:wrap}
-      .mat.on{border-color:var(--green);background:linear-gradient(180deg,#F2FBF5,#FFF)}
-      .mat .chk{width:34px;height:34px;border-radius:10px;border:2px solid var(--line);
-          display:grid;place-items:center;font-size:19px;font-weight:800;color:transparent;flex:0 0 auto;cursor:pointer;background:var(--surface-2)}
-      .mat.on .chk{border-color:var(--green);background:var(--green);color:#fff}
-      .mat .mid{flex:1;min-width:0}
-      .mat .mn{font-size:16px;font-weight:800;letter-spacing:-.01em;line-height:1.3}
-      .mat .mc{font-size:12.5px;color:var(--ink-2);font-weight:700;font-variant-numeric:tabular-nums}
-      .mat .mstep{display:flex;align-items:center;flex:0 0 auto}
-      .mat .mstep button{width:44px;height:48px;border:1px solid var(--line);background:var(--surface-2);font-size:22px;font-weight:700;cursor:pointer}
-      .mat .mstep button:first-child{border-radius:12px 0 0 12px}
-      .mat .mstep button:last-child{border-radius:0 12px 12px 0}
-      .mat .mstep .n{width:58px;height:48px;display:grid;place-items:center;border-top:1px solid var(--line);border-bottom:1px solid var(--line);font-weight:800;font-variant-numeric:tabular-nums;background:#FFFDF4}
-      .mat .mstep.locked{opacity:.55;pointer-events:none}
-      .mat-tools{display:flex;gap:8px;margin:2px 2px 10px;flex-wrap:wrap}
-      .mat-tools button{min-height:44px;padding:0 16px;border-radius:12px;border:1px solid var(--line);
-          background:var(--surface);color:var(--ink-2);font-weight:800;font-size:14px;cursor:pointer}
-      .mat-tools button:active{background:var(--surface-2)}
+    /* ── 로트 선택 ── */
+    .lotpick{display:flex;flex-direction:column;gap:8px}
+    .lotopt{display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:14px;
+      border:1.5px solid var(--line);background:var(--surface);cursor:pointer}
+    .lotopt.sel{border-color:var(--teal);background:var(--teal-bg)}
+    .lotopt .ln{font-weight:800;font-size:16px;font-variant-numeric:tabular-nums}
+    .lotopt .meta{font-size:12.5px;color:var(--ink-2);font-weight:700;margin-left:auto;text-align:right}
+    .region-warn{background:var(--amber-bg);color:var(--amber);border-radius:14px;padding:13px 16px;font-weight:800;font-size:14px;display:flex;align-items:center;gap:10px}
+    .mat{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px;
+      display:flex;align-items:center;gap:12px;box-shadow:var(--shadow);margin-bottom:10px;flex-wrap:wrap}
+    .mat.on{border-color:var(--green);background:linear-gradient(180deg,#F2FBF5,#FFF)}
+    .mat .chk{width:34px;height:34px;border-radius:10px;border:2px solid var(--line);
+      display:grid;place-items:center;font-size:19px;font-weight:800;color:transparent;flex:0 0 auto;cursor:pointer;background:var(--surface-2)}
+    .mat.on .chk{border-color:var(--green);background:var(--green);color:#fff}
+    .mat .mid{flex:1;min-width:0}
+    .mat .mn{font-size:16px;font-weight:800;letter-spacing:-.01em;line-height:1.3}
+    .mat .mc{font-size:12.5px;color:var(--ink-2);font-weight:700;font-variant-numeric:tabular-nums}
+    .mat .mstep{display:flex;align-items:center;flex:0 0 auto}
+    .mat .mstep button{width:44px;height:48px;border:1px solid var(--line);background:var(--surface-2);font-size:22px;font-weight:700;cursor:pointer}
+    .mat .mstep button:first-child{border-radius:12px 0 0 12px}
+    .mat .mstep button:last-child{border-radius:0 12px 12px 0}
+    .mat .mstep .n{width:58px;height:48px;display:grid;place-items:center;border-top:1px solid var(--line);border-bottom:1px solid var(--line);font-weight:800;font-variant-numeric:tabular-nums;background:#FFFDF4}
+    .mat .mstep.locked{opacity:.55;pointer-events:none}
+    .mat-tools{display:flex;gap:8px;margin:2px 2px 10px;flex-wrap:wrap}
+    .mat-tools button{min-height:44px;padding:0 16px;border-radius:12px;border:1px solid var(--line);
+      background:var(--surface);color:var(--ink-2);font-weight:800;font-size:14px;cursor:pointer}
+    .mat-tools button:active{background:var(--surface-2)}
 
-      /* ── 부적합(조립에서 이식) ── */
-      .part .stat{display:flex;gap:20px;align-items:center;flex:0 0 auto}
-      .part .col{display:flex;flex-direction:column;align-items:flex-end;gap:1px}
-      .part .col .l{font-size:12px;font-weight:700;color:var(--ink-2)}
-      .part .col .v{font-size:20px;font-weight:800;font-variant-numeric:tabular-nums}
-      .part .col .v.bad{color:var(--red)}
-      .mat .stat{display:flex;gap:16px;align-items:center;flex:0 0 auto}
-      .mat .col{display:flex;flex-direction:column;align-items:flex-end;gap:1px}
-      .mat .col .l{font-size:11.5px;font-weight:700;color:var(--ink-2)}
-      .mat .col .v{font-size:18px;font-weight:800;font-variant-numeric:tabular-nums}
-      .mat .col .v.bad{color:var(--red)}
-      .defbtn{height:48px;padding:0 15px;border-radius:12px;border:1px solid var(--line);background:var(--surface);
-          color:var(--ink-2);font-weight:800;font-size:14px;cursor:pointer;flex:0 0 auto}
-      .defbtn:active{background:var(--surface-2)}.defbtn.has{background:var(--red-bg);color:var(--red);border-color:transparent}
-      .sess .bad{padding:5px 10px;border-radius:999px;background:var(--red-bg);color:var(--red);font-weight:800;font-size:12.5px}
-      .photos{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px}
-      .photo{width:84px;height:84px;border-radius:12px;object-fit:cover;border:1px solid var(--line)}
-      .photo-add{width:84px;height:84px;border-radius:12px;border:1.5px dashed var(--line);background:var(--surface-2);display:grid;place-items:center;cursor:pointer;color:var(--ink-2);font-size:13px;font-weight:800;text-align:center}
-      .photo-wrap{position:relative}
-      .photo-wrap .del{position:absolute;top:-6px;right:-6px;width:24px;height:24px;border-radius:50%;background:var(--red);color:#fff;border:2px solid #fff;font-size:13px;cursor:pointer;line-height:1}
+    /* ── 부적합(조립에서 이식) ── */
+    .part .stat{display:flex;gap:20px;align-items:center;flex:0 0 auto}
+    .part .col{display:flex;flex-direction:column;align-items:flex-end;gap:1px}
+    .part .col .l{font-size:12px;font-weight:700;color:var(--ink-2)}
+    .part .col .v{font-size:20px;font-weight:800;font-variant-numeric:tabular-nums}
+    .part .col .v.bad{color:var(--red)}
+    .mat .stat{display:flex;gap:16px;align-items:center;flex:0 0 auto}
+    .mat .col{display:flex;flex-direction:column;align-items:flex-end;gap:1px}
+    .mat .col .l{font-size:11.5px;font-weight:700;color:var(--ink-2)}
+    .mat .col .v{font-size:18px;font-weight:800;font-variant-numeric:tabular-nums}
+    .mat .col .v.bad{color:var(--red)}
+    .defbtn{height:48px;padding:0 15px;border-radius:12px;border:1px solid var(--line);background:var(--surface);
+      color:var(--ink-2);font-weight:800;font-size:14px;cursor:pointer;flex:0 0 auto}
+    .defbtn:active{background:var(--surface-2)}.defbtn.has{background:var(--red-bg);color:var(--red);border-color:transparent}
+    .sess .bad{padding:5px 10px;border-radius:999px;background:var(--red-bg);color:var(--red);font-weight:800;font-size:12.5px}
+    .photos{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px}
+    .photo{width:84px;height:84px;border-radius:12px;object-fit:cover;border:1px solid var(--line)}
+    .photo-add{width:84px;height:84px;border-radius:12px;border:1.5px dashed var(--line);background:var(--surface-2);display:grid;place-items:center;cursor:pointer;color:var(--ink-2);font-size:13px;font-weight:800;text-align:center}
+    .photo-wrap{position:relative}
+    .photo-wrap .del{position:absolute;top:-6px;right:-6px;width:24px;height:24px;border-radius:50%;background:var(--red);color:#fff;border:2px solid #fff;font-size:13px;cursor:pointer;line-height:1}
 
-      /* ── 단계(phase) 표시 ── */
-      .phasebar{display:flex;align-items:center;gap:8px;margin:2px 2px 8px;flex-wrap:wrap}
-      .pstep{display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:999px;border:1px solid var(--line);
-          background:var(--surface);font-weight:800;font-size:14px;color:var(--ink-2)}
-      .pstep .pn2{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-size:13px;background:var(--surface-2);color:var(--ink-2)}
-      .pstep.active{border-color:var(--teal);background:var(--teal-bg);color:var(--teal-d)}
-      .pstep.active .pn2{background:var(--teal);color:#fff}
-      .pstep.done{border-color:var(--green);background:var(--green-bg);color:var(--green)}
-      .pstep.done .pn2{background:var(--green);color:#fff}
-      .pline{flex:0 0 18px;height:2px;background:var(--line)}
-      .pline.on{background:var(--green)}
+    /* ── 단계(phase) 표시 ── */
+    .phasebar{display:flex;align-items:center;gap:8px;margin:2px 2px 8px;flex-wrap:wrap}
+    .pstep{display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:999px;border:1px solid var(--line);
+      background:var(--surface);font-weight:800;font-size:14px;color:var(--ink-2)}
+    .pstep .pn2{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-size:13px;background:var(--surface-2);color:var(--ink-2)}
+    .pstep.active{border-color:var(--teal);background:var(--teal-bg);color:var(--teal-d)}
+    .pstep.active .pn2{background:var(--teal);color:#fff}
+    .pstep.done{border-color:var(--green);background:var(--green-bg);color:var(--green)}
+    .pstep.done .pn2{background:var(--green);color:#fff}
+    .pline{flex:0 0 18px;height:2px;background:var(--line)}
+    .pline.on{background:var(--green)}
 
-      /* ── 카메라 스캔 시트 ── */
-      .scanbox{position:relative;width:100%;aspect-ratio:16/10;border-radius:18px;overflow:hidden;
-          background:radial-gradient(120% 120% at 50% 20%,#26333c 0%,#141d24 70%,#0c1319 100%);
-          box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}
-      .scanbox .noise{position:absolute;inset:0;opacity:.10;
-          background-image:radial-gradient(#fff 1px,transparent 1px);background-size:5px 5px}
-      .scanbox .frame{position:absolute;inset:14% 12%;border-radius:14px}
-      .scanbox .frame span{position:absolute;width:34px;height:34px;border:3px solid #fff;opacity:.92}
-      .scanbox .frame .tl{top:0;left:0;border-right:none;border-bottom:none;border-radius:12px 0 0 0}
-      .scanbox .frame .tr{top:0;right:0;border-left:none;border-bottom:none;border-radius:0 12px 0 0}
-      .scanbox .frame .bl{bottom:0;left:0;border-right:none;border-top:none;border-radius:0 0 0 12px}
-      .scanbox .frame .br{bottom:0;right:0;border-left:none;border-top:none;border-radius:0 0 12px 0}
-      .scanbox .laser{position:absolute;left:12%;right:12%;top:14%;height:3px;border-radius:3px;
-          background:linear-gradient(90deg,transparent,#31E0C4,#31E0C4,transparent);
-          box-shadow:0 0 14px 2px rgba(49,224,196,.7);animation:scanmove 2s ease-in-out infinite}
-      @keyframes scanmove{0%{top:16%}50%{top:82%}100%{top:16%}}
-      .scanbox .ghostbc{position:absolute;left:22%;right:22%;top:44%;height:46px;opacity:.28;border-radius:3px;
-          background:repeating-linear-gradient(90deg,#fff 0 2px,transparent 2px 4px,#fff 4px 5px,transparent 5px 9px,#fff 9px 12px,transparent 12px 13px)}
-      .scanbox .hint{position:absolute;left:0;right:0;bottom:10px;text-align:center;color:#DCE7EA;
-          font-size:12.5px;font-weight:700;text-shadow:0 1px 2px rgba(0,0,0,.5)}
-      .scanbox .cam{position:absolute;top:10px;left:12px;display:flex;align-items:center;gap:7px;
-          color:#EAF3F4;font-size:12px;font-weight:800}
-      .scanbox .cam i{width:9px;height:9px;border-radius:50%;background:#31E0C4;box-shadow:0 0 8px #31E0C4;animation:blink 1.1s infinite}
-      @keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
-      .scanbox.recognized{background:radial-gradient(120% 120% at 50% 30%,#12503f 0%,#0d2f2a 70%,#0a1f1c 100%)}
-      .scanbox.recognized .laser{animation:none;top:50%;opacity:0}
-      .scan-result{margin-top:14px;border:1.5px solid var(--green);background:var(--green-bg);border-radius:14px;
-          padding:14px 16px;display:none;align-items:center;gap:12px}
-      .scan-result.show{display:flex;animation:fade .2s ease}
-      .scan-result .ic{width:38px;height:38px;border-radius:10px;background:var(--green);color:#fff;display:grid;place-items:center;font-size:20px;flex:0 0 auto}
-      .scan-result .rl{font-size:12.5px;color:var(--ink-2);font-weight:700}
-      .scan-result .rv{font-size:18px;font-weight:800;font-variant-numeric:tabular-nums}
-      .scan-actions{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
-      .scan-actions .btn{flex:1;justify-content:center;min-height:56px}
-      .manual{margin-top:14px}
-      .manual .mrow{display:flex;gap:10px}
-      .manual input{flex:1;height:52px;border:1px solid var(--line);border-radius:12px;padding:0 14px;
-          font-size:16px;font-weight:700;background:var(--surface-2);font-variant-numeric:tabular-nums}
-      .manual .mbtn{height:52px;padding:0 18px;border-radius:12px;border:1px solid var(--line);background:var(--surface);font-weight:800;cursor:pointer}
+    /* ── 카메라 스캔 시트 ── */
+    .scanbox{position:relative;width:100%;aspect-ratio:16/10;border-radius:18px;overflow:hidden;
+      background:radial-gradient(120% 120% at 50% 20%,#26333c 0%,#141d24 70%,#0c1319 100%);
+      box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}
+    .scanbox .noise{position:absolute;inset:0;opacity:.10;
+      background-image:radial-gradient(#fff 1px,transparent 1px);background-size:5px 5px}
+    .scanbox .frame{position:absolute;inset:14% 12%;border-radius:14px}
+    .scanbox .frame span{position:absolute;width:34px;height:34px;border:3px solid #fff;opacity:.92}
+    .scanbox .frame .tl{top:0;left:0;border-right:none;border-bottom:none;border-radius:12px 0 0 0}
+    .scanbox .frame .tr{top:0;right:0;border-left:none;border-bottom:none;border-radius:0 12px 0 0}
+    .scanbox .frame .bl{bottom:0;left:0;border-right:none;border-top:none;border-radius:0 0 0 12px}
+    .scanbox .frame .br{bottom:0;right:0;border-left:none;border-top:none;border-radius:0 0 12px 0}
+    .scanbox .laser{position:absolute;left:12%;right:12%;top:14%;height:3px;border-radius:3px;
+      background:linear-gradient(90deg,transparent,#31E0C4,#31E0C4,transparent);
+      box-shadow:0 0 14px 2px rgba(49,224,196,.7);animation:scanmove 2s ease-in-out infinite}
+    @keyframes scanmove{0%{top:16%}50%{top:82%}100%{top:16%}}
+    .scanbox .ghostbc{position:absolute;left:22%;right:22%;top:44%;height:46px;opacity:.28;border-radius:3px;
+      background:repeating-linear-gradient(90deg,#fff 0 2px,transparent 2px 4px,#fff 4px 5px,transparent 5px 9px,#fff 9px 12px,transparent 12px 13px)}
+    .scanbox .hint{position:absolute;left:0;right:0;bottom:10px;text-align:center;color:#DCE7EA;
+      font-size:12.5px;font-weight:700;text-shadow:0 1px 2px rgba(0,0,0,.5)}
+    .scanbox .cam{position:absolute;top:10px;left:12px;display:flex;align-items:center;gap:7px;
+      color:#EAF3F4;font-size:12px;font-weight:800}
+    .scanbox .cam i{width:9px;height:9px;border-radius:50%;background:#31E0C4;box-shadow:0 0 8px #31E0C4;animation:blink 1.1s infinite}
+    @keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+    .scanbox.recognized{background:radial-gradient(120% 120% at 50% 30%,#12503f 0%,#0d2f2a 70%,#0a1f1c 100%)}
+    .scanbox.recognized .laser{animation:none;top:50%;opacity:0}
+    .scanbox video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;background:#000}
+    .scanbox .noise,.scanbox .ghostbc,.scanbox .frame,.scanbox .laser,.scanbox .hint,.scanbox .cam{z-index:3}
+    .scanbox.live .ghostbc,.scanbox.live .noise{display:none}
+    #scanTorch.on{background:var(--amber-bg);color:var(--amber);border-color:transparent}
+    .scan-result{margin-top:14px;border:1.5px solid var(--green);background:var(--green-bg);border-radius:14px;
+      padding:14px 16px;display:none;align-items:center;gap:12px}
+    .scan-result.show{display:flex;animation:fade .2s ease}
+    .scan-result .ic{width:38px;height:38px;border-radius:10px;background:var(--green);color:#fff;display:grid;place-items:center;font-size:20px;flex:0 0 auto}
+    .scan-result .rl{font-size:12.5px;color:var(--ink-2);font-weight:700}
+    .scan-result .rv{font-size:18px;font-weight:800;font-variant-numeric:tabular-nums}
+    .scan-actions{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
+    .scan-actions .btn{flex:1;justify-content:center;min-height:56px}
+    .manual{margin-top:14px}
+    .manual .mrow{display:flex;gap:10px}
+    .manual input{flex:1;height:52px;border:1px solid var(--line);border-radius:12px;padding:0 14px;
+      font-size:16px;font-weight:700;background:var(--surface-2);font-variant-numeric:tabular-nums}
+    .manual .mbtn{height:52px;padding:0 18px;border-radius:12px;border:1px solid var(--line);background:var(--surface);font-weight:800;cursor:pointer}
 
-      /* ── 바코드/출력 ── */
-      .bc-card{border:1px solid var(--line);border-radius:14px;padding:16px;background:#fff;text-align:center}
-      .bc-bars{height:64px;background:repeating-linear-gradient(90deg,#15222B 0 2px,#fff 2px 4px,#15222B 4px 5px,#fff 5px 9px,#15222B 9px 12px,#fff 12px 13px);border-radius:3px;margin-bottom:8px}
-      .bc-data{font-size:13px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;letter-spacing:.02em}
-      .bc-sub{font-size:12px;color:var(--ink-2);font-weight:700;margin-top:2px}
-      .printrow{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
-      .form-tbl{width:100%;border-collapse:collapse;font-size:13px}
-      .form-tbl th,.form-tbl td{border:1px solid var(--line);padding:8px 10px;text-align:left}
-      .form-tbl th{background:var(--surface-2);font-weight:800}
-      @media print{ body *{visibility:hidden} #printArea,#printArea *{visibility:visible}
-          #printArea{position:absolute;left:0;top:0;width:100%;padding:20px} .mask{display:none !important} }
-      #printArea{display:none}
+    /* ── 바코드/출력 ── */
+    .bc-card{border:1px solid var(--line);border-radius:14px;padding:16px;background:#fff;text-align:center}
+    .bc-bars{height:64px;background:repeating-linear-gradient(90deg,#15222B 0 2px,#fff 2px 4px,#15222B 4px 5px,#fff 5px 9px,#15222B 9px 12px,#fff 12px 13px);border-radius:3px;margin-bottom:8px}
+    .bc-data{font-size:13px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;letter-spacing:.02em}
+    .bc-sub{font-size:12px;color:var(--ink-2);font-weight:700;margin-top:2px}
+    .printrow{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
+    .form-tbl{width:100%;border-collapse:collapse;font-size:13px}
+    .form-tbl th,.form-tbl td{border:1px solid var(--line);padding:8px 10px;text-align:left}
+    .form-tbl th{background:var(--surface-2);font-weight:800}
+    @media print{ body *{visibility:hidden} #printArea,#printArea *{visibility:visible}
+      #printArea{position:absolute;left:0;top:0;width:100%;padding:20px} .mask{display:none !important} }
+    #printArea{display:none}
 
   </style>
 
@@ -364,7 +368,10 @@
     <div class="fieldlab">불량 유형</div><div class="opts" id="defTypes"></div>
     <div class="fieldlab">사진 첨부</div><div class="photos" id="defPhotos"></div>
     <input type="file" id="defFile" accept="image/*" capture="environment" style="display:none"/>
-    <button class="ok" id="defOk">부적합 저장</button>
+    <div style="display:flex;gap:10px;margin-top:20px">
+      <button class="ok" data-close style="flex:0 0 38%;margin-top:0;background:var(--surface-2);color:var(--ink);border:1.5px solid var(--line)">닫기</button>
+      <button class="ok" id="defOk" style="flex:1 1 auto;margin-top:0">부적합 저장</button>
+    </div>
   </div></div></div>
 
   <!-- 카메라 스캔 시트 -->
@@ -372,6 +379,7 @@
     <div class="sh"><h3 id="scanTitle">① CK · PK 라벨 스캔</h3><button class="x" data-close>✕</button></div>
     <div class="phasebar" id="scanSteps"></div>
     <div class="scanbox" id="scanBox">
+      <video id="scanVideo" playsinline muted style="display:none"></video>
       <div class="noise"></div>
       <div class="cam"><i></i> CAM · 후면</div>
       <div class="ghostbc"></div>
@@ -388,8 +396,9 @@
       </div>
     </div>
     <div class="scan-actions">
-      <button class="btn primary" id="scanCapture">📷 스캔 인식</button>
+      <button class="btn ghost" id="scanTorch" style="display:none">🔦 조명</button>
       <button class="btn ghost" id="scanRetry" style="display:none">다시 스캔</button>
+      <button class="btn primary" id="scanRestart" style="display:none">카메라 다시 시작</button>
     </div>
     <div class="manual">
       <div class="fieldlab">수동 입력 (스캔 불가 시 · GS1-128 전체)</div>
@@ -414,1299 +423,1543 @@
 
 <th:block layout:fragment="scripts">
   <script th:inline="none">
-   /* ── 높이 자동 맞춤 ── */
-   (function () {
-    const root = document.querySelector('.ms-wash-root');
-    if (!root) return;
+    /* ── 높이 자동 맞춤 ── */
+    (function () {
+      const root = document.querySelector('.ms-wash-root');
+      if (!root) return;
 
-    function localBelow() {
-     let below = 0, node = root;
-     while (node && node !== document.body) {
-      let sib = node.nextElementSibling;
-      while (sib) {
-       const r = sib.getBoundingClientRect();
-       if (r.height > 0 && getComputedStyle(sib).position !== 'fixed') below += r.height;
-       sib = sib.nextElementSibling;
-      }
-      node = node.parentElement;
-     }
-     let fx = 0;
-     document.querySelectorAll('body *').forEach(el => {
-      if (root.contains(el)) return;
-      const cs = getComputedStyle(el);
-      if (cs.position !== 'fixed' && cs.position !== 'sticky') return;
-      const r = el.getBoundingClientRect();
-      if (r.height > 0 && r.height < innerHeight * 0.5 && r.bottom > innerHeight - 2) fx = Math.max(fx, r.height);
-     });
-     return Math.max(below, fx);
-    }
-
-    function availBottom() {
-     let bottom = window.innerHeight;
-     try {
-      const fe = window.frameElement;
-      if (fe) {
-       const pWin = window.parent, pDoc = pWin.document;
-       const feTop = fe.getBoundingClientRect().top;
-       let flow = 0, node = fe;
-       while (node && node !== pDoc.body) {
-        let sib = node.nextElementSibling;
-        while (sib) {
-         const cs = pWin.getComputedStyle(sib), r = sib.getBoundingClientRect();
-         if (r.height > 0 && cs.position !== 'fixed' && cs.position !== 'absolute') flow += r.height;
-         sib = sib.nextElementSibling;
+      function localBelow() {
+        let below = 0, node = root;
+        while (node && node !== document.body) {
+          let sib = node.nextElementSibling;
+          while (sib) {
+            const r = sib.getBoundingClientRect();
+            if (r.height > 0 && getComputedStyle(sib).position !== 'fixed') below += r.height;
+            sib = sib.nextElementSibling;
+          }
+          node = node.parentElement;
         }
-        node = node.parentElement;
-       }
-       let fx = 0;
-       pDoc.querySelectorAll('body *').forEach(el => {
-        if (el === fe || el.contains(fe)) return;
-        const cs = pWin.getComputedStyle(el);
-        if (cs.position !== 'fixed' && cs.position !== 'sticky' && cs.position !== 'absolute') return;
-        const r = el.getBoundingClientRect();
-        if (r.height > 0 && r.height <= 160 && r.top > feTop && r.bottom > pWin.innerHeight - 40)
-         fx = Math.max(fx, r.bottom - r.top);
-       });
-       const pFooter = Math.max(flow, fx);
-       bottom = Math.min(bottom, (pWin.innerHeight - pFooter) - feTop);
+        let fx = 0;
+        document.querySelectorAll('body *').forEach(el => {
+          if (root.contains(el)) return;
+          const cs = getComputedStyle(el);
+          if (cs.position !== 'fixed' && cs.position !== 'sticky') return;
+          const r = el.getBoundingClientRect();
+          if (r.height > 0 && r.height < innerHeight * 0.5 && r.bottom > innerHeight - 2) fx = Math.max(fx, r.height);
+        });
+        return Math.max(below, fx);
       }
-     } catch (e) {
-     }
-     return bottom;
+
+      function availBottom() {
+        let bottom = window.innerHeight;
+        try {
+          const fe = window.frameElement;
+          if (fe) {
+            const pWin = window.parent, pDoc = pWin.document;
+            const feTop = fe.getBoundingClientRect().top;
+            let flow = 0, node = fe;
+            while (node && node !== pDoc.body) {
+              let sib = node.nextElementSibling;
+              while (sib) {
+                const cs = pWin.getComputedStyle(sib), r = sib.getBoundingClientRect();
+                if (r.height > 0 && cs.position !== 'fixed' && cs.position !== 'absolute') flow += r.height;
+                sib = sib.nextElementSibling;
+              }
+              node = node.parentElement;
+            }
+            let fx = 0;
+            pDoc.querySelectorAll('body *').forEach(el => {
+              if (el === fe || el.contains(fe)) return;
+              const cs = pWin.getComputedStyle(el);
+              if (cs.position !== 'fixed' && cs.position !== 'sticky' && cs.position !== 'absolute') return;
+              const r = el.getBoundingClientRect();
+              if (r.height > 0 && r.height <= 160 && r.top > feTop && r.bottom > pWin.innerHeight - 40)
+                fx = Math.max(fx, r.bottom - r.top);
+            });
+            const pFooter = Math.max(flow, fx);
+            bottom = Math.min(bottom, (pWin.innerHeight - pFooter) - feTop);
+          }
+        } catch (e) {
+        }
+        return bottom;
+      }
+
+      function fit() {
+        const top = root.getBoundingClientRect().top;
+        const avail = availBottom() - top - localBelow();
+        root.style.setProperty('--wash-h', Math.max(320, Math.floor(avail)) + 'px');
+      }
+
+      window.addEventListener('resize', fit);
+      window.addEventListener('orientationchange', fit);
+      try {
+        window.parent.addEventListener('resize', fit);
+      } catch (e) {
+      }
+      fit();
+      requestAnimationFrame(fit);
+      setTimeout(fit, 200);
+      setTimeout(fit, 600);
+      if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
+    })();
+
+    const WD = ['일', '월', '화', '수', '목', '금', '토'];
+    const WORKERS = ['정우철', '김민수', '이서연', '박지훈'];
+    const EQUIPS = [['외포장대 A', 'OP-01'], ['외포장대 B', 'OP-02']];
+    const STLAB = {working: '작업중', wait: '대기', done: '완료'};
+
+    function nowHM() {
+      var d = new Date();
+      return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0') + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
     }
 
-    function fit() {
-     const top = root.getBoundingClientRect().top;
-     const avail = availBottom() - top - localBelow();
-     root.style.setProperty('--wash-h', Math.max(320, Math.floor(avail)) + 'px');
+    function pill(v) {
+      if (!v) return '--:--';
+      if (v.indexOf(' ') >= 0) {
+        var a = v.split(' ');
+        return a[0].slice(5) + ' ' + a[1];
+      }
+      return v;
     }
 
-    window.addEventListener('resize', fit);
-    window.addEventListener('orientationchange', fit);
-    try {
-     window.parent.addEventListener('resize', fit);
-    } catch (e) {
-    }
-    fit();
-    requestAnimationFrame(fit);
-    setTimeout(fit, 200);
-    setTimeout(fit, 600);
-    if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
-   })();
-
-   const WD = ['일', '월', '화', '수', '목', '금', '토'];
-   const WORKERS = ['정우철', '김민수', '이서연', '박지훈'];
-   const EQUIPS = [['외포장대 A', 'OP-01'], ['외포장대 B', 'OP-02']];
-   const STLAB = {working: '작업중', wait: '대기', done: '완료'};
-
-   function nowHM() {
-    var d = new Date();
-    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0') + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
-   }
-
-   function pill(v) {
-    if (!v) return '--:--';
-    if (v.indexOf(' ') >= 0) {
-     var a = v.split(' ');
-     return a[0].slice(5) + ' ' + a[1];
-    }
-    return v;
-   }
-
-   /* REAL_INJECTED */
-   // ════ 실제 BSC30 BOM (DB 매칭) ════
-   var REAL = {
-    routing: {id: 38, name: "BSC 키트공정", steps: ["세척", "조립", "블리스터 포장", "멸균", "외포장"]},
-    fin: {code: "BSC30-PK00-CK00", name: "BSC+③ 30ml 00차수(3버전)+00차수", grp: 112},
-    gtin: "08801234560018"
-   };
-
-   // 멸균필 완제품(PK) 로트 — 발번한 시스템 로트
-   const PK_READY = [{lot: 'BSC30-PK00-260626', name: REAL.fin.name, gtin: REAL.gtin, qty: 40}];
-
-   // CK 로트 — 외포장 단계에서 투입(소모)되는 완제품 CK 재고
-   const CK_READY = [{lot: 'BSC30-CK00-260626', name: 'BSC+③ 30ml 00차수 CK', qty: 40}];
-
-   // CK 구성 부재료(BOM, 00차수 기준) — CK 로트 선택 후 이 자재들을 외포장 단계에서 투입
-   const CK_INPUTS = [
-    {code: 'M-DS00024', name: 'BD락주사기 10CC', qty: 1},
-    {code: 'M-DS00026', name: 'BD락주사기 30CC', qty: 1},
-    {code: 'M-DE00019', name: '부속품 소', qty: 1},
-    {code: 'ETC-STK-LOT-30', name: '혈액 LOT 스티커(30ml)', qty: 1},
-    {code: 'M-DDW00038', name: '18G-S34(니들)', qty: 1},
-    {code: 'M-DDW00037', name: 'G.P.카테터 I.V.CATHETER', qty: 1},
-    {code: 'M-GP00003', name: '혈액 30ml/60ml/120ml 커버박스', qty: 1}
-   ];
-
-   // 완제품 총수 → 인박스/낱개/아웃박스 파생
-   function packView(o, units) {
-    var ic = inboxCap(o), oc = outboxCap(o);
-    var inbox = Math.floor(units / ic), loose = units % ic;
-    var outbox = Math.floor(inbox / oc), inLoose = inbox % oc;
-    return {ic: ic, oc: oc, inbox: inbox, loose: loose, outbox: outbox, inLoose: inLoose};
-   }
-
-   // 인박스 입수: 완제품 1개당 인박스 1개(1:1)
-   function inboxCap(o) {
-    return 1;
-   }
-
-   function outboxCap(o) {
-    if (o.blood === '골수' && (o.vol === 30 || o.vol === 60)) return 8;
-    return 4;
-   }
-
-   function mkSess(worker, equip) {
-    var start = nowHM();
-    var base = start.split(' ')[0].replace(/-/g, '');
-    return {
-     worker: worker,
-     equip: equip,
-     start: start,
-     end: null,
-     st: 'working',
-     units: 0,
-     ckLot: (CK_READY[0] ? CK_READY[0].lot : null),
-     ckMat: {},
-     ckDef: {},
-     pkLot: (PK_READY[0] ? PK_READY[0].lot : null),
-     pkUnits: 0,
-     labelLot: null,
-     scanCkpk: null,
-     scanInbox: null,
-     phase: 'ck',
-     pkSysLot: 'LI-' + base + '-0001',
-     ckSysLot: null,
-     inboxSysLot: null
+    /* REAL_INJECTED */
+    // ════ 실제 BSC30 BOM (DB 매칭) ════
+    var REAL = {
+      routing: {id: 38, name: "BSC 키트공정", steps: ["세척", "조립", "블리스터 포장", "멸균", "외포장"]},
+      fin: {code: "BSC30-PK00-CK00", name: "BSC+③ 30ml 00차수(3버전)+00차수", grp: 112},
+      gtin: "08801234560018"
     };
-   }
 
-   const ORDERS = [
-    {
-     id: 'OUT-2406-009',
-     odate: '2026-06-26',
-     blood: '혈액',
-     vol: 30,
-     st: 'working',
-     name: REAL.fin.name,
-     code: REAL.fin.code,
-     gtin: REAL.gtin,
-     chasu: 1,
-     plan: 40,
-     sessions: [
+    // 멸균필 완제품(PK) 로트 — 발번한 시스템 로트
+    const PK_READY = [{lot: 'BSC30-PK00-260626', name: REAL.fin.name, gtin: REAL.gtin, qty: 40}];
+
+    // CK 로트 — 외포장 단계에서 투입(소모)되는 완제품 CK 재고
+    const CK_READY = [{lot: 'BSC30-CK00-260626', name: 'BSC+③ 30ml 00차수 CK', qty: 40}];
+
+    // CK 구성 부재료(BOM, 00차수 기준) — CK 로트 선택 후 이 자재들을 외포장 단계에서 투입
+    const CK_INPUTS = [
+      {code: 'M-DS00024', name: 'BD락주사기 10CC', qty: 1},
+      {code: 'M-DS00026', name: 'BD락주사기 30CC', qty: 1},
+      {code: 'M-DE00019', name: '부속품 소', qty: 1},
+      {code: 'ETC-STK-LOT-30', name: '혈액 LOT 스티커(30ml)', qty: 1},
+      {code: 'M-DDW00038', name: '18G-S34(니들)', qty: 1},
+      {code: 'M-DDW00037', name: 'G.P.카테터 I.V.CATHETER', qty: 1},
+      {code: 'M-GP00003', name: '혈액 30ml/60ml/120ml 커버박스', qty: 1}
+    ];
+
+    // 완제품 총수 → 인박스/낱개/아웃박스 파생
+    function packView(o, units) {
+      var ic = inboxCap(o), oc = outboxCap(o);
+      var inbox = Math.floor(units / ic), loose = units % ic;
+      var outbox = Math.floor(inbox / oc), inLoose = inbox % oc;
+      return {ic: ic, oc: oc, inbox: inbox, loose: loose, outbox: outbox, inLoose: inLoose};
+    }
+
+    // 인박스 입수: 완제품 1개당 인박스 1개(1:1)
+    function inboxCap(o) {
+      return 1;
+    }
+
+    function outboxCap(o) {
+      if (o.blood === '골수' && (o.vol === 30 || o.vol === 60)) return 8;
+      return 4;
+    }
+
+    function mkSess(worker, equip) {
+      var start = nowHM();
+      var base = start.split(' ')[0].replace(/-/g, '');
+      return {
+        worker: worker,
+        equip: equip,
+        start: start,
+        end: null,
+        st: 'working',
+        units: 0,
+        ckLot: (CK_READY[0] ? CK_READY[0].lot : null),
+        ckMat: {},
+        ckDef: {},
+        pkLot: (PK_READY[0] ? PK_READY[0].lot : null),
+        pkUnits: 0,
+        labelLot: null,
+        scanCkpk: null,
+        scanInbox: null,
+        phase: 'ck',
+        pkSysLot: 'LI-' + base + '-0001',
+        ckSysLot: null,
+        inboxSysLot: null
+      };
+    }
+
+    const ORDERS = [
       {
-       worker: '정우철',
-       equip: '외포장대 A',
-       start: '2026-06-26 13:00',
-       end: null,
-       st: 'working',
-       units: 24,
-       ckLot: 'BSC30-CK00-260626',
-       ckMat: {
-        'M-DS00024': 24, 'M-DS00026': 24, 'M-DE00019': 24,
-        'ETC-STK-LOT-30': 24, 'M-DDW00038': 24, 'M-DDW00037': 24, 'M-GP00003': 24
-       },
-       pkLot: 'BSC30-PK00-260626',
-       pkUnits: 24,
-       labelLot: null
+        id: 'OUT-2406-009',
+        odate: '2026-06-26',
+        blood: '혈액',
+        vol: 30,
+        st: 'working',
+        name: REAL.fin.name,
+        code: REAL.fin.code,
+        gtin: REAL.gtin,
+        chasu: 1,
+        plan: 40,
+        sessions: [
+          {
+            worker: '정우철',
+            equip: '외포장대 A',
+            start: '2026-06-26 13:00',
+            end: null,
+            st: 'working',
+            units: 24,
+            ckLot: 'BSC30-CK00-260626',
+            ckMat: {
+              'M-DS00024': 24, 'M-DS00026': 24, 'M-DE00019': 24,
+              'ETC-STK-LOT-30': 24, 'M-DDW00038': 24, 'M-DDW00037': 24, 'M-GP00003': 24
+            },
+            pkLot: 'BSC30-PK00-260626',
+            pkUnits: 24,
+            labelLot: null
+          },
+        ]
       },
-     ]
-    },
-    {
-     id: 'OUT-2607-001',
-     odate: '2026-07-06',
-     blood: '혈액',
-     vol: 30,
-     st: 'wait',
-     name: REAL.fin.name,
-     code: REAL.fin.code,
-     gtin: REAL.gtin,
-     chasu: 1,
-     plan: 60,
-     sessions: []
-    },
-    {
-     id: 'OUT-2607-002',
-     odate: '2026-07-06',
-     blood: '혈액',
-     vol: 30,
-     st: 'done',
-     name: REAL.fin.name,
-     code: REAL.fin.code,
-     gtin: REAL.gtin,
-     chasu: 1,
-     plan: 40,
-     sessions: [
       {
-       worker: '이서연',
-       equip: '외포장대 B',
-       start: '2026-07-06 09:10',
-       end: '2026-07-06 11:35',
-       st: 'done',
-       units: 40,
-       ckLot: 'BSC30-CK00-260626',
-       ckMat: {
-        'M-DS00024': 40, 'M-DS00026': 40, 'M-DE00019': 40,
-        'ETC-STK-LOT-30': 40, 'M-DDW00038': 40, 'M-DDW00037': 40, 'M-GP00003': 40
-       },
-       pkLot: 'BSC30-PK00-260626',
-       pkUnits: 40,
-       labelLot: 'BMH260706',
-       scanCkpk: {raw: '(01)08801234560018(10)BMH260706(11)260706', gtin: '08801234560018', lot: 'BMH260706', date: '260706', qty: null},
-       scanInbox: {raw: '(01)08801234560018(10)BMH260706(30)1(11)260706', gtin: '08801234560018', lot: 'BMH260706', date: '260706', qty: 1}
-      }
-     ]
-    },
-   ];
+        id: 'OUT-2607-001',
+        odate: '2026-07-06',
+        blood: '혈액',
+        vol: 30,
+        st: 'wait',
+        name: REAL.fin.name,
+        code: REAL.fin.code,
+        gtin: REAL.gtin,
+        chasu: 1,
+        plan: 60,
+        sessions: []
+      },
+      {
+        id: 'OUT-2607-002',
+        odate: '2026-07-06',
+        blood: '혈액',
+        vol: 30,
+        st: 'done',
+        name: REAL.fin.name,
+        code: REAL.fin.code,
+        gtin: REAL.gtin,
+        chasu: 1,
+        plan: 40,
+        sessions: [
+          {
+            worker: '이서연',
+            equip: '외포장대 B',
+            start: '2026-07-06 09:10',
+            end: '2026-07-06 11:35',
+            st: 'done',
+            units: 40,
+            ckLot: 'BSC30-CK00-260626',
+            ckMat: {
+              'M-DS00024': 40, 'M-DS00026': 40, 'M-DE00019': 40,
+              'ETC-STK-LOT-30': 40, 'M-DDW00038': 40, 'M-DDW00037': 40, 'M-GP00003': 40
+            },
+            pkLot: 'BSC30-PK00-260626',
+            pkUnits: 40,
+            labelLot: 'BMH260706',
+            scanCkpk: {raw: '(01)08801234560018(10)BMH260706(11)260706', gtin: '08801234560018', lot: 'BMH260706', date: '260706', qty: null},
+            scanInbox: {raw: '(01)08801234560018(10)BMH260706(30)1(11)260706', gtin: '08801234560018', lot: 'BMH260706', date: '260706', qty: 1}
+          }
+        ]
+      },
+    ];
 
-   function orderPct(o) {
-    var packed = o.sessions.reduce(function (a, s) {
-     return a + (s.units || 0);
-    }, 0);
-    return o.plan ? Math.min(100, Math.round(packed / o.plan * 100)) : 0;
-   }
+    function orderPct(o) {
+      var packed = o.sessions.reduce(function (a, s) {
+        return a + (s.units || 0);
+      }, 0);
+      return o.plan ? Math.min(100, Math.round(packed / o.plan * 100)) : 0;
+    }
 
-   let curO = null, curS = null, filter = 'all';
-   const qgrid = document.getElementById('qgrid');
-   const SC = {
-    A: document.getElementById('scA'),
-    B: document.getElementById('scB'),
-    C: document.getElementById('scC')
-   };
-
-   function show(k) {
-    for (var x in SC) SC[x].classList.toggle('hide', x !== k);
-   }
-
-   function orderDoneQty(o) {
-    return (o.sessions || []).reduce(function (a, s) {
-     return a + (s.units || 0);
-    }, 0);
-   }
-
-   function workingCount(o) {
-    return (o.sessions || []).filter(function (s) {
-     return s.st === 'working';
-    }).length;
-   }
-
-   function inRange(o) {
-    var f = document.getElementById('dFrom').value, t = document.getElementById('dTo').value;
-    if (f && o.odate < f) return false;
-    if (t && o.odate > t) return false;
-    return true;
-   }
-
-   function renderQueue() {
-    var list = ORDERS.filter(function (o) {
-     return (filter === 'all' || o.st === filter) && inRange(o);
-    });
-    document.getElementById('qcnt').textContent = list.length + '건';
-    qgrid.innerHTML = list.map(function (o) {
-     var pct = orderPct(o);
-     return '<div class="wo" data-st="' + o.st + '" data-id="' + o.id + '"><div class="edge"></div>' +
-      '<div class="row1"><span class="wono">' + o.id + '</span>' +
-      '<span style="font-size:13px;color:var(--ink-2);font-weight:700">' + o.odate + '</span>' +
-      '<span class="chip ' + o.st + '">' + STLAB[o.st] + '</span></div>' +
-      '<div class="name">' + o.name + '</div>' +
-      '<div class="meta"><div class="blk"><span class="lab">계획</span><span class="val">' + o.plan + '</span></div>' +
-      '<div class="blk"><span class="lab">완료</span><span class="val">' + orderDoneQty(o) + '</span></div>' +
-      '<div class="blk"><span class="lab">작업</span><span class="val">' + workingCount(o) + '</span></div>' +
-      '<div class="prog"><span class="lab">' + (o.st === 'wait' ? '미시작' : '진행 ' + pct + '%') + '</span>' +
-      '<div class="bar"><i style="width:' + pct + '%"></i></div></div></div></div>';
-    }).join('');
-   }
-
-   qgrid.addEventListener('click', function (e) {
-    var c = e.target.closest('.wo');
-    if (c) openOrder(c.dataset.id);
-   });
-   document.querySelectorAll('.qfilter button').forEach(function (b) {
-    b.addEventListener('click', function () {
-     document.querySelectorAll('.qfilter button').forEach(function (x) {
-      x.classList.remove('on');
-     });
-     b.classList.add('on');
-     filter = b.dataset.f;
-     renderQueue();
-    });
-   });
-   document.getElementById('btnSearch').addEventListener('click', renderQueue);
-   (function () {
-    var t = new Date(), f = new Date();
-    f.setDate(f.getDate() - 7);
-    var fmt = function (d) {
-     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    let curO = null, curS = null, filter = 'all';
+    const qgrid = document.getElementById('qgrid');
+    const SC = {
+      A: document.getElementById('scA'),
+      B: document.getElementById('scB'),
+      C: document.getElementById('scC')
     };
-    document.getElementById('dFrom').value = fmt(f);
-    document.getElementById('dTo').value = fmt(t);
-   })();
 
-   document.querySelectorAll('[data-back]').forEach(function (b) {
-    b.addEventListener('click', function () {
-     var to = b.dataset.back;
-     if (to === 'A') {
-      renderQueue();
-      show('A');
-     } else {
+    function show(k) {
+      for (var x in SC) SC[x].classList.toggle('hide', x !== k);
+    }
+
+    function orderDoneQty(o) {
+      return (o.sessions || []).reduce(function (a, s) {
+        return a + (s.units || 0);
+      }, 0);
+    }
+
+    function workingCount(o) {
+      return (o.sessions || []).filter(function (s) {
+        return s.st === 'working';
+      }).length;
+    }
+
+    function inRange(o) {
+      var f = document.getElementById('dFrom').value, t = document.getElementById('dTo').value;
+      if (f && o.odate < f) return false;
+      if (t && o.odate > t) return false;
+      return true;
+    }
+
+    function renderQueue() {
+      var list = ORDERS.filter(function (o) {
+        return (filter === 'all' || o.st === filter) && inRange(o);
+      });
+      document.getElementById('qcnt').textContent = list.length + '건';
+      qgrid.innerHTML = list.map(function (o) {
+        var pct = orderPct(o);
+        return '<div class="wo" data-st="' + o.st + '" data-id="' + o.id + '"><div class="edge"></div>' +
+                '<div class="row1"><span class="wono">' + o.id + '</span>' +
+                '<span style="font-size:13px;color:var(--ink-2);font-weight:700">' + o.odate + '</span>' +
+                '<span class="chip ' + o.st + '">' + STLAB[o.st] + '</span></div>' +
+                '<div class="name">' + o.name + '</div>' +
+                '<div class="meta"><div class="blk"><span class="lab">계획</span><span class="val">' + o.plan + '</span></div>' +
+                '<div class="blk"><span class="lab">완료</span><span class="val">' + orderDoneQty(o) + '</span></div>' +
+                '<div class="blk"><span class="lab">작업</span><span class="val">' + workingCount(o) + '</span></div>' +
+                '<div class="prog"><span class="lab">' + (o.st === 'wait' ? '미시작' : '진행 ' + pct + '%') + '</span>' +
+                '<div class="bar"><i style="width:' + pct + '%"></i></div></div></div></div>';
+      }).join('');
+    }
+
+    qgrid.addEventListener('click', function (e) {
+      var c = e.target.closest('.wo');
+      if (c) openOrder(c.dataset.id);
+    });
+    document.querySelectorAll('.qfilter button').forEach(function (b) {
+      b.addEventListener('click', function () {
+        document.querySelectorAll('.qfilter button').forEach(function (x) {
+          x.classList.remove('on');
+        });
+        b.classList.add('on');
+        filter = b.dataset.f;
+        renderQueue();
+      });
+    });
+    document.getElementById('btnSearch').addEventListener('click', renderQueue);
+    (function () {
+      var t = new Date(), f = new Date();
+      f.setDate(f.getDate() - 7);
+      var fmt = function (d) {
+        return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+      };
+      document.getElementById('dFrom').value = fmt(f);
+      document.getElementById('dTo').value = fmt(t);
+    })();
+
+    document.querySelectorAll('[data-back]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var to = b.dataset.back;
+        if (to === 'A') {
+          renderQueue();
+          show('A');
+        } else {
+          renderSessList();
+          show('B');
+        }
+      });
+    });
+
+    function openOrder(id) {
+      curO = ORDERS.filter(function (x) {
+        return x.id === id;
+      })[0];
+      document.getElementById('bName').textContent = curO.name;
+      document.getElementById('bSub').textContent = curO.id + ' · 차수 ' + curO.chasu;
       renderSessList();
       show('B');
-     }
+    }
+
+    document.getElementById('btnNewSess').onclick = openStart;
+
+    function pkMeta(lot) {
+      return PK_READY.filter(function (l) {
+        return l.lot === lot;
+      })[0];
+    }
+
+    function ckMeta(lot) {
+      return CK_READY.filter(function (l) {
+        return l.lot === lot;
+      })[0];
+    }
+
+    function ckMatCount(units) {
+      // CK 로트가 자동 지정되므로, 완제품 수량이 정해지면 BOM대로 자동 투입된 것으로 간주
+      var done = 0;
+      CK_INPUTS.forEach(function (m) {
+        var need = (m.qty || 1) * (units || 0);
+        if (need > 0) done++;
+      });
+      return {done: done, total: CK_INPUTS.length};
+    }
+
+    // 세션의 CK 부적합 상태 접근(없으면 생성)
+    function ckDefOf(code) {
+      if (!curS.ckDef) curS.ckDef = {};
+      if (!curS.ckDef[code]) curS.ckDef[code] = {defQty: 0, defType: null, photos: []};
+      return curS.ckDef[code];
+    }
+
+    // 세션 내 CK 부적합 합계
+    function sessBad(se) {
+      var d = se.ckDef || {};
+      return Object.keys(d).reduce(function (a, k) {
+        return a + (d[k].defQty || 0);
+      }, 0);
+    }
+
+    function renderSessList() {
+      var o = curO, cap = inboxCap(o);
+      var packed = o.sessions.reduce(function (a, s) {
+        return a + (s.units || 0);
+      }, 0);
+      var bad = o.sessions.reduce(function (a, s) {
+        return a + sessBad(s);
+      }, 0);
+      document.getElementById('ovbox').innerHTML =
+              '<div class="ov"><div class="l">계획수량</div><div class="v">' + o.plan + '</div></div>' +
+              '<div class="ov"><div class="l">완제품 포장</div><div class="v">' + packed + '</div></div>' +
+              '<div class="ov left"><div class="l">잔여수량</div><div class="v">' + Math.max(0, o.plan - packed) + '</div></div>' +
+              '<div class="ov"><div class="l">부적합</div><div class="v" style="color:var(--red)">' + bad + '</div></div>';
+      document.getElementById('sessCnt').textContent = o.sessions.length + '건';
+      var box = document.getElementById('sessList');
+      if (!o.sessions.length) {
+        box.innerHTML = '<div class="emptysess">작업이 없습니다. ‘작업 추가’로 외포장을 시작하세요.</div>';
+        return;
+      }
+      box.innerHTML = o.sessions.map(function (se, i) {
+        var b = sessBad(se);
+        return '<div class="sess" data-st="' + se.st + '" data-i="' + i + '"><div class="edge"></div>' +
+                '<div class="who"><span class="nm">' + se.worker + '</span><span class="eq">' + se.equip + '</span></div>' +
+                '<div class="time">' + pill(se.start) + ' ~ ' + pill(se.end) + '</div>' +
+                '<div class="qty"><div class="l">완제품</div><div class="v">' + (se.units || 0) + '</div></div>' +
+                (b > 0 ? '<span class="bad">불량 ' + b + '</span>' : '') +
+                '<span class="badge ' + se.st + '">' + STLAB[se.st] + '</span></div>';
+      }).join('');
+    }
+
+    document.getElementById('sessList').addEventListener('click', function (e) {
+      var s = e.target.closest('.sess');
+      if (s) openSess(+s.dataset.i);
     });
-   });
 
-   function openOrder(id) {
-    curO = ORDERS.filter(function (x) {
-     return x.id === id;
-    })[0];
-    document.getElementById('bName').textContent = curO.name;
-    document.getElementById('bSub').textContent = curO.id + ' · 차수 ' + curO.chasu;
-    renderSessList();
-    show('B');
-   }
-
-   document.getElementById('btnNewSess').onclick = openStart;
-
-   function pkMeta(lot) {
-    return PK_READY.filter(function (l) {
-     return l.lot === lot;
-    })[0];
-   }
-
-   function ckMeta(lot) {
-    return CK_READY.filter(function (l) {
-     return l.lot === lot;
-    })[0];
-   }
-
-   function ckMatCount(units) {
-    // CK 로트가 자동 지정되므로, 완제품 수량이 정해지면 BOM대로 자동 투입된 것으로 간주
-    var done = 0;
-    CK_INPUTS.forEach(function (m) {
-     var need = (m.qty || 1) * (units || 0);
-     if (need > 0) done++;
-    });
-    return {done: done, total: CK_INPUTS.length};
-   }
-
-   // 세션의 CK 부적합 상태 접근(없으면 생성)
-   function ckDefOf(code) {
-    if (!curS.ckDef) curS.ckDef = {};
-    if (!curS.ckDef[code]) curS.ckDef[code] = {defQty: 0, defType: null, photos: []};
-    return curS.ckDef[code];
-   }
-
-   // 세션 내 CK 부적합 합계
-   function sessBad(se) {
-    var d = se.ckDef || {};
-    return Object.keys(d).reduce(function (a, k) {
-     return a + (d[k].defQty || 0);
-    }, 0);
-   }
-
-   function renderSessList() {
-    var o = curO, cap = inboxCap(o);
-    var packed = o.sessions.reduce(function (a, s) {
-     return a + (s.units || 0);
-    }, 0);
-    var bad = o.sessions.reduce(function (a, s) {
-     return a + sessBad(s);
-    }, 0);
-    document.getElementById('ovbox').innerHTML =
-     '<div class="ov"><div class="l">계획수량</div><div class="v">' + o.plan + '</div></div>' +
-     '<div class="ov"><div class="l">완제품 포장</div><div class="v">' + packed + '</div></div>' +
-     '<div class="ov left"><div class="l">잔여수량</div><div class="v">' + Math.max(0, o.plan - packed) + '</div></div>' +
-     '<div class="ov"><div class="l">부적합</div><div class="v" style="color:var(--red)">' + bad + '</div></div>';
-    document.getElementById('sessCnt').textContent = o.sessions.length + '건';
-    var box = document.getElementById('sessList');
-    if (!o.sessions.length) {
-     box.innerHTML = '<div class="emptysess">작업이 없습니다. ‘작업 추가’로 외포장을 시작하세요.</div>';
-     return;
-    }
-    box.innerHTML = o.sessions.map(function (se, i) {
-     var b = sessBad(se);
-     return '<div class="sess" data-st="' + se.st + '" data-i="' + i + '"><div class="edge"></div>' +
-      '<div class="who"><span class="nm">' + se.worker + '</span><span class="eq">' + se.equip + '</span></div>' +
-      '<div class="time">' + pill(se.start) + ' ~ ' + pill(se.end) + '</div>' +
-      '<div class="qty"><div class="l">완제품</div><div class="v">' + (se.units || 0) + '</div></div>' +
-      (b > 0 ? '<span class="bad">불량 ' + b + '</span>' : '') +
-      '<span class="badge ' + se.st + '">' + STLAB[se.st] + '</span></div>';
-    }).join('');
-   }
-
-   document.getElementById('sessList').addEventListener('click', function (e) {
-    var s = e.target.closest('.sess');
-    if (s) openSess(+s.dataset.i);
-   });
-
-   function openSess(i) {
-    curS = curO.sessions[i];
-    curS._idx = i;
-    if (!curS.phase) curS.phase = curS.st === 'done' ? 'done' : 'ck';
-    // 내부 로트(발번) 정규화: PK(멸균), CK(CK완료), 인박스(포장완료) 시점별
-    if (!curS.pkSysLot) curS.pkSysLot = genLot(1);
-    if (!curS.ckSysLot && phaseIndex() > 0) curS.ckSysLot = genLot(2);
-    if (!curS.inboxSysLot && (curS.phase === 'out' || curS.phase === 'done')) curS.inboxSysLot = genLot(3);
-    document.getElementById('cName').textContent = curS.worker + ' · 포장';
-    document.getElementById('cSub').textContent = curO.id + ' · ' + curO.name + ' · 계획 ' + curO.plan;
-    renderCHead();
-    renderCBody();
-    renderCAction();
-    show('C');
-   }
-
-   function renderCHead() {
-    document.getElementById('cHead').innerHTML =
-     '<div class="infopill"><span>설비</span><b>' + curS.equip + '</b></div>' +
-     '<div class="infopill tap" data-time="start"><span>시작</span><b>' + pill(curS.start) + '</b></div>' +
-     '<div class="infopill tap" data-time="end"><span>종료</span><b>' + pill(curS.end) + '</b></div>' +
-     '<span class="sstate ' + curS.st + '">' + STLAB[curS.st] + '</span>';
-   }
-
-   /* ── 단계(phase) 유틸 ── */
-   function phaseIndex() {
-    return {ck: 0, pk: 1, out: 2, done: 3}[curS.phase || 'ck'];
-   }
-
-   // 내부 로트 발번: LI-YYYYMMDD-#### (세션 시작일 기준)
-   function genLot(seq) {
-    var d = (curS.start && curS.start.indexOf(' ') >= 0) ? curS.start.split(' ')[0] : nowHM().split(' ')[0];
-    return 'LI-' + d.replace(/-/g, '') + '-' + String(seq).padStart(4, '0');
-   }
-
-   // GS1-128 파싱: (01)GTIN (10)LOT (11)제조일 (30)수량 → 객체
-   function parseGs1(raw) {
-    raw = String(raw || '');
-    var out = {raw: raw, gtin: null, lot: null, date: null, qty: null};
-    var m;
-    if ((m = raw.match(/\(01\)(\d+)/))) out.gtin = m[1];
-    if ((m = raw.match(/\(10\)([^()]+)/))) out.lot = m[1];
-    if ((m = raw.match(/\(11\)(\d+)/))) out.date = m[1];
-    if ((m = raw.match(/\(30\)(\d+)/))) out.qty = parseInt(m[1], 10);
-    // 괄호 없는 순수 문자열이면 통째로 로트로 간주(수동 입력 폴백)
-    if (!out.gtin && !out.lot && raw) out.lot = raw.trim();
-    return out;
-   }
-
-   // 파싱 객체 → GS1-128 문자열 재조합(표시용)
-   function gs1Line(d) {
-    if (!d) return '-';
-    var s = '';
-    if (d.gtin) s += '(01)' + d.gtin;
-    if (d.lot) s += '(10)' + d.lot;
-    if (d.qty != null) s += '(30)' + d.qty;
-    if (d.date) s += '(11)' + d.date;
-    return s || (d.raw || '-');
-   }
-
-   // 로트 매핑 표: 시스템 로트(발번) + 라벨 스캔 전체 데이터(GS1-128)
-   function mapTable() {
-    var ck = curS.scanCkpk, ib = curS.scanInbox;
-    var rows = [
-     ['PK', curS.pkSysLot, '멸균 발번', ck],
-     ['CK', curS.ckSysLot, 'CK 완료 발번', ck],
-     ['인박스', curS.inboxSysLot, '포장 완료 발번', ib]
-    ];
-    return '<table class="form-tbl"><tr><th>구분</th><th>시스템 로트(발번)</th><th>라벨 스캔 데이터(GS1-128)</th></tr>' +
-     rows.map(function (t) {
-      var sys = t[1] ? t[1] : '<span style="color:var(--ink-2)">' + t[2] + ' 예정</span>';
-      var scan = t[3] ? gs1Line(t[3]) : '<span style="color:var(--ink-2)">-</span>';
-      return '<tr><td>' + t[0] + '</td><td>' + sys + '</td><td style="font-variant-numeric:tabular-nums;word-break:break-all">' + scan + '</td></tr>';
-     }).join('') + '</table>';
-   }
-
-   function phaseBar() {
-    var idx = phaseIndex();
-    var steps = ['CK 투입', 'PK·외포장', '아웃포장'];
-    return '<div class="phasebar">' + steps.map(function (s, i) {
-     var cls = i < idx ? 'done' : (i === idx ? 'active' : 'idle');
-     return (i > 0 ? '<div class="pline ' + (i <= idx ? 'on' : '') + '"></div>' : '') +
-      '<div class="pstep ' + cls + '"><span class="pn2">' + (i + 1) + '</span>' + s + '</div>';
-    }).join('') + '</div>';
-   }
-
-   /* ── 블록 헬퍼 ── */
-   function matList(locked) {
-    return CK_INPUTS.map(function (m) {
-     var per = m.qty || 1;
-     var need = per * (curS.units || 0);
-     var ok = need > 0;
-     var dq = (curS.ckDef && curS.ckDef[m.code] && curS.ckDef[m.code].defQty) || 0;
-     var defBadge = dq > 0
-      ? '<button class="defbtn has" data-def="' + m.code + '">부적합 ' + dq + '</button>'
-      : (locked ? '' : '<button class="defbtn" data-def="' + m.code + '">부적합</button>');
-     return '<div class="mat ' + (ok ? 'on' : '') + '">' +
-      '<div class="chk">' + (ok ? '✓' : '') + '</div>' +
-      '<div class="mid"><div class="mn">' + m.name + '</div>' +
-      '<div class="mc">' + m.code + ' · BOM ' + per + ' /EA → 필요 <b>' + need + '</b></div></div>' +
-      (dq > 0 ? '<div class="stat"><div class="col"><span class="l">불량</span><span class="v bad">' + dq + '</span></div></div>' : '') +
-      defBadge +
-      '</div>';
-    }).join('');
-   }
-
-   function ckSummary() {
-    var cm = ckMeta(curS.ckLot);
-    var bad = 0, d = curS.ckDef || {};
-    Object.keys(d).forEach(function (k) {
-     bad += (d[k].defQty || 0);
-    });
-    return '<div class="secline">① CK 투입 <span class="ln"></span><span>완료</span></div>' +
-     '<div class="part"><div class="id"><span class="pn">CK 투입 완료</span><span class="pc">' +
-     (cm ? cm.lot + ' · ' + cm.name : '') + (bad > 0 ? ' · 부적합 ' + bad : '') +
-     '</span></div><span class="done-tag">' + curS.units + ' EA</span></div>';
-   }
-
-   function pkSummary() {
-    var pm = pkMeta(curS.pkLot);
-    return '<div class="secline">② PK 및 외포장 <span class="ln"></span><span>완료</span></div>' +
-     '<div class="part"><div class="id"><span class="pn">블리스터 로트</span><span class="pc">' +
-     (pm ? pm.lot : '-') + ' · 라벨 ' + (curS.labelLot || '-') +
-     '</span></div><span class="done-tag">' + curS.pkUnits + ' EA</span></div>' +
-     ((curS.scanCkpk && curS.scanInbox) ? mapTable() : '');
-   }
-
-   function labelScanBlock(locked) {
-    var done = curS.scanCkpk && curS.scanInbox;
-    var html = '<div class="secline" style="margin-top:10px">라벨 스캔 <span class="ln"></span><span>CK·PK 1회 + 인박스 1회 = 2회 스캔</span></div>';
-    if (!done) {
-     html += '<div class="part"><div class="id"><span class="pn">📷 GS1-128 라벨 2회 스캔</span><span class="pc">CK·PK 라벨(수량 없음) + 인박스 라벨(수량 있음)을 각각 스캔합니다. 스캔 데이터 전체((01)(10)(11)(30))를 그대로 가져옵니다.</span></div>' +
-      (locked ? '' : '<button class="btn primary" id="scanIn" style="min-height:54px">스캔</button>') + '</div>';
-    } else {
-     html += mapTable() +
-      (locked ? '' : '<div style="margin-top:6px"><button class="btn ghost" id="rescanIn">다시 스캔</button></div>');
-    }
-    return html;
-   }
-
-   function packHierarchy(pv) {
-    return '<div class="part"><div class="id"><span class="pn">인박스</span><span class="pc">완제품 ' + curS.units + '개 = 인박스 ' + pv.inbox + ' (완제품 1개당 인박스 1개)</span></div>' +
-     '<span class="done-tag">' + pv.inbox + ' 박스</span></div>' +
-     '<div class="part"><div class="id"><span class="pn">아웃박스</span><span class="pc">인박스 ' + pv.inbox + ' ÷ ' + pv.oc + '입 = 아웃박스 ' + pv.outbox + (pv.inLoose ? ' + 인박스 잔여 ' + pv.inLoose : '') + '</span></div>' +
-     '<span class="done-tag">' + pv.outbox + ' 박스</span></div>';
-   }
-
-   function outPrintBlock(pv) {
-    var scanNote = '<div class="part locked"><div class="id"><span class="pn">아웃박스 라벨</span><span class="pc">외부(ERP/UDI) 인쇄물 — MES는 스캔으로 지정만, 출력 안 함</span></div><span class="done-tag" style="background:var(--surface-2);color:var(--ink-2)">스캔 지정</span></div>';
-    var outBtn = pv.outbox > 0
-     ? '<button class="btn primary" id="bcOut" style="flex:1;min-height:56px">🗳 아웃박스 바코드 출력 (' + pv.outbox + '장)</button>'
-     : '<div class="emptysess" style="flex:1">아웃박스 1개를 채우려면 완제품 ' + (pv.ic * pv.oc) + '개 필요</div>';
-    return '<div class="secline">라벨 <span class="ln"></span><span>아웃박스만 MES 출력</span></div>' + scanNote +
-     '<div class="printrow">' + outBtn + '</div>';
-   }
-
-   function renderCBody() {
-    var locked = curS.st !== 'working';
-    var o = curO;
-    var ph = curS.phase || 'ck';
-    var idx = phaseIndex();
-    var cm = ckMeta(curS.ckLot);
-    var pm = pkMeta(curS.pkLot);
-    var pv = packView(o, curS.units);
-    var html = phaseBar();
-
-    /* ── ① CK 투입 ── */
-    if (ph === 'ck') {
-     html += '<div class="secline">① CK 투입 <span class="ln"></span><span>완제품 수량 → CK 자재 자동 투입</span></div>';
-     // 완제품 수량
-     html += '<div class="part"><div class="id"><span class="pn">완제품 수량</span><span class="pc">이 세션에서 포장할 완제품(키트) 총개수</span></div>' +
-      (locked ? '<span class="done-tag">' + curS.units + ' EA</span>' : '<div class="stepper" data-units="1"><button class="minus">−</button><div class="qty" data-padunits="1">' + curS.units + '</div><button class="plus">+</button></div>') + '</div>';
-     // CK 로트 자동 지정
-     html += '<div class="part"><div class="id"><span class="pn">CK 로트</span><span class="pc">' +
-      (cm ? cm.lot + ' · ' + cm.name : '미지정') +
-      '</span></div><span class="done-tag">자동 지정</span></div>';
-     // CK 자재 투입
-     var ckmc = ckMatCount(curS.units);
-     html += '<div class="secline">CK 자재 투입 <span class="ln"></span><span>' + ckmc.done + ' / ' + ckmc.total + ' 충족 (BOM 자동)</span></div>';
-     html += matList(locked);
-    } else {
-     html += ckSummary();
-    }
-
-    /* ── ② PK 및 외포장 ── */
-    if (ph === 'pk') {
-     html += '<div class="secline">② PK 및 외포장 <span class="ln"></span><span>블리스터 로트 + 라벨 스캔</span></div>';
-     // 블리스터 로트
-     html += '<div class="part"><div class="id"><span class="pn">블리스터 로트</span><span class="pc">' + (pm ? pm.lot + ' · ' + pm.name + ' · 멸균필 ' + pm.qty + ' · 자동 선택(변경 가능)' : '미선택') + '</span></div>' +
-      (locked ? '<span class="done-tag" style="background:var(--surface-2);color:var(--ink-2)">' + (curS.pkLot || '-') + '</span>' : '<button class="btn ghost" data-pickpk="1" style="min-height:54px">변경</button>') + '</div>';
-     // 완제품 수량(PK)
-     html += '<div class="part"><div class="id"><span class="pn">완제품 수량</span><span class="pc">블리스터(PK) 투입 총개수</span></div>' +
-      (locked ? '<span class="done-tag">' + curS.pkUnits + ' EA</span>' : '<div class="stepper" data-pkunits="1"><button class="minus">−</button><div class="qty" data-padpkunits="1">' + curS.pkUnits + '</div><button class="plus">+</button></div>') + '</div>';
-     // 라벨 스캔
-     html += labelScanBlock(locked);
-    } else if (idx > 1) {
-     html += pkSummary();
-    }
-
-    /* ── ③ 아웃포장 ── */
-    if (ph === 'out' || ph === 'done') {
-     html += '<div class="secline">③ 아웃포장 <span class="ln"></span><span>인박스 1:1 / 아웃박스 ' + pv.oc + '입</span></div>';
-     html += packHierarchy(pv);
-     html += outPrintBlock(pv);
-    }
-
-    document.getElementById('cBody').innerHTML = html;
-   }
-
-   function delSess() {
-    curO.sessions.splice(curS._idx, 1);
-    renderSessList();
-    show('B');
-    flash('작업 삭제 (목업)');
-   }
-
-   function renderCAction() {
-    var bar = document.getElementById('cAction');
-    var ph = curS.phase || 'ck';
-
-    // 완료(포장 공정 완료) 상태
-    if (curS.st === 'done' || ph === 'done') {
-     bar.innerHTML = '<div class="actsum"><span class="l">완제품 포장</span><span class="v">' + curS.units + ' EA</span></div><button class="btn danger" id="cCancel">완료취소</button>';
-     document.getElementById('cCancel').onclick = function () {
-      curS.st = 'working';
-      curS.phase = 'out';
-      curS.end = null;
+    function openSess(i) {
+      curS = curO.sessions[i];
+      curS._idx = i;
+      if (!curS.phase) curS.phase = curS.st === 'done' ? 'done' : 'ck';
+      // 내부 로트(발번) 정규화: PK(멸균), CK(CK완료), 인박스(포장완료) 시점별
+      if (!curS.pkSysLot) curS.pkSysLot = genLot(1);
+      if (!curS.ckSysLot && phaseIndex() > 0) curS.ckSysLot = genLot(2);
+      if (!curS.inboxSysLot && (curS.phase === 'out' || curS.phase === 'done')) curS.inboxSysLot = genLot(3);
+      document.getElementById('cName').textContent = curS.worker + ' · 포장';
+      document.getElementById('cSub').textContent = curO.id + ' · ' + curO.name + ' · 계획 ' + curO.plan;
       renderCHead();
       renderCBody();
       renderCAction();
-      renderSessList();
-      flash('완료취소 → 아웃포장 (목업)');
-     };
-     return;
+      show('C');
     }
 
-    // ① CK 투입 → CK 완료
-    if (ph === 'ck') {
-     var ckReady = curS.units > 0;
-     bar.innerHTML = '<div class="actsum"><span class="l">CK 투입 수량</span><span class="v">' + curS.units + ' EA</span></div>' +
-      '<button class="btn ghost" id="cDelete">삭제</button>' +
-      '<button class="btn primary" id="ckDone" ' + (ckReady ? '' : 'disabled style="opacity:.5"') + '>CK 완료</button>';
-     document.getElementById('ckDone').onclick = function () {
-      if (curS.units <= 0) {
-       flash('완제품 수량을 입력하세요');
-       return;
+    function renderCHead() {
+      document.getElementById('cHead').innerHTML =
+              '<div class="infopill"><span>설비</span><b>' + curS.equip + '</b></div>' +
+              '<div class="infopill tap" data-time="start"><span>시작</span><b>' + pill(curS.start) + '</b></div>' +
+              '<div class="infopill tap" data-time="end"><span>종료</span><b>' + pill(curS.end) + '</b></div>' +
+              '<span class="sstate ' + curS.st + '">' + STLAB[curS.st] + '</span>';
+    }
+
+    /* ── 단계(phase) 유틸 ── */
+    function phaseIndex() {
+      return {ck: 0, pk: 1, out: 2, done: 3}[curS.phase || 'ck'];
+    }
+
+    // 내부 로트 발번: LI-YYYYMMDD-#### (세션 시작일 기준)
+    function genLot(seq) {
+      var d = (curS.start && curS.start.indexOf(' ') >= 0) ? curS.start.split(' ')[0] : nowHM().split(' ')[0];
+      return 'LI-' + d.replace(/-/g, '') + '-' + String(seq).padStart(4, '0');
+    }
+
+    // GS1-128 파싱: (01)GTIN (10)LOT (11)제조일 (17)유효기간 (30)수량 → 객체
+    // 두 형식을 모두 처리: 괄호 표기((01)...) + 스캐너 원시 element string(FNC1=GS,0x1D)
+    function parseGs1(raw) {
+      raw = String(raw || '');
+      var out = {raw: raw, gtin: null, lot: null, date: null, expiry: null, qty: null};
+      var m;
+      if (raw.indexOf('(') >= 0) {           // 괄호 표기(사람이 읽는 표기/수동입력)
+        if ((m = raw.match(/\(01\)(\d+)/))) out.gtin = m[1];
+        if ((m = raw.match(/\(10\)([^()\u001d]+)/))) out.lot = m[1];
+        if ((m = raw.match(/\(11\)(\d{6})/))) out.date = m[1];
+        if ((m = raw.match(/\(17\)(\d{6})/))) out.expiry = m[1];
+        if ((m = raw.match(/\(30\)(\d+)/))) out.qty = parseInt(m[1], 10);
+        if (!out.gtin && !out.lot) out.lot = raw.trim();
+        return out;
       }
-      if (!curS.pkUnits) curS.pkUnits = curS.units;
-      if (!curS.ckSysLot) curS.ckSysLot = genLot(2);
-      curS.phase = 'pk';
+      // 원시 element string. FNC1은 GS(0x1D)로 들어오는 경우가 많음.
+      var GS = '\u001d';
+      var s = raw.replace(/^\]C1/, '').replace(/^\u001d/, ''); // 심볼로지 식별자/선행 FNC1 제거
+      var FIXED = {'00': 18, '01': 14, '02': 14, '11': 6, '12': 6, '13': 6, '15': 6, '16': 6, '17': 6, '20': 2};
+      var i = 0;
+      function assign(ai, v) {
+        if (ai === '01') out.gtin = v;
+        else if (ai === '10') out.lot = v;
+        else if (ai === '11') out.date = v;
+        else if (ai === '17') out.expiry = v;
+        else if (ai === '30') out.qty = parseInt(v, 10);
+      }
+      while (i < s.length) {
+        if (s[i] === GS) { i++; continue; }
+        var ai = s.substr(i, 2); i += 2;         // 대상 AI(01/10/11/17/30)는 모두 2자리
+        var flen = FIXED[ai];
+        if (flen != null) { assign(ai, s.substr(i, flen)); i += flen; }
+        else {                                    // 가변길이: GS 또는 끝까지
+          var g = s.indexOf(GS, i);
+          var end = g < 0 ? s.length : g;
+          assign(ai, s.substring(i, end)); i = end;
+        }
+      }
+      if (!out.gtin && !out.lot && s) out.lot = s.trim();
+      return out;
+    }
+
+    // 파싱 객체 → GS1-128 문자열 재조합(표시용)
+    function gs1Line(d) {
+      if (!d) return '-';
+      var s = '';
+      if (d.gtin) s += '(01)' + d.gtin;
+      if (d.lot) s += '(10)' + d.lot;
+      if (d.qty != null) s += '(30)' + d.qty;
+      if (d.date) s += '(11)' + d.date;
+      return s || (d.raw || '-');
+    }
+
+    // 로트 매핑 표: 시스템 로트(발번) + 라벨 스캔 전체 데이터(GS1-128)
+    function mapTable() {
+      var ck = curS.scanCkpk, ib = curS.scanInbox;
+      var rows = [
+        ['PK', curS.pkSysLot, '멸균 발번', ck],
+        ['CK', curS.ckSysLot, 'CK 완료 발번', ck],
+        ['인박스', curS.inboxSysLot, '포장 완료 발번', ib]
+      ];
+      return '<table class="form-tbl"><tr><th>구분</th><th>시스템 로트(발번)</th><th>라벨 스캔 데이터(GS1-128)</th></tr>' +
+              rows.map(function (t) {
+                var sys = t[1] ? t[1] : '<span style="color:var(--ink-2)">' + t[2] + ' 예정</span>';
+                var scan = t[3] ? gs1Line(t[3]) : '<span style="color:var(--ink-2)">-</span>';
+                return '<tr><td>' + t[0] + '</td><td>' + sys + '</td><td style="font-variant-numeric:tabular-nums;word-break:break-all">' + scan + '</td></tr>';
+              }).join('') + '</table>';
+    }
+
+    function phaseBar() {
+      var idx = phaseIndex();
+      var steps = ['CK 투입', 'PK·외포장', '아웃포장'];
+      return '<div class="phasebar">' + steps.map(function (s, i) {
+        var cls = i < idx ? 'done' : (i === idx ? 'active' : 'idle');
+        return (i > 0 ? '<div class="pline ' + (i <= idx ? 'on' : '') + '"></div>' : '') +
+                '<div class="pstep ' + cls + '"><span class="pn2">' + (i + 1) + '</span>' + s + '</div>';
+      }).join('') + '</div>';
+    }
+
+    /* ── 블록 헬퍼 ── */
+    function matList(locked) {
+      return CK_INPUTS.map(function (m) {
+        var per = m.qty || 1;
+        var need = per * (curS.units || 0);
+        var ok = need > 0;
+        var dq = (curS.ckDef && curS.ckDef[m.code] && curS.ckDef[m.code].defQty) || 0;
+        var defBadge = dq > 0
+                ? '<button class="defbtn has" data-def="' + m.code + '">부적합 ' + dq + '</button>'
+                : (locked ? '' : '<button class="defbtn" data-def="' + m.code + '">부적합</button>');
+        return '<div class="mat ' + (ok ? 'on' : '') + '">' +
+                '<div class="chk">' + (ok ? '✓' : '') + '</div>' +
+                '<div class="mid"><div class="mn">' + m.name + '</div>' +
+                '<div class="mc">' + m.code + ' · BOM ' + per + ' /EA → 필요 <b>' + need + '</b></div></div>' +
+                (dq > 0 ? '<div class="stat"><div class="col"><span class="l">불량</span><span class="v bad">' + dq + '</span></div></div>' : '') +
+                defBadge +
+                '</div>';
+      }).join('');
+    }
+
+    function ckSummary() {
+      var cm = ckMeta(curS.ckLot);
+      var bad = 0, d = curS.ckDef || {};
+      Object.keys(d).forEach(function (k) {
+        bad += (d[k].defQty || 0);
+      });
+      return '<div class="secline">① CK 투입 <span class="ln"></span><span>완료</span></div>' +
+              '<div class="part"><div class="id"><span class="pn">CK 투입 완료</span><span class="pc">' +
+              (cm ? cm.lot + ' · ' + cm.name : '') + (bad > 0 ? ' · 부적합 ' + bad : '') +
+              '</span></div><span class="done-tag">' + curS.units + ' EA</span></div>';
+    }
+
+    function pkSummary() {
+      var pm = pkMeta(curS.pkLot);
+      return '<div class="secline">② PK 및 외포장 <span class="ln"></span><span>완료</span></div>' +
+              '<div class="part"><div class="id"><span class="pn">블리스터 로트</span><span class="pc">' +
+              (pm ? pm.lot : '-') + ' · 라벨 ' + (curS.labelLot || '-') +
+              '</span></div><span class="done-tag">' + curS.pkUnits + ' EA</span></div>' +
+              ((curS.scanCkpk && curS.scanInbox) ? mapTable() : '');
+    }
+
+    function labelScanBlock(locked) {
+      var done = curS.scanCkpk && curS.scanInbox;
+      var html = '<div class="secline" style="margin-top:10px">라벨 스캔 <span class="ln"></span><span>CK·PK 1회 + 인박스 1회 = 2회 스캔</span></div>';
+      if (!done) {
+        html += '<div class="part"><div class="id"><span class="pn">📷 GS1-128 라벨 2회 스캔</span><span class="pc">CK·PK 라벨(수량 없음) + 인박스 라벨(수량 있음)을 각각 스캔합니다. 스캔 데이터 전체((01)(10)(11)(30))를 그대로 가져옵니다.</span></div>' +
+                (locked ? '' : '<button class="btn primary" id="scanIn" style="min-height:54px">스캔</button>') + '</div>';
+      } else {
+        html += mapTable() +
+                (locked ? '' : '<div style="margin-top:6px"><button class="btn ghost" id="rescanIn">다시 스캔</button></div>');
+      }
+      return html;
+    }
+
+    function packHierarchy(pv) {
+      return '<div class="part"><div class="id"><span class="pn">인박스</span><span class="pc">완제품 ' + curS.units + '개 = 인박스 ' + pv.inbox + ' (완제품 1개당 인박스 1개)</span></div>' +
+              '<span class="done-tag">' + pv.inbox + ' 박스</span></div>' +
+              '<div class="part"><div class="id"><span class="pn">아웃박스</span><span class="pc">인박스 ' + pv.inbox + ' ÷ ' + pv.oc + '입 = 아웃박스 ' + pv.outbox + (pv.inLoose ? ' + 인박스 잔여 ' + pv.inLoose : '') + '</span></div>' +
+              '<span class="done-tag">' + pv.outbox + ' 박스</span></div>';
+    }
+
+    function outPrintBlock(pv) {
+      var scanNote = '<div class="part locked"><div class="id"><span class="pn">PK · CK · 인박스 라벨</span><span class="pc">외부(ERP/UDI) 인쇄물 — MES는 스캔으로 지정만, 출력 안 함</span></div><span class="done-tag" style="background:var(--surface-2);color:var(--ink-2)">스캔 지정</span></div>';
+      var outBtn = pv.outbox > 0
+              ? '<button class="btn primary" id="bcOut" style="flex:1;min-height:56px">🗳 아웃박스 바코드 출력 (' + pv.outbox + '장)</button>'
+              : '<div class="emptysess" style="flex:1">아웃박스 1개를 채우려면 완제품 ' + (pv.ic * pv.oc) + '개 필요</div>';
+      return '<div class="secline">라벨 <span class="ln"></span><span>아웃박스만 MES 출력</span></div>' + scanNote +
+              '<div class="printrow">' + outBtn + '</div>';
+    }
+
+    function renderCBody() {
+      var locked = curS.st !== 'working';
+      var o = curO;
+      var ph = curS.phase || 'ck';
+      var idx = phaseIndex();
+      var cm = ckMeta(curS.ckLot);
+      var pm = pkMeta(curS.pkLot);
+      var pv = packView(o, curS.units);
+      var html = phaseBar();
+
+      /* ── ① CK 투입 ── */
+      if (ph === 'ck') {
+        html += '<div class="secline">① CK 투입 <span class="ln"></span><span>완제품 수량 → CK 자재 자동 투입</span></div>';
+        // 완제품 수량
+        html += '<div class="part"><div class="id"><span class="pn">완제품 수량</span><span class="pc">이 세션에서 포장할 완제품(키트) 총개수</span></div>' +
+                (locked ? '<span class="done-tag">' + curS.units + ' EA</span>' : '<div class="stepper" data-units="1"><button class="minus">−</button><div class="qty" data-padunits="1">' + curS.units + '</div><button class="plus">+</button></div>') + '</div>';
+        // CK 로트 자동 지정
+        html += '<div class="part"><div class="id"><span class="pn">CK 로트</span><span class="pc">' +
+                (cm ? cm.lot + ' · ' + cm.name : '미지정') +
+                '</span></div><span class="done-tag">자동 지정</span></div>';
+        // CK 자재 투입
+        var ckmc = ckMatCount(curS.units);
+        html += '<div class="secline">CK 자재 투입 <span class="ln"></span><span>' + ckmc.done + ' / ' + ckmc.total + ' 충족 (BOM 자동)</span></div>';
+        html += matList(locked);
+      } else {
+        html += ckSummary();
+      }
+
+      /* ── ② PK 및 외포장 ── */
+      if (ph === 'pk') {
+        html += '<div class="secline">② PK 및 외포장 <span class="ln"></span><span>블리스터 로트 + 라벨 스캔</span></div>';
+        // 블리스터 로트
+        html += '<div class="part"><div class="id"><span class="pn">블리스터 로트</span><span class="pc">' + (pm ? pm.lot + ' · ' + pm.name + ' · 멸균필 ' + pm.qty + ' · 자동 선택(변경 가능)' : '미선택') + '</span></div>' +
+                (locked ? '<span class="done-tag" style="background:var(--surface-2);color:var(--ink-2)">' + (curS.pkLot || '-') + '</span>' : '<button class="btn ghost" data-pickpk="1" style="min-height:54px">변경</button>') + '</div>';
+        // 완제품 수량(PK)
+        html += '<div class="part"><div class="id"><span class="pn">완제품 수량</span><span class="pc">블리스터(PK) 투입 총개수</span></div>' +
+                (locked ? '<span class="done-tag">' + curS.pkUnits + ' EA</span>' : '<div class="stepper" data-pkunits="1"><button class="minus">−</button><div class="qty" data-padpkunits="1">' + curS.pkUnits + '</div><button class="plus">+</button></div>') + '</div>';
+        // 라벨 스캔
+        html += labelScanBlock(locked);
+      } else if (idx > 1) {
+        html += pkSummary();
+      }
+
+      /* ── ③ 아웃포장 ── */
+      if (ph === 'out' || ph === 'done') {
+        html += '<div class="secline">③ 아웃포장 <span class="ln"></span><span>인박스 1:1 / 아웃박스 ' + pv.oc + '입</span></div>';
+        html += packHierarchy(pv);
+        html += outPrintBlock(pv);
+      }
+
+      document.getElementById('cBody').innerHTML = html;
+    }
+
+    function delSess() {
+      curO.sessions.splice(curS._idx, 1);
+      renderSessList();
+      show('B');
+      flash('작업 삭제 (목업)');
+    }
+
+    function renderCAction() {
+      var bar = document.getElementById('cAction');
+      var ph = curS.phase || 'ck';
+
+      // 완료(포장 공정 완료) 상태
+      if (curS.st === 'done' || ph === 'done') {
+        bar.innerHTML = '<div class="actsum"><span class="l">완제품 포장</span><span class="v">' + curS.units + ' EA</span></div><button class="btn danger" id="cCancel">완료취소</button>';
+        document.getElementById('cCancel').onclick = function () {
+          curS.st = 'working';
+          curS.phase = 'out';
+          curS.end = null;
+          renderCHead();
+          renderCBody();
+          renderCAction();
+          renderSessList();
+          flash('완료취소 → 아웃포장 (목업)');
+        };
+        return;
+      }
+
+      // ① CK 투입 → CK 완료
+      if (ph === 'ck') {
+        var ckReady = curS.units > 0;
+        bar.innerHTML = '<div class="actsum"><span class="l">CK 투입 수량</span><span class="v">' + curS.units + ' EA</span></div>' +
+                '<button class="btn ghost" id="cDelete">삭제</button>' +
+                '<button class="btn primary" id="ckDone" ' + (ckReady ? '' : 'disabled style="opacity:.5"') + '>CK 완료</button>';
+        document.getElementById('ckDone').onclick = function () {
+          if (curS.units <= 0) {
+            flash('완제품 수량을 입력하세요');
+            return;
+          }
+          if (!curS.pkUnits) curS.pkUnits = curS.units;
+          if (!curS.ckSysLot) curS.ckSysLot = genLot(2);
+          curS.phase = 'pk';
+          renderCBody();
+          renderCAction();
+          renderSessList();
+          flash('CK 완료 (로트 ' + curS.ckSysLot + ') → PK·외포장 (목업)');
+        };
+        document.getElementById('cDelete').onclick = delSess;
+        return;
+      }
+
+      // ② PK 및 외포장 → 포장 완료
+      if (ph === 'pk') {
+        var pkReady = curS.pkLot && curS.pkUnits > 0 && curS.scanCkpk && curS.scanInbox;
+        bar.innerHTML = '<div class="actsum"><span class="l">PK 수량</span><span class="v">' + curS.pkUnits + ' EA</span></div>' +
+                '<button class="btn ghost" id="pkBack">‹ CK</button>' +
+                '<button class="btn primary" id="pkDone" ' + (pkReady ? '' : 'disabled style="opacity:.5"') + '>포장 완료</button>';
+        document.getElementById('pkBack').onclick = function () {
+          curS.phase = 'ck';
+          renderCBody();
+          renderCAction();
+        };
+        document.getElementById('pkDone').onclick = function () {
+          if (!curS.pkLot) {
+            flash('블리스터 로트를 선택하세요');
+            return;
+          }
+          if (curS.pkUnits <= 0) {
+            flash('완제품 수량을 입력하세요');
+            return;
+          }
+          if (!curS.scanCkpk || !curS.scanInbox) {
+            flash('라벨 2회 스캔(CK·PK + 인박스)이 필요합니다');
+            return;
+          }
+          if (!curS.inboxSysLot) curS.inboxSysLot = genLot(3);
+          curS.phase = 'out';
+          renderCBody();
+          renderCAction();
+          renderSessList();
+          flash('포장 완료 (인박스 로트 ' + curS.inboxSysLot + ') → 아웃포장 (목업)');
+        };
+        return;
+      }
+
+      // ③ 아웃포장 → 포장 공정 완료
+      var pv = packView(curO, curS.units);
+      bar.innerHTML = '<div class="actsum"><span class="l">아웃박스</span><span class="v">' + pv.outbox + ' 박스</span></div>' +
+              '<button class="btn ghost" id="outBack">‹ PK</button>' +
+              '<button class="btn primary" id="outDone">포장 공정 완료</button>';
+      document.getElementById('outBack').onclick = function () {
+        curS.phase = 'pk';
+        renderCBody();
+        renderCAction();
+      };
+      document.getElementById('outDone').onclick = function () {
+        if (!curS.inboxSysLot) curS.inboxSysLot = genLot(3); // 폴백(정상적으론 포장 완료 시 발번)
+        curS.st = 'done';
+        curS.phase = 'done';
+        curS.end = nowHM();
+        renderCHead();
+        renderCBody();
+        renderCAction();
+        renderSessList();
+        flash('포장 공정 완료 → 출하대기 (목업)');
+      };
+    }
+
+    document.getElementById('cBody').addEventListener('click', function (e) {
+      function step(sel, key, max) {
+        var st = e.target.closest('[data-' + sel + ']');
+        if (st && (e.target.classList.contains('plus') || e.target.classList.contains('minus'))) {
+          var d = e.target.classList.contains('plus') ? 1 : -1;
+          curS[key] = Math.max(0, (max ? Math.min(max, curS[key] + d) : curS[key] + d));
+          renderCBody();
+          renderCAction();
+          renderSessList();
+          return true;
+        }
+        return false;
+      }
+
+      if (step('units', 'units')) return;
+      if (step('pkunits', 'pkUnits')) return;
+
+      var padu = e.target.closest('[data-padunits]');
+      if (padu) {
+        openPadUnits();
+        return;
+      }
+      var padpk = e.target.closest('[data-padpkunits]');
+      if (padpk) {
+        openPadPkUnits();
+        return;
+      }
+      var pc = e.target.closest('[data-pickck]');
+      if (pc) {
+        openCk();
+        return;
+      }
+      var pp = e.target.closest('[data-pickpk]');
+      if (pp) {
+        if (!curS.ckLot) {
+          flash('CK 로트를 먼저 선택하세요');
+          return;
+        }
+        openPk();
+        return;
+      }
+      if (e.target.id === 'scanIn' || e.target.id === 'rescanIn') {
+        openScan();
+        return;
+      }
+
+      // CK 자재 부적합 등록 (조립에서 이식)
+      var defb = e.target.closest('[data-def]');
+      if (defb) {
+        openDef(defb.dataset.def);
+        return;
+      }
+
+      if (e.target.id === 'bcOut') {
+        var pv = packView(curO, curS.units);
+        var src = curS.scanInbox || curS.scanCkpk || {};
+        var gtin = src.gtin || curO.gtin;
+        var lot = src.lot || curS.labelLot || curS.pkLot;
+        var dt = src.date || (curS.start || '').slice(2, 10).replace(/-/g, '');
+        var qty = pv.ic * pv.oc;
+        openBarcode('아웃박스 바코드', [{
+          line: 'b-(01)' + gtin + '(10)' + lot + '(30)' + qty + '(11)' + dt,
+          sub: curO.name + ' · 아웃박스(완제품 ' + qty + ' EA) · 로트 ' + lot,
+          copies: pv.outbox
+        }]);
+        return;
+      }
+    });
+    document.getElementById('cHead').addEventListener('click', function (e) {
+      var t = e.target.closest('[data-time]');
+      if (t) openTime(t.dataset.time);
+    });
+
+    /* ── 라벨 스캔 (실사용) · 2회 스캔 ──
+       1회차: CK·PK 라벨  (01)GTIN(10)LOT(11)제조일  ← 수량(30) 없음
+       2회차: 인박스 라벨  (01)GTIN(10)LOT(30)수량(11)제조일  ← 수량(30) 있음
+       입력원: ① 카메라(BarcodeDetector, 미지원 시 ZXing) ② USB/BT 스캐너건(HID) ③ 수동입력.
+       로트만이 아니라 GS1-128 전체 데이터를 그대로 저장. */
+    var scanStep = 1;                         // 1: CK·PK, 2: 인박스
+    var scanBuf = {ckpk: null, inbox: null};  // 단계별 확정 버퍼
+    var scanPending = null;                   // 현재 인식된 파싱 객체
+    var scanFrozen = false;                   // 인식 후 정지(중복 인식 방지)
+
+    function renderScanSteps() {
+      var steps = ['① CK · PK', '② 인박스'];
+      document.getElementById('scanSteps').innerHTML = steps.map(function (s, i) {
+        var n = i + 1;
+        var cls = n < scanStep ? 'done' : (n === scanStep ? 'active' : 'idle');
+        return (i > 0 ? '<div class="pline ' + (n <= scanStep ? 'on' : '') + '"></div>' : '') +
+                '<div class="pstep ' + cls + '"><span class="pn2">' + n + '</span>' + s + '</div>';
+      }).join('');
+    }
+
+    // UI를 '스캔 대기(라이브)' 상태로 되돌림(카메라는 유지)
+    function scanReset() {
+      scanPending = null;
+      scanFrozen = false;
+      document.getElementById('scanBox').classList.remove('recognized');
+      document.getElementById('scanHint').textContent = scanStep === 1
+              ? 'CK·PK 라벨을 사각형 안에 · (01)GTIN(10)LOT(11)제조일'
+              : '인박스 라벨을 사각형 안에 · (01)GTIN(10)LOT(30)수량(11)제조일';
+      document.getElementById('scanResult').classList.remove('show');
+      document.getElementById('scanLotVal').textContent = '—';
+      document.getElementById('scanRaw').textContent = '—';
+      document.getElementById('scanRetry').style.display = 'none';
+      document.getElementById('scanRestart').style.display = 'none';
+      document.getElementById('scanApply').disabled = true;
+      document.getElementById('scanTitle').textContent = scanStep === 1 ? '① CK · PK 라벨 스캔' : '② 인박스 라벨 스캔';
+      document.getElementById('scanKind').textContent = scanStep === 1 ? 'CK · PK 라벨 (수량 없음)' : '인박스 라벨 (수량 있음)';
+      document.getElementById('scanApply').textContent = scanStep === 1 ? '다음 · 인박스 스캔 ›' : '이 데이터로 지정';
+      renderScanSteps();
+    }
+
+    function openScan() {
+      scanStep = 1;
+      scanBuf = {ckpk: null, inbox: null};
+      document.getElementById('scanManual').value = '';
+      scanReset();
+      showMask('scanMask');
+      startScanner();
+    }
+
+    // 인식된 GS1-128 텍스트 처리(카메라/스캐너건 공통 진입점)
+    function onScanText(text) {
+      if (!scanActive || scanFrozen) return;
+      var d = parseGs1(text);
+      if (!d.gtin && !d.lot) return; // 의미 없는 인식 무시
+      scanRecognize(d, false);
+    }
+
+    function scanRecognize(d, viaManual) {
+      scanPending = d;
+      scanFrozen = true;
+      document.getElementById('scanBox').classList.add('recognized');
+      document.getElementById('scanHint').textContent = viaManual ? '수동 입력 확인' : '인식 완료 — GS1-128 디코딩';
+      document.getElementById('scanLotVal').textContent = d.lot || '(로트 없음)';
+      document.getElementById('scanRaw').textContent = gs1Line(d);
+      document.getElementById('scanResult').classList.add('show');
+      document.getElementById('scanRetry').style.display = '';
+      document.getElementById('scanApply').disabled = false;
+    }
+
+    document.getElementById('scanRetry').onclick = function () { scanReset(); };
+    document.getElementById('scanRestart').onclick = function () { scanReset(); startScanner(); };
+    document.getElementById('scanManualBtn').onclick = function () {
+      var v = (document.getElementById('scanManual').value || '').trim();
+      if (!v) { flash('라벨 데이터를 입력하세요'); return; }
+      scanRecognize(parseGs1(v), true);
+    };
+    document.getElementById('scanManual').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') document.getElementById('scanManualBtn').click();
+    });
+    document.getElementById('scanApply').onclick = function () {
+      if (!scanPending) return;
+
+      // 1회차: CK·PK 라벨 — 수량(30)이 없어야 함
+      if (scanStep === 1) {
+        if (scanPending.qty != null) {
+          flash('CK·PK 라벨엔 수량(30)이 없어야 합니다 (인박스 라벨로 보임)');
+          return;
+        }
+        scanBuf.ckpk = scanPending;
+        scanStep = 2;
+        document.getElementById('scanManual').value = '';
+        scanReset(); // 카메라 유지, 2회차 대기
+        return;
+      }
+
+      // 2회차: 인박스 라벨 — 수량(30)이 있어야 함
+      if (scanPending.qty == null) {
+        flash('인박스 라벨엔 수량(30)이 있어야 합니다 (CK·PK 라벨로 보임)');
+        return;
+      }
+      // GTIN·LOT 일치 검증 (도메인: PK·CK·외박스 GTIN+LOT 공유)
+      var a = scanBuf.ckpk, b = scanPending;
+      if (a.gtin && b.gtin && a.gtin !== b.gtin) {
+        flash('GTIN 불일치 — CK·PK와 인박스 라벨이 다릅니다');
+        return;
+      }
+      if (a.lot && b.lot && a.lot !== b.lot) {
+        flash('LOT 불일치 — CK·PK와 인박스 라벨이 다릅니다');
+        return;
+      }
+      scanBuf.inbox = b;
+
+      // 세션에 전체 데이터 저장(로트만이 아니라 GS1-128 전체)
+      curS.scanCkpk = scanBuf.ckpk;
+      curS.scanInbox = scanBuf.inbox;
+      curS.labelLot = scanBuf.inbox.lot || scanBuf.ckpk.lot; // 기존 표시 호환
+
+      stopScanner();
+      hideMask('scanMask');
       renderCBody();
       renderCAction();
       renderSessList();
-      flash('CK 완료 (로트 ' + curS.ckSysLot + ') → PK·외포장 (목업)');
-     };
-     document.getElementById('cDelete').onclick = delSess;
-     return;
+      flash('CK·PK + 인박스 라벨 2회 스캔 완료 → 전체 데이터 매핑');
+    };
+
+    /* ═══════════ 실 카메라 / 스캐너건 스캐너 모듈 ═══════════ */
+    var scanVideo = null, scanStream = null, scanTrack = null, scanDetector = null;
+    var scanLoopId = null, scanActive = false, scanTorchOn = false;
+    var scanZXControls = null, _zxingP = null;
+
+    function cameraErrMsg(err) {
+      var n = (err && err.name) || '';
+      if (n === 'NotAllowedError' || n === 'SecurityError') return '카메라 권한이 거부되었습니다. 주소창 카메라 권한을 허용하거나, 스캐너건/수동 입력을 사용하세요.';
+      if (n === 'NotFoundError' || n === 'DevicesNotFoundError' || n === 'OverconstrainedError') return '카메라 장치를 찾을 수 없습니다. 스캐너건 또는 수동 입력을 사용하세요.';
+      if (n === 'NotReadableError' || n === 'TrackStartError') return '카메라를 다른 앱이 사용 중입니다. 해당 앱을 종료하고 다시 시도하세요.';
+      return '카메라를 열 수 없습니다(' + (n || (err && err.message) || '오류') + '). 스캐너건/수동 입력을 사용하세요.';
     }
 
-    // ② PK 및 외포장 → 포장 완료
-    if (ph === 'pk') {
-     var pkReady = curS.pkLot && curS.pkUnits > 0 && curS.scanCkpk && curS.scanInbox;
-     bar.innerHTML = '<div class="actsum"><span class="l">PK 수량</span><span class="v">' + curS.pkUnits + ' EA</span></div>' +
-      '<button class="btn ghost" id="pkBack">‹ CK</button>' +
-      '<button class="btn primary" id="pkDone" ' + (pkReady ? '' : 'disabled style="opacity:.5"') + '>포장 완료</button>';
-     document.getElementById('pkBack').onclick = function () {
-      curS.phase = 'ck';
-      renderCBody();
-      renderCAction();
-     };
-     document.getElementById('pkDone').onclick = function () {
-      if (!curS.pkLot) {
-       flash('블리스터 로트를 선택하세요');
-       return;
+    function scanCamFail(msg) {
+      scanActive = false;
+      document.getElementById('scanHint').textContent = msg;
+      var rs = document.getElementById('scanRestart');
+      if (rs) rs.style.display = '';
+    }
+
+    function stopScanner() {
+      scanActive = false;
+      if (scanLoopId) { cancelAnimationFrame(scanLoopId); scanLoopId = null; }
+      try { if (scanZXControls && scanZXControls.stop) scanZXControls.stop(); } catch (e) {}
+      scanZXControls = null; scanDetector = null; scanTorchOn = false;
+      if (scanStream) { scanStream.getTracks().forEach(function (t) { try { t.stop(); } catch (e) {} }); scanStream = null; }
+      scanTrack = null;
+      if (scanVideo) { try { scanVideo.srcObject = null; } catch (e) {} scanVideo.style.display = 'none'; }
+      var sb = document.getElementById('scanBox'); if (sb) sb.classList.remove('live');
+      var tb = document.getElementById('scanTorch'); if (tb) { tb.style.display = 'none'; tb.classList.remove('on'); }
+    }
+
+    function startScanner() {
+      scanVideo = document.getElementById('scanVideo');
+      scanActive = true;
+      document.getElementById('scanRestart').style.display = 'none';
+      if (typeof window.isSecureContext !== 'undefined' && !window.isSecureContext) {
+        scanCamFail('카메라는 HTTPS(또는 localhost)에서만 동작합니다. http 접속이면 스캐너건/수동 입력을 사용하세요.');
+        return;
       }
-      if (curS.pkUnits <= 0) {
-       flash('완제품 수량을 입력하세요');
-       return;
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        scanCamFail('이 브라우저는 카메라 API를 지원하지 않습니다. 스캐너건/수동 입력을 사용하세요.');
+        return;
       }
-      if (!curS.scanCkpk || !curS.scanInbox) {
-       flash('라벨 2회 스캔(CK·PK + 인박스)이 필요합니다');
-       return;
+      document.getElementById('scanHint').textContent = '카메라 여는 중…';
+      navigator.mediaDevices.getUserMedia({video: {facingMode: {ideal: 'environment'}}, audio: false})
+              .then(function (stream) {
+                if (!scanActive) { stream.getTracks().forEach(function (t) { try { t.stop(); } catch (e) {} }); return; }
+                scanStream = stream;
+                scanVideo.srcObject = stream;
+                scanVideo.setAttribute('playsinline', '');
+                scanVideo.muted = true;
+                scanTrack = stream.getVideoTracks()[0];
+                var p = scanVideo.play();
+                if (p && p.catch) p.catch(function () {});
+                scanVideo.style.display = 'block';
+                document.getElementById('scanBox').classList.add('live');
+                setupTorch();
+                document.getElementById('scanHint').textContent = (scanStep === 1 ? 'CK·PK' : '인박스') + ' 라벨을 사각형 안에 맞추세요';
+                startDecoder();
+              })
+              .catch(function (err) { scanCamFail(cameraErrMsg(err)); });
+    }
+
+    function startDecoder() {
+      if ('BarcodeDetector' in window) {
+        try {
+          window.BarcodeDetector.getSupportedFormats().then(function (fmts) {
+            if (!scanActive) return;
+            var want = ['code_128', 'ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_39', 'codabar', 'itf', 'qr_code', 'data_matrix'];
+            var use = (fmts || []).filter(function (f) { return want.indexOf(f) >= 0; });
+            if (use.length) {
+              try { scanDetector = new window.BarcodeDetector({formats: use}); } catch (e) { scanDetector = null; }
+            }
+            if (scanDetector) detectLoop(); else tryZXing();
+          }).catch(function () { tryZXing(); });
+          return;
+        } catch (e) { /* fallthrough */ }
       }
-      if (!curS.inboxSysLot) curS.inboxSysLot = genLot(3);
-      curS.phase = 'out';
+      tryZXing();
+    }
+
+    function detectLoop() {
+      var run = function () {
+        if (!scanActive || !scanDetector) return;
+        if (!scanFrozen && scanVideo && scanVideo.readyState >= 2) {
+          scanDetector.detect(scanVideo).then(function (codes) {
+            if (!scanActive || scanFrozen) return;
+            if (codes && codes.length) onScanText(codes[0].rawValue);
+          }).catch(function () {});
+        }
+        scanLoopId = requestAnimationFrame(run);
+      };
+      scanLoopId = requestAnimationFrame(run);
+    }
+
+    // BarcodeDetector 미지원 브라우저용 ZXing(있으면). 실패해도 스캐너건/수동으로 사용 가능.
+    function tryZXing() {
+      document.getElementById('scanHint').textContent = '디코더 준비 중…';
+      loadZXing().then(function (NS) {
+        if (!scanActive) return;
+        var reader = new NS.BrowserMultiFormatReader();
+        var cb = function (result, err, controls) {
+          if (controls && !scanZXControls) scanZXControls = controls;
+          if (result && scanActive && !scanFrozen) onScanText(result.getText());
+        };
+        var ok = false;
+        try {
+          if (reader.decodeFromStream) { reader.decodeFromStream(scanStream, scanVideo, cb).then(function (c) { scanZXControls = c; }).catch(function () {}); ok = true; }
+          else if (reader.decodeFromVideoElementContinuously) { reader.decodeFromVideoElementContinuously(scanVideo, cb); ok = true; }
+          else if (reader.decodeContinuously) { reader.decodeContinuously(scanVideo, cb); ok = true; }
+        } catch (e) { ok = false; }
+        if (ok) document.getElementById('scanHint').textContent = (scanStep === 1 ? 'CK·PK' : '인박스') + ' 라벨을 사각형 안에 맞추세요';
+        else scanCamFail('이 브라우저는 카메라 자동 인식을 지원하지 않습니다. 스캐너건/수동 입력을 사용하세요.');
+      }).catch(function () {
+        scanCamFail('카메라 자동 인식 미지원 브라우저입니다. USB/BT 스캐너건 또는 아래 수동 입력을 사용하세요.');
+      });
+    }
+
+    function loadZXing() {
+      if (_zxingP) return _zxingP;
+      _zxingP = new Promise(function (res, rej) {
+        var g = window.ZXingBrowser || window.ZXing;
+        if (g && g.BrowserMultiFormatReader) return res(g);
+        var s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/umd/index.min.js';
+        s.async = true;
+        s.onload = function () { var gg = window.ZXingBrowser || window.ZXing; (gg && gg.BrowserMultiFormatReader) ? res(gg) : rej(new Error('no zxing')); };
+        s.onerror = function () { rej(new Error('zxing load fail')); };
+        document.head.appendChild(s);
+      });
+      return _zxingP;
+    }
+
+    function setupTorch() {
+      var tb = document.getElementById('scanTorch');
+      if (!tb) return;
+      var caps = null;
+      try { caps = scanTrack && scanTrack.getCapabilities ? scanTrack.getCapabilities() : null; } catch (e) {}
+      if (caps && caps.torch) { tb.style.display = ''; tb.onclick = toggleTorch; }
+      else tb.style.display = 'none';
+    }
+
+    function toggleTorch() {
+      if (!scanTrack) return;
+      scanTorchOn = !scanTorchOn;
+      try { scanTrack.applyConstraints({advanced: [{torch: scanTorchOn}]}); } catch (e) {}
+      var tb = document.getElementById('scanTorch');
+      if (tb) tb.classList.toggle('on', scanTorchOn);
+    }
+
+    // USB/블루투스 스캐너건(HID·키보드 웨지): 시트가 열려 있을 때 빠른 키 입력을 자동 캡처
+    // (예: Zebra DS2278 등 블루투스 HID 스캐너 — 스캔 = 문자열 타이핑 + Enter/Tab)
+    var wedgeBuf = '', wedgeLast = 0;
+    document.addEventListener('keydown', function (e) {
+      var sm = document.getElementById('scanMask');
+      if (!sm || !sm.classList.contains('show')) return;
+      if (document.activeElement === document.getElementById('scanManual')) return; // 수동입력창은 그쪽에서 처리
+      if (scanFrozen) return;
+      var now = Date.now();
+      if (now - wedgeLast > 120) wedgeBuf = ''; // 사람이 천천히 친 입력이면 초기화(스캐너는 매우 빠름)
+      wedgeLast = now;
+      if (e.key === 'Enter' || e.key === 'Tab') { // 접미(suffix)로 Enter 또는 Tab
+        if (wedgeBuf.length >= 4) { var b = wedgeBuf; wedgeBuf = ''; onScanText(b); }
+        e.preventDefault();
+        return;
+      }
+      // 일반 문자 + 단일 제어문자(GS 0x1D 등 원시 GS1 구분자)도 그대로 버퍼에 포함
+      if (e.key && e.key.length === 1) wedgeBuf += e.key;
+    }, true);
+
+    function openPk() {
+      document.getElementById('lotTitle').textContent = '블리스터 로트 선택 (멸균필 PK)';
+      document.getElementById('lotList').innerHTML = PK_READY.map(function (l) {
+        return '<div class="lotopt ' + (l.lot === curS.pkLot ? 'sel' : '') + '" data-lot="' + l.lot + '"><div><span class="ln">' + l.lot + '</span><div class="meta" style="margin:0">' + l.name + ' · 멸균필 ' + l.qty + ' EA</div></div></div>';
+      }).join('');
+      document.getElementById('lotList').onclick = function (e) {
+        var o = e.target.closest('[data-lot]');
+        if (!o) return;
+        curS.pkLot = o.dataset.lot;
+        if (!curS.pkUnits) curS.pkUnits = curS.units;
+        hideMask('lotMask');
+        renderCBody();
+        renderCAction();
+        renderSessList();
+      };
+      showMask('lotMask');
+    }
+
+    function openCk() {
+      document.getElementById('lotTitle').textContent = 'CK 로트 선택 (외포장 투입)';
+      document.getElementById('lotList').innerHTML = CK_READY.map(function (l) {
+        return '<div class="lotopt ' + (l.lot === curS.ckLot ? 'sel' : '') + '" data-lot="' + l.lot + '"><div><span class="ln">' + l.lot + '</span><div class="meta" style="margin:0">' + l.name + ' · 재고 ' + l.qty + ' EA</div></div></div>';
+      }).join('');
+      document.getElementById('lotList').onclick = function (e) {
+        var o = e.target.closest('[data-lot]');
+        if (!o) return;
+        curS.ckLot = o.dataset.lot;
+        hideMask('lotMask');
+        renderCBody();
+        renderCAction();
+        renderSessList();
+        flash('CK 로트 ' + curS.ckLot + ' 투입 지정');
+      };
+      showMask('lotMask');
+    }
+
+    /* ── 부적합 등록 (조립 작업지시에서 이식) ── */
+    var DEFTYPES = ['이물', '파손', '변형', '오염', '기타'];
+    var defCode = null, defQ = 0, defT = null, defPhotos = [];
+
+    function openDef(code) {
+      defCode = code;
+      var d = ckDefOf(code);
+      var m = CK_INPUTS.filter(function (x) {
+        return x.code === code;
+      })[0];
+      defQ = d.defQty || 0;
+      defT = d.defType || null;
+      defPhotos = (d.photos || []).slice();
+      document.getElementById('defTitle').textContent = (m ? m.name : 'CK 자재') + ' · 부적합';
+      document.getElementById('defQty').textContent = defQ;
+      document.getElementById('defTypes').innerHTML = DEFTYPES.map(function (t) {
+        return '<button class="opt ' + (t === defT ? 'sel' : '') + '" data-dt="' + t + '">' + t + '</button>';
+      }).join('');
+      renderPhotos();
+      showMask('defMask');
+    }
+
+    document.getElementById('defMinus').onclick = function () {
+      defQ = Math.max(0, defQ - 1);
+      document.getElementById('defQty').textContent = defQ;
+    };
+    document.getElementById('defPlus').onclick = function () {
+      defQ++;
+      document.getElementById('defQty').textContent = defQ;
+    };
+    document.getElementById('defTypes').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-dt]');
+      if (!b) return;
+      document.querySelectorAll('#defTypes .opt').forEach(function (x) {
+        x.classList.remove('sel');
+      });
+      b.classList.add('sel');
+      defT = b.dataset.dt;
+    });
+
+    function renderPhotos() {
+      var box = document.getElementById('defPhotos');
+      box.innerHTML = defPhotos.map(function (src, k) {
+        return '<div class="photo-wrap"><img class="photo" src="' + src + '"/><button class="del" data-rm="' + k + '">✕</button></div>';
+      }).join('') + '<div class="photo-add" id="photoAdd">＋<br>사진</div>';
+    }
+
+    document.getElementById('defPhotos').addEventListener('click', function (e) {
+      if (e.target.id === 'photoAdd' || e.target.closest('#photoAdd')) {
+        document.getElementById('defFile').click();
+        return;
+      }
+      var rm = e.target.closest('[data-rm]');
+      if (rm) {
+        defPhotos.splice(+rm.dataset.rm, 1);
+        renderPhotos();
+      }
+    });
+    document.getElementById('defFile').addEventListener('change', function (e) {
+      [].forEach.call(e.target.files, function (f) {
+        defPhotos.push(URL.createObjectURL(f));
+      });
+      e.target.value = '';
+      renderPhotos();
+    });
+    document.getElementById('defOk').onclick = function () {
+      var d = ckDefOf(defCode);
+      d.defQty = defQ;
+      d.defType = defT;
+      d.photos = defPhotos.slice();
+      hideMask('defMask');
       renderCBody();
       renderCAction();
       renderSessList();
-      flash('포장 완료 (인박스 로트 ' + curS.inboxSysLot + ') → 아웃포장 (목업)');
-     };
-     return;
+      flash(defQ > 0 ? '부적합 ' + defQ + ' (' + (defT || '유형미지정') + ')' : '부적합 0 저장');
+    };
+
+    var padVal = '', padMode = 'units', padCkCode = null;
+
+    function openPadUnits() {
+      padMode = 'units';
+      padCkCode = null;
+      padVal = String(curS.units || 0);
+      document.getElementById('padLab').textContent = '완제품 수량';
+      document.getElementById('padDisp').textContent = padVal;
+      showMask('padMask');
     }
 
-    // ③ 아웃포장 → 포장 공정 완료
-    var pv = packView(curO, curS.units);
-    bar.innerHTML = '<div class="actsum"><span class="l">아웃박스</span><span class="v">' + pv.outbox + ' 박스</span></div>' +
-     '<button class="btn ghost" id="outBack">‹ PK</button>' +
-     '<button class="btn primary" id="outDone">포장 공정 완료</button>';
-    document.getElementById('outBack').onclick = function () {
-     curS.phase = 'pk';
-     renderCBody();
-     renderCAction();
-    };
-    document.getElementById('outDone').onclick = function () {
-     if (!curS.inboxSysLot) curS.inboxSysLot = genLot(3); // 폴백(정상적으론 포장 완료 시 발번)
-     curS.st = 'done';
-     curS.phase = 'done';
-     curS.end = nowHM();
-     renderCHead();
-     renderCBody();
-     renderCAction();
-     renderSessList();
-     flash('포장 공정 완료 → 출하대기 (목업)');
-    };
-   }
+    function openPadPkUnits() {
+      padMode = 'pkunits';
+      padCkCode = null;
+      padVal = String(curS.pkUnits || 0);
+      document.getElementById('padLab').textContent = '완제품 수량';
+      document.getElementById('padDisp').textContent = padVal;
+      showMask('padMask');
+    }
 
-   document.getElementById('cBody').addEventListener('click', function (e) {
-    function step(sel, key, max) {
-     var st = e.target.closest('[data-' + sel + ']');
-     if (st && (e.target.classList.contains('plus') || e.target.classList.contains('minus'))) {
-      var d = e.target.classList.contains('plus') ? 1 : -1;
-      curS[key] = Math.max(0, (max ? Math.min(max, curS[key] + d) : curS[key] + d));
-      renderCBody();
-      renderCAction();
+    function openPadCkMat(code) {
+      padMode = 'ckmat';
+      padCkCode = code;
+      padVal = String(curS.ckMat[code] || 0);
+      var mo = CK_INPUTS.filter(function (x) {
+        return x.code === code;
+      })[0];
+      document.getElementById('padLab').textContent = mo ? mo.name : 'CK 자재 수량';
+      document.getElementById('padDisp').textContent = padVal;
+      showMask('padMask');
+    }
+
+    document.querySelector('#padMask .keys').addEventListener('click', function (e) {
+      var k = e.target.dataset.k;
+      if (!k) return;
+      if (k === 'C') padVal = '';
+      else if (k === 'OK') {
+        var n = parseInt(padVal || '0', 10);
+        if (padMode === 'units') curS.units = n;
+        else if (padMode === 'pkunits') curS.pkUnits = n;
+        else if (padMode === 'ckmat' && padCkCode) curS.ckMat[padCkCode] = n;
+        hideMask('padMask');
+        renderCBody();
+        renderCAction();
+        renderSessList();
+        return;
+      } else padVal = (padVal === '0' ? '' : padVal) + k;
+      document.getElementById('padDisp').textContent = padVal || '0';
+    });
+
+    /* ── 시작 시트 ── */
+    function showMask(id) {
+      document.getElementById(id).classList.add('show');
+    }
+
+    function hideMask(id) {
+      document.getElementById(id).classList.remove('show');
+    }
+
+    document.querySelectorAll('.mask').forEach(function (m) {
+      m.addEventListener('click', function (e) {
+        if (e.target === m || (e.target.closest && e.target.closest('[data-close]'))) {
+          m.classList.remove('show');
+          if (m.id === 'scanMask' && typeof stopScanner === 'function') stopScanner();
+        }
+      });
+    });
+
+    let selW = null, selE = null;
+
+    function openStart() {
+      selW = null;
+      selE = null;
+      document.getElementById('workerOpts').innerHTML = WORKERS.map(function (w) {
+        return '<button class="opt" data-w="' + w + '">' + w + '</button>';
+      }).join('');
+      document.getElementById('equipOpts').innerHTML = EQUIPS.map(function (e) {
+        return '<button class="opt" data-e="' + e[0] + '">' + e[0] + ' <span class="sub">' + e[1] + '</span></button>';
+      }).join('');
+      document.getElementById('startOk').disabled = true;
+      showMask('startMask');
+    }
+
+    document.getElementById('workerOpts').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-w]');
+      if (!b) return;
+      document.querySelectorAll('#workerOpts .opt').forEach(function (x) {
+        x.classList.remove('sel');
+      });
+      b.classList.add('sel');
+      selW = b.dataset.w;
+      ckStart();
+    });
+    document.getElementById('equipOpts').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-e]');
+      if (!b) return;
+      document.querySelectorAll('#equipOpts .opt').forEach(function (x) {
+        x.classList.remove('sel');
+      });
+      b.classList.add('sel');
+      selE = b.dataset.e;
+      ckStart();
+    });
+
+    function ckStart() {
+      document.getElementById('startOk').disabled = !(selW && selE);
+    }
+
+    document.getElementById('startOk').onclick = function () {
+      var se = mkSess(selW, selE);
+      curO.sessions.push(se);
+      if (curO.st === 'wait') curO.st = 'working';
+      hideMask('startMask');
       renderSessList();
-      return true;
-     }
-     return false;
-    }
-
-    if (step('units', 'units')) return;
-    if (step('pkunits', 'pkUnits')) return;
-
-    var padu = e.target.closest('[data-padunits]');
-    if (padu) {
-     openPadUnits();
-     return;
-    }
-    var padpk = e.target.closest('[data-padpkunits]');
-    if (padpk) {
-     openPadPkUnits();
-     return;
-    }
-    var pc = e.target.closest('[data-pickck]');
-    if (pc) {
-     openCk();
-     return;
-    }
-    var pp = e.target.closest('[data-pickpk]');
-    if (pp) {
-     if (!curS.ckLot) {
-      flash('CK 로트를 먼저 선택하세요');
-      return;
-     }
-     openPk();
-     return;
-    }
-    if (e.target.id === 'scanIn' || e.target.id === 'rescanIn') {
-     openScan();
-     return;
-    }
-
-    // CK 자재 부적합 등록 (조립에서 이식)
-    var defb = e.target.closest('[data-def]');
-    if (defb) {
-     openDef(defb.dataset.def);
-     return;
-    }
-
-    if (e.target.id === 'bcOut') {
-     var pv = packView(curO, curS.units);
-     var src = curS.scanInbox || curS.scanCkpk || {};
-     var gtin = src.gtin || curO.gtin;
-     var lot = src.lot || curS.labelLot || curS.pkLot;
-     var dt = src.date || (curS.start || '').slice(2, 10).replace(/-/g, '');
-     var qty = pv.ic * pv.oc;
-     openBarcode('아웃박스 바코드', [{
-      line: 'b-(01)' + gtin + '(10)' + lot + '(30)' + qty + '(11)' + dt,
-      sub: curO.name + ' · 아웃박스(완제품 ' + qty + ' EA) · 로트 ' + lot,
-      copies: pv.outbox
-     }]);
-     return;
-    }
-   });
-   document.getElementById('cHead').addEventListener('click', function (e) {
-    var t = e.target.closest('[data-time]');
-    if (t) openTime(t.dataset.time);
-   });
-
-   /* ── 인박스 라벨 카메라 스캔(모의) · 2회 스캔 ──
-      1회차: CK·PK 라벨  (01)GTIN(10)LOT(11)제조일  ← 수량(30) 없음
-      2회차: 인박스 라벨  (01)GTIN(10)LOT(30)수량(11)제조일  ← 수량(30) 있음
-      로트만이 아니라 GS1-128 전체 데이터를 그대로 저장. */
-   var scanStep = 1;                         // 1: CK·PK, 2: 인박스
-   var scanBuf = {ckpk: null, inbox: null};  // 단계별 확정 버퍼
-   var scanPending = null;                   // 현재 인식된 파싱 객체
-
-   function sampleLabelLot() {
-    var pre = curO && curO.blood === '골수' ? 'BMJ' : 'BMH';
-    var dt = ((curS && curS.start) || '260626').slice(2, 10).replace(/-/g, '') || '260626';
-    return pre + dt;
-   }
-
-   function sampleDate() {
-    return (((curS && curS.start) || '260626').slice(2, 10).replace(/-/g, '') || '260626');
-   }
-
-   // CK·PK 라벨(수량 없음)
-   function sampleCkpkRaw() {
-    return '(01)' + (curO ? curO.gtin : '') + '(10)' + sampleLabelLot() + '(11)' + sampleDate();
-   }
-
-   // 인박스 라벨(수량 있음)
-   function sampleInboxRaw() {
-    return '(01)' + (curO ? curO.gtin : '') + '(10)' + sampleLabelLot() + '(30)1(11)' + sampleDate();
-   }
-
-   function renderScanSteps() {
-    var steps = ['① CK · PK', '② 인박스'];
-    document.getElementById('scanSteps').innerHTML = steps.map(function (s, i) {
-     var n = i + 1;
-     var cls = n < scanStep ? 'done' : (n === scanStep ? 'active' : 'idle');
-     return (i > 0 ? '<div class="pline ' + (n <= scanStep ? 'on' : '') + '"></div>' : '') +
-      '<div class="pstep ' + cls + '"><span class="pn2">' + n + '</span>' + s + '</div>';
-    }).join('');
-   }
-
-   function scanReset() {
-    scanPending = null;
-    document.getElementById('scanBox').classList.remove('recognized');
-    document.getElementById('scanHint').textContent = scanStep === 1
-     ? 'CK·PK 라벨을 사각형 안에 · (01)GTIN(10)LOT(11)제조일'
-     : '인박스 라벨을 사각형 안에 · (01)GTIN(10)LOT(30)수량(11)제조일';
-    document.getElementById('scanResult').classList.remove('show');
-    document.getElementById('scanLotVal').textContent = '—';
-    document.getElementById('scanRaw').textContent = '—';
-    document.getElementById('scanCapture').style.display = '';
-    document.getElementById('scanCapture').disabled = false;
-    document.getElementById('scanRetry').style.display = 'none';
-    document.getElementById('scanApply').disabled = true;
-    document.getElementById('scanTitle').textContent = scanStep === 1 ? '① CK · PK 라벨 스캔' : '② 인박스 라벨 스캔';
-    document.getElementById('scanKind').textContent = scanStep === 1 ? 'CK · PK 라벨 (수량 없음)' : '인박스 라벨 (수량 있음)';
-    document.getElementById('scanApply').textContent = scanStep === 1 ? '다음 · 인박스 스캔 ›' : '이 데이터로 지정';
-    renderScanSteps();
-   }
-
-   function openScan() {
-    scanStep = 1;
-    scanBuf = {ckpk: null, inbox: null};
-    document.getElementById('scanManual').value = '';
-    scanReset();
-    showMask('scanMask');
-   }
-
-   function scanRecognize(d, viaManual) {
-    scanPending = d;
-    document.getElementById('scanBox').classList.add('recognized');
-    document.getElementById('scanHint').textContent = viaManual ? '수동 입력 확인' : '인식 완료 — GS1-128 디코딩';
-    document.getElementById('scanLotVal').textContent = d.lot || '(로트 없음)';
-    document.getElementById('scanRaw').textContent = gs1Line(d);
-    document.getElementById('scanResult').classList.add('show');
-    document.getElementById('scanCapture').style.display = 'none';
-    document.getElementById('scanRetry').style.display = '';
-    document.getElementById('scanApply').disabled = false;
-   }
-
-   document.getElementById('scanCapture').onclick = function () {
-    var btn = this;
-    btn.disabled = true;
-    document.getElementById('scanHint').textContent = '인식 중…';
-    setTimeout(function () {
-     var raw = scanStep === 1 ? sampleCkpkRaw() : sampleInboxRaw();
-     scanRecognize(parseGs1(raw), false);
-    }, 650);
-   };
-   document.getElementById('scanRetry').onclick = function () {
-    scanReset();
-   };
-   document.getElementById('scanManualBtn').onclick = function () {
-    var v = (document.getElementById('scanManual').value || '').trim();
-    if (!v) {
-     flash('라벨 데이터를 입력하세요');
-     return;
-    }
-    scanRecognize(parseGs1(v), true);
-   };
-   document.getElementById('scanManual').addEventListener('keydown', function (e) {
-    if (e.key === 'Enter') document.getElementById('scanManualBtn').click();
-   });
-   document.getElementById('scanApply').onclick = function () {
-    if (!scanPending) return;
-
-    // 1회차: CK·PK 라벨 — 수량(30)이 없어야 함
-    if (scanStep === 1) {
-     if (scanPending.qty != null) {
-      flash('CK·PK 라벨엔 수량(30)이 없어야 합니다 (인박스 라벨로 보임)');
-      return;
-     }
-     scanBuf.ckpk = scanPending;
-     scanStep = 2;
-     document.getElementById('scanManual').value = '';
-     scanReset();
-     return;
-    }
-
-    // 2회차: 인박스 라벨 — 수량(30)이 있어야 함
-    if (scanPending.qty == null) {
-     flash('인박스 라벨엔 수량(30)이 있어야 합니다 (CK·PK 라벨로 보임)');
-     return;
-    }
-    // GTIN·LOT 일치 검증 (도메인: PK·CK·외박스 GTIN+LOT 공유)
-    var a = scanBuf.ckpk, b = scanPending;
-    if (a.gtin && b.gtin && a.gtin !== b.gtin) {
-     flash('GTIN 불일치 — CK·PK와 인박스 라벨이 다릅니다');
-     return;
-    }
-    if (a.lot && b.lot && a.lot !== b.lot) {
-     flash('LOT 불일치 — CK·PK와 인박스 라벨이 다릅니다');
-     return;
-    }
-    scanBuf.inbox = b;
-
-    // 세션에 전체 데이터 저장(로트만이 아니라 GS1-128 전체)
-    curS.scanCkpk = scanBuf.ckpk;
-    curS.scanInbox = scanBuf.inbox;
-    curS.labelLot = scanBuf.inbox.lot || scanBuf.ckpk.lot; // 기존 표시 호환
-
-    hideMask('scanMask');
-    renderCBody();
-    renderCAction();
-    renderSessList();
-    flash('CK·PK + 인박스 라벨 2회 스캔 완료 → 전체 데이터 매핑 (목업)');
-   };
-
-   function openPk() {
-    document.getElementById('lotTitle').textContent = '블리스터 로트 선택 (멸균필 PK)';
-    document.getElementById('lotList').innerHTML = PK_READY.map(function (l) {
-     return '<div class="lotopt ' + (l.lot === curS.pkLot ? 'sel' : '') + '" data-lot="' + l.lot + '"><div><span class="ln">' + l.lot + '</span><div class="meta" style="margin:0">' + l.name + ' · 멸균필 ' + l.qty + ' EA</div></div></div>';
-    }).join('');
-    document.getElementById('lotList').onclick = function (e) {
-     var o = e.target.closest('[data-lot]');
-     if (!o) return;
-     curS.pkLot = o.dataset.lot;
-     if (!curS.pkUnits) curS.pkUnits = curS.units;
-     hideMask('lotMask');
-     renderCBody();
-     renderCAction();
-     renderSessList();
+      openSess(curO.sessions.length - 1);
+      flash('작업 시작 · ' + selW + ' / ' + selE);
     };
-    showMask('lotMask');
-   }
 
-   function openCk() {
-    document.getElementById('lotTitle').textContent = 'CK 로트 선택 (외포장 투입)';
-    document.getElementById('lotList').innerHTML = CK_READY.map(function (l) {
-     return '<div class="lotopt ' + (l.lot === curS.ckLot ? 'sel' : '') + '" data-lot="' + l.lot + '"><div><span class="ln">' + l.lot + '</span><div class="meta" style="margin:0">' + l.name + ' · 재고 ' + l.qty + ' EA</div></div></div>';
-    }).join('');
-    document.getElementById('lotList').onclick = function (e) {
-     var o = e.target.closest('[data-lot]');
-     if (!o) return;
-     curS.ckLot = o.dataset.lot;
-     hideMask('lotMask');
-     renderCBody();
-     renderCAction();
-     renderSessList();
-     flash('CK 로트 ' + curS.ckLot + ' 투입 지정');
+    /* 토스트 */
+    let tT;
+
+    function flash(m) {
+      var t = document.getElementById('toast');
+      if (!t) {
+        t = document.createElement('div');
+        t.id = 'toast';
+        t.style.cssText = 'position:fixed;left:50%;bottom:110px;transform:translateX(-50%);background:#15222B;color:#fff;padding:14px 22px;border-radius:14px;font-weight:700;z-index:60;box-shadow:0 12px 30px -10px rgba(0,0,0,.5);transition:opacity .3s';
+        document.body.appendChild(t);
+      }
+      t.textContent = m;
+      t.style.opacity = '1';
+      clearTimeout(tT);
+      tT = setTimeout(function () {
+        t.style.opacity = '0';
+      }, 1700);
+    }
+
+    /* ── 바코드/출력 ── */
+    function bcCard(d) {
+      return '<div class="bc-card"><div class="bc-bars"></div>' +
+              '<div class="bc-data">' + d.line + '</div>' +
+              (d.sub ? '<div class="bc-sub">' + d.sub + '</div>' : '') + '</div>';
+    }
+
+    function openBarcode(title, labels) {
+      document.getElementById('bcTitle').textContent = title;
+      document.getElementById('bcList').innerHTML = labels.map(function (l) {
+        return '<div style="margin-bottom:12px">' + bcCard(l) +
+                (l.copies > 1 ? '<div class="bc-sub" style="text-align:center">× ' + l.copies + '장 출력</div>' : '') + '</div>';
+      }).join('');
+      window.__printLabels = labels;
+      showMask('bcMask');
+    }
+
+    document.getElementById('bcPrint').onclick = function () {
+      var labels = window.__printLabels || [];
+      var html = '';
+      labels.forEach(function (l) {
+        var n = l.copies || 1;
+        for (var i = 0; i < n; i++) {
+          html += '<div style="border:1px solid #000;border-radius:6px;padding:12px;margin:6px;display:inline-block;width:220px;text-align:center;page-break-inside:avoid">' +
+                  '<div style="height:54px;background:repeating-linear-gradient(90deg,#000 0 2px,#fff 2px 4px,#000 4px 5px,#fff 5px 9px,#000 9px 12px,#fff 12px 13px);border-radius:2px;margin-bottom:6px"></div>' +
+                  '<div style="font-size:12px;font-weight:700">' + l.line + '</div>' + (l.sub ? '<div style="font-size:11px;color:#555">' + l.sub + '</div>' : '') + '</div>';
+        }
+      });
+      var pa = document.getElementById('printArea');
+      pa.innerHTML = '<h3 style="margin:0 0 10px">' + document.getElementById('bcTitle').textContent + '</h3>' + html;
+      hideMask('bcMask');
+      setTimeout(function () {
+        window.print();
+      }, 100);
     };
-    showMask('lotMask');
-   }
 
-   /* ── 부적합 등록 (조립 작업지시에서 이식) ── */
-   var DEFTYPES = ['이물', '파손', '변형', '오염', '기타'];
-   var defCode = null, defQ = 0, defT = null, defPhotos = [];
+    /* 시간 수정 */
+    let timeWhich = 'start', editDate = new Date();
 
-   function openDef(code) {
-    defCode = code;
-    var d = ckDefOf(code);
-    var m = CK_INPUTS.filter(function (x) {
-     return x.code === code;
-    })[0];
-    defQ = d.defQty || 0;
-    defT = d.defType || null;
-    defPhotos = (d.photos || []).slice();
-    document.getElementById('defTitle').textContent = (m ? m.name : 'CK 자재') + ' · 부적합';
-    document.getElementById('defQty').textContent = defQ;
-    document.getElementById('defTypes').innerHTML = DEFTYPES.map(function (t) {
-     return '<button class="opt ' + (t === defT ? 'sel' : '') + '" data-dt="' + t + '">' + t + '</button>';
-    }).join('');
-    renderPhotos();
-    showMask('defMask');
-   }
-
-   document.getElementById('defMinus').onclick = function () {
-    defQ = Math.max(0, defQ - 1);
-    document.getElementById('defQty').textContent = defQ;
-   };
-   document.getElementById('defPlus').onclick = function () {
-    defQ++;
-    document.getElementById('defQty').textContent = defQ;
-   };
-   document.getElementById('defTypes').addEventListener('click', function (e) {
-    var b = e.target.closest('[data-dt]');
-    if (!b) return;
-    document.querySelectorAll('#defTypes .opt').forEach(function (x) {
-     x.classList.remove('sel');
-    });
-    b.classList.add('sel');
-    defT = b.dataset.dt;
-   });
-
-   function renderPhotos() {
-    var box = document.getElementById('defPhotos');
-    box.innerHTML = defPhotos.map(function (src, k) {
-     return '<div class="photo-wrap"><img class="photo" src="' + src + '"/><button class="del" data-rm="' + k + '">✕</button></div>';
-    }).join('') + '<div class="photo-add" id="photoAdd">＋<br>사진</div>';
-   }
-
-   document.getElementById('defPhotos').addEventListener('click', function (e) {
-    if (e.target.id === 'photoAdd' || e.target.closest('#photoAdd')) {
-     document.getElementById('defFile').click();
-     return;
+    function fmtD(d) {
+      return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0') + ' (' + WD[d.getDay()] + ')';
     }
-    var rm = e.target.closest('[data-rm]');
-    if (rm) {
-     defPhotos.splice(+rm.dataset.rm, 1);
-     renderPhotos();
+
+    function openTime(which) {
+      timeWhich = which;
+      document.getElementById('timeTitle').textContent = (which === 'start' ? '시작' : '종료') + ' 일시 수정';
+      var saved = which === 'start' ? curS.start : curS.end;
+      if (saved && saved.indexOf(' ') >= 0) {
+        var a = saved.split(' ');
+        editDate = new Date(a[0] + 'T' + a[1]);
+      } else editDate = new Date();
+      document.getElementById('tDate').textContent = fmtD(editDate);
+      document.getElementById('tH').textContent = String(editDate.getHours()).padStart(2, '0');
+      document.getElementById('tM').textContent = String(editDate.getMinutes()).padStart(2, '0');
+      showMask('timeMask');
     }
-   });
-   document.getElementById('defFile').addEventListener('change', function (e) {
-    [].forEach.call(e.target.files, function (f) {
-     defPhotos.push(URL.createObjectURL(f));
+
+    document.querySelector('#timeMask .dateedit').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-d]');
+      if (!b) return;
+      editDate.setDate(editDate.getDate() + (+b.dataset.d));
+      document.getElementById('tDate').textContent = fmtD(editDate);
     });
-    e.target.value = '';
-    renderPhotos();
-   });
-   document.getElementById('defOk').onclick = function () {
-    var d = ckDefOf(defCode);
-    d.defQty = defQ;
-    d.defType = defT;
-    d.photos = defPhotos.slice();
-    hideMask('defMask');
-    renderCBody();
-    renderCAction();
-    renderSessList();
-    flash(defQ > 0 ? '부적합 ' + defQ + ' (' + (defT || '유형미지정') + ')' : '부적합 0 저장');
-   };
-
-   var padVal = '', padMode = 'units', padCkCode = null;
-
-   function openPadUnits() {
-    padMode = 'units';
-    padCkCode = null;
-    padVal = String(curS.units || 0);
-    document.getElementById('padLab').textContent = '완제품 수량';
-    document.getElementById('padDisp').textContent = padVal;
-    showMask('padMask');
-   }
-
-   function openPadPkUnits() {
-    padMode = 'pkunits';
-    padCkCode = null;
-    padVal = String(curS.pkUnits || 0);
-    document.getElementById('padLab').textContent = '완제품 수량';
-    document.getElementById('padDisp').textContent = padVal;
-    showMask('padMask');
-   }
-
-   function openPadCkMat(code) {
-    padMode = 'ckmat';
-    padCkCode = code;
-    padVal = String(curS.ckMat[code] || 0);
-    var mo = CK_INPUTS.filter(function (x) {
-     return x.code === code;
-    })[0];
-    document.getElementById('padLab').textContent = mo ? mo.name : 'CK 자재 수량';
-    document.getElementById('padDisp').textContent = padVal;
-    showMask('padMask');
-   }
-
-   document.querySelector('#padMask .keys').addEventListener('click', function (e) {
-    var k = e.target.dataset.k;
-    if (!k) return;
-    if (k === 'C') padVal = '';
-    else if (k === 'OK') {
-     var n = parseInt(padVal || '0', 10);
-     if (padMode === 'units') curS.units = n;
-     else if (padMode === 'pkunits') curS.pkUnits = n;
-     else if (padMode === 'ckmat' && padCkCode) curS.ckMat[padCkCode] = n;
-     hideMask('padMask');
-     renderCBody();
-     renderCAction();
-     renderSessList();
-     return;
-    } else padVal = (padVal === '0' ? '' : padVal) + k;
-    document.getElementById('padDisp').textContent = padVal || '0';
-   });
-
-   /* ── 시작 시트 ── */
-   function showMask(id) {
-    document.getElementById(id).classList.add('show');
-   }
-
-   function hideMask(id) {
-    document.getElementById(id).classList.remove('show');
-   }
-
-   document.querySelectorAll('.mask').forEach(function (m) {
-    m.addEventListener('click', function (e) {
-     if (e.target === m || (e.target.closest && e.target.closest('[data-close]'))) m.classList.remove('show');
+    document.querySelector('#timeMask .timeedit').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-t]');
+      if (!b) return;
+      var H = document.getElementById('tH'), M = document.getElementById('tM');
+      var h = +H.textContent, m = +M.textContent;
+      if (b.dataset.t === 'h+') h = (h + 1) % 24;
+      if (b.dataset.t === 'h-') h = (h + 23) % 24;
+      if (b.dataset.t === 'm+') m = (m + 1) % 60;
+      if (b.dataset.t === 'm-') m = (m + 59) % 60;
+      H.textContent = String(h).padStart(2, '0');
+      M.textContent = String(m).padStart(2, '0');
     });
-   });
+    document.getElementById('timeOk').onclick = function () {
+      var ds = editDate.getFullYear() + '-' + String(editDate.getMonth() + 1).padStart(2, '0') + '-' + String(editDate.getDate()).padStart(2, '0');
+      var v = ds + ' ' + document.getElementById('tH').textContent + ':' + document.getElementById('tM').textContent;
+      if (timeWhich === 'start') curS.start = v; else curS.end = v;
+      hideMask('timeMask');
+      renderCHead();
+      renderSessList();
+      flash((timeWhich === 'start' ? '시작' : '종료') + ' 저장 ' + pill(v));
+    };
 
-   let selW = null, selE = null;
-
-   function openStart() {
-    selW = null;
-    selE = null;
-    document.getElementById('workerOpts').innerHTML = WORKERS.map(function (w) {
-     return '<button class="opt" data-w="' + w + '">' + w + '</button>';
-    }).join('');
-    document.getElementById('equipOpts').innerHTML = EQUIPS.map(function (e) {
-     return '<button class="opt" data-e="' + e[0] + '">' + e[0] + ' <span class="sub">' + e[1] + '</span></button>';
-    }).join('');
-    document.getElementById('startOk').disabled = true;
-    showMask('startMask');
-   }
-
-   document.getElementById('workerOpts').addEventListener('click', function (e) {
-    var b = e.target.closest('[data-w]');
-    if (!b) return;
-    document.querySelectorAll('#workerOpts .opt').forEach(function (x) {
-     x.classList.remove('sel');
-    });
-    b.classList.add('sel');
-    selW = b.dataset.w;
-    ckStart();
-   });
-   document.getElementById('equipOpts').addEventListener('click', function (e) {
-    var b = e.target.closest('[data-e]');
-    if (!b) return;
-    document.querySelectorAll('#equipOpts .opt').forEach(function (x) {
-     x.classList.remove('sel');
-    });
-    b.classList.add('sel');
-    selE = b.dataset.e;
-    ckStart();
-   });
-
-   function ckStart() {
-    document.getElementById('startOk').disabled = !(selW && selE);
-   }
-
-   document.getElementById('startOk').onclick = function () {
-    var se = mkSess(selW, selE);
-    curO.sessions.push(se);
-    if (curO.st === 'wait') curO.st = 'working';
-    hideMask('startMask');
-    renderSessList();
-    openSess(curO.sessions.length - 1);
-    flash('작업 시작 · ' + selW + ' / ' + selE);
-   };
-
-   /* 토스트 */
-   let tT;
-
-   function flash(m) {
-    var t = document.getElementById('toast');
-    if (!t) {
-     t = document.createElement('div');
-     t.id = 'toast';
-     t.style.cssText = 'position:fixed;left:50%;bottom:110px;transform:translateX(-50%);background:#15222B;color:#fff;padding:14px 22px;border-radius:14px;font-weight:700;z-index:60;box-shadow:0 12px 30px -10px rgba(0,0,0,.5);transition:opacity .3s';
-     document.body.appendChild(t);
-    }
-    t.textContent = m;
-    t.style.opacity = '1';
-    clearTimeout(tT);
-    tT = setTimeout(function () {
-     t.style.opacity = '0';
-    }, 1700);
-   }
-
-   /* ── 바코드/출력 ── */
-   function bcCard(d) {
-    return '<div class="bc-card"><div class="bc-bars"></div>' +
-     '<div class="bc-data">' + d.line + '</div>' +
-     (d.sub ? '<div class="bc-sub">' + d.sub + '</div>' : '') + '</div>';
-   }
-
-   function openBarcode(title, labels) {
-    document.getElementById('bcTitle').textContent = title;
-    document.getElementById('bcList').innerHTML = labels.map(function (l) {
-     return '<div style="margin-bottom:12px">' + bcCard(l) +
-      (l.copies > 1 ? '<div class="bc-sub" style="text-align:center">× ' + l.copies + '장 출력</div>' : '') + '</div>';
-    }).join('');
-    window.__printLabels = labels;
-    showMask('bcMask');
-   }
-
-   document.getElementById('bcPrint').onclick = function () {
-    var labels = window.__printLabels || [];
-    var html = '';
-    labels.forEach(function (l) {
-     var n = l.copies || 1;
-     for (var i = 0; i < n; i++) {
-      html += '<div style="border:1px solid #000;border-radius:6px;padding:12px;margin:6px;display:inline-block;width:220px;text-align:center;page-break-inside:avoid">' +
-       '<div style="height:54px;background:repeating-linear-gradient(90deg,#000 0 2px,#fff 2px 4px,#000 4px 5px,#fff 5px 9px,#000 9px 12px,#fff 12px 13px);border-radius:2px;margin-bottom:6px"></div>' +
-       '<div style="font-size:12px;font-weight:700">' + l.line + '</div>' + (l.sub ? '<div style="font-size:11px;color:#555">' + l.sub + '</div>' : '') + '</div>';
-     }
-    });
-    var pa = document.getElementById('printArea');
-    pa.innerHTML = '<h3 style="margin:0 0 10px">' + document.getElementById('bcTitle').textContent + '</h3>' + html;
-    hideMask('bcMask');
-    setTimeout(function () {
-     window.print();
-    }, 100);
-   };
-
-   /* 시간 수정 */
-   let timeWhich = 'start', editDate = new Date();
-
-   function fmtD(d) {
-    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0') + ' (' + WD[d.getDay()] + ')';
-   }
-
-   function openTime(which) {
-    timeWhich = which;
-    document.getElementById('timeTitle').textContent = (which === 'start' ? '시작' : '종료') + ' 일시 수정';
-    var saved = which === 'start' ? curS.start : curS.end;
-    if (saved && saved.indexOf(' ') >= 0) {
-     var a = saved.split(' ');
-     editDate = new Date(a[0] + 'T' + a[1]);
-    } else editDate = new Date();
-    document.getElementById('tDate').textContent = fmtD(editDate);
-    document.getElementById('tH').textContent = String(editDate.getHours()).padStart(2, '0');
-    document.getElementById('tM').textContent = String(editDate.getMinutes()).padStart(2, '0');
-    showMask('timeMask');
-   }
-
-   document.querySelector('#timeMask .dateedit').addEventListener('click', function (e) {
-    var b = e.target.closest('[data-d]');
-    if (!b) return;
-    editDate.setDate(editDate.getDate() + (+b.dataset.d));
-    document.getElementById('tDate').textContent = fmtD(editDate);
-   });
-   document.querySelector('#timeMask .timeedit').addEventListener('click', function (e) {
-    var b = e.target.closest('[data-t]');
-    if (!b) return;
-    var H = document.getElementById('tH'), M = document.getElementById('tM');
-    var h = +H.textContent, m = +M.textContent;
-    if (b.dataset.t === 'h+') h = (h + 1) % 24;
-    if (b.dataset.t === 'h-') h = (h + 23) % 24;
-    if (b.dataset.t === 'm+') m = (m + 1) % 60;
-    if (b.dataset.t === 'm-') m = (m + 59) % 60;
-    H.textContent = String(h).padStart(2, '0');
-    M.textContent = String(m).padStart(2, '0');
-   });
-   document.getElementById('timeOk').onclick = function () {
-    var ds = editDate.getFullYear() + '-' + String(editDate.getMonth() + 1).padStart(2, '0') + '-' + String(editDate.getDate()).padStart(2, '0');
-    var v = ds + ' ' + document.getElementById('tH').textContent + ':' + document.getElementById('tM').textContent;
-    if (timeWhich === 'start') curS.start = v; else curS.end = v;
-    hideMask('timeMask');
-    renderCHead();
-    renderSessList();
-    flash((timeWhich === 'start' ? '시작' : '종료') + ' 저장 ' + pill(v));
-   };
-
-   renderQueue();
+    renderQueue();
   </script>
+  <!-- ===== 스텝퍼 눌러서 빠르게 증감 (press & hold auto-repeat) — 태블릿/PC 공통 ===== -->
+  <style>
+    .stepper button, .lotstep button, .dateedit button, .timeedit button {
+      touch-action: manipulation;
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+    }
+  </style>
+  <script>
+    (function () {
+      var SEL = '.stepper button, .lotstep button, .dateedit button, .timeedit button';
+      var holdTimer = null, repeatTimer = null, maxTimer = null;
+      var curBtn = null;
+      var END_EVENTS = ['pointerup', 'pointercancel', 'lostpointercapture', 'touchend', 'touchcancel', 'mouseup'];
+
+      function stop() {
+        clearTimeout(holdTimer);
+        clearInterval(repeatTimer);
+        clearTimeout(maxTimer);
+        holdTimer = repeatTimer = maxTimer = null;
+        if (curBtn) {                                   // ★ 버튼에 직접 걸었던 리스너 정리
+          END_EVENTS.forEach(function (ev) { curBtn.removeEventListener(ev, stop); });
+          curBtn = null;
+        }
+      }
+
+      function tick(x, y) {
+        var el = document.elementFromPoint(x, y);
+        var b = (el && el.closest) ? el.closest(SEL) : null;
+        if (!b) { stop(); return; }
+        b.click();
+      }
+
+      document.addEventListener('pointerdown', function (e) {
+        if (e.button != null && e.button > 0) return;   // 좌클릭/터치만
+        var btn = e.target.closest ? e.target.closest(SEL) : null;
+        if (!btn) return;
+
+        var x = e.clientX, y = e.clientY;
+        stop();
+
+        // ★ 떼는 이벤트를 '눌린 버튼'에 직접 건다.
+        //   재렌더로 버튼이 DOM에서 사라져도 그 노드로 이벤트가 가므로 확실히 멈춘다.
+        curBtn = btn;
+        END_EVENTS.forEach(function (ev) { btn.addEventListener(ev, stop); });
+
+        holdTimer = setTimeout(function () {
+          repeatTimer = setInterval(function () { tick(x, y); }, 80); // 반복 속도(ms)
+          maxTimer = setTimeout(stop, 8000);                         // 안전장치: 최대 8초
+        }, 400); // 길게 누름 인식(ms)
+
+        // 손가락 안 뗐는데도 대비: 전역에도 백업으로 걸어둠 (날짜/시간 등 재렌더 없는 버튼용)
+        window.addEventListener('pointerup', stop, { once: true, capture: true });
+        window.addEventListener('touchend', stop, { once: true, capture: true });
+      });
+
+      window.addEventListener('blur', stop);
+      document.addEventListener('visibilitychange', function () { if (document.hidden) stop(); });
+    })();
+  </script>
+
 </th:block>
 
 </html>

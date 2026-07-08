@@ -65,7 +65,7 @@ public class SecurityConfiguration {
                                 "/login", "/logout", "/postLogin", "/intro", "/error", "/alive",
                                 // 정적 리소스
                                 "/resource/**", "/img/**", "/images/**", "/js/**", "/css/**",
-                                "/assets_mobile/**", "/font/**", "/robots.txt", "/favicon.ico",
+                                "/assets_mobile/**", "/font/**", "/robots.txt", "/favicon.ico","/manifest.json",
                                 // PDA 관련
                                 "/pda/login", "/pda/app/version/**", "/pda/**",
                                 // API 및 외부 연동

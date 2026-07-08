@@ -13,7 +13,10 @@
     <meta name="apple-mobile-web-app-title" content="미라셀 MES">
     <meta name="theme-color" content="#2f2f2f">
     <link rel="manifest" href="/manifest.json">
-    <link rel="icon" th:href="@{/images/logo/actas_log_a.png}">
+    <link rel="apple-touch-icon" th:href="@{/images/logo/miracell_icon_bg_192.png}">
+    <link rel="apple-touch-icon" sizes="192x192" th:href="@{/images/logo/miracell_icon_bg_192.png}">
+    <link rel="apple-touch-icon" sizes="512x512" th:href="@{/images/logo/miracell_icon_bg_512.png}">
+    <link rel="icon" th:href="@{/images/logo/miracell_log_a_192.png}">
     <title th:text="${ system_title }"></title>
     <!-- CSS -->
     <link rel="stylesheet" th:href="@{/resource/windowContainer/css/jquery.scrollbar.min.css}">
@@ -836,29 +839,11 @@
             }
             $(window).on('load resize', adjustMenu);
 
-            // 햄버거: 메뉴+헤더 함께 토글 (PC/태블릿 공통)
+            // 햄버거: 메뉴+헤더 함께 토글 (PC/태블릿 공통, 풀스크린 사용 안 함)
             $('#navbarBarMenu2 .open_menu').click(function () {
                 userToggled = true;
                 const willCollapse = !$('.menu_area').hasClass('hidden');
                 window.LayoutState.set(willCollapse);
-
-                // ★ 태블릿 사이즈면 풀스크린도 같이 토글
-                const winWidth = window.innerWidth;
-                const isTabletSize = winWidth >= 768 && winWidth <= 1366;
-
-                if (isTabletSize) {
-                    if (willCollapse) {
-                        if (!document.fullscreenElement) {
-                            document.documentElement.requestFullscreen().catch(err => {
-                                console.log('전체화면 진입 실패:', err);
-                            });
-                        }
-                    } else {
-                        if (document.fullscreenElement) {
-                            document.exitFullscreen();
-                        }
-                    }
-                }
             });
         });
 
@@ -1270,7 +1255,7 @@
                 <input type="text" id="userSearch"
                        placeholder="이름 검색"
                        class="form-control2"
-                       style="flex:1;">
+                       style="flex:1; width:200px;">
             </div>
 
             <label class="modal-label" style="margin-top:10px;">선택된 받는 사람</label>
@@ -1564,6 +1549,8 @@
     /* 모달 본체 */
     .modal_send {
         width: 420px;
+        max-width: calc(100vw - 32px); /* ★ 화면보다 넓어지지 않게 (오른쪽 넘침 방지) */
+        box-sizing: border-box;
         background: #fff;
         border-radius: 10px;
         box-shadow: 0 10px 30px rgba(0, 0, 0, .2);
@@ -2018,7 +2005,23 @@
         return {play: play, unlock: unlock};
     })();
 
-    function showToast(noti) {
+    /* ===== 태블릿: 안 읽은 알림이 남아 있으면 1분마다 소리 + 알림창 다시 띄우기 ===== */
+    (function () {
+        if (!window.matchMedia("(pointer: coarse)").matches) return;
+        setInterval(function () {
+            if (!alarmList || alarmList.length === 0) return;
+
+            // 안 읽은 알림 전부 다시 표시 (2개 이상이면 모두 중앙에 쌓임)
+            // 이미 떠 있는 건 showToast 내부 중복처리로 그대로 유지, 닫힌 건 다시 생성
+            alarmList.forEach(function (alarm) {
+                showToast(alarm, true); // silent=true → 개별 소리 억제
+            });
+            // 소리는 마지막에 한 번만
+            NotiSound.play();
+        }, 60000); // 60초. 간격 조절하려면 이 값 변경
+    })();
+
+    function showToast(noti, silent) {
 
         const uiType = getUiType(noti);
 
@@ -2086,8 +2089,8 @@
 
         container.appendChild(toast);
 
-        // ✅ 알림 소리
-        NotiSound.play();
+        // ✅ 알림 소리 (재알림 루프에서 호출 시 silent → 개별 소리 억제)
+        if (!silent) NotiSound.play();
 
         // ✅ 자동 제거 타이머 (태블릿은 자동으로 안 사라지게 → 사용자가 닫을 때까지 유지)
         let autoClose = null;

@@ -7,7 +7,17 @@
     <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1, minimum-scale=1, maximum-scale=1">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="-1">
-    <link rel="icon" th:href="@{/images/logo/actas_log_a.png}">
+    <!-- 홈 화면 추가/전체화면/아이콘 -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="미라셀 MES">
+    <meta name="theme-color" content="#2f2f2f">
+    <link rel="manifest" th:href="@{/manifest.json}">
+    <link rel="icon" th:href="@{/images/logo/miracell_log_a_192.png}">
+    <link rel="apple-touch-icon" th:href="@{/images/logo/miracell_icon_bg_192.png}">
+    <link rel="apple-touch-icon" sizes="192x192" th:href="@{/images/logo/miracell_icon_bg_192.png}">
+    <link rel="apple-touch-icon" sizes="512x512" th:href="@{/images/logo/miracell_icon_bg_512.png}">
 
     <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/smoothness/jquery-ui.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" /> <!-- Slide css -->

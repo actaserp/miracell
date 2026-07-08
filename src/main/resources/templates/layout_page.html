@@ -1,13 +1,23 @@
 <!DOCTYPE html>
 <html lang="ko" xmlns="http://www.w3.org/1999/xhtml">
 <head>
-    <title>ACTAS MES</title>
+    <title>MIRACELL MES</title>
     <meta charset="UTF-8"/>
     <meta name="ctx" th:content="@{/}">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport"
           content="width=device-width, user-scalable=no, initial-scale=1, minimum-scale=1, maximum-scale=1">
-
+    <!-- 홈 화면 추가/전체화면/아이콘 -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="미라셀 MES">
+    <meta name="theme-color" content="#2f2f2f">
+    <link rel="manifest" th:href="@{/manifest.json}">
+    <link rel="icon" th:href="@{/images/logo/miracell_log_a_192.png}">
+    <link rel="apple-touch-icon" th:href="@{/images/logo/miracell_icon_bg_192.png}">
+    <link rel="apple-touch-icon" sizes="192x192" th:href="@{/images/logo/miracell_icon_bg_192.png}">
+    <link rel="apple-touch-icon" sizes="512x512" th:href="@{/images/logo/miracell_icon_bg_512.png}">
     <!-- CSS -->
     <link rel="stylesheet" th:href="@{/resource/ax5ui/ax5ui.all.css}">
     <link rel="stylesheet" th:href="@{/resource/timepicker/jquery.timepicker.min.css}">
