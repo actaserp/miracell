@@ -6,7 +6,7 @@
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#ffffff",
-  "orientation": "portrait",
+  "orientation": "landscape",
   "icons": [
     {
       "src": "/images/logo/miracell_log_a_192.png",

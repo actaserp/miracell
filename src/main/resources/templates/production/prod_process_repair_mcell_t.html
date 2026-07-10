@@ -1,0 +1,477 @@
+<html layout:decorate="~{layout_page}">
+
+<th:block layout:fragment="content">
+    <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet"/>
+    <style>
+        :root{--bg:#E9EEF1;--surface:#FFF;--surface-2:#F4F7F9;--ink:#15222B;--ink-2:#5A6B76;--line:#D8E0E5;
+            --teal:#0E7C86;--teal-d:#0A5C64;--teal-bg:#E2F1F2;--green:#1E9D58;--green-bg:#E4F4EA;
+            --amber:#C77A00;--amber-bg:#FBEFD8;--red:#C8483B;--red-bg:#F7E4E1;--purple:#6D3BD1;--purple-bg:#EDE6FB;
+            --r:18px;--tap:60px;--shadow:0 1px 0 rgba(21,34,43,.04),0 8px 24px -16px rgba(21,34,43,.28)}
+        *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+        .ms-wash-root{font-family:"Pretendard","Noto Sans KR",-apple-system,sans-serif;color:var(--ink);font-size:17px;line-height:1.45;-webkit-font-smoothing:antialiased;flex:1 1 auto;min-height:0;height:var(--wash-h,100%);max-height:var(--wash-h,none);display:flex;flex-direction:column}
+        .ms-wash-root .app{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;background:var(--bg);border-radius:12px;overflow:hidden}
+        .screen{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden}.screen.hide{display:none}
+
+        .wrap{padding:22px 20px 28px;max-width:1180px;margin:0 auto;width:100%;overflow:auto;-webkit-overflow-scrolling:touch;flex:1 1 auto;min-height:0}
+        .qhead{display:flex;align-items:baseline;gap:12px;margin:2px 2px 18px}
+        .qhead h1{font-size:26px;font-weight:800;letter-spacing:-.03em;margin:0}
+        .qhead .cnt{color:var(--ink-2);font-weight:700}
+        .qfilter{display:flex;gap:8px;margin-left:auto;flex-wrap:wrap}
+        .qfilter button{min-height:44px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink-2);font-weight:700;font-size:14px;cursor:pointer}
+        .qfilter button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+        .qgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+        .wo{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px 18px 16px;cursor:pointer;box-shadow:var(--shadow);transition:transform .12s ease;position:relative;overflow:hidden}
+        .wo:active{transform:scale(.985)}
+        .wo .edge{position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--line)}
+        .wo[data-cat="return"] .edge{background:var(--amber)}.wo[data-cat="spec"] .edge{background:var(--purple)}.wo[data-cat="rework"] .edge{background:var(--teal)}
+        .wo .row1{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+        .wo .wono{font-weight:800;font-size:15px;color:var(--ink-2)}
+        .cattag{font-size:12px;font-weight:800;padding:3px 10px;border-radius:999px}
+        .cattag.return{background:var(--amber-bg);color:var(--amber)}.cattag.spec{background:var(--purple-bg);color:var(--purple)}.cattag.rework{background:var(--teal-bg);color:var(--teal-d)}
+        .chip{margin-left:auto;padding:5px 11px;border-radius:999px;font-size:13px;font-weight:800;background:var(--surface-2);color:var(--ink-2)}
+        .wo .name{font-size:18px;font-weight:800;letter-spacing:-.02em;line-height:1.3;margin:2px 0 4px}
+        .wo .code{font-size:13px;color:var(--ink-2);font-weight:700;font-variant-numeric:tabular-nums;margin-bottom:14px}
+        .wo .meta{display:flex;gap:18px;align-items:flex-end}
+        .wo .meta .blk{display:flex;flex-direction:column;gap:2px}
+        .wo .meta .lab{font-size:12.5px;color:var(--ink-2);font-weight:700}
+        .wo .meta .val{font-size:18px;font-weight:800;font-variant-numeric:tabular-nums}
+        .wo .meta .val.g{color:var(--green)}
+
+        .topbar2{flex:0 0 auto;background:var(--surface);border-bottom:1px solid var(--line);padding:12px 18px;display:flex;align-items:center;gap:14px;box-shadow:var(--shadow);z-index:2}
+        .back{width:48px;height:48px;border-radius:14px;border:1px solid var(--line);background:var(--surface-2);display:grid;place-items:center;cursor:pointer;font-size:22px;flex:0 0 auto}.back:active{background:var(--line)}
+        .htitle{min-width:0;flex:1}.htitle .t{font-size:18px;font-weight:800;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .htitle .s{font-size:13.5px;color:var(--ink-2);font-weight:700;margin-top:1px}
+        .infopill{display:flex;gap:7px;align-items:center;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:8px 12px;font-size:13px;font-weight:700;color:var(--ink-2)}
+        .infopill b{color:var(--ink);font-variant-numeric:tabular-nums}
+        .col-stack{display:flex;flex-direction:column;flex:1 1 auto;min-height:0;height:100%}
+        .bscroll{flex:1 1 auto;min-height:0;overflow:auto;-webkit-overflow-scrolling:touch;padding:18px}
+        .bgrid{max-width:900px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+        .secline{display:flex;align-items:center;gap:10px;margin:6px 2px 0;color:var(--ink-2);font-weight:800;font-size:14px}
+        .secline .ln{flex:1;height:1px;background:var(--line)}
+
+        .ugrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+        .unit{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;cursor:pointer;box-shadow:var(--shadow);position:relative;overflow:hidden;transition:transform .12s}
+        .unit:active{transform:scale(.98)}
+        .unit .edge{position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--amber)}
+        .unit[data-st="repairing"] .edge{background:var(--teal)}.unit[data-st="inspect_wait"] .edge{background:var(--purple)}.unit[data-st="done"] .edge{background:var(--green)}
+        .unit .un{font-size:16px;font-weight:800}
+        .unit .lot{font-size:12.5px;color:var(--ink-2);font-weight:700;font-variant-numeric:tabular-nums;margin-top:2px}
+        .unit .arrow{font-size:12.5px;color:var(--purple);font-weight:800;margin-top:2px}
+        .ubadge{padding:5px 10px;border-radius:999px;font-size:12.5px;font-weight:800}
+        .ubadge.wait{background:var(--amber-bg);color:var(--amber)}.ubadge.repairing{background:var(--teal-bg);color:var(--teal-d)}.ubadge.inspect_wait{background:var(--purple-bg);color:var(--purple)}.ubadge.done{background:var(--green-bg);color:var(--green)}
+
+        .srcbox{background:linear-gradient(180deg,#FBF7FF,#FFF);border:1px solid var(--purple-bg);border-radius:var(--r);padding:14px 16px;box-shadow:var(--shadow)}
+        .srcbox .h{font-size:12.5px;font-weight:800;color:var(--purple)}
+        .srcbox .lot{font-size:20px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+        .srcbox .sub{font-size:12.5px;color:var(--ink-2);font-weight:700;margin-top:2px}
+        .resbox{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;box-shadow:var(--shadow)}
+        .resbox .h{font-size:12.5px;font-weight:800;color:var(--ink-2)}
+        .resbox .lot{font-size:19px;font-weight:800;font-variant-numeric:tabular-nums}
+        .resbox .badge{margin-left:auto;padding:6px 12px;border-radius:999px;font-size:12.5px;font-weight:800;background:var(--surface-2);color:var(--ink-2)}
+        .resbox .badge.newlot{background:var(--purple-bg);color:var(--purple)}
+        .lotmode{display:inline-flex;border:1px solid var(--line);border-radius:12px;overflow:hidden;flex:0 0 auto}
+        .lotmode button{height:44px;padding:0 12px;border:none;background:var(--surface);color:var(--ink-2);font-weight:800;font-size:13px;cursor:pointer}
+        .lotmode button.on{background:var(--purple);color:#fff}
+
+        .whoRow{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 16px;box-shadow:var(--shadow)}
+        .whoRow .l{font-size:13px;color:var(--ink-2);font-weight:800}.whoRow .nm{font-size:17px;font-weight:800}
+        .whoRow .assign{margin-left:auto;height:46px;padding:0 16px;border-radius:12px;border:1px solid var(--teal);background:var(--teal-bg);color:var(--teal-d);font-weight:800;font-size:14px;cursor:pointer}
+
+        .mrow{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;display:flex;align-items:center;gap:10px;box-shadow:var(--shadow)}
+        .mrow.plus{border-left:5px solid var(--green)}.mrow.minus{border-left:5px solid var(--red)}
+        .mrow .dir{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;font-size:18px;font-weight:800;flex:0 0 auto}
+        .mrow.plus .dir{background:var(--green-bg);color:var(--green)}.mrow.minus .dir{background:var(--red-bg);color:var(--red)}
+        .mrow .id{flex:1;min-width:0}.mrow .mn{font-size:15.5px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .mrow .mc{font-size:12px;color:var(--ink-2);font-weight:700;font-variant-numeric:tabular-nums}
+        .stepper{display:flex;align-items:center;flex:0 0 auto}
+        .stepper button{width:42px;height:46px;border:1px solid var(--line);background:var(--surface-2);font-size:20px;font-weight:700;cursor:pointer;display:grid;place-items:center}
+        .stepper button:active{background:var(--line)}.stepper button.minus{border-radius:12px 0 0 12px}.stepper button.plus{border-radius:0 12px 12px 0}
+        .stepper .q{width:56px;height:46px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:#FFFDF4;text-align:center;font-size:18px;font-weight:800;font-variant-numeric:tabular-nums;display:grid;place-items:center}
+        .rm{width:42px;height:46px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--red);font-size:15px;cursor:pointer;flex:0 0 auto}
+        .addbar{display:flex;gap:10px;flex-wrap:wrap}
+        .addbtn{min-height:50px;padding:0 16px;border-radius:14px;border:1px solid var(--teal);background:var(--teal-bg);color:var(--teal-d);font-weight:800;font-size:14px;cursor:pointer}
+        .addbtn.minus{border-color:var(--red);background:var(--red-bg);color:var(--red)}
+        .addbtn.setbtn{border-color:var(--purple);background:var(--purple-bg);color:var(--purple)}
+        .emptybox{text-align:center;color:var(--ink-2);font-weight:700;padding:22px;border:1.5px dashed var(--line);border-radius:var(--r)}
+
+        .actionbar{flex:0 0 auto;background:var(--surface);border-top:1px solid var(--line);padding:14px 18px calc(14px + env(safe-area-inset-bottom));display:flex;gap:12px;align-items:center;box-shadow:0 -8px 24px -18px rgba(21,34,43,.4)}
+        .actionbar .actsum{display:flex;flex-direction:column;margin-right:auto}
+        .actionbar .actsum .l{font-size:12.5px;color:var(--ink-2);font-weight:700}
+        .actionbar .actsum .v{font-size:19px;font-weight:800;font-variant-numeric:tabular-nums}
+        .btn{min-height:var(--tap);padding:0 24px;border-radius:16px;border:none;cursor:pointer;font-size:18px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+        .btn.ghost{background:var(--surface-2);color:var(--ink-2);border:1px solid var(--line)}.btn.ghost:active{background:var(--line)}
+        .btn.primary{background:var(--teal);color:#fff;padding:0 26px;box-shadow:0 8px 18px -8px rgba(14,124,134,.7)}.btn.primary:active{background:var(--teal-d)}
+        .btn.purple{background:var(--purple);color:#fff}
+        .btn.start{background:var(--teal);color:#fff;flex:1;justify-content:center;font-size:20px}
+        .btn:disabled{background:var(--line)!important;color:var(--ink-2)!important;box-shadow:none;cursor:default}
+
+        .mask{position:fixed;inset:0;background:rgba(21,34,43,.42);display:none;z-index:40;align-items:flex-end}
+        .mask.show{display:flex;animation:fade .15s ease}@keyframes fade{from{opacity:0}to{opacity:1}}
+        .sheet{width:100%;background:var(--surface);border-radius:24px 24px 0 0;padding:20px 20px calc(40px + env(safe-area-inset-bottom));box-shadow:0 -20px 40px -20px rgba(0,0,0,.4);animation:rise .2s cubic-bezier(.2,.7,.3,1);max-height:88dvh;overflow:auto}
+        @keyframes rise{from{transform:translateY(40px)}to{transform:translateY(0)}}
+        .sheet .sh{display:flex;align-items:center;margin-bottom:16px}.sheet .sh h3{font-size:20px;font-weight:800;margin:0}
+        .sheet .sh .x{margin-left:auto;width:44px;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--surface-2);font-size:20px;cursor:pointer}
+        .sheet .body{max-width:660px;margin:0 auto}
+        .fieldlab{font-size:14px;font-weight:800;color:var(--ink-2);margin:14px 2px 8px}
+        .opts{display:flex;flex-wrap:wrap;gap:10px}
+        .opt{min-height:54px;padding:0 18px;border-radius:14px;border:1.5px solid var(--line);background:var(--surface);font-weight:800;font-size:16px;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+        .opt:active{background:var(--surface-2)}.opt.sel{border-color:var(--teal);background:var(--teal-bg);color:var(--teal-d)}
+        .sheet .ok{width:100%;margin-top:20px;background:var(--teal);color:#fff;min-height:var(--tap);border:none;border-radius:16px;font-size:19px;font-weight:800;cursor:pointer}
+        .sheet .ok:disabled{background:var(--line);color:var(--ink-2)}
+        .picklist{display:flex;flex-direction:column;gap:8px;max-height:52dvh;overflow:auto;margin-top:6px}
+        .prow{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:var(--surface);cursor:pointer}
+        .prow:active{background:var(--surface-2)}.prow.added{border-color:var(--teal);background:var(--teal-bg)}
+        .prow .pid{flex:1;min-width:0}.prow .pnm{font-size:16px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .prow .pcode{font-size:12.5px;color:var(--ink-2);font-weight:700;font-variant-numeric:tabular-nums}
+        .prow .pchk{width:34px;height:34px;border-radius:10px;border:1.5px solid var(--line);display:grid;place-items:center;flex:0 0 auto;font-weight:800;color:var(--teal-d)}
+        .prow.added .pchk{background:var(--teal);color:#fff;border-color:var(--teal)}
+
+        @media (max-width:680px){.qgrid{grid-template-columns:1fr}}
+        @media (prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important}}
+    </style>
+
+    <div class="ms-wash-root">
+        <div class="app">
+            <!-- A. 수리 작업지시 -->
+            <div class="screen" id="scA"><div class="wrap">
+                <div class="qhead"><h1>M-CELL 수리 · 작업지시</h1><span class="cnt" id="qcnt"></span>
+                    <div class="qfilter"><button class="on" data-f="all">전체</button>
+                        <button data-f="return">반품</button><button data-f="spec">사양변경</button>
+                        <button id="btnReg" style="background:var(--teal);color:#fff;border-color:var(--teal)">＋ 수리 접수</button></div></div>
+                <div class="qgrid" id="qgrid"></div>
+            </div></div>
+
+            <!-- B. 수리 유닛 -->
+            <div class="screen hide" id="scB"><div class="col-stack">
+                <div class="topbar2"><button class="back" data-back="A">‹</button>
+                    <div class="htitle"><div class="t" id="bName">—</div><div class="s" id="bSub">—</div></div>
+                    <div class="infopill"><span>검사전달</span><b id="bDone">0</b></div>
+                </div>
+                <div class="bscroll"><div class="bgrid">
+                    <div class="secline">수리 대상 유닛 (1대 = 개별 로트·바코드) <span class="ln"></span><span id="uCnt"></span></div>
+                    <div class="ugrid" id="uGrid"></div>
+                </div></div>
+            </div></div>
+
+            <!-- C. 유닛 수리 -->
+            <div class="screen hide" id="scC"><div class="col-stack">
+                <div class="topbar2"><button class="back" data-back="B">‹</button>
+                    <div class="htitle"><div class="t" id="cUnit">—</div><div class="s" id="cSub">—</div></div>
+                    <div class="infopill"><span>원 로트</span><b id="cSrc">—</b></div>
+                </div>
+                <div class="bscroll"><div class="bgrid" id="cGrid"></div></div>
+                <div class="actionbar" id="cAction"></div>
+            </div></div>
+        </div>
+
+        <!-- 작업자 배정 -->
+        <div class="mask" id="whoMask"><div class="sheet"><div class="body">
+            <div class="sh"><h3>수리 작업자 배정</h3><button class="x" data-close>✕</button></div>
+            <div class="fieldlab">작업자</div><div class="opts" id="whoOpts"></div>
+            <button class="ok" id="whoOk" disabled>배정 · 수리 시작</button>
+        </div></div></div>
+
+        <!-- 자재 추가 -->
+        <div class="mask" id="matMask"><div class="sheet"><div class="body">
+            <div class="sh"><h3 id="matTitle">자재 추가</h3><button class="x" data-close>✕</button></div>
+            <div class="fieldlab" id="matLab">자재 창고 · 눌러서 담기</div>
+            <div class="picklist" id="matList"></div>
+            <button class="ok" data-close style="background:var(--surface-2);color:var(--ink);border:1.5px solid var(--line)">닫기</button>
+        </div></div></div>
+        <!-- 수리 접수 등록 -->
+        <div class="mask" id="regMask"><div class="sheet"><div class="body">
+            <div class="sh"><h3>수리 접수 · 작업지시 등록</h3><button class="x" data-close>✕</button></div>
+            <div class="fieldlab">수리 유형</div>
+            <div class="opts" id="regCat">
+                <button class="opt sel" data-c="return">반품</button>
+                <button class="opt" data-c="spec">사양변경</button>
+            </div>
+            <div class="fieldlab">원 M-CELL 로트 <span style="color:var(--ink-2);font-weight:700">(직접 입력 또는 스캔)</span></div>
+            <div style="display:flex;gap:10px">
+                <input id="regLot" placeholder="예: MCN-260701-004" autocomplete="off"
+                    style="flex:1;height:54px;border:1.5px solid var(--line);border-radius:14px;padding:0 14px;font-size:16px;font-weight:800;font-variant-numeric:tabular-nums;background:var(--surface-2)"/>
+                <button class="opt" id="regScan" style="border-color:var(--teal);color:var(--teal-d);background:var(--teal-bg)">📷 스캔</button>
+            </div>
+            <div class="fieldlab">사유 / 메모</div>
+            <input id="regNote" placeholder="예: 전원 불량 반품" autocomplete="off"
+                style="width:100%;height:54px;border:1.5px solid var(--line);border-radius:14px;padding:0 14px;font-size:16px;font-weight:700"/>
+            <button class="ok" id="regOk">수리 작업지시 생성</button>
+        </div></div></div>
+    </div>
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <script th:inline="none">
+        (function () {
+            const root = document.querySelector('.ms-wash-root'); if (!root) return;
+            function localBelow() { let below = 0, node = root; while (node && node !== document.body) { let sib = node.nextElementSibling; while (sib) { const r = sib.getBoundingClientRect(); if (r.height > 0 && getComputedStyle(sib).position !== 'fixed') below += r.height; sib = sib.nextElementSibling; } node = node.parentElement; } let fx = 0; document.querySelectorAll('body *').forEach(el => { if (root.contains(el)) return; const cs = getComputedStyle(el); if (cs.position !== 'fixed' && cs.position !== 'sticky') return; const r = el.getBoundingClientRect(); if (r.height > 0 && r.height < innerHeight * 0.5 && r.bottom > innerHeight - 2) fx = Math.max(fx, r.height); }); return Math.max(below, fx); }
+            function availBottom() { let bottom = window.innerHeight; try { const fe = window.frameElement; if (fe) { const pWin = window.parent, pDoc = pWin.document; const feTop = fe.getBoundingClientRect().top; let flow = 0, node = fe; while (node && node !== pDoc.body) { let sib = node.nextElementSibling; while (sib) { const cs = pWin.getComputedStyle(sib), r = sib.getBoundingClientRect(); if (r.height > 0 && cs.position !== 'fixed' && cs.position !== 'absolute') flow += r.height; sib = sib.nextElementSibling; } node = node.parentElement; } let fx = 0; pDoc.querySelectorAll('body *').forEach(el => { if (el === fe || el.contains(fe)) return; const cs = pWin.getComputedStyle(el); if (cs.position !== 'fixed' && cs.position !== 'sticky' && cs.position !== 'absolute') return; const r = el.getBoundingClientRect(); if (r.height > 0 && r.height <= 160 && r.top > feTop && r.bottom > pWin.innerHeight - 40) fx = Math.max(fx, r.bottom - r.top); }); bottom = Math.min(bottom, (pWin.innerHeight - Math.max(flow, fx)) - feTop); } } catch (e) {} return bottom; }
+            function fit() { const top = root.getBoundingClientRect().top; const avail = availBottom() - top - localBelow(); root.style.setProperty('--wash-h', Math.max(320, Math.floor(avail)) + 'px'); }
+            window.addEventListener('resize', fit); window.addEventListener('orientationchange', fit); try { window.parent.addEventListener('resize', fit); } catch (e) {}
+            fit(); requestAnimationFrame(fit); setTimeout(fit, 200); setTimeout(fit, 600); if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
+        })();
+
+        const WORKERS = ['정우철', '김민수', '이서연', '박지훈', '한재범'];
+        const CAT = {return: '반품', spec: '사양변경'};
+        const UST = {wait: '수리대기', repairing: '수리중', inspect_wait: '검사대기', done: '완료'};
+
+        // 수리 부품 카탈로그(자유 가감)
+        const PARTS = [
+            {code: 'M-IB00025', name: '모터제어기_신형'}, {code: 'M-HA00010', name: '메인보드_BMK'},
+            {code: 'M-ID00121', name: 'LCD'}, {code: 'M-IH00076', name: '블루투스 보드'},
+            {code: 'M-IB00022', name: 'BMK90B300B-SY1(MOTOR)'}, {code: 'WIP-MA2006N', name: 'M2 로터 Ass\'y(개선품)'},
+            {code: 'M-HA00025', name: '전원 파워선_BMK'}, {code: 'M-IW00068', name: '베어링(로터)'},
+            {code: 'M-ISP00122', name: '로터리래치(잠금장치)'}, {code: 'WIP-MA0009', name: 'SMPS_Ass\'y'}
+        ];
+        function todayStr() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+        function nowFull() { const d = new Date(); return todayStr() + ' ' + String(new Date().getHours()).padStart(2, '0') + ':' + String(new Date().getMinutes()).padStart(2, '0'); }
+        function mkMat(p, dir, qty) { return {code: p.code, name: p.name, dir: dir, qty: qty == null ? 1 : qty}; }
+        // lotMode: 'keep'(원 로트 유지) | 'new'(새 로트 발번). 기본: 반품=keep, 사양변경=new
+        function mkUnit(no, srcLot, srcModel, lotMode) { return {no: no, srcLot: srcLot, srcModel: srcModel, st: 'wait', worker: null, lotMode: lotMode || 'keep', newLot: null, mats: [], start: null, end: null}; }
+
+        const ORDERS = [
+            {id: 'RP-2407-002', odate: '2026-07-09', cat: 'spec', model: '국내', title: '사양 변경 (수출 사양으로 전환)', units: [
+                mkUnit(1, 'MCN-260701-004', '국내', 'new')
+            ]},
+            {id: 'RP-2407-003', odate: '2026-07-10', cat: 'return', model: '해외', title: '반품 입고 (해외 · 전원 불량)', units: [
+                mkUnit(1, 'MCX-260620-001', '해외', 'keep')
+            ]},
+            {id: 'RP-2407-004', odate: '2026-07-10', cat: 'return', model: '국내', title: '반품 입고 (국내 · 블루투스 불량)', units: [
+                mkUnit(1, 'MCN-260618-003', '국내', 'keep')
+            ]}
+        ];
+        // 데모 상태
+        ORDERS[0].units[0].mats = [mkMat(PARTS[2], '-', 1), mkMat(PARTS[0], '+', 1)];
+        ORDERS[1].units[0].st = 'repairing'; ORDERS[1].units[0].worker = '정우철'; ORDERS[1].units[0].start = '2026-07-10 09:20';
+        ORDERS[1].units[0].mats = [mkMat(PARTS[6], '-', 1), mkMat(PARTS[6], '+', 1)];
+        var _seq = 5;   // 다음 RP 번호
+
+        function newLotSuffix(u) { return (u.srcModel === '해외' ? 'MCX-' : 'MCN-') + todayStr().slice(2).replace(/-/g, '') + '-R' + String(u.no).padStart(2, '0'); }
+        function newLotFor(u, o) { return u.lotMode === 'new' ? (u.newLot || newLotSuffix(u)) : u.srcLot; }
+        function uDone(o) { return o.units.filter(function (u) { return u.st === 'inspect_wait' || u.st === 'done'; }).length; }
+        function ordSt(o) { if (o.units.every(function (u) { return u.st === 'inspect_wait' || u.st === 'done'; })) return 'done'; if (o.units.some(function (u) { return u.st !== 'wait'; })) return 'working'; return 'wait'; }
+
+        let curO = null, curU = null;
+
+        /* A */
+        const qgrid = document.getElementById('qgrid');
+        let filter = 'all';
+        function renderQueue() {
+            var list = ORDERS.filter(function (o) { return filter === 'all' || o.cat === filter; });
+            document.getElementById('qcnt').textContent = list.length + '건';
+            qgrid.innerHTML = list.map(function (o) {
+                return '<div class="wo" data-cat="' + o.cat + '" data-id="' + o.id + '"><div class="edge"></div>' +
+                    '<div class="row1"><span class="wono">' + o.id + '</span><span class="cattag ' + o.cat + '">' + CAT[o.cat] + '</span>' +
+                    '<span class="chip">' + o.model + '</span></div>' +
+                    '<div class="name">' + o.title + '</div><div class="code">' + o.odate + '</div>' +
+                    '<div class="meta"><div class="blk"><span class="lab">수리대상</span><span class="val">' + o.units.length + '대</span></div>' +
+                    '<div class="blk"><span class="lab">검사전달</span><span class="val g">' + uDone(o) + '</span></div></div></div>';
+            }).join('');
+        }
+        qgrid.addEventListener('click', function (e) { var c = e.target.closest('.wo'); if (c) openOrder(c.dataset.id); });
+        document.querySelectorAll('.qfilter button').forEach(function (b) { b.addEventListener('click', function () { document.querySelectorAll('.qfilter button').forEach(function (x) { x.classList.remove('on'); }); b.classList.add('on'); filter = b.dataset.f; renderQueue(); }); });
+
+        const SC = {A: document.getElementById('scA'), B: document.getElementById('scB'), C: document.getElementById('scC')};
+        function show(k) { for (var x in SC) SC[x].classList.toggle('hide', x !== k); }
+        document.querySelectorAll('[data-back]').forEach(function (b) { b.addEventListener('click', function () { var to = b.dataset.back; if (to === 'A') { renderQueue(); show('A'); } else { renderUnits(); show('B'); } }); });
+
+        /* B */
+        function openOrder(id) { curO = ORDERS.find(function (o) { return o.id === id; }); renderUnits(); show('B'); }
+        function renderUnits() {
+            document.getElementById('bName').textContent = CAT[curO.cat] + ' · ' + curO.title;
+            document.getElementById('bSub').textContent = curO.id + ' · ' + curO.model;
+            document.getElementById('bDone').textContent = uDone(curO) + ' / ' + curO.units.length;
+            document.getElementById('uCnt').textContent = curO.units.length + '대';
+            document.getElementById('uGrid').innerHTML = curO.units.map(function (u, i) {
+                var res = newLotFor(u, curO), changed = res !== u.srcLot;
+                return '<div class="unit" data-st="' + u.st + '" data-i="' + i + '"><div class="edge"></div>' +
+                    '<div style="display:flex;align-items:center;gap:8px"><span class="un">수리 #' + String(u.no).padStart(2, '0') + '</span>' +
+                    '<span class="ubadge ' + u.st + '" style="margin-left:auto">' + UST[u.st] + '</span></div>' +
+                    '<div class="lot">원 로트 ' + u.srcLot + '</div>' +
+                    (changed ? '<div class="arrow">→ 새 로트 ' + res + '</div>' : '') + '</div>';
+            }).join('');
+        }
+        document.getElementById('uGrid').addEventListener('click', function (e) { var u = e.target.closest('.unit'); if (u) openUnit(+u.dataset.i); });
+
+        /* C */
+        function openUnit(i) { curU = curO.units[i]; curU._idx = i; var sc = document.getElementById('cGrid').closest('.bscroll'); if (sc) sc.scrollTop = 0; renderUnit(); show('C'); }
+        function renderUnit() {
+            var u = curU, o = curO;
+            var _sc = document.getElementById('cGrid').closest('.bscroll'); var _keep = _sc ? _sc.scrollTop : 0;
+            document.getElementById('cUnit').textContent = '수리 #' + String(u.no).padStart(2, '0') + ' · ' + UST[u.st];
+            document.getElementById('cSub').textContent = CAT[o.cat] + ' · ' + o.model;
+            document.getElementById('cSrc').textContent = u.srcLot;
+
+            var res = newLotFor(u, o), changed = res !== u.srcLot;
+            var locked = (u.st === 'inspect_wait' || u.st === 'done');
+            var html = '';
+            // 원 M-CELL 로트 투입(추적)
+            html += '<div class="srcbox"><div class="h">투입: 원 M-CELL 로트 (계보 추적)</div>' +
+                '<div class="lot">' + u.srcLot + '</div>' +
+                '<div class="sub">' + u.srcModel + ' 원 장비 1대 투입 · ' + CAT[o.cat] + '</div></div>';
+            // 결과 로트 방식 선택 (원 로트 유지 / 새 로트 발번)
+            html += '<div class="resbox"><div style="flex:1"><div class="h">수리 결과 로트</div>' +
+                '<div class="lot">' + (u.lotMode === 'new' ? res + (u.st === 'wait' ? ' (시작 시 확정)' : '') : u.srcLot) + '</div>' +
+                '<div class="sub" style="font-size:12px;color:var(--ink-2);font-weight:700">' + (u.lotMode === 'new' ? '새 로트 발번 · 원 로트(' + u.srcLot + ') 링크' : '원 로트 그대로 유지') + '</div></div>' +
+                (locked ? '' : '<div class="lotmode"><button class="' + (u.lotMode === 'keep' ? 'on' : '') + '" data-lotmode="keep">원 로트 유지</button><button class="' + (u.lotMode === 'new' ? 'on' : '') + '" data-lotmode="new">새 로트 발번</button></div>') + '</div>';
+            // 작업자
+            html += '<div class="whoRow"><span class="l">수리 작업자</span><span class="nm">' + (u.worker || '미배정') + '</span>' +
+                (locked ? '' : '<button class="assign" data-who>' + (u.worker ? '변경' : '배정') + '</button>') + '</div>';
+
+            // 자재 가감
+            var plus = u.mats.filter(function (m) { return m.dir === '+'; });
+            var minus = u.mats.filter(function (m) { return m.dir === '-'; });
+            html += '<div class="secline">투입 자재 (＋추가 / −차감 자유 조정) <span class="ln"></span><span>＋' + plus.length + ' / −' + minus.length + '</span></div>';
+            if (!u.mats.length) html += '<div class="emptybox">투입 자재가 없습니다. 아래에서 자재를 담으세요.</div>';
+            html += u.mats.map(function (m) {
+                var gi = u.mats.indexOf(m);
+                return '<div class="mrow ' + (m.dir === '+' ? 'plus' : 'minus') + '"><div class="dir">' + (m.dir === '+' ? '＋' : '−') + '</div>' +
+                    '<div class="id"><div class="mn">' + m.name + '</div><div class="mc">' + m.code + ' · ' + (m.dir === '+' ? '추가 투입' : '차감(회수)') + '</div></div>' +
+                    (locked ? '<span class="stepper"><span class="q">' + m.qty + '</span></span>' :
+                        '<div class="stepper" data-mstep="' + gi + '"><button class="minus">−</button><div class="q">' + m.qty + '</div><button class="plus">+</button></div>' +
+                        '<button class="rm" data-mrm="' + gi + '">✕</button>') + '</div>';
+            }).join('');
+            if (!locked) {
+                html += '<div class="addbar" style="margin-top:4px">' +
+                    '<button class="addbtn" data-add="+">＋ 자재 추가(투입)</button>' +
+                    '<button class="addbtn minus" data-add="-">− 자재 차감(회수)</button></div>';
+            }
+
+            document.getElementById('cGrid').innerHTML = html;
+            renderCAction();
+            if (_sc) _sc.scrollTop = _keep;
+        }
+        function renderCAction() {
+            var u = curU, bar = document.getElementById('cAction');
+            var pc = u.mats.filter(function (m) { return m.dir === '+'; }).length, mc = u.mats.filter(function (m) { return m.dir === '-'; }).length;
+            if (u.st === 'wait') {
+                bar.innerHTML = '<div class="actsum"><span class="l">작업자 배정 후 수리 시작</span><span class="v">＋' + pc + ' / −' + mc + ' 자재</span></div>' +
+                    '<button class="btn start" data-act="start">수리 시작 · 로트 확정</button>';
+            } else if (u.st === 'repairing') {
+                bar.innerHTML = '<div class="actsum"><span class="l">' + (u.worker || '') + ' · 수리중</span><span class="v">＋' + pc + ' / −' + mc + ' 자재</span></div>' +
+                    '<button class="btn ghost" data-act="cancel">시작취소</button><button class="btn primary" data-act="finish">수리 완료 · 검사 전달</button>';
+            } else if (u.st === 'inspect_wait') {
+                bar.innerHTML = '<div class="actsum"><span class="l">' + newLotFor(u, curO) + ' · 검사 대기</span><span class="v" style="color:var(--purple)">검사 공정으로 전달됨</span></div>' +
+                    '<button class="btn ghost" data-act="reopen">검사취소 · 수리 복귀</button>';
+            } else bar.innerHTML = '<div class="actsum"><span class="l">완료</span></div>';
+        }
+
+        document.getElementById('cGrid').addEventListener('click', function (e) {
+            var u = curU, o = curO;
+            if (e.target.closest('[data-who]')) { openWho(); return; }
+            var ms = e.target.closest('[data-mstep]');
+            if (ms && (e.target.classList.contains('plus') || e.target.classList.contains('minus'))) {
+                var m = u.mats[+ms.dataset.mstep]; m.qty = Math.max(1, m.qty + (e.target.classList.contains('plus') ? 1 : -1)); renderUnit(); return;
+            }
+            var rm = e.target.closest('[data-mrm]'); if (rm) { u.mats.splice(+rm.dataset.mrm, 1); renderUnit(); flash('자재 삭제'); return; }
+            var ab = e.target.closest('[data-add]'); if (ab) { openMat(ab.dataset.add); return; }
+            var lm = e.target.closest('[data-lotmode]'); if (lm) { u.lotMode = lm.dataset.lotmode; if (u.lotMode === 'new' && u.st !== 'wait' && !u.newLot) u.newLot = newLotSuffix(u); renderUnit(); flash(u.lotMode === 'new' ? '새 로트 발번' : '원 로트 유지'); return; }
+        });
+        document.getElementById('cAction').addEventListener('click', function (e) {
+            var u = curU, o = curO, a = e.target.closest('[data-act]'); if (!a) return;
+            if (a.dataset.act === 'start') {
+                if (!u.worker) { flash('작업자를 먼저 배정하세요'); openWho(); return; }
+                u.st = 'repairing'; u.start = nowFull(); if (u.lotMode === 'new') u.newLot = newLotSuffix(u); renderUnit(); renderUnits();
+                flash('수리 시작 · 결과 로트 ' + newLotFor(u, o));
+            } else if (a.dataset.act === 'cancel') { u.st = 'wait'; u.start = null; renderUnit(); renderUnits(); flash('시작취소'); }
+            else if (a.dataset.act === 'finish') {
+                u.st = 'inspect_wait'; u.end = nowFull(); renderUnit(); renderUnits();
+                flash('수리 완료 · ' + newLotFor(u, o) + ' → 검사 공정 전달');
+            } else if (a.dataset.act === 'reopen') { u.st = 'repairing'; u.end = null; renderUnit(); renderUnits(); flash('검사취소 · 수리 복귀'); }
+        });
+
+        /* 작업자 */
+        function showMask(id) { document.getElementById(id).classList.add('show'); }
+        function hideMask(id) { document.getElementById(id).classList.remove('show'); }
+        document.querySelectorAll('.mask').forEach(function (m) { m.addEventListener('click', function (e) { if (e.target === m || e.target.closest('[data-close]')) m.classList.remove('show'); }); });
+        var whoSel = null;
+        function openWho() {
+            whoSel = curU.worker;
+            document.getElementById('whoOpts').innerHTML = WORKERS.map(function (w) { return '<button class="opt' + (curU.worker === w ? ' sel' : '') + '" data-w="' + w + '">' + w + '</button>'; }).join('');
+            document.getElementById('whoOk').disabled = !curU.worker;
+            showMask('whoMask');
+        }
+        document.getElementById('whoOpts').addEventListener('click', function (e) { var b = e.target.closest('[data-w]'); if (!b) return; document.querySelectorAll('#whoOpts .opt').forEach(function (x) { x.classList.remove('sel'); }); b.classList.add('sel'); whoSel = b.dataset.w; document.getElementById('whoOk').disabled = false; });
+        document.getElementById('whoOk').onclick = function () {
+            curU.worker = whoSel;
+            if (curU.st === 'wait') { curU.st = 'repairing'; curU.start = nowFull(); if (curU.lotMode === 'new') curU.newLot = newLotSuffix(curU); }
+            hideMask('whoMask'); renderUnit(); renderUnits(); flash('작업자 · ' + whoSel + ' · 수리 시작');
+        };
+
+        /* 자재 추가 */
+        var addDir = '+';
+        function openMat(dir) {
+            addDir = dir;
+            var pool = PARTS;
+            document.getElementById('matTitle').textContent = (dir === '+' ? '자재 추가 (투입)' : '자재 차감 (회수)');
+            document.getElementById('matLab').textContent = (dir === '+' ? '추가 투입할 자재' : '차감(회수)할 자재') + ' · 눌러서 담기';
+            var has = function (code) { return curU.mats.some(function (m) { return m.code === code && m.dir === dir; }); };
+            document.getElementById('matList').innerHTML = pool.map(function (p, i) {
+                return '<div class="prow ' + (has(p.code) ? 'added' : '') + '" data-p="' + i + '"><div class="pid"><div class="pnm">' + p.name + '</div><div class="pcode">' + p.code + '</div></div>' +
+                    '<div class="pchk">' + (has(p.code) ? '✓' : (dir === '+' ? '＋' : '−')) + '</div></div>';
+            }).join('');
+            window._matPool = pool;
+            showMask('matMask');
+        }
+        document.getElementById('matList').addEventListener('click', function (e) {
+            var r = e.target.closest('[data-p]'); if (!r) return;
+            var p = window._matPool[+r.dataset.p];
+            var k = curU.mats.findIndex(function (m) { return m.code === p.code && m.dir === addDir; });
+            if (k >= 0) { curU.mats.splice(k, 1); flash('자재 제거'); } else { curU.mats.push(mkMat(p, addDir, 1)); flash(addDir === '+' ? '자재 추가' : '자재 차감'); }
+            openMat(addDir); renderUnit();
+        });
+
+        /* 수리 접수 등록 */
+        var regCatVal = 'return';
+        document.getElementById('btnReg').addEventListener('click', function () {
+            regCatVal = 'return';
+            document.querySelectorAll('#regCat .opt').forEach(function (x) { x.classList.toggle('sel', x.dataset.c === 'return'); });
+            document.getElementById('regLot').value = ''; document.getElementById('regNote').value = '';
+            showMask('regMask');
+        });
+        document.getElementById('regCat').addEventListener('click', function (e) { var b = e.target.closest('[data-c]'); if (!b) return; regCatVal = b.dataset.c; document.querySelectorAll('#regCat .opt').forEach(function (x) { x.classList.remove('sel'); }); b.classList.add('sel'); });
+        document.getElementById('regScan').addEventListener('click', function () {
+            // 바코드 스캔(목업): 원 M-CELL 로트 GS1/시리얼을 읽어온 셈
+            var samples = ['MCN-260701-004', 'MCX-260620-001', 'MCN-260618-003', 'MCN-260705-007'];
+            var v = samples[Math.floor(Math.random() * samples.length)];
+            document.getElementById('regLot').value = v; flash('스캔됨 · ' + v);
+        });
+        document.getElementById('regOk').onclick = function () {
+            var lot = (document.getElementById('regLot').value || '').trim().toUpperCase();
+            if (!lot) { flash('원 M-CELL 로트를 입력하거나 스캔하세요'); return; }
+            var note = (document.getElementById('regNote').value || '').trim();
+            var model = lot.indexOf('MCX') === 0 ? '해외' : '국내';
+            var title = note || (regCatVal === 'spec' ? '사양 변경' : '반품 입고');
+            var id = 'RP-2407-' + String(_seq++).padStart(3, '0');
+            var u = mkUnit(1, lot, model, regCatVal === 'spec' ? 'new' : 'keep');
+            var o = {id: id, odate: todayStr(), cat: regCatVal, model: model, title: title, units: [u]};
+            ORDERS.unshift(o);
+            hideMask('regMask'); filter = 'all';
+            document.querySelectorAll('.qfilter button[data-f]').forEach(function (x) { x.classList.toggle('on', x.dataset.f === 'all'); });
+            renderQueue(); flash('수리 작업지시 생성 · ' + id + ' (' + CAT[regCatVal] + ')');
+        };
+
+        var tT;
+        function flash(m) {
+            var t = document.getElementById('toast');
+            if (!t) { t = document.createElement('div'); t.id = 'toast'; t.style.cssText = 'position:fixed;left:50%;bottom:110px;transform:translateX(-50%);background:#15222B;color:#fff;padding:14px 22px;border-radius:14px;font-weight:700;z-index:60;box-shadow:0 12px 30px -10px rgba(0,0,0,.5);transition:opacity .3s;max-width:90vw;text-align:center'; document.body.appendChild(t); }
+            t.textContent = m; t.style.opacity = '1'; clearTimeout(tT); tT = setTimeout(function () { t.style.opacity = '0'; }, 1900);
+        }
+
+        renderQueue();
+    </script>
+
+    <style>.stepper button {touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}</style>
+    <script>
+        (function () {
+            var SEL = '.stepper button'; var holdTimer = null, repeatTimer = null, maxTimer = null, curBtn = null;
+            var END = ['pointerup', 'pointercancel', 'lostpointercapture', 'touchend', 'touchcancel', 'mouseup'];
+            function stop() { clearTimeout(holdTimer); clearInterval(repeatTimer); clearTimeout(maxTimer); holdTimer = repeatTimer = maxTimer = null; if (curBtn) { END.forEach(function (ev) { curBtn.removeEventListener(ev, stop); }); curBtn = null; } }
+            function tick(x, y) { var el = document.elementFromPoint(x, y); var b = (el && el.closest) ? el.closest(SEL) : null; if (!b) { stop(); return; } b.click(); }
+            document.addEventListener('pointerdown', function (e) { if (e.button != null && e.button > 0) return; var btn = e.target.closest ? e.target.closest(SEL) : null; if (!btn) return; var x = e.clientX, y = e.clientY; stop(); curBtn = btn; END.forEach(function (ev) { btn.addEventListener(ev, stop); }); holdTimer = setTimeout(function () { repeatTimer = setInterval(function () { tick(x, y); }, 90); maxTimer = setTimeout(stop, 8000); }, 420); window.addEventListener('pointerup', stop, {once: true, capture: true}); window.addEventListener('touchend', stop, {once: true, capture: true}); });
+            window.addEventListener('blur', stop); document.addEventListener('visibilitychange', function () { if (document.hidden) stop(); });
+        })();
+    </script>
+</th:block>
+</html>

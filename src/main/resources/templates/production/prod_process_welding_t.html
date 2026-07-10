@@ -202,7 +202,7 @@
         <div class="app">
             <!-- A. 날짜 카드 -->
             <div class="screen" id="scA"><div class="wrap">
-                <div class="qhead"><h1>용기 조립 공정</h1><span class="cnt" id="dayCnt"></span></div>
+                <div class="qhead"><h1>고주파 융착 공정</h1><span class="cnt" id="dayCnt"></span></div>
                 <div class="qgrid" id="dayGrid"></div>
             </div></div>
 
@@ -210,7 +210,7 @@
             <div class="screen hide" id="scB"><div class="col-stack">
                 <div class="topbar2">
                     <button class="back" data-back="A">‹</button>
-                    <div class="htitle"><div class="t" id="bDate">—</div><div class="s">생산 1캠퍼스 · 용기 조립(압착)</div></div>
+                    <div class="htitle"><div class="t" id="bDate">—</div><div class="s">생산 1캠퍼스 · 고주파 융착</div></div>
                     <div class="infopill big"><span>완료수량</span><b id="bDoneQty">0</b></div>
                 </div>
                 <div class="bscroll"><div class="bgrid">
@@ -218,7 +218,7 @@
                     <div id="wkList" style="display:flex;flex-direction:column;gap:12px"></div>
                 </div></div>
                 <div class="actionbar">
-                    <div class="actsum"><span class="l">2인 1조로도 편성됩니다 · 조를 눌러 용기를 조립하세요</span></div>
+                    <div class="actsum"><span class="l">다인 1조 편성 가능 · 조를 눌러 필터백을 융착하세요</span></div>
                     <button class="btn start" id="btnAddCrew">＋ 작업조 추가</button>
                 </div>
             </div></div>
@@ -231,28 +231,28 @@
                     <div class="chead" id="cHead"></div>
                 </div>
                 <div class="bscroll"><div class="bgrid">
-                    <div class="secline">조립 용기 <span class="ln"></span><span id="itemCnt"></span></div>
+                    <div class="secline">융착 필터백 <span class="ln"></span><span id="itemCnt"></span></div>
                     <div id="itemList" style="display:flex;flex-direction:column;gap:12px"></div>
                 </div></div>
                 <div class="actionbar" id="cAction"></div>
             </div></div>
         </div>
 
-        <!-- 작업조 편성 시트 (작업자 다중 + 압착기) -->
+        <!-- 작업조 편성 시트 (작업자 다중 + 융착기) -->
         <div class="mask" id="crewMask"><div class="sheet"><div class="body">
             <div class="sh"><h3>작업조 편성</h3><button class="x" data-close>✕</button></div>
             <div class="fieldlab">작업자 <span style="color:var(--ink-2);font-weight:700">(여러 명 선택 가능)</span></div>
             <div class="opts" id="workerOpts"></div>
-            <div class="fieldlab">압착기</div><div class="opts" id="equipOpts"></div>
+            <div class="fieldlab">융착기</div><div class="opts" id="equipOpts"></div>
             <button class="ok" id="crewOk" disabled>이 조로 시작</button>
         </div></div></div>
 
         <!-- 용기 선택 시트 (작업지시 / 자유) -->
         <div class="mask" id="vesMask"><div class="sheet"><div class="body">
-            <div class="sh"><h3>조립할 용기 선택</h3><button class="x" data-close>✕</button></div>
-            <div class="fieldlab">용기 작업지시 <span style="color:var(--ink-2);font-weight:700">(생산지시로 생성됨)</span></div>
+            <div class="sh"><h3>융착할 필터백 선택</h3><button class="x" data-close>✕</button></div>
+            <div class="fieldlab">필터백 작업지시 <span style="color:var(--ink-2);font-weight:700">(생산지시로 생성됨)</span></div>
             <div class="picklist" id="woVesList"></div>
-            <div class="fieldlab">작지 없이 직접 선택 <span style="color:var(--ink-2);font-weight:700">(용기 품목)</span></div>
+            <div class="fieldlab">작지 없이 직접 선택 <span style="color:var(--ink-2);font-weight:700">(필터백 반제품)</span></div>
             <div class="picklist" id="freeVesList"></div>
             <button class="ok" data-close style="background:var(--surface-2);color:var(--ink);border:1.5px solid var(--line)">닫기</button>
         </div></div></div>
@@ -365,48 +365,39 @@
 
         /* ── 기준 데이터 ── */
         const WD = ['일', '월', '화', '수', '목', '금', '토'];
-        const WORKERS = ['김세연', '김순애', '박은경', '김진희', '이미정', '안수정'];
-        const EQUIPS = [['KM-MRM-M001', '압착기 A'], ['KM-MRM-M005', '압착기 B']];
+        const WORKERS = ['안수정', '김성희', '박은경', '김진희', '이미정', '조유정'];
+        const EQUIPS = [['KM-MRM-M007', '융착기 A'], ['KM-MRM-M008', '융착기 B']];
         const STLAB = {wait: '대기', working: '작업중', done: '완료'};
 
-        // 용기 기본 BOM(투입자재) — 세척 완료(클린룸) 부품. per = 용기 1개당 소요
+        // 필터백 기본 BOM(투입자재) — per = 필터백 1개당 소요
         const DEFAULT_BOM = [
-            {code: 'M-DD00003', name: 'BSC+③ 30 상부', per: 1},
-            {code: 'M-DD00004', name: 'BSC+③ 30 하부', per: 1},
-            {code: 'M-DD00029', name: '혈액주입포트(RHAN-빨강)_R-Rub', per: 1},
-            {code: 'M-DD00030', name: '셀추출포트(고무-아이보리)_Iv-Rub', per: 1},
-            {code: 'M-DD00033', name: '플로팅 혈액 30', per: 1},
-            {code: 'M-DP00058', name: '에어밴트', per: 1},
-            {code: 'M-DS00053', name: '오링 040', per: 1}
+            {code: 'M-DDW00038', name: '필터', per: 1},
+            {code: 'M-DDW00037', name: '원단', per: 1},
+            {code: 'M-DE00019', name: '호스소', per: 2},
+            {code: 'M-GP00003', name: '호스대', per: 1},
+            {code: 'M-DE00020', name: '레드캡', per: 1}
         ];
-        // 클린룸 창고 재고 (BOM 추가용)
+        // 자재 창고 재고 (BOM 추가용)
         const CLEAN_STOCK = [
-            {code: 'M-DD00003', name: 'BSC+③ 30 상부', stock: 320},
-            {code: 'M-DD00004', name: 'BSC+③ 30 하부', stock: 300},
-            {code: 'M-DD00029', name: '혈액주입포트(RHAN-빨강)_R-Rub', stock: 1800},
-            {code: 'M-DD00030', name: '셀추출포트(고무-아이보리)_Iv-Rub', stock: 1750},
-            {code: 'M-DD00033', name: '플로팅 혈액 30', stock: 210},
-            {code: 'M-DP00058', name: '에어밴트', stock: 640},
-            {code: 'M-DS00053', name: '오링 040', stock: 900},
-            {code: 'M-DD00070', name: '스페이서', stock: 500},
-            {code: 'M-DD00071', name: '호환형 BSC+③ 30 상부', stock: 120},
-            {code: 'M-DJ00034', name: '플로팅 혈액 60', stock: 160}
+            {code: 'M-DDW00038', name: '필터', stock: 320},
+            {code: 'M-DDW00037', name: '원단', stock: 300},
+            {code: 'M-DE00019', name: '호스소', stock: 640},
+            {code: 'M-GP00003', name: '호스대', stock: 280},
+            {code: 'M-DE00020', name: '레드캡', stock: 400},
+            {code: 'M-DE00021', name: '블루캡', stock: 200},
+            {code: 'M-DDW00040', name: '보강 원단', stock: 150}
         ];
-        // 용기 작업지시 (생산지시로 생성)
+        // 필터백 반제품 작업지시 (생산지시로 생성)
         const WO_VES = [
-            {wo: 'WO-ON-2601', vcode: 'WIP-ON00001', vname: 'BSC+③ 30ml 용기 / 00차수', plan: 216},
-            {wo: 'WO-ON-2602', vcode: 'WIP-ON00002', vname: 'BSC+③ 60ml 용기 / 02차수', plan: 432},
-            {wo: 'WO-ON-2603', vcode: 'WIP-ON00005', vname: 'BmSC+③ 60ml 용기 / 00차수', plan: 60},
-            {wo: 'WO-ON-2604', vcode: 'WIP-ON00007', vname: 'BSC+③ 120ml 용기 / 01차수', plan: 144}
+            {wo: 'ETC-2407-002', vcode: 'WIP-ETC0002', vname: '골수용 필터백(M1003)', plan: 80},
+            {wo: 'ETC-2407-003', vcode: 'WIP-ETC0003', vname: '미니 필터백(M1004)', plan: 80},
+            {wo: 'ETC-2407-010', vcode: 'WIP-ETC0010', vname: '연골결손', plan: 80}
         ];
-        // 작지 없이 직접 선택 가능한 용기 SKU
+        // 작지 없이 직접 선택 가능한 필터백 반제품
         const FREE_VES = [
-            {vcode: 'WIP-ON00001', vname: 'BSC+③ 30ml 용기 / 00차수'},
-            {vcode: 'WIP-ON00011', vname: 'BSC+③ 30ml 용기 / 01차수'},
-            {vcode: 'WIP-ON00012', vname: 'BSC+③ 30ml 용기 / 02차수'},
-            {vcode: 'WIP-ON00002', vname: 'BSC+③ 60ml 용기 / 02차수'},
-            {vcode: 'WIP-ON00021', vname: 'BmSC+③ 60ml 용기 / 00차수'},
-            {vcode: 'WIP-ON00022', vname: 'BmSC+③ 60ml 용기 / 02차수'}
+            {vcode: 'WIP-ETC0002', vname: '골수용 필터백(M1003)'},
+            {vcode: 'WIP-ETC0003', vname: '미니 필터백(M1004)'},
+            {vcode: 'WIP-ETC0010', vname: '연골결손'}
         ];
 
         function todayStr() {
@@ -437,23 +428,25 @@
         }
         function mkCrew(workers, equip, code, start) { return {workers: workers.slice(), equip, code, done: false, start: start || null, end: null, items: []}; }
 
-        /* 소요량: 수동 입력 있으면 그 값, 없으면 per×용기수량 */
+        /* 소요량: 수동 입력 있으면 그 값, 없으면 per×수량 */
         function bomQ(row, vqty) { return row.manual ? (row.qty || 0) : Math.round((row.per || 1) * (vqty || 0)); }
+        /* 조 삭제 가능: 마감 전 + 완료된 품목이 없을 때만 */
+        function crewDeletable(c) { return !c.done && !c.items.some(i => i.st === 'done'); }
 
         /* 날짜 카드 시드 */
         const DAYS = [
             {
                 date: shiftDay(todayStr(), -1),
                 crews: [
-                    {workers: ['김세연', '김순애'], equip: '압착기 A', code: 'KM-MRM-M001', done: true,
+                    {workers: ['안수정', '김성희'], equip: '융착기 A', code: 'KM-MRM-M007', done: true,
                         start: shiftDay(todayStr(), -1) + ' 09:05', end: shiftDay(todayStr(), -1) + ' 12:20',
                         items: [
-                            (function(){var v=mkVes(WO_VES[0],216,'done',shiftDay(todayStr(),-1)+' 09:10',shiftDay(todayStr(),-1)+' 11:00');return v;})()
+                            (function(){var v=mkVes(WO_VES[0],80,'done',shiftDay(todayStr(),-1)+' 09:10',shiftDay(todayStr(),-1)+' 11:00');return v;})()
                         ]},
-                    {workers: ['박은경'], equip: '압착기 B', code: 'KM-MRM-M005', done: false,
+                    {workers: ['박은경'], equip: '융착기 B', code: 'KM-MRM-M008', done: false,
                         start: shiftDay(todayStr(), -1) + ' 10:30', end: null,
                         items: [
-                            (function(){var v=mkVes(WO_VES[1],432,'working',shiftDay(todayStr(),-1)+' 10:35',null);return v;})(),
+                            (function(){var v=mkVes(WO_VES[1],80,'working',shiftDay(todayStr(),-1)+' 10:35',null);return v;})(),
                             mkVes(FREE_VES[2], 0, 'wait')
                         ]}
                 ]
@@ -543,7 +536,6 @@
       <span class="badge ${st}">${STLAB[st]}</span>${del}</div>`;
             }).join('');
         }
-        function crewDeletable(c) { return !c.done && !c.items.some(i => i.st === 'done'); }
         document.getElementById('wkList').addEventListener('click', e => {
             const d = e.target.closest('[data-del]');
             if (d) {
@@ -574,7 +566,7 @@
             document.getElementById('itemCnt').textContent = curC.items.length + '종';
             const box = document.getElementById('itemList');
             if (!curC.items.length) {
-                box.innerHTML = `<div class="emptybox">조립할 용기가 없습니다. 아래 ‘＋ 용기 추가’로 담으세요.</div>`;
+                box.innerHTML = `<div class="emptybox">융착할 필터백이 없습니다. 아래 ‘＋ 필터백 추가’로 담으세요.</div>`;
             } else {
                 box.innerHTML = curC.items.map((it, i) => vesCard(it, i)).join('');
             }
@@ -592,7 +584,8 @@
                     actions = `<button class="itembtn del" data-act="del" data-vi="${i}">삭제</button>
                 <button class="itembtn start" data-act="start" data-vi="${i}">작업시작</button>`;
                 } else {
-                    actions = `<button class="itembtn done" data-act="complete" data-vi="${i}">완료</button>`;
+                    actions = `<button class="itembtn ghost" data-act="startcancel" data-vi="${i}">작업시작 취소</button>
+                <button class="itembtn done" data-act="complete" data-vi="${i}">완료</button>`;
                 }
             }
             const woBadge = it.wo ? `<span class="wobadge">지시 ${it.wo}</span>` : `<span class="wobadge free">작지없음</span>`;
@@ -619,7 +612,7 @@
         ${times}
       </div>
       <div class="vbom ${it.open ? 'open' : ''}">
-        <div class="bhead">투입자재 · 세척 완료(클린룸) 재고 소요 <span class="ln"></span>
+        <div class="bhead">투입자재 · 융착 원부자재 소요 <span class="ln"></span>
           <button class="baddbtn" data-badd="${i}">＋ 자재</button></div>
         ${bomRows || '<div style="color:var(--ink-2);font-weight:700;padding:8px 0">투입자재가 없습니다. ＋자재로 추가하세요.</div>'}
       </div></div>`;
@@ -627,11 +620,11 @@
         function renderCAction() {
             const bar = document.getElementById('cAction');
             if (curC.done) {
-                bar.innerHTML = `<div class="actsum"><span class="l">${crewLabel(curC)} · 조립 완료</span><span class="v">${crewDone(curC)} EA</span></div>
+                bar.innerHTML = `<div class="actsum"><span class="l">${crewLabel(curC)} · 융착 완료</span><span class="v">${crewDone(curC)} EA</span></div>
         <button class="btn danger" data-cact="reopen">완료취소</button>`;
             } else {
                 bar.innerHTML = `<div class="actsum"><span class="l">완료수량</span><span class="v">${crewDone(curC)} EA</span></div>
-        <button class="btn ghost" data-cact="addVes">＋ 용기 추가</button>
+        <button class="btn ghost" data-cact="addVes">＋ 필터백 추가</button>
         <button class="btn primary" data-cact="finish">작업 완료</button>`;
             }
         }
@@ -672,12 +665,13 @@
             const act = e.target.closest('[data-act]');
             if (!act) return;
             const i = +act.dataset.vi, it = curC.items[i];
-            if (act.dataset.act === 'del') { curC.items.splice(i, 1); renderItems(); renderCrews(); flash('용기 삭제'); }
+            if (act.dataset.act === 'del') { curC.items.splice(i, 1); renderItems(); renderCrews(); flash('필터백 삭제'); }
             else if (act.dataset.act === 'start') { it.st = 'working'; if (!it.start) it.start = curD.date + ' ' + hhmm(); renderItems(); flash('작업 시작'); }
+            else if (act.dataset.act === 'startcancel') { it.st = 'wait'; it.start = null; it.end = null; renderItems(); renderCrews(); flash('작업시작 취소 · 대기'); }
             else if (act.dataset.act === 'complete') {
-                if (it.qty <= 0) { flash('용기 수량을 확인하세요'); return; }
+                if (it.qty <= 0) { flash('융착 수량을 확인하세요'); return; }
                 it.st = 'done'; it.end = curD.date + ' ' + hhmm(); renderItems(); renderCrews();
-                flash(`조립 완료 · ${it.vname} ${it.qty} 산출 (클린룸 재고 소요)`);
+                flash(`융착 완료 · ${it.vname} ${it.qty} 산출 → 멸균 대기`);
             } else if (act.dataset.act === 'uncomplete') { it.st = 'working'; it.end = null; renderItems(); renderCrews(); flash('완료취소'); }
         });
         document.getElementById('cAction').addEventListener('click', e => {
@@ -747,8 +741,8 @@
         }
         function addVes(src) {
             const idx = curC.items.findIndex(it => it.vcode === src.vcode);
-            if (idx >= 0) { if (curC.items[idx].st === 'wait') { curC.items.splice(idx, 1); flash('용기 담기 취소'); } else flash('이미 작업 시작된 용기'); }
-            else { const v = mkVes(src, 0, 'wait'); v.open = true; curC.items.push(v); flash('용기 담기 · 대기'); }
+            if (idx >= 0) { if (curC.items[idx].st === 'wait') { curC.items.splice(idx, 1); flash('필터백 담기 취소'); } else flash('이미 작업 시작된 필터백'); }
+            else { const v = mkVes(src, 0, 'wait'); v.open = true; curC.items.push(v); flash('필터백 담기 · 대기'); }
             openVesSheet(); renderItems();
         }
         document.getElementById('woVesList').addEventListener('click', e => {
@@ -824,7 +818,7 @@
             if (ctx.type === 'ves') {
                 const it = curC.items[ctx.vi];
                 padVal = String(it.qty || 0);
-                document.getElementById('padLab').textContent = it.vname + ' · 용기 수량';
+                document.getElementById('padLab').textContent = it.vname + ' · 융착 수량';
             } else {
                 const it = curC.items[ctx.vi], b = it.bom[ctx.bi];
                 padVal = String(bomQ(b, it.qty));

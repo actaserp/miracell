@@ -96,6 +96,8 @@
         .sess .qty .l{font-size:12px;color:var(--ink-2);font-weight:700}
         .sess .badge{padding:6px 12px;border-radius:999px;font-size:13px;font-weight:800}
         .sess .badge.working{background:var(--teal-bg);color:var(--teal-d)}.sess .badge.done{background:var(--green-bg);color:var(--green)}
+        .sess .sessdel{height:40px;padding:0 14px;border-radius:12px;border:1px solid var(--line);background:var(--red-bg);color:var(--red);font-weight:800;font-size:14px;cursor:pointer;flex:0 0 auto}
+        .sess .sessdel:active{background:var(--red);color:#fff}
         .sess .bad{padding:5px 10px;border-radius:999px;background:var(--red-bg);color:var(--red);font-weight:800;font-size:12.5px}
         .emptysess{text-align:center;color:var(--ink-2);font-weight:700;padding:30px;border:1.5px dashed var(--line);border-radius:var(--r)}
 
@@ -474,6 +476,7 @@
             {lot:'BSC30-PK00-260626',name:REAL.PK.name,gtin:REAL.gtin,qty:40},
             {lot:'BSC30-PK00-260625',name:REAL.PK.name,gtin:REAL.gtin,qty:38},
             {lot:'BmSC60-PK00-260620',name:'BmSC+③ 60 PK',gtin:'08801234560117',qty:30},
+            {lot:'ETC0002-260707',name:'골수용 필터백(M1003)',gtin:'08801234560223',qty:80},
         ];
         // F710-3 멸균일지 10단계 정의
         const LOG_STEPS=[
@@ -643,14 +646,20 @@
             if(!o.sessions.length){box.innerHTML='<div class="emptysess">멸균 작업이 없습니다. ‘작업 시작’으로 챔버 지정 후 PK 로트를 담으세요.</div>';return;}
             box.innerHTML=o.sessions.map(function(se,i){
                 var biLab=se.bi==='pass'?'<span class="badge done">멸균검증 합격</span>':se.bi==='fail'?'<span class="bad">멸균검증 불합격</span>':'<span class="badge working">멸균검증 판정전</span>';
+                var del = se.st!=='done' ? '<button class="sessdel" data-del="'+i+'">삭제</button>' : '';
                 return '<div class="sess" data-st="'+se.st+'" data-i="'+i+'"><div class="edge"></div>'+
                     '<div class="who"><span class="nm">'+se.equip+'</span><span class="eq">'+se.worker+' · PK 로트 '+se.lots.length+'</span></div>'+
                     '<div class="time">'+pill(se.start)+' ~ '+pill(se.end)+'</div>'+
                     '<div class="qty"><div class="l">멸균수량</div><div class="v">'+batchQty(se)+'</div></div>'+
-                    biLab+'<span class="badge '+se.st+'">'+STLAB[se.st]+'</span></div>';
+                    biLab+'<span class="badge '+se.st+'">'+STLAB[se.st]+'</span>'+del+'</div>';
             }).join('');
         }
-        document.getElementById('sessList').addEventListener('click',function(e){var s=e.target.closest('.sess');if(s)openSess(+s.dataset.i);});
+        document.getElementById('sessList').addEventListener('click',function(e){
+            var d=e.target.closest('[data-del]');
+            if(d){var i=+d.dataset.del,se=curO.sessions[i];
+                if(se.st==='done'){flash('완료된 작업조는 삭제할 수 없습니다');return;}
+                curO.sessions.splice(i,1);renderSessList();flash('작업조 삭제 — 담긴 로트 대기 복귀');return;}
+            var s=e.target.closest('.sess');if(s)openSess(+s.dataset.i);});
         document.getElementById('cBody').addEventListener('change',function(e){
             var fi=e.target.closest('#tUsbFile'); if(!fi)return;
             var n=(fi.files||[]).length; var info=document.getElementById('tUsbInfo');
@@ -1112,20 +1121,26 @@
                 // ★ 떼는 이벤트를 '눌린 버튼'에 직접 건다.
                 //   재렌더로 버튼이 DOM에서 사라져도 그 노드로 이벤트가 가므로 확실히 멈춘다.
                 curBtn = btn;
-                END_EVENTS.forEach(function (ev) { btn.addEventListener(ev, stop); });
+                END_EVENTS.forEach(function (ev) {
+                    btn.addEventListener(ev, stop);
+                });
 
                 holdTimer = setTimeout(function () {
-                    repeatTimer = setInterval(function () { tick(x, y); }, 80); // 반복 속도(ms)
+                    repeatTimer = setInterval(function () {
+                        tick(x, y);
+                    }, 80); // 반복 속도(ms)
                     maxTimer = setTimeout(stop, 8000);                         // 안전장치: 최대 8초
                 }, 400); // 길게 누름 인식(ms)
 
                 // 손가락 안 뗐는데도 대비: 전역에도 백업으로 걸어둠 (날짜/시간 등 재렌더 없는 버튼용)
-                window.addEventListener('pointerup', stop, { once: true, capture: true });
-                window.addEventListener('touchend', stop, { once: true, capture: true });
+                window.addEventListener('pointerup', stop, {once: true, capture: true});
+                window.addEventListener('touchend', stop, {once: true, capture: true});
             });
 
             window.addEventListener('blur', stop);
-            document.addEventListener('visibilitychange', function () { if (document.hidden) stop(); });
+            document.addEventListener('visibilitychange', function () {
+                if (document.hidden) stop();
+            });
         })();
     </script>
 
