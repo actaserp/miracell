@@ -1,0 +1,145 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        .wl-topbar { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+        .wl-fbadge{ display:inline-block; font-size:11px; font-weight:800; padding:3px 10px; border-radius:6px; background:#fbeee5; color:#c9620a; margin-left:8px; vertical-align:middle;}
+        .wl-print { margin-left:auto; background:#3a4759; color:#fff; border:0; border-radius:8px; padding:9px 16px; font-weight:800; font-size:13px; cursor:pointer; }
+        .wl-daybar { display:flex; align-items:center; gap:14px; background:#fff; border:1px solid #e2e6ee; border-radius:12px; padding:14px 18px; margin:14px 0; flex-wrap:wrap; }
+        .wl-daybar .d { font-size:20px; font-weight:800; } .wl-daybar .dow { color:#8a94a4; font-weight:700; margin-left:4px; }
+        .wl-daybar .sum { margin-left:auto; display:flex; gap:8px; flex-wrap:wrap; }
+        .wl-tag { font-size:12px; font-weight:800; padding:4px 11px; border-radius:20px; }
+        .wl-tag.lot { background:#eef2f8; color:#3a4759; } .wl-tag.row { background:#e7f0ff; color:#2f6fed;margin-bottom: 0; } .wl-tag.qty { background:#e3f6ec; color:#0f9d58; } .wl-tag.def { background:#fdecec; color:#d64545; }
+        .wl-navbtn { border:1px solid #e2e6ee; background:#fbfcfe; width:40px; height:40px; border-radius:10px; font-size:18px; font-weight:800; cursor:pointer; color:#3a4759; }
+        .wl-dateinput { border:1px solid #e2e6ee; background:#fbfcfe; height:42px; border-radius:10px; padding:0 12px; font-size:18px; font-weight:800; color:#1f2733; font-variant-numeric:tabular-nums; cursor:pointer; }
+
+        .wl-lot { background:#fff; border:1px solid #e2e6ee; border-radius:12px; margin-bottom:14px; overflow:hidden; }
+        .wl-lot-h { display:flex; align-items:center; gap:12px; padding:12px 16px; background:#f7f9fc; border-bottom:1px solid #eef1f6; flex-wrap:wrap; }
+        .wl-pline { display:inline-block; font-size:10px; font-weight:800; padding:2px 6px; border-radius:5px; }
+        .wl-pline.dom { background:#eaf7f0; color:#0a8f52; } .wl-pline.exp{ background:#f0ecfb; color:#7b52d6; }
+        .wl-lotno { font-weight:800; font-size:15px; font-family:ui-monospace,monospace; }
+        .wl-lotitem { font-weight:700; } .wl-lotwo { color:#8a94a4; font-size:12px; font-family:ui-monospace,monospace; }
+        .wl-lot-sum { margin-left:auto; display:flex; gap:6px; flex-wrap:wrap; }
+        .wl-table { border-collapse:collapse; width:100%; }
+        .wl-table thead th { background:#2f3a4c; color:#fff; font-weight:600; font-size:11.5px; padding:9px 8px; white-space:nowrap; }
+        .wl-table thead th.left{ text-align:left; padding-left:14px; }
+        .wl-table tbody td { border-bottom:1px solid #eef1f6; padding:9px 8px; text-align:center; font-size:12.5px; }
+        .wl-table tbody td.left{ text-align:left; padding-left:14px; }
+        .wl-proc { display:inline-block; font-size:11px; font-weight:800; padding:2px 9px; border-radius:5px; background:#eef2f8; color:#3a4759; }
+        .wl-qty { font-weight:800; } .wl-defcell { color:#d64545; font-weight:700; }
+        .wl-note { color:#8a94a4; font-size:12px; margin-top:12px; }
+        .wl-empty { text-align:center; color:#8a94a4; padding:40px; font-size:13px; background:#fff; border:1px solid #e2e6ee; border-radius:12px; }
+        @media print {
+            .page-title-wrap, .section-top, .page-navi, .bookmark, .wl-print, .wl-navbtn { display:none !important; }
+            body { background:#fff; } .wl-lot, .wl-daybar { break-inside:avoid; }
+        }
+    </style>
+</head>
+
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left"><h2>생산일지 (작업일보) <span class="wl-fbadge">2공장 · M-CELL(디바이스)</span></h2>
+                <a title="북마크" class="bookmark toggle">내 메뉴</a></div>
+            <ul class="page-navi"><li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>생산 관리</li><li>생산일지</li><li>2공장</li></ul>
+        </div>
+
+        <section class="section">
+            <div class="section-top"><div class="wl-topbar">
+                <div style="font-size:13px;color:#8a94a4;font-weight:700">날짜를 선택하면 그날 작업한 로트별로 표시됩니다.</div>
+                <button type="button" class="wl-print" id="btnPrint">🖨 인쇄</button>
+            </div></div>
+
+            <div id="report">
+                <div class="wl-daybar">
+                    <button class="wl-navbtn" id="prevDay" title="전날">‹</button>
+                    <input type="date" id="fDate" class="wl-dateinput">
+                    <span class="dow" id="dDow"></span>
+                    <button class="wl-navbtn" id="nextDay" title="다음날">›</button>
+                    <div class="sum" id="daySum"></div>
+                </div>
+                <div id="lots"></div>
+            </div>
+        </section>
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <script th:inline="javascript">
+        const LOTS = {
+            'MCN-260709-001':     { line:'DOM', item:'SMART M-CELL2N (국내)', wo:'MC-2407-011' },
+            'MCN-260709-005':     { line:'DOM', item:'SMART M-CELL2N (국내)', wo:'MC-2407-011' },
+            'MCX-260709-002':     { line:'EXP', item:'SMART M-CELL2 (해외)',  wo:'MC-2407-012' },
+            'MCX-260620-001-R01': { line:'EXP', item:'SMART M-CELL2 (해외)',  wo:'RP-2407-003' },
+        };
+        const WORK = [
+            {date:'2026-07-10', time:'09:00', lot:'MCN-260709-001', proc:'조립', item:'본체 조립(모터제어기/로터)', worker:'이서연', equip:'조립대 A', qty:1, def:0},
+            {date:'2026-07-10', time:'11:20', lot:'MCN-260709-001', proc:'검사', item:'ROTOR 6항목', worker:'이서연', equip:'검사대 1', qty:1, def:0},
+            {date:'2026-07-10', time:'13:40', lot:'MCN-260709-001', proc:'검사', item:'BASKET 50회', worker:'박지훈', equip:'검사대 1', qty:1, def:0},
+            {date:'2026-07-10', time:'09:20', lot:'MCN-260709-005', proc:'조립', item:'본체 조립', worker:'이서연', equip:'조립대 A', qty:1, def:0},
+            {date:'2026-07-10', time:'14:00', lot:'MCN-260709-005', proc:'검사', item:'ROTOR 6항목', worker:'정우철', equip:'검사대 1', qty:0, def:1},
+            {date:'2026-07-10', time:'13:20', lot:'MCX-260620-001-R01', proc:'수리', item:'전원 파워선 교체(반품)', worker:'한재범', equip:'수리대', qty:1, def:0},
+
+            {date:'2026-07-11', time:'10:10', lot:'MCN-260709-001', proc:'포장', item:'내수용 포장', worker:'김민수', equip:'포장대', qty:1, def:0},
+            {date:'2026-07-11', time:'09:20', lot:'MCN-260709-005', proc:'검사', item:'ROTOR 재검사', worker:'박지훈', equip:'검사대 1', qty:1, def:0},
+            {date:'2026-07-11', time:'11:00', lot:'MCX-260709-002', proc:'포장', item:'수출용 포장', worker:'이서연', equip:'포장대', qty:1, def:0},
+
+            {date:'2026-07-12', time:'10:30', lot:'MCX-260620-001-R01', proc:'검사', item:'ROTOR/BASKET 재검사', worker:'박지훈', equip:'검사대 2', qty:1, def:0},
+        ];
+        const DOW = ['일','월','화','수','목','금','토'];
+        const lineTag = l => l==='EXP' ? '<span class="wl-pline exp">해외</span>' : '<span class="wl-pline dom">국내</span>';
+
+        function fmt(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+        function shiftDay(n){ var v=document.getElementById('fDate').value; var d=v?new Date(v+'T00:00'):new Date(); d.setDate(d.getDate()+n); document.getElementById('fDate').value=fmt(d); render(); }
+
+        function render(){
+            var date=document.getElementById('fDate').value;
+            var d=date?new Date(date+'T00:00'):new Date();
+            document.getElementById('dDow').textContent=date?'('+DOW[d.getDay()]+')':'';
+
+            var rows=WORK.filter(function(w){ return w.date===date; });
+            var byLot={}; rows.forEach(function(w){ (byLot[w.lot]=byLot[w.lot]||[]).push(w); });
+            var lotIds=Object.keys(byLot);
+
+            var totQty=rows.reduce(function(a,w){return a+(w.qty||0);},0);
+            var totDef=rows.reduce(function(a,w){return a+(w.def||0);},0);
+            document.getElementById('daySum').innerHTML =
+                '<span class="wl-tag lot">로트 '+lotIds.length+'</span>'
+                + '<span class="wl-tag row">작업 '+rows.length+'건</span>'
+                + '<span class="wl-tag qty">양품 '+totQty.toLocaleString()+'</span>'
+                + (totDef?'<span class="wl-tag def">불량 '+totDef+'</span>':'');
+
+            var host=document.getElementById('lots');
+            if(!lotIds.length){ host.innerHTML='<div class="wl-empty">해당 날짜에 작업 이력이 없습니다.</div>'; return; }
+            host.innerHTML=lotIds.map(function(lot){
+                var m=LOTS[lot]||{line:'DOM',item:'-',wo:'-'};
+                var evs=byLot[lot].slice().sort(function(a,b){return a.time<b.time?-1:1;});
+                var lq=evs.reduce(function(a,w){return a+(w.qty||0);},0), ld=evs.reduce(function(a,w){return a+(w.def||0);},0);
+                return '<div class="wl-lot"><div class="wl-lot-h">'
+                    + lineTag(m.line)+'<span class="wl-lotno">'+lot+'</span>'
+                    + '<span class="wl-lotitem">'+m.item+'</span><span class="wl-lotwo">'+m.wo+'</span>'
+                    + '<div class="wl-lot-sum"><span class="wl-tag row">'+evs.length+'건</span>'
+                    +   '<span class="wl-tag qty">양품 '+lq.toLocaleString()+'</span>'
+                    +   (ld?'<span class="wl-tag def">불량 '+ld+'</span>':'')+'</div></div>'
+                    + '<table class="wl-table"><thead><tr><th>시간</th><th>공정</th><th class="left">품목명</th><th>작업자</th><th>설비</th><th>양품</th><th>불량</th></tr></thead><tbody>'
+                    + evs.map(function(w){
+                        return '<tr><td>'+w.time+'</td><td><span class="wl-proc">'+w.proc+'</span></td>'
+                            + '<td class="left">'+w.item+'</td><td>'+w.worker+'</td><td>'+w.equip+'</td>'
+                            + '<td class="wl-qty">'+(w.qty?w.qty.toLocaleString():'<span style="color:#c2c9d4">—</span>')+'</td>'
+                            + '<td class="'+(w.def?'wl-defcell':'')+'">'+(w.def||0)+'</td></tr>';
+                    }).join('')
+                    + '</tbody></table></div>';
+            }).join('');
+        }
+
+        document.getElementById('fDate').addEventListener('change', render);
+        document.getElementById('prevDay').addEventListener('click', function(){ shiftDay(-1); });
+        document.getElementById('nextDay').addEventListener('click', function(){ shiftDay(1); });
+        document.getElementById('btnPrint').addEventListener('click', function(){ window.print(); });
+        document.addEventListener('DOMContentLoaded', function(){
+            document.getElementById('fDate').value='2026-07-10';
+            render();
+        });
+    </script>
+</th:block>
+</html>

@@ -1,0 +1,242 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        .ws-topbar { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+        .ws-toggle { display:inline-flex; background:#e8ecf3; border-radius:9px; padding:3px; }
+        .ws-toggle button { border:0; background:transparent; padding:7px 15px; border-radius:7px; font-size:13px; font-weight:700; color:#5b6675; cursor:pointer; }
+        .ws-toggle button.on { background:#fff; color:#1f2733; box-shadow:0 1px 3px rgba(20,30,50,.12); }
+        .ws-strip { display:flex; gap:10px; margin:14px 0; flex-wrap:wrap; }
+        .ws-kpi { background:#fff; border:1px solid #e2e6ee; border-radius:10px; padding:11px 16px; min-width:118px; flex:1; }
+        .ws-kpi .n { font-size:22px; font-weight:800; }
+        .ws-kpi .l { color:#5b6675; font-size:12px; font-weight:600; margin-top:1px; }
+        .ws-kpi.run .n { color:#0f9d58; } .ws-kpi.done .n { color:#2f6fed; } .ws-kpi.wait .n { color:#8a94a4; }
+        .ws-chip { display:inline-flex; align-items:center; gap:4px; border-radius:20px; padding:4px 11px; font-size:11px; font-weight:700; white-space:nowrap; }
+        .ws-chip .dot { width:6px; height:6px; border-radius:50%; background:currentColor; display:inline-block; }
+        .ws-chip.wait { background:#eef1f6; color:#8a94a4; } .ws-chip.run { background:#e3f6ec; color:#0f9d58; } .ws-chip.done { background:#e7f0ff; color:#2f6fed; }
+        .ws-na { color:#c2c9d4; font-weight:700; }
+        .ws-pline { display:inline-block; font-size:10px; font-weight:800; padding:2px 6px; border-radius:5px; margin-right:6px; vertical-align:middle; }
+        .ws-pline.dom { background:#eaf7f0; color:#0a8f52; } .ws-pline.exp{ background:#f0ecfb; color:#7b52d6; }
+        .ws-table { border-collapse:collapse; width:100%; background:#fff; }
+        .ws-table thead th { background:#2f3a4c; color:#fff; font-weight:600; font-size:12px; padding:11px 8px; text-align:center; white-space:nowrap; }
+        .ws-table thead th.left { text-align:left; padding-left:14px; }
+        .ws-table thead th.proc { border-left:1px solid rgba(255,255,255,.12); }
+        .ws-table tbody td { border-bottom:1px solid #eef1f6; padding:11px 8px; text-align:center; vertical-align:middle; }
+        .ws-table tbody td.left { text-align:left; padding-left:14px; }
+        .ws-table tbody tr:hover { background:#f7f9fc; }
+        .ws-wo { font-weight:800; font-size:12.5px; } .ws-kit { font-weight:700; }
+        .ws-code { color:#8a94a4; font-size:10.5px; font-family:ui-monospace,monospace; } .ws-qty { font-weight:700; }
+        .ws-prog { display:flex; align-items:center; gap:7px; justify-content:center; }
+        .ws-bar { width:70px; height:6px; border-radius:4px; background:#eef1f6; overflow:hidden; }
+        .ws-bar > i { display:block; height:100%; background:linear-gradient(90deg,#0f9d58,#2f6fed); }
+        .ws-pct { font-size:11px; font-weight:800; color:#5b6675; min-width:30px; text-align:right; }
+        /* 단계별 대수 셀 */
+        .ws-cnt3 { display:inline-flex; flex-direction:column; gap:3px; cursor:pointer; padding:3px 6px; border-radius:7px; transition:background .12s; }
+        .ws-cnt3:hover { background:#eef2f8; }
+        .ws-cnt3 .row { display:flex; gap:5px; justify-content:center; }
+        .ws-nchip { font-size:11px; font-weight:800; padding:2px 8px; border-radius:20px; white-space:nowrap; }
+        .ws-nchip.done { background:#e7f0ff; color:#2f6fed; } .ws-nchip.run { background:#e3f6ec; color:#0f9d58; } .ws-nchip.wait { background:#eef1f6; color:#8a94a4; }
+        .ws-board { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
+        .ws-col { background:#fff; border:1px solid #e2e6ee; border-radius:10px; display:flex; flex-direction:column; min-height:300px; }
+        .ws-col-h { padding:10px 11px; border-bottom:1px solid #e2e6ee; }
+        .ws-col-h .name { font-weight:800; font-size:13px; }
+        .ws-col-h .cnt { display:flex; gap:5px; margin-top:7px; flex-wrap:wrap; }
+        .ws-mini { font-size:10px; font-weight:700; padding:2px 6px; border-radius:5px; }
+        .ws-mini.wait { background:#eef1f6; color:#8a94a4; } .ws-mini.run { background:#e3f6ec; color:#0f9d58; } .ws-mini.done { background:#e7f0ff; color:#2f6fed; }
+        .ws-col-body { padding:8px; display:flex; flex-direction:column; gap:7px; overflow:auto; }
+        .ws-card { border:1px solid #e2e6ee; border-left-width:3px; border-radius:8px; padding:9px 10px; background:#fff; cursor:pointer; }
+        .ws-card:hover { background:#f7f9fc; } .ws-card.run { border-left-color:#0f9d58; } .ws-card.wait { border-left-color:#8a94a4; }
+        .ws-card .c-wo { font-weight:800; font-size:11.5px; } .ws-card .c-kit { font-size:11px; font-weight:600; margin-top:2px; } .ws-card .c-foot { margin-top:7px; display:flex; gap:5px; }
+        .ws-empty { color:#c2c9d4; font-size:11px; text-align:center; padding:22px 4px; }
+        .ws-note { color:#8a94a4; font-size:12px; margin-top:12px; line-height:1.65; }
+        .ws-note b { color:#c9820a; } .ws-note .k { color:#5b6675; font-weight:700; }
+        .ws-overlay { position:fixed; inset:0; background:rgba(20,28,44,.45); display:none; align-items:center; justify-content:center; z-index:1000; }
+        .ws-overlay.on { display:flex; }
+        .ws-modal { background:#fff; border-radius:12px; width:min(680px,92vw); max-height:86vh; overflow:auto; box-shadow:0 20px 60px -20px rgba(10,20,40,.5); }
+        .ws-modal-h { display:flex; align-items:center; justify-content:space-between; padding:15px 18px; border-bottom:1px solid #e2e6ee; }
+        .ws-modal-h .t { font-weight:800; font-size:15px; } .ws-modal-h .t small { color:#8a94a4; font-weight:600; font-size:12px; margin-left:8px; }
+        .ws-x { border:0; background:#eef1f6; width:30px; height:30px; border-radius:8px; cursor:pointer; font-size:16px; color:#5b6675; }
+        .ws-modal-b { padding:14px 18px 20px; }
+        .ws-sess { border-collapse:collapse; width:100%; }
+        .ws-sess th { background:#f4f6fa; color:#5b6675; font-size:11.5px; font-weight:700; padding:8px; border-bottom:1px solid #e2e6ee; }
+        .ws-sess td { padding:9px 8px; border-bottom:1px solid #eef1f6; font-size:12.5px; text-align:center; }
+        .ws-sess td.w { font-weight:700; }
+        .ws-sess-empty { color:#8a94a4; text-align:center; padding:20px; font-size:12.5px; }
+        .ws-fbadge{ display:inline-block; font-size:11px; font-weight:800; padding:3px 10px; border-radius:6px; background:#fbeee5; color:#c9620a; margin-left:8px; vertical-align:middle;}
+        @media (max-width:900px){ .ws-board { grid-template-columns:repeat(2,1fr); } }
+    </style>
+</head>
+
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left"><h2>작업실적현황 <span class="ws-fbadge">2공장 · M-CELL(디바이스)</span></h2>
+                <a title="북마크" class="bookmark toggle">내 메뉴</a></div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>생산 관리</li><li>작업실적현황</li><li>2공장</li>
+            </ul>
+        </div>
+
+        <section class="section">
+            <div class="section-top">
+                <div class="ws-topbar">
+                    <div class="search-wrap">
+                        <dl><dt>작업지시일<span class="eq">*</span></dt>
+                            <dd><ul class="date-box">
+                                <li><input type="date" id="date_from" name="date_from"><label for="date_from" class="hide">시작일</label></li>
+                                <li><input type="date" id="date_to" name="date_to"><label for="date_to" class="hide">종료일</label></li>
+                            </ul></dd></dl>
+                        <dl><dt><label for="cboModel">구분</label></dt>
+                            <dd><div class="srch-box"><select id="cboModel" name="cboModel">
+                                <option value="">전체</option><option value="국내">국내</option><option value="해외">해외</option>
+                            </select></div></dd></dl>
+                        <dl><dt>&nbsp;</dt><dd><li>
+                            <a class="btn btn-delete" title="검색" id="btnMainSearch"><img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">검색</a>
+                        </li></dd></dl>
+                    </div>
+                    <div class="ws-toggle">
+                        <button type="button" id="tA" class="on" onclick="wsSetView('A')">작업지시 기준</button>
+                        <button type="button" id="tB" onclick="wsSetView('B')">공정별 기준</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="ws-strip">
+                <div class="ws-kpi"><div class="n" id="kOrders">0</div><div class="l">수주(작업지시)</div></div>
+                <div class="ws-kpi"><div class="n" id="kUnits">0</div><div class="l">총 대수</div></div>
+                <div class="ws-kpi run"><div class="n" id="kRun">0</div><div class="l">진행중(대)</div></div>
+                <div class="ws-kpi done"><div class="n" id="kDone">0</div><div class="l">포장완료(대)</div></div>
+            </div>
+
+            <div class="grid_box" id="viewA">
+                <table class="ws-table"><thead><tr>
+                    <th class="left">작업지시(수주)</th><th class="left">모델</th><th>수주수량</th>
+                    <th class="proc">조립</th><th class="proc">검사</th><th class="proc">수리</th><th class="proc">포장</th><th>진행률</th>
+                </tr></thead><tbody id="rowsA"></tbody></table>
+                <p class="ws-note">한 줄 = <span class="k">M-CELL 수주</span>. 1대=1로트라 공정 칸은 <span class="k">단계별 대수</span>(완료·작업중·대기 대수)로 표시. 셀을 누르면 그 공정에 걸린 <b>유닛 목록</b>이 뜹니다. 수리는 반품·사양변경 유닛만.</p>
+            </div>
+
+            <div class="grid_box" id="viewB" style="display:none;">
+                <div class="ws-board" id="boardB"></div>
+                <p class="ws-note">칼럼 = 공정. 각 공정에 지금 걸린 <span class="k">수주별 유닛 수</span>를 카드로. 카드를 누르면 유닛 목록이 뜹니다.</p>
+            </div>
+        </section>
+
+        <div class="ws-overlay" id="wsOverlay" onclick="if(event.target===this)wsClose()">
+            <div class="ws-modal">
+                <div class="ws-modal-h"><div class="t" id="wsModalTitle"></div><button type="button" class="ws-x" onclick="wsClose()">×</button></div>
+                <div class="ws-modal-b" id="wsModalBody"></div>
+            </div>
+        </div>
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <script th:inline="javascript">
+        const WS_PROCS = [ {k:'assy',n:'조립'},{k:'insp',n:'검사'},{k:'repair',n:'수리'},{k:'pack',n:'포장'} ];
+        const WS_SLABEL = { done:'완료', run:'작업중', wait:'대기' };
+
+        /* 1행=수주. 각 공정에 걸린 유닛 목록(로트·상태·담당). 대수는 여기서 집계 */
+        let WS_DATA = [
+            {wo:'MC-2407-011', model:'국내', code:'MRCN-21022', qty:10, proc:{
+                    assy:[{lot:'MCN-260709-009',st:'run',w:'이서연',e:'조립대 A'},{lot:'MCN-260709-010',st:'wait',w:'-',e:'-'}],
+                    insp:[{lot:'MCN-260709-005',st:'run',w:'정우철',e:'검사대 1'},{lot:'MCN-260709-006',st:'wait',w:'-',e:'-'}],
+                    repair:[],
+                    pack:[{lot:'MCN-260709-001',st:'done',w:'김민수',e:'포장대'},{lot:'MCN-260709-002',st:'done',w:'김민수',e:'포장대'},{lot:'MCN-260709-003',st:'run',w:'김민수',e:'포장대'}]
+                }},
+            {wo:'MC-2407-012', model:'해외', code:'MRCN-21023', qty:3, proc:{
+                    assy:[{lot:'MCX-260709-003',st:'wait',w:'-',e:'-'}],
+                    insp:[{lot:'MCX-260709-001',st:'run',w:'박지훈',e:'검사대 2'}],
+                    repair:[{lot:'MCX-260620-001-R01',st:'run',w:'한재범',e:'수리대'}],
+                    pack:[{lot:'MCX-260709-002',st:'done',w:'이서연',e:'포장대'}]
+                }}
+        ];
+
+        function cnt(list, st){ return list.filter(function(u){ return u.st===st; }).length; }
+        function cell(units, wo, pk){
+            if(!units || !units.length) return '<span class="ws-na">—</span>';
+            const d=cnt(units,'done'), r=cnt(units,'run'), w=cnt(units,'wait');
+            let chips = '';
+            if(d) chips += '<span class="ws-nchip done">완료 '+d+'</span>';
+            if(r) chips += '<span class="ws-nchip run">작업중 '+r+'</span>';
+            if(w) chips += '<span class="ws-nchip wait">대기 '+w+'</span>';
+            return '<span class="ws-cnt3" onclick="wsOpen(\''+wo+'\',\''+pk+'\')"><span class="row">'+chips+'</span></span>';
+        }
+        function packDone(r){ return cnt(r.proc.pack||[], 'done'); }
+        function wsProg(r){ return Math.round(packDone(r)/r.qty*100); }
+
+        function wsRenderA(){
+            document.getElementById('rowsA').innerHTML = WS_DATA.map(function(r){
+                const p = wsProg(r);
+                return '<tr><td class="left"><span class="ws-wo">'+r.wo+'</span></td>'
+                    + '<td class="left"><span class="ws-pline '+(r.model==='해외'?'exp':'dom')+'">'+r.model+'</span><span class="ws-code">'+r.code+'</span></td>'
+                    + '<td class="ws-qty">'+r.qty+'대</td>'
+                    + WS_PROCS.map(function(pr){ return '<td>'+cell(r.proc[pr.k], r.wo, pr.k)+'</td>'; }).join('')
+                    + '<td><div class="ws-prog"><div class="ws-bar"><i style="width:'+p+'%"></i></div><span class="ws-pct">'+p+'%</span></div></td></tr>';
+            }).join('');
+        }
+        function wsRenderB(){
+            document.getElementById('boardB').innerHTML = WS_PROCS.map(function(pr){
+                let tw=0, tr=0, td=0;
+                const cards = WS_DATA.map(function(r){
+                    const units = r.proc[pr.k]||[];
+                    if(!units.length) return '';
+                    const d=cnt(units,'done'), rn=cnt(units,'run'), w=cnt(units,'wait');
+                    tw+=w; tr+=rn; td+=d;
+                    let foot='';
+                    if(d) foot+='<span class="ws-nchip done">완료 '+d+'</span>';
+                    if(rn) foot+='<span class="ws-nchip run">작업중 '+rn+'</span>';
+                    if(w) foot+='<span class="ws-nchip wait">대기 '+w+'</span>';
+                    const cls = rn ? 'run' : 'wait';
+                    return '<div class="ws-card '+cls+'" onclick="wsOpen(\''+r.wo+'\',\''+pr.k+'\')"><div class="c-wo">'+r.wo+'</div>'
+                        + '<div class="c-kit"><span class="ws-pline '+(r.model==='해외'?'exp':'dom')+'">'+r.model+'</span>'+units.length+'대</div>'
+                        + '<div class="c-foot">'+foot+'</div></div>';
+                }).join('');
+                return '<div class="ws-col"><div class="ws-col-h"><div class="name">'+pr.n+'</div><div class="cnt">'
+                    + '<span class="ws-mini wait">대기 '+tw+'</span><span class="ws-mini run">작업중 '+tr+'</span><span class="ws-mini done">완료 '+td+'</span></div></div>'
+                    + '<div class="ws-col-body">'+(cards.trim()?cards:'<div class="ws-empty">걸린 유닛 없음</div>')+'</div></div>';
+            }).join('');
+        }
+        function wsRenderKPI(){
+            let units=0, run=0, done=0;
+            WS_DATA.forEach(function(r){ units += r.qty; WS_PROCS.forEach(function(pr){ (r.proc[pr.k]||[]).forEach(function(u){ if(u.st==='run')run++; }); }); done += packDone(r); });
+            document.getElementById('kOrders').textContent = WS_DATA.length;
+            document.getElementById('kUnits').textContent = units;
+            document.getElementById('kRun').textContent = run;
+            document.getElementById('kDone').textContent = done;
+        }
+        function wsRenderAll(){ wsRenderA(); wsRenderB(); wsRenderKPI(); }
+
+        function wsOpen(wo, procKey){
+            const row = WS_DATA.find(function(r){ return r.wo===wo; });
+            const proc = WS_PROCS.find(function(p){ return p.k===procKey; });
+            const units = (row && row.proc[procKey]) || [];
+            document.getElementById('wsModalTitle').innerHTML = proc.n + ' 유닛 <small>'+wo+' · '+row.model+' · '+units.length+'대</small>';
+            let html;
+            if(units.length){
+                html = '<table class="ws-sess"><thead><tr><th>로트</th><th>상태</th><th>담당</th><th>설비/검사대</th></tr></thead><tbody>'
+                    + units.map(function(u){
+                        return '<tr><td class="w">'+u.lot+'</td>'
+                            + '<td><span class="ws-chip '+u.st+'"><span class="dot"></span>'+WS_SLABEL[u.st]+'</span></td>'
+                            + '<td>'+(u.w||'-')+'</td><td>'+(u.e||'-')+'</td></tr>';
+                    }).join('') + '</tbody></table>';
+            } else html = '<div class="ws-sess-empty">해당 공정에 걸린 유닛이 없습니다.</div>';
+            document.getElementById('wsModalBody').innerHTML = html;
+            document.getElementById('wsOverlay').classList.add('on');
+        }
+        function wsClose(){ document.getElementById('wsOverlay').classList.remove('on'); }
+
+        document.addEventListener('DOMContentLoaded', function(){
+            wsRenderAll();
+            document.getElementById('btnMainSearch').addEventListener('click', function(){ wsRenderAll(); });
+            document.addEventListener('keydown', function(e){ if(e.key==='Escape') wsClose(); });
+        });
+        function wsSetView(v){
+            document.getElementById('viewA').style.display = (v==='A') ? '' : 'none';
+            document.getElementById('viewB').style.display = (v==='B') ? '' : 'none';
+            document.getElementById('tA').classList.toggle('on', v==='A');
+            document.getElementById('tB').classList.toggle('on', v==='B');
+        }
+    </script>
+</th:block>
+</html>

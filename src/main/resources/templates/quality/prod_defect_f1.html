@@ -1,0 +1,309 @@
+<html layout:decorate="~{layout_page}">
+
+<th:block layout:fragment="content">
+    <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet"/>
+    <style>
+        :root{--bg:#E9EEF1;--surface:#FFF;--surface-2:#F4F7F9;--ink:#15222B;--ink-2:#5A6B76;--line:#D8E0E5;
+            --teal:#0E7C86;--teal-d:#0A5C64;--teal-bg:#E2F1F2;--green:#1E9D58;--green-bg:#E4F4EA;
+            --amber:#C77A00;--amber-bg:#FBEFD8;--red:#C8483B;--red-bg:#F7E4E1;--purple:#6D3BD1;--purple-bg:#EDE6FB;
+            --r:18px;--tap:60px;--shadow:0 1px 0 rgba(21,34,43,.04),0 8px 24px -16px rgba(21,34,43,.28)}
+        *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+        .ms-wash-root{font-family:"Pretendard","Noto Sans KR",-apple-system,sans-serif;color:var(--ink);font-size:17px;line-height:1.45;-webkit-font-smoothing:antialiased;flex:1 1 auto;min-height:0;height:var(--wash-h,100%);max-height:var(--wash-h,none);display:flex;flex-direction:column}
+        .ms-wash-root .app{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;background:var(--bg);border-radius:12px;overflow:hidden}
+        .col-stack{display:flex;flex-direction:column;flex:1 1 auto;min-height:0;height:100%}
+        .topbar{flex:0 0 auto;background:var(--surface);border-bottom:1px solid var(--line);padding:14px 18px;display:flex;align-items:center;gap:12px;box-shadow:var(--shadow);z-index:2;flex-wrap:wrap}
+        .topbar h1{font-size:20px;font-weight:800;letter-spacing:-.02em;margin:0}
+        .fbadge{font-size:11.5px;font-weight:800;padding:3px 10px;border-radius:6px;background:#EAF0FF;color:#2f6fed}
+        .filt{display:flex;gap:8px;align-items:center;margin-left:auto;flex-wrap:wrap}
+        .dinput{height:48px;border:1px solid var(--line);border-radius:12px;padding:0 12px;font-size:15px;font-weight:700;background:var(--surface-2);font-variant-numeric:tabular-nums}
+        .selbox{height:48px;border:1px solid var(--line);border-radius:12px;padding:0 12px;font-size:15px;font-weight:700;background:var(--surface-2)}
+        .addbtn{height:52px;padding:0 20px;border:none;border-radius:14px;background:var(--red);color:#fff;font-weight:800;font-size:16px;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+        .addbtn:active{background:#a63b30}
+        .bscroll{flex:1 1 auto;min-height:0;overflow:auto;-webkit-overflow-scrolling:touch;padding:16px}
+        .wrap{max-width:1000px;margin:0 auto}
+        .kpis{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+        .kpi{flex:1;min-width:130px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 16px;box-shadow:var(--shadow)}
+        .kpi .n{font-size:24px;font-weight:800;font-variant-numeric:tabular-nums}.kpi .l{font-size:12.5px;color:var(--ink-2);font-weight:700}
+        .kpi.q .n{color:var(--red)}
+
+        .drow{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:14px;box-shadow:var(--shadow);margin-bottom:10px}
+        .drow .dl{display:flex;flex-direction:column;gap:5px;min-width:0;flex:1}
+        .drow .r1{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+        .proc{font-size:12px;font-weight:800;padding:3px 10px;border-radius:6px;background:#EEF2F8;color:#3a4759}
+        .dtype{font-size:12.5px;font-weight:800;padding:3px 11px;border-radius:20px;background:var(--red-bg);color:var(--red)}
+        .ditem{font-size:17px;font-weight:800;letter-spacing:-.02em}
+        .dcode{font-size:12px;color:var(--ink-2);font-weight:700;font-variant-numeric:tabular-nums}
+        .dmeta{font-size:12.5px;color:var(--ink-2);font-weight:700}
+        .dqty{font-size:22px;font-weight:800;color:var(--red);font-variant-numeric:tabular-nums;flex:0 0 auto}
+        .dqty small{font-size:12px;color:var(--ink-2);font-weight:700}
+        .dthumb{width:52px;height:52px;border-radius:10px;object-fit:cover;border:1px solid var(--line);cursor:pointer;flex:0 0 auto}
+        .ddel{width:52px;height:52px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--red);font-size:20px;cursor:pointer;flex:0 0 auto}
+        .ddel:active{background:var(--red-bg)}
+        .empty{text-align:center;color:var(--ink-2);font-weight:700;padding:40px 10px;border:1.5px dashed var(--line);border-radius:16px}
+
+        .mask{position:fixed;inset:0;background:rgba(21,34,43,.42);display:none;z-index:40;align-items:flex-end}
+        .mask.show{display:flex;animation:fade .15s ease}@keyframes fade{from{opacity:0}to{opacity:1}}
+        .sheet{width:100%;background:var(--surface);border-radius:24px 24px 0 0;padding:14px 20px calc(18px + env(safe-area-inset-bottom));box-shadow:0 -20px 40px -20px rgba(0,0,0,.4);animation:rise .2s cubic-bezier(.2,.7,.3,1);max-height:94dvh;overflow:auto}
+        @keyframes rise{from{transform:translateY(40px)}to{transform:translateY(0)}}
+        .sheet .sh{display:flex;align-items:center;margin-bottom:8px}.sheet .sh h3{font-size:19px;font-weight:800;margin:0}
+        .sheet .sh .x{margin-left:auto;width:42px;height:42px;border-radius:12px;border:1px solid var(--line);background:var(--surface-2);font-size:20px;cursor:pointer}
+        .sheet .body{max-width:680px;margin:0 auto}
+        .fieldlab{font-size:13px;font-weight:800;color:var(--ink-2);margin:11px 2px 6px}
+        .opts{display:flex;flex-wrap:wrap;gap:8px}
+        .opt{min-height:48px;padding:0 15px;border-radius:12px;border:1.5px solid var(--line);background:var(--surface);font-weight:800;font-size:15px;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+        .opt:active{background:var(--surface-2)}.opt.sel{border-color:var(--red);background:var(--red-bg);color:var(--red)}
+        .opt.proc.sel{border-color:var(--teal);background:var(--teal-bg);color:var(--teal-d)}
+        .stepq{display:flex;align-items:center;max-width:230px}
+        .stepq button{width:52px;height:52px;border:1px solid var(--line);background:var(--surface-2);font-size:24px;font-weight:700;cursor:pointer}
+        .stepq button.m{border-radius:12px 0 0 12px}.stepq button.p{border-radius:0 12px 12px 0}
+        .stepq .q{flex:1;height:52px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:#FFFDF4;text-align:center;font-size:23px;font-weight:800;font-variant-numeric:tabular-nums;display:grid;place-items:center}
+        .tin{width:100%;border:1.5px solid var(--line);border-radius:12px;padding:11px 13px;font-size:15px;font-weight:600;background:var(--surface-2);color:var(--ink)}
+        textarea.tin{resize:vertical;min-height:48px}
+        .picklist{display:flex;flex-direction:column;gap:8px;max-height:44dvh;overflow:auto}
+        .prow{display:flex;align-items:center;gap:12px;padding:13px 14px;border:1.5px solid var(--line);border-radius:14px;background:var(--surface);cursor:pointer}
+        .prow:active{background:var(--surface-2)}.prow.sel{border-color:var(--red);background:var(--red-bg)}
+        .prow .pid{flex:1;min-width:0}.prow .pnm{font-size:16px;font-weight:800}.prow .pcode{font-size:12.5px;color:var(--ink-2);font-weight:700;font-variant-numeric:tabular-nums}
+        .prow .pchk{width:32px;height:32px;border-radius:9px;border:1.5px solid var(--line);display:grid;place-items:center;font-weight:800;color:var(--red);flex:0 0 auto}
+        .prow.sel .pchk{background:var(--red);color:#fff;border-color:var(--red)}
+        .matsearch{width:100%;border:1.5px solid var(--line);border-radius:12px;padding:12px 14px;font-size:15px;font-weight:600;background:var(--surface-2);margin-bottom:8px}
+        .photos{display:flex;gap:8px;flex-wrap:wrap}
+        .photo{position:relative}.photo img{width:58px;height:58px;border-radius:10px;object-fit:cover;border:1px solid var(--line)}
+        .photo .rm{position:absolute;top:-6px;right:-6px;width:22px;height:22px;border-radius:50%;border:0;background:var(--red);color:#fff;font-size:12px;cursor:pointer}
+        .addphoto{width:58px;height:58px;border:1.5px dashed #B8C2CC;border-radius:10px;background:var(--surface-2);color:var(--ink-2);font-size:24px;cursor:pointer;display:grid;place-items:center}
+        .sheet .ok{width:100%;margin-top:14px;background:var(--red);color:#fff;min-height:54px;border:none;border-radius:14px;font-size:18px;font-weight:800;cursor:pointer}
+        .sheet .ok:disabled{background:var(--line);color:var(--ink-2)}
+        .imgview{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;z-index:60}
+        .imgview.on{display:flex}.imgview img{max-width:92vw;max-height:92vh;border-radius:10px}
+        @media (max-width:560px){ .filt{width:100%;margin-left:0} }
+    </style>
+
+    <div class="ms-wash-root">
+        <div class="app"><div class="col-stack">
+            <div class="topbar">
+                <h1>부적합 관리</h1><span class="fbadge">1공장 · 키트</span>
+                <div class="filt">
+                    <select class="selbox" id="fProc"><option value="">공정 전체</option></select>
+                    <input type="date" class="dinput" id="fFrom"><span style="font-weight:800;color:var(--ink-2)">~</span><input type="date" class="dinput" id="fTo">
+                    <button class="addbtn" id="btnAdd">＋ 부적합 등록</button>
+                </div>
+            </div>
+            <div class="bscroll"><div class="wrap">
+                <div class="kpis">
+                    <div class="kpi"><div class="n" id="kCnt">0</div><div class="l">부적합 건수</div></div>
+                    <div class="kpi q"><div class="n" id="kQty">0</div><div class="l">총 불량수량</div></div>
+                    <div class="kpi"><div class="n" id="kProc">0</div><div class="l">해당 공정 수</div></div>
+                </div>
+                <div id="list"></div>
+            </div></div>
+        </div></div>
+
+        <!-- 등록 시트 -->
+        <div class="mask" id="regMask"><div class="sheet"><div class="body">
+            <div class="sh"><h3>부적합 등록</h3><button class="x" data-close>✕</button></div>
+
+            <div class="fieldlab">공정</div>
+            <div class="opts" id="regProc"></div>
+
+            <div class="fieldlab">불량 자재 <span style="color:var(--ink-2);font-weight:700">(공정에서 다루는 자재)</span></div>
+            <button class="opt" id="matPick" style="width:100%;justify-content:space-between"><span id="matPickLabel">자재 선택</span><span style="color:var(--ink-2)">›</span></button>
+
+            <div class="fieldlab">불량 유형</div>
+            <div class="opts" id="regType"></div>
+            <div id="etcWrap" style="display:none">
+                <div class="fieldlab">기타 유형 직접 입력</div>
+                <input class="tin" id="mEtc" placeholder="유형을 입력하세요">
+            </div>
+
+            <div class="fieldlab">불량 수량</div>
+            <div class="stepq"><button class="m" id="qMinus">−</button><div class="q" id="qVal">1</div><button class="p" id="qPlus">＋</button></div>
+
+            <div class="fieldlab">작업자 · 발생일자</div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap">
+                <select class="selbox" id="mWorker" style="flex:1;min-width:150px;height:56px"></select>
+                <input type="date" class="dinput" id="mDate" style="flex:1;min-width:150px;height:56px">
+            </div>
+
+            <div class="fieldlab">비고</div>
+            <textarea class="tin" id="mNote" placeholder="상세 내용(선택)"></textarea>
+
+            <div class="fieldlab">사진 첨부 <span style="color:var(--ink-2);font-weight:700">(선택)</span></div>
+            <div class="photos" id="mPhotos"></div>
+            <input type="file" id="mFile" accept="image/*" capture="environment" style="display:none" multiple>
+
+            <button class="ok" id="btnSave">부적합 저장</button>
+        </div></div></div>
+
+        <!-- 자재 선택 시트 -->
+        <div class="mask" id="matMask"><div class="sheet"><div class="body">
+            <div class="sh"><h3 id="matTitle">자재 선택</h3><button class="x" data-close>✕</button></div>
+            <input class="matsearch" id="matSearch" placeholder="자재명·코드 검색">
+            <div class="picklist" id="matList"></div>
+        </div></div></div>
+
+        <div class="imgview" id="imgView"><img id="imgViewImg" src="" alt=""></div>
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <script th:inline="none">
+        (function () {
+            const root = document.querySelector('.ms-wash-root'); if (!root) return;
+            function localBelow(){ let b=0,n=root; while(n&&n!==document.body){ let s=n.nextElementSibling; while(s){ const r=s.getBoundingClientRect(); if(r.height>0&&getComputedStyle(s).position!=='fixed')b+=r.height; s=s.nextElementSibling; } n=n.parentElement; } return b; }
+            function availBottom(){ let bottom=window.innerHeight; try{ const fe=window.frameElement; if(fe){ const pWin=window.parent,pDoc=pWin.document; const feTop=fe.getBoundingClientRect().top; let flow=0,node=fe; while(node&&node!==pDoc.body){ let sib=node.nextElementSibling; while(sib){ const cs=pWin.getComputedStyle(sib),r=sib.getBoundingClientRect(); if(r.height>0&&cs.position!=='fixed'&&cs.position!=='absolute')flow+=r.height; sib=sib.nextElementSibling; } node=node.parentElement; } bottom=Math.min(bottom,(pWin.innerHeight-flow)-feTop); } }catch(e){} return bottom; }
+            function fit(){ const top=root.getBoundingClientRect().top; const avail=availBottom()-top-localBelow(); root.style.setProperty('--wash-h',Math.max(320,Math.floor(avail))+'px'); }
+            window.addEventListener('resize',fit); window.addEventListener('orientationchange',fit); try{ window.parent.addEventListener('resize',fit); }catch(e){}
+            fit(); requestAnimationFrame(fit); setTimeout(fit,200); setTimeout(fit,600); if(document.fonts&&document.fonts.ready)document.fonts.ready.then(fit);
+        })();
+
+        const WORKERS = ['정우철','김민수','이서연','박지훈','한재범','한지민'];
+        const PROCS = [
+            {k:'wash', n:'세척', types:['이물잔류','세척불량','파손','오염','기타'], mats:[
+                    {code:'M-DDW00010',name:'상부 용기'},{code:'M-DDW00011',name:'하부 용기'},{code:'M-DE00015',name:'포트'},{code:'M-OR00003',name:'오링'},{code:'M-FL00002',name:'플로팅'}]},
+            {k:'assy', n:'조립', types:['조립불량','부품누락','파손','치수불량','기타'], mats:[
+                    {code:'M-DDW00010',name:'상부 용기(세척품)'},{code:'M-DDW00011',name:'하부 용기(세척품)'},{code:'M-OR00003',name:'오링'},{code:'M-SY00021',name:'주사기 세트'},{code:'M-BLD0001',name:'BLD'}]},
+            {k:'blister', n:'블리스터', types:['실링불량','기포혼입','파손','이물','기타'], mats:[
+                    {code:'M-BP00007',name:'블리스터 파우치'},{code:'M-STR0004',name:'멸균지'},{code:'WIP-VES001',name:'용기 반제품(PK)'}]},
+            {k:'welding', n:'융착', types:['융착불량','누설','변형','기타'], mats:[
+                    {code:'M-DDW00038',name:'필터'},{code:'M-DDW00037',name:'원단'},{code:'M-DE00019',name:'호스(소)'},{code:'M-GP00003',name:'호스(대)'},{code:'M-DE00020',name:'레드캡'}]},
+            {k:'steril', n:'멸균', types:['BI 불량','지시계 미변색','포장손상','기타'], mats:[
+                    {code:'M-BI00001',name:'생물학적 지시계(BI)'},{code:'M-CI00002',name:'화학적 지시계(CI)'},{code:'WIP-PK001',name:'PK 반제품(멸균대상)'}]},
+            {k:'pack', n:'포장', types:['라벨오류','수량부족','박스손상','기타'], mats:[
+                    {code:'M-LBL0005',name:'완제품 라벨'},{code:'M-INBOX03',name:'IN BOX(3입)'},{code:'M-OUTBOX12',name:'OUT BOX(12입)'},{code:'WIP-CK001',name:'CK 반제품'}]},
+        ];
+        const procName = k => { const p=PROCS.find(x=>x.k===k); return p?p.n:k; };
+
+        let DEFECTS = [
+            {id:1, date:'2026-07-10', proc:'wash',   mat:{code:'M-DDW00010',name:'상부 용기'}, type:'이물잔류', qty:3, worker:'정우철', note:'세척 후 이물 잔류', photos:[]},
+            {id:2, date:'2026-07-10', proc:'assy',   mat:{code:'M-OR00003',name:'오링'},       type:'부품누락', qty:2, worker:'한지민', note:'', photos:[]},
+            {id:3, date:'2026-07-11', proc:'blister',mat:{code:'M-BP00007',name:'블리스터 파우치'}, type:'실링불량', qty:5, worker:'정우철', note:'실링 라인 들뜸', photos:[]},
+            {id:4, date:'2026-07-11', proc:'steril', mat:{code:'M-BI00001',name:'생물학적 지시계(BI)'}, type:'BI 불량', qty:1, worker:'박지훈', note:'배치 재멸균', photos:[]},
+        ];
+        let _seq = 5;
+
+        (function(){
+            document.getElementById('fProc').innerHTML = '<option value="">공정 전체</option>' + PROCS.map(p=>'<option value="'+p.k+'">'+p.n+'</option>').join('');
+            document.getElementById('mWorker').innerHTML = WORKERS.map(w=>'<option>'+w+'</option>').join('');
+        })();
+
+        function inRange(d){ const f=document.getElementById('fFrom').value,t=document.getElementById('fTo').value; if(f&&d<f)return false; if(t&&d>t)return false; return true; }
+        function render(){
+            const fp=document.getElementById('fProc').value;
+            const list=DEFECTS.filter(x=>(!fp||x.proc===fp)&&inRange(x.date));
+            document.getElementById('kCnt').textContent=list.length;
+            document.getElementById('kQty').textContent=list.reduce((a,x)=>a+x.qty,0);
+            const ps={}; list.forEach(x=>ps[x.proc]=1); document.getElementById('kProc').textContent=Object.keys(ps).length;
+            const el=document.getElementById('list');
+            if(!list.length){ el.innerHTML='<div class="empty">조회된 부적합이 없습니다.</div>'; return; }
+            el.innerHTML=list.map(function(x){
+                const thumb = x.photos.length ? '<img class="dthumb" src="'+x.photos[0]+'" data-view="'+x.photos[0]+'">' : '';
+                return '<div class="drow"><div class="dl">'
+                    + '<div class="r1"><span class="proc">'+procName(x.proc)+'</span><span class="dtype">'+x.type+'</span>'
+                    +   '<span class="dmeta">'+x.date+' · '+x.worker+'</span></div>'
+                    + '<div><span class="ditem">'+x.mat.name+'</span> <span class="dcode">'+x.mat.code+'</span></div>'
+                    + (x.note?'<div class="dmeta">'+x.note+'</div>':'')
+                    + '</div>'
+                    + '<div class="dqty">'+x.qty+'<small> 개</small></div>'
+                    + thumb
+                    + '<button class="ddel" data-del="'+x.id+'">✕</button></div>';
+            }).join('');
+        }
+        document.getElementById('list').addEventListener('click', function(e){
+            const v=e.target.closest('[data-view]'); if(v){ imgView(v.dataset.view); return; }
+            const d=e.target.closest('[data-del]'); if(d){ if(confirm('이 부적합 기록을 삭제할까요?')){ DEFECTS=DEFECTS.filter(x=>x.id!==+d.dataset.del); render(); } }
+        });
+        document.getElementById('fProc').addEventListener('change', render);
+        document.getElementById('fFrom').addEventListener('change', render);
+        document.getElementById('fTo').addEventListener('change', render);
+
+        function showMask(id){ document.getElementById(id).classList.add('show'); }
+        function hideMask(id){ document.getElementById(id).classList.remove('show'); }
+        document.querySelectorAll('.mask').forEach(m=>m.addEventListener('click',e=>{ if(e.target===m||e.target.closest('[data-close]')) m.classList.remove('show'); }));
+
+        let regProc=null, regMat=null, regType=null, regQty=1, regPhotos=[];
+        function renderRegProc(){
+            document.getElementById('regProc').innerHTML = PROCS.map(p=>'<button class="opt proc'+(regProc===p.k?' sel':'')+'" data-rp="'+p.k+'">'+p.n+'</button>').join('');
+        }
+        function renderRegType(){
+            const p=PROCS.find(x=>x.k===regProc);
+            document.getElementById('regType').innerHTML = p ? p.types.map(t=>'<button class="opt'+(regType===t?' sel':'')+'" data-rt="'+t+'">'+t+'</button>').join('') : '<span style="color:var(--ink-2);font-weight:700">공정을 먼저 선택하세요</span>';
+            document.getElementById('etcWrap').style.display = (regType==='기타')?'':'none';
+        }
+        function updateMatLabel(){
+            document.getElementById('matPickLabel').textContent = regMat ? (regMat.name+' · '+regMat.code) : '자재 선택';
+        }
+        function openReg(){
+            regProc=null; regMat=null; regType=null; regQty=1; regPhotos=[];
+            document.getElementById('mDate').value=new Date().toISOString().slice(0,10);
+            document.getElementById('mWorker').selectedIndex=0;
+            document.getElementById('mNote').value=''; document.getElementById('mEtc').value='';
+            document.getElementById('qVal').textContent='1';
+            renderRegProc(); renderRegType(); updateMatLabel(); renderPhotos();
+            showMask('regMask');
+        }
+        document.getElementById('regProc').addEventListener('click', function(e){
+            const b=e.target.closest('[data-rp]'); if(!b)return;
+            regProc=b.dataset.rp; regMat=null; regType=null;
+            renderRegProc(); renderRegType(); updateMatLabel();
+        });
+        document.getElementById('regType').addEventListener('click', function(e){
+            const b=e.target.closest('[data-rt]'); if(!b)return; regType=b.dataset.rt; renderRegType();
+        });
+        document.getElementById('qMinus').addEventListener('click', ()=>{ regQty=Math.max(1,regQty-1); document.getElementById('qVal').textContent=regQty; });
+        document.getElementById('qPlus').addEventListener('click', ()=>{ regQty++; document.getElementById('qVal').textContent=regQty; });
+
+        document.getElementById('matPick').addEventListener('click', function(){
+            if(!regProc){ alert('공정을 먼저 선택하세요'); return; }
+            document.getElementById('matSearch').value=''; renderMatList(''); showMask('matMask');
+        });
+        function renderMatList(q){
+            const p=PROCS.find(x=>x.k===regProc); const mats=(p?p.mats:[]).filter(m=>!q||(m.name+m.code).toLowerCase().includes(q.toLowerCase()));
+            document.getElementById('matTitle').textContent=(p?p.n:'')+' · 자재 선택';
+            document.getElementById('matList').innerHTML = mats.length ? mats.map(m=>
+                '<div class="prow'+(regMat&&regMat.code===m.code?' sel':'')+'" data-mc="'+m.code+'"><div class="pid"><div class="pnm">'+m.name+'</div><div class="pcode">'+m.code+'</div></div><div class="pchk">'+(regMat&&regMat.code===m.code?'✓':'＋')+'</div></div>'
+            ).join('') : '<div style="color:var(--ink-2);font-weight:700;padding:16px 2px">자재가 없습니다.</div>';
+        }
+        document.getElementById('matSearch').addEventListener('input', e=>renderMatList(e.target.value));
+        document.getElementById('matList').addEventListener('click', function(e){
+            const r=e.target.closest('[data-mc]'); if(!r)return;
+            const p=PROCS.find(x=>x.k===regProc); regMat=p.mats.find(m=>m.code===r.dataset.mc);
+            hideMask('matMask'); updateMatLabel();
+        });
+
+        function renderPhotos(){
+            document.getElementById('mPhotos').innerHTML = regPhotos.map((src,i)=>'<div class="photo"><img src="'+src+'" data-pv="'+i+'"><button class="rm" data-pr="'+i+'">×</button></div>').join('')
+                + '<div class="addphoto" id="addPhoto">＋</div>';
+        }
+        document.getElementById('mPhotos').addEventListener('click', function(e){
+            if(e.target.id==='addPhoto'||e.target.closest('#addPhoto')){ document.getElementById('mFile').click(); return; }
+            const pr=e.target.closest('[data-pr]'); if(pr){ regPhotos.splice(+pr.dataset.pr,1); renderPhotos(); return; }
+            const pv=e.target.closest('[data-pv]'); if(pv){ imgView(regPhotos[+pv.dataset.pv]); }
+        });
+        document.getElementById('mFile').addEventListener('change', function(e){
+            Array.prototype.forEach.call(e.target.files, f=>{ const r=new FileReader(); r.onload=()=>{ regPhotos.push(r.result); renderPhotos(); }; r.readAsDataURL(f); });
+            e.target.value='';
+        });
+
+        document.getElementById('btnSave').addEventListener('click', function(){
+            if(!regProc){ alert('공정을 선택하세요'); return; }
+            if(!regMat){ alert('불량 자재를 선택하세요'); return; }
+            let type=regType;
+            if(!type){ alert('불량 유형을 선택하세요'); return; }
+            if(type==='기타'){ const etc=document.getElementById('mEtc').value.trim(); if(!etc){ alert('기타 유형을 입력하세요'); return; } type=etc; }
+            DEFECTS.unshift({ id:_seq++, date:document.getElementById('mDate').value, proc:regProc, mat:regMat, type:type, qty:regQty,
+                worker:document.getElementById('mWorker').value, note:document.getElementById('mNote').value.trim(), photos:regPhotos.slice() });
+            hideMask('regMask'); render();
+        });
+        document.getElementById('btnAdd').addEventListener('click', openReg);
+
+        function imgView(src){ document.getElementById('imgViewImg').src=src; document.getElementById('imgView').classList.add('on'); }
+        document.getElementById('imgView').addEventListener('click', function(){ this.classList.remove('on'); });
+
+        document.addEventListener('DOMContentLoaded', function(){
+            const t=new Date(), f=new Date(); f.setDate(f.getDate()-14);
+            const fmt=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+            document.getElementById('fFrom').value=fmt(f); document.getElementById('fTo').value=fmt(t);
+            render();
+        });
+    </script>
+</th:block>
+</html>
