@@ -341,6 +341,20 @@
                                         </tr>
                                         <tr>
                                             <th>
+                                                <label for="WashYN">세척여부</label>
+                                            </th>
+                                            <td colspan="2">
+                                                <input type="checkbox" id="WashYN" name="WashYN" value="Y" style="display: block; margin: auto; height: 26px; width: 26px;">
+                                            </td>
+                                            <th>
+                                                <label for="SterilizationYN">멸균여부</label>
+                                            </th>
+                                            <td colspan="2">
+                                                <input type="checkbox" id="SterilizationYN" name="SterilizationYN" value="Y" style="display: block; margin: auto; height: 26px; width: 26px;">
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <th>
                                                 <label for="Temperature">폭(cm)</label>
                                             </th>
                                             <td>
@@ -1552,6 +1566,10 @@
                     } else {
                         $('#useyn').prop('checked', false);
                     }
+
+                    // 세척여부 / 멸균여부 (Y 이면 체크)
+                    $('#WashYN').prop('checked', detailData.WashYN === 'Y');
+                    $('#SterilizationYN').prop('checked', detailData.SterilizationYN === 'Y');
 
                     let factory_id = $('#Factory_id').val();
                     AjaxUtil.fillSelectOptions($('#WorkCenter_id'), 'workcenter', '', '', '', factory_id);

@@ -171,6 +171,8 @@ public class MaterialService {
             , m."mat_user_code"
 			, m."Temperature"
 			, m."Pressure"
+			, m."WashYN"
+			, m."SterilizationYN"
             from material m
             left join mat_grp mg on m."MaterialGroup_id" = mg.id
             left join unit u on u.id = m."Unit_id"
@@ -229,6 +231,10 @@ public class MaterialService {
 		} else {
 			dicParam.addValue("useyn", 0);
 		}
+
+		// 세척여부 / 멸균여부 (체크 시 'Y', 미체크 시 'N')
+		dicParam.addValue("washYN", data.containsKey("WashYN") ? "Y" : "N");
+		dicParam.addValue("sterilizationYN", data.containsKey("SterilizationYN") ? "Y" : "N");
 		dicParam.addValue("avrqty", CommonUtil.tryString(data.getFirst("avrqty")));
 
 		dicParam.addValue("packingUnitQty", CommonUtil.tryFloatNull(data.getFirst("PackingUnitQty")));
@@ -322,6 +328,8 @@ public class MaterialService {
 						 , "Temperature"
 						 , "Pressure"
 						 , "mat_user_code"
+						 , "WashYN"
+						 , "SterilizationYN"
 						 )
 						VALUES
 						(now()
@@ -388,6 +396,8 @@ public class MaterialService {
 						 , :temperature
 						 , :pressure
 						 , :matUserCode
+						 , :washYN
+						 , :sterilizationYN
 						)
 						RETURNING id
 					""";
@@ -446,6 +456,8 @@ public class MaterialService {
 					, "Temperature" = :temperature
 					, "Pressure" = :pressure
 					,"mat_user_code" = :matUserCode
+					, "WashYN" = :washYN
+					, "SterilizationYN" = :sterilizationYN
 					WHERE id = :id
 					AND spjangcd = :spjangcd
 					""";
