@@ -1,0 +1,431 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        .wl-topbar { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+        .wl-fbadge{ display:inline-block; font-size:11px; font-weight:800; padding:3px 10px; border-radius:6px; background:#eaf0ff; color:#2f6fed; margin-left:8px; vertical-align:middle;}
+        .wl-print { margin-left:auto; background:#3a4759; color:#fff; border:0; border-radius:8px; padding:9px 16px; font-weight:800; font-size:13px; cursor:pointer; }
+        .wl-daybar { display:flex; align-items:center; gap:14px; background:#fff; border:1px solid #e2e6ee; border-radius:12px; padding:14px 18px; margin:14px 0; flex-wrap:wrap; }
+        .wl-daybar .d { font-size:20px; font-weight:800; } .wl-daybar .dow { color:#8a94a4; font-weight:700; margin-left:4px; }
+        .wl-daybar .sum { margin-left:auto; display:flex; gap:8px; flex-wrap:wrap; }
+        .wl-tag { font-size:12px; font-weight:800; padding:4px 11px; border-radius:20px; }
+        .wl-tag.lot { background:#eef2f8; color:#3a4759; } .wl-tag.row { background:#e7f0ff; color:#2f6fed; margin-bottom: 0;} .wl-tag.qty { background:#e3f6ec; color:#0f9d58; } .wl-tag.def { background:#fdecec; color:#d64545; }
+        .wl-navbtn { border:1px solid #e2e6ee; background:#fbfcfe; width:40px; height:40px; border-radius:10px; font-size:18px; font-weight:800; cursor:pointer; color:#3a4759; }
+        .wl-dateinput { border:1px solid #e2e6ee; background:#fbfcfe; height:42px; border-radius:10px; padding:0 12px; font-size:18px; font-weight:800; color:#1f2733; font-variant-numeric:tabular-nums; cursor:pointer; }
+
+        .wl-lot { background:#fff; border:1px solid #e2e6ee; border-radius:12px; margin-bottom:14px; overflow:hidden; }
+        .wl-lot-h { display:flex; align-items:center; gap:12px; padding:12px 16px; background:#f7f9fc; border-bottom:1px solid #eef1f6; flex-wrap:wrap; }
+        .wl-pline { display:inline-block; font-size:10px; font-weight:800; padding:2px 6px; border-radius:5px; }
+        .wl-pline.bsc { background:#eaf0ff; color:#2f6fed; } .wl-pline.bmsc{ background:#f0ecfb; color:#7b52d6; }
+        .wl-lotno { font-weight:800; font-size:15px; font-family:ui-monospace,monospace; }
+        .wl-lotitem { font-weight:700; } .wl-lotwo { color:#8a94a4; font-size:12px; font-family:ui-monospace,monospace; }
+        .wl-lot-sum { margin-left:auto; display:flex; gap:6px; flex-wrap:wrap; }
+        .wl-table { border-collapse:collapse; width:100%; }
+        .wl-table thead th { background:#2f3a4c; color:#fff; font-weight:600; font-size:11.5px; padding:9px 8px; white-space:nowrap; }
+        .wl-table thead th.left{ text-align:left; padding-left:14px; }
+        .wl-table tbody td { border-bottom:1px solid #eef1f6; padding:9px 8px; text-align:center; font-size:12.5px; }
+        .wl-table tbody td.left{ text-align:left; padding-left:14px; }
+        .wl-proc { display:inline-block; font-size:11px; font-weight:800; padding:2px 9px; border-radius:5px; background:#eef2f8; color:#3a4759; }
+        .wl-qty { font-weight:800; } .wl-defcell { color:#d64545; font-weight:700; }
+        .wl-note { color:#8a94a4; font-size:12px; margin-top:12px; }
+        .wl-empty { text-align:center; color:#8a94a4; padding:40px; font-size:13px; background:#fff; border:1px solid #e2e6ee; border-radius:12px; }
+        .wl-btn { border:0; border-radius:8px; padding:9px 16px; font-weight:800; font-size:13px; cursor:pointer; }
+        .wl-btn.add { background:#2f6fed; color:#fff; }
+        .wl-btn.gray { background:#eef2f8; color:#3a4759; }
+        .wl-rowbtn { border:1px solid #e2e6ee; background:#fff; border-radius:6px; padding:3px 9px; font-size:11px; font-weight:700; cursor:pointer; color:#3a4759; margin:0 2px; }
+        .wl-rowbtn.del { color:#d64545; border-color:#f3d6d6; }
+
+        .wl-dim { display:none; position:fixed; inset:0; background:rgba(20,26,36,.45); z-index:900; }
+        .wl-dim.on { display:block; }
+        .wl-modal { position:fixed; z-index:901; top:50%; left:50%; transform:translate(-50%,-50%); width:440px; max-width:94vw; max-height:90vh; overflow:auto;
+            background:#fff; border-radius:14px; box-shadow:0 12px 40px rgba(0,0,0,.25); display:none; }
+        .wl-modal.on { display:block; }
+        .wl-modal h3 { margin:0; padding:16px 20px; border-bottom:1px solid #eef1f6; font-size:15px; font-weight:800; }
+        .wl-form { padding:16px 20px; display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+        .wl-form .f { display:flex; flex-direction:column; gap:5px; }
+        .wl-form .f.full { grid-column:1 / -1; }
+        .wl-form label { font-size:11.5px; font-weight:800; color:#8a94a4; }
+        .wl-form input, .wl-form select { height:38px; border:1px solid #e2e6ee; border-radius:8px; padding:0 10px; font-size:13px; background:#fbfcfe; }
+        .wl-modal-f { padding:12px 20px 18px; display:flex; gap:8px; justify-content:flex-end; }
+        @media print {
+            .page-title-wrap, .section-top, .page-navi, .bookmark, .wl-print, .wl-navbtn, .wl-btn, .wl-rowbtn, .wl-dim, .wl-modal, .th-act { display:none !important; }
+            body { background:#fff; } .wl-lot, .wl-daybar { break-inside:avoid; }
+        }
+    </style>
+</head>
+
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left"><h2>작업일보관리 <span class="wl-fbadge">1공장 · 키트(BSC/BmSC)</span></h2>
+                <a title="북마크" class="bookmark toggle">내 메뉴</a></div>
+            <ul class="page-navi"><li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>생산 관리</li><li>생산일지</li><li>1공장</li></ul>
+        </div>
+
+        <section class="section">
+            <div class="section-top"><div class="wl-topbar">
+                <div style="font-size:13px;color:#8a94a4;font-weight:700">날짜를 선택하면 그날 작업한 로트별로 표시됩니다.</div>
+                <button type="button" class="wl-btn add" id="btnAdd" style="margin-left:auto">+ 등록</button>
+                <button type="button" class="wl-print" id="btnPrint" style="margin-left:0">🖨 인쇄</button>
+            </div></div>
+
+            <div id="report">
+                <div class="wl-daybar">
+                    <button class="wl-navbtn" id="prevDay" title="전날">‹</button>
+                    <input type="date" id="fDate" class="wl-dateinput">
+                    <span class="dow" id="dDow"></span>
+                    <button class="wl-navbtn" id="nextDay" title="다음날">›</button>
+                    <div class="sum" id="daySum"></div>
+                </div>
+                <div id="lots"></div>
+            </div>
+        </section>
+
+        <!-- 등록/수정 모달 -->
+        <div class="wl-dim" id="mDim"></div>
+        <div class="wl-modal" id="mBox">
+            <h3 id="mTitle">작업 등록</h3>
+            <div class="wl-form">
+                <div class="f"><label>작업일자</label><input type="date" id="mDate"></div>
+                <div class="f"><label>시간</label><input type="time" id="mTime"></div>
+                <div class="f full"><label>로트번호</label><select id="mLot"></select></div>
+                <div class="f"><label>공정</label><select id="mProc"></select></div>
+                <div class="f"><label>작업자</label><input type="text" id="mWorker" placeholder="작업자명"></div>
+                <div class="f full"><label>품목명</label><input type="text" id="mItem" placeholder="품목명"></div>
+                <div class="f"><label>설비</label><input type="text" id="mEquip" placeholder="설비명"></div>
+                <div class="f"><label>양품 / 불량</label>
+                    <div style="display:flex;gap:6px">
+                        <input type="number" id="mQty" min="0" value="0" style="width:50%">
+                        <input type="number" id="mDef" min="0" value="0" style="width:50%">
+                    </div>
+                </div>
+            </div>
+            <div class="wl-modal-f">
+                <button type="button" class="wl-btn gray" id="mCancel">취소</button>
+                <button type="button" class="wl-btn add" id="mSave">저장</button>
+            </div>
+        </div>
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <script th:inline="javascript">
+        const LOTS = {
+            'BSC60-260710-01': {line: 'BSC', item: 'BSC+③ 60', wo: 'WO-2607-001'},
+            'BmSC60-260709-02': {line: 'BMSC', item: 'BmSC+③ 60', wo: 'WO-2607-002'},
+            'BSC120-260706-00': {line: 'BSC', item: 'BSC+③ 120', wo: 'WO-2606-018'},
+            'BSC30-260710-03': {line: 'BSC', item: 'BSC+③ 30', wo: 'WO-2607-003'},
+        };
+        const WORK = [
+            {
+                date: '2026-07-10',
+                time: '08:10',
+                lot: 'BSC60-260710-01',
+                proc: '세척',
+                item: '상부/하부 용기',
+                worker: '정우철',
+                equip: '세척기 A',
+                qty: 490,
+                def: 3
+            },
+            {
+                date: '2026-07-10',
+                time: '10:20',
+                lot: 'BSC60-260710-01',
+                proc: '조립',
+                item: 'BSC+③ 60(PK)',
+                worker: '한지민',
+                equip: '조립기 A',
+                qty: 0,
+                def: 0
+            },
+            {
+                date: '2026-07-10',
+                time: '09:00',
+                lot: 'BSC30-260710-03',
+                proc: '세척',
+                item: '상부/하부 용기',
+                worker: '박지훈',
+                equip: '세척기 B',
+                qty: 400,
+                def: 0
+            },
+            {
+                date: '2026-07-10',
+                time: '13:00',
+                lot: 'BmSC60-260709-02',
+                proc: '융착',
+                item: '골수용 필터백',
+                worker: '김민수',
+                equip: 'KM-MRM-M007',
+                qty: 300,
+                def: 0
+            },
+            {
+                date: '2026-07-10',
+                time: '15:20',
+                lot: 'BmSC60-260709-02',
+                proc: '멸균',
+                item: 'EO 멸균 배치',
+                worker: '박지훈',
+                equip: 'EO 챔버',
+                qty: 300,
+                def: 0
+            },
+
+            {
+                date: '2026-07-09',
+                time: '08:00',
+                lot: 'BmSC60-260709-02',
+                proc: '세척',
+                item: '상부/하부 용기',
+                worker: '이서연',
+                equip: '세척기 A',
+                qty: 300,
+                def: 0
+            },
+            {
+                date: '2026-07-09',
+                time: '09:20',
+                lot: 'BmSC60-260709-02',
+                proc: '조립',
+                item: 'BmSC+③ 60(PK)',
+                worker: '한지민',
+                equip: '조립기 A',
+                qty: 298,
+                def: 2
+            },
+            {
+                date: '2026-07-09',
+                time: '11:30',
+                lot: 'BmSC60-260709-02',
+                proc: '블리스터',
+                item: 'PK 블리스터',
+                worker: '정우철',
+                equip: 'BL-01',
+                qty: 300,
+                def: 0
+            },
+
+            {
+                date: '2026-07-06',
+                time: '07:40',
+                lot: 'BSC120-260706-00',
+                proc: '세척',
+                item: '상부/하부 용기',
+                worker: '김민수',
+                equip: '세척기 B',
+                qty: 240,
+                def: 0
+            },
+            {
+                date: '2026-07-06',
+                time: '09:00',
+                lot: 'BSC120-260706-00',
+                proc: '조립',
+                item: 'BSC+③ 120(PK)',
+                worker: '한지민',
+                equip: '조립기 A',
+                qty: 238,
+                def: 2
+            },
+            {
+                date: '2026-07-06',
+                time: '11:00',
+                lot: 'BSC120-260706-00',
+                proc: '블리스터',
+                item: 'PK 블리스터',
+                worker: '정우철',
+                equip: 'BL-02',
+                qty: 240,
+                def: 0
+            },
+        ];
+        const DOW = ['일', '월', '화', '수', '목', '금', '토'];
+        const lineTag = l => l === 'BMSC' ? '<span class="wl-pline bmsc">BmSC</span>' : '<span class="wl-pline bsc">BSC</span>';
+
+        function fmt(d) {
+            return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+        }
+
+        function shiftDay(n) {
+            var v = document.getElementById('fDate').value;
+            var d = v ? new Date(v + 'T00:00') : new Date();
+            d.setDate(d.getDate() + n);
+            document.getElementById('fDate').value = fmt(d);
+            render();
+        }
+
+        function render() {
+            var date = document.getElementById('fDate').value;
+            var d = date ? new Date(date + 'T00:00') : new Date();
+            document.getElementById('dDow').textContent = date ? '(' + DOW[d.getDay()] + ')' : '';
+
+            var rows = WORK.filter(function (w) {
+                return w.date === date;
+            });
+            var byLot = {};
+            rows.forEach(function (w) {
+                (byLot[w.lot] = byLot[w.lot] || []).push(w);
+            });
+            var lotIds = Object.keys(byLot);
+
+            var totQty = rows.reduce(function (a, w) {
+                return a + (w.qty || 0);
+            }, 0);
+            var totDef = rows.reduce(function (a, w) {
+                return a + (w.def || 0);
+            }, 0);
+            document.getElementById('daySum').innerHTML =
+                '<span class="wl-tag lot">로트 ' + lotIds.length + '</span>'
+                + '<span class="wl-tag row">작업 ' + rows.length + '건</span>'
+                + '<span class="wl-tag qty">양품 ' + totQty.toLocaleString() + '</span>'
+                + (totDef ? '<span class="wl-tag def">불량 ' + totDef + '</span>' : '');
+
+            var host = document.getElementById('lots');
+            if (!lotIds.length) {
+                host.innerHTML = '<div class="wl-empty">해당 날짜에 작업 이력이 없습니다.</div>';
+                return;
+            }
+            host.innerHTML = lotIds.map(function (lot) {
+                var m = LOTS[lot] || {line: 'BSC', item: '-', wo: '-'};
+                var evs = byLot[lot].slice().sort(function (a, b) {
+                    return a.time < b.time ? -1 : 1;
+                });
+                var lq = evs.reduce(function (a, w) {
+                    return a + (w.qty || 0);
+                }, 0), ld = evs.reduce(function (a, w) {
+                    return a + (w.def || 0);
+                }, 0);
+                return '<div class="wl-lot"><div class="wl-lot-h">'
+                    + lineTag(m.line) + '<span class="wl-lotno">' + lot + '</span>'
+                    + '<span class="wl-lotitem">' + m.item + '</span><span class="wl-lotwo">' + m.wo + '</span>'
+                    + '<div class="wl-lot-sum"><span class="wl-tag row">' + evs.length + '건</span>'
+                    + '<span class="wl-tag qty">양품 ' + lq.toLocaleString() + '</span>'
+                    + (ld ? '<span class="wl-tag def">불량 ' + ld + '</span>' : '') + '</div></div>'
+                    + '<table class="wl-table"><thead><tr><th>시간</th><th>공정</th><th class="left">품목명</th><th>작업자</th><th>설비</th><th>양품</th><th>불량</th><th class="th-act">관리</th></tr></thead><tbody>'
+                    + evs.map(function (w) {
+                        return '<tr><td>' + w.time + '</td><td><span class="wl-proc">' + w.proc + '</span></td>'
+                            + '<td class="left">' + w.item + '</td><td>' + w.worker + '</td><td>' + w.equip + '</td>'
+                            + '<td class="wl-qty">' + (w.qty ? w.qty.toLocaleString() : '<span style="color:#c2c9d4">—</span>') + '</td>'
+                            + '<td class="' + (w.def ? 'wl-defcell' : '') + '">' + (w.def || 0) + '</td>'
+                            + '<td class="th-act"><button type="button" class="wl-rowbtn" data-edit="' + w.id + '">수정</button>'
+                            + '<button type="button" class="wl-rowbtn del" data-del="' + w.id + '">삭제</button></td></tr>';
+                    }).join('')
+                    + '</tbody></table></div>';
+            }).join('');
+        }
+
+        /* ===== CRUD ===== */
+        const PROCS = ['세척', '조립', '융착', '검사', '블리스터', '내포장', '멸균', '외포장'];
+        var SEQ = 0;
+        WORK.forEach(function (w) {
+            w.id = ++SEQ;
+        });
+        var editId = null;
+
+        (function initCombo() {
+            document.getElementById('mLot').innerHTML = Object.keys(LOTS).map(function (l) {
+                return '<option value="' + l + '">' + l + ' · ' + LOTS[l].item + '</option>';
+            }).join('');
+            document.getElementById('mProc').innerHTML = PROCS.map(function (p) {
+                return '<option value="' + p + '">' + p + '</option>';
+            }).join('');
+        })();
+
+        function mOpen(id) {
+            editId = id || null;
+            var w = id ? WORK.find(function (x) {
+                return x.id === id;
+            }) : null;
+            document.getElementById('mTitle').textContent = w ? '작업 수정' : '작업 등록';
+            document.getElementById('mDate').value = w ? w.date : (document.getElementById('fDate').value || fmt(new Date()));
+            document.getElementById('mTime').value = w ? w.time : '';
+            document.getElementById('mLot').value = w ? w.lot : Object.keys(LOTS)[0];
+            document.getElementById('mProc').value = w ? w.proc : PROCS[0];
+            document.getElementById('mItem').value = w ? w.item : '';
+            document.getElementById('mWorker').value = w ? w.worker : '';
+            document.getElementById('mEquip').value = w ? w.equip : '';
+            document.getElementById('mQty').value = w ? w.qty : 0;
+            document.getElementById('mDef').value = w ? w.def : 0;
+            document.getElementById('mDim').classList.add('on');
+            document.getElementById('mBox').classList.add('on');
+        }
+
+        function mClose() {
+            editId = null;
+            document.getElementById('mDim').classList.remove('on');
+            document.getElementById('mBox').classList.remove('on');
+        }
+
+        function mSave() {
+            var v = function (id) {
+                return document.getElementById(id).value.trim();
+            };
+            if (!v('mDate') || !v('mTime')) {
+                alert('작업일자와 시간을 입력하세요.');
+                return;
+            }
+            if (!v('mItem')) {
+                alert('품목명을 입력하세요.');
+                return;
+            }
+            var row = {
+                date: v('mDate'), time: v('mTime'), lot: v('mLot'), proc: v('mProc'),
+                item: v('mItem'), worker: v('mWorker') || '-', equip: v('mEquip') || '-',
+                qty: parseInt(v('mQty') || '0', 10), def: parseInt(v('mDef') || '0', 10)
+            };
+            if (editId) {
+                var t = WORK.find(function (x) {
+                    return x.id === editId;
+                });
+                Object.assign(t, row);
+            } else {
+                row.id = ++SEQ;
+                WORK.push(row);
+                document.getElementById('fDate').value = row.date;
+            }
+            mClose();
+            render();
+        }
+
+        document.getElementById('btnAdd').addEventListener('click', function () {
+            mOpen(null);
+        });
+        document.getElementById('mCancel').addEventListener('click', mClose);
+        document.getElementById('mDim').addEventListener('click', mClose);
+        document.getElementById('mSave').addEventListener('click', mSave);
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') mClose();
+        });
+        document.getElementById('lots').addEventListener('click', function (e) {
+            var b = e.target.closest('button');
+            if (!b) return;
+            if (b.dataset.edit) mOpen(parseInt(b.dataset.edit, 10));
+            else if (b.dataset.del) {
+                if (!confirm('이 작업 이력을 삭제할까요?')) return;
+                var i = WORK.findIndex(function (x) {
+                    return x.id === parseInt(b.dataset.del, 10);
+                });
+                if (i > -1) WORK.splice(i, 1);
+                render();
+            }
+        });
+
+        document.getElementById('fDate').addEventListener('change', render);
+        document.getElementById('prevDay').addEventListener('click', function () {
+            shiftDay(-1);
+        });
+        document.getElementById('nextDay').addEventListener('click', function () {
+            shiftDay(1);
+        });
+        document.getElementById('btnPrint').addEventListener('click', function () {
+            window.print();
+        });
+        document.addEventListener('DOMContentLoaded', function () {
+            document.getElementById('fDate').value = '2026-07-10';
+            render();
+        });
+    </script>
+</th:block>
+</html>

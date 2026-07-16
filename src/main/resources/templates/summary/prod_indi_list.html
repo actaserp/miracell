@@ -1,377 +1,373 @@
 <html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        .uph-legend { display:flex; align-items:center; gap:14px; margin:10px 0 6px; font-size:12px; color:#8a94a4; font-weight:700; }
+        .uph-legend i { display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:5px; vertical-align:-1px; }
+        .uph-note { color:#8a94a4; font-size:12px; margin-top:10px; line-height:1.6; }
+    </style>
+</head>
 <th:block layout:fragment="content">
-<div class="layout-contents">
+    <div class="layout-contents">
 
-    <div class="page-title-wrap">
-        <div class="left">
-            <h2>재고회전율 추이분석</h2>
-            <a title="북마크" class="bookmark toggle">
-                내 메뉴
-            </a>
-        </div>
-        <ul class="page-navi">
-            <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
-            <li>KPI 성과 지표</li>
-            <li>재고회전율 추이분석</li>
-        </ul>
-    </div>
-
-
-    <section class="section">
-        <div class="section-top">
-            <div class="search-wrap">
-                <dl>
-                    <dt>
-                        <label for="cboYear">
-                            기준년도
-                        </label>
-                    </dt>
-                    <dd>
-                        <div class="srch-box">
-                            <select id="cboYear">
-                            </select>
-                        </div>
-                    </dd>
-                </dl>
-
-                <dl>
-                    <dt>&nbsp;</dt>
-                    <dd>
-                        <li>
-                            <a class="btn btn-delete" title="검색" id="btnSearch">
-                                <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
-                                <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
-                                검색
-                            </a>
-                        </li>
-
-                    </dd>
-                </dl>
-
-                <dl>
-                    <dt>&nbsp;</dt>
-                    <dd>
-                        <li>
-                            <span>
-                            </span>
-                        </li>
-
-                    </dd>
-                </dl>
-
-
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>시간당 생산량</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
             </div>
+            <ul class="page-navi">
+                <li><img src="/images/icon/ico-nav-home.svg" alt="홈아이콘"></li>
+                <li>KPI 성과 지표</li>
+                <li>시간당 생산량</li>
+            </ul>
         </div>
-        <div class="container-fluid">
-            <div id="theGrid" style="height: 730px;"></div>
-        </div>
-    </section>
-</div>
+
+        <section class="section">
+            <div class="section-top">
+                <div class="search-wrap">
+                    <dl>
+                        <dt><label for="cboYear">기준년도</label></dt>
+                        <dd>
+                            <div class="srch-box">
+                                <select id="cboYear"></select>
+                            </div>
+                        </dd>
+                    </dl>
+
+<!--                    <dl>-->
+<!--                        <dt><label for="cboProc">공정</label></dt>-->
+<!--                        <dd>-->
+<!--                            <div class="srch-box">-->
+<!--                                <select id="cboProc">-->
+<!--                                    <option value="">전체(완제 기준)</option>-->
+<!--                                    <option value="wash">세척</option>-->
+<!--                                    <option value="assy">조립</option>-->
+<!--                                    <option value="blister">블리스터</option>-->
+<!--                                    <option value="welding">융착</option>-->
+<!--                                    <option value="ipack">내포장</option>-->
+<!--                                    <option value="steril">멸균</option>-->
+<!--                                    <option value="opack">외포장</option>-->
+<!--                                </select>-->
+<!--                            </div>-->
+<!--                        </dd>-->
+<!--                    </dl>-->
+
+                    <dl>
+                        <dt>&nbsp;</dt>
+                        <dd>
+                            <li>
+                                <a class="btn btn-delete" title="검색" id="btnSearch">
+                                    <img src="/images/icon/btn-srch.svg" alt="검색 아이콘">
+                                    검색
+                                </a>
+                            </li>
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+
+            <div class="container-fluid">
+                <div class="uph-legend">
+                    <span>시간당생산량 색상 :</span>
+                    <span><i style="background:#e3f6ec"></i>목표 달성</span>
+                    <span><i style="background:#fff4e0"></i>목표의 80~100%</span>
+                    <span><i style="background:#fdecec"></i>목표의 80% 미만</span>
+                    <span style="margin-left:auto;font-weight:600">목표 UPH는 품목 마스터의 표준시간 기준</span>
+                </div>
+                <div id="theGrid" style="height: 700px;"></div>
+                <p class="uph-note">
+                    ※ 시간당생산량(UPH) = 생산수량 ÷ 가동시간. <b>가동시간은 설비 가동이력(equ_run)의 실측 합계</b>이며,
+                    영업일수 × 고정시간이 아닙니다. 공정을 선택하면 해당 공정의 산출수량·가동시간 기준으로 재계산됩니다.
+                </p>
+            </div>
+        </section>
+    </div>
 </th:block>
+
 <th:block layout:fragment="scripts">
-<script type="text/javascript">
-    class ProductionMonthPage {
-        constructor() {
-            this.grid = null;
-            this.viewData = new wijmo.collections.CollectionView();
-            this.init();
-        }
+    <script type="text/javascript">
+        class UphPage {
+            constructor() {
+                this.grid = null;
+                this.init();
+            }
 
-        /*init() {
-            let _this = this;
+            init() {
+                this.grid = new wijmo.grid.FlexGrid('#theGrid', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    allowSorting: wijmo.grid.AllowSorting.MultiColumn,
+                    allowMerging: wijmo.grid.AllowMerging.Cells,
+                    autoGenerateColumns: false,
+                    showMarquee: true,
+                    isReadOnly: true,
+                    frozenColumns: 5,
+                    formatItem: (sender, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                    },
+                    columns: [
+                        { binding: 'mat_grp_name', header: '품목그룹', width: 130, allowMerging: true },
+                        { binding: 'mat_name',     header: '품목명',   width: '*', allowMerging: true },
+                        { binding: 'unit_name',    header: '단위',     width: 70,  allowMerging: false },
+                        { binding: 'target_uph',   header: '목표 UPH', width: 90,  align: 'right', allowMerging: true },
+                        { binding: 'gubn',         header: '구분',     width: 110 },
+                        ...Array.from({ length: 12 }, (_, i) => ({
+                            binding: `mon_${i + 1}`,
+                            header: `${i + 1}월`,
+                            width: 80,
+                            align: 'right',
+                            allowSorting: false
+                        }))
+                    ]
+                });
 
-            this.grid = new wijmo.grid.FlexGrid('#theGrid', {
-                selectionMode: wijmo.grid.SelectionMode.Row,
-                headersVisibility: wijmo.grid.HeadersVisibility.Column,
-                allowSorting: wijmo.grid.AllowSorting.MultiColumn,
-                allowMerging: wijmo.grid.AllowMerging.Cells,  //셀 병합
-                autoGenerateColumns: false,
-                showMarquee: true,
-                isReadOnly: true,
-                frozenColumns: 7,
-                formatItem: (sender, e) => {
-                    if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-                        e.cell.style.textAlign = 'center';
-                    }
-                },
+                this.grid.itemFormatter = (panel, row, col, cell) => {
+                    if (panel.cellType !== wijmo.grid.CellType.Cell) return;
 
-                columns: [
-                    { binding: 'mat_grp_name', header: '제품그룹', width: 100 ,allowMerging: true },
-                    { binding: 'mat_code', header: '제품코드', width: 150 ,allowMerging: true },
-                    { binding: 'mat_name', header: '제품명', width: 150 ,allowMerging: true },
-                    { binding: 'unit_name', header: '단위', width: 70 , allowSorting: false },
-                    { binding: 'year_qty_sum', header: '연수주량', width: 100, format: 'n0', align: 'right' },
-                    { binding: 'year_money_sum', header: '연수주액', width: 150, format: 'n0', align: 'right' },
-                    { binding: 'company_name', header: '업체', width: 200, allowSorting: false  },
-                    ...Array.from({ length: 12 }, (_, i) => ({
-                        binding: `mon_${i + 1}`,
-                        header: `${i + 1}월`,
-                        width: 80,
-                        format: 'n0',
-                        align: 'right',
-                        allowSorting: false
-                    }))
-                ],
-                itemsSource: this.viewData, // 데이터를 설정할 배열
-            });
-            this.grid.itemFormatter = function (panel, row, col, cell) {
-                if (panel.cellType === wijmo.grid.CellType.Cell) {
-                    let colName = panel.columns[col].binding;
-                    let rowData = panel.rows[row]?.dataItem;
-                    const prevRowData = panel.rows[row - 1]?.dataItem;
+                    const colName = panel.columns[col].binding;
+                    const rowData = panel.rows[row]?.dataItem;
+
+                    // 반드시 리셋
+                    cell.style.fontWeight = '';
+                    cell.style.background = '';
+                    cell.style.borderBottom = '';
+                    cell.style.color = '';
 
                     if (colName === 'gubn') {
                         const val = panel.getCellData(row, col, true);
-                        const label = val === '1' ? '생산수량' : val === '2' ? '영업일수' : val === '3' ? '시간당생산량' : '';
-                        cell.textContent = label;
+                        cell.textContent =
+                            val === '1' ? '생산수량' :
+                                val === '2' ? '가동시간' :
+                                    val === '3' ? '시간당생산량' : '';
                         cell.style.textAlign = 'center';
+                        if (val === '3') cell.style.fontWeight = 'bold';
                     }
 
-                    if (colName.startsWith('mon_') && rowData?.gubn) {
-                        let value = panel.getCellData(row, col, false);
-                        let gubn = rowData.gubn;
-
-                        if (typeof value === 'number') {
-                            cell.textContent = gubn === '3'
-                                ? wijmo.Globalize.format(value, 'n2')
-                                : wijmo.Globalize.format(value, 'n0');
-                        }
-
+                    if (colName === 'target_uph') {
+                        const v = rowData?.target_uph;
+                        cell.textContent = v ? wijmo.Globalize.format(v, 'n1') : '';
                         cell.style.textAlign = 'right';
                     }
 
-                    if (['mat_type_name', 'mat_grp_name', 'mat_code', 'unit_name', 'standard1'].includes(colName)) {
-                        cell.style.textAlign = 'center';          // 수평 가운데
-                        cell.style.verticalAlign = 'middle';      // 수직 가운데
-                        cell.style.display = 'flex';              // flex로 정렬
-                        cell.style.alignItems = 'center';         // 수직 정렬
-                        cell.style.justifyContent = 'center';     // 수평 정렬
-                    } else if (['mat_name']){
-                        cell.style.textAlign = 'left';
-                        cell.style.verticalAlign = 'middle';      // 수직 가운데
-                        cell.style.display = 'flex';              // flex로 정렬
-                        cell.style.alignItems = 'center';         // 수직 정렬
-                        cell.style.justifyContent = 'left';     // 수평 정렬
+                    if (colName.startsWith('mon_') && rowData?.gubn) {
+                        const value = panel.getCellData(row, col, false);
+                        const gubn = rowData.gubn;
+
+                        if (typeof value === 'number') {
+                            cell.textContent = (gubn === '2' || gubn === '3')
+                                ? wijmo.Globalize.format(value, 'n1')
+                                : wijmo.Globalize.format(value, 'n0');
+                        }
+                        cell.style.textAlign = 'right';
+
+                        // 시간당생산량 = 목표 대비 색상
+                        if (gubn === '3' && typeof value === 'number' && value > 0 && rowData.target_uph) {
+                            const r = value / rowData.target_uph;
+                            cell.style.fontWeight = 'bold';
+                            if (r >= 1)        { cell.style.background = '#e3f6ec'; cell.style.color = '#0a7c46'; }
+                            else if (r >= 0.8) { cell.style.background = '#fff4e0'; cell.style.color = '#b4560a'; }
+                            else               { cell.style.background = '#fdecec'; cell.style.color = '#d64545'; }
+                        }
+                        if (value === 0) cell.style.color = '#c2c9d4';
                     }
-                }
-            };
-            new FlexGridContextMenu(this.grid);
-            this.grid.downloadFileName = '생산량 지표';
-            this.grid.mergeManager = new CustomMergeManager(this.grid);
-        }*/
 
-        init() {
-            let _this = this;
+                    if (['mat_grp_name', 'unit_name'].includes(colName)) {
+                        cell.style.textAlign = 'center';
+                        cell.style.display = 'flex';
+                        cell.style.alignItems = 'center';
+                        cell.style.justifyContent = 'center';
+                    } else if (colName === 'mat_name') {
+                        cell.style.textAlign = 'left';
+                        cell.style.display = 'flex';
+                        cell.style.alignItems = 'center';
+                        cell.style.justifyContent = 'left';
+                    }
 
-            this.grid = new wijmo.grid.FlexGrid('#theGrid', {
-                selectionMode: wijmo.grid.SelectionMode.Row,
-                headersVisibility: wijmo.grid.HeadersVisibility.Column,
-                allowSorting: false,
-                autoGenerateColumns: false,
-                isReadOnly: true,
-                frozenColumns: 4,
-                allowMerging: wijmo.grid.AllowMerging.All,
-                columns: [
-                    { binding: 'mat_grp_name', header: '제품그룹', width: 120, allowMerging: true },
-                    { binding: 'mat_code', header: '제품코드', width: 140, align: 'center', allowMerging: true },
-                    { binding: 'mat_name', header: '제품명', width: 240, align: 'center', allowMerging: true },
-                    { binding: 'unit_name', header: '단위', width: 80, align: 'center', allowMerging: true },
-                    ...Array.from({ length: 12 }, (_, i) => ([ // 월별 1~12월
-                        { binding: `mon_${i + 1}_money`, header: '매출액', width: 120, align: 'center', format: 'n0' },
-                        { binding: `mon_${i + 1}_avginv`, header: '평균재고금액', width: 100, align: 'center', format: 'n0' },
-                        { binding: `mon_${i + 1}_turnover`, header: '재고회전율', width: 120, align: 'center', format: 'n2' }
-                    ])).flat(),
-                    { binding: 'year_turnover', header: '연간 재고회전율', width: 140, align: 'center', format: 'n2' } // ✅ 맨 마지막
-                ],
-                itemsSource: _this.viewData
-            });
+                    // 합계 블록 강조
+                    if (rowData?.__summary) {
+                        cell.style.fontWeight = 'bold';
+                        cell.style.background = cell.style.background || '#eef3f9';
+                        if (rowData.gubn === '3') cell.style.borderBottom = '2px solid #444';
+                    }
+                };
 
-            // ✅ 2단 헤더 생성
-            const topRow = new wijmo.grid.Row();
-            this.grid.columnHeaders.rows.insert(0, topRow);
-            let colIndex = 4;
-
-            for (let month = 1; month <= 12; month++) {
-                const col1 = this.grid.columns[colIndex];
-                const col2 = this.grid.columns[colIndex + 1];
-                const col3 = this.grid.columns[colIndex + 2];
-                this.grid.columnHeaders.setCellData(0, colIndex, `${month}월`);
-                this.grid.columnHeaders.setCellData(0, colIndex + 1, `${month}월`);
-                this.grid.columnHeaders.setCellData(0, colIndex + 2, `${month}월`);
-                col1.header = '매출액';
-                col2.header = '평균재고금액';
-                col3.header = '재고회전율(횟수)';
-                colIndex += 3;
+                new FlexGridContextMenu(this.grid);
+                this.grid.downloadFileName = '시간당 생산량';
+                this.grid.mergeManager = new CustomMergeManager(this.grid);
             }
 
-            this.grid.allowMerging = wijmo.grid.AllowMerging.All;
-            this.grid.columnHeaders.rows[0].allowMerging = true;
-            this.grid.columnHeaders.rows[1].allowMerging = false;
+            /* ===== 실서버 연동 시 (참고)
+            searchMainData() {
+                const url = '/api/summary/indicator/uph_read';
+                const data = {
+                    'cboYear' : $('#cboYear').val(),
+                    'proc_cd' : $('#cboProc').val(),
+                    'spjangcd': sessionStorage.getItem('spjangcd')
+                };
+                const result = AjaxUtil.getSyncData(url, data);
+                if (result && result.data) this.bind(result.data);
+            }
+            ===== */
 
-            // ✅ 푸터 행 추가
-            this.grid.columnFooters.rows.push(new wijmo.grid.GroupRow());
-            this.grid.bottomLeftCells.setCellData(0, 0, '합계');
+            searchMainData() {
+                const proc = $('#cboProc').val();
 
-            // ✅ 푸터 계산 함수
-            const updateFooter = () => {
-                const cv = this.grid.collectionView;
-                const footer = this.grid.columnFooters;
-                if (!cv || !footer) return;
+                /* 품목별 월 생산수량(양품) + 월 가동시간(h)
+                   qty  : 완제/산출 수량, hour : 설비 가동이력 합계
+                   procQty/procHour : 공정 선택 시 사용할 공정별 값(샘플은 전체의 일부만 보유) */
+                const RAW = [
+                    /* BSC+③A — 단순형(단일 BOM). 공정이 가장 짧아 UPH가 높음 */
+                    { grp:'BSC+③A', name:'BSC+③A 30',  unit:'EA', target:150,
+                        qty:  [ 3600, 3300, 4200, 3900, 4500, 4100, 4800, 4600, 4400, 4700, 4200, 3800 ],
+                        hour: [   25,   23,   29,   27,   30,   28,   31,   31,   30,   31,   29,   27 ] },
+                    { grp:'BSC+③A', name:'BSC+③A 60',  unit:'EA', target:130,
+                        qty:  [ 2600, 2400, 3000, 2800, 3100, 2900, 3300, 3200, 3000, 3200, 2900, 2600 ],
+                        hour: [   19,   18,   23,   21,   24,   22,   25,   25,   24,   25,   23,   21 ] },
+                    { grp:'BSC+③A', name:'BSC+③A 120', unit:'EA', target: 90,
+                        qty:  [ 1500, 1350, 1750, 1600, 1850, 1700, 1950, 1900, 1800, 1880, 1700, 1500 ],
+                        hour: [   17,   16,   20,   18,   21,   20,   22,   22,   21,   22,   20,   18 ] },
+                    { grp:'BSC+③A', name:'BSC+③A 240', unit:'EA', target: 60,
+                        qty:  [  620,  540,  720,  660,  760,  700,  810,  780,  740,  770,  700,  620 ],
+                        hour: [   11,   10,   13,   12,   13,   13,   14,   14,   13,   14,   13,   11 ] },
 
-                for (let month = 1; month <= 12; month++) {
-                    const moneyKey = `mon_${month}_money`;
-                    const invKey = `mon_${month}_avginv`;
-                    const turnKey = `mon_${month}_turnover`;
+                    /* BSC+③ — PK/FK 결합형 */
+                    { grp:'BSC+③',  name:'BSC+③ 30',   unit:'EA', target:120,
+                        qty:  [ 3200, 2800, 4000, 3600, 4200, 3800, 4400, 4300, 4000, 4200, 3800, 3400 ],
+                        hour: [   28,   26,   34,   31,   35,   33,   36,   36,   34,   35,   33,   30 ] },
+                    { grp:'BSC+③',  name:'BSC+③ 60',   unit:'EA', target:100,
+                        qty:  [ 5000, 4600, 5400, 5200, 5800, 5000, 6100, 5900, 5600, 5800, 5300, 4800 ],
+                        hour: [   52,   50,   54,   55,   58,   54,   60,   59,   57,   58,   55,   51 ] },
+                    { grp:'BSC+③',  name:'BSC+③ 120',  unit:'EA', target: 70,
+                        qty:  [ 2400, 2100, 2600, 2400, 2800, 2300, 2900, 2850, 2700, 2800, 2500, 2200 ],
+                        hour: [   36,   33,   38,   36,   40,   36,   41,   41,   39,   40,   37,   34 ] },
+                    { grp:'BSC+③',  name:'BSC+③ 240',  unit:'EA', target: 50,
+                        qty:  [  800,  600,  900,  750,  950,  700, 1000,  980,  920,  960,  860,  760 ],
+                        hour: [   17,   14,   19,   16,   20,   16,   21,   20,   19,   20,   18,   16 ] },
 
-                    const totalMoney = cv.items.reduce((sum, item) => sum + (parseFloat(item[moneyKey]) || 0), 0);
-                    const totalInv = cv.items.reduce((sum, item) => sum + (parseFloat(item[invKey]) || 0), 0);
-                    const turnover = totalInv ? (totalMoney / totalInv) : 0;
+                    /* BmSC+③ — 골수처리. 융착 공정이 추가되어 UPH가 낮음 */
+                    { grp:'BmSC+③', name:'BmSC+③ 30',  unit:'EA', target: 95,
+                        qty:  [ 1900, 1750, 2200, 2000, 2300, 2100, 2400, 2350, 2200, 2300, 2100, 1850 ],
+                        hour: [   21,   20,   25,   23,   26,   24,   27,   27,   25,   26,   24,   21 ] },
+                    { grp:'BmSC+③', name:'BmSC+③ 60',  unit:'EA', target: 80,
+                        qty:  [ 2400, 2200, 2700, 2500, 2900, 2600, 3000, 2950, 2800, 2900, 2600, 2300 ],
+                        hour: [   31,   30,   35,   33,   37,   35,   38,   38,   36,   37,   34,   31 ] },
+                    { grp:'BmSC+③', name:'BmSC+③ 120', unit:'EA', target: 60,
+                        qty:  [ 1200, 1000, 1400, 1300, 1500, 1250, 1600, 1550, 1450, 1520, 1380, 1200 ],
+                        hour: [   22,   19,   25,   23,   27,   23,   28,   27,   26,   27,   25,   22 ] },
+                    { grp:'BmSC+③', name:'BmSC+③ 240', unit:'EA', target: 40,
+                        qty:  [  460,  400,  540,  500,  580,  480,  620,  600,  560,  590,  530,  470 ],
+                        hour: [   12,   11,   14,   13,   15,   13,   16,   15,   15,   15,   14,   12 ] },
+                ];
 
-                    footer.setCellData(0, moneyKey, totalMoney);
-                    footer.setCellData(0, invKey, totalInv);
-                    footer.setCellData(0, turnKey, turnover.toFixed(2));
-                }
-            };
+                /* 공정 선택 시: 공정별 계수(샘플). 실제로는 공정별 산출/가동이력을 서버에서 조회 */
+                const PROC_F = {
+                    wash:    {q:1.0, h:0.35}, assy:  {q:1.0, h:1.45}, blister:{q:1.0, h:0.55},
+                    welding: {q:1.0, h:0.40}, ipack: {q:1.0, h:0.80}, steril: {q:1.0, h:0.30},
+                    opack:   {q:1.0, h:0.25}
+                };
+                const f = PROC_F[proc];
+                const rows = [];
 
-            // ✅ 데이터 로드 / 갱신 후 푸터 갱신
-            this.grid.collectionView.collectionChanged.addHandler(updateFooter);
-            this.grid.updatedView.addHandler(updateFooter);
+                RAW.forEach(function (m) {
+                    /* 융착은 BmSC 계열에만 존재 → 다른 계열은 행 자체를 제외 */
+                    if (proc === 'welding' && m.grp.indexOf('BmSC') < 0) return;
 
-            // ✅ 셀 스타일
-            this.grid.itemFormatter = function (panel, row, col, cell) {
-                if (panel.cellType === wijmo.grid.CellType.Cell) {
-                    cell.style.textAlign = 'center';
-                    cell.style.verticalAlign = 'middle';
-                    const val = cell.textContent?.trim();
-                    if (!val || val === 'null' || val === 'undefined') cell.textContent = '';
-                }
+                    const qty  = m.qty.map(v  => f ? Math.round(v * f.q) : v);
+                    const hour = m.hour.map(v => f ? +(v * f.h).toFixed(1) : v);
 
-                // 푸터 색상/강조
-                if (panel.cellType === wijmo.grid.CellType.ColumnFooter) {
-                    cell.style.backgroundColor = '#f0f0f0';
-                    cell.style.fontWeight = 'bold';
-                    cell.style.textAlign = 'center';
-                }
-            };
+                    const base = { mat_grp_name: m.grp, mat_name: m.name, unit_name: m.unit, target_uph: m.target };
+                    rows.push(Object.assign({}, base, { gubn: '1' }, this.toMon(qty)));
+                    rows.push(Object.assign({}, base, { gubn: '2' }, this.toMon(hour)));
+                    rows.push(Object.assign({}, base, { gubn: '3' }, this.toMon(
+                        qty.map((q, i) => hour[i] > 0 ? +(q / hour[i]).toFixed(1) : 0)
+                    )));
+                }, this);
 
-            new FlexGridContextMenu(this.grid);
-            this.grid.downloadFileName = '월별_재고회전율';
-        }
+                const summaryRows = this.makeSummaryRows(rows);
+                this.grid.itemsSource = [...summaryRows, ...rows];
+                this.grid.frozenRows = summaryRows.length;
+            }
 
+            toMon(arr) {
+                const o = {};
+                for (let m = 1; m <= 12; m++) o[`mon_${m}`] = arr[m - 1] || 0;
+                return o;
+            }
 
+            makeSummaryRows(rows) {
+                const sumOf = (gubn, key) => rows.filter(r => r.gubn === gubn)
+                    .reduce((s, r) => s + (r[key] || 0), 0);
 
+                const make = (gubn, label, calcFn) => {
+                    const row = { __summary: true, gubn, mat_grp_name: '전체', mat_name: label, unit_name: '', target_uph: null };
+                    for (let m = 1; m <= 12; m++) row[`mon_${m}`] = calcFn(`mon_${m}`);
+                    return row;
+                };
 
-
-
-
-
-        searchMainData() {
-            let url = '/api/summary/indicator/prod_read'
-            let data = {
-				'cboYear' : $("#cboYear").val(),
-                'spjangcd' : sessionStorage.getItem('spjangcd')
-			}
-            const result = AjaxUtil.getSyncData(url, data);
-            console.log("result data : ", result.data);
-            if (result.success) {
-
-                /*let rows = result.data;
-
-                const expandedRows = [];
-                rows.forEach(item => {
-                    // 매출원가 행
-                    // 매출원가 행
-                    expandedRows.push({
-                        ...item,
-                        rowType: '매출원가',
-                        displayName: item.mat_name,
-                        unit_name: item.unit_name,
-                        mat_code: item.mat_code,
-                        ...Object.fromEntries(
-                            Object.entries(item)
-                                .filter(([k]) => k.includes('_money'))
-                                .map(([k, v]) => [k.replace('_money', ''), v])
-                        )
-                    });
-
-                    // 평균단가 행
-                    expandedRows.push({
-                        ...item,
-                        rowType: '평균단가',
-                        displayName: '평균단가',
-                        unit_name: item.unit_name,
-                        mat_code: item.mat_code,
-                        ...Object.fromEntries(
-                            Object.entries(item)
-                                .filter(([k]) => k.includes('_avg_price'))
-                                .map(([k, v]) => [k.replace('_avg_price', ''), v])
-                        )
-                    });
-                });
-                this.grid.itemsSource = expandedRows;
-*/
-
-                this.grid.itemsSource = result.data;
-            }else{
-                Alert.alert('', '에러가 발생하였습니다.');
+                const out = [];
+                out.push(make('1', '생산수량 합계', key => sumOf('1', key)));
+                out.push(make('2', '가동시간 합계', key => +sumOf('2', key).toFixed(1)));
+                /* 전체 UPH = 개별 UPH의 평균이 아니라 (총수량 ÷ 총가동시간) */
+                out.push(make('3', '시간당생산량(전체)', key => {
+                    const q = sumOf('1', key), h = sumOf('2', key);
+                    return h > 0 ? +(q / h).toFixed(1) : 0;
+                }));
+                return out;
             }
         }
 
-    }
+        let page = null;
 
-    let page = null;
+        $(document.body).ready(function (e) {
+            page = new UphPage();
 
-    $(document.body).ready(function (e) {
-        page = new ProductionMonthPage();
+            AjaxUtil.fillSelectOptions($('#cboYear'), 'data_year', '', false);
 
-        AjaxUtil.fillSelectOptions($('#cboYear'), 'data_year', '', false);
-
-        page.searchMainData();
-
-        // 검색
-        $('#btnSearch').click(function (e) {
             page.searchMainData();
-        });
-    });
 
-    class CustomMergeManager extends wijmo.grid.MergeManager {
-        getMergedRange(panel, row, col, clip = true) {
-            if (panel.cellType !== wijmo.grid.CellType.Cell) {
+            $('#btnSearch').click(function (e) {
+                page.searchMainData();
+            });
+            $('#cboProc').change(function (e) {
+                page.searchMainData();
+            });
+        });
+
+        class CustomMergeManager extends wijmo.grid.MergeManager {
+            getMergedRange(panel, row, col, clip = true) {
+                if (panel.cellType !== wijmo.grid.CellType.Cell) {
+                    return super.getMergedRange(panel, row, col, clip);
+                }
+
+                const colName = panel.columns[col].binding;
+                if (colName === 'unit_name' || colName === 'target_uph') {
+                    const matNameCol = panel.columns.getColumn('mat_name').index;
+                    const val = panel.getCellData(row, col, false);
+                    const matName = panel.getCellData(row, matNameCol, false);
+
+                    let rng = new wijmo.grid.CellRange(row, col);
+
+                    while (rng.row > 0) {
+                        let prevVal = panel.getCellData(rng.row - 1, col, false);
+                        let prevMatName = panel.getCellData(rng.row - 1, matNameCol, false);
+                        if (prevVal !== val || prevMatName !== matName) break;
+                        rng.row--;
+                    }
+                    while (rng.row2 < panel.rows.length - 1) {
+                        let nextVal = panel.getCellData(rng.row2 + 1, col, false);
+                        let nextMatName = panel.getCellData(rng.row2 + 1, matNameCol, false);
+                        if (nextVal !== val || nextMatName !== matName) break;
+                        rng.row2++;
+                    }
+                    return rng.isSingleCell ? null : rng;
+                }
+
                 return super.getMergedRange(panel, row, col, clip);
             }
-
-            const colName = panel.columns[col].binding;
-            if (colName === 'standard1' || colName === 'unit_name') {
-                const matNameCol = panel.columns.getColumn('mat_name').index;
-                const val = panel.getCellData(row, col, false);
-                const matName = panel.getCellData(row, matNameCol, false);
-
-                let rng = new wijmo.grid.CellRange(row, col);
-
-                // 위로 병합
-                while (rng.row > 0) {
-                    let prevVal = panel.getCellData(rng.row - 1, col, false);
-                    let prevMatName = panel.getCellData(rng.row - 1, matNameCol, false);
-                    if (prevVal !== val || prevMatName !== matName) break;
-                    rng.row--;
-                }
-
-                // 아래로 병합
-                while (rng.row2 < panel.rows.length - 1) {
-                    let nextVal = panel.getCellData(rng.row2 + 1, col, false);
-                    let nextMatName = panel.getCellData(rng.row2 + 1, matNameCol, false);
-                    if (nextVal !== val || nextMatName !== matName) break;
-                    rng.row2++;
-                }
-
-                return rng.isSingleCell ? null : rng;
-            }
-
-            return super.getMergedRange(panel, row, col, clip);
         }
-    }
-
-
-
-</script>
+    </script>
 </th:block>
+</html>

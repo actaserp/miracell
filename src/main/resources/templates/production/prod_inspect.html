@@ -1,0 +1,229 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        .qi-topbar { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+        .qi-fbadge{ display:inline-block; font-size:11px; font-weight:800; padding:3px 10px; border-radius:6px; background:#eaf7f0; color:#0a8f52; margin-left:8px; vertical-align:middle;}
+        .qi-btn { border:0; border-radius:8px; padding:9px 16px; font-weight:800; font-size:13px; cursor:pointer; }
+        .qi-btn.pass { background:#0f9d58; color:#fff; } .qi-btn.fail { background:#d64545; color:#fff; }
+        .qi-btn.gray { background:#eef2f8; color:#3a4759; }
+        .qi-btn:disabled { opacity:.4; cursor:not-allowed; }
+
+        .qi-wrap { display:flex; gap:14px; align-items:flex-start; margin-top:14px; flex-wrap:wrap; }
+        .qi-left { flex:0 0 320px; } .qi-right { flex:1; min-width:420px; }
+        .qi-card { background:#fff; border:1px solid #e2e6ee; border-radius:12px; overflow:hidden; }
+        .qi-card-h { padding:11px 16px; background:#f7f9fc; border-bottom:1px solid #eef1f6; font-size:12.5px; font-weight:800; color:#3a4759; display:flex; align-items:center; gap:8px; }
+        .qi-count { background:#e7f0ff; color:#2f6fed; font-size:11px; font-weight:800; padding:2px 8px; border-radius:20px; margin-left:auto; }
+
+        .qi-item { padding:12px 16px; border-bottom:1px solid #f1f4f9; cursor:pointer; }
+        .qi-item:hover { background:#f7f9fc; }
+        .qi-item.on { background:#eef4ff; box-shadow:inset 3px 0 0 #2f6fed; }
+        .qi-item .l1 { display:flex; align-items:center; gap:6px; }
+        .qi-lotno { font-family:ui-monospace,monospace; font-weight:800; font-size:13px; }
+        .qi-item .l2 { color:#8a94a4; font-size:11.5px; margin-top:3px; }
+        .qi-pline { font-size:10px; font-weight:800; padding:2px 6px; border-radius:5px; }
+        .qi-pline.bsc { background:#eaf0ff; color:#2f6fed; } .qi-pline.bmsc{ background:#f0ecfb; color:#7b52d6; }
+        .qi-st { font-size:10.5px; font-weight:800; padding:2px 8px; border-radius:20px; margin-left:auto; }
+        .qi-st.wait { background:#fff4e0; color:#c9620a; } .qi-st.pass { background:#e3f6ec; color:#0f9d58; } .qi-st.fail { background:#fdecec; color:#d64545; }
+
+        .qi-info { display:flex; gap:24px; flex-wrap:wrap; padding:16px 18px; border-bottom:1px solid #eef1f6; }
+        .qi-info .b .l { font-size:11px; color:#8a94a4; font-weight:700; } .qi-info .b .v { font-size:15px; font-weight:800; margin-top:2px; }
+        .qi-info .b .v.mono { font-family:ui-monospace,monospace; }
+
+        .qi-table { border-collapse:collapse; width:100%; }
+        .qi-table thead th { background:#2f3a4c; color:#fff; font-weight:600; font-size:11.5px; padding:9px 8px; white-space:nowrap; }
+        .qi-table thead th.left { text-align:left; padding-left:14px; }
+        .qi-table tbody td { border-bottom:1px solid #eef1f6; padding:8px; text-align:center; font-size:12.5px; }
+        .qi-table tbody td.left { text-align:left; padding-left:14px; }
+        .qi-spec { color:#8a94a4; font-size:11.5px; }
+        .qi-jt { display:inline-flex; border:1px solid #e2e6ee; border-radius:8px; overflow:hidden; }
+        .qi-jt button { border:0; background:#fff; padding:5px 12px; font-size:11.5px; font-weight:800; color:#8a94a4; cursor:pointer; }
+        .qi-jt button.on.p { background:#0f9d58; color:#fff; } .qi-jt button.on.f { background:#d64545; color:#fff; }
+        .qi-val { width:80px; height:30px; border:1px solid #e2e6ee; border-radius:6px; text-align:center; font-size:12px; background:#fbfcfe; }
+
+        .qi-foot { padding:14px 18px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#fafbfd; border-top:1px solid #eef1f6; }
+        .qi-foot .prog { font-size:12.5px; font-weight:800; color:#3a4759; }
+        .qi-foot .acts { margin-left:auto; display:flex; gap:8px; }
+        .qi-remark { flex:1; min-width:200px; height:36px; border:1px solid #e2e6ee; border-radius:8px; padding:0 10px; font-size:12.5px; background:#fff; }
+        .qi-empty { text-align:center; color:#8a94a4; padding:60px 20px; font-size:13px; }
+        .qi-note { color:#8a94a4; font-size:12px; margin-top:12px; }
+
+        @media (max-width:1100px){ .qi-left{flex:1 1 100%;} .qi-right{min-width:0;flex:1 1 100%;} }
+        @media print { .page-title-wrap,.section-top,.page-navi,.bookmark,.qi-left,.qi-jt,.qi-foot .acts { display:none !important; } body{background:#fff;} }
+    </style>
+</head>
+
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left"><h2>공정검사 <span class="qi-fbadge">1공장 · 키트(BSC/BmSC)</span></h2>
+                <a title="북마크" class="bookmark toggle">내 메뉴</a></div>
+            <ul class="page-navi"><li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>품질 관리</li><li>공정검사</li></ul>
+        </div>
+
+        <section class="section">
+            <div class="section-top"><div class="qi-topbar">
+                <div style="font-size:13px;color:#8a94a4;font-weight:700">
+                    조립이 끝난 로트를 골라 검사항목을 판정합니다. 항목이 하나라도 <b style="color:#d64545">불합격</b>이면 로트 판정은 불합격입니다.
+                </div>
+            </div></div>
+
+            <div class="qi-wrap">
+                <div class="qi-left">
+                    <div class="qi-card">
+                        <div class="qi-card-h">검사 대상 <span class="qi-count" id="cnt">0</span></div>
+                        <div id="list"></div>
+                    </div>
+                    <div class="qi-note">※ 검사는 품목을 새로 만들지 않고 로트의 <b>상태만</b> 바꿉니다(합격/불합격).</div>
+                </div>
+
+                <div class="qi-right">
+                    <div class="qi-card" id="panel"></div>
+                </div>
+            </div>
+        </section>
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <script th:inline="javascript">
+        /* 샘플 데이터 — 실제로는 조립 완료된 반제품 로트 목록을 조회 */
+        const TPL = {
+            PK: [
+                {no:1, name:'외관 (이물/스크래치)',  spec:'이물 없을 것',       type:'ox'},
+                {no:2, name:'상하부 결합 상태',      spec:'유격 없을 것',       type:'ox'},
+                {no:3, name:'포트 접합부 누설',      spec:'누설 없을 것',       type:'ox'},
+                {no:4, name:'오링 삽입',             spec:'정위치 삽입',        type:'ox'},
+                {no:5, name:'용기 용량',             spec:'60 ± 2 ml',          type:'num', unit:'ml', lo:58, hi:62},
+                {no:6, name:'기밀 시험 압력',        spec:'0.15 ~ 0.25 MPa',    type:'num', unit:'MPa', lo:0.15, hi:0.25},
+            ],
+            FK: [
+                {no:1, name:'구성품 수량',           spec:'BOM 수량 일치',      type:'ox'},
+                {no:2, name:'주사기 포장 상태',      spec:'개봉/파손 없을 것',  type:'ox'},
+                {no:3, name:'라벨 표기 (LOT/유효기간)', spec:'지시서와 일치',   type:'ox'},
+                {no:4, name:'멸균지 밀봉',           spec:'박리 없을 것',       type:'ox'},
+            ],
+        };
+        const TARGETS = [
+            {id:1, lot:'BSC60-260710-01',  line:'BSC',  item:'BSC+③ 60',  part:'PK', wo:'WO-2607-001', qty:490, worker:'한지민', proc:'조립', status:'wait'},
+            {id:2, lot:'BSC60-260710-01',  line:'BSC',  item:'BSC+③ 60',  part:'FK', wo:'WO-2607-001', qty:490, worker:'정우철', proc:'조립', status:'wait'},
+            {id:3, lot:'BmSC60-260709-02', line:'BMSC', item:'BmSC+③ 60', part:'PK', wo:'WO-2607-002', qty:298, worker:'한지민', proc:'조립', status:'pass', judged:'2026-07-09 13:40', by:'이서연'},
+            {id:4, lot:'BSC120-260706-00', line:'BSC',  item:'BSC+③ 120', part:'PK', wo:'WO-2606-018', qty:238, worker:'한지민', proc:'조립', status:'fail', judged:'2026-07-06 10:10', by:'이서연', remark:'포트 접합부 미세 누설 2건'},
+        ];
+        const RESULT = {};   /* id -> { '1':'P'|'F', ... , _val:{no:value} } */
+        var curId = null;
+
+        const ST = {wait:'검사대기', pass:'합격', fail:'불합격'};
+        const lineTag = l => l==='BMSC' ? '<span class="qi-pline bmsc">BmSC</span>' : '<span class="qi-pline bsc">BSC</span>';
+
+        function renderList(){
+            document.getElementById('cnt').textContent = TARGETS.filter(t=>t.status==='wait').length + ' 대기';
+            document.getElementById('list').innerHTML = TARGETS.map(function(t){
+                return '<div class="qi-item '+(t.id===curId?'on':'')+'" data-id="'+t.id+'">'
+                    + '<div class="l1">'+lineTag(t.line)+'<span class="qi-lotno">'+t.lot+'</span>'
+                    + '<span class="qi-st '+t.status+'">'+ST[t.status]+'</span></div>'
+                    + '<div class="l2">'+t.item+' · '+t.part+' 반제품 · '+t.qty.toLocaleString()+'개 · '+t.wo+'</div></div>';
+            }).join('');
+        }
+
+        function judged(t){
+            var r = RESULT[t.id] || {};
+            var items = TPL[t.part];
+            var done = items.filter(i=>r[i.no]).length;
+            return {done:done, total:items.length, fail:items.some(i=>r[i.no]==='F')};
+        }
+
+        function renderPanel(){
+            var host = document.getElementById('panel');
+            var t = TARGETS.find(x=>x.id===curId);
+            if(!t){ host.innerHTML = '<div class="qi-empty">왼쪽에서 검사할 로트를 선택하세요.</div>'; return; }
+            var items = TPL[t.part], r = RESULT[t.id] = RESULT[t.id] || {_val:{}};
+            var p = judged(t);
+            var locked = t.status !== 'wait';
+
+            host.innerHTML =
+                '<div class="qi-card-h">검사 성적서 <span class="qi-st '+t.status+'" style="margin-left:8px">'+ST[t.status]+'</span>'
+                + (t.judged?'<span style="margin-left:auto;font-weight:600;color:#8a94a4;font-size:11.5px">'+t.judged+' · '+t.by+'</span>':'')+'</div>'
+                + '<div class="qi-info">'
+                + '<div class="b"><div class="l">로트번호</div><div class="v mono">'+t.lot+'</div></div>'
+                + '<div class="b"><div class="l">품목</div><div class="v">'+t.item+' ('+t.part+')</div></div>'
+                + '<div class="b"><div class="l">작업지시</div><div class="v mono">'+t.wo+'</div></div>'
+                + '<div class="b"><div class="l">검사수량</div><div class="v">'+t.qty.toLocaleString()+'</div></div>'
+                + '<div class="b"><div class="l">직전공정</div><div class="v">'+t.proc+' · '+t.worker+'</div></div>'
+                + '</div>'
+                + '<table class="qi-table"><thead><tr><th style="width:40px">No</th><th class="left">검사항목</th><th>기준</th><th style="width:110px">측정값</th><th style="width:130px">판정</th></tr></thead><tbody>'
+                + items.map(function(i){
+                    var v = r[i.no];
+                    var valCell = i.type==='num'
+                        ? '<input class="qi-val" type="number" step="0.01" data-val="'+i.no+'" value="'+(r._val[i.no]!==undefined?r._val[i.no]:'')+'" '+(locked?'disabled':'')+'>'
+                        : '<span style="color:#c2c9d4">—</span>';
+                    return '<tr><td>'+i.no+'</td><td class="left">'+i.name+'</td>'
+                        + '<td class="qi-spec">'+i.spec+'</td><td>'+valCell+'</td>'
+                        + '<td><span class="qi-jt">'
+
+                        + '</span></td></tr>';
+                }).join('')
+                + '</tbody></table>'
+                + '<div class="qi-foot">'
+                + '<span class="prog">판정 '+p.done+' / '+p.total+'</span>'
+                + '<input class="qi-remark" id="remark" placeholder="특이사항 / 불합격 사유" value="'+(t.remark||'')+'" '+(locked?'disabled':'')+'>'
+                + (locked
+                    ? '<div class="acts"><button type="button" class="qi-btn gray" id="btnReopen">판정 취소</button></div>'
+                    : '<div class="acts">'
+                    + '<button type="button" class="qi-btn gray" id="btnClear">초기화</button>'
+                    + '<button type="button" class="qi-btn '+(p.fail?'fail':'pass')+'" id="btnSave" '+(p.done<p.total?'disabled':'')+'>'
+                    + (p.fail?'불합격 처리':'합격 처리')+'</button></div>')
+                + '</div>';
+        }
+
+        /* 측정값 입력 시 규격 자동 판정 */
+        function autoJudge(i, val){
+            if(val==='' || isNaN(parseFloat(val))) return null;
+            var v = parseFloat(val);
+            return (v>=i.lo && v<=i.hi) ? 'P' : 'F';
+        }
+
+        document.getElementById('list').addEventListener('click', function(e){
+            var el = e.target.closest('[data-id]'); if(!el) return;
+            curId = parseInt(el.dataset.id,10); renderList(); renderPanel();
+        });
+
+        document.getElementById('panel').addEventListener('click', function(e){
+            var b = e.target.closest('button'); if(!b) return;
+            var t = TARGETS.find(x=>x.id===curId), r = RESULT[curId];
+            if(b.dataset.j){
+                var s = b.dataset.j.split('|'); r[s[0]] = s[1]; renderPanel();
+            } else if(b.id==='btnClear'){
+                RESULT[curId] = {_val:{}}; renderPanel();
+            } else if(b.id==='btnReopen'){
+                if(!confirm('판정을 취소하고 검사대기로 되돌릴까요?')) return;
+                t.status='wait'; t.judged=null; t.by=null; renderList(); renderPanel();
+            } else if(b.id==='btnSave'){
+                var p = judged(t);
+                if(p.fail && !document.getElementById('remark').value.trim()){
+                    alert('불합격 사유를 입력하세요.'); return;
+                }
+                t.status = p.fail ? 'fail' : 'pass';
+                t.remark = document.getElementById('remark').value.trim();
+                var n = new Date();
+                t.judged = n.toISOString().slice(0,10)+' '+String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');
+                t.by = '이서연';
+                alert(t.lot+' ('+t.part+') → '+ST[t.status]+' 처리되었습니다.');
+                renderList(); renderPanel();
+            }
+        });
+
+        document.getElementById('panel').addEventListener('change', function(e){
+            var el = e.target.closest('[data-val]'); if(!el) return;
+            var no = el.dataset.val, t = TARGETS.find(x=>x.id===curId);
+            var i = TPL[t.part].find(x=>String(x.no)===no);
+            RESULT[curId]._val[no] = el.value;
+            var a = autoJudge(i, el.value);
+            if(a) RESULT[curId][no] = a;
+            renderPanel();
+        });
+
+        document.addEventListener('DOMContentLoaded', function(){ renderList(); renderPanel(); });
+    </script>
+</th:block>
+</html>

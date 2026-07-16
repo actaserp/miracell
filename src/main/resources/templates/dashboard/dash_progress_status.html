@@ -1,0 +1,318 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        .pg-topbar { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+        .pg-btn { border:0; border-radius:8px; padding:9px 16px; font-weight:800; font-size:13px; cursor:pointer; }
+        .pg-btn.pri { background:#2f6fed; color:#fff; } .pg-btn.gray { background:#eef2f8; color:#3a4759; }
+        .pg-filter { display:flex; align-items:flex-end; gap:10px; flex-wrap:wrap; background:#fff; border:1px solid #e2e6ee; border-radius:12px; padding:14px 18px; margin:14px 0; }
+        .pg-f { display:flex; flex-direction:column; gap:5px; }
+        .pg-f label { font-size:11px; font-weight:800; color:#8a94a4; }
+        .pg-f input, .pg-f select { height:38px; border:1px solid #e2e6ee; border-radius:8px; padding:0 10px; font-size:13px; background:#fbfcfe; }
+        .pg-f .dash { align-self:center; color:#8a94a4; padding-bottom:9px; }
+
+        .pg-kpis { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; margin-bottom:14px; }
+        .pg-kpi { background:#fff; border:1px solid #e2e6ee; border-radius:11px; padding:13px 16px; cursor:pointer; }
+        .pg-kpi:hover { border-color:#c8d3e6; }
+        .pg-kpi.on { border-color:#2f6fed; box-shadow:0 0 0 2px rgba(47,111,237,.12); }
+        .pg-kpi .n { font-size:24px; font-weight:800; font-variant-numeric:tabular-nums; }
+        .pg-kpi .l { color:#5b6675; font-size:11.5px; font-weight:700; margin-top:2px; }
+        .pg-kpi.late .n { color:#d64545; } .pg-kpi.run .n { color:#0f9d58; } .pg-kpi.due .n { color:#c9620a; } .pg-kpi.done .n { color:#2f6fed; }
+
+        .pg-panel { background:#fff; border:1px solid #e2e6ee; border-radius:12px; overflow:hidden; }
+        .pg-phead { display:flex; align-items:center; gap:10px; padding:12px 16px; border-bottom:1px solid #e2e6ee; font-size:12.5px; font-weight:800; color:#3a4759; }
+        .pg-phead .sub { margin-left:auto; font-weight:600; font-size:11px; color:#8a94a4; }
+        .pg-scroll { overflow-x:auto; }
+        .pg-table { border-collapse:collapse; width:100%; min-width:1080px; }
+        .pg-table thead th { background:#2f3a4c; color:#fff; font-weight:600; font-size:11.5px; padding:10px 8px; white-space:nowrap; }
+        .pg-table thead th.left { text-align:left; padding-left:14px; }
+        .pg-table tbody td { border-bottom:1px solid #eef1f6; padding:10px 8px; text-align:center; font-size:12.5px; vertical-align:middle; }
+        .pg-table tbody td.left { text-align:left; padding-left:14px; }
+        .pg-table tbody tr { cursor:pointer; } .pg-table tbody tr:hover { background:#f7f9fc; }
+        .pg-table tbody tr.late { background:#fffafa; } .pg-table tbody tr.late:hover { background:#fdf3f3; }
+
+        .pg-wo { font-weight:800; font-family:ui-monospace,monospace; font-size:12px; }
+        .pg-pline { display:inline-block; font-size:10px; font-weight:800; padding:2px 6px; border-radius:5px; margin-right:5px; }
+        .pg-pline.bsc { background:#eaf0ff; color:#2f6fed; } .pg-pline.bmsc{ background:#f0ecfb; color:#7b52d6; }
+        .pg-kit { font-weight:700; } .pg-code { color:#8a94a4; font-size:10px; font-family:ui-monospace,monospace; }
+        .pg-num { font-variant-numeric:tabular-nums; font-weight:700; }
+        .pg-num .rem { color:#8a94a4; font-weight:600; font-size:11px; }
+
+        .pg-prog { display:flex; align-items:center; gap:7px; justify-content:center; }
+        .pg-bar { width:76px; height:7px; border-radius:4px; background:#eef1f6; overflow:hidden; }
+        .pg-bar > i { display:block; height:100%; background:linear-gradient(90deg,#0f9d58,#2f6fed); }
+        .pg-bar.late > i { background:#d64545; }
+        .pg-pct { font-size:11.5px; font-weight:800; color:#5b6675; min-width:34px; text-align:right; font-variant-numeric:tabular-nums; }
+
+        /* 공정 스텝퍼 */
+        .pg-steps { display:inline-flex; align-items:center; }
+        .pg-step { display:flex; align-items:center; }
+        .pg-dot { width:16px; height:16px; border-radius:50%; border:2px solid #dfe4ec; background:#fff; font-size:8px; display:flex; align-items:center; justify-content:center; color:#fff; }
+        .pg-dot.done { background:#2f6fed; border-color:#2f6fed; }
+        .pg-dot.run  { background:#0f9d58; border-color:#0f9d58; box-shadow:0 0 0 3px rgba(15,157,88,.18); }
+        .pg-line { width:14px; height:2px; background:#e6eaf1; } .pg-line.done { background:#2f6fed; }
+
+        .pg-st { display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:800; padding:3px 10px; border-radius:20px; white-space:nowrap; }
+        .pg-st .dot { width:6px; height:6px; border-radius:50%; background:currentColor; }
+        .pg-st.wait { background:#eef1f6; color:#8a94a4; } .pg-st.run { background:#e3f6ec; color:#0f9d58; }
+        .pg-st.late { background:#fdecec; color:#d64545; } .pg-st.done { background:#e7f0ff; color:#2f6fed; }
+        .pg-dday { font-weight:800; font-variant-numeric:tabular-nums; }
+        .pg-dday.warn { color:#c9620a; } .pg-dday.over { color:#d64545; }
+
+        .pg-overlay { position:fixed; inset:0; background:rgba(20,28,44,.45); display:none; align-items:center; justify-content:center; z-index:1000; }
+        .pg-overlay.on { display:flex; }
+        .pg-modal { background:#fff; border-radius:12px; width:min(720px,92vw); max-height:86vh; overflow:auto; box-shadow:0 20px 60px -20px rgba(10,20,40,.5); }
+        .pg-modal-h { display:flex; align-items:center; justify-content:space-between; padding:15px 18px; border-bottom:1px solid #e2e6ee; }
+        .pg-modal-h .t { font-weight:800; font-size:15px; } .pg-modal-h .t small { color:#8a94a4; font-weight:600; font-size:12px; margin-left:8px; }
+        .pg-x { border:0; background:#eef1f6; width:30px; height:30px; border-radius:8px; cursor:pointer; font-size:16px; color:#5b6675; }
+        .pg-modal-b { padding:16px 18px 20px; }
+        .pg-minfo { display:flex; gap:22px; flex-wrap:wrap; margin-bottom:14px; }
+        .pg-minfo .b .l { font-size:11px; color:#8a94a4; font-weight:700; } .pg-minfo .b .v { font-size:15px; font-weight:800; margin-top:2px; }
+        .pg-sess { border-collapse:collapse; width:100%; }
+        .pg-sess th { background:#f4f6fa; color:#5b6675; font-size:11.5px; font-weight:700; padding:8px; border-bottom:1px solid #e2e6ee; }
+        .pg-sess td { padding:9px 8px; border-bottom:1px solid #eef1f6; font-size:12.5px; text-align:center; }
+        .pg-sess td.left { text-align:left; }
+        .pg-note { color:#8a94a4; font-size:12px; margin-top:12px; line-height:1.6; }
+        .pg-empty { text-align:center; color:#8a94a4; padding:40px; font-size:13px; }
+
+        @media (max-width:1200px){ .pg-kpis{ grid-template-columns:repeat(3,1fr);} }
+        @media print { .page-title-wrap,.section-top,.page-navi,.bookmark,.pg-filter,.pg-btn { display:none !important; } body{background:#fff;} }
+    </style>
+</head>
+
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left"><h2>생산진행현황</h2><a title="북마크" class="bookmark toggle">내 메뉴</a></div>
+            <ul class="page-navi"><li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>생산 관리</li><li>생산진행현황</li></ul>
+        </div>
+
+        <section class="section">
+            <div class="section-top"><div class="pg-topbar">
+                <div style="font-size:13px;color:#8a94a4;font-weight:700">작업지시(지시수량·납기) 대비 <b>얼마나 진행됐고 납기를 맞출 수 있는지</b>를 봅니다.</div>
+            </div></div>
+
+            <div class="pg-filter">
+                <div class="pg-f"><label>납기 기간</label><input type="date" id="fFrom"></div>
+                <span class="dash">~</span>
+                <div class="pg-f"><label>&nbsp;</label><input type="date" id="fTo"></div>
+                <div class="pg-f"><label>제품군</label><select id="fLine">
+                    <option value="">전체</option><option value="BSC">BSC</option><option value="BMSC">BmSC</option></select></div>
+                <div class="pg-f"><label>상태</label><select id="fSt">
+                    <option value="">전체</option><option value="wait">대기</option><option value="run">진행중</option>
+                    <option value="late">지연</option><option value="done">완료</option></select></div>
+                <div class="pg-f"><label>&nbsp;</label><button type="button" class="pg-btn pri" id="btnSearch">조회</button></div>
+                <div class="pg-f"><label>&nbsp;</label><button type="button" class="pg-btn gray" id="btnReset">초기화</button></div>
+            </div>
+
+            <div class="pg-kpis" id="kpis"></div>
+
+            <div class="pg-panel">
+                <div class="pg-phead">작업지시별 진행 <span class="sub" id="cnt">행을 누르면 공정별 진척 상세</span></div>
+                <div class="pg-scroll">
+                    <table class="pg-table"><thead><tr>
+                        <th class="left">작업지시</th><th class="left">제품</th>
+                        <th>지시수량</th><th>완료수량</th><th>달성률</th>
+                        <th class="left">공정 진행</th><th>현재공정</th>
+                        <th>착수일</th><th>납기</th><th>D-day</th><th>상태</th>
+                    </tr></thead><tbody id="rows"></tbody></table>
+                </div>
+            </div>
+            <p class="pg-note">※ 완료수량 = 내포장(완제) 기준 누적 산출. 달성률 = 완료수량 ÷ 지시수량.
+                <b style="color:#d64545">지연</b> = 미완료 상태에서 납기가 지났거나, 남은 일수 대비 잔량 소화가 불가능한 지시.</p>
+        </section>
+
+        <div class="pg-overlay" id="ov" onclick="if(event.target===this)pgClose()">
+            <div class="pg-modal">
+                <div class="pg-modal-h"><div class="t" id="mTitle"></div><button type="button" class="pg-x" onclick="pgClose()">×</button></div>
+                <div class="pg-modal-b" id="mBody"></div>
+            </div>
+        </div>
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <script th:inline="javascript">
+        const TODAY = '2026-07-11';   /* 샘플 기준일 */
+        const PROCS  = [{k:'wash',n:'세척'},{k:'assy',n:'조립'},{k:'blister',n:'블리스터'},{k:'welding',n:'융착'},{k:'ipack',n:'내포장'},{k:'steril',n:'멸균'},{k:'opack',n:'외포장'}];
+        const APPLIES = { BSC:['wash','assy','blister','ipack','steril','opack'], BMSC:['wash','assy','blister','welding','ipack','steril','opack'] };
+        const PLABEL = { BSC:'BSC', BMSC:'BmSC' };
+        const PN = {}; PROCS.forEach(p => PN[p.k] = p.n);
+
+        /* 작업지시 = 계획(지시수량·착수·납기) + 공정별 누적 산출 */
+        const ORDERS = [
+            {wo:'WO-2607-001', line:'BSC',  kit:'BSC+③ 60',  code:'BSC60-3-00',  qty:500, start:'2026-07-10', due:'2026-07-17',
+                out:{wash:490, assy:120, blister:0, ipack:0, steril:0, opack:0}},
+            {wo:'WO-2607-002', line:'BMSC', kit:'BmSC+③ 60', code:'BmSC60-3-00', qty:300, start:'2026-07-09', due:'2026-07-14',
+                out:{wash:300, assy:298, blister:300, welding:300, ipack:300, steril:300, opack:0}},
+            {wo:'WO-2607-003', line:'BSC',  kit:'BSC+③ 30',  code:'BSC30-3-01',  qty:400, start:'2026-07-10', due:'2026-07-13',
+                out:{wash:400, assy:0, blister:0, ipack:0, steril:0, opack:0}},
+            {wo:'WO-2606-018', line:'BSC',  kit:'BSC+③ 120', code:'BSC120-3-00', qty:240, start:'2026-07-06', due:'2026-07-10',
+                out:{wash:240, assy:238, blister:240, ipack:240, steril:240, opack:240}},
+            {wo:'WO-2606-021', line:'BSC',  kit:'BSC+③ 60',  code:'BSC60-3-00',  qty:600, start:'2026-07-07', due:'2026-07-09',
+                out:{wash:600, assy:600, blister:600, ipack:420, steril:0, opack:0}},
+            {wo:'WO-2607-005', line:'BMSC', kit:'BmSC+③ 120',code:'BmSC120-3-00',qty:200, start:null,         due:'2026-07-20',
+                out:{}},
+        ];
+        /* 공정별 실적 상세(모달) */
+        const SESS = {
+            'WO-2607-001|wash':  [{d:'07-10', w:'정우철', e:'세척기 A', s:'08:10', f:'09:30', g:490, x:3}],
+            'WO-2607-001|assy':  [{d:'07-10', w:'한지민', e:'조립기 A', s:'10:20', f:null,    g:120, x:0}],
+            'WO-2607-002|welding':[{d:'07-10', w:'김민수', e:'KM-MRM-M007', s:'13:00', f:'15:00', g:300, x:3}],
+            'WO-2607-002|steril':[{d:'07-10', w:'박지훈', e:'EO 챔버', s:'15:20', f:'20:00', g:300, x:0}],
+            'WO-2606-021|ipack': [{d:'07-08', w:'이서연', e:'내포장대', s:'09:00', f:'17:00', g:420, x:5}],
+            'WO-2606-018|opack': [{d:'07-10', w:'김민수', e:'박스 포장대', s:'13:10', f:'16:00', g:240, x:0}],
+        };
+        const CAPA_PER_DAY = 250;   /* 지연 예측용 일 생산능력(샘플) */
+        var kpiPick = '';
+
+        function days(a, b){ return Math.round((new Date(b+'T00:00') - new Date(a+'T00:00')) / 86400000); }
+        function last(o){ return APPLIES[o.line][APPLIES[o.line].length-1]; }
+        function doneQty(o){ return o.out[last(o)] || 0; }               /* 최종공정 통과 = 완료 */
+        function pct(o){ return Math.min(100, Math.round(doneQty(o)/o.qty*100)); }
+        function curProc(o){
+            var ap = APPLIES[o.line];
+            for (var i=0; i<ap.length; i++) if ((o.out[ap[i]]||0) < o.qty) return ap[i];
+            return null;
+        }
+        function stepState(o, k){
+            var v = o.out[k]||0;
+            if (v >= o.qty) return 'done';
+            if (v > 0) return 'run';
+            return 'wait';
+        }
+        function status(o){
+            if (doneQty(o) >= o.qty) return 'done';
+            var dd = days(TODAY, o.due);
+            var rem = o.qty - doneQty(o);
+            if (dd < 0) return 'late';                       /* 납기 경과 */
+            if (rem > dd * CAPA_PER_DAY) return 'late';      /* 남은 일수로 잔량 소화 불가 */
+            if (!o.start) return 'wait';
+            return 'run';
+        }
+        const SLABEL = {wait:'대기', run:'진행중', late:'지연', done:'완료'};
+
+        function filt(){
+            var f = document.getElementById('fFrom').value, t = document.getElementById('fTo').value,
+                ln = document.getElementById('fLine').value, st = document.getElementById('fSt').value || kpiPick;
+            return ORDERS.filter(function(o){
+                if (f && o.due < f) return false;
+                if (t && o.due > t) return false;
+                if (ln && o.line !== ln) return false;
+                if (st && status(o) !== st) return false;
+                return true;
+            });
+        }
+
+        function renderKpi(){
+            var all = ORDERS, c = {wait:0, run:0, late:0, done:0};
+            all.forEach(function(o){ c[status(o)]++; });
+            var live = all.filter(o=>status(o)!=='done');
+            var avg = live.length ? Math.round(live.reduce((s,o)=>s+pct(o),0)/live.length) : 0;
+            var cards = [
+                {k:'',     cls:'',     n:all.length, l:'전체 작업지시'},
+                {k:'run',  cls:'run',  n:c.run,      l:'진행중'},
+                {k:'late', cls:'late', n:c.late,     l:'지연'},
+                {k:'wait', cls:'',     n:c.wait,     l:'미착수'},
+                {k:'done', cls:'done', n:c.done,     l:'완료'},
+            ];
+            document.getElementById('kpis').innerHTML = cards.map(function(x){
+                return '<div class="pg-kpi '+x.cls+' '+(kpiPick===x.k?'on':'')+'" data-k="'+x.k+'">'
+                    + '<div class="n">'+x.n+'</div><div class="l">'+x.l+'</div></div>';
+            }).join('') ;
+            document.getElementById('cnt').textContent = '평균 달성률(미완료 기준) ' + avg + '% · 행을 누르면 공정별 진척 상세';
+        }
+
+        function steps(o){
+            var ap = APPLIES[o.line];
+            return '<span class="pg-steps">' + ap.map(function(k, i){
+                var s = stepState(o, k);
+                var line = i ? '<span class="pg-line '+(stepState(o, ap[i-1])==='done'?'done':'')+'"></span>' : '';
+                return line + '<span class="pg-step"><span class="pg-dot '+s+'" title="'+PN[k]+' · '+(o.out[k]||0)+'/'+o.qty+'">'+(s==='done'?'✓':'')+'</span></span>';
+            }).join('') + '</span>';
+        }
+
+        function render(){
+            renderKpi();
+            var rows = filt().sort(function(a,b){
+                var rank = {late:0, run:1, wait:2, done:3};
+                var d = rank[status(a)] - rank[status(b)];
+                return d !== 0 ? d : (a.due < b.due ? -1 : 1);
+            });
+            document.getElementById('rows').innerHTML = rows.length ? rows.map(function(o){
+                var st = status(o), p = pct(o), cp = curProc(o), dd = days(TODAY, o.due);
+                var ddCls = dd < 0 ? 'over' : (dd <= 1 ? 'warn' : '');
+                var ddTxt = st==='done' ? '<span style="color:#c2c9d4">—</span>'
+                    : (dd < 0 ? 'D+'+Math.abs(dd) : (dd===0 ? 'D-DAY' : 'D-'+dd));
+                return '<tr class="'+(st==='late'?'late':'')+'" data-wo="'+o.wo+'">'
+                    + '<td class="left"><span class="pg-wo">'+o.wo+'</span></td>'
+                    + '<td class="left"><span class="pg-pline '+o.line.toLowerCase()+'">'+PLABEL[o.line]+'</span>'
+                    + '<span class="pg-kit">'+o.kit+'</span><br><span class="pg-code">'+o.code+'</span></td>'
+                    + '<td class="pg-num">'+o.qty.toLocaleString()+'</td>'
+                    + '<td class="pg-num">'+doneQty(o).toLocaleString()+'<br><span class="rem">잔량 '+(o.qty-doneQty(o)).toLocaleString()+'</span></td>'
+                    + '<td><div class="pg-prog"><div class="pg-bar '+(st==='late'?'late':'')+'"><i style="width:'+p+'%"></i></div>'
+                    + '<span class="pg-pct">'+p+'%</span></div></td>'
+                    + '<td class="left">'+steps(o)+'</td>'
+                    + '<td>'+(cp ? '<b>'+PN[cp]+'</b><br><span class="pg-code">'+(o.out[cp]||0)+'/'+o.qty+'</span>' : '<span style="color:#c2c9d4">—</span>')+'</td>'
+                    + '<td>'+(o.start || '<span style="color:#c2c9d4">미착수</span>')+'</td>'
+                    + '<td>'+o.due+'</td>'
+                    + '<td><span class="pg-dday '+ddCls+'">'+ddTxt+'</span></td>'
+                    + '<td><span class="pg-st '+st+'"><span class="dot"></span>'+SLABEL[st]+'</span></td></tr>';
+            }).join('') : '<tr><td colspan="11"><div class="pg-empty">조회 조건에 해당하는 작업지시가 없습니다.</div></td></tr>';
+        }
+
+        function pgOpen(wo){
+            var o = ORDERS.find(x=>x.wo===wo); if(!o) return;
+            var st = status(o), dd = days(TODAY, o.due);
+            document.getElementById('mTitle').innerHTML = o.wo + ' <small>' + o.kit + ' · 지시 ' + o.qty.toLocaleString() + '</small>';
+            var info = '<div class="pg-minfo">'
+                + '<div class="b"><div class="l">상태</div><div class="v"><span class="pg-st '+st+'"><span class="dot"></span>'+SLABEL[st]+'</span></div></div>'
+                + '<div class="b"><div class="l">달성률</div><div class="v">'+pct(o)+'%</div></div>'
+                + '<div class="b"><div class="l">잔량</div><div class="v">'+(o.qty-doneQty(o)).toLocaleString()+'</div></div>'
+                + '<div class="b"><div class="l">착수 / 납기</div><div class="v">'+(o.start||'미착수')+' → '+o.due+'</div></div>'
+                + '<div class="b"><div class="l">남은 일수</div><div class="v">'+(dd<0?'납기 '+Math.abs(dd)+'일 경과':dd+'일')+'</div></div>'
+                + '</div>';
+            var rows = APPLIES[o.line].map(function(k){
+                var v = o.out[k]||0, s = stepState(o,k), sess = SESS[o.wo+'|'+k] || [];
+                var p = Math.round(v/o.qty*100);
+                return '<tr><td class="left"><b>'+PN[k]+'</b></td>'
+                    + '<td><span class="pg-st '+(s==='done'?'done':(s==='run'?'run':'wait'))+'"><span class="dot"></span>'
+                    + (s==='done'?'완료':(s==='run'?'진행중':'대기'))+'</span></td>'
+                    + '<td class="pg-num">'+v.toLocaleString()+' / '+o.qty.toLocaleString()+'</td>'
+                    + '<td><div class="pg-prog"><div class="pg-bar"><i style="width:'+p+'%"></i></div><span class="pg-pct">'+p+'%</span></div></td>'
+                    + '<td class="left" style="color:#5b6675;font-size:11.5px">'
+                    + (sess.length ? sess.map(x=>x.d+' '+x.w+' · '+x.e+' · '+x.s+'~'+(x.f||'작업중')
+                            +' · 양품 '+x.g+(x.x?' <span style="color:#d64545">불량 '+x.x+'</span>':'')).join('<br>')
+                        : '<span style="color:#c2c9d4">실적 없음</span>')+'</td></tr>';
+            }).join('');
+            document.getElementById('mBody').innerHTML = info
+                + '<table class="pg-sess"><thead><tr><th style="text-align:left">공정</th><th>상태</th><th>산출/지시</th><th>진척</th><th style="text-align:left">실적</th></tr></thead>'
+                + '<tbody>'+rows+'</tbody></table>';
+            document.getElementById('ov').classList.add('on');
+        }
+        function pgClose(){ document.getElementById('ov').classList.remove('on'); }
+
+        document.getElementById('rows').addEventListener('click', function(e){
+            var tr = e.target.closest('[data-wo]'); if(tr) pgOpen(tr.dataset.wo);
+        });
+        document.getElementById('kpis').addEventListener('click', function(e){
+            var c = e.target.closest('[data-k]'); if(!c) return;
+            kpiPick = (kpiPick === c.dataset.k) ? '' : c.dataset.k;
+            document.getElementById('fSt').value = '';
+            render();
+        });
+        document.getElementById('btnSearch').addEventListener('click', function(){ kpiPick=''; render(); });
+        document.getElementById('btnReset').addEventListener('click', function(){
+            document.getElementById('fLine').value=''; document.getElementById('fSt').value='';
+            kpiPick=''; setRange(); render();
+        });
+        document.addEventListener('keydown', function(e){ if(e.key==='Escape') pgClose(); });
+
+        function setRange(){
+            document.getElementById('fFrom').value = '2026-07-01';
+            document.getElementById('fTo').value   = '2026-07-31';
+        }
+        document.addEventListener('DOMContentLoaded', function(){ setRange(); render(); });
+    </script>
+</th:block>
+</html>
