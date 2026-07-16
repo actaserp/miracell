@@ -193,7 +193,6 @@
 </th:block>
 
 <th:block layout:fragment="scripts">
-    <th:block th:replace="/common/popup_udi_barcode :: popup_udi_barcode"></th:block>
     <script type="text/javascript">
 
         // 화면 구분값: 납품(1). 반품/폐기 화면은 이 값과 일부 표시만 바꿔 재사용한다.
@@ -404,13 +403,20 @@
         $(document).ready(function () {
             page = new UdiReportPage();
 
+            // 로컬 날짜 포맷(YYYY-MM-DD) — 외부 유틸(CommonUtil) 의존 제거
+            function fmtDate(d) {
+                return d.getFullYear() + '-'
+                    + String(d.getMonth() + 1).padStart(2, '0') + '-'
+                    + String(d.getDate()).padStart(2, '0');
+            }
+
             const now = new Date();
             const monthStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
             $('#stdMonth').val(monthStr);
 
             const oneMonthAgo = new Date(now); oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
-            $('#srchStartDt').val(CommonUtil.formatYYYYMMDD(oneMonthAgo));
-            $('#srchEndDt').val(CommonUtil.formatYYYYMMDD(now));
+            $('#srchStartDt').val(fmtDate(oneMonthAgo));
+            $('#srchEndDt').val(fmtDate(now));
 
             $('#btnSearch').click(function (e) { e.preventDefault(); page.searchList(); });
             $('#searchForm').on('keydown', function (e) {
@@ -422,6 +428,10 @@
             $('#btnConfirm').click(function () { page.confirm(); });
             $('#isDiffDvyfg').change(function () { page.toggleDvyfgRow(); });
             $('#btnBarcodeSearch').click(function () {
+                if (typeof PopupUdiBarcodePage === 'undefined') {
+                    Alert.alert('', '바코드 조회 팝업을 불러오지 못했습니다. (배포 반영 필요)');
+                    return;
+                }
                 let pop = new PopupUdiBarcodePage();
                 pop.show(function (item) { page.bindFromMatch(item); });
             });
@@ -429,5 +439,7 @@
             page.searchList();
         });
     </script>
+    <!-- 팝업 프래그먼트는 핵심 스크립트 뒤에 배치 (누락되어도 화면 핵심 로직은 정상 동작) -->
+    <th:block th:replace="/common/popup_udi_barcode :: popup_udi_barcode"></th:block>
 </th:block>
 </html>
