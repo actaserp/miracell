@@ -1,0 +1,209 @@
+<th:block th:fragment="popup_udi_barcode">
+<script type="text/x-tmpl" id="udiBarcodeSearchTemplate">
+    <div class="content_wrap popup" id="udiBarcodePopup">
+        <section class="section" style="padding-top: 10px;">
+            <div class="section-top">
+                <div class="search-wrap" style="text-align: left;">
+                    <dl>
+                        <dt><label for="udiBcSrchStart">출고일</label></dt>
+                        <dd>
+                            <div class="srch-box">
+                                <input type="date" id="udiBcSrchStart" name="udiBcSrchStart"/>
+                                <span class="slow_sign">~</span>
+                                <input type="date" id="udiBcSrchEnd" name="udiBcSrchEnd"/>
+                            </div>
+                        </dd>
+                    </dl>
+                    <dl>
+                        <dt><label for="udiBcKeyword">바코드/품목/LOT</label></dt>
+                        <dd>
+                            <div class="srch-box">
+                                <input class="form-control2" type="text" id="udiBcKeyword" name="udiBcKeyword"/>
+                            </div>
+                        </dd>
+                    </dl>
+                    <dl>
+                        <dt>&nbsp;</dt>
+                        <dd>
+                            <li>
+                                <a class="btn btn-delete" title="검색" id="btnUdiBcSearch">
+                                    <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">검색
+                                </a>
+                            </li>
+                        </dd>
+                    </dl>
+                </div>
+                <div class="container-fluid">
+                    <div id="udi-barcode-grid" style="height: 320px;"></div>
+                </div>
+            </div>
+        </section>
+
+        <div class="popup-button">
+            <button type="button" class="btn-popup" id="btnUdiBcSelect"><span data-commonCd="선택">선택</span></button>
+            <button type="button" class="btn-popup" id="modal-close-button"><span data-commonCd="닫기">닫기</span></button>
+        </div>
+    </div>
+</script>
+
+<script type="text/javascript">
+
+    class PopupUdiBarcodePage {
+        constructor() {
+            this.grid = null;
+            this.viewData = new wijmo.collections.CollectionView();
+            this.callback = null;
+            this.modalContainer = new PopupDraggable('UDI 바코드 매칭 조회');
+        }
+
+        searchDataBind() {
+            // ── [시연용 MOCK 데이터] ──────────────────────────────
+            // 바코드/DB 연동 전, 화면 시연을 위해 샘플 데이터를 표시한다.
+            // 실제 연동 시 아래 mock 블록을 지우고, 하단 주석 처리된
+            // 서버 호출부의 주석을 해제하면 된다.
+            let keyword = ($('#udiBcKeyword').val() || '').toLowerCase();
+            let mock = this.getMockData();
+            if (keyword) {
+                mock = mock.filter(m =>
+                    (m.own_barcode   || '').toLowerCase().includes(keyword) ||
+                    (m.udi_di_code   || '').toLowerCase().includes(keyword) ||
+                    (m.material_name || '').toLowerCase().includes(keyword) ||
+                    (m.lot_no        || '').toLowerCase().includes(keyword)
+                );
+            }
+            this.viewData.sourceCollection = mock;
+
+            /* ── [실제 연동 시 사용] ───────────────────────────────
+            let data = {
+                date_from: ($('#udiBcSrchStart').val() || '').replaceAll('-', ''),
+                date_to: ($('#udiBcSrchEnd').val() || '').replaceAll('-', ''),
+                keyword: $('#udiBcKeyword').val() || ''
+            };
+            let result = AjaxUtil.getSyncData('/api/popup/search_udi_barcode', data);
+            this.viewData.sourceCollection = (result && result.data) ? result.data : [];
+            ──────────────────────────────────────────────────── */
+        }
+
+        /** 시연용 샘플 데이터 (실제 연동 시 제거) */
+        getMockData() {
+            return [
+                {
+                    match_id: 1, own_barcode: 'MC-2406-0001', udi_barcode: '(01)08806123450017(11)240115(17)261231(10)LOT2406A',
+                    std_code: '08806123450017', udi_di_code: '08806123450017', udi_pi_code: '11240115172612311 0LOT2406A',
+                    meddev_item_seq: '1001', model_seq: '2001', udi_di_seq: '3001',
+                    lot_no: 'LOT2406A', item_serial_no: '', manuf_ym: '240115', use_tmlmt: '261231',
+                    material_name: '카테터 본체 3Fr', material_code: 'CAT-3FR',
+                    company_name: 'A메디칼', bcnc_code: 'BC-001',
+                    supply_date: '20240620', supply_qty: 500, indvdlz_supply_qty: 1,
+                    supply_unit_price: 1200, supply_amt: 600000, supply_type_code: '2'
+                },
+                {
+                    match_id: 2, own_barcode: 'MC-2406-0002', udi_barcode: '(01)08806123450024(11)240320(17)270319(10)LOT2406B',
+                    std_code: '08806123450024', udi_di_code: '08806123450024', udi_pi_code: '11240320172703191 0LOT2406B',
+                    meddev_item_seq: '1002', model_seq: '2002', udi_di_seq: '3002',
+                    lot_no: 'LOT2406B', item_serial_no: '', manuf_ym: '240320', use_tmlmt: '270319',
+                    material_name: '주사기 어셈블리 5ml', material_code: 'SYR-5ML',
+                    company_name: 'B바이오텍', bcnc_code: 'BC-002',
+                    supply_date: '20240621', supply_qty: 1200, indvdlz_supply_qty: 1,
+                    supply_unit_price: 350, supply_amt: 420000, supply_type_code: '2'
+                },
+                {
+                    match_id: 3, own_barcode: 'MC-2406-0003', udi_barcode: '(01)08806123450031(11)240510(17)260509(10)LOT2406C',
+                    std_code: '08806123450031', udi_di_code: '08806123450031', udi_pi_code: '11240510172605091 0LOT2406C',
+                    meddev_item_seq: '1003', model_seq: '2003', udi_di_seq: '3003',
+                    lot_no: 'LOT2406C', item_serial_no: '', manuf_ym: '240510', use_tmlmt: '260509',
+                    material_name: '필터 캡 어셈블리', material_code: 'FLT-CAP',
+                    company_name: 'C메디컬', bcnc_code: 'BC-003',
+                    supply_date: '20240622', supply_qty: 800, indvdlz_supply_qty: 1,
+                    supply_unit_price: 900, supply_amt: 720000, supply_type_code: '2'
+                },
+                {
+                    match_id: 4, own_barcode: 'MC-2406-0004', udi_barcode: '(01)08806123450048(11)240601(17)280531(21)SN00012345',
+                    std_code: '08806123450048', udi_di_code: '08806123450048', udi_pi_code: '11240601172805312 1SN00012345',
+                    meddev_item_seq: '1004', model_seq: '2004', udi_di_seq: '3004',
+                    lot_no: '', item_serial_no: 'SN00012345', manuf_ym: '240601', use_tmlmt: '280531',
+                    material_name: '개인용 흡입기 (일련관리)', material_code: 'INH-01',
+                    company_name: 'D헬스케어', bcnc_code: 'BC-004',
+                    supply_date: '20240623', supply_qty: 1, indvdlz_supply_qty: 1,
+                    supply_unit_price: 45000, supply_amt: 45000, supply_type_code: '2'
+                }
+            ];
+        }
+
+        selectData(item) {
+            if (typeof this.callback !== 'undefined' && this.callback != null) {
+                this.callback(item);
+            }
+            this.close();
+        }
+
+        show(callback) {
+            let _this = this;
+            this.callback = callback;
+
+            let content = tmpl('udiBarcodeSearchTemplate', {});
+            let $content = $(content);
+            this.modalContainer.open({ width: 900, height: 540, $content });
+
+            this.grid = new wijmo.grid.FlexGrid('#udi-barcode-grid', {
+                selectionMode: wijmo.grid.SelectionMode.Row,
+                autoGenerateColumns: false,
+                showMarquee: true,
+                isReadOnly: true,
+                formatItem: (s, e) => {
+                    if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                        e.cell.style.textAlign = 'center';
+                    }
+                },
+                columns: [
+                    {binding: 'own_barcode',   header: '자체바코드', width: 130, align: 'left'},
+                    {binding: 'udi_di_code',   header: 'UDI-DI',   width: 130, align: 'left'},
+                    {binding: 'material_name', header: '품목명',    width: 160, align: 'left'},
+                    {binding: 'lot_no',        header: 'LOT',      width: 100, align: 'center'},
+                    {binding: 'manuf_ym',      header: '제조연월',  width: 80,  align: 'center'},
+                    {binding: 'use_tmlmt',     header: '사용기한',  width: 80,  align: 'center'},
+                    {binding: 'supply_date',   header: '출고일',    width: 90,  align: 'center'},
+                    {binding: 'company_name',  header: '거래처',    width: 120, align: 'left'},
+                    {binding: 'supply_qty',    header: '수량',      width: 70,  align: 'right'},
+                ],
+                itemsSource: this.viewData,
+            });
+            this.grid.rowHeaders.columns.splice(0, 1);
+            new FlexGridContextMenu(this.grid);
+            this.grid.downloadFileName = 'UDI 바코드 매칭';
+
+            $content.find('#btnUdiBcSearch').click(function () {
+                _this.searchDataBind();
+            });
+
+            $content.find('#btnUdiBcSelect').click(function () {
+                let items = _this.grid.selectedItems;
+                if (items.length === 0) { Alert.alert('', '선택된 바코드가 없습니다.'); return false; }
+                _this.selectData(items[0]);
+            });
+
+            this.grid.hostElement.addEventListener('dblclick', function () {
+                let items = _this.grid.selectedItems;
+                if (items.length === 0) return false;
+                _this.selectData(items[0]);
+            });
+
+            $content.find('#udiBcKeyword').on('keypress', function (e) {
+                if (e.keyCode === 13) _this.searchDataBind();
+            });
+
+            // 기본 검색기간: 최근 1개월
+            const now = new Date();
+            const before = new Date(now); before.setMonth(before.getMonth() - 1);
+            $('#udiBcSrchStart').val(CommonUtil.formatYYYYMMDD(before));
+            $('#udiBcSrchEnd').val(CommonUtil.formatYYYYMMDD(now));
+
+            this.searchDataBind();
+        }
+
+        close() {
+            this.modalContainer.close();
+        }
+    }
+</script>
+</th:block>
