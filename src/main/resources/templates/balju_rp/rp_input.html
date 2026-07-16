@@ -300,24 +300,24 @@
                                 </dd>
                             </dl>
                         </div>
-<!--                        <div class="button-wrap" style="white-space: nowrap;">-->
-<!--                            <ul>-->
-<!--                                <li>-->
-<!--                                    <a class="btn" title="품목 입고" id="btnInput" style="background-color: #03428E; color: white;">-->
-<!--                                        입출고 등록-->
-<!--                                    </a>-->
-<!--                                </li>-->
-<!--                            </ul>-->
-<!--                        </div>-->
+                        <!--                        <div class="button-wrap" style="white-space: nowrap;">-->
+                        <!--                            <ul>-->
+                        <!--                                <li>-->
+                        <!--                                    <a class="btn" title="품목 입고" id="btnInput" style="background-color: #03428E; color: white;">-->
+                        <!--                                        입출고 등록-->
+                        <!--                                    </a>-->
+                        <!--                                </li>-->
+                        <!--                            </ul>-->
+                        <!--                        </div>-->
                     </div>
                 </form>
                 <div class="button-wrap">
                     <ul>
-<!--                        <li>-->
-<!--                            <a class="btn" title="등록" id="btnShowMovePopup">-->
-<!--                                창고 이동-->
-<!--                            </a>-->
-<!--                        </li>-->
+                        <!--                        <li>-->
+                        <!--                            <a class="btn" title="등록" id="btnShowMovePopup">-->
+                        <!--                                창고 이동-->
+                        <!--                            </a>-->
+                        <!--                        </li>-->
                         <li>
                             <a class="btn" title="입고검사" id="btnInputTest">
                                 입고검사
@@ -352,7 +352,7 @@
                         </li>
                         <li>
                             <a class="btn" title="스캐너 입고" id="btnScanInput">
-                            스캐너 입고
+                                스캐너 입고
                             </a>
                         </li>
                     </ul>
@@ -1127,30 +1127,43 @@
             <div class="table-wrap">
                 <form id="scanInputForm">
                     <table class="write-table">
-                        <tbody>
-                            <tr>
-                                <th style="text-align: center; width:120px;">
-                                    <label for="scanCompany">구매처</label>
-                                </th>
-                                <td>
-                                    <input id="scanCompany" name="scanCompany" type="hidden">
-                                    <input class="form-control2" type="text" id="scanCompanyName" name="scanCompanyName"
-                                           placeholder="검색버튼을 클릭하여 구매처를 검색하세요" readonly style="width:200px;"/>
-                                    &nbsp;
-                                    <a class="btn btn-delete" title="검색" id="btnScanCompanySearch">
-                                        <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
-                                        구매처 검색
-                                    </a>
-                                </td>
-                                <th style="text-align: center; width:120px;">
-                                    <label for="scanStoreHouse">입고창고</label>
-                                </th>
-                                <td>
-                                    <select class="form-control2" id="scanStoreHouse" name="scanStoreHouse"></select>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+    <tbody>
+        <tr>
+            <th style="text-align: center; width:120px;">
+                <label for="scanCompany">구매처</label>
+            </th>
+            <td>
+                <input id="scanCompany" name="scanCompany" type="hidden">
+                <input class="form-control2" type="text" id="scanCompanyName" name="scanCompanyName"
+                       placeholder="검색버튼을 클릭하여 구매처를 검색하세요" readonly style="width:200px;"/>
+                &nbsp;
+                <a class="btn btn-delete" title="검색" id="btnScanCompanySearch">
+                    <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                    구매처 검색
+                </a>
+            </td>
+            <th style="text-align: center; width:120px;">
+                <label for="scanStoreHouse">입고창고</label>
+            </th>
+            <td>
+                <select class="form-control2" id="scanStoreHouse" name="scanStoreHouse"></select>
+            </td>
+        </tr>
+        <tr>
+            <th style="text-align: center; width:120px;">
+                <label for="scanHeaderExp">기본 유효기간</label>
+            </th>
+            <td colspan="3">
+                <input type="date" id="scanHeaderExp" name="scanHeaderExp" style="width:190px;"/>
+                &nbsp;
+                <a class="btn" id="btnApplyExp" title="빈 행에 적용">빈 행 일괄적용</a>
+                <span style="color:#888; font-size:12px; margin-left:8px;">
+                    바코드에 유효기간이 없으면 이 값이 자동 적용됩니다.
+                </span>
+            </td>
+        </tr>
+    </tbody>
+</table>
                 </form>
             </div>
 
@@ -1895,8 +1908,8 @@
 
                     let url = _this.url + '/save_balju_return';
                     let items = _this.baljuReturnGrid.rows
-                        .filter(row => row.isSelected)
-                        .map(row => row.dataItem);
+                    .filter(row => row.isSelected)
+                    .map(row => row.dataItem);
 
                     console.log(items);
 
@@ -2028,8 +2041,8 @@
                     if (e.target?.type === 'checkbox') {
                         setTimeout(() => {
                             let items = _this.baljuInputGrid.rows
-                                .filter(row => row.isSelected)
-                                .map(row => row.dataItem);
+                            .filter(row => row.isSelected)
+                            .map(row => row.dataItem);
 
                             items.forEach(item => {
                                 if ((!item.inputQty || item.inputQty === '') && item.SujuQty) {
@@ -2093,8 +2106,8 @@
 
                     let url = _this.url + '/save_balju';
                     let items = _this.baljuInputGrid.rows
-                        .filter(row => row.isSelected)
-                        .map(row => row.dataItem);
+                    .filter(row => row.isSelected)
+                    .map(row => row.dataItem);
 
                     console.log(items);
 
@@ -2140,8 +2153,8 @@
                 $content.find('#btnCompletionMat').on('click', function () {
                     let url = _this.url + '/force-complete';
                     let items = _this.baljuInputGrid.rows
-                        .filter(row => row.isSelected)
-                        .map(row => row.dataItem);
+                    .filter(row => row.isSelected)
+                    .map(row => row.dataItem);
 
                     console.log(items);
 
@@ -2665,7 +2678,7 @@
                 modalContainer.open({width: 1100, height: 640, $content});
 
                 // 입고창고 옵션 채우기
-                AjaxUtil.fillSelectOptions($content.find('#scanStoreHouse'), 'store_house', 'choose', '');
+                AjaxUtil.fillSelectOptions($content.find('#scanStoreHouse'), 'store_house', 'choose', '3'); //자재 창고가 기본
 
                 // 스캔 결과 그리드 생성
                 this.scanResultGrid = new wijmo.grid.FlexGrid('#scan-result-grid', {
@@ -2694,10 +2707,21 @@
                     itemFormatter: (panel, row, col, cell) => {
                         if (panel.cellType === wijmo.grid.CellType.Cell) {
                             const item = panel.rows[row].dataItem;
-                            const column = panel.columns[col];
-                            // 미등록 GTIN 행 빨간색 표시
-                            if (item && item.status === 'unmatched') {
+                            if (!item) return;
+                            // 미등록 GTIN 행: 빨강
+                            if (item.status === 'unmatched') {
                                 cell.classList.add('grid-cell-red');
+                            }
+                            // 정상인데 유효기간 비어있음: 빨강 (저장 차단 대상)
+                            if (item.status === 'matched' && !item.effectiveDate) {
+                                cell.classList.add('grid-cell-red');
+                            }
+                            // 유효기간 자동채움했으나 해석 불확실(율리우스 등): 파랑 → 검토
+                            if (item.status === 'matched' && item.effectiveDate && item.needReview) {
+                                const column = panel.columns[col];
+                                if (column.binding === 'effectiveDate' || column.binding === 'statusText') {
+                                    cell.classList.add('grid-cell-blue');
+                                }
                             }
                         }
                     }
@@ -2721,6 +2745,82 @@
                     _this.scanResultGrid.itemsSource = new wijmo.collections.CollectionView([]);
                     _this.updateScanSummary($content);
                     $content.find('#scanBarcode').val('').focus();
+                });
+
+                // 헤더 유효기간 → 값이 비어있는 행에만 일괄 적용 (바코드값 채워진 행은 보존)
+                $content.find('#btnApplyExp').on('click', function () {
+                    const v = $content.find('#scanHeaderExp').val();
+                    if (!v) { Alert.alert('', '기본 유효기간을 먼저 입력하세요.'); return; }
+                    const cv = _this.scanResultGrid.itemsSource;
+                    cv.items.forEach(it => { if (!it.effectiveDate) it.effectiveDate = v; });
+                    cv.refresh();
+                    $content.find('#scanBarcode').focus();
+                });
+
+                // 수량 수동 수정 시 합계 갱신
+                this.scanResultGrid.cellEditEnded.addHandler(function () {
+                    _this.updateScanSummary($content);
+                });
+
+                $content.find('#scanBarcode')
+                .attr('lang', 'en')
+                .css('ime-mode', 'disabled')
+                .on('compositionstart', function (e) { e.preventDefault(); });
+
+                // ★ 바코드 스캔 (스캐너는 끝에 Enter를 보냄)
+                $content.find('#scanBarcode').on('keydown', function (e) {
+                    if (e.key !== 'Enter' && e.keyCode !== 13) return;
+                    e.preventDefault();
+                    const raw = $(this).val().trim();
+                    $(this).val('');
+                    if (raw) _this.handleScan(raw, $content);
+                });
+
+                // ★ 입고 저장
+                $content.find('#btnScanSave').on('click', function () {
+                    const items = _this.scanResultGrid.itemsSource.items;
+                    const storeHouseId = $content.find('#scanStoreHouse').val();
+
+                    if (!storeHouseId) { Alert.alert('', '입고창고를 선택하세요.'); return; }
+                    if (!items || items.length === 0) { Alert.alert('', '스캔된 항목이 없습니다.'); return; }
+                    if (items.some(it => it.status !== 'matched')) {
+                        Alert.alert('', '미등록 바코드가 있습니다. 해당 행을 삭제 후 저장하세요.'); return;
+                    }
+                    if (items.some(it => !(Number(it.qty) > 0))) {
+                        Alert.alert('', '수량이 0 이하인 항목이 있습니다.'); return;
+                    }
+                    if (items.some(it => it.status === 'matched' && !it.effectiveDate)) {
+                        Alert.alert('', '유효기간이 비어 있는 항목이 있습니다. 기본 유효기간을 적용하거나 직접 입력하세요.');
+                        return;
+                    }
+
+                    const payload = {
+                        company_id: $content.find('#scanCompany').val() || '',
+                        store_house_id: storeHouseId,
+                        spjangcd: sessionStorage.getItem('spjangcd') || '',
+                        items: items.map(it => ({
+                            Material_id: it.Material_id,
+                            lot_number: it.lotNumber,
+                            manufacture_date: it.manufactureDate,
+                            effective_date: it.effectiveDate,   // ← 유효기간 서버 전달
+                            qty: Number(it.qty),
+                            barcode: it.raw
+                        }))
+                    };
+
+                    Alert.confirm('', `스캔된 ${items.length}건을 입고 처리하시겠습니까?`, function () {
+                        AjaxUtil.postJsonAsyncData(_this.url + '/save_scan', payload, function (res) {
+                            if (!res.success) {
+                                Alert.alert('', res.message || '저장 중 오류가 발생했습니다.');
+                            } else {
+                                Notify.success('입고 처리되었습니다.');
+                                page.searchDataBind();
+                                _this.scanResultGrid.itemsSource = new wijmo.collections.CollectionView([]);
+                                _this.updateScanSummary($content);
+                                $content.find('#scanBarcode').focus();
+                            }
+                        });
+                    });
                 });
 
                 // 선택 행 삭제
@@ -2755,6 +2855,298 @@
                 let totalQty = items.reduce((sum, it) => sum + (Number(it.qty) || 0), 0);
                 $content.find('#scanRowCount').text(items.length);
                 $content.find('#scanTotalQty').text(totalQty.toLocaleString());
+            }
+
+            // EAN-13 체크디지트 검증 (mod-10)
+            isValidEan13(s) {
+                if (!/^\d{13}$/.test(s)) return false;
+                let sum = 0;
+                for (let i = 0; i < 12; i++) {
+                    sum += parseInt(s[i], 10) * (i % 2 === 0 ? 1 : 3);
+                }
+                const check = (10 - (sum % 10)) % 10;
+                return check === parseInt(s[12], 10);
+            }
+
+            handleScan(raw, $content) {
+                const _this = this;
+                const p = _this.parseScannedBarcode(raw);
+
+                if (p.gsMissing && (p.lot || p.serial)) {
+                    Notify.warn('GS 구분자 없이 인식됨 — 스캐너 GS(FNC1) 전송 설정을 확인하세요.');
+                }
+                if (p.standard === 'UNKNOWN') {
+                    Notify.warn('표준 미판별 바코드 — 내부 로트로 조회를 시도합니다.');
+                }
+
+                AjaxUtil.getAsyncData(_this.url + '/scan_lookup', {
+                    barcode: raw,
+                    barcode_type: p.standard,
+                    gtin14: p.gtin14 || '',
+                    di: p.di || '',          // HIBC/ISBT DI 매칭용
+                    lot: p.lot || '',        // 내부 바코드(로트) 판별용
+                    company_id: $content.find('#scanCompany').val() || '',
+                    spjangcd: sessionStorage.getItem('spjangcd') || ''
+                }, function (res) {
+                    const data = res && res.data ? res.data : null;
+                    const matched = !!(data && data.material_id);
+
+                    // ── 유효기간 소스: 바코드값(신뢰) → 불확실(검토) → 없으면 헤더 상속 ──
+                    const headerExp = $content.find('#scanHeaderExp').val() || '';
+                    let effDate = '', needReview = false;
+                    if (p.expConf === 'high' && p.expDate) {
+                        effDate = p.expDate;
+                    } else if (p.expConf === 'low' && p.expDate) {
+                        effDate = p.expDate; needReview = true;
+                    } else {
+                        effDate = headerExp;
+                    }
+
+                    _this.addOrMergeScanRow({
+                        gtin: p.gtin14 || (data ? data.gtin : ''),
+                        materialCode: matched ? data.material_code : '',
+                        materialName: matched ? data.material_name : '(미등록 바코드)',
+                        Material_id: matched ? data.material_id : null,
+                        lotNumber: p.lot || '',
+                        manufactureDate: p.mfgDate || '',
+                        effectiveDate: effDate,
+                        expConf: p.expConf,
+                        needReview: needReview,
+                        qty: 1,
+                        raw,
+                        barcodeType: p.standard,
+                        status: matched ? 'matched' : 'unmatched',
+                        statusText: matched
+                            ? (needReview ? '정상(유효기간 검토)' : '정상')
+                            : '미등록 GTIN'
+                    }, $content);
+                });
+            }
+
+            // 동일 품목+로트 합산, 아니면 행 추가
+            addOrMergeScanRow(row, $content) {
+                const cv = this.scanResultGrid.itemsSource;
+                const existing = cv.sourceCollection.find(it =>
+                    it.status === 'matched' && it.Material_id === row.Material_id
+                    && (it.lotNumber || '') === (row.lotNumber || ''));
+
+                if (existing && row.status === 'matched') {
+                    existing.qty = (Number(existing.qty) || 0) + (Number(row.qty) || 1);
+                } else {
+                    cv.sourceCollection.push(row);
+                }
+                cv.refresh();
+                this.updateScanSummary($content);
+
+                if (row.status === 'unmatched' && window.Notify) {
+                    Notify.error('미등록 바코드: ' + (row.gtin || row.raw));
+                }
+                $content.find('#scanBarcode').focus();
+            }
+
+            // ── 표준 감지 ───────────────────────────────────────────────
+            detectBarcodeStandard(body, aimHint) {
+                const GS = String.fromCharCode(29);
+                const s = (body || '').replace(new RegExp('^' + GS + '+'), '');
+                if (aimHint) {
+                    if (aimHint[0] === 'E') return 'EAN13';                 // ]E0
+                    if (aimHint === 'C1' || aimHint === 'd2') return 'GS1'; // GS1-128 / GS1 DataMatrix
+                }
+                const c0 = s[0];
+                if (c0 === '+') return 'HIBC';
+                if (c0 === '=' || c0 === '&') return 'ISBT128';
+                if (/^01\d{14}/.test(s)) return 'GS1';
+                if (/^(10|11|17|21|30|37|240|241)/.test(s) && aimHint === 'C1') return 'GS1';
+                if (/^\d{13}$/.test(s) && this.isValidEan13(s)) return 'EAN13';
+                return 'UNKNOWN';
+            }
+
+// ── 진입점 ─────────────────────────────────────────────────
+            parseScannedBarcode(raw) {
+                let s = (raw || '').trim();
+                let aimHint = '';
+                const m = s.match(/^\](.[0-9A-Za-z])/);
+                if (m) { aimHint = m[1]; s = s.substring(3); }
+                const base = {
+                    standard: 'UNKNOWN', di: '', gtin14: '', lot: '', serial: '',
+                    mfgDate: '', expDate: '', expConf: 'none', gsMissing: false, raw
+                };
+                const std = this.detectBarcodeStandard(s, aimHint);
+                if (std === 'EAN13')   return Object.assign(base, this.parseEan13(s));
+                if (std === 'GS1')     return Object.assign(base, this.parseGs1(s));
+                if (std === 'HIBC')    return Object.assign(base, this.parseHibc(s));
+                if (std === 'ISBT128') return Object.assign(base, this.parseIsbt128(s));
+                return base;
+            }
+
+// ── EAN-13 (GTIN만, 유효기간 없음) ─────────────────────────
+            parseEan13(s) {
+                const gtin14 = '0' + s;
+                return { standard: 'EAN13', di: gtin14, gtin14, expConf: 'none' };
+            }
+
+// ── GS1-128 / GS1 DataMatrix ───────────────────────────────
+            parseGs1(s) {
+                const GS = String.fromCharCode(29);
+                const fixedLen = { '01': 14, '11': 6, '17': 6, '15': 6, '13': 6 };
+                const varAi = new Set(['10', '21', '240', '241', '30', '37']);
+                const r = { standard: 'GS1_128', gtin14: '', lot: '', serial: '',
+                    mfgDate: '', expDate: '', expConf: 'none', gsMissing: false };
+                let i = 0, sawVarWithoutGs = false, rawExp = '';
+                while (i < s.length) {
+                    if (s[i] === GS) { i++; continue; }
+                    const ai = s.substr(i, 2);
+                    if (fixedLen[ai] !== undefined) {
+                        const len = fixedLen[ai];
+                        const val = s.substr(i + 2, len);
+                        i += 2 + len;
+                        if (ai === '01') r.gtin14 = val;
+                        else if (ai === '11') r.mfgDate = this.gs1Date(val).iso;
+                        else if (ai === '17') rawExp = val;
+                    } else if (varAi.has(ai)) {
+                        let j = s.indexOf(GS, i + 2);
+                        if (j === -1) { j = s.length; sawVarWithoutGs = true; }
+                        const val = s.substring(i + 2, j);
+                        i = j;
+                        if (ai === '10') r.lot = val;
+                        else if (ai === '21') r.serial = val;
+                    } else { break; }
+                }
+                r.di = r.gtin14;
+                r.gsMissing = sawVarWithoutGs;
+                if (rawExp) { r.expDate = this.gs1Date(rawExp).iso; r.expConf = r.expDate ? 'high' : 'none'; }
+                return r;
+            }
+
+// ── HIBC (HIBCC) ───────────────────────────────────────────
+            parseHibc(s) {
+                const r = { standard: 'HIBC', di: '', lot: '', serial: '',
+                    mfgDate: '', expDate: '', expConf: 'none' };
+                const slash = s.indexOf('/');
+                let primary   = slash === -1 ? s : s.substring(0, slash);
+                let secondary = slash === -1 ? '' : s.substring(slash + 1);
+                if (primary && /^\+\$/.test(primary) && !secondary) { secondary = primary; primary = ''; }
+                r.di = primary.replace(/^\+/, '');
+                if (!secondary) return r;
+                let sec = secondary.replace(/^\+/, '');
+
+                // 데이터식별자형 (14D=사용기한 YYYYMMDD, 16D=제조일, S=일련번호)
+                if (/^(14D|16D|S)/.test(sec)) {
+                    sec.split('/').forEach(seg => {
+                        if (seg.startsWith('14D'))      { r.expDate = this.ymd8(seg.substr(3, 8)); r.expConf = r.expDate ? 'high' : 'none'; }
+                        else if (seg.startsWith('16D')) { r.mfgDate = this.ymd8(seg.substr(3, 8)); }
+                        else if (seg.startsWith('S'))   { r.serial = seg.substr(1); }
+                        else if (seg && !r.lot)         { r.lot = seg; }
+                    });
+                    return r;
+                }
+
+                // 표준 $ 문법
+                let hasSerial = false, body = '';
+                if (sec.startsWith('$$+')) {
+                    hasSerial = true; const n = sec[3];
+                    const skip = /\d/.test(n) ? 4 : 3;
+                    body = this._hibcConsumeExp(sec.substring(skip), this._hibcExpFmt(n), r);
+                } else if (sec.startsWith('$$')) {
+                    const n = sec[2];
+                    const skip = /\d/.test(n) ? 3 : 2;
+                    body = this._hibcConsumeExp(sec.substring(skip), this._hibcExpFmt(n), r);
+                } else if (sec.startsWith('$+')) {
+                    hasSerial = true; body = sec.substring(2);
+                } else if (sec.startsWith('$')) {
+                    body = sec.substring(1);
+                } else if (/^\d/.test(sec)) {
+                    const iso = this.julian('20' + sec.substr(0, 2), sec.substr(2, 3));
+                    if (iso) { r.expDate = iso; r.expConf = 'high'; }
+                    return r;
+                } else { r.lot = sec; return r; }
+
+                const data = body.length >= 2 ? body.slice(0, -2) : body; // 링크+검증문자 2자리 제거
+                if (hasSerial) r.serial = data; else if (data) r.lot = data;
+                return r;
+            }
+            _hibcExpFmt(n) {
+                switch (n) {
+                    case '2': return 'MMDDYY';
+                    case '3': return 'YYMMDD';
+                    case '4': return 'YYMMDDHH';
+                    case '5': return 'YYJJJ';
+                    case '6': return 'YYJJJHH';
+                    case '7': return null;      // 사용기한 없음
+                    default:  return 'MMYY';    // 숫자 아님 → 기본
+                }
+            }
+            _hibcConsumeExp(str, fmt, r) {
+                if (fmt === null) return str;
+                const lenMap = { MMYY: 4, MMDDYY: 6, YYMMDD: 6, YYMMDDHH: 8, YYJJJ: 5, YYJJJHH: 7 };
+                const len = lenMap[fmt];
+                const v = str.substr(0, len);
+                let iso = '';
+                if (fmt === 'MMYY')          iso = this.lastDay('20' + v.substr(2, 2), v.substr(0, 2));
+                else if (fmt === 'MMDDYY')   iso = this.ymd('20' + v.substr(4, 2), v.substr(0, 2), v.substr(2, 2));
+                else if (fmt === 'YYMMDD')   iso = this.ymd('20' + v.substr(0, 2), v.substr(2, 2), v.substr(4, 2));
+                else if (fmt === 'YYMMDDHH') iso = this.ymd('20' + v.substr(0, 2), v.substr(2, 2), v.substr(4, 2));
+                else if (fmt === 'YYJJJ')    iso = this.julian('20' + v.substr(0, 2), v.substr(2, 3));
+                else if (fmt === 'YYJJJHH')  iso = this.julian('20' + v.substr(0, 2), v.substr(2, 3));
+                if (iso) { r.expDate = iso; r.expConf = 'high'; }
+                return str.substring(len);
+            }
+
+// ── ISBT 128 (ICCBBA) ──────────────────────────────────────
+            parseIsbt128(s) {
+                const r = { standard: 'ISBT128', di: '', lot: '', serial: '',
+                    mfgDate: '', expDate: '', expConf: 'none' };
+                const DI = [
+                    ['=/', 16, 'di'], ['=,', 6, 'serial'], ['=>', 6, 'exp'],
+                    ['=}', 6, 'mfg'], ['&,1', 18, 'lot'],
+                    ['=)', 10, 'di'], ['&)', 10, 'lot'], ['=', 15, 'donor']
+                ];
+                let i = 0;
+                while (i < s.length) {
+                    const seg = DI.find(d => s.startsWith(d[0], i));
+                    if (!seg) { i++; continue; }
+                    const [tag, size, field] = seg;
+                    const val = s.substr(i + tag.length, size);
+                    i += tag.length + size;
+                    if (field === 'di' && !r.di) r.di = val;
+                    else if (field === 'lot' && !r.lot) r.lot = val;
+                    else if (field === 'serial') r.serial = val;
+                    else if (field === 'mfg') r.mfgDate = this._isbtDate(val);
+                    else if (field === 'exp') {
+                        r.expDate = this._isbtDate(val);
+                        r.expConf = r.expDate ? 'low' : 'none'; // 율리우스 연도 해석 불확실 → 검토
+                    }
+                }
+                return r;
+            }
+            _isbtDate(v) { // 가이드라인 [YYYJJJ] 6자리(율리우스) — 실물 라벨로 검증 전 best-effort
+                if (!/^\d{6}$/.test(v)) return '';
+                return this.julian('2' + v.substr(0, 3), v.substr(3, 3));
+            }
+
+// ── 날짜 유틸 ──────────────────────────────────────────────
+            gs1Date(yymmdd) { // AI(17)/(11) YYMMDD, DD='00' → 말일
+                if (!/^\d{6}$/.test(yymmdd)) return { iso: '' };
+                const y = '20' + yymmdd.substr(0, 2), mm = yymmdd.substr(2, 2), dd = yymmdd.substr(4, 2);
+                return { iso: dd === '00' ? this.lastDay(y, mm) : this.ymd(y, mm, dd) };
+            }
+            ymd8(v) {
+                if (!/^\d{8}$/.test(v)) return '';
+                return this.ymd(v.substr(0, 4), v.substr(4, 2), v.substr(6, 2));
+            }
+            ymd(y, m, d) {
+                const dt = new Date(Date.UTC(+y, +m - 1, +d));
+                return isNaN(dt.getTime()) ? '' : dt.toISOString().slice(0, 10);
+            }
+            lastDay(y, m) {
+                const dt = new Date(Date.UTC(+y, +m, 0));
+                return isNaN(dt.getTime()) ? '' : dt.toISOString().slice(0, 10);
+            }
+            julian(year, jjj) {
+                const d = parseInt(jjj, 10);
+                if (!(d >= 1 && d <= 366)) return '';
+                const dt = new Date(Date.UTC(+year, 0, d));
+                return isNaN(dt.getTime()) ? '' : dt.toISOString().slice(0, 10);
             }
         }
 

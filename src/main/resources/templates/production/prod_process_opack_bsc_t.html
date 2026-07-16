@@ -1121,10 +1121,12 @@
     var inboxLot = curS.outSysLot
      ? curS.outSysLot
      : '<span style="color:var(--ink-2)">포장 완료 시 발번</span>';
-    return '<table class="form-tbl"><tr><th>라벨 로트</th><th>시스템 로트(발번)</th><th>비고</th></tr>' +
-     '<tr><td><b>PK</b></td><td>' + (curS.pkSysLot || '-') + '</td><td>멸균 완료 PK</td></tr>' +
-     '<tr><td><b>CK</b></td><td>' + (curS.ckSysLot || '-') + '</td><td>CK 자재 투입</td></tr>' +
-     '<tr><td><b>인박스</b></td><td>' + inboxLot + '</td><td>완제품 포장(인박스)</td></tr>' +
+    var ckpkScanLot = ck && ck.lot ? ck.lot : '-';   // ① CK·PK 스캔 로트(PK·CK 공유)
+    var inboxScanLot = ib && ib.lot ? ib.lot : '-';  // ② 인박스 스캔 로트
+    return '<table class="form-tbl"><tr><th>구분</th><th>스캔 로트</th><th>시스템 로트(발번)</th><th>비고</th></tr>' +
+     '<tr><td><b>PK</b></td><td style="font-variant-numeric:tabular-nums">' + ckpkScanLot + '</td><td>' + (curS.pkSysLot || '-') + '</td><td>멸균 완료 PK</td></tr>' +
+     '<tr><td><b>CK</b></td><td style="font-variant-numeric:tabular-nums">' + ckpkScanLot + '</td><td>' + (curS.ckSysLot || '-') + '</td><td>CK 자재 투입</td></tr>' +
+     '<tr><td><b>인박스</b></td><td style="font-variant-numeric:tabular-nums">' + inboxScanLot + '</td><td>' + inboxLot + '</td><td>완제품 포장(인박스)</td></tr>' +
      '</table>' +
      '<div class="mc" style="margin-top:6px">① CK·PK 스캔: <b style="word-break:break-all">' + gs1Line(ck) + '</b></div>' +
      '<div class="mc" style="margin-top:2px">② 인박스 스캔: <b style="word-break:break-all">' + gs1Line(ib) + '</b></div>';

@@ -7,6 +7,8 @@ import org.springframework.stereotype.Repository;
 
 import mes.domain.entity.MaterialLot;
 
+import java.util.Optional;
+
 @Repository
 public interface MatLotRepository extends JpaRepository<MaterialLot, Integer>{
 
@@ -20,5 +22,5 @@ public interface MatLotRepository extends JpaRepository<MaterialLot, Integer>{
 
 	boolean existsByStoreHouseId(Integer storeHouseId);
 
-
+	Optional<Object> findByMaterialIdAndLotNumberAndSpjangcd(Integer matPk, String lotNumber, String spjangcd);
 }

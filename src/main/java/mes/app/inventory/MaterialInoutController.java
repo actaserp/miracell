@@ -1080,5 +1080,171 @@ public class MaterialInoutController {
 
 		return result;
 	}
+
+	@PostMapping("/save_scan")
+	@Transactional
+	public AjaxResult saveScanInput(
+		@RequestBody Map<String, Object> payload,
+		Authentication auth) {
+
+		User user = (User) auth.getPrincipal();
+		AjaxResult result = new AjaxResult();
+
+		Integer companyId   = CommonUtil.tryIntNull(payload.get("company_id"));
+		Integer storeHouseId = CommonUtil.tryIntNull(payload.get("store_house_id"));
+		String  spjangcd     = (String) payload.get("spjangcd");
+
+		@SuppressWarnings("unchecked")
+		List<Map<String, Object>> items = (List<Map<String, Object>>) payload.get("items");
+
+		if (storeHouseId == null) {
+			result.success = false; result.message = "입고창고가 없습니다."; return result;
+		}
+		if (items == null || items.isEmpty()) {
+			result.success = false; result.message = "스캔 항목이 없습니다."; return result;
+		}
+
+		Timestamp now = new Timestamp(System.currentTimeMillis());
+
+		try {
+			for (Map<String, Object> it : items) {
+				Integer matPk = CommonUtil.tryIntNull(it.get("Material_id"));
+				if (matPk == null) continue;
+
+				int qty = (int) Double.parseDouble(String.valueOf(it.get("qty")));
+				String scanLot   = CommonUtil.tryString(it.get("lot_number"));    // UDI (10), 없으면 ""
+				String effStr    = CommonUtil.tryString(it.get("effective_date")); // UDI (17), yyyy-MM-dd or ""
+				String barcode   = CommonUtil.tryString(it.get("barcode"));
+
+				Material m = materialRepository.getMaterialById(matPk);
+				String testYn = m.getInTestYN() != null ? m.getInTestYN() : "";
+
+				// 1) 입고 레코드 생성 (save_balju 패턴)
+				MaterialInout mi = new MaterialInout();
+				mi.setInoutDate(LocalDate.now());
+				mi.setInoutTime(LocalTime.now());
+				mi.setMaterialId(matPk);
+				mi.setStoreHouseId(storeHouseId);
+				mi.setCompanyId(companyId);
+				mi.setInOut("in");
+				mi.setInputType("scan_in");
+				mi.setDescription("스캐너 입고" + (barcode.isEmpty() ? "" : " / " + barcode));
+
+				if ("Y".equals(testYn)) {
+					mi.setPotentialInputQty((float) qty);
+					mi.setState("waiting");
+					mi.set_status("t");
+				} else {
+					mi.setInputQty((float) qty);
+					mi.setState("confirmed");
+					mi.set_status("a");
+				}
+				mi.set_audit(user);
+				mi.setSpjangcd(spjangcd);
+				matInoutRepository.save(mi);
+				matInoutRepository.flush(); // mio_pk 확보
+
+				// 2) 로트 생성 — 검사대기(가입고)면 로트 생성 보류 (검사 합격 후 로트입고)
+				boolean isWaiting = "Y".equals(testYn);
+				boolean lotManaged = "Y".equals(m.getLotUseYn());
+
+				if (lotManaged && !isWaiting) {
+					// 로트번호: UDI 있으면 원본, 없으면 채번
+					String lotNumber = !scanLot.isEmpty()
+															 ? scanLot
+															 : lotService.make_lot_in_number();
+
+					// 유효기한: UDI (17) 우선, 없으면 품목 ValidDays
+					Timestamp effDt = null;
+					if (!effStr.isEmpty()) {
+						effDt = Timestamp.valueOf(effStr + " 00:00:00");
+					} else if (m.getValidDays() != null) {
+						effDt = Timestamp.valueOf(
+							LocalDate.now().plusDays(m.getValidDays()) + " 00:00:00");
+					}
+
+					// 동일 품목+로트 중복 체크 (외부 UDI 재입고 대비)
+					MaterialLot ml = (MaterialLot) matLotRepository
+														 .findByMaterialIdAndLotNumberAndSpjangcd(matPk, lotNumber, spjangcd)
+														 .orElse(null);
+
+					if (ml == null) {
+						ml = new MaterialLot();
+						ml.setLotNumber(lotNumber);
+						ml.setMaterialId(matPk);
+						ml.setInputQty((float) qty);
+						ml.setCurrentStock((float) qty);
+						ml.setInputDateTime(now);
+						ml.setEffectiveDate(effDt);
+						ml.setSourceTableName("mat_inout");  // ★ 기존 추적/삭제와 동일
+						ml.setSourceDataPk(mi.getId());       // ★ 방금 만든 입고에 연결
+						ml.setStoreHouseId(storeHouseId);
+						ml.set_audit(user);
+						ml.setSpjangcd(spjangcd);
+						matLotRepository.save(ml);
+					} else {
+						// 같은 외부 로트 재입고 → 입고량 누적 (트리거 공식과 동일하게 유지)
+						float newInput = (ml.getInputQty() == null ? 0f : ml.getInputQty()) + qty;
+						float outSum   = (ml.getOutQtySum() == null ? 0f : ml.getOutQtySum());
+						ml.setInputQty(newInput);
+						ml.setCurrentStock(newInput - outSum);
+						if (ml.getEffectiveDate() == null && effDt != null) {
+							ml.setEffectiveDate(effDt);
+						}
+						ml.set_audit(user);
+						matLotRepository.save(ml);
+					}
+				}
+			}
+
+			result.success = true;
+		} catch (Exception e) {
+			result.success = false;
+			result.message = "스캔 입고 처리 중 오류: " + e.getMessage();
+			// @Transactional 이라 예외 시 롤백
+			throw new RuntimeException(e);
+		}
+		return result;
+	}
+
+	@GetMapping("/scan_lookup")
+	public AjaxResult scanLookup(
+		@RequestParam(value="gtin14", required=false) String gtin14,
+		@RequestParam(value="di",     required=false) String di,
+		@RequestParam(value="lot",    required=false) String lot,
+		@RequestParam(value="barcode_type", required=false) String barcodeType,
+		@RequestParam(value="spjangcd", required=false) String spjangcd) {
+
+		AjaxResult result = new AjaxResult();
+		Map<String,Object> data = null;
+
+		// 1) GS1/EAN : GTIN-14 로 품목 매칭   ← ★ 스키마 필요 (아래 질문)
+		// if (gtin14 != null && !gtin14.isEmpty())
+		//     data = materialInoutService.findMaterialByGtin(gtin14, spjangcd);
+
+		// 2) HIBC/ISBT : UDI-DI 문자열로 품목 매칭  ← ★ 스키마 필요
+		// if (data == null && di != null && !di.isEmpty())
+		//     data = materialInoutService.findMaterialByUdiDi(di, spjangcd);
+
+		// 3) 내부 바코드 : 기존 로트번호로 품목/유효기한 역추적 (지금 구현 가능)
+		if (data == null && lot != null && !lot.isEmpty()) {
+			MaterialLot ml = matLotRepository.getByLotNumber(lot);
+			if (ml != null) {
+				Material m = materialRepository.getMaterialById(ml.getMaterialId());
+				data = new HashMap<>();
+				data.put("material_id",   ml.getMaterialId());
+				data.put("material_code", m.getCode());          // getter 이름 확인
+				data.put("material_name", m.getName());
+				data.put("gtin", gtin14 != null ? gtin14 : "");
+				data.put("effective_date",
+					ml.getEffectiveDate() != null
+						? ml.getEffectiveDate().toLocalDateTime().toLocalDate().toString() : "");
+				data.put("valid_days", m.getValidDays());
+			}
+		}
+
+		result.data = data;   // null 이면 프론트에서 '미등록 GTIN'(빨강) 처리
+		return result;
+	}
 	
 }

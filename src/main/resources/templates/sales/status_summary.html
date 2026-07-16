@@ -1,0 +1,567 @@
+<html layout:decorate="~{layout_page}">
+<head>
+  <style>
+      .srch-box select { min-width: 120px; }
+      #srchYear { width: 100px; }
+
+      /* 집계 요약바 */
+      .sum-box {
+          display:flex; flex-wrap:wrap; gap:8px 10px; align-items:center; margin:10px 0;
+      }
+      .sum-box .sum-item {
+          display:inline-flex; align-items:baseline; gap:6px;
+          padding:6px 12px; border:1px solid #E1E5EE; border-radius:4px;
+          background:#fff; font-size:12px;
+      }
+      .sum-box .sum-item i { font-style:normal; color:#777; }
+      .sum-box .sum-item em {
+          font-style:normal; font-weight:700; font-size:14px; color:#222;
+      }
+      .sum-box .sum-item.is-primary em { color:#1f5fbf; }
+      .sum-box .sum-item.is-good em { color:#2e9e5b; }
+      .sum-box .sum-item.is-warn em { color:#c0392b; }
+
+      /* 데이터 없음 안내 */
+      .grid-wrap { position: relative; }
+      .grid-empty {
+          position: absolute; left: 0; right: 0; top: 60px;
+          text-align: center; color: #bbb; font-size: 13px;
+          pointer-events: none; display: none;
+      }
+      .grid-wrap.is-empty .grid-empty { display: block; }
+  </style>
+</head>
+
+<th:block layout:fragment="content">
+  <div class="layout-contents">
+    <div class="page-title-wrap">
+      <div class="left">
+        <h2>영업현황집계표</h2>
+        <a title="북마크" class="bookmark toggle">내 메뉴</a>
+      </div>
+      <ul class="page-navi">
+        <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+        <li>영업 관리</li>
+        <li>영업현황집계표</li>
+      </ul>
+    </div>
+
+    <section class="section">
+      <div class="section-top">
+        <div class="search-wrap">
+          <dl>
+            <dt>조회기간<span class="eq">*</span></dt>
+            <dd>
+              <ul class="date-box">
+                <li>
+                  <input type="month" id="srchStartMonth" name="srchStartMonth">
+                  <label for="srchStartMonth" class="hide">시작월</label>
+                </li>
+                <li>
+                  <input type="month" id="srchEndMonth" name="srchEndMonth">
+                  <label for="srchEndMonth" class="hide">종료월</label>
+                </li>
+              </ul>
+            </dd>
+          </dl>
+          <dl>
+            <dt><label for="cboGroupKind">집계기준<span class="eq">*</span></label></dt>
+            <dd>
+              <div class="srch-box">
+                <select id="cboGroupKind" name="cboGroupKind">
+                  <option value="company">판매처별</option>
+                  <option value="product">품목별</option>
+                  <option value="group">품목군별</option>
+                  <option value="month">월별</option>
+                </select>
+              </div>
+            </dd>
+          </dl>
+          <dl>
+            <dt><label for="cboAmountKind">표시단위</label></dt>
+            <dd>
+              <div class="srch-box">
+                <select id="cboAmountKind" name="cboAmountKind">
+                  <option value="amount">금액</option>
+                  <option value="qty">수량</option>
+                </select>
+              </div>
+            </dd>
+          </dl>
+          <dl>
+            <dt><label for="CompanySearch">판매처</label></dt>
+            <dd><input type="text" id="CompanySearch" name="CompanySearch" placeholder="판매처"></dd>
+          </dl>
+          <dl>
+            <dt><label for="ProductSearch">품목</label></dt>
+            <dd><input type="text" id="ProductSearch" name="ProductSearch" placeholder="품목코드 / 품명"></dd>
+          </dl>
+          <dl>
+            <dt>&nbsp;</dt>
+            <dd>
+              <li>
+                <a class="btn btn-delete" title="검색" id="btnSearch">
+                  <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                  검색
+                </a>
+              </li>
+            </dd>
+          </dl>
+        </div>
+
+        <div class="button-wrap">
+          <ul>
+            <li><a class="btn" title="출력" id="btnPrint">출력</a></li>
+            <li>
+              <a class="btn btn-excell" title="엑셀 다운로드" id="btnExcel">
+                <img th:src="@{/images/icon/ico-plus.svg}" alt="엑셀 아이콘">
+                엑셀
+              </a>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="sum-box">
+        <span class="sum-item"><i>판매계획</i><em id="sumPlan">0</em></span>
+        <span class="sum-item is-primary"><i>수주</i><em id="sumOrder">0</em></span>
+        <span class="sum-item is-primary"><i>출하실적</i><em id="sumActual">0</em></span>
+        <span class="sum-item is-warn"><i>차이(실적-계획)</i><em id="sumDiff">0</em></span>
+        <span class="sum-item is-good"><i>계획달성률</i><em id="sumRate">0%</em></span>
+        <span class="sum-item"><i>수주잔량</i><em id="sumBacklog">0</em></span>
+      </div>
+
+      <div class="container-fluid grid-wrap" id="gridWrap">
+        <div id="theGrid" style="height: 690px;"></div>
+        <div class="grid-empty">조회된 데이터가 없습니다.</div>
+      </div>
+    </section>
+  </div>
+
+  <!-- 드릴다운 팝업 -->
+  <script type="text/x-tmpl" id="drillTemplate">
+    <style>
+      .content_wrap.popup { display:flex; flex-direction:column; height:100%; }
+      .table-wrap { flex:1; min-height:0; }
+      .popup-button { flex-shrink:0; padding:10px; background:#fff; border-top:1px solid #ddd; }
+    </style>
+    <div class="content_wrap popup">
+      <div class="table-wrap"><div id="drillGrid" style="height:100%;"></div></div>
+      <div class="popup-button">
+        <button type="button" class="btn-popup" id="btnDrillExcel">엑셀</button>
+        <button type="button" class="btn-popup" id="modal-close-button">닫기</button>
+      </div>
+    </div>
+  </script>
+</th:block>
+
+<th:block layout:fragment="scripts">
+  <script type="text/javascript">
+
+   class SalesSummaryPage {
+    constructor() {
+     this.url = '/api/sales/sales_summary';
+     this.grid = null;
+     this.viewData = new wijmo.collections.CollectionView();
+     this.months = [];   // 조회 대상 월 목록 ['2026-01', ...]
+     this.init();
+    }
+
+    /* ===== 유틸 ===== */
+    static num(v) {
+     const n = Number(String(v ?? '').replace(/,/g, ''));
+     return Number.isFinite(n) ? n : 0;
+    }
+    static fmtNum(v) { return SalesSummaryPage.num(v).toLocaleString('ko-KR'); }
+    static monthStr(d) {
+     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    }
+    static monthRange(startStr, endStr) {
+     const list = [];
+     const [sy, sm] = startStr.split('-').map(Number);
+     const [ey, em] = endStr.split('-').map(Number);
+     let y = sy, m = sm;
+     while (y < ey || (y === ey && m <= em)) {
+      list.push(`${y}-${String(m).padStart(2, '0')}`);
+      m++;
+      if (m > 12) { m = 1; y++; }
+      if (list.length > 36) break; // 최대 36개월 가드
+     }
+     return list;
+    }
+
+    init() {
+     const _this = this;
+
+     this.grid = new wijmo.grid.FlexGrid('#theGrid', {
+      selectionMode: wijmo.grid.SelectionMode.Row,
+      headersVisibility: wijmo.grid.HeadersVisibility.Column,
+      autoGenerateColumns: false,
+      allowMerging: wijmo.grid.AllowMerging.ColumnHeaders,
+      showMarquee: true,
+      isReadOnly: true,
+      itemsSource: this.viewData,
+      columns: []
+     });
+
+     new FlexGridContextMenu(this.grid);
+     this.grid.downloadFileName = '영업현황집계표';
+
+     // 합계행 강조 / 달성률 색상 / 미달 강조
+     this.grid.formatItem.addHandler(function (s, e) {
+      if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+       e.cell.style.textAlign = 'center';
+      }
+      if (e.panel.cellType !== wijmo.grid.CellType.Cell) return;
+
+      const item = s.rows[e.row]?.dataItem;
+      if (!item) return;
+      const b = s.columns[e.col].binding;
+
+      // 합계행
+      if (item.isTotal) {
+       e.cell.style.background = '#F4F6FA';
+       e.cell.style.fontWeight = 'bold';
+      }
+
+      if (b === 'Rate') {
+       const r = SalesSummaryPage.num(item.Rate);
+       e.cell.style.fontWeight = 'bold';
+       e.cell.style.color = r >= 100 ? '#2e9e5b' : (r >= 80 ? '#1f5fbf' : '#c0392b');
+      }
+      if (b === 'Diff') {
+       const d = SalesSummaryPage.num(item.Diff);
+       e.cell.style.color = d < 0 ? '#c0392b' : '#2e9e5b';
+      }
+     });
+
+     // 더블클릭 → 드릴다운
+     this.grid.hostElement.addEventListener('dblclick', function () {
+      const items = _this.grid.selectedItems;
+      if (!items.length || items[0].isTotal) return false;
+      _this.showDrill(items[0]);
+     });
+
+     // 이벤트
+     $('#btnSearch').click(() => _this.searchMainData());
+     $('#cboGroupKind, #cboAmountKind').on('change', () => _this.searchMainData());
+     $('#CompanySearch, #ProductSearch').on('keypress', (e) => {
+      if (e.keyCode === 13) _this.searchMainData();
+     });
+     $('#btnExcel').click(() => _this.exportExcel());
+     $('#btnPrint').click(() => _this.printSummary());
+    }
+
+    /* 집계기준/월 범위에 따라 컬럼 재구성 */
+    buildColumns() {
+     const groupKind = $('#cboGroupKind').val();
+     const isAmount = $('#cboAmountKind').val() === 'amount';
+     const fmt = isAmount ? 'n0' : 'n2';
+
+     const cols = [];
+
+     if (groupKind === 'company') {
+      cols.push({ binding: 'CompanyName', header: '판매처', width: 200, align: 'left' });
+     } else if (groupKind === 'product') {
+      cols.push({ binding: 'product_code', header: '코드', width: 100, align: 'center' });
+      cols.push({ binding: 'product_name', header: '품목', width: 220, align: 'left' });
+      cols.push({ binding: 'Standard', header: '규격', width: 100, align: 'center' });
+     } else if (groupKind === 'group') {
+      cols.push({ binding: 'MaterialGroupName', header: '품목군', width: 200, align: 'left' });
+     } else {
+      cols.push({ binding: 'MonthLabel', header: '월', width: 120, align: 'center' });
+     }
+
+     // 월별 컬럼 (월별 집계일 땐 중복이므로 생략)
+     if (groupKind !== 'month') {
+      this.months.forEach(m => {
+       const [, mm] = m.split('-');
+       cols.push({
+        binding: 'm_' + m.replace('-', ''),
+        header: `${Number(mm)}월`,
+        width: 100, align: 'right', format: fmt
+       });
+      });
+     }
+
+     cols.push({ binding: 'PlanValue',   header: '판매계획', width: 110, align: 'right', format: fmt });
+     cols.push({ binding: 'OrderValue',  header: '수주',     width: 110, align: 'right', format: fmt });
+     cols.push({ binding: 'ActualValue', header: '출하실적', width: 110, align: 'right', format: fmt });
+     cols.push({ binding: 'Diff',        header: '차이',     width: 110, align: 'right', format: fmt });
+     cols.push({ binding: 'Rate',        header: '달성률(%)', width: 90, align: 'right', format: 'n1' });
+     cols.push({ binding: 'Backlog',     header: '수주잔량', width: 110, align: 'right', format: fmt });
+     cols.push({ binding: 'ShareRate',   header: '구성비(%)', width: 90, align: 'right', format: 'n1' });
+     cols.push({ binding: 'Description', header: '비고', width: '*' });
+
+     this.grid.columns.deferUpdate(() => {
+      this.grid.columns.clear();
+      cols.forEach(c => this.grid.columns.push(new wijmo.grid.Column(c)));
+     });
+    }
+
+    searchMainData() {
+     const _this = this;
+     const C = SalesSummaryPage;
+
+     const start = $('#srchStartMonth').val();
+     const end = $('#srchEndMonth').val();
+
+     if (!start || !end) {
+      Alert.alert('', '조회기간을 입력하세요.');
+      return;
+     }
+     if (start > end) {
+      Alert.alert('', '조회 시작월이 종료월보다 늦습니다.');
+      return;
+     }
+
+     this.months = C.monthRange(start, end);
+
+     // 데이터 유무와 무관하게 헤더 먼저 구성
+     this.buildColumns();
+     this.viewData.sourceCollection = [];
+     this.updateSummary({});
+     $('#gridWrap').addClass('is-empty');
+
+     const data = {
+      start: start,
+      end: end,
+      groupKind: $('#cboGroupKind').val(),
+      amountKind: $('#cboAmountKind').val(),
+      company: $('#CompanySearch').val(),
+      product: $('#ProductSearch').val(),
+      action: 'read'
+     };
+
+     AjaxUtil.getAsyncData(this.url + '/read', data, function (result) {
+      const rows = (result && result.data) ? result.data : [];
+      _this.bindRows(rows);
+     });
+    }
+
+    bindRows(rows) {
+     const C = SalesSummaryPage;
+     const isMonthGroup = $('#cboGroupKind').val() === 'month';
+
+     // 파생값 계산
+     rows.forEach(r => {
+      // 월별 값이 배열/객체 어느 쪽으로 와도 m_YYYYMM 키로 정규화
+      if (Array.isArray(r.monthly)) {
+       r.monthly.forEach(mv => {
+        const key = 'm_' + String(mv.Month ?? '').replace('-', '');
+        r[key] = C.num(mv.Value);
+       });
+      }
+      if (isMonthGroup && !r.MonthLabel && r.Month) {
+       const [y, m] = String(r.Month).split('-');
+       r.MonthLabel = `${y}년 ${Number(m)}월`;
+      }
+
+      const plan = C.num(r.PlanValue);
+      const actual = C.num(r.ActualValue);
+      const order = C.num(r.OrderValue);
+
+      if (r.Diff == null) r.Diff = actual - plan;
+      if (r.Rate == null) r.Rate = plan > 0 ? Math.round(actual / plan * 1000) / 10 : 0;
+      if (r.Backlog == null) r.Backlog = Math.max(0, order - actual);
+     });
+
+     // 구성비 (출하실적 기준)
+     const totalActual = rows.reduce((a, r) => a + C.num(r.ActualValue), 0);
+     rows.forEach(r => {
+      r.ShareRate = totalActual > 0
+       ? Math.round(C.num(r.ActualValue) / totalActual * 1000) / 10 : 0;
+     });
+
+     // 합계행
+     if (rows.length) {
+      const total = { isTotal: true, Description: '' };
+      const firstCol = this.grid.columns[0]?.binding;
+      total[firstCol] = '합계';
+
+      this.months.forEach(m => {
+       const k = 'm_' + m.replace('-', '');
+       total[k] = rows.reduce((a, r) => a + C.num(r[k]), 0);
+      });
+      ['PlanValue', 'OrderValue', 'ActualValue', 'Backlog'].forEach(k => {
+       total[k] = rows.reduce((a, r) => a + C.num(r[k]), 0);
+      });
+      total.Diff = total.ActualValue - total.PlanValue;
+      total.Rate = total.PlanValue > 0
+       ? Math.round(total.ActualValue / total.PlanValue * 1000) / 10 : 0;
+      total.ShareRate = 100;
+
+      rows = rows.concat([total]);
+      this.updateSummary(total);
+     } else {
+      this.updateSummary({});
+     }
+
+     this.viewData.sourceCollection = rows;
+     $('#gridWrap').toggleClass('is-empty', rows.length === 0);
+    }
+
+    updateSummary(t) {
+     const C = SalesSummaryPage;
+     $('#sumPlan').text(C.fmtNum(t.PlanValue));
+     $('#sumOrder').text(C.fmtNum(t.OrderValue));
+     $('#sumActual').text(C.fmtNum(t.ActualValue));
+
+     const diff = C.num(t.Diff);
+     $('#sumDiff')
+     .text((diff > 0 ? '+' : '') + C.fmtNum(diff))
+     .css('color', diff < 0 ? '#c0392b' : '#2e9e5b');
+
+     const rate = C.num(t.Rate);
+     $('#sumRate')
+     .text(rate + '%')
+     .css('color', rate >= 100 ? '#2e9e5b' : (rate >= 80 ? '#1f5fbf' : '#c0392b'));
+
+     $('#sumBacklog').text(C.fmtNum(t.Backlog));
+    }
+
+    /* 드릴다운: 선택 행의 상세(수주/출하 내역) */
+    showDrill(row) {
+     const C = SalesSummaryPage;
+     const groupKind = $('#cboGroupKind').val();
+     const title =
+      groupKind === 'company' ? `판매처 상세 - ${row.CompanyName ?? ''}` :
+       groupKind === 'product' ? `품목 상세 - ${row.product_name ?? ''}` :
+        groupKind === 'group'   ? `품목군 상세 - ${row.MaterialGroupName ?? ''}` :
+         `월 상세 - ${row.MonthLabel ?? ''}`;
+
+     const $content = $(tmpl('drillTemplate', {}));
+     const modal = new PopupDraggable(title);
+     modal.open({ width: 1200, height: 580, $content });
+
+     const grid = new wijmo.grid.FlexGrid($content.find('#drillGrid')[0], {
+      selectionMode: wijmo.grid.SelectionMode.Row,
+      headersVisibility: wijmo.grid.HeadersVisibility.Column,
+      autoGenerateColumns: false,
+      isReadOnly: true,
+      columns: [
+       { binding: 'PlanDate',     header: '계획일',   width: 100, align: 'center' },
+       { binding: 'CompanyName',  header: '판매처',   width: 160, align: 'left' },
+       { binding: 'product_code', header: '코드',     width: 100, align: 'center' },
+       { binding: 'product_name', header: '품목',     width: 200, align: 'left' },
+       { binding: 'Standard',     header: '규격',     width: 90,  align: 'center' },
+       { binding: 'UnitName',     header: '단위',     width: 60,  align: 'center' },
+       { binding: 'PlanQty',      header: '계획수량', width: 90,  align: 'right', format: 'n2' },
+       { binding: 'OrderQty',     header: '수주수량', width: 90,  align: 'right', format: 'n2' },
+       { binding: 'ActualQty',    header: '출하수량', width: 90,  align: 'right', format: 'n2' },
+       { binding: 'UnitPrice',    header: '단가',     width: 90,  align: 'right', format: 'n0' },
+       { binding: 'ActualAmount', header: '출하금액', width: 110, align: 'right', format: 'n0' },
+       { binding: 'JumunNumber',  header: '수주번호', width: 130, align: 'center' },
+       { binding: 'Description',  header: '비고', width: '*' }
+      ],
+      itemsSource: []
+     });
+     new FlexGridContextMenu(grid);
+     grid.downloadFileName = '영업현황상세';
+
+     AjaxUtil.getAsyncData(this.url + '/drill_list', {
+      start: $('#srchStartMonth').val(),
+      end: $('#srchEndMonth').val(),
+      groupKind: groupKind,
+      groupKey: row.GroupKey ?? row.CompanyName ?? row.Material_id ?? row.MaterialGroupName ?? row.Month ?? '',
+      company: $('#CompanySearch').val(),
+      product: $('#ProductSearch').val()
+     }, function (res) {
+      grid.itemsSource = (res && res.data) ? res.data : [];
+     });
+
+     $content.on('click', '#btnDrillExcel', function () {
+      wijmo.grid.xlsx.FlexGridXlsxConverter.saveAsync(
+       grid, { includeColumnHeaders: true }, '영업현황상세.xlsx'
+      );
+     });
+     $content.on('click', '#modal-close-button', () => modal.close());
+    }
+
+    exportExcel() {
+     if (!this.viewData.items || !this.viewData.items.length) {
+      Alert.alert('', '다운로드할 데이터가 없습니다.');
+      return;
+     }
+     const name = `영업현황집계표_${$('#srchStartMonth').val()}_${$('#srchEndMonth').val()}.xlsx`;
+     wijmo.grid.xlsx.FlexGridXlsxConverter.saveAsync(
+      this.grid, { includeColumnHeaders: true, includeCellStyles: false }, name
+     );
+    }
+
+    printSummary() {
+     const rows = this.viewData.items || [];
+     if (!rows.length) {
+      Alert.alert('', '출력할 데이터가 없습니다.');
+      return;
+     }
+     const cols = this.grid.columns;
+     const th = cols.map(c => `<th>${String(c.header ?? '').replace(/\r\n/g, '<br>')}</th>`).join('');
+
+     const cell = (r, c) => {
+      const v = r[c.binding];
+      if (v == null || v === '') return '';
+      return (typeof v === 'number') ? v.toLocaleString('ko-KR') : String(v);
+     };
+
+     const body = rows.map(r =>
+      `<tr${r.isTotal ? ' class="total"' : ''}>` +
+      cols.map(c => `<td style="text-align:${c.align === 'left' ? 'left' : (c.align === 'center' ? 'center' : 'right')};">${cell(r, c)}</td>`).join('') +
+      '</tr>'
+     ).join('');
+
+     const html = `
+          <html><head><title>영업현황집계표</title>
+          <style>
+            body{font-family:'Malgun Gothic';margin:20px;}
+            h2{text-align:center;}
+            table{width:100%;border-collapse:collapse;font-size:11px;}
+            th,td{border:1px solid #999;padding:4px;}
+            th{background:#EDEFF5;text-align:center;}
+            tr.total td{background:#F4F6FA;font-weight:bold;}
+          </style></head>
+          <body>
+            <h2>영업현황집계표</h2>
+            <p style="text-align:center;">
+              ${$('#srchStartMonth').val()} ~ ${$('#srchEndMonth').val()}
+              / ${$('#cboGroupKind option:selected').text()}
+              / ${$('#cboAmountKind option:selected').text()}
+            </p>
+            <table><thead><tr>${th}</tr></thead><tbody>${body}</tbody></table>
+          </body></html>`;
+
+     const w = window.open('', '_blank', 'width=1100,height=800');
+     if (!w) {
+      Alert.alert('', '팝업이 차단되었습니다. 팝업 허용 후 다시 시도해 주세요.');
+      return;
+     }
+     w.document.open();
+     w.document.write(html);
+     w.document.close();
+     w.onload = () => {
+      w.focus();
+      w.print();
+     };
+    }
+   }
+
+   let page = null;
+
+   $(document).ready(function () {
+    page = new SalesSummaryPage();
+
+    // 기본: 올해 1월 ~ 이번달
+    const now = new Date();
+    $('#srchStartMonth').val(`${now.getFullYear()}-01`);
+    $('#srchEndMonth').val(SalesSummaryPage.monthStr(now));
+
+    // 조회 전에도 헤더가 보이도록 컬럼 선구성
+    page.months = SalesSummaryPage.monthRange($('#srchStartMonth').val(), $('#srchEndMonth').val());
+    page.buildColumns();
+
+    page.searchMainData();
+   });
+  </script>
+</th:block>
+<input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+</html>

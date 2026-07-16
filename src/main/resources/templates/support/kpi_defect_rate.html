@@ -1,0 +1,1639 @@
+<html layout:decorate="~{layout_page}">
+<head>
+  <style>
+      .srch-box select { min-width: 130px; }
+
+      .dash { display:flex; flex-direction:column; gap:14px; }
+
+      /* KPI 카드 */
+      .kpi-row { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; }
+      .kpi {
+          background:#fff; border:1px solid #E1E5EE; border-radius:6px;
+          padding:14px 16px; display:flex; flex-direction:column; gap:6px;
+          border-left:4px solid #C9D2E3;
+      }
+      .kpi .k-title { font-size:12px; color:#777; }
+      .kpi .k-value { font-size:24px; font-weight:700; color:#222; line-height:1.1; }
+      .kpi .k-value small { font-size:12px; font-weight:500; color:#999; margin-left:3px; }
+      .kpi .k-sub { font-size:11px; color:#999; }
+      .kpi.is-primary { border-left-color:#1f5fbf; } .kpi.is-primary .k-value { color:#1f5fbf; }
+      .kpi.is-warn { border-left-color:#c0392b; }   .kpi.is-warn .k-value { color:#c0392b; }
+      .kpi.is-good { border-left-color:#2e9e5b; }   .kpi.is-good .k-value { color:#2e9e5b; }
+
+      .gauge { height:6px; background:#EEF1F6; border-radius:3px; overflow:hidden; margin-top:2px; }
+      .gauge > i { display:block; height:100%; background:#2e9e5b; width:0; transition:width .4s; }
+
+      .panel-row { display:grid; grid-template-columns:2fr 1fr; gap:12px; }
+      .panel-row.thirds { grid-template-columns:1fr 1fr 1fr; }
+
+      .panel { background:#fff; border:1px solid #E1E5EE; border-radius:6px; display:flex; flex-direction:column; }
+      .panel > header {
+          display:flex; align-items:center; justify-content:space-between;
+          padding:10px 14px; border-bottom:1px solid #EEF1F6;
+      }
+      .panel > header h3 { font-size:13px; font-weight:700; color:#333; margin:0; }
+      .panel > header .p-sub { font-size:11px; color:#999; }
+      .panel > .p-body { padding:12px 14px; flex:1; min-height:0; }
+
+      /* 공정 카드 스트립 */
+      .proc-strip { display:grid; grid-template-columns:repeat(6,1fr); gap:8px; }
+      .proc-cell {
+          border:1px solid #E9EDF4; border-radius:5px; padding:10px 8px;
+          text-align:center; background:#FBFCFE; cursor:pointer;
+      }
+      .proc-cell:hover { background:#F2F7FF; border-color:#1f5fbf; }
+      .proc-cell .p-name { font-size:12px; font-weight:700; color:#555; }
+      .proc-cell .p-code { font-size:10px; color:#bbb; margin-bottom:6px; }
+      .proc-cell .p-rate { font-size:18px; font-weight:700; color:#222; }
+      .proc-cell .p-qty { font-size:11px; color:#888; }
+      .proc-cell.is-over .p-rate { color:#c0392b; }
+      .proc-cell.is-good .p-rate { color:#2e9e5b; }
+
+      .legend-dot {
+          display:inline-block; width:8px; height:8px; border-radius:2px; margin-right:4px;
+      }
+
+      #chartProc { height:240px; }
+      #chartTrend { height:240px; }
+      #chartPareto { height:230px; }
+      #typeGrid { height:230px; }
+
+      .grid-wrap { position:relative; }
+      .grid-empty {
+          position:absolute; left:0; right:0; top:60px; text-align:center;
+          color:#bbb; font-size:13px; pointer-events:none; display:none;
+      }
+      .grid-wrap.is-empty .grid-empty { display:block; }
+
+      .mock-badge {
+          display:inline-flex; align-items:center; height:22px; padding:0 8px;
+          margin-left:8px; border-radius:11px; background:#FFF4E5; border:1px solid #FFD8A8;
+          color:#b26a00; font-size:11px; font-weight:600;
+      }
+
+      @media (max-width:1400px) {
+          .kpi-row { grid-template-columns:repeat(3,1fr); }
+          .panel-row, .panel-row.thirds { grid-template-columns:1fr; }
+          .proc-strip { grid-template-columns:repeat(3,1fr); }
+      }
+  </style>
+</head>
+
+<th:block layout:fragment="content">
+  <div class="layout-contents">
+    <div class="page-title-wrap">
+      <div class="left">
+        <h2>KPI 공정불량률</h2>
+        <span class="mock-badge">샘플 데이터</span>
+        <a title="북마크" class="bookmark toggle">내 메뉴</a>
+      </div>
+      <ul class="page-navi">
+        <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+        <li>품질 관리</li>
+        <li>KPI 공정불량률</li>
+      </ul>
+    </div>
+
+    <section class="section">
+      <div class="section-top">
+        <div class="search-wrap">
+          <dl>
+            <dt>조회기간<span class="eq">*</span></dt>
+            <dd>
+              <ul class="date-box">
+                <li>
+                  <input type="month" id="srchStartMonth" name="srchStartMonth">
+                  <label for="srchStartMonth" class="hide">시작월</label>
+                </li>
+                <li>
+                  <input type="month" id="srchEndMonth" name="srchEndMonth">
+                  <label for="srchEndMonth" class="hide">종료월</label>
+                </li>
+              </ul>
+            </dd>
+          </dl>
+          <dl>
+            <dt><label for="cboProduct">제품군</label></dt>
+            <dd>
+              <div class="srch-box">
+                <select id="cboProduct" name="cboProduct">
+                  <option value="">전체</option>
+                  <option value="BSC+③A">BSC+③A</option>
+                  <option value="BSC+③">BSC+③</option>
+                  <option value="BmSC+③">BmSC+③</option>
+                  <option value="M-CELL">M-CELL</option>
+                </select>
+              </div>
+            </dd>
+          </dl>
+          <dl>
+            <dt><label for="cboProcess">공정</label></dt>
+            <dd>
+              <div class="srch-box">
+                <select id="cboProcess" name="cboProcess">
+                  <option value="">전체</option>
+                  <option value="p01">세척</option>
+                  <option value="p02">조립</option>
+                  <option value="p03">검사</option>
+                  <option value="p04">내포장</option>
+                  <option value="p05">멸균</option>
+                  <option value="p06">외포장</option>
+                </select>
+              </div>
+            </dd>
+          </dl>
+          <dl>
+            <dt><label for="txtTarget">목표 불량률(%)</label></dt>
+            <dd><input type="text" id="txtTarget" name="txtTarget" value="1.5" style="width:80px;text-align:right;"></dd>
+          </dl>
+          <dl>
+            <dt>&nbsp;</dt>
+            <dd>
+              <li>
+                <a class="btn btn-delete" title="검색" id="btnSearch">
+                  <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                  검색
+                </a>
+              </li>
+            </dd>
+          </dl>
+        </div>
+        <div class="button-wrap">
+          <ul>
+            <li><a class="btn" title="출력" id="btnPrint">출력</a></li>
+            <li>
+              <a class="btn btn-excell" title="엑셀 다운로드" id="btnExcel">
+                <img th:src="@{/images/icon/ico-plus.svg}" alt="엑셀 아이콘">
+                엑셀
+              </a>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="dash">
+
+        <!-- KPI -->
+        <div class="kpi-row">
+          <div class="kpi">
+            <div class="k-title">검사수량</div>
+            <div class="k-value" id="kpiInspect">0</div>
+            <div class="k-sub" id="kpiInspectSub">투입 로트 0건</div>
+          </div>
+          <div class="kpi is-warn">
+            <div class="k-title">불량수량</div>
+            <div class="k-value" id="kpiDefect">0</div>
+            <div class="k-sub" id="kpiDefectSub">파기 0</div>
+          </div>
+          <div class="kpi is-warn">
+            <div class="k-title">공정불량률</div>
+            <div class="k-value" id="kpiRate">0<small>%</small></div>
+            <div class="k-sub" id="kpiRateSub">전기간 대비 -</div>
+          </div>
+          <div class="kpi is-good">
+            <div class="k-title">목표 달성</div>
+            <div class="k-value" id="kpiTarget">-</div>
+            <div class="gauge"><i id="kpiTargetBar"></i></div>
+          </div>
+          <div class="kpi is-primary">
+            <div class="k-title">직행률(FTY)</div>
+            <div class="k-value" id="kpiFty">0<small>%</small></div>
+            <div class="k-sub">전 공정 무결 통과 비율</div>
+          </div>
+        </div>
+
+        <!-- 공정별 카드 -->
+        <div class="panel">
+          <header>
+            <h3>공정별 불량률</h3>
+            <span class="p-sub" id="procSub"></span>
+          </header>
+          <div class="p-body">
+            <div class="proc-strip" id="procStrip"></div>
+          </div>
+        </div>
+
+        <!-- 차트 -->
+        <div class="panel-row">
+          <div class="panel">
+            <header>
+              <h3>월별 불량률 추이</h3>
+              <span class="p-sub">
+                <span class="legend-dot" style="background:#1f5fbf;"></span>불량률
+                <span class="legend-dot" style="background:#c0392b;margin-left:8px;"></span>목표
+              </span>
+            </header>
+            <div class="p-body"><div id="chartTrend"></div></div>
+          </div>
+          <div class="panel">
+            <header><h3>공정별 불량 비중</h3></header>
+            <div class="p-body"><div id="chartProc"></div></div>
+          </div>
+        </div>
+
+        <!-- 불량유형 -->
+        <div class="panel-row">
+          <div class="panel">
+            <header>
+              <h3>불량유형 파레토</h3>
+              <span class="p-sub">상위 유형 누적 비중</span>
+            </header>
+            <div class="p-body"><div id="chartPareto"></div></div>
+          </div>
+          <div class="panel">
+            <header><h3>불량유형 집계</h3></header>
+            <div class="p-body grid-wrap" id="typeGridWrap">
+              <div id="typeGrid"></div>
+              <div class="grid-empty">조회된 데이터가 없습니다.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 상세 -->
+        <div class="panel">
+          <header>
+            <h3>공정 · 제품별 상세</h3>
+            <span class="p-sub">행 더블클릭 시 불량 상세</span>
+          </header>
+          <div class="p-body grid-wrap" id="mainGridWrap">
+            <div id="theGrid" style="height:320px;"></div>
+            <div class="grid-empty">조회된 데이터가 없습니다.</div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+  </div>
+
+  <!-- 상세 팝업 -->
+  <script type="text/x-tmpl" id="drillTemplate">
+    <style>
+      .content_wrap.popup { display:flex; flex-direction:column; height:100%; }
+      .table-wrap { flex:1; min-height:0; }
+      .popup-button { flex-shrink:0; padding:10px; background:#fff; border-top:1px solid #ddd; }
+    </style>
+    <div class="content_wrap popup">
+      <div class="table-wrap"><div id="drillGrid" style="height:100%;"></div></div>
+      <div class="popup-button">
+        <button type="button" class="btn-popup" id="modal-close-button">닫기</button>
+      </div>
+    </div>
+  </script>
+</th:block>
+
+<th:block layout:fragment="scripts">
+  <script type="text/javascript">
+
+   /* =========================================================
+      ⚠️ API 미연동 화면
+      아래 MockData 객체만 실제 API 호출로 교체하면 그대로 동작합니다.
+        MockData.fetch(params) → { lines, types, trend, prevRate }
+      ========================================================= */
+   const PROCESSES = [
+    { code: 'p01', name: '세척' },
+    { code: 'p02', name: '조립' },
+    { code: 'p03', name: '검사' },
+    { code: 'p04', name: '내포장' },
+    { code: 'p05', name: '멸균' },
+    { code: 'p06', name: '외포장' }
+   ];
+
+   const PRODUCTS = ['BSC+③A', 'BSC+③', 'BmSC+③', 'M-CELL'];
+
+   // 제품군별 라우팅 (M-CELL은 세척/멸균/외포장 없음)
+   const ROUTING = {
+    'BSC+③A': ['p01','p02','p03','p04','p05','p06'],
+    'BSC+③':  ['p01','p02','p03','p04','p05','p06'],
+    'BmSC+③': ['p01','p02','p03','p04','p05','p06'],
+    'M-CELL': ['p02','p03','p04']
+   };
+
+   const DEFECT_TYPES = {
+    p01: ['이물 잔류', '세척액 얼룩', '건조 불량'],
+    p02: ['오링 미삽입', '포트 결합불량', '상부 스크래치', '플로팅 이탈'],
+    p03: ['치수 불량', '누설(리크)', '외관 불량', '작동 불량'],
+    p04: ['블리스터 실링불량', '라벨 오부착', '멸균지 파손', '구성품 누락'],
+    p05: ['BI FAIL', '멸균지시라벨 미변색', '배치 온습도 이탈'],
+    p06: ['카톤 파손', '입수 오류', '바코드 인쇄불량']
+   };
+
+   const MockData = {
+    // 시드 기반 난수(재조회해도 같은 값)
+    seed: 20260716,
+    rnd() {
+     this.seed = (this.seed * 9301 + 49297) % 233280;
+     return this.seed / 233280;
+    },
+    pick(arr) { return arr[Math.floor(this.rnd() * arr.length)]; },
+
+    monthRange(startStr, endStr) {
+     const list = [];
+     const [sy, sm] = startStr.split('-').map(Number);
+     const [ey, em] = endStr.split('-').map(Number);
+     let y = sy, m = sm;
+     while (y < ey || (y === ey && m <= em)) {
+      list.push(`${y}-${String(m).padStart(2, '0')}`);
+      m++; if (m > 12) { m = 1; y++; }
+      if (list.length > 36) break;
+     }
+     return list;
+    },
+
+    fetch(params) {
+     this.seed = 20260716; // 매 조회마다 리셋 → 동일 조건이면 동일 결과
+     const months = this.monthRange(params.start, params.end);
+     const products = params.product ? [params.product] : PRODUCTS;
+
+     const lines = [];   // 공정 × 제품 × 월
+     const details = []; // 불량 상세
+
+     months.forEach(mon => {
+      products.forEach(prod => {
+       ROUTING[prod].forEach(pcode => {
+        if (params.process && params.process !== pcode) return;
+
+        const proc = PROCESSES.find(p => p.code === pcode);
+        const base = prod === 'M-CELL' ? 400 : 2600;
+        const inspectQty = Math.round(base * (0.7 + this.rnd() * 0.6));
+
+        // 공정 성격별 불량률 성향
+        const bias = { p01: 0.6, p02: 1.9, p03: 2.4, p04: 1.2, p05: 0.9, p06: 0.4 }[pcode];
+        const rate = Math.max(0.05, bias * (0.5 + this.rnd()));
+        const defectQty = Math.round(inspectQty * rate / 100);
+        const scrapQty = pcode === 'p05' ? defectQty : Math.round(defectQty * this.rnd() * 0.4);
+
+        lines.push({
+         Month: mon,
+         MonthLabel: `${Number(mon.split('-')[1])}월`,
+         ProcessCode: pcode,
+         ProcessName: proc.name,
+         ProductName: prod,
+         InspectQty: inspectQty,
+         DefectQty: defectQty,
+         ScrapQty: scrapQty,
+         LotCount: Math.max(1, Math.round(inspectQty / 300))
+        });
+
+        // 불량 상세(로트 단위)
+        const types = DEFECT_TYPES[pcode];
+        let left = defectQty;
+        for (let i = 0; i < 3 && left > 0; i++) {
+         const q = i === 2 ? left : Math.max(1, Math.round(left * (0.3 + this.rnd() * 0.4)));
+         left -= q;
+         details.push({
+          Month: mon,
+          LotNo: `${prod === 'BmSC+③' ? 'BMJ' : 'BSJ'}${mon.replace('-', '')}${String(10 + i).padStart(2, '0')}`,
+          ProcessCode: pcode,
+          ProcessName: proc.name,
+          ProductName: prod,
+          DefectType: this.pick(types),
+          DefectQty: q,
+          Disposal: pcode === 'p05' ? '배치 파기' : (this.rnd() > 0.5 ? '재작업' : '폐기'),
+          Worker: this.pick(['김선영', '박준호', '이하늘', '정민재']),
+          Description: ''
+         });
+        }
+       });
+      });
+     });
+
+     return { lines, details, months };
+    }
+   };
+
+   /* ========================================================= */
+
+   class DefectRateKpiPage {
+    constructor() {
+     this.grid = null;
+     this.typeGrid = null;
+     this.chartTrend = null;
+     this.chartProc = null;
+     this.chartPareto = null;
+     this.viewData = new wijmo.collections.CollectionView();
+     this.typeView = new wijmo.collections.CollectionView();
+     this.data = { lines: [], details: [], months: [] };
+     this.init();
+    }
+
+    static num(v) {
+     const n = Number(String(v ?? '').replace(/,/g, ''));
+     return Number.isFinite(n) ? n : 0;
+    }
+    static fmtNum(v) { return DefectRateKpiPage.num(v).toLocaleString('ko-KR'); }
+    static rate(defect, inspect) {
+     return inspect > 0 ? Math.round(defect / inspect * 10000) / 100 : 0;
+    }
+    static monthStr(d) {
+     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    }
+
+    get target() {
+     const t = DefectRateKpiPage.num($('#txtTarget').val());
+     return t > 0 ? t : 1.5;
+    }
+
+    init() {
+     const _this = this;
+
+     this.initGrids();
+     this.initCharts();
+
+     $('#btnSearch').click(() => _this.search());
+     $('#cboProduct, #cboProcess').on('change', () => _this.search());
+     $('#txtTarget').on('change', () => _this.search());
+     $('#btnExcel').click(() => _this.exportExcel());
+     $('#btnPrint').click(() => window.print());
+
+     $('#procStrip').on('click', '.proc-cell', function () {
+      $('#cboProcess').val($(this).data('code'));
+      _this.search();
+     });
+    }
+
+    initGrids() {
+     const _this = this;
+
+     this.grid = new wijmo.grid.FlexGrid('#theGrid', {
+      selectionMode: wijmo.grid.SelectionMode.Row,
+      headersVisibility: wijmo.grid.HeadersVisibility.Column,
+      autoGenerateColumns: false,
+      showMarquee: true,
+      isReadOnly: true,
+      itemsSource: this.viewData,
+      columns: [
+       { binding: 'MonthLabel',   header: '월',       width: 70,  align: 'center' },
+       { binding: 'ProcessName',  header: '공정',     width: 90,  align: 'center' },
+       { binding: 'ProductName',  header: '제품군',   width: 110, align: 'center' },
+       { binding: 'LotCount',     header: '로트수',   width: 80,  align: 'right', format: 'n0' },
+       { binding: 'InspectQty',   header: '검사수량', width: 100, align: 'right', format: 'n0' },
+       { binding: 'DefectQty',    header: '불량수량', width: 100, align: 'right', format: 'n0' },
+       { binding: 'ScrapQty',     header: '파기수량', width: 100, align: 'right', format: 'n0' },
+       { binding: 'DefectRate',   header: '불량률(%)', width: 100, align: 'right', format: 'n2' },
+       { binding: 'TargetGap',    header: '목표차(%p)', width: 100, align: 'right', format: 'n2' },
+       { binding: 'Judge',        header: '판정',     width: 80,  align: 'center' },
+       { binding: 'Description',  header: '비고', width: '*' }
+      ]
+     });
+     new FlexGridContextMenu(this.grid);
+     this.grid.downloadFileName = 'KPI_공정불량률';
+
+     this.grid.formatItem.addHandler(function (s, e) {
+      if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+       e.cell.style.textAlign = 'center';
+       return;
+      }
+      if (e.panel.cellType !== wijmo.grid.CellType.Cell) return;
+      const item = s.rows[e.row]?.dataItem;
+      if (!item) return;
+      const b = s.columns[e.col].binding;
+
+      if (item.isTotal) {
+       e.cell.style.background = '#F4F6FA';
+       e.cell.style.fontWeight = 'bold';
+      }
+      if (b === 'DefectRate' || b === 'Judge') {
+       const over = DefectRateKpiPage.num(item.DefectRate) > _this.target;
+       e.cell.style.fontWeight = 'bold';
+       e.cell.style.color = over ? '#c0392b' : '#2e9e5b';
+      }
+      if (b === 'TargetGap') {
+       e.cell.style.color = DefectRateKpiPage.num(item.TargetGap) > 0 ? '#c0392b' : '#2e9e5b';
+      }
+     });
+
+     this.grid.hostElement.addEventListener('dblclick', function () {
+      const items = _this.grid.selectedItems;
+      if (!items.length || items[0].isTotal) return false;
+      _this.showDrill(items[0]);
+     });
+
+     this.typeGrid = new wijmo.grid.FlexGrid('#typeGrid', {
+      headersVisibility: wijmo.grid.HeadersVisibility.Column,
+      autoGenerateColumns: false,
+      isReadOnly: true,
+      itemsSource: this.typeView,
+      columns: [
+       { binding: 'DefectType',  header: '불량유형', width: '*', align: 'left' },
+       { binding: 'ProcessName', header: '주 발생공정', width: 100, align: 'center' },
+       { binding: 'DefectQty',   header: '수량', width: 80, align: 'right', format: 'n0' },
+       { binding: 'Share',       header: '비중(%)', width: 85, align: 'right', format: 'n1' },
+       { binding: 'Cumulative',  header: '누적(%)', width: 85, align: 'right', format: 'n1' }
+      ]
+     });
+     new FlexGridContextMenu(this.typeGrid);
+     this.typeGrid.downloadFileName = '불량유형집계';
+    }
+
+    initCharts() {
+     this.chartTrend = new wijmo.chart.FlexChart('#chartTrend', {
+      bindingX: 'label',
+      series: [
+       { name: '불량률', binding: 'rate', chartType: wijmo.chart.ChartType.Column },
+       { name: '목표', binding: 'target', chartType: wijmo.chart.ChartType.Line }
+      ],
+      legend: { position: wijmo.chart.Position.None },
+      palette: ['#1f5fbf', '#c0392b'],
+      axisY: { majorGrid: true, format: 'n2', title: '%' },
+      itemsSource: []
+     });
+
+     this.chartProc = new wijmo.chart.FlexPie('#chartProc', {
+      bindingName: 'label',
+      binding: 'value',
+      innerRadius: 0.5,
+      legend: { position: wijmo.chart.Position.Right },
+      palette: ['#1f5fbf', '#4A87D8', '#8FB2E8', '#2e9e5b', '#F0A741', '#c0392b'],
+      itemsSource: []
+     });
+
+     this.chartPareto = new wijmo.chart.FlexChart('#chartPareto', {
+      bindingX: 'label',
+      series: [
+       { name: '불량수량', binding: 'qty', chartType: wijmo.chart.ChartType.Column },
+       { name: '누적비중', binding: 'cum', chartType: wijmo.chart.ChartType.Line, axisY: { position: wijmo.chart.Position.Right, min: 0, max: 100, format: 'n0', title: '%' } }
+      ],
+      legend: { position: wijmo.chart.Position.Bottom },
+      palette: ['#8FB2E8', '#c0392b'],
+      axisY: { majorGrid: true, format: 'n0' },
+      itemsSource: []
+     });
+    }
+
+    search() {
+     const start = $('#srchStartMonth').val();
+     const end = $('#srchEndMonth').val();
+
+     if (!start || !end) { Alert.alert('', '조회기간을 입력하세요.'); return; }
+     if (start > end)    { Alert.alert('', '조회 시작월이 종료월보다 늦습니다.'); return; }
+
+     // 🔌 API 연동 시 이 부분만 AjaxUtil.getAsyncData(...)로 교체
+     this.data = MockData.fetch({
+      start, end,
+      product: $('#cboProduct').val(),
+      process: $('#cboProcess').val()
+     });
+
+     this.render();
+    }
+
+    render() {
+     const C = DefectRateKpiPage;
+     const lines = this.data.lines;
+
+     lines.forEach(r => {
+      r.DefectRate = C.rate(r.DefectQty, r.InspectQty);
+      r.TargetGap = Math.round((r.DefectRate - this.target) * 100) / 100;
+      r.Judge = r.DefectRate > this.target ? '초과' : '적합';
+     });
+
+     this.renderKpi(lines);
+     this.renderProcStrip(lines);
+     this.renderTrend(lines);
+     this.renderProcPie(lines);
+     this.renderTypes();
+     this.bindMainGrid(lines);
+    }
+
+    renderKpi(lines) {
+     const C = DefectRateKpiPage;
+     const inspect = lines.reduce((a, r) => a + r.InspectQty, 0);
+     const defect = lines.reduce((a, r) => a + r.DefectQty, 0);
+     const scrap = lines.reduce((a, r) => a + r.ScrapQty, 0);
+     const lots = lines.reduce((a, r) => a + r.LotCount, 0);
+     const rate = C.rate(defect, inspect);
+
+     $('#kpiInspect').text(C.fmtNum(inspect));
+     $('#kpiInspectSub').text(`투입 로트 ${C.fmtNum(lots)}건`);
+     $('#kpiDefect').text(C.fmtNum(defect));
+     $('#kpiDefectSub').text(`파기 ${C.fmtNum(scrap)}`);
+     $('#kpiRate').html(`${rate}<small>%</small>`);
+
+     // 전기간 대비: 첫 달 vs 마지막 달
+     const months = [...new Set(lines.map(r => r.Month))].sort();
+     const monthRate = (m) => {
+      const f = lines.filter(r => r.Month === m);
+      return C.rate(f.reduce((a, r) => a + r.DefectQty, 0), f.reduce((a, r) => a + r.InspectQty, 0));
+     };
+     if (months.length >= 2) {
+      const first = monthRate(months[0]);
+      const last = monthRate(months[months.length - 1]);
+      const diff = Math.round((last - first) * 100) / 100;
+      $('#kpiRateSub').text(
+       diff === 0 ? '기간 초 대비 변동 없음'
+        : `기간 초 대비 ${diff > 0 ? '▲' : '▼'} ${Math.abs(diff)}%p`
+      );
+     } else {
+      $('#kpiRateSub').text('전기간 대비 -');
+     }
+
+     const ok = rate <= this.target;
+     $('#kpiTarget')
+     .text(ok ? '달성' : '미달')
+     .css('color', ok ? '#2e9e5b' : '#c0392b');
+     const pct = this.target > 0 ? Math.min(100, Math.round(rate / this.target * 100)) : 0;
+     $('#kpiTargetBar')
+     .css('width', pct + '%')
+     .css('background', ok ? '#2e9e5b' : '#c0392b');
+
+     // 직행률: 공정 통과율의 곱
+     const procRates = PROCESSES.map(p => {
+      const f = lines.filter(r => r.ProcessCode === p.code);
+      if (!f.length) return 1;
+      return 1 - C.rate(f.reduce((a, r) => a + r.DefectQty, 0),
+       f.reduce((a, r) => a + r.InspectQty, 0)) / 100;
+     });
+     const fty = Math.round(procRates.reduce((a, b) => a * b, 1) * 1000) / 10;
+     $('#kpiFty').html(`${fty}<small>%</small>`);
+    }
+
+    renderProcStrip(lines) {
+     const C = DefectRateKpiPage;
+     const $strip = $('#procStrip').empty();
+     let worst = { name: '', rate: -1 };
+
+     PROCESSES.forEach(p => {
+      const f = lines.filter(r => r.ProcessCode === p.code);
+      const inspect = f.reduce((a, r) => a + r.InspectQty, 0);
+      const defect = f.reduce((a, r) => a + r.DefectQty, 0);
+      const rate = C.rate(defect, inspect);
+      if (rate > worst.rate) worst = { name: p.name, rate };
+
+      const cls = ['proc-cell', inspect === 0 ? '' : (rate > this.target ? 'is-over' : 'is-good')]
+      .join(' ').trim();
+
+      $strip.append(
+       `<div class="${cls}" data-code="${p.code}">` +
+       `<div class="p-name">${p.name}</div>` +
+       `<div class="p-code">${p.code}</div>` +
+       `<div class="p-rate">${inspect ? rate + '%' : '-'}</div>` +
+       `<div class="p-qty">${inspect ? C.fmtNum(defect) + ' / ' + C.fmtNum(inspect) : '&nbsp;'}</div>` +
+       '</div>'
+      );
+     });
+
+     $('#procSub').text(
+      worst.rate > 0 ? `최다 불량 공정: ${worst.name} ${worst.rate}% (목표 ${this.target}%)` : ''
+     );
+    }
+
+    renderTrend(lines) {
+     const C = DefectRateKpiPage;
+     const months = [...new Set(lines.map(r => r.Month))].sort();
+     this.chartTrend.itemsSource = months.map(m => {
+      const f = lines.filter(r => r.Month === m);
+      return {
+       label: `${Number(m.split('-')[1])}월`,
+       rate: C.rate(f.reduce((a, r) => a + r.DefectQty, 0), f.reduce((a, r) => a + r.InspectQty, 0)),
+       target: this.target
+      };
+     });
+    }
+
+    renderProcPie(lines) {
+     const src = PROCESSES.map(p => {
+      const f = lines.filter(r => r.ProcessCode === p.code);
+      return { label: p.name, value: f.reduce((a, r) => a + r.DefectQty, 0) };
+     }).filter(x => x.value > 0);
+     this.chartProc.itemsSource = src;
+    }
+
+    renderTypes() {
+     const C = DefectRateKpiPage;
+     const map = new Map();
+
+     this.data.details.forEach(d => {
+      const cur = map.get(d.DefectType) || { qty: 0, proc: new Map() };
+      cur.qty += d.DefectQty;
+      cur.proc.set(d.ProcessName, (cur.proc.get(d.ProcessName) || 0) + d.DefectQty);
+      map.set(d.DefectType, cur);
+     });
+
+     const total = [...map.values()].reduce((a, v) => a + v.qty, 0);
+     let cum = 0;
+
+     const rows = [...map.entries()]
+     .sort((a, b) => b[1].qty - a[1].qty)
+     .map(([type, v]) => {
+      const share = total > 0 ? Math.round(v.qty / total * 1000) / 10 : 0;
+      cum = Math.round((cum + share) * 10) / 10;
+      const mainProc = [...v.proc.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? '';
+      return { DefectType: type, ProcessName: mainProc, DefectQty: v.qty, Share: share, Cumulative: Math.min(100, cum) };
+     });
+
+     this.typeView.sourceCollection = rows;
+     $('#typeGridWrap').toggleClass('is-empty', rows.length === 0);
+
+     this.chartPareto.itemsSource = rows.slice(0, 8).map(r => ({
+      label: r.DefectType, qty: r.DefectQty, cum: r.Cumulative
+     }));
+    }
+
+    bindMainGrid(lines) {
+     const C = DefectRateKpiPage;
+     let rows = lines.slice().sort((a, b) =>
+      a.Month.localeCompare(b.Month) || a.ProcessCode.localeCompare(b.ProcessCode)
+     );
+
+     if (rows.length) {
+      const inspect = rows.reduce((a, r) => a + r.InspectQty, 0);
+      const defect = rows.reduce((a, r) => a + r.DefectQty, 0);
+      const rate = C.rate(defect, inspect);
+      rows = rows.concat([{
+       isTotal: true,
+       MonthLabel: '합계',
+       ProcessName: '', ProductName: '',
+       LotCount: rows.reduce((a, r) => a + r.LotCount, 0),
+       InspectQty: inspect,
+       DefectQty: defect,
+       ScrapQty: rows.reduce((a, r) => a + r.ScrapQty, 0),
+       DefectRate: rate,
+       TargetGap: Math.round((rate - this.target) * 100) / 100,
+       Judge: rate > this.target ? '초과' : '적합',
+       Description: ''
+      }]);
+     }
+
+     this.viewData.sourceCollection = rows;
+     $('#mainGridWrap').toggleClass('is-empty', rows.length === 0);
+    }
+
+    showDrill(row) {
+     const $content = $(tmpl('drillTemplate', {}));
+     const modal = new PopupDraggable(
+      `불량 상세 - ${row.MonthLabel} / ${row.ProcessName} / ${row.ProductName}`
+     );
+     modal.open({ width: 1050, height: 520, $content });
+
+     const src = this.data.details.filter(d =>
+      d.Month === row.Month && d.ProcessCode === row.ProcessCode && d.ProductName === row.ProductName
+     );
+
+     const grid = new wijmo.grid.FlexGrid($content.find('#drillGrid')[0], {
+      headersVisibility: wijmo.grid.HeadersVisibility.Column,
+      autoGenerateColumns: false,
+      isReadOnly: true,
+      columns: [
+       { binding: 'LotNo',       header: '로트번호', width: 150, align: 'center' },
+       { binding: 'ProcessName', header: '공정',     width: 90,  align: 'center' },
+       { binding: 'ProductName', header: '제품군',   width: 110, align: 'center' },
+       { binding: 'DefectType',  header: '불량유형', width: 160, align: 'left' },
+       { binding: 'DefectQty',   header: '불량수량', width: 90,  align: 'right', format: 'n0' },
+       { binding: 'Disposal',    header: '처리',     width: 90,  align: 'center' },
+       { binding: 'Worker',      header: '작업자',   width: 90,  align: 'center' },
+       { binding: 'Description', header: '비고', width: '*' }
+      ],
+      itemsSource: src
+     });
+     new FlexGridContextMenu(grid);
+     grid.downloadFileName = '불량상세';
+
+     $content.on('click', '#modal-close-button', () => modal.close());
+    }
+
+    exportExcel() {
+     if (!this.viewData.items || !this.viewData.items.length) {
+      Alert.alert('', '다운로드할 데이터가 없습니다.');
+      return;
+     }
+     wijmo.grid.xlsx.FlexGridXlsxConverter.saveAsync(
+      this.grid, { includeColumnHeaders: true },
+      `KPI_공정불량률_${$('#srchStartMonth').val()}_${$('#srchEndMonth').val()}.xlsx`
+     );
+    }
+   }
+
+   let page = null;
+
+   $(document).ready(function () {
+    const now = new Date();
+    const start = new Date(now); start.setMonth(start.getMonth() - 5);
+    $('#srchStartMonth').val(DefectRateKpiPage.monthStr(start));
+    $('#srchEndMonth').val(DefectRateKpiPage.monthStr(now));
+
+    page = new DefectRateKpiPage();
+    page.search();
+   });
+  </script>
+</th:block>
+<input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+</html><html layout:decorate="~{layout_page}">
+<head>
+  <style>
+      .srch-box select { min-width: 130px; }
+
+      .dash { display:flex; flex-direction:column; gap:14px; }
+
+      /* KPI 카드 */
+      .kpi-row { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; }
+      .kpi {
+          background:#fff; border:1px solid #E1E5EE; border-radius:6px;
+          padding:14px 16px; display:flex; flex-direction:column; gap:6px;
+          border-left:4px solid #C9D2E3;
+      }
+      .kpi .k-title { font-size:12px; color:#777; }
+      .kpi .k-value { font-size:24px; font-weight:700; color:#222; line-height:1.1; }
+      .kpi .k-value small { font-size:12px; font-weight:500; color:#999; margin-left:3px; }
+      .kpi .k-sub { font-size:11px; color:#999; }
+      .kpi.is-primary { border-left-color:#1f5fbf; } .kpi.is-primary .k-value { color:#1f5fbf; }
+      .kpi.is-warn { border-left-color:#c0392b; }   .kpi.is-warn .k-value { color:#c0392b; }
+      .kpi.is-good { border-left-color:#2e9e5b; }   .kpi.is-good .k-value { color:#2e9e5b; }
+
+      .gauge { height:6px; background:#EEF1F6; border-radius:3px; overflow:hidden; margin-top:2px; }
+      .gauge > i { display:block; height:100%; background:#2e9e5b; width:0; transition:width .4s; }
+
+      .panel-row { display:grid; grid-template-columns:2fr 1fr; gap:12px; }
+      .panel-row.thirds { grid-template-columns:1fr 1fr 1fr; }
+
+      .panel { background:#fff; border:1px solid #E1E5EE; border-radius:6px; display:flex; flex-direction:column; }
+      .panel > header {
+          display:flex; align-items:center; justify-content:space-between;
+          padding:10px 14px; border-bottom:1px solid #EEF1F6;
+      }
+      .panel > header h3 { font-size:13px; font-weight:700; color:#333; margin:0; }
+      .panel > header .p-sub { font-size:11px; color:#999; }
+      .panel > .p-body { padding:12px 14px; flex:1; min-height:0; }
+
+      /* 공정 카드 스트립 */
+      .proc-strip { display:grid; grid-template-columns:repeat(6,1fr); gap:8px; }
+      .proc-cell {
+          border:1px solid #E9EDF4; border-radius:5px; padding:10px 8px;
+          text-align:center; background:#FBFCFE; cursor:pointer;
+      }
+      .proc-cell:hover { background:#F2F7FF; border-color:#1f5fbf; }
+      .proc-cell .p-name { font-size:12px; font-weight:700; color:#555; }
+      .proc-cell .p-code { font-size:10px; color:#bbb; margin-bottom:6px; }
+      .proc-cell .p-rate { font-size:18px; font-weight:700; color:#222; }
+      .proc-cell .p-qty { font-size:11px; color:#888; }
+      .proc-cell.is-over .p-rate { color:#c0392b; }
+      .proc-cell.is-good .p-rate { color:#2e9e5b; }
+
+      .legend-dot {
+          display:inline-block; width:8px; height:8px; border-radius:2px; margin-right:4px;
+      }
+
+      #chartProc { height:240px; }
+      #chartTrend { height:240px; }
+      #chartPareto { height:230px; }
+      #typeGrid { height:230px; }
+
+      .grid-wrap { position:relative; }
+      .grid-empty {
+          position:absolute; left:0; right:0; top:60px; text-align:center;
+          color:#bbb; font-size:13px; pointer-events:none; display:none;
+      }
+      .grid-wrap.is-empty .grid-empty { display:block; }
+
+      .mock-badge {
+          display:inline-flex; align-items:center; height:22px; padding:0 8px;
+          margin-left:8px; border-radius:11px; background:#FFF4E5; border:1px solid #FFD8A8;
+          color:#b26a00; font-size:11px; font-weight:600;
+      }
+
+      @media (max-width:1400px) {
+          .kpi-row { grid-template-columns:repeat(3,1fr); }
+          .panel-row, .panel-row.thirds { grid-template-columns:1fr; }
+          .proc-strip { grid-template-columns:repeat(3,1fr); }
+      }
+  </style>
+</head>
+
+<th:block layout:fragment="content">
+  <div class="layout-contents">
+    <div class="page-title-wrap">
+      <div class="left">
+        <h2>KPI 공정불량률</h2>
+        <span class="mock-badge">샘플 데이터</span>
+        <a title="북마크" class="bookmark toggle">내 메뉴</a>
+      </div>
+      <ul class="page-navi">
+        <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+        <li>품질 관리</li>
+        <li>KPI 공정불량률</li>
+      </ul>
+    </div>
+
+    <section class="section">
+      <div class="section-top">
+        <div class="search-wrap">
+          <dl>
+            <dt>조회기간<span class="eq">*</span></dt>
+            <dd>
+              <ul class="date-box">
+                <li>
+                  <input type="month" id="srchStartMonth" name="srchStartMonth">
+                  <label for="srchStartMonth" class="hide">시작월</label>
+                </li>
+                <li>
+                  <input type="month" id="srchEndMonth" name="srchEndMonth">
+                  <label for="srchEndMonth" class="hide">종료월</label>
+                </li>
+              </ul>
+            </dd>
+          </dl>
+          <dl>
+            <dt><label for="cboProduct">제품군</label></dt>
+            <dd>
+              <div class="srch-box">
+                <select id="cboProduct" name="cboProduct">
+                  <option value="">전체</option>
+                  <option value="BSC+③A">BSC+③A</option>
+                  <option value="BSC+③">BSC+③</option>
+                  <option value="BmSC+③">BmSC+③</option>
+                  <option value="M-CELL">M-CELL</option>
+                </select>
+              </div>
+            </dd>
+          </dl>
+          <dl>
+            <dt><label for="cboProcess">공정</label></dt>
+            <dd>
+              <div class="srch-box">
+                <select id="cboProcess" name="cboProcess">
+                  <option value="">전체</option>
+                  <option value="p01">세척</option>
+                  <option value="p02">조립</option>
+                  <option value="p03">검사</option>
+                  <option value="p04">내포장</option>
+                  <option value="p05">멸균</option>
+                  <option value="p06">외포장</option>
+                </select>
+              </div>
+            </dd>
+          </dl>
+          <dl>
+            <dt><label for="txtTarget">목표 불량률(%)</label></dt>
+            <dd><input type="text" id="txtTarget" name="txtTarget" value="1.5" style="width:80px;text-align:right;"></dd>
+          </dl>
+          <dl>
+            <dt>&nbsp;</dt>
+            <dd>
+              <li>
+                <a class="btn btn-delete" title="검색" id="btnSearch">
+                  <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                  검색
+                </a>
+              </li>
+            </dd>
+          </dl>
+        </div>
+        <div class="button-wrap">
+          <ul>
+            <li><a class="btn" title="출력" id="btnPrint">출력</a></li>
+            <li>
+              <a class="btn btn-excell" title="엑셀 다운로드" id="btnExcel">
+                <img th:src="@{/images/icon/ico-plus.svg}" alt="엑셀 아이콘">
+                엑셀
+              </a>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="dash">
+
+        <!-- KPI -->
+        <div class="kpi-row">
+          <div class="kpi">
+            <div class="k-title">검사수량</div>
+            <div class="k-value" id="kpiInspect">0</div>
+            <div class="k-sub" id="kpiInspectSub">투입 로트 0건</div>
+          </div>
+          <div class="kpi is-warn">
+            <div class="k-title">불량수량</div>
+            <div class="k-value" id="kpiDefect">0</div>
+            <div class="k-sub" id="kpiDefectSub">파기 0</div>
+          </div>
+          <div class="kpi is-warn">
+            <div class="k-title">공정불량률</div>
+            <div class="k-value" id="kpiRate">0<small>%</small></div>
+            <div class="k-sub" id="kpiRateSub">전기간 대비 -</div>
+          </div>
+          <div class="kpi is-good">
+            <div class="k-title">목표 달성</div>
+            <div class="k-value" id="kpiTarget">-</div>
+            <div class="gauge"><i id="kpiTargetBar"></i></div>
+          </div>
+          <div class="kpi is-primary">
+            <div class="k-title">직행률(FTY)</div>
+            <div class="k-value" id="kpiFty">0<small>%</small></div>
+            <div class="k-sub">전 공정 무결 통과 비율</div>
+          </div>
+        </div>
+
+        <!-- 공정별 카드 -->
+        <div class="panel">
+          <header>
+            <h3>공정별 불량률</h3>
+            <span class="p-sub" id="procSub"></span>
+          </header>
+          <div class="p-body">
+            <div class="proc-strip" id="procStrip"></div>
+          </div>
+        </div>
+
+        <!-- 차트 -->
+        <div class="panel-row">
+          <div class="panel">
+            <header>
+              <h3>월별 불량률 추이</h3>
+              <span class="p-sub">
+                <span class="legend-dot" style="background:#1f5fbf;"></span>불량률
+                <span class="legend-dot" style="background:#c0392b;margin-left:8px;"></span>목표
+              </span>
+            </header>
+            <div class="p-body"><div id="chartTrend"></div></div>
+          </div>
+          <div class="panel">
+            <header><h3>공정별 불량 비중</h3></header>
+            <div class="p-body"><div id="chartProc"></div></div>
+          </div>
+        </div>
+
+        <!-- 불량유형 -->
+        <div class="panel-row">
+          <div class="panel">
+            <header>
+              <h3>불량유형 파레토</h3>
+              <span class="p-sub">상위 유형 누적 비중</span>
+            </header>
+            <div class="p-body"><div id="chartPareto"></div></div>
+          </div>
+          <div class="panel">
+            <header><h3>불량유형 집계</h3></header>
+            <div class="p-body grid-wrap" id="typeGridWrap">
+              <div id="typeGrid"></div>
+              <div class="grid-empty">조회된 데이터가 없습니다.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 상세 -->
+        <div class="panel">
+          <header>
+            <h3>공정 · 제품별 상세</h3>
+            <span class="p-sub">행 더블클릭 시 불량 상세</span>
+          </header>
+          <div class="p-body grid-wrap" id="mainGridWrap">
+            <div id="theGrid" style="height:320px;"></div>
+            <div class="grid-empty">조회된 데이터가 없습니다.</div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+  </div>
+
+  <!-- 상세 팝업 -->
+  <script type="text/x-tmpl" id="drillTemplate">
+    <style>
+      .content_wrap.popup { display:flex; flex-direction:column; height:100%; }
+      .table-wrap { flex:1; min-height:0; }
+      .popup-button { flex-shrink:0; padding:10px; background:#fff; border-top:1px solid #ddd; }
+    </style>
+    <div class="content_wrap popup">
+      <div class="table-wrap"><div id="drillGrid" style="height:100%;"></div></div>
+      <div class="popup-button">
+        <button type="button" class="btn-popup" id="modal-close-button">닫기</button>
+      </div>
+    </div>
+  </script>
+</th:block>
+
+<th:block layout:fragment="scripts">
+  <script type="text/javascript">
+
+   /* =========================================================
+      ⚠️ API 미연동 화면
+      아래 MockData 객체만 실제 API 호출로 교체하면 그대로 동작합니다.
+        MockData.fetch(params) → { lines, types, trend, prevRate }
+      ========================================================= */
+   const PROCESSES = [
+    { code: 'p01', name: '세척' },
+    { code: 'p02', name: '조립' },
+    { code: 'p03', name: '검사' },
+    { code: 'p04', name: '내포장' },
+    { code: 'p05', name: '멸균' },
+    { code: 'p06', name: '외포장' }
+   ];
+
+   const PRODUCTS = ['BSC+③A', 'BSC+③', 'BmSC+③', 'M-CELL'];
+
+   // 제품군별 라우팅 (M-CELL은 세척/멸균/외포장 없음)
+   const ROUTING = {
+    'BSC+③A': ['p01','p02','p03','p04','p05','p06'],
+    'BSC+③':  ['p01','p02','p03','p04','p05','p06'],
+    'BmSC+③': ['p01','p02','p03','p04','p05','p06'],
+    'M-CELL': ['p02','p03','p04']
+   };
+
+   const DEFECT_TYPES = {
+    p01: ['이물 잔류', '세척액 얼룩', '건조 불량'],
+    p02: ['오링 미삽입', '포트 결합불량', '상부 스크래치', '플로팅 이탈'],
+    p03: ['치수 불량', '누설(리크)', '외관 불량', '작동 불량'],
+    p04: ['블리스터 실링불량', '라벨 오부착', '멸균지 파손', '구성품 누락'],
+    p05: ['BI FAIL', '멸균지시라벨 미변색', '배치 온습도 이탈'],
+    p06: ['카톤 파손', '입수 오류', '바코드 인쇄불량']
+   };
+
+   const MockData = {
+    // 시드 기반 난수(재조회해도 같은 값)
+    seed: 20260716,
+    rnd() {
+     this.seed = (this.seed * 9301 + 49297) % 233280;
+     return this.seed / 233280;
+    },
+    pick(arr) { return arr[Math.floor(this.rnd() * arr.length)]; },
+
+    monthRange(startStr, endStr) {
+     const list = [];
+     const [sy, sm] = startStr.split('-').map(Number);
+     const [ey, em] = endStr.split('-').map(Number);
+     let y = sy, m = sm;
+     while (y < ey || (y === ey && m <= em)) {
+      list.push(`${y}-${String(m).padStart(2, '0')}`);
+      m++; if (m > 12) { m = 1; y++; }
+      if (list.length > 36) break;
+     }
+     return list;
+    },
+
+    fetch(params) {
+     this.seed = 20260716; // 매 조회마다 리셋 → 동일 조건이면 동일 결과
+     const months = this.monthRange(params.start, params.end);
+     const products = params.product ? [params.product] : PRODUCTS;
+
+     const lines = [];   // 공정 × 제품 × 월
+     const details = []; // 불량 상세
+
+     months.forEach(mon => {
+      products.forEach(prod => {
+       ROUTING[prod].forEach(pcode => {
+        if (params.process && params.process !== pcode) return;
+
+        const proc = PROCESSES.find(p => p.code === pcode);
+        const base = prod === 'M-CELL' ? 400 : 2600;
+        const inspectQty = Math.round(base * (0.7 + this.rnd() * 0.6));
+
+        // 공정 성격별 불량률 성향
+        const bias = { p01: 0.6, p02: 1.9, p03: 2.4, p04: 1.2, p05: 0.9, p06: 0.4 }[pcode];
+        const rate = Math.max(0.05, bias * (0.5 + this.rnd()));
+        const defectQty = Math.round(inspectQty * rate / 100);
+        const scrapQty = pcode === 'p05' ? defectQty : Math.round(defectQty * this.rnd() * 0.4);
+
+        lines.push({
+         Month: mon,
+         MonthLabel: `${Number(mon.split('-')[1])}월`,
+         ProcessCode: pcode,
+         ProcessName: proc.name,
+         ProductName: prod,
+         InspectQty: inspectQty,
+         DefectQty: defectQty,
+         ScrapQty: scrapQty,
+         LotCount: Math.max(1, Math.round(inspectQty / 300))
+        });
+
+        // 불량 상세(로트 단위)
+        const types = DEFECT_TYPES[pcode];
+        let left = defectQty;
+        for (let i = 0; i < 3 && left > 0; i++) {
+         const q = i === 2 ? left : Math.max(1, Math.round(left * (0.3 + this.rnd() * 0.4)));
+         left -= q;
+         details.push({
+          Month: mon,
+          LotNo: `${prod === 'BmSC+③' ? 'BMJ' : 'BSJ'}${mon.replace('-', '')}${String(10 + i).padStart(2, '0')}`,
+          ProcessCode: pcode,
+          ProcessName: proc.name,
+          ProductName: prod,
+          DefectType: this.pick(types),
+          DefectQty: q,
+          Disposal: pcode === 'p05' ? '배치 파기' : (this.rnd() > 0.5 ? '재작업' : '폐기'),
+          Worker: this.pick(['김선영', '박준호', '이하늘', '정민재']),
+          Description: ''
+         });
+        }
+       });
+      });
+     });
+
+     return { lines, details, months };
+    }
+   };
+
+   /* ========================================================= */
+
+   class DefectRateKpiPage {
+    constructor() {
+     this.grid = null;
+     this.typeGrid = null;
+     this.chartTrend = null;
+     this.chartProc = null;
+     this.chartPareto = null;
+     this.viewData = new wijmo.collections.CollectionView();
+     this.typeView = new wijmo.collections.CollectionView();
+     this.data = { lines: [], details: [], months: [] };
+     this.init();
+    }
+
+    static num(v) {
+     const n = Number(String(v ?? '').replace(/,/g, ''));
+     return Number.isFinite(n) ? n : 0;
+    }
+    static fmtNum(v) { return DefectRateKpiPage.num(v).toLocaleString('ko-KR'); }
+    static rate(defect, inspect) {
+     return inspect > 0 ? Math.round(defect / inspect * 10000) / 100 : 0;
+    }
+    static monthStr(d) {
+     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    }
+
+    get target() {
+     const t = DefectRateKpiPage.num($('#txtTarget').val());
+     return t > 0 ? t : 1.5;
+    }
+
+    init() {
+     const _this = this;
+
+     this.initGrids();
+     this.initCharts();
+
+     $('#btnSearch').click(() => _this.search());
+     $('#cboProduct, #cboProcess').on('change', () => _this.search());
+     $('#txtTarget').on('change', () => _this.search());
+     $('#btnExcel').click(() => _this.exportExcel());
+     $('#btnPrint').click(() => window.print());
+
+     $('#procStrip').on('click', '.proc-cell', function () {
+      $('#cboProcess').val($(this).data('code'));
+      _this.search();
+     });
+    }
+
+    initGrids() {
+     const _this = this;
+
+     this.grid = new wijmo.grid.FlexGrid('#theGrid', {
+      selectionMode: wijmo.grid.SelectionMode.Row,
+      headersVisibility: wijmo.grid.HeadersVisibility.Column,
+      autoGenerateColumns: false,
+      showMarquee: true,
+      isReadOnly: true,
+      itemsSource: this.viewData,
+      columns: [
+       { binding: 'MonthLabel',   header: '월',       width: 70,  align: 'center' },
+       { binding: 'ProcessName',  header: '공정',     width: 90,  align: 'center' },
+       { binding: 'ProductName',  header: '제품군',   width: 110, align: 'center' },
+       { binding: 'LotCount',     header: '로트수',   width: 80,  align: 'right', format: 'n0' },
+       { binding: 'InspectQty',   header: '검사수량', width: 100, align: 'right', format: 'n0' },
+       { binding: 'DefectQty',    header: '불량수량', width: 100, align: 'right', format: 'n0' },
+       { binding: 'ScrapQty',     header: '파기수량', width: 100, align: 'right', format: 'n0' },
+       { binding: 'DefectRate',   header: '불량률(%)', width: 100, align: 'right', format: 'n2' },
+       { binding: 'TargetGap',    header: '목표차(%p)', width: 100, align: 'right', format: 'n2' },
+       { binding: 'Judge',        header: '판정',     width: 80,  align: 'center' },
+       { binding: 'Description',  header: '비고', width: '*' }
+      ]
+     });
+     new FlexGridContextMenu(this.grid);
+     this.grid.downloadFileName = 'KPI_공정불량률';
+
+     this.grid.formatItem.addHandler(function (s, e) {
+      if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+       e.cell.style.textAlign = 'center';
+       return;
+      }
+      if (e.panel.cellType !== wijmo.grid.CellType.Cell) return;
+      const item = s.rows[e.row]?.dataItem;
+      if (!item) return;
+      const b = s.columns[e.col].binding;
+
+      if (item.isTotal) {
+       e.cell.style.background = '#F4F6FA';
+       e.cell.style.fontWeight = 'bold';
+      }
+      if (b === 'DefectRate' || b === 'Judge') {
+       const over = DefectRateKpiPage.num(item.DefectRate) > _this.target;
+       e.cell.style.fontWeight = 'bold';
+       e.cell.style.color = over ? '#c0392b' : '#2e9e5b';
+      }
+      if (b === 'TargetGap') {
+       e.cell.style.color = DefectRateKpiPage.num(item.TargetGap) > 0 ? '#c0392b' : '#2e9e5b';
+      }
+     });
+
+     this.grid.hostElement.addEventListener('dblclick', function () {
+      const items = _this.grid.selectedItems;
+      if (!items.length || items[0].isTotal) return false;
+      _this.showDrill(items[0]);
+     });
+
+     this.typeGrid = new wijmo.grid.FlexGrid('#typeGrid', {
+      headersVisibility: wijmo.grid.HeadersVisibility.Column,
+      autoGenerateColumns: false,
+      isReadOnly: true,
+      itemsSource: this.typeView,
+      columns: [
+       { binding: 'DefectType',  header: '불량유형', width: '*', align: 'left' },
+       { binding: 'ProcessName', header: '주 발생공정', width: 100, align: 'center' },
+       { binding: 'DefectQty',   header: '수량', width: 80, align: 'right', format: 'n0' },
+       { binding: 'Share',       header: '비중(%)', width: 85, align: 'right', format: 'n1' },
+       { binding: 'Cumulative',  header: '누적(%)', width: 85, align: 'right', format: 'n1' }
+      ]
+     });
+     new FlexGridContextMenu(this.typeGrid);
+     this.typeGrid.downloadFileName = '불량유형집계';
+    }
+
+    initCharts() {
+     this.chartTrend = new wijmo.chart.FlexChart('#chartTrend', {
+      bindingX: 'label',
+      series: [
+       { name: '불량률', binding: 'rate', chartType: wijmo.chart.ChartType.Column },
+       { name: '목표', binding: 'target', chartType: wijmo.chart.ChartType.Line }
+      ],
+      legend: { position: wijmo.chart.Position.None },
+      palette: ['#1f5fbf', '#c0392b'],
+      axisY: { majorGrid: true, format: 'n2', title: '%' },
+      itemsSource: []
+     });
+
+     this.chartProc = new wijmo.chart.FlexPie('#chartProc', {
+      bindingName: 'label',
+      binding: 'value',
+      innerRadius: 0.5,
+      legend: { position: wijmo.chart.Position.Right },
+      palette: ['#1f5fbf', '#4A87D8', '#8FB2E8', '#2e9e5b', '#F0A741', '#c0392b'],
+      itemsSource: []
+     });
+
+     this.chartPareto = new wijmo.chart.FlexChart('#chartPareto', {
+      bindingX: 'label',
+      series: [
+       { name: '불량수량', binding: 'qty', chartType: wijmo.chart.ChartType.Column },
+       { name: '누적비중', binding: 'cum', chartType: wijmo.chart.ChartType.Line, axisY: { position: wijmo.chart.Position.Right, min: 0, max: 100, format: 'n0', title: '%' } }
+      ],
+      legend: { position: wijmo.chart.Position.Bottom },
+      palette: ['#8FB2E8', '#c0392b'],
+      axisY: { majorGrid: true, format: 'n0' },
+      itemsSource: []
+     });
+    }
+
+    search() {
+     const start = $('#srchStartMonth').val();
+     const end = $('#srchEndMonth').val();
+
+     if (!start || !end) { Alert.alert('', '조회기간을 입력하세요.'); return; }
+     if (start > end)    { Alert.alert('', '조회 시작월이 종료월보다 늦습니다.'); return; }
+
+     // 🔌 API 연동 시 이 부분만 AjaxUtil.getAsyncData(...)로 교체
+     this.data = MockData.fetch({
+      start, end,
+      product: $('#cboProduct').val(),
+      process: $('#cboProcess').val()
+     });
+
+     this.render();
+    }
+
+    render() {
+     const C = DefectRateKpiPage;
+     const lines = this.data.lines;
+
+     lines.forEach(r => {
+      r.DefectRate = C.rate(r.DefectQty, r.InspectQty);
+      r.TargetGap = Math.round((r.DefectRate - this.target) * 100) / 100;
+      r.Judge = r.DefectRate > this.target ? '초과' : '적합';
+     });
+
+     this.renderKpi(lines);
+     this.renderProcStrip(lines);
+     this.renderTrend(lines);
+     this.renderProcPie(lines);
+     this.renderTypes();
+     this.bindMainGrid(lines);
+    }
+
+    renderKpi(lines) {
+     const C = DefectRateKpiPage;
+     const inspect = lines.reduce((a, r) => a + r.InspectQty, 0);
+     const defect = lines.reduce((a, r) => a + r.DefectQty, 0);
+     const scrap = lines.reduce((a, r) => a + r.ScrapQty, 0);
+     const lots = lines.reduce((a, r) => a + r.LotCount, 0);
+     const rate = C.rate(defect, inspect);
+
+     $('#kpiInspect').text(C.fmtNum(inspect));
+     $('#kpiInspectSub').text(`투입 로트 ${C.fmtNum(lots)}건`);
+     $('#kpiDefect').text(C.fmtNum(defect));
+     $('#kpiDefectSub').text(`파기 ${C.fmtNum(scrap)}`);
+     $('#kpiRate').html(`${rate}<small>%</small>`);
+
+     // 전기간 대비: 첫 달 vs 마지막 달
+     const months = [...new Set(lines.map(r => r.Month))].sort();
+     const monthRate = (m) => {
+      const f = lines.filter(r => r.Month === m);
+      return C.rate(f.reduce((a, r) => a + r.DefectQty, 0), f.reduce((a, r) => a + r.InspectQty, 0));
+     };
+     if (months.length >= 2) {
+      const first = monthRate(months[0]);
+      const last = monthRate(months[months.length - 1]);
+      const diff = Math.round((last - first) * 100) / 100;
+      $('#kpiRateSub').text(
+       diff === 0 ? '기간 초 대비 변동 없음'
+        : `기간 초 대비 ${diff > 0 ? '▲' : '▼'} ${Math.abs(diff)}%p`
+      );
+     } else {
+      $('#kpiRateSub').text('전기간 대비 -');
+     }
+
+     const ok = rate <= this.target;
+     $('#kpiTarget')
+     .text(ok ? '달성' : '미달')
+     .css('color', ok ? '#2e9e5b' : '#c0392b');
+     const pct = this.target > 0 ? Math.min(100, Math.round(rate / this.target * 100)) : 0;
+     $('#kpiTargetBar')
+     .css('width', pct + '%')
+     .css('background', ok ? '#2e9e5b' : '#c0392b');
+
+     // 직행률: 공정 통과율의 곱
+     const procRates = PROCESSES.map(p => {
+      const f = lines.filter(r => r.ProcessCode === p.code);
+      if (!f.length) return 1;
+      return 1 - C.rate(f.reduce((a, r) => a + r.DefectQty, 0),
+       f.reduce((a, r) => a + r.InspectQty, 0)) / 100;
+     });
+     const fty = Math.round(procRates.reduce((a, b) => a * b, 1) * 1000) / 10;
+     $('#kpiFty').html(`${fty}<small>%</small>`);
+    }
+
+    renderProcStrip(lines) {
+     const C = DefectRateKpiPage;
+     const $strip = $('#procStrip').empty();
+     let worst = { name: '', rate: -1 };
+
+     PROCESSES.forEach(p => {
+      const f = lines.filter(r => r.ProcessCode === p.code);
+      const inspect = f.reduce((a, r) => a + r.InspectQty, 0);
+      const defect = f.reduce((a, r) => a + r.DefectQty, 0);
+      const rate = C.rate(defect, inspect);
+      if (rate > worst.rate) worst = { name: p.name, rate };
+
+      const cls = ['proc-cell', inspect === 0 ? '' : (rate > this.target ? 'is-over' : 'is-good')]
+      .join(' ').trim();
+
+      $strip.append(
+       `<div class="${cls}" data-code="${p.code}">` +
+       `<div class="p-name">${p.name}</div>` +
+       `<div class="p-code">${p.code}</div>` +
+       `<div class="p-rate">${inspect ? rate + '%' : '-'}</div>` +
+       `<div class="p-qty">${inspect ? C.fmtNum(defect) + ' / ' + C.fmtNum(inspect) : '&nbsp;'}</div>` +
+       '</div>'
+      );
+     });
+
+     $('#procSub').text(
+      worst.rate > 0 ? `최다 불량 공정: ${worst.name} ${worst.rate}% (목표 ${this.target}%)` : ''
+     );
+    }
+
+    renderTrend(lines) {
+     const C = DefectRateKpiPage;
+     const months = [...new Set(lines.map(r => r.Month))].sort();
+     this.chartTrend.itemsSource = months.map(m => {
+      const f = lines.filter(r => r.Month === m);
+      return {
+       label: `${Number(m.split('-')[1])}월`,
+       rate: C.rate(f.reduce((a, r) => a + r.DefectQty, 0), f.reduce((a, r) => a + r.InspectQty, 0)),
+       target: this.target
+      };
+     });
+    }
+
+    renderProcPie(lines) {
+     const src = PROCESSES.map(p => {
+      const f = lines.filter(r => r.ProcessCode === p.code);
+      return { label: p.name, value: f.reduce((a, r) => a + r.DefectQty, 0) };
+     }).filter(x => x.value > 0);
+     this.chartProc.itemsSource = src;
+    }
+
+    renderTypes() {
+     const C = DefectRateKpiPage;
+     const map = new Map();
+
+     this.data.details.forEach(d => {
+      const cur = map.get(d.DefectType) || { qty: 0, proc: new Map() };
+      cur.qty += d.DefectQty;
+      cur.proc.set(d.ProcessName, (cur.proc.get(d.ProcessName) || 0) + d.DefectQty);
+      map.set(d.DefectType, cur);
+     });
+
+     const total = [...map.values()].reduce((a, v) => a + v.qty, 0);
+     let cum = 0;
+
+     const rows = [...map.entries()]
+     .sort((a, b) => b[1].qty - a[1].qty)
+     .map(([type, v]) => {
+      const share = total > 0 ? Math.round(v.qty / total * 1000) / 10 : 0;
+      cum = Math.round((cum + share) * 10) / 10;
+      const mainProc = [...v.proc.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? '';
+      return { DefectType: type, ProcessName: mainProc, DefectQty: v.qty, Share: share, Cumulative: Math.min(100, cum) };
+     });
+
+     this.typeView.sourceCollection = rows;
+     $('#typeGridWrap').toggleClass('is-empty', rows.length === 0);
+
+     this.chartPareto.itemsSource = rows.slice(0, 8).map(r => ({
+      label: r.DefectType, qty: r.DefectQty, cum: r.Cumulative
+     }));
+    }
+
+    bindMainGrid(lines) {
+     const C = DefectRateKpiPage;
+     let rows = lines.slice().sort((a, b) =>
+      a.Month.localeCompare(b.Month) || a.ProcessCode.localeCompare(b.ProcessCode)
+     );
+
+     if (rows.length) {
+      const inspect = rows.reduce((a, r) => a + r.InspectQty, 0);
+      const defect = rows.reduce((a, r) => a + r.DefectQty, 0);
+      const rate = C.rate(defect, inspect);
+      rows = rows.concat([{
+       isTotal: true,
+       MonthLabel: '합계',
+       ProcessName: '', ProductName: '',
+       LotCount: rows.reduce((a, r) => a + r.LotCount, 0),
+       InspectQty: inspect,
+       DefectQty: defect,
+       ScrapQty: rows.reduce((a, r) => a + r.ScrapQty, 0),
+       DefectRate: rate,
+       TargetGap: Math.round((rate - this.target) * 100) / 100,
+       Judge: rate > this.target ? '초과' : '적합',
+       Description: ''
+      }]);
+     }
+
+     this.viewData.sourceCollection = rows;
+     $('#mainGridWrap').toggleClass('is-empty', rows.length === 0);
+    }
+
+    showDrill(row) {
+     const $content = $(tmpl('drillTemplate', {}));
+     const modal = new PopupDraggable(
+      `불량 상세 - ${row.MonthLabel} / ${row.ProcessName} / ${row.ProductName}`
+     );
+     modal.open({ width: 1050, height: 520, $content });
+
+     const src = this.data.details.filter(d =>
+      d.Month === row.Month && d.ProcessCode === row.ProcessCode && d.ProductName === row.ProductName
+     );
+
+     const grid = new wijmo.grid.FlexGrid($content.find('#drillGrid')[0], {
+      headersVisibility: wijmo.grid.HeadersVisibility.Column,
+      autoGenerateColumns: false,
+      isReadOnly: true,
+      columns: [
+       { binding: 'LotNo',       header: '로트번호', width: 150, align: 'center' },
+       { binding: 'ProcessName', header: '공정',     width: 90,  align: 'center' },
+       { binding: 'ProductName', header: '제품군',   width: 110, align: 'center' },
+       { binding: 'DefectType',  header: '불량유형', width: 160, align: 'left' },
+       { binding: 'DefectQty',   header: '불량수량', width: 90,  align: 'right', format: 'n0' },
+       { binding: 'Disposal',    header: '처리',     width: 90,  align: 'center' },
+       { binding: 'Worker',      header: '작업자',   width: 90,  align: 'center' },
+       { binding: 'Description', header: '비고', width: '*' }
+      ],
+      itemsSource: src
+     });
+     new FlexGridContextMenu(grid);
+     grid.downloadFileName = '불량상세';
+
+     $content.on('click', '#modal-close-button', () => modal.close());
+    }
+
+    exportExcel() {
+     if (!this.viewData.items || !this.viewData.items.length) {
+      Alert.alert('', '다운로드할 데이터가 없습니다.');
+      return;
+     }
+     wijmo.grid.xlsx.FlexGridXlsxConverter.saveAsync(
+      this.grid, { includeColumnHeaders: true },
+      `KPI_공정불량률_${$('#srchStartMonth').val()}_${$('#srchEndMonth').val()}.xlsx`
+     );
+    }
+   }
+
+   let page = null;
+
+   $(document).ready(function () {
+    const now = new Date();
+    const start = new Date(now); start.setMonth(start.getMonth() - 5);
+    $('#srchStartMonth').val(DefectRateKpiPage.monthStr(start));
+    $('#srchEndMonth').val(DefectRateKpiPage.monthStr(now));
+
+    page = new DefectRateKpiPage();
+    page.search();
+   });
+  </script>
+</th:block>
+<input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+</html>

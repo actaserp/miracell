@@ -157,11 +157,6 @@
       @media (prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important}}
 
       /* ── 스캔 시트(단순화) ── */
-      .scanbox2{position:relative;height:150px;border-radius:16px;border:2px dashed var(--line);
-          background:var(--surface-2);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px}
-      .scanbox2 .scanbar{width:130px;height:52px;border-radius:4px;
-          background:repeating-linear-gradient(90deg,var(--ink) 0 2px,transparent 2px 4px,var(--ink) 4px 5px,transparent 5px 9px,var(--ink) 9px 12px,transparent 12px 13px)}
-      .scanbox2 .scanhint{font-size:13px;font-weight:700;color:var(--ink-2);text-align:center;padding:0 12px}
       .scancount{text-align:center;margin:16px 0 2px;font-weight:800;font-variant-numeric:tabular-nums}
       .scancount #scanCount{font-size:38px;color:var(--teal-d)}
       .scancount .cslash{font-size:22px;color:var(--ink-2);margin:0 4px}
@@ -298,10 +293,6 @@
   <!-- 박스 라벨 스캔 시트(단순화) -->
   <div class="mask" id="scanMask"><div class="sheet"><div class="body">
     <div class="sh"><h3>박스 라벨 스캔</h3><button class="x" data-close>✕</button></div>
-    <div class="scanbox2">
-      <div class="scanbar"></div>
-      <div class="scanhint" id="scanHint">「📷 박스 스캔」을 눌러 박스를 하나씩 인식하세요</div>
-    </div>
     <div class="scancount"><span id="scanCount">0</span><span class="cslash">/</span><span id="scanTotal">0</span><span class="csub">박스</span></div>
     <div class="scanlots" id="scanLots"></div>
     <div class="scan-actions">
@@ -860,9 +851,9 @@
     // ③ 포장 자재 (자동 투입 · 수량 수정 가능) — 스캔 시 BOM 필요수량 자동 채움, 이후 조정 가능
     var mc = mcellMatCount(curO.region);
     html += '<div class="secline">③ ' + (curO.region === 'ovs' ? '수출용' : '내수용') + ' 포장 자재 (자동 투입 · 수정 가능) <span class="ln"></span><span>' + mc.done + ' / ' + mc.total + '</span></div>';
-   /* if (scanned === 0) {
-     html += '<div class="autonote">📦 박스 라벨을 스캔하면 스캔한 박스 수만큼 BOM 필요수량이 자동 투입됩니다. 이후 ＋/− 또는 숫자를 눌러 수량을 수정할 수 있습니다.</div>';
-    }*/
+    /* if (scanned === 0) {
+      html += '<div class="autonote">📦 박스 라벨을 스캔하면 스캔한 박스 수만큼 BOM 필요수량이 자동 투입됩니다. 이후 ＋/− 또는 숫자를 눌러 수량을 수정할 수 있습니다.</div>';
+     }*/
     rb.mats.forEach(function (m) {
      var per = m.qty || 1;
      var need = per * (curS.outbox || 0);
@@ -1025,14 +1016,6 @@
     document.getElementById('scanLots').innerHTML = boxes.map(function (b, i) {
      return '<div class="lotrow"><span class="k">' + (i + 1) + '</span><span class="lv">' + (b.lot || '-') + '</span></div>';
     }).join('');
-
-    // 안내 문구 대신 최근 스캔 로트를 보여줌
-    var hint = document.getElementById('scanHint');
-    if (n === 0) {
-     hint.textContent = '「📷 박스 스캔」을 눌러 박스를 하나씩 인식하세요 (박스마다 로트가 다릅니다)';
-    } else {
-     hint.innerHTML = '최근 스캔 <b style="color:var(--ink);font-size:15px">' + (boxes[n - 1].lot || '-') + '</b> · ' + n + ' / ' + N;
-    }
    }
 
    // 스캔한 박스 수만큼 포장 자재를 BOM 필요수량으로 자동 채움(수동 투입 대체)
