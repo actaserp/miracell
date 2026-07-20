@@ -167,7 +167,7 @@
         <div class="tab-wrap" style="height: 30vh;">
             <ul class="tab-links">
                 <li><a href="#tabJobRes">제품 지시내역</a></li>
-                <li><a href="#tabSemi">반제품 작업지시</a></li>
+                <li><a href="#tabSemi" style="display: none;">반제품 작업지시</a></li>
                 <li><a href="#tabConsumed">반제품 지시내역</a></li>
             </ul>
             <div>
@@ -417,7 +417,7 @@
                         {binding: 'DueDate', header: '납기일', width: 100, align: 'center', isReadOnly: true},
                         {binding: 'CompanyName', header: '판매처', width: 120, align: 'left', isReadOnly: true},
                         {binding: 'fac_name', header: '공장', width: 80, align: 'center', isReadOnly: true},
-                        {binding: 'mat_name', header: '제품명', width: 180, align: 'left', isReadOnly: true},
+                        {binding: 'mat_name', header: '제품명', width: 300, align: 'left', isReadOnly: true},
                         {binding: 'unit_name', header: '단위', width: 60, align: 'center', isReadOnly: true},
                         {binding: 'Standard', header: '규격', width: 60, align: 'center', isReadOnly: true},
                         {binding: 'SujuQty', header: '수주량', width: 80, align: 'right', isReadOnly: true},
@@ -789,7 +789,7 @@
                         {binding: 'group_name', header: '제품그룹', width: 140, isReadOnly: true, align: 'center'},
                         {binding: 'mat_pk', header: '제품pk', visible: false, isReadOnly: true},
                         {binding: 'mat_code', header: '제품코드', width: 120, align: 'center', isReadOnly: true},
-                        {binding: 'mat_name', header: '제품명', width: 120, isReadOnly: true, align: 'left'},
+                        {binding: 'mat_name', header: '제품명', width: 220, isReadOnly: true, align: 'left'},
                         {binding: 'unit_name', header: '단위', width: 120, isReadOnly: true, align: 'center'},
                         {binding: 'order_qty', header: '필요량', width: 120, align: 'right', format: 'n2', isReadOnly: true},
                         {binding: 'ordered_qty', header: '기지시량', width: 120, align: 'right', format: 'n2', isReadOnly: true},
@@ -917,7 +917,7 @@
                         {binding: 'CompanyName', header: '판매처', width: 170, align: 'left'},
                         {binding: 'ShiftName', header: '근무조', width: 120, align: 'center'},
                         {binding: 'mat_code', header: '제품코드', width: 120, align: 'center'},
-                        {binding: 'mat_name', header: '제품명', width: 200, align: 'left'},
+                        {binding: 'mat_name', header: '제품명', width: 300, align: 'left'},
                         {binding: 'standard', header: '규격', width: 100, align: 'center'},
                         {binding: 'OrderQty', header: '지시량', width: 100, align: 'right'},
                         {binding: 'WorkcenterName', header: '워크센터', width: 120, align: 'center'},
@@ -1075,7 +1075,7 @@
                         {binding: 'ProductionDate', header: '생산일', width: 120, align: 'center'},
                         {binding: 'ShiftName', header: '근무조', width: 120, align: 'center'},
                         {binding: 'mat_code', header: '제품코드', width: 120, align: 'center'},
-                        {binding: 'mat_name', header: '제품명', width: 200, align: 'left'},
+                        {binding: 'mat_name', header: '제품명', width: 300, align: 'left'},
                         {binding: 'unit_name', header: '단위', width: 100, align: 'center'},
                         {binding: 'OrderQty', header: '지시량', width: 100, align: 'right'},
                         {binding: 'WorkcenterName', header: '워크센터', width: 120, align: 'center'},

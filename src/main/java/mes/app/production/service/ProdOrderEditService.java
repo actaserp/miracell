@@ -38,11 +38,11 @@ public class ProdOrderEditService {
 	SujuRepository sujuRepository;
 	@Autowired
 	NotificationController_modal notificationController_modal;
-	
+
 	// 수주 목록 조회
 	public List<Map<String, Object>> getSujuList(String date_kind, String start, String end, Integer mat_group, String mat_name,
-																							 String not_flag, String spjangcd, Integer cboFactory, String company) {
-		
+												 String not_flag, String spjangcd, Integer cboFactory, String company) {
+
 		MapSqlParameterSource dicParam = new MapSqlParameterSource();
 		dicParam.addValue("start", Timestamp.valueOf(start + " 00:00:00"));
 		dicParam.addValue("end", Timestamp.valueOf(end + " 23:59:59"));
@@ -50,13 +50,13 @@ public class ProdOrderEditService {
 		dicParam.addValue("mat_name", mat_name);
 		dicParam.addValue("cboFactory", cboFactory);
 		dicParam.addValue("spjangcd", spjangcd);
-		
+
 		if (StringUtils.isEmpty(date_kind)) {
 			date_kind = "sales";
 		}
-		
+
 		// 수주에서 수주량-예약량 = 수주량2(필요량)
-        String sql = """
+		String sql = """
         		with s as (
 	                select s.id, s."JumunDate", s."DueDate", s."JumunNumber"
 	                , s."CompanyName"
@@ -88,34 +88,34 @@ public class ProdOrderEditService {
 	                and s.spjangcd = :spjangcd
         		""";
 //        and s.confirm = '1'
-        if ("suju_date".equals(date_kind)) {
-        	sql += " and s.\"JumunDate\" between :start and :end ";
-        } else {
-            sql += " and s.\"DueDate\" between :start and :end ";
-        }
+		if ("suju_date".equals(date_kind)) {
+			sql += " and s.\"JumunDate\" between :start and :end ";
+		} else {
+			sql += " and s.\"DueDate\" between :start and :end ";
+		}
 
-				if (StringUtils.isEmpty(company) == false) {
-					sql += " and s.\"CompanyName\" like :company ";
-					dicParam.addValue("company", "%" + company + "%");
-				}
+		if (StringUtils.isEmpty(company) == false) {
+			sql += " and s.\"CompanyName\" like :company ";
+			dicParam.addValue("company", "%" + company + "%");
+		}
 
-				if (cboFactory != null) {
-					sql += " and m.\"Factory_id\" = :cboFactory ";
-				}
-        
-        if (mat_group != null) {
-        	sql += " and mg.id = :mat_group ";
-        }
-        
-        if (StringUtils.isEmpty(mat_name) == false) {
-        	sql += """
+		if (cboFactory != null) {
+			sql += " and m.\"Factory_id\" = :cboFactory ";
+		}
+
+		if (mat_group != null) {
+			sql += " and mg.id = :mat_group ";
+		}
+
+		if (StringUtils.isEmpty(mat_name) == false) {
+			sql += """
         			and ( upper(m."Name") like concat('%%',upper(:mat_name),'%%')
 	                or upper(m."Code") = upper(:mat_name)
 	                )
         			""";
-        }
-        
-        sql += """
+		}
+
+		sql += """
         		)
 	            , q as (
 	                select s.id as suju_id
@@ -157,27 +157,27 @@ public class ProdOrderEditService {
 	            where 1 = 1
         		""";
 
-        if (StringUtils.isEmpty(not_flag) == false) {
-        	sql += "  and (s.\"SujuQty2\"- coalesce (q.ordered_qty,0)) > 0 ";
-        } 
+		if (StringUtils.isEmpty(not_flag) == false) {
+			sql += "  and (s.\"SujuQty2\"- coalesce (q.ordered_qty,0)) > 0 ";
+		}
 
-        if ("suju_date".equals(date_kind)) {
-        	sql += " order by s.\"DueDate\" desc, s.\"JumunNumber\" desc ";
-        } else {
-            sql += " order by s.\"JumunDate\" desc, s.\"JumunNumber\" desc ";
-        }
-        		
-        List<Map<String, Object>> items = this.sqlRunner.getRows(sql, dicParam);
-        
-        return items;
+		if ("suju_date".equals(date_kind)) {
+			sql += " order by s.\"DueDate\" desc, s.\"JumunNumber\" desc ";
+		} else {
+			sql += " order by s.\"JumunDate\" desc, s.\"JumunNumber\" desc ";
+		}
+
+		List<Map<String, Object>> items = this.sqlRunner.getRows(sql, dicParam);
+
+		return items;
 	}
-	
+
 	// 제품 지시내역 조회
 	public List<Map<String, Object>> getJobOrderList(Integer suju_id) {
-		
+
 		MapSqlParameterSource dicParam = new MapSqlParameterSource();
 		dicParam.addValue("suju_id", suju_id);
-		
+
 		String sql = """
 			select jr.id
 			, jr."WorkOrderNumber"
@@ -236,10 +236,10 @@ public class ProdOrderEditService {
 
 	// 제품 지시내역 상세조회
 	public Map<String, Object> getJobOrderDetail(Integer jobres_id) {
-		
+
 		MapSqlParameterSource dicParam = new MapSqlParameterSource();
 		dicParam.addValue("jobres_id", jobres_id);
-		
+
 		String sql = """
 				select jr.id
 	            , jr."WorkOrderNumber"
@@ -262,21 +262,21 @@ public class ProdOrderEditService {
 	            left join work_center wc on wc.id = jr."WorkCenter_id"
 	            where jr.id = :jobres_id
 			""";
-		
+
 		Map<String, Object> item = this.sqlRunner.getRow(sql, dicParam);
 
 		return item;
 	}
-	
+
 	// 반제품 작업지시 조회
 	public List<Map<String, Object>> getSemiList(String data_date, Integer mat_pk, Double suju_qty, Integer suju_pk) {
-		
+
 		MapSqlParameterSource dicParam = new MapSqlParameterSource();
 		dicParam.addValue("data_date", data_date);
 		dicParam.addValue("mat_pk", mat_pk.toString());
 		dicParam.addValue("mat_order_qty", suju_qty);
 		dicParam.addValue("suju_pk", suju_pk);
-		
+
 		String sql = """
 				with A as (
 	                select m.id as mat_pk
@@ -317,13 +317,14 @@ public class ProdOrderEditService {
 
 		return items;
 	}
-	
-	// 반제품 지시내역 조회
+
+	// 반제품 지시내역 조회 — 완제품 작지(헤더)의 반제품 자식들
+	//   자식은 SourceDataPk 가 없고 Parent_id 로만 연결되므로, 헤더(수주 연결)를 통해 조회한다.
 	public List<Map<String, Object>> getSemiJoborderList(Integer suju_id) {
-		
+
 		MapSqlParameterSource dicParam = new MapSqlParameterSource();
 		dicParam.addValue("suju_id", suju_id);
-		
+
 		String sql = """
 				select jr.id
 	            , jr."WorkOrderNumber"
@@ -334,6 +335,7 @@ public class ProdOrderEditService {
 	            , m."Name" as mat_name
 	            , u."Name" as unit_name
 	            , jr."OrderQty" as "OrderQty"
+	            , jr."WorkIndex"
 	            , jr."WorkCenter_id" 
 	            , wc."Name" as "WorkcenterName"
 	            , jr."Equipment_id"
@@ -347,10 +349,13 @@ public class ProdOrderEditService {
 	            left join shift s on s."Code" = jr."ShiftCode" 
 	            left join work_center wc on wc.id = jr."WorkCenter_id"
 	            left join equ e on e.id = jr."Equipment_id"
-	            where jr."SourceDataPk"=:suju_id 
-	            and jr."SourceTableName" ='suju'
+	            where jr."Parent_id" in (
+	                    select h.id from job_res h
+	                     where h."SourceDataPk" = :suju_id
+	                       and h."SourceTableName" = 'suju'
+	                       and h."Parent_id" is null)
 	            and mg."MaterialType" in ('semi')
-	            order by jr."WorkOrderNumber" desc, jr.id
+	            order by jr."WorkIndex", jr."WorkOrderNumber" desc, jr.id
 				""";
 
 		List<Map<String, Object>> items = this.sqlRunner.getRows(sql, dicParam);
@@ -431,46 +436,89 @@ public class ProdOrderEditService {
 
 		Integer factoryId = rootMat.getFactory_id();
 
-		// routing_proc + work_center 조인해서 산출창고 가져오기
+		// ── (1) 라우팅 스텝: 공정 순서(WorkIndex) 참조 + 첫 공정/공정수 산출 ──
+		//   라우팅은 '공정 순서 틀'로만 쓴다. 스텝에 반제품을 지정하지 않는다(routing_proc.Material_id 미사용).
+		MapSqlParameterSource sp = new MapSqlParameterSource();
+		sp.addValue("routingId", routingId);
+		List<Map<String, Object>> steps = sqlRunner.getRows("""
+            SELECT "ProcessOrder", "Process_id"
+              FROM routing_proc
+             WHERE "Routing_id" = :routingId
+             ORDER BY "ProcessOrder"
+            """, sp);
+		int procCount = (steps != null) ? steps.size() : 0;
+		Integer firstWcId = null;
+		if (procCount > 0) {
+			Integer firstProcessId = ((Number) steps.get(0).get("Process_id")).intValue();
+			Workcenter firstWc = workcenterRepository.findByProcessIdAndFactoryId(firstProcessId, factoryId);
+			firstWcId = (firstWc != null ? firstWc.getId() : null);
+		}
+
+		// ── (2) 완제품 BOM 트리(재귀) 전개 → 생산품(semi/product) + 워크센터 있는 것만 자식 대상 ──
+		//   · 자식 대상 판정: MaterialType IN ('semi','product') AND WorkCenter_id IS NOT NULL
+		//     (raw/sub_mat 은 워크센터가 나중에 생겨도 MaterialType 으로 방어 → 작지로 새지 않음)
+		//   · 공정/워크센터/산출창고 = 그 품목의 material.WorkCenter_id → work_center
+		//   · WorkIndex        = 그 공정의 routing_proc.ProcessOrder
+		//   · 수량             = 트리 누적 ratio(∏ Amount/OutputAmount) × 지시량, 완제품 자신은 ratio=1
+		//   · 완제품(root) 자신도 포함 (포장 공정 자식). 공정:품목 1:N 허용.
 		String sql = """
-        SELECT rp.id, rp."ProcessOrder", rp."Process_id",
-               rp."Material_id" AS step_mat_id,
-               wc."ProcessStoreHouse_id" AS step_store_id
-        FROM routing_proc rp
-        LEFT JOIN work_center wc ON wc."Process_id" = rp."Process_id"
-                                 AND wc."Factory_id" = :factoryId
-        WHERE rp."Routing_id" = :routingId
-        ORDER BY rp."ProcessOrder"
-        """;
+            WITH RECURSIVE tree AS (
+                SELECT CAST(:rootMatPk AS integer)      AS mat_id,
+                       CAST(1 AS double precision)      AS ratio,
+                       0                                AS lvl
+                UNION ALL
+                SELECT bc."Material_id",
+                       t.ratio * (bc."Amount" / NULLIF(b."OutputAmount", 0)),
+                       t.lvl + 1
+                  FROM tree t
+                  JOIN bom b       ON b."Material_id" = t.mat_id AND b."BOMType" = 'manufacturing'
+                  JOIN bom_comp bc ON bc."BOM_id" = b.id
+                 WHERE t.lvl < 20
+            )
+            SELECT tr.mat_id                                    AS mat_id,
+                   fn_unit_ceiling(SUM(tr.ratio) * CAST(:orderQty AS double precision), u."PieceYN") AS step_qty,
+                   m."WorkCenter_id"                            AS wc_id,
+                   wc."Process_id"                              AS process_id,
+                   wc."ProcessStoreHouse_id"                    AS store_id,
+                   rp."ProcessOrder"                            AS process_order
+              FROM tree tr
+              JOIN material m   ON m.id = tr.mat_id
+              JOIN mat_grp mg   ON mg.id = m."MaterialGroup_id"
+              LEFT JOIN unit u  ON u.id = m."Unit_id"
+              JOIN work_center wc ON wc.id = m."WorkCenter_id"
+              LEFT JOIN routing_proc rp ON rp."Routing_id" = :routingId AND rp."Process_id" = wc."Process_id"
+             WHERE mg."MaterialType" IN ('semi','product')
+               AND m."WorkCenter_id" IS NOT NULL
+             GROUP BY tr.mat_id, m."WorkCenter_id", wc."Process_id", wc."ProcessStoreHouse_id",
+                      u."PieceYN", rp."ProcessOrder"
+             ORDER BY rp."ProcessOrder" NULLS LAST, tr.mat_id
+            """;
 		MapSqlParameterSource p = new MapSqlParameterSource();
 		p.addValue("routingId", routingId);
-		p.addValue("factoryId", factoryId);
-		List<Map<String, Object>> steps = sqlRunner.getRows(sql, p);
-		if (steps == null || steps.isEmpty()) return 0;
-
-		Integer firstProcessId = ((Number) steps.get(0).get("Process_id")).intValue();
-		Workcenter firstWc = workcenterRepository.findByProcessIdAndFactoryId(firstProcessId, factoryId);
-		Integer firstWcId = (firstWc != null ? firstWc.getId() : null);
+		p.addValue("rootMatPk", rootMatPk);
+		p.addValue("orderQty", orderQty != null ? orderQty : 0f);
+		List<Map<String, Object>> mats = sqlRunner.getRows(sql, p);
+		if (mats == null || mats.isEmpty()) return 0;
 
 		int count = 0;
-		for (Map<String, Object> step : steps) {
-			Integer processId    = ((Number) step.get("Process_id")).intValue();
-			Integer stepMatId    = step.get("step_mat_id")    != null ? ((Number) step.get("step_mat_id")).intValue()    : rootMatPk;
-			Integer stepStoreId  = step.get("step_store_id")  != null ? ((Number) step.get("step_store_id")).intValue()  : null;
-			Integer processOrder = ((Number) step.get("ProcessOrder")).intValue();
-
-			Workcenter wc = workcenterRepository.findByProcessIdAndFactoryId(processId, factoryId);
-			Integer wcId = (wc != null ? wc.getId() : null);
+		for (Map<String, Object> row : mats) {
+			Integer matId       = ((Number) row.get("mat_id")).intValue();
+			Float   stepQty     = row.get("step_qty") != null
+					? Float.parseFloat(row.get("step_qty").toString())
+					: (orderQty != null ? orderQty : 0f);
+			Integer wcId        = row.get("wc_id")        != null ? ((Number) row.get("wc_id")).intValue()        : null;
+			Integer stepStoreId = row.get("store_id")     != null ? ((Number) row.get("store_id")).intValue()     : null;
+			Integer processOrder = row.get("process_order") != null ? ((Number) row.get("process_order")).intValue() : null;
 
 			JobRes child = new JobRes();
 			child.set_audit(user);
 			child.setParentId(header.getId());
-			child.setMaterialId(stepMatId);
-			child.setOrderQty(orderQty != null ? orderQty : 0f);
+			child.setMaterialId(matId);
+			child.setOrderQty(stepQty);
 			child.setProductionDate(prodDate);
 			child.setProductionPlanDate(prodDate);
 			child.setRouting_id(routingId);
-			child.setProcessCount(steps.size());
+			child.setProcessCount(procCount);
 			child.setWorkIndex(processOrder);
 			child.setWorkCenter_id(wcId);
 			child.setFirstWorkCenter_id(firstWcId != null ? firstWcId : wcId);

@@ -582,10 +582,11 @@
                         ctrl = `<div class="stepper" data-i="${i}"><button class="minus">−</button>
               <div class="qty" data-pad="${i}">${it.qty.toLocaleString()}</div><button class="plus">+</button></div>`;
                         if (it.st === 'wait') {
-                            actions = `<button class="itembtn del" data-act="del" data-i="${i}">삭제</button>
+                            actions = `<button class="itembtn ghost del" data-act="del" data-i="${i}" style="margin-left:auto;color:#d33">삭제</button>
                 <button class="itembtn start" data-act="start" data-i="${i}">작업시작</button>`;
                         } else { // working — 완료는 수량 필수
-                            actions = `<button class="itembtn done" data-act="complete" data-i="${i}">완료</button>`;
+                            actions = `<button class="itembtn ghost del" data-act="del" data-i="${i}" style="margin-left:auto;color:#d33">삭제</button>
+                <button class="itembtn done" data-act="complete" data-i="${i}">완료</button>`;
                         }
                     }
                     const timeline = (it.st === 'wait') ? '' : `<div class="itime">
@@ -640,8 +641,10 @@
             const i = +act.dataset.i, it = curW.items[i], a = act.dataset.act;
 
             if (a === 'del') {
-                apiPost('/item_delete', {item_id: it.item_id}, () => {
-                    refreshItems(); flash('품목 삭제');
+                uiConfirm(`[${it.name}] 품목을 삭제하시겠습니까?`, () => {
+                    apiPost('/item_delete', {item_id: it.item_id}, () => {
+                        refreshItems(); flash('품목 삭제');
+                    });
                 });
             } else if (a === 'start') {
                 /* 로컬에 들고 있던 수량을 함께 보낸다 (수량 입력은 시작 전/후 자유) */
@@ -870,6 +873,31 @@
             t.style.opacity = '1';
             clearTimeout(tT);
             tT = setTimeout(() => t.style.opacity = '0', 1700);
+        }
+
+        /* 화면 톤에 맞춘 확인 모달 (PC용 Alert 대체) */
+        function uiConfirm(msg, onOk, okLabel) {
+            let m = document.getElementById('confirmMask');
+            if (!m) {
+                m = document.createElement('div');
+                m.id = 'confirmMask';
+                m.style.cssText = 'position:fixed;inset:0;background:rgba(21,34,43,.45);display:none;align-items:center;justify-content:center;z-index:80;padding:24px';
+                m.innerHTML = `<div style="background:var(--surface);border-radius:20px;max-width:420px;width:100%;padding:24px 22px 18px;box-shadow:0 20px 50px -12px rgba(0,0,0,.4)">
+          <div id="confirmMsg" style="font-size:17px;font-weight:800;color:var(--ink);line-height:1.5;margin-bottom:20px;white-space:pre-line"></div>
+          <div style="display:flex;gap:10px">
+            <button id="confirmCancel" style="flex:1;height:52px;border-radius:14px;border:1px solid var(--line);background:var(--surface-2);color:var(--ink-2);font-weight:800;font-size:16px">취소</button>
+            <button id="confirmOk" style="flex:1;height:52px;border-radius:14px;border:none;background:#d33;color:#fff;font-weight:800;font-size:16px">삭제</button>
+          </div></div>`;
+                document.body.appendChild(m);
+                m.addEventListener('click', e => { if (e.target === m) m.style.display = 'none'; });
+            }
+            m.querySelector('#confirmMsg').textContent = msg;
+            const ok = m.querySelector('#confirmOk'), cancel = m.querySelector('#confirmCancel');
+            if (okLabel) ok.textContent = okLabel;
+            const close = () => { m.style.display = 'none'; ok.onclick = null; cancel.onclick = null; };
+            ok.onclick = () => { close(); onOk && onOk(); };
+            cancel.onclick = close;
+            m.style.display = 'flex';
         }
 
         /* 시작 — AjaxUtil 이 레이아웃에서 늦게 로드될 수 있어 준비될 때까지 대기 */

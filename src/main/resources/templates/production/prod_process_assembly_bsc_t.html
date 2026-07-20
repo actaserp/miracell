@@ -210,7 +210,7 @@
             <div class="screen hide" id="scB"><div class="col-stack">
                 <div class="topbar2">
                     <button class="back" data-back="A">‹</button>
-                    <div class="htitle"><div class="t" id="bDate">—</div><div class="s">생산 1캠퍼스 · 용기 조립(압착)</div></div>
+                    <div class="htitle"><div class="t" id="bDate">—</div><div class="s">생산 1캠퍼스 · 용기 조립</div></div>
                     <div class="infopill big"><span>완료수량</span><b id="bDoneQty">0</b></div>
                 </div>
                 <div class="bscroll"><div class="bgrid">
@@ -363,170 +363,318 @@
             if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
         })();
 
+        /* ==========================================================
+           조립 공정 배선 (①생산형 공용 API: /api/production/work)
+           - 세척과 달리 세션 테이블이 없다(v3). mat_produce 는 '완료' 시점에만 생성.
+           - 작업조 = (날짜, shift, Actor) 파생. 완료 전 편집은 화면 드래프트.
+           - BOM 기본값은 서버(/bom_default)가 per·mat_id·재고와 함께 내려준다.
+           - 화면별로 CTX.processCode 만 바꾸면 블리스터/융착/포장에 재사용.
+           ========================================================== */
+        const CTX = Object.assign({
+            spjangcd: 'ZZ',
+            factoryId: '',
+            dayRange: 30,
+            processCode: 'bsc02',   // 조립. 블리스터=bsc03 / 융착=bsc06 / 포장=bsc05 로 교체
+            shiftCode: 'D',         // 교대 기본값(주간). 추후 선택 UI로 대체 가능
+            cleanStore: 5           // 투입 소스 = 클린룸창고
+        }, window.ASSY_CTX || {});
+
+        let PROC_ID = null, WC = null, OUT_STORE = null;   // /context 로 채움
+        const BASE = '/api/production/work';
+
+        function apiGet(path, params) {
+            if (typeof AjaxUtil !== 'undefined' && AjaxUtil.getSyncData) {
+                return AjaxUtil.getSyncData(BASE + path, params || {}) || {};
+            }
+            flash('AjaxUtil 미로드 — 공용 스크립트 로드 순서를 확인하세요');
+            return {};
+        }
+        function apiPost(path, params, cb) {
+            if (typeof AjaxUtil !== 'undefined' && AjaxUtil.postAsyncData) {
+                AjaxUtil.postAsyncData(BASE + path, params || {}, function (r) {
+                    r = r || {};
+                    if (r.success === false) {
+                        flash(r.message || '처리에 실패했습니다');
+                        return;
+                    }
+                    cb && cb(r);
+                });
+                return;
+            }
+            flash('AjaxUtil 미로드 — 공용 스크립트 로드 순서를 확인하세요');
+        }
+
+        /* 공용 콤보 — /api/common/combo (반환: [{value, text}]) */
+        function combo(comboType, cond1, cond2, cond3) {
+            if (typeof AjaxUtil === 'undefined' || !AjaxUtil.getSyncData) return [];
+            const r = AjaxUtil.getSyncData('/api/common/combo', {
+                combo_type: comboType, cond1: cond1 || '', cond2: cond2 || '', cond3: cond3 || ''
+            }) || {};
+            return (r.data || []).map(x => ({value: x.value, text: x.text, code: x.Code || ''}));
+        }
+
         /* ── 기준 데이터 ── */
         const WD = ['일', '월', '화', '수', '목', '금', '토'];
-        const WORKERS = ['김세연', '김순애', '박은경', '김진희', '이미정', '안수정'];
-        const EQUIPS = [['KM-MRM-M001', '압착기 A'], ['KM-MRM-M005', '압착기 B']];
         const STLAB = {wait: '대기', working: '작업중', done: '완료'};
+        let WORKERS = [];   // combo('person')      — 시트 열 때 1회 캐시
+        let EQUIPS = [];    // combo('equipment', WC)
 
-        // 용기 기본 BOM(투입자재) — 세척 완료(클린룸) 부품. per = 용기 1개당 소요
-        const DEFAULT_BOM = [
-            {code: 'M-DD00003', name: 'BSC+③ 30 상부', per: 1},
-            {code: 'M-DD00004', name: 'BSC+③ 30 하부', per: 1},
-            {code: 'M-DD00029', name: '혈액주입포트(RHAN-빨강)_R-Rub', per: 1},
-            {code: 'M-DD00030', name: '셀추출포트(고무-아이보리)_Iv-Rub', per: 1},
-            {code: 'M-DD00033', name: '플로팅 혈액 30', per: 1},
-            {code: 'M-DP00058', name: '에어밴트', per: 1},
-            {code: 'M-DS00053', name: '오링 040', per: 1}
-        ];
-        // 클린룸 창고 재고 (BOM 추가용)
-        const CLEAN_STOCK = [
-            {code: 'M-DD00003', name: 'BSC+③ 30 상부', stock: 320},
-            {code: 'M-DD00004', name: 'BSC+③ 30 하부', stock: 300},
-            {code: 'M-DD00029', name: '혈액주입포트(RHAN-빨강)_R-Rub', stock: 1800},
-            {code: 'M-DD00030', name: '셀추출포트(고무-아이보리)_Iv-Rub', stock: 1750},
-            {code: 'M-DD00033', name: '플로팅 혈액 30', stock: 210},
-            {code: 'M-DP00058', name: '에어밴트', stock: 640},
-            {code: 'M-DS00053', name: '오링 040', stock: 900},
-            {code: 'M-DD00070', name: '스페이서', stock: 500},
-            {code: 'M-DD00071', name: '호환형 BSC+③ 30 상부', stock: 120},
-            {code: 'M-DJ00034', name: '플로팅 혈액 60', stock: 160}
-        ];
-        // 용기 작업지시 (생산지시로 생성)
-        const WO_VES = [
-            {wo: 'WO-ON-2601', vcode: 'WIP-ON00001', vname: 'BSC+③ 30ml 용기 / 00차수', plan: 216},
-            {wo: 'WO-ON-2602', vcode: 'WIP-ON00002', vname: 'BSC+③ 60ml 용기 / 02차수', plan: 432},
-            {wo: 'WO-ON-2603', vcode: 'WIP-ON00005', vname: 'BmSC+③ 60ml 용기 / 00차수', plan: 60},
-            {wo: 'WO-ON-2604', vcode: 'WIP-ON00007', vname: 'BSC+③ 120ml 용기 / 01차수', plan: 144}
-        ];
-        // 작지 없이 직접 선택 가능한 용기 SKU
-        const FREE_VES = [
-            {vcode: 'WIP-ON00001', vname: 'BSC+③ 30ml 용기 / 00차수'},
-            {vcode: 'WIP-ON00011', vname: 'BSC+③ 30ml 용기 / 01차수'},
-            {vcode: 'WIP-ON00012', vname: 'BSC+③ 30ml 용기 / 02차수'},
-            {vcode: 'WIP-ON00002', vname: 'BSC+③ 60ml 용기 / 02차수'},
-            {vcode: 'WIP-ON00021', vname: 'BmSC+③ 60ml 용기 / 00차수'},
-            {vcode: 'WIP-ON00022', vname: 'BmSC+③ 60ml 용기 / 02차수'}
-        ];
+        function num(v) {
+            const n = parseFloat(v);
+            return isNaN(n) ? 0 : n;
+        }
 
         function todayStr() {
             const d = new Date();
             return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
         }
+
         function shiftDay(base, n) {
-            const d = new Date(base + 'T00:00:00'); d.setDate(d.getDate() + n);
+            const d = new Date(base + 'T00:00:00');
+            d.setDate(d.getDate() + n);
             return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
         }
+
         function hhmm() {
             const d = new Date();
             return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
         }
+
         function pillT(v) {
             if (!v) return '--:--';
-            if (v.includes(' ')) { const [d, t] = v.split(' '); return d.slice(5).replace('-', '. ') + ' ' + t; }
+            if (v.includes(' ')) {
+                const [d, t] = v.split(' ');
+                return d.slice(5).replace('-', '. ') + ' ' + t;
+            }
             return v;
         }
+
         function fmtDate(s) {
             const d = new Date(s + 'T00:00:00');
             return `${s.replace(/-/g, '. ')} (${WD[d.getDay()]})`;
         }
-        function newBom() { return DEFAULT_BOM.map(p => ({code: p.code, name: p.name, per: p.per, qty: 0, manual: false})); }
-        function mkVes(src, qty, st, start, end) {
-            return {vcode: src.vcode, vname: src.vname, wo: src.wo || null, qty: qty || 0, st: st || 'wait',
-                start: start || null, end: end || null, open: false, bom: newBom()};
-        }
-        function mkCrew(workers, equip, code, start) { return {workers: workers.slice(), equip, code, done: false, start: start || null, end: null, items: []}; }
 
         /* 소요량: 수동 입력 있으면 그 값, 없으면 per×용기수량 */
-        function bomQ(row, vqty) { return row.manual ? (row.qty || 0) : Math.round((row.per || 1) * (vqty || 0)); }
+        function bomQ(row, vqty) {
+            return row.manual ? (row.qty || 0) : Math.round((row.per || 1) * (vqty || 0));
+        }
 
-        /* 날짜 카드 시드 */
-        const DAYS = [
-            {
-                date: shiftDay(todayStr(), -1),
-                crews: [
-                    {workers: ['김세연', '김순애'], equip: '압착기 A', code: 'KM-MRM-M001', done: true,
-                        start: shiftDay(todayStr(), -1) + ' 09:05', end: shiftDay(todayStr(), -1) + ' 12:20',
-                        items: [
-                            (function(){var v=mkVes(WO_VES[0],216,'done',shiftDay(todayStr(),-1)+' 09:10',shiftDay(todayStr(),-1)+' 11:00');return v;})()
-                        ]},
-                    {workers: ['박은경'], equip: '압착기 B', code: 'KM-MRM-M005', done: false,
-                        start: shiftDay(todayStr(), -1) + ' 10:30', end: null,
-                        items: [
-                            (function(){var v=mkVes(WO_VES[1],432,'working',shiftDay(todayStr(),-1)+' 10:35',null);return v;})(),
-                            mkVes(FREE_VES[2], 0, 'wait')
-                        ]}
-                ]
-            }
-        ];
-        function ensureToday() {
-            const t = todayStr();
-            if (!DAYS.some(d => d.date === t)) DAYS.unshift({date: t, crews: []});
+        /* 산출품목(용기)의 BOM 기본값 — 서버가 per·mat_id·클린룸재고 내려줌 */
+        function loadBomDefault(matId, prodDate) {
+            if (!matId) return [];
+            const r = apiGet('/bom_default', {
+                material_id: matId, qty: 1,               // per 만 쓰므로 qty=1 로 호출
+                clean_store: CTX.cleanStore, production_date: prodDate || todayStr()
+            });
+            return (r.data || []).map(b => ({
+                mat_id: b.mat_id, code: b.mat_code, name: b.mat_name,
+                per: num(b.per) || 1, qty: 0, manual: false, stock: num(b.stock)
+            }));
         }
-        ensureToday();
 
-        /* 집계 */
-        function crewDone(c) { return c.items.filter(i => i.st === 'done').reduce((a, i) => a + (i.qty || 0), 0); }
-        function crewSt(c) {
-            if (c.done) return 'done';
-            if (c.items.some(i => i.st === 'working' || i.st === 'done')) return 'working';
-            return 'wait';
+        /* 용기 객체 — 작업지시(WO) 또는 자유(FREE) 소스에서 생성. BOM 은 서버 기본값 */
+        function mkVes(src, prodDate) {
+            return {
+                mat_id: src.mat_id, vcode: src.vcode, vname: src.vname,
+                wo: src.wo || null, job_res_id: src.job_res_id || null,
+                qty: 0, st: 'wait', start: null, end: null, open: false,
+                mp_id: null, bom: loadBomDefault(src.mat_id, prodDate)
+            };
         }
-        function dayDone(d) { return d.crews.reduce((a, c) => a + crewDone(c), 0); }
-        function daySt(d) {
-            if (!d.crews.length) return 'wait';
-            if (d.crews.every(c => c.done)) return 'done';
-            if (d.crews.some(c => crewSt(c) !== 'wait')) return 'working';
-            return 'wait';
-        }
-        function dayItemCounts(d) {
-            let wait = 0, work = 0, done = 0;
-            d.crews.forEach(c => c.items.forEach(i => { if (i.st === 'done') done++; else if (i.st === 'working') work++; else wait++; }));
-            return {wait, work, done};
-        }
-        function crewLabel(c) { return c.workers.join(', '); }
 
+        /* 작업조(드래프트) — workers=[{id,name}], equip={id,name,code} */
+        function mkCrew(workers, equip) {
+            return {
+                workers: workers.slice(), leader_id: workers[0].id,
+                equip: equip.name, equip_id: equip.id, code: equip.code || '',
+                shift: CTX.shiftCode, done: false, start: curD.date + ' ' + hhmm(), end: null,
+                items: [], _draft: true, _key: CTX.shiftCode + '|' + workers[0].id
+            };
+        }
+
+        /* ── 서버 로드 ── */
+        let DAYS = [];
         let curD = null, curC = null;
+
+        function loadDays() {
+            const to = todayStr(), from = shiftDay(to, -CTX.dayRange);
+            const r = apiGet('/day_list', {process_id: PROC_ID, date_from: from, date_to: to, spjangcd: CTX.spjangcd});
+            DAYS = (r.data || []).map(d => ({
+                date: d.work_date_str,
+                crew_cnt: num(d.crew_cnt), item_cnt: num(d.item_cnt),
+                good_qty: num(d.good_qty),
+                cnts: {wait: 0, work: num(d.item_working_cnt), done: num(d.item_done_cnt)},
+                st: d.state || 'wait',
+                crews: [], _drafts: [], _loaded: false
+            }));
+            const t = todayStr();
+            if (!DAYS.some(d => d.date === t)) {
+                DAYS.unshift({
+                    date: t,
+                    crew_cnt: 0,
+                    item_cnt: 0,
+                    good_qty: 0,
+                    cnts: {wait: 0, work: 0, done: 0},
+                    st: 'wait',
+                    crews: [],
+                    _drafts: [],
+                    _loaded: false
+                });
+            }
+        }
+
+        function parseMembers(leaderName, membersStr) {
+            const arr = [];
+            if (leaderName) arr.push({id: null, name: leaderName, leader: true});
+            (membersStr || '').split(',').map(s => s.trim()).filter(Boolean).forEach(n => {
+                if (!arr.some(x => x.name === n)) arr.push({id: null, name: n});
+            });
+            return arr;
+        }
+
+        /* 서버 확정 작업조 (완료된 용기가 있는 조) */
+        function loadServerCrews(date) {
+            const r = apiGet('/crew_list', {process_id: PROC_ID, date: date, spjangcd: CTX.spjangcd});
+            return (r.data || []).map(c => ({
+                workers: parseMembers(c.leader_name, c.members),
+                leader_id: c.actor_id, leader_name: c.leader_name || '-',
+                equip: c.equipment_name || '-', equip_id: c.equipment_id, code: '',
+                shift: c.shift_code || 'D',
+                done: (c.state === 'done'),
+                start: c.start_time, end: c.end_time, good_qty: num(c.good_qty),
+                items: [], _draft: false, _key: (c.shift_code || 'D') + '|' + c.actor_id
+            }));
+        }
+
+        /* 확정 작업조의 용기(차수) 목록 */
+        function loadServerItems(crew) {
+            const r = apiGet('/item_list', {
+                process_id: PROC_ID, date: curD.date,
+                shift_code: crew.shift, actor_id: crew.leader_id, spjangcd: CTX.spjangcd
+            });
+            return (r.data || []).map(i => {
+                const done = (i.state === 'finished' || i.state === 'done');
+                return {
+                    mp_id: i.mp_id, mat_id: i.mat_id, vcode: i.mat_code, vname: i.mat_name,
+                    wo: i.order_num || null, job_res_id: i.job_res_id || null,
+                    qty: num(i.good_qty), defQty: num(i.defect_qty),
+                    st: done ? 'done' : (i.state || 'done'),
+                    start: i.start_time, end: i.end_time, open: false,
+                    // 완료분은 이미 소비됨(편집 불가). 작업중분은 BOM 기본값 복원 → 완료 시 소비.
+                    bom: done ? [] : loadBomDefault(i.mat_id, curD.date)
+                };
+            });
+        }
+
+        /* 하루치 작업조 = 서버 확정 + 화면 드래프트(아직 완료 용기 없는 조) */
+        function loadDayCrews(d) {
+            const server = loadServerCrews(d.date);
+            server.forEach(c => c.items = loadServerItems(c));
+            const drafts = (d._drafts || []).filter(dc =>
+                !server.some(sc => sc._key === dc._key) && !dc.items.some(it => it.st === 'done'));
+            d.crews = server.concat(drafts);
+            d._drafts = drafts;
+            d._loaded = true;
+        }
+
+        function refreshDays() {
+            loadDays();
+            renderDays();
+        }
+
+        function reloadCurDay(keepKey) {
+            loadDayCrews(curD);
+            renderCrews();
+            if (keepKey) {
+                const idx = curD.crews.findIndex(c => c._key === keepKey);
+                if (idx >= 0) {
+                    openCrew(idx);
+                    return true;
+                }
+            }
+            return false;
+        }
 
         /* ── A. 날짜 카드 ── */
         const dayGrid = document.getElementById('dayGrid');
+
         function renderDays() {
             document.getElementById('dayCnt').textContent = DAYS.length + '일';
             dayGrid.innerHTML = DAYS.map((d, i) => {
-                const st = daySt(d), c = dayItemCounts(d), isToday = d.date === todayStr();
+                const st = d.st, isToday = d.date === todayStr();
+                const wait = d._loaded ? d.crews.reduce((a, c) => a + c.items.filter(x => x.st === 'wait').length, 0) : 0;
                 return `<div class="day" data-st="${st}" data-i="${i}"><div class="edge"></div>
       <div class="row1"><span class="dt">${fmtDate(d.date)}</span>
         ${isToday ? '<span class="today">오늘</span>' : ''}
         <span class="chip ${st}">${STLAB[st]}</span></div>
       <div class="meta">
-        <div class="blk"><span class="lab">작업조</span><span class="val">${d.crews.length}조</span></div>
-        <div class="blk"><span class="lab">완료수량</span><span class="val left">${dayDone(d)}</span></div>
+        <div class="blk"><span class="lab">작업조</span><span class="val">${d._loaded ? d.crews.length : d.crew_cnt}조</span></div>
+        <div class="blk"><span class="lab">완료수량</span><span class="val left">${d.good_qty}</span></div>
         <div class="cnts">
-          <span class="minipill w">대기 ${c.wait}</span>
-          <span class="minipill g">작업중 ${c.work}</span>
-          <span class="minipill d">완료 ${c.done}</span>
+          <span class="minipill w">대기 ${wait}</span>
+          <span class="minipill g">작업중 ${d.cnts.work}</span>
+          <span class="minipill d">완료 ${d.cnts.done}</span>
         </div></div></div>`;
             }).join('');
         }
+
         dayGrid.addEventListener('click', e => {
             const c = e.target.closest('.day');
             if (c) openDay(+c.dataset.i);
         });
 
         /* ── 화면 전환 ── */
-        const SC = {A: document.getElementById('scA'), B: document.getElementById('scB'), C: document.getElementById('scC')};
-        function show(k) { for (const x in SC) SC[x].classList.toggle('hide', x !== k); }
+        const SC = {
+            A: document.getElementById('scA'),
+            B: document.getElementById('scB'),
+            C: document.getElementById('scC')
+        };
+
+        function show(k) {
+            for (const x in SC) SC[x].classList.toggle('hide', x !== k);
+        }
+
         document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', () => {
             const to = b.dataset.back;
-            if (to === 'A') { renderDays(); show('A'); }
-            else { renderCrews(); show('B'); }
+            if (to === 'A') {
+                refreshDays();
+                show('A');
+            } else {
+                renderCrews();
+                show('B');
+            }
         }));
 
+        /* 집계(화면 표시용) */
+        function crewDone(c) {
+            return c.items.filter(i => i.st === 'done').reduce((a, i) => a + (i.qty || 0), 0);
+        }
+
+        function crewSt(c) {
+            if (c.done) return 'done';
+            if (c.items.some(i => i.st === 'working' || i.st === 'done')) return 'working';
+            return 'wait';
+        }
+
+        function dayDone(d) {
+            return d.crews.reduce((a, c) => a + crewDone(c), 0);
+        }
+
+        function crewLabel(c) {
+            return c.workers.map(w => w.name).join(', ');
+        }
+
         /* ── B. 조 목록 ── */
-        function openDay(i) { curD = DAYS[i]; renderCrews(); show('B'); }
+        function openDay(i) {
+            curD = DAYS[i];
+            loadDayCrews(curD);
+            renderCrews();
+            show('B');
+        }
+
         function renderCrews() {
             document.getElementById('bDate').textContent = fmtDate(curD.date);
-            document.getElementById('bDoneQty').textContent = dayDone(curD);
+            document.getElementById('bDoneQty').textContent = curD._loaded ? dayDone(curD) : curD.good_qty;
             document.getElementById('wkCnt').textContent = curD.crews.length + '조';
             const box = document.getElementById('wkList');
             if (!curD.crews.length) {
@@ -537,21 +685,31 @@
                 const st = crewSt(c);
                 const del = crewDeletable(c) ? `<button class="wkdel" data-del="${i}">삭제</button>` : '';
                 return `<div class="wk" data-st="${st}" data-i="${i}"><div class="edge"></div>
-      <div class="who"><span class="nm">${crewLabel(c)}</span><span class="eq">${c.equip} · ${c.code}</span></div>
+      <div class="who"><span class="nm">${crewLabel(c)}</span><span class="eq">${c.equip}${c.code ? ' · ' + c.code : ''}</span></div>
       <div class="wktime">${pillT(c.start)} ~ ${pillT(c.end)}</div>
       <div class="qty"><div class="l">완료수량</div><div class="v">${crewDone(c)}</div></div>
       <span class="badge ${st}">${STLAB[st]}</span>${del}</div>`;
             }).join('');
         }
-        function crewDeletable(c) { return !c.done && !c.items.some(i => i.st === 'done'); }
+
+        /* 드래프트(완료 용기 없음)만 삭제 가능 — 확정 작업조는 완료취소로 되돌린다 */
+        function crewDeletable(c) {
+            return c._draft && !c.items.some(i => i.st === 'done');
+        }
+
         document.getElementById('wkList').addEventListener('click', e => {
             const d = e.target.closest('[data-del]');
             if (d) {
                 const i = +d.dataset.del, c = curD.crews[i];
-                if (!crewDeletable(c)) { flash('완료된 작업이 있는 조는 삭제할 수 없습니다'); return; }
+                if (!crewDeletable(c)) {
+                    flash('완료된 작업이 있는 조는 삭제할 수 없습니다');
+                    return;
+                }
                 const label = crewLabel(c);
+                curD._drafts = (curD._drafts || []).filter(x => x !== c);
                 curD.crews.splice(i, 1);
-                renderCrews(); flash(`작업조 삭제 · ${label}`);
+                renderCrews();
+                flash(`작업조 삭제 · ${label}`);
                 return;
             }
             const w = e.target.closest('.wk');
@@ -560,16 +718,23 @@
         document.getElementById('btnAddCrew').onclick = openCrewSheet;
 
         /* ── C. 용기 리스트 ── */
-        function openCrew(i) { curC = curD.crews[i]; curC._idx = i; renderItems(); show('C'); }
+        function openCrew(i) {
+            curC = curD.crews[i];
+            curC._idx = i;
+            renderItems();
+            show('C');
+        }
+
         function renderCHead() {
             document.getElementById('cHead').innerHTML = `
         <div class="infopill tap" data-time="start"><span>시작</span><b>${pillT(curC.start)}</b></div>
         <div class="infopill tap" data-time="end"><span>종료</span><b>${pillT(curC.end)}</b></div>
         <div class="infopill big"><span>완료수량</span><b>${crewDone(curC)}</b></div>`;
         }
+
         function renderItems() {
             document.getElementById('cCrew').textContent = crewLabel(curC);
-            document.getElementById('cSub').textContent = `${fmtDate(curD.date)} · ${curC.equip} · ${curC.code}`;
+            document.getElementById('cSub').textContent = `${fmtDate(curD.date)} · ${curC.equip}${curC.code ? ' · ' + curC.code : ''}`;
             renderCHead();
             document.getElementById('itemCnt').textContent = curC.items.length + '종';
             const box = document.getElementById('itemList');
@@ -580,6 +745,7 @@
             }
             renderCAction();
         }
+
         function vesCard(it, i) {
             let ctrl, actions;
             if (it.st === 'done') {
@@ -589,22 +755,25 @@
                 ctrl = `<div class="stepper" data-vstep="${i}"><button class="minus">−</button>
               <div class="qty" data-vpad="${i}">${it.qty}</div><button class="plus">+</button></div>`;
                 if (it.st === 'wait') {
-                    actions = `<button class="itembtn del" data-act="del" data-vi="${i}">삭제</button>
+                    actions = `<button class="itembtn ghost del" data-act="del" data-vi="${i}" style="margin-left:auto;color:#d33">삭제</button>
                 <button class="itembtn start" data-act="start" data-vi="${i}">작업시작</button>`;
                 } else {
-                    actions = `<button class="itembtn done" data-act="complete" data-vi="${i}">완료</button>`;
+                    actions = `<button class="itembtn ghost del" data-act="del" data-vi="${i}" style="margin-left:auto;color:#d33">삭제</button>
+                <button class="itembtn done" data-act="complete" data-vi="${i}">완료</button>`;
                 }
             }
-            const woBadge = it.wo ? `<span class="wobadge">지시 ${it.wo}</span>` : `<span class="wobadge free">작지없음</span>`;
+            const woBadge = it.wo ? '' : `<span class="wobadge free">작지없음</span>`;
             const times = (it.st === 'wait') ? '' : `<div class="vtimes">
           <span class="tp" data-vtime="start" data-vi="${i}">시작 <b>${pillT(it.start)}</b></span>
           <span class="tp" data-vtime="end" data-vi="${i}">종료 <b>${pillT(it.end)}</b></span></div>`;
-            // BOM 아코디언
             const bomRows = it.bom.map((b, bi) => {
                 const auto = !b.manual;
+                const need = bomQ(b, it.qty);
+                const short = b.stock < need;
                 return `<div class="brow">
           <div class="bid"><div class="bn">${b.name}</div><div class="bc">${b.code}</div></div>
           <span class="autotag">${auto ? '자동' : '수정'}</span>
+          <span class="bstock" style="font-size:11px;font-weight:800;white-space:nowrap;margin-right:4px;color:${short ? '#d33' : 'var(--ink-2)'}">재고 ${b.stock}</span>
           <div class="bstep" data-bstep="${i}_${bi}"><button class="minus">−</button>
             <div class="bq ${auto ? 'auto' : ''}" data-bpad="${i}_${bi}">${bomQ(b, it.qty)}</div><button class="plus">+</button></div>
           <button class="brm" data-brm="${i}_${bi}">✕</button></div>`;
@@ -624,201 +793,438 @@
         ${bomRows || '<div style="color:var(--ink-2);font-weight:700;padding:8px 0">투입자재가 없습니다. ＋자재로 추가하세요.</div>'}
       </div></div>`;
         }
+
         function renderCAction() {
             const bar = document.getElementById('cAction');
-            if (curC.done) {
-                bar.innerHTML = `<div class="actsum"><span class="l">${crewLabel(curC)} · 조립 완료</span><span class="v">${crewDone(curC)} EA</span></div>
-        <button class="btn danger" data-cact="reopen">완료취소</button>`;
-            } else {
-                bar.innerHTML = `<div class="actsum"><span class="l">완료수량</span><span class="v">${crewDone(curC)} EA</span></div>
-        <button class="btn ghost" data-cact="addVes">＋ 용기 추가</button>
-        <button class="btn primary" data-cact="finish">작업 완료</button>`;
-            }
+            const allDone = curC.items.length && curC.items.every(i => i.st === 'done');
+            bar.innerHTML = `<div class="actsum"><span class="l">완료수량</span><span class="v">${crewDone(curC)} EA</span></div>
+        <button class="btn ghost" data-cact="addVes">＋ 용기 추가</button>`;
         }
 
         /* C 이벤트 위임 */
         document.getElementById('itemList').addEventListener('click', e => {
-            // 아코디언 토글
             const tg = e.target.closest('[data-toggle]');
-            if (tg) { const it = curC.items[+tg.dataset.toggle]; it.open = !it.open; renderItems(); return; }
-            // 용기 수량 스텝퍼
+            if (tg) {
+                const it = curC.items[+tg.dataset.toggle];
+                it.open = !it.open;
+                renderItems();
+                return;
+            }
             const vs = e.target.closest('[data-vstep]');
             if (vs && (e.target.classList.contains('plus') || e.target.classList.contains('minus'))) {
                 const i = +vs.dataset.vstep, d = e.target.classList.contains('plus') ? 1 : -1;
                 curC.items[i].qty = Math.max(0, (+curC.items[i].qty || 0) + d);
-                renderItems(); return;
+                renderItems();
+                return;
             }
             const vpad = e.target.closest('[data-vpad]');
-            if (vpad) { openPad({type: 'ves', vi: +vpad.dataset.vpad}); return; }
-            // BOM 스텝퍼
+            if (vpad) {
+                openPad({type: 'ves', vi: +vpad.dataset.vpad});
+                return;
+            }
             const bs = e.target.closest('[data-bstep]');
             if (bs && (e.target.classList.contains('plus') || e.target.classList.contains('minus'))) {
                 const [vi, bi] = bs.dataset.bstep.split('_').map(Number);
                 const b = curC.items[vi].bom[bi], d = e.target.classList.contains('plus') ? 1 : -1;
                 const base = bomQ(b, curC.items[vi].qty);
-                b.manual = true; b.qty = Math.max(0, base + d);
-                renderItems(); return;
+                b.manual = true;
+                b.qty = Math.max(0, base + d);
+                renderItems();
+                return;
             }
             const bpad = e.target.closest('[data-bpad]');
-            if (bpad) { const [vi, bi] = bpad.dataset.bpad.split('_').map(Number); openPad({type: 'bom', vi, bi}); return; }
+            if (bpad) {
+                const [vi, bi] = bpad.dataset.bpad.split('_').map(Number);
+                openPad({type: 'bom', vi, bi});
+                return;
+            }
             const brm = e.target.closest('[data-brm]');
-            if (brm) { const [vi, bi] = brm.dataset.brm.split('_').map(Number); curC.items[vi].bom.splice(bi, 1); renderItems(); flash('자재 삭제'); return; }
+            if (brm) {
+                const [vi, bi] = brm.dataset.brm.split('_').map(Number);
+                curC.items[vi].bom.splice(bi, 1);
+                renderItems();
+                flash('자재 삭제');
+                return;
+            }
             const badd = e.target.closest('[data-badd]');
-            if (badd) { openPartSheet(+badd.dataset.badd); return; }
-            // 용기 시간
+            if (badd) {
+                openPartSheet(+badd.dataset.badd);
+                return;
+            }
             const vt = e.target.closest('[data-vtime]');
-            if (vt) { const it = curC.items[+vt.dataset.vi]; openTime(vt.dataset.vtime, it, it.vname); return; }
-            // 용기 액션
+            if (vt) {
+                const it = curC.items[+vt.dataset.vi];
+                openTime(vt.dataset.vtime, it, it.vname);
+                return;
+            }
+
             const act = e.target.closest('[data-act]');
             if (!act) return;
-            const i = +act.dataset.vi, it = curC.items[i];
-            if (act.dataset.act === 'del') { curC.items.splice(i, 1); renderItems(); renderCrews(); flash('용기 삭제'); }
-            else if (act.dataset.act === 'start') { it.st = 'working'; if (!it.start) it.start = curD.date + ' ' + hhmm(); renderItems(); flash('작업 시작'); }
-            else if (act.dataset.act === 'complete') {
-                if (it.qty <= 0) { flash('용기 수량을 확인하세요'); return; }
-                it.st = 'done'; it.end = curD.date + ' ' + hhmm(); renderItems(); renderCrews();
-                flash(`조립 완료 · ${it.vname} ${it.qty} 산출 (클린룸 재고 소요)`);
-            } else if (act.dataset.act === 'uncomplete') { it.st = 'working'; it.end = null; renderItems(); renderCrews(); flash('완료취소'); }
+            const i = +act.dataset.vi, it = curC.items[i], a = act.dataset.act;
+
+            if (a === 'del') {
+                deleteVessel(i);
+            } else if (a === 'start') {
+                /* 작업시작 = wait→working (item_start). 재고 이동은 완료에서. */
+                startVessel(it);
+            } else if (a === 'complete') {
+                if (!(it.qty > 0)) {
+                    flash('용기 수량을 확인하세요');
+                    return;
+                }
+                const shortRow = it.bom.find(b => bomQ(b, it.qty) > b.stock);
+                if (shortRow) {
+                    flash(`클린룸 재고 부족 · ${shortRow.name} (재고 ${shortRow.stock.toLocaleString()})`);
+                    return;
+                }
+                finishVessel(it);
+            } else if (a === 'uncomplete') {
+                if (!it.mp_id) {
+                    it.st = 'working';
+                    it.end = null;
+                    renderItems();
+                    renderCrews();
+                    return;
+                }
+                apiPost('/item_cancel', {mp_id: it.mp_id}, () => {
+                    const key = curC._key;
+                    refreshDays();
+                    reloadCurDay(key);
+                    flash('완료취소 · 산출/투입 롤백');
+                });
+            }
         });
         document.getElementById('cAction').addEventListener('click', e => {
             const b = e.target.closest('[data-cact]');
-            if (!b) return;
-            if (b.dataset.cact === 'addVes') openVesSheet();
-            else if (b.dataset.cact === 'finish') {
-                curC.done = true; curC.end = curD.date + ' ' + hhmm(); renderItems(); renderCrews();
-                const rest = curC.items.filter(i => i.st !== 'done').length;
-                flash(rest ? `작업 완료 (대기 ${rest}종 남음)` : '작업 완료');
-            } else if (b.dataset.cact === 'reopen') { curC.done = false; curC.end = null; renderItems(); renderCrews(); flash('완료취소 · 작업 재개'); }
+            if (b && b.dataset.cact === 'addVes') openVesSheet();
         });
         document.getElementById('cHead').addEventListener('click', e => {
             const t = e.target.closest('[data-time]');
             if (t) openTime(t.dataset.time, curC, crewLabel(curC));
         });
 
+        /* 용기 작업시작 = wait→working (item_start, mp_id). BOM 편집 유지 위해 리로드 안 함 */
+        function startVessel(it) {
+            if (!it.mp_id) { flash('담기 정보가 없습니다. 다시 담아주세요'); return; }
+            apiPost('/item_start', {
+                mp_id: it.mp_id, qty: it.qty || 0, defect_qty: it.defQty || 0,
+                bom_json: JSON.stringify(it.bom.map(b => ({matId: b.mat_id, qty: bomQ(b, it.qty)}))),
+                clean_store: CTX.cleanStore
+            }, (r) => {
+                it.st = 'working';
+                if (!it.start) it.start = curD.date + ' ' + hhmm();
+                renderItems();
+                renderCrews();
+                refreshDays();
+                /* 재고 부족분이 있으면 예약만 잡고 알림 (시작은 정상 진행) */
+                if (r && r.message) flash(r.message);
+                else flash('작업 시작 · ' + it.vname);
+            });
+        }
+
+        /* 용기 완료 = 시작된 차수(mp_id) 확정 + BOM 소비 + 반제품 입고 */
+        function finishVessel(it) {
+            if (!it.mp_id) { flash('담기 정보가 없습니다. 다시 담아주세요'); return; }
+            apiPost('/item_finish', {
+                mp_id: it.mp_id,
+                good_qty: it.qty,
+                defect_qty: it.defQty || 0,
+                start_time: it.start || '',
+                end_time: it.end || (curD.date + ' ' + hhmm()),
+                bom_json: JSON.stringify(it.bom.map(b => ({matId: b.mat_id, qty: bomQ(b, it.qty)}))),
+                equipment_id: curC.equip_id || '',
+                spjangcd: CTX.spjangcd
+            }, () => {
+                it.st = 'done';
+                it.end = it.end || (curD.date + ' ' + hhmm());
+                renderItems();
+                renderCrews();
+                refreshDays();
+                flash(`조립 완료 · ${it.vname} ${it.qty} 산출 (클린룸 재고 소요)`);
+            });
+        }
+
         /* ── 시트 공통 ── */
-        function showMask(id) { document.getElementById(id).classList.add('show'); }
-        function hideMask(id) { document.getElementById(id).classList.remove('show'); }
+        function showMask(id) {
+            document.getElementById(id).classList.add('show');
+        }
+
+        function hideMask(id) {
+            document.getElementById(id).classList.remove('show');
+        }
+
         document.querySelectorAll('.mask').forEach(m => m.addEventListener('click', e => {
             if (e.target === m || e.target.closest('[data-close]')) m.classList.remove('show');
         }));
 
-        /* 작업조 편성 (작업자 다중 + 압착기) */
+        /* 작업조 편성 (작업자 다중 + 설비) — 첫 선택자가 대표(Actor) */
         let selWorkers = [], selE = null;
+
         function openCrewSheet() {
-            selWorkers = []; selE = null;
-            document.getElementById('workerOpts').innerHTML = WORKERS.map(w => `<button class="opt" data-w="${w}"><span class="ck"></span>${w}</button>`).join('');
-            document.getElementById('equipOpts').innerHTML = EQUIPS.map(([c, n]) => `<button class="opt" data-e="${n}" data-c="${c}">${n} <span class="sub">${c}</span></button>`).join('');
+            selWorkers = [];
+            selE = null;
+            if (!WORKERS.length) WORKERS = combo('person');
+            if (!EQUIPS.length) EQUIPS = WC ? combo('equipment', '', '', WC) : [];
+            document.getElementById('workerOpts').innerHTML = WORKERS.length
+                ? WORKERS.map(w => `<button class="opt" data-w="${w.value}" data-n="${w.text}"><span class="ck"></span>${w.text}</button>`).join('')
+                : `<div class="emptybox">작업자 목록이 없습니다</div>`;
+            document.getElementById('equipOpts').innerHTML = EQUIPS.length
+                ? EQUIPS.map(x => `<button class="opt" data-e="${x.value}" data-n="${x.text}" data-c="${x.code || ''}">${x.text}${x.code ? ` <span class="sub">${x.code}</span>` : ''}</button>`).join('')
+                : `<div class="emptybox">${WC ? '이 공정 워크센터에 등록된 설비가 없습니다' : '워크센터를 찾지 못했습니다 (process.Code 확인)'}</div>`;
             document.getElementById('crewOk').disabled = true;
             showMask('crewMask');
         }
+
         document.getElementById('workerOpts').addEventListener('click', e => {
-            const b = e.target.closest('[data-w]'); if (!b) return;
-            const w = b.dataset.w, k = selWorkers.indexOf(w);
-            if (k >= 0) { selWorkers.splice(k, 1); b.classList.remove('sel'); b.querySelector('.ck').textContent = ''; }
-            else { selWorkers.push(w); b.classList.add('sel'); b.querySelector('.ck').textContent = '✓'; }
+            const b = e.target.closest('[data-w]');
+            if (!b) return;
+            const id = b.dataset.w, name = b.dataset.n, k = selWorkers.findIndex(x => x.id === id);
+            if (k >= 0) {
+                selWorkers.splice(k, 1);
+                b.classList.remove('sel');
+                b.querySelector('.ck').textContent = '';
+            } else {
+                selWorkers.push({id, name});
+                b.classList.add('sel');
+                b.querySelector('.ck').textContent = '✓';
+            }
+            /* 대표(첫 선택자) 표시 갱신 */
+            document.querySelectorAll('#workerOpts .opt').forEach(x => {
+                const isLeader = selWorkers.length && selWorkers[0].id === x.dataset.w;
+                x.classList.toggle('leader', !!isLeader);
+            });
             ckCrew();
         });
         document.getElementById('equipOpts').addEventListener('click', e => {
-            const b = e.target.closest('[data-e]'); if (!b) return;
+            const b = e.target.closest('[data-e]');
+            if (!b) return;
             document.querySelectorAll('#equipOpts .opt').forEach(x => x.classList.remove('sel'));
-            b.classList.add('sel'); selE = {name: b.dataset.e, code: b.dataset.c}; ckCrew();
+            b.classList.add('sel');
+            selE = {id: b.dataset.e, name: b.dataset.n, code: b.dataset.c};
+            ckCrew();
         });
-        function ckCrew() { document.getElementById('crewOk').disabled = !(selWorkers.length && selE); }
+
+        function ckCrew() {
+            document.getElementById('crewOk').disabled = !(selWorkers.length && selE);
+        }
+
         document.getElementById('crewOk').onclick = () => {
-            curD.crews.push(mkCrew(selWorkers, selE.name, selE.code, curD.date + ' ' + hhmm()));
-            hideMask('crewMask'); renderCrews();
+            const c = mkCrew(selWorkers, selE);
+            /* 같은 (shift, 대표) 조가 이미 있으면 그걸 연다 */
+            const exist = curD.crews.findIndex(x => x._key === c._key);
+            if (exist >= 0) {
+                hideMask('crewMask');
+                openCrew(exist);
+                flash('기존 작업조 열기');
+                return;
+            }
+            curD._drafts = curD._drafts || [];
+            curD._drafts.push(c);
+            curD.crews.push(c);
+            hideMask('crewMask');
+            renderCrews();
             openCrew(curD.crews.length - 1);
-            flash(`작업조 편성 · ${selWorkers.join(', ')} / ${selE.name}`);
+            flash(`작업조 편성 · ${selWorkers.map(w => w.name).join(', ')} / ${selE.name}`);
         };
 
         /* 용기 선택 (작업지시 / 자유) */
+        let WO_VES = [], FREE_VES = [];
+
         function openVesSheet() {
-            const has = vc => curC.items.some(it => it.vcode === vc);
-            document.getElementById('woVesList').innerHTML = WO_VES.map((v, i) => `
-        <div class="prow ${has(v.vcode) ? 'added' : ''}" data-wo="${i}">
-          <div class="pid"><div class="pnm">${v.vname}</div><div class="pcode">${v.vcode} · 지시 ${v.wo}</div></div>
-          <div class="pr"><div class="pl">계획</div>${v.plan}</div>
-          <div class="pchk">${has(v.vcode) ? '✓' : '＋'}</div></div>`).join('');
-            document.getElementById('freeVesList').innerHTML = FREE_VES.map((v, i) => `
-        <div class="prow ${has(v.vcode) ? 'added' : ''}" data-free="${i}">
+            const woR = apiGet('/work_orders', {process_id: PROC_ID, date: curD.date, spjangcd: CTX.spjangcd});
+            WO_VES = (woR.data || []).map(v => ({
+                job_res_id: v.job_res_id, wo: v.order_num, mat_id: v.mat_id,
+                vcode: v.mat_code, vname: v.mat_name, plan: num(v.order_qty)
+            }));
+            const frR = apiGet('/target_materials', {process_id: PROC_ID, spjangcd: CTX.spjangcd});
+            FREE_VES = (frR.data || []).map(v => ({mat_id: v.mat_id, vcode: v.mat_code, vname: v.mat_name}));
+
+            const has = id => curC.items.some(it => it.mat_id === id && !it.wo);
+            const hasWo = jr => curC.items.some(it => it.job_res_id === jr);
+            document.getElementById('woVesList').innerHTML = WO_VES.length ? WO_VES.map((v, i) => `
+        <div class="prow ${hasWo(v.job_res_id) ? 'added' : ''}" data-wo="${i}">
           <div class="pid"><div class="pnm">${v.vname}</div><div class="pcode">${v.vcode}</div></div>
-          <div class="pchk">${has(v.vcode) ? '✓' : '＋'}</div></div>`).join('');
+          <div class="pr"><div class="pl">계획</div>${v.plan}</div>
+          <div class="pchk">${hasWo(v.job_res_id) ? '✓' : '＋'}</div></div>`).join('')
+                : `<div class="emptybox">해당 공정의 미완료 작업지시가 없습니다</div>`;
+            document.getElementById('freeVesList').innerHTML = FREE_VES.length ? FREE_VES.map((v, i) => `
+        <div class="prow ${has(v.mat_id) ? 'added' : ''}" data-free="${i}">
+          <div class="pid"><div class="pnm">${v.vname}</div><div class="pcode">${v.vcode}</div></div>
+          <div class="pchk">${has(v.mat_id) ? '✓' : '＋'}</div></div>`).join('')
+                : `<div class="emptybox">선택 가능한 반제품(용기)이 없습니다</div>`;
             showMask('vesMask');
         }
-        function addVes(src) {
-            const idx = curC.items.findIndex(it => it.vcode === src.vcode);
-            if (idx >= 0) { if (curC.items[idx].st === 'wait') { curC.items.splice(idx, 1); flash('용기 담기 취소'); } else flash('이미 작업 시작된 용기'); }
-            else { const v = mkVes(src, 0, 'wait'); v.open = true; curC.items.push(v); flash('용기 담기 · 대기'); }
-            openVesSheet(); renderItems();
+
+        function addVes(src, byWo) {
+            // 같은 용기 매칭들 (WO=job_res_id, FREE=mat_id)
+            const matches = [];
+            curC.items.forEach((it, ix) => {
+                const m = byWo ? (it.job_res_id === src.job_res_id) : (it.mat_id === src.mat_id && !it.wo);
+                if (m) matches.push(ix);
+            });
+            const waitIdx = matches.find(ix => curC.items[ix].st === 'wait');
+
+            if (waitIdx !== undefined) {
+                /* 대기 상태 중복 → 담기취소(토글) */
+                const it = curC.items[waitIdx];
+                if (it.mp_id) {
+                    apiPost('/item_delete', {mp_id: it.mp_id}, () => {
+                        curC.items.splice(waitIdx, 1);
+                        openVesSheet(); renderItems(); refreshDays();
+                        flash('용기 담기 취소');
+                    });
+                } else {
+                    curC.items.splice(waitIdx, 1);
+                    openVesSheet(); renderItems();
+                    flash('용기 담기 취소');
+                }
+                return;
+            }
+
+            if (matches.length > 0) {
+                /* 이미 작업중/완료된 같은 용기 존재 → 확인 후 추가 담기 허용 */
+                uiConfirm(`이미 진행 중인 [${src.vname}] 용기가 있습니다.\n같은 용기를 추가로 담으시겠습니까?`,
+                    () => commitAddVes(src), '추가 담기');
+                return;
+            }
+
+            commitAddVes(src);
         }
+
+        /* 새 담기 = 서버에 mat_produce 'wait' 생성(item_add). 여기서 작업조도 처음 저장됨. */
+        function commitAddVes(src) {
+            apiPost('/item_add', {
+                job_res_id: src.job_res_id || '',
+                material_id: src.job_res_id ? '' : src.mat_id,
+                work_center_id: WC,
+                equipment_id: curC.equip_id || '',
+                actor_id: curC.leader_id,
+                member_ids: curC.workers.slice(1).map(w => w.id).filter(Boolean).join(','),
+                shift_code: curC.shift,
+                production_date: curD.date,
+                spjangcd: CTX.spjangcd
+            }, (r) => {
+                const v = mkVes(src, curD.date);
+                v.mp_id = (r.data && r.data.mat_produce_id) || null;
+                v.open = true;
+                curC.items.push(v);
+                curC._draft = false;
+                openVesSheet();
+                renderItems();
+                refreshDays();
+                flash('용기 담기 · 대기 (저장됨)');
+            });
+        }
+
         document.getElementById('woVesList').addEventListener('click', e => {
-            const r = e.target.closest('[data-wo]'); if (r) addVes(WO_VES[+r.dataset.wo]);
+            const r = e.target.closest('[data-wo]');
+            if (r) addVes(WO_VES[+r.dataset.wo], true);
         });
         document.getElementById('freeVesList').addEventListener('click', e => {
-            const r = e.target.closest('[data-free]'); if (r) addVes(FREE_VES[+r.dataset.free]);
+            const r = e.target.closest('[data-free]');
+            if (r) addVes(FREE_VES[+r.dataset.free], false);
         });
 
         /* BOM 자재 추가 (클린룸 재고) */
-        let partVi = null;
+        let partVi = null, CLEAN_STOCK = [];
+
         function openPartSheet(vi) {
             partVi = vi;
             document.getElementById('partTitle').textContent = curC.items[vi].vname + ' · 투입자재 추가';
-            const has = code => curC.items[vi].bom.some(b => b.code === code);
-            document.getElementById('partList').innerHTML = CLEAN_STOCK.map((s, i) => `
-        <div class="prow ${has(s.code) ? 'added' : ''}" data-part="${i}">
+            const r = apiGet('/clean_stock', {store_id: CTX.cleanStore});
+            CLEAN_STOCK = (r.data || []).map(s => ({
+                mat_id: s.mat_id,
+                code: s.mat_code,
+                name: s.mat_name,
+                stock: num(s.stock)
+            }));
+            const has = id => curC.items[vi].bom.some(b => b.mat_id === id);
+            document.getElementById('partList').innerHTML = CLEAN_STOCK.length ? CLEAN_STOCK.map((s, i) => `
+        <div class="prow ${has(s.mat_id) ? 'added' : ''}" data-part="${i}">
           <div class="pid"><div class="pnm">${s.name}</div><div class="pcode">${s.code}</div></div>
           <div class="pr"><div class="pl">클린룸 재고</div>${s.stock.toLocaleString()}</div>
-          <div class="pchk">${has(s.code) ? '✓' : '＋'}</div></div>`).join('');
+          <div class="pchk">${has(s.mat_id) ? '✓' : '＋'}</div></div>`).join('')
+                : `<div class="emptybox">클린룸 재고가 없습니다</div>`;
             showMask('partMask');
         }
+
         document.getElementById('partList').addEventListener('click', e => {
-            const r = e.target.closest('[data-part]'); if (!r) return;
+            const r = e.target.closest('[data-part]');
+            if (!r) return;
             const s = CLEAN_STOCK[+r.dataset.part], bom = curC.items[partVi].bom;
-            const k = bom.findIndex(b => b.code === s.code);
-            if (k >= 0) { bom.splice(k, 1); flash('자재 제거'); }
-            else { bom.push({code: s.code, name: s.name, per: 1, qty: curC.items[partVi].qty || 0, manual: true}); flash('자재 추가'); }
-            openPartSheet(partVi); renderItems();
+            const k = bom.findIndex(b => b.mat_id === s.mat_id);
+            if (k >= 0) {
+                bom.splice(k, 1);
+                flash('자재 제거');
+            } else {
+                bom.push({
+                    mat_id: s.mat_id,
+                    code: s.code,
+                    name: s.name,
+                    per: 1,
+                    qty: curC.items[partVi].qty || 0,
+                    manual: true,
+                    stock: s.stock
+                });
+                flash('자재 추가');
+            }
+            openPartSheet(partVi);
+            renderItems();
         });
 
         /* 시작/종료 시간 수정 (조/용기 공용) */
         let timeWhich = 'start', timeTarget = null, editDate = new Date();
-        function fmtDEdit(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} (${WD[d.getDay()]})`; }
+
+        function fmtDEdit(d) {
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} (${WD[d.getDay()]})`;
+        }
+
         function openTime(which, target, label) {
-            timeWhich = which; timeTarget = target || curC;
+            timeWhich = which;
+            timeTarget = target || curC;
             document.getElementById('timeTitle').textContent = (label ? label + ' · ' : '') + (which === 'start' ? '시작' : '종료') + ' 일시 수정';
             const saved = which === 'start' ? timeTarget.start : timeTarget.end;
-            if (saved && saved.includes(' ')) { const [ds, ts] = saved.split(' '); editDate = new Date(ds + 'T' + ts); }
-            else editDate = new Date(curD.date + 'T' + hhmm());
+            if (saved && saved.includes(' ')) {
+                const [ds, ts] = saved.split(' ');
+                editDate = new Date(ds + 'T' + ts);
+            } else editDate = new Date(curD.date + 'T' + hhmm());
             document.getElementById('tDate').textContent = fmtDEdit(editDate);
             document.getElementById('tH').textContent = String(editDate.getHours()).padStart(2, '0');
             document.getElementById('tM').textContent = String(editDate.getMinutes()).padStart(2, '0');
             showMask('timeMask');
         }
+
         document.querySelector('#timeMask .dateedit').addEventListener('click', e => {
-            const b = e.target.closest('[data-d]'); if (!b) return;
+            const b = e.target.closest('[data-d]');
+            if (!b) return;
             editDate.setDate(editDate.getDate() + (+b.dataset.d));
             document.getElementById('tDate').textContent = fmtDEdit(editDate);
         });
         document.querySelector('#timeMask .timeedit').addEventListener('click', e => {
-            const b = e.target.closest('[data-t]'); if (!b) return;
+            const b = e.target.closest('[data-t]');
+            if (!b) return;
             const H = document.getElementById('tH'), M = document.getElementById('tM');
             let h = +H.textContent, m = +M.textContent;
             if (b.dataset.t === 'h+') h = (h + 1) % 24;
             if (b.dataset.t === 'h-') h = (h + 23) % 24;
             if (b.dataset.t === 'm+') m = (m + 1) % 60;
             if (b.dataset.t === 'm-') m = (m + 59) % 60;
-            H.textContent = String(h).padStart(2, '0'); M.textContent = String(m).padStart(2, '0');
+            H.textContent = String(h).padStart(2, '0');
+            M.textContent = String(m).padStart(2, '0');
         });
         document.getElementById('timeOk').onclick = () => {
             const ds = `${editDate.getFullYear()}-${String(editDate.getMonth() + 1).padStart(2, '0')}-${String(editDate.getDate()).padStart(2, '0')}`;
             const v = ds + ' ' + document.getElementById('tH').textContent + ':' + document.getElementById('tM').textContent;
             if (timeWhich === 'start') timeTarget.start = v; else timeTarget.end = v;
-            hideMask('timeMask'); renderItems(); renderCrews();
+            hideMask('timeMask');
+            renderItems();
+            renderCrews();
             flash((timeWhich === 'start' ? '시작' : '종료') + ' 저장 ' + pillT(v));
         };
 
         /* 넘패드 (용기/BOM 공용) */
         let padCtx = null, padVal = '';
+
         function openPad(ctx) {
             padCtx = ctx;
             if (ctx.type === 'ves') {
@@ -833,69 +1239,213 @@
             document.getElementById('padDisp').textContent = padVal;
             showMask('padMask');
         }
+
         document.querySelector('#padMask .keys').addEventListener('click', e => {
-            const k = e.target.dataset.k; if (!k) return;
+            const k = e.target.dataset.k;
+            if (!k) return;
             if (k === 'C') padVal = '';
             else if (k === 'OK') {
                 const val = Math.max(0, parseInt(padVal || '0', 10));
                 if (padCtx.type === 'ves') curC.items[padCtx.vi].qty = val;
-                else { const b = curC.items[padCtx.vi].bom[padCtx.bi]; b.manual = true; b.qty = val; }
-                hideMask('padMask'); renderItems(); return;
+                else {
+                    const b = curC.items[padCtx.vi].bom[padCtx.bi];
+                    b.manual = true;
+                    b.qty = val;
+                }
+                hideMask('padMask');
+                renderItems();
+                return;
             } else padVal = (padVal === '0' ? '' : padVal) + k;
             document.getElementById('padDisp').textContent = padVal || '0';
         });
 
         /* 토스트 */
         let tT;
+
         function flash(m) {
             let t = document.getElementById('toast');
             if (!t) {
-                t = document.createElement('div'); t.id = 'toast';
+                t = document.createElement('div');
+                t.id = 'toast';
                 t.style.cssText = 'position:fixed;left:50%;bottom:110px;transform:translateX(-50%);background:#15222B;color:#fff;padding:14px 22px;border-radius:14px;font-weight:700;z-index:60;box-shadow:0 12px 30px -10px rgba(0,0,0,.5);transition:opacity .3s;max-width:90vw;text-align:center';
                 document.body.appendChild(t);
             }
-            t.textContent = m; t.style.opacity = '1';
-            clearTimeout(tT); tT = setTimeout(() => t.style.opacity = '0', 1800);
+            t.textContent = m;
+            t.style.opacity = '1';
+            clearTimeout(tT);
+            tT = setTimeout(() => t.style.opacity = '0', 1800);
         }
 
-        renderDays();
+        /* 화면 톤에 맞춘 확인 모달 (PC용 Alert 대체). okLabel 로 위험 액션 라벨 지정 */
+        function uiConfirm(msg, onOk, okLabel) {
+            let m = document.getElementById('confirmMask');
+            if (!m) {
+                m = document.createElement('div');
+                m.id = 'confirmMask';
+                m.style.cssText = 'position:fixed;inset:0;background:rgba(21,34,43,.45);display:none;align-items:center;justify-content:center;z-index:80;padding:24px';
+                m.innerHTML = `<div style="background:var(--surface);border-radius:20px;max-width:420px;width:100%;padding:24px 22px 18px;box-shadow:0 20px 50px -12px rgba(0,0,0,.4)">
+          <div id="confirmMsg" style="font-size:17px;font-weight:800;color:var(--ink);line-height:1.5;margin-bottom:20px;white-space:pre-line"></div>
+          <div style="display:flex;gap:10px">
+            <button id="confirmCancel" style="flex:1;height:52px;border-radius:14px;border:1px solid var(--line);background:var(--surface-2);color:var(--ink-2);font-weight:800;font-size:16px">취소</button>
+            <button id="confirmOk" style="flex:1;height:52px;border-radius:14px;border:none;background:#d33;color:#fff;font-weight:800;font-size:16px">삭제</button>
+          </div></div>`;
+                document.body.appendChild(m);
+                m.addEventListener('click', e => { if (e.target === m) m.style.display = 'none'; });
+            }
+            m.querySelector('#confirmMsg').textContent = msg;
+            const ok = m.querySelector('#confirmOk'), cancel = m.querySelector('#confirmCancel');
+            if (okLabel) ok.textContent = okLabel;
+            const close = () => { m.style.display = 'none'; ok.onclick = null; cancel.onclick = null; };
+            ok.onclick = () => { close(); onOk && onOk(); };
+            cancel.onclick = close;
+            m.style.display = 'flex';
+        }
+
+        /* 용기 삭제 (확인 모달 경유). 헤더 ⋮ 메뉴·기타에서 공용 호출 */
+        function deleteVessel(vi) {
+            const it = curC.items[vi];
+            if (!it) return;
+            uiConfirm(`[${it.vname}] 용기를 삭제하시겠습니까?`, function () {
+                if (it.mp_id) {
+                    apiPost('/item_delete', {mp_id: it.mp_id}, () => {
+                        curC.items.splice(vi, 1);
+                        renderItems();
+                        renderCrews();
+                        refreshDays();
+                        flash('용기 삭제');
+                    });
+                } else {
+                    curC.items.splice(vi, 1);
+                    renderItems();
+                    renderCrews();
+                    flash('용기 삭제');
+                }
+            });
+        }
+
+        /* 헤더 ⋮ 더보기 메뉴 (현재 항목: 삭제). 같은 버튼 재클릭 시 닫힘(토글) */
+        function showItemMenu(vi, btn) {
+            let mn = document.getElementById('itemMenu');
+            if (!mn) {
+                mn = document.createElement('div');
+                mn.id = 'itemMenu';
+                mn.style.cssText = 'position:fixed;display:none;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 16px 40px -12px rgba(0,0,0,.4);z-index:70;overflow:hidden;min-width:160px;padding:6px';
+                document.body.appendChild(mn);
+                document.addEventListener('click', e => {
+                    if (mn.style.display === 'block' && !mn.contains(e.target) && !e.target.closest('[data-menu]')) mn.style.display = 'none';
+                });
+            }
+            // 토글: 이미 이 용기 메뉴가 열려 있으면 닫는다
+            if (mn.style.display === 'block' && mn.dataset.vi === String(vi)) {
+                mn.style.display = 'none';
+                return;
+            }
+            mn.dataset.vi = String(vi);
+            mn.innerHTML = `<button data-menudel="${vi}" style="width:100%;display:flex;align-items:center;gap:8px;text-align:left;padding:13px 14px;border:none;border-radius:10px;background:none;color:#d33;font-weight:800;font-size:15px">🗑 이 용기 삭제</button>`;
+            mn.querySelector('[data-menudel]').onclick = () => { mn.style.display = 'none'; deleteVessel(vi); };
+            mn.style.display = 'block';
+            const r = btn.getBoundingClientRect();
+            const mw = mn.offsetWidth || 160, mh = mn.offsetHeight || 56;
+            // 오른쪽 정렬(버튼 우측에 맞춤), 화면 밖으로 안 나가게 보정
+            let left = r.right - mw;
+            if (left < 8) left = 8;
+            // 아래 공간 부족하면 버튼 위로 띄움
+            let top = r.bottom + 6;
+            if (top + mh > window.innerHeight - 8) top = r.top - mh - 6;
+            mn.style.left = left + 'px';
+            mn.style.top = top + 'px';
+        }
+
+        /* 시작 — AjaxUtil 이 레이아웃에서 늦게 로드될 수 있어 준비될 때까지 대기 */
+        function loadContext() {
+            const r = apiGet('/context', {process_code: CTX.processCode, factory_id: CTX.factoryId || ''});
+            const d = r.data || {};
+            PROC_ID = d.process_id || null;
+            WC = d.workcenter_id || null;
+            OUT_STORE = d.out_store_id || null;
+            if (!PROC_ID) console.warn('[work] 공정을 찾지 못했습니다. process."Code"=\'' + CTX.processCode + '\' 확인');
+            if (!WC) console.warn('[work] 워크센터를 찾지 못했습니다. work_center."Process_id" 매핑 확인');
+        }
+
+        (function boot(tries) {
+            tries = tries || 0;
+            if (typeof AjaxUtil !== 'undefined' && AjaxUtil.getSyncData) {
+                loadContext();
+                refreshDays();
+                return;
+            }
+            if (tries > 100) {
+                flash('AjaxUtil 미로드 — 공용 스크립트 로드 순서를 확인하세요');
+                console.error('[work] AjaxUtil 을 찾을 수 없습니다. typeof AjaxUtil =', typeof AjaxUtil);
+                return;
+            }
+            setTimeout(function () {
+                boot(tries + 1);
+            }, 50);
+        })();
     </script>
 
     <!-- 스텝퍼 롱프레스 자동증감 -->
     <style>
-        .stepper button, .bstep button, .dateedit button, .timeedit button {touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
+        .stepper button, .bstep button, .dateedit button, .timeedit button {
+            touch-action: manipulation;
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-touch-callout: none;
+        }
     </style>
     <script>
         (function () {
             var SEL = '.stepper button, .bstep button, .dateedit button, .timeedit button';
             var holdTimer = null, repeatTimer = null, maxTimer = null, curBtn = null;
             var END_EVENTS = ['pointerup', 'pointercancel', 'lostpointercapture', 'touchend', 'touchcancel', 'mouseup'];
+
             function stop() {
-                clearTimeout(holdTimer); clearInterval(repeatTimer); clearTimeout(maxTimer);
+                clearTimeout(holdTimer);
+                clearInterval(repeatTimer);
+                clearTimeout(maxTimer);
                 holdTimer = repeatTimer = maxTimer = null;
-                if (curBtn) { END_EVENTS.forEach(function (ev) { curBtn.removeEventListener(ev, stop); }); curBtn = null; }
+                if (curBtn) {
+                    END_EVENTS.forEach(function (ev) {
+                        curBtn.removeEventListener(ev, stop);
+                    });
+                    curBtn = null;
+                }
             }
+
             function tick(x, y) {
                 var el = document.elementFromPoint(x, y);
                 var b = (el && el.closest) ? el.closest(SEL) : null;
-                if (!b) { stop(); return; }
+                if (!b) {
+                    stop();
+                    return;
+                }
                 b.click();
             }
+
             document.addEventListener('pointerdown', function (e) {
                 if (e.button != null && e.button > 0) return;
                 var btn = e.target.closest ? e.target.closest(SEL) : null;
                 if (!btn) return;
-                var x = e.clientX, y = e.clientY; stop();
-                curBtn = btn; END_EVENTS.forEach(function (ev) { btn.addEventListener(ev, stop); });
+                var x = e.clientX, y = e.clientY;
+                stop();
+                curBtn = btn;
+                END_EVENTS.forEach(function (ev) {
+                    btn.addEventListener(ev, stop);
+                });
                 holdTimer = setTimeout(function () {
-                    repeatTimer = setInterval(function () { tick(x, y); }, 80);
+                    repeatTimer = setInterval(function () {
+                        tick(x, y);
+                    }, 80);
                     maxTimer = setTimeout(stop, 8000);
                 }, 400);
                 window.addEventListener('pointerup', stop, {once: true, capture: true});
                 window.addEventListener('touchend', stop, {once: true, capture: true});
             });
             window.addEventListener('blur', stop);
-            document.addEventListener('visibilitychange', function () { if (document.hidden) stop(); });
+            document.addEventListener('visibilitychange', function () {
+                if (document.hidden) stop();
+            });
         })();
     </script>
 </th:block>
