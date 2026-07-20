@@ -329,30 +329,62 @@
             if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
         })();
 
+        /* =======================================================================
+           실서버 배선
+           - 호스트 페이지에서 window.WASH_CTX 로 설정 주입 (선택)
+               { spjangcd, factoryId, dayRange }
+             · factoryId : 공장이 여러 개일 때만 필요 (세척 워크센터를 좁힌다)
+           - 세척은 작업지시/라우팅/BOM 을 쓰지 않는다.
+             대상 = material."WashYN"='Y' + 생산창고(17) 재고>0
+             동작 = 품목 행 완료 시 생산창고 → 클린룸창고(5) 재고 이동
+           - 작업(카드) 상태는 서버가 품목에서 파생한다. "작업 완료" 버튼 없음.
+           - 설비 콤보는 세척 공정의 워크센터로 필터한다 (공정↔워크센터 1:1).
+             워크센터 id 는 /wash/context 에서 받아온다 — 화면에 하드코딩하지 않는다.
+        ======================================================================= */
+        const CTX = Object.assign({
+            spjangcd: 'ZZ',
+            factoryId: '',        // 공장 여러 개일 때만
+            dayRange: 30          // 날짜 카드 조회 범위(일)
+        }, window.WASH_CTX || {});
+
+        let WASH_WC = null;       // 세척 워크센터 id — boot 시 /context 로 채움
+
+        const BASE = '/api/production/wash';
+
+        function apiGet(path, params) {
+            if (typeof AjaxUtil !== 'undefined' && AjaxUtil.getSyncData) {
+                return AjaxUtil.getSyncData(BASE + path, params || {}) || {};
+            }
+            flash('AjaxUtil 미로드 — 공용 스크립트 로드 순서를 확인하세요');
+            return {};
+        }
+        function apiPost(path, params, cb) {
+            if (typeof AjaxUtil !== 'undefined' && AjaxUtil.postAsyncData) {
+                AjaxUtil.postAsyncData(BASE + path, params || {}, function (r) {
+                    r = r || {};
+                    if (r.success === false) { flash(r.message || '처리에 실패했습니다'); return; }
+                    cb && cb(r);
+                });
+                return;
+            }
+            flash('AjaxUtil 미로드 — 공용 스크립트 로드 순서를 확인하세요');
+        }
+        /* 공용 콤보 — /api/common/combo (반환: [{value, text}]) */
+        function combo(comboType, cond1, cond2, cond3) {
+            if (typeof AjaxUtil === 'undefined' || !AjaxUtil.getSyncData) return [];
+            const r = AjaxUtil.getSyncData('/api/common/combo', {
+                combo_type: comboType, cond1: cond1 || '', cond2: cond2 || '', cond3: cond3 || ''
+            }) || {};
+            return (r.data || []).map(x => ({value: x.value, text: x.text, code: x.Code || ''}));
+        }
+
         /* ── 기준 데이터 ── */
         const WD = ['일', '월', '화', '수', '목', '금', '토'];
-        const DEPT = '생산 1캠퍼스';
-        const WORKERS = ['조유정', '김미선', '김세연', '박은경', '이서연'];
-        // 세척기 워크센터 코드
-        const EQUIPS = [['KM-MRM-M001', '세척기 A'], ['KM-MRM-M002', '세척기 B'], ['KM-MRM-M005', '세척기 C']];
         const STLAB = {wait: '대기', working: '작업중', done: '완료'};
-        // 생산창고 재고 (불출분) — 세척 대상 용기 부품
-        const STOCK = [
-            {code: 'M-DD00003', name: 'BSC+③ 30 상부', stock: 200},
-            {code: 'M-DD00071', name: '호환형 BSC+③ 30 상부', stock: 60},
-            {code: 'M-DD00004', name: 'BSC+③ 30 하부', stock: 150},
-            {code: 'M-DD00029', name: '혈액주입포트(RHAN-빨강)_R-Rub', stock: 2000},
-            {code: 'M-DD00030', name: '셀추출포트(고무-아이보리)_Iv-Rub', stock: 2000},
-            {code: 'M-DS00053', name: '오링 040', stock: 150},
-            {code: 'M-DD00033', name: '플로팅 혈액 30', stock: 45},
-            {code: 'M-DT00014', name: 'BLD-30P', stock: 216},
-            {code: 'M-DT00015', name: 'BLD-30R', stock: 213},
-            {code: 'M-DT00012', name: '분리형캐뉼라 BLD-60R', stock: 100},
-            {code: 'M-DD00070', name: '스페이서', stock: 216},
-            {code: 'M-DU00074-1', name: '캐뉼라 캡 - 60mm', stock: 150},
-            {code: 'M-DU00074-3', name: '캐뉼라 캡 - 74mm', stock: 216}
-        ];
+        let WORKERS = [];   // [{value,text}] — 시트 열 때 1회 로드 후 캐시
+        let EQUIPS = [];    // [{value,text}]
 
+        function num(v) { const n = parseFloat(v); return isNaN(n) ? 0 : n; }
         function todayStr() {
             const d = new Date();
             return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
@@ -361,89 +393,102 @@
             const d = new Date();
             return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
         }
-        function pillT(v) { // 'YYYY-MM-DD HH:MM' → 'MM. DD HH:MM' (없으면 --:--)
-            if (!v) return '--:--';
-            if (v.includes(' ')) { const [d, t] = v.split(' '); return d.slice(5).replace('-', '. ') + ' ' + t; }
-            return v;
-        }
         function shiftDay(base, n) {
             const d = new Date(base + 'T00:00:00'); d.setDate(d.getDate() + n);
             return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
         }
-        function mkItem(s, qty, st, start, end) { return {code: s.code, name: s.name, qty: qty || 0, st: st || 'wait', start: start || null, end: end || null}; }
-        function mkWorker(worker, equip, code, start) { return {worker, equip, code, done: false, start: start || null, end: null, items: []}; }
-
-        /* 날짜 카드(=하루). 각 카드가 작업자들을 가진다 */
-        const DAYS = [
-            {
-                date: shiftDay(todayStr(), -1),
-                workers: [
-                    {worker: '조유정', equip: '세척기 A', code: 'KM-MRM-M001', done: true,
-                        start: shiftDay(todayStr(), -1) + ' 09:12', end: shiftDay(todayStr(), -1) + ' 10:40', items: [
-                            mkItem(STOCK[0], 180, 'done', shiftDay(todayStr(), -1) + ' 09:15', shiftDay(todayStr(), -1) + ' 09:52'),
-                            mkItem(STOCK[1], 54, 'done', shiftDay(todayStr(), -1) + ' 09:55', shiftDay(todayStr(), -1) + ' 10:14'),
-                            mkItem(STOCK[2], 75, 'done', shiftDay(todayStr(), -1) + ' 10:18', shiftDay(todayStr(), -1) + ' 10:40')
-                        ]},
-                    {worker: '김미선', equip: '세척기 B', code: 'KM-MRM-M002', done: false,
-                        start: shiftDay(todayStr(), -1) + ' 10:55', end: null, items: [
-                            mkItem(STOCK[11], 180, 'done', shiftDay(todayStr(), -1) + ' 10:58', shiftDay(todayStr(), -1) + ' 11:40'),
-                            mkItem(STOCK[12], 54, 'working', shiftDay(todayStr(), -1) + ' 11:45', null),
-                            mkItem(STOCK[3], 0, 'wait')
-                        ]}
-                ]
-            }
-        ];
-
-        function ensureToday() {
-            const t = todayStr();
-            if (!DAYS.some(d => d.date === t)) DAYS.unshift({date: t, workers: []});
-        }
-        ensureToday();
-
-        /* 집계 */
-        function workerDone(w) { return w.items.filter(i => i.st === 'done').reduce((a, i) => a + (i.qty || 0), 0); }
-        function workerSt(w) {
-            if (w.done) return 'done';
-            if (w.items.some(i => i.st === 'working' || i.st === 'done')) return 'working';
-            return 'wait';
-        }
-        function dayDone(d) { return d.workers.reduce((a, w) => a + workerDone(w), 0); }
-        function daySt(d) {
-            if (!d.workers.length) return 'wait';
-            if (d.workers.every(w => w.done)) return 'done';
-            if (d.workers.some(w => workerSt(w) !== 'wait')) return 'working';
-            return 'wait';
-        }
-        function itemCounts(scope) { // scope: day 또는 worker 배열원
-            let wait = 0, work = 0, done = 0;
-            const ws = scope.workers ? scope.workers : [scope];
-            ws.forEach(w => w.items.forEach(i => { if (i.st === 'done') done++; else if (i.st === 'working') work++; else wait++; }));
-            return {wait, work, done};
+        function pillT(v) { // 'YYYY-MM-DD HH:MM' → 'MM. DD HH:MM'
+            if (!v) return '--:--';
+            if (v.includes(' ')) { const [d, t] = v.split(' '); return d.slice(5).replace('-', '. ') + ' ' + t; }
+            return v;
         }
         function fmtDate(s) {
             const d = new Date(s + 'T00:00:00');
             return `${s.replace(/-/g, '. ')} (${WD[d.getDay()]})`;
         }
 
-        let curD = null, curW = null;
+        /* ── 서버 로드 ── */
+        let DAYS = [];              // [{date, work_cnt, good_qty, cnts:{wait,work,done}, st}]
+        let curD = null;            // {date, workers:[…]}
+        let curW = null;            // {work_id, worker, equip, code, start, end, items:[…]}
+
+        function loadDays() {
+            const to = todayStr(), from = shiftDay(to, -CTX.dayRange);
+            const r = apiGet('/day_list', {date_from: from, date_to: to, spjangcd: CTX.spjangcd});
+            DAYS = (r.data || []).map(d => ({
+                date: d.wash_date_str,
+                work_cnt: num(d.work_cnt),
+                good_qty: num(d.good_qty),
+                cnts: {wait: num(d.item_wait_cnt), work: num(d.item_working_cnt), done: num(d.item_done_cnt)},
+                st: d.state || 'wait'
+            }));
+            // ★ 서버는 빈 날짜를 만들지 않는다. 당일 카드는 화면에서 띄운다.
+            const t = todayStr();
+            if (!DAYS.some(d => d.date === t)) {
+                DAYS.unshift({date: t, work_cnt: 0, good_qty: 0, cnts: {wait: 0, work: 0, done: 0}, st: 'wait'});
+            }
+        }
+        function loadWorkers(date) {
+            const r = apiGet('/work_list', {date: date, spjangcd: CTX.spjangcd});
+            return (r.data || []).map(w => ({
+                work_id: w.work_id,
+                actor_id: w.actor_id, worker: w.worker_name || '-',
+                equipment_id: w.equipment_id, equip: w.equipment_name || '-', code: w.equipment_code || '',
+                start: w.start_time || null, end: w.end_time || null,
+                good_qty: num(w.good_qty),
+                item_cnt: num(w.item_cnt), item_done_cnt: num(w.item_done_cnt),
+                st: w.state || 'wait',
+                items: []
+            }));
+        }
+        function loadItems(workId) {
+            const r = apiGet('/item_list', {work_id: workId});
+            return (r.data || []).map(i => ({
+                item_id: i.item_id, mat_id: i.mat_id,
+                code: i.mat_code, name: i.mat_name, unit: i.unit || '',
+                qty: num(i.qty), defQty: num(i.defect_qty),
+                st: i.state || 'wait',
+                start: i.start_time || null, end: i.end_time || null,
+                stock: num(i.stock)
+            }));
+        }
+
+        /* 현재 화면 갱신 */
+        function refreshDays() { loadDays(); renderDays(); }
+        function refreshWorkers() {
+            curD.workers = loadWorkers(curD.date);
+            renderWorkers();
+        }
+        function refreshItems() {
+            curW.items = loadItems(curW.work_id);
+            // 작업 헤더(시작/종료/완료수량)는 서버 파생값 — 목록에서 다시 읽는다
+            const fresh = loadWorkers(curD.date).find(w => w.work_id === curW.work_id);
+            if (fresh) { curW.start = fresh.start; curW.end = fresh.end; curW.good_qty = fresh.good_qty; curW.st = fresh.st; }
+            renderItems();
+        }
+
+        /* 집계 (화면 표시용) */
+        function workerDone(w) { return w.items.length
+            ? w.items.filter(i => i.st === 'done').reduce((a, i) => a + (+i.qty || 0), 0)
+            : (w.good_qty || 0); }
 
         /* ── A. 날짜 카드 ── */
         const dayGrid = document.getElementById('dayGrid');
         function renderDays() {
             document.getElementById('dayCnt').textContent = DAYS.length + '일';
             dayGrid.innerHTML = DAYS.map((d, i) => {
-                const st = daySt(d), c = itemCounts(d), isToday = d.date === todayStr();
-                return `<div class="day" data-st="${st}" data-i="${i}"><div class="edge"></div>
+                const isToday = d.date === todayStr();
+                return `<div class="day" data-st="${d.st}" data-i="${i}"><div class="edge"></div>
       <div class="row1"><span class="dt">${fmtDate(d.date)}</span>
         ${isToday ? '<span class="today">오늘</span>' : ''}
-        <span class="chip ${st}">${STLAB[st]}</span></div>
+        <span class="chip ${d.st}">${STLAB[d.st]}</span></div>
       <div class="meta">
-        <div class="blk"><span class="lab">작업자</span><span class="val">${d.workers.length}명</span></div>
-        <div class="blk"><span class="lab">완료수량</span><span class="val left">${dayDone(d)}</span></div>
+        <div class="blk"><span class="lab">작업자</span><span class="val">${d.work_cnt}명</span></div>
+        <div class="blk"><span class="lab">완료수량</span><span class="val left">${d.good_qty.toLocaleString()}</span></div>
         <div class="cnts">
-          <span class="minipill w">대기 ${c.wait}</span>
-          <span class="minipill g">작업중 ${c.work}</span>
-          <span class="minipill d">완료 ${c.done}</span>
+          <span class="minipill w">대기 ${d.cnts.wait}</span>
+          <span class="minipill g">작업중 ${d.cnts.work}</span>
+          <span class="minipill d">완료 ${d.cnts.done}</span>
         </div></div></div>`;
             }).join('');
         }
@@ -456,20 +501,21 @@
         const SC = {A: document.getElementById('scA'), B: document.getElementById('scB'), C: document.getElementById('scC')};
         function show(k) { for (const x in SC) SC[x].classList.toggle('hide', x !== k); }
         document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', () => {
-            const to = b.dataset.back;
-            if (to === 'A') { renderDays(); show('A'); }
-            else { renderWorkers(); show('B'); }
+            flushDirty();   /* C 화면을 벗어나기 전 미저장 수량 반영 */
+            if (b.dataset.back === 'A') { refreshDays(); show('A'); }
+            else { refreshWorkers(); show('B'); }
         }));
 
         /* ── B. 작업자 목록 ── */
         function openDay(i) {
-            curD = DAYS[i];
-            renderWorkers();
+            curD = {date: DAYS[i].date, workers: []};
+            refreshWorkers();
             show('B');
         }
         function renderWorkers() {
             document.getElementById('bDate').textContent = fmtDate(curD.date);
-            document.getElementById('bDoneQty').textContent = dayDone(curD);
+            document.getElementById('bDoneQty').textContent =
+                curD.workers.reduce((a, w) => a + (w.good_qty || 0), 0).toLocaleString();
             document.getElementById('wkCnt').textContent = curD.workers.length + '명';
             const box = document.getElementById('wkList');
             if (!curD.workers.length) {
@@ -477,47 +523,49 @@
                 return;
             }
             box.innerHTML = curD.workers.map((w, i) => {
-                const st = workerSt(w);
                 const del = workerDeletable(w) ? `<button class="wkdel" data-del="${i}">삭제</button>` : '';
-                return `<div class="wk" data-st="${st}" data-i="${i}"><div class="edge"></div>
-      <div class="who"><span class="nm">${w.worker}</span><span class="eq">${w.equip} · ${w.code}</span></div>
+                return `<div class="wk" data-st="${w.st}" data-i="${i}"><div class="edge"></div>
+      <div class="who"><span class="nm">${w.worker}</span><span class="eq">${w.equip}${w.code ? ' · ' + w.code : ''}</span></div>
       <div class="wktime">${pillT(w.start)} ~ ${pillT(w.end)}</div>
-      <div class="qty"><div class="l">완료수량</div><div class="v">${workerDone(w)}</div></div>
-      <span class="badge ${st}">${STLAB[st]}</span>${del}</div>`;
+      <div class="qty"><div class="l">완료수량</div><div class="v">${(w.good_qty || 0).toLocaleString()}</div></div>
+      <span class="badge ${w.st}">${STLAB[w.st]}</span>${del}</div>`;
             }).join('');
         }
-        function workerDeletable(w) { return !w.done && !w.items.some(i => i.st === 'done'); }
+        /* 완료된 품목이 하나라도 있으면 삭제 불가 (서버도 동일 검증) */
+        function workerDeletable(w) { return (w.item_done_cnt || 0) === 0; }
+
         document.getElementById('wkList').addEventListener('click', e => {
             const d = e.target.closest('[data-del]');
             if (d) {
-                const i = +d.dataset.del, w = curD.workers[i];
-                if (!workerDeletable(w)) { flash('완료된 작업이 있는 작업자는 삭제할 수 없습니다'); return; }
-                const label = w.worker;
-                curD.workers.splice(i, 1);
-                renderWorkers(); flash(`작업자 삭제 · ${label}`);
+                const w = curD.workers[+d.dataset.del];
+                if (!workerDeletable(w)) { flash('완료된 세척이 있는 작업자는 삭제할 수 없습니다'); return; }
+                apiPost('/work_delete', {work_id: w.work_id}, () => {
+                    refreshWorkers(); flash(`작업자 삭제 · ${w.worker}`);
+                });
                 return;
             }
-            const w = e.target.closest('.wk');
-            if (w) openWorker(+w.dataset.i);
+            const el = e.target.closest('.wk');
+            if (el) openWorker(+el.dataset.i);
         });
         document.getElementById('btnAddWorker').onclick = openWorkerSheet;
 
         /* ── C. 품목 리스트 ── */
         function openWorker(i) {
             curW = curD.workers[i];
-            curW._idx = i;
-            renderItems();
+            refreshItems();
             show('C');
         }
         function renderCHead() {
+            /* ★ 작업 시작/종료는 품목에서 파생되는 값 — 표시만, 수정 불가 */
             document.getElementById('cHead').innerHTML = `
-        <div class="infopill tap" data-time="start"><span>시작</span><b>${pillT(curW.start)}</b></div>
-        <div class="infopill tap" data-time="end"><span>종료</span><b>${pillT(curW.end)}</b></div>
-        <div class="infopill big"><span>완료수량</span><b>${workerDone(curW)}</b></div>`;
+        <div class="infopill"><span>시작</span><b>${pillT(curW.start)}</b></div>
+        <div class="infopill"><span>종료</span><b>${pillT(curW.end)}</b></div>
+        <div class="infopill big"><span>완료수량</span><b>${workerDone(curW).toLocaleString()}</b></div>`;
         }
         function renderItems() {
             document.getElementById('cWorker').textContent = curW.worker;
-            document.getElementById('cSub').textContent = `${fmtDate(curD.date)} · ${curW.equip} · ${curW.code}`;
+            document.getElementById('cSub').textContent =
+                `${fmtDate(curD.date)} · ${curW.equip}${curW.code ? ' · ' + curW.code : ''}`;
             renderCHead();
             document.getElementById('itemCnt').textContent = curW.items.length + '종';
             const box = document.getElementById('itemList');
@@ -527,21 +575,20 @@
                 box.innerHTML = curW.items.map((it, i) => {
                     let ctrl, actions;
                     if (it.st === 'done') {
-                        ctrl = `<span class="qtytag">${it.qty}</span>`;
+                        ctrl = `<span class="qtytag">${it.qty.toLocaleString()}</span>`;
                         actions = `<button class="itembtn ghost" data-act="uncomplete" data-i="${i}">완료취소</button>`;
                     } else {
+                        /* 수량은 시작 전/후 언제든 입력 가능 */
                         ctrl = `<div class="stepper" data-i="${i}"><button class="minus">−</button>
-              <div class="qty" data-pad="${i}">${it.qty}</div><button class="plus">+</button></div>`;
+              <div class="qty" data-pad="${i}">${it.qty.toLocaleString()}</div><button class="plus">+</button></div>`;
                         if (it.st === 'wait') {
                             actions = `<button class="itembtn del" data-act="del" data-i="${i}">삭제</button>
                 <button class="itembtn start" data-act="start" data-i="${i}">작업시작</button>`;
-                        } else { // working
+                        } else { // working — 완료는 수량 필수
                             actions = `<button class="itembtn done" data-act="complete" data-i="${i}">완료</button>`;
                         }
                     }
-                    const timeline = (it.st === 'wait')
-                        ? ''
-                        : `<div class="itime">
+                    const timeline = (it.st === 'wait') ? '' : `<div class="itime">
               <span class="tp" data-itime="start" data-i="${i}">시작 <b>${pillT(it.start)}</b></span>
               <span class="tp" data-itime="end" data-i="${i}">종료 <b>${pillT(it.end)}</b></span></div>`;
                     return `<div class="item ${it.st === 'done' ? 'locked' : ''}" data-st="${it.st}"><div class="edge"></div>
@@ -552,232 +599,366 @@
             }
             renderCAction();
         }
+        /* ★ "작업 완료" 버튼 없음 — 품목이 모두 done 이면 작업이 완료된 것 */
         function renderCAction() {
-            const bar = document.getElementById('cAction');
-            const remainWait = curW.items.some(i => i.st !== 'done');
-            if (curW.done) {
-                bar.innerHTML = `<div class="actsum"><span class="l">${curW.worker} · 세척 완료</span><span class="v">${workerDone(curW)} EA</span></div>
-        <button class="btn danger" data-cact="reopen">완료취소</button>`;
-            } else {
-                bar.innerHTML = `<div class="actsum"><span class="l">완료수량</span><span class="v">${workerDone(curW)} EA</span></div>
-        <button class="btn ghost" data-cact="addItem">＋ 품목 추가</button>
-        <button class="btn primary" data-cact="finish">작업 완료</button>`;
-            }
+            document.getElementById('cAction').innerHTML =
+                `<div class="actsum"><span class="l">완료수량</span><span class="v">${workerDone(curW).toLocaleString()} EA</span></div>
+        <button class="btn ghost" data-cact="addItem">＋ 품목 추가</button>`;
         }
+
+        /* ★ 수량은 로컬 상태로만 들고 있는다.
+           서버 전송은 '작업시작' / '완료' 시점 1회씩 — 스텝퍼 조작마다 저장하지 않는다.
+           화면을 벗어날 때만 미저장분(dirty)을 한 번 흘려보낸다. */
+        const dirty = new Set();
+
+        function flushDirty() {
+            if (!curW || !dirty.size) return;
+            curW.items.forEach(it => {
+                if (!dirty.has(it.item_id) || it.st === 'done') return;
+                apiPost('/item_save', {item_id: it.item_id, qty: it.qty, defect_qty: it.defQty || 0});
+            });
+            dirty.clear();
+        }
+
         document.getElementById('itemList').addEventListener('click', e => {
             const step = e.target.closest('.stepper');
             if (step && (e.target.classList.contains('plus') || e.target.classList.contains('minus'))) {
-                const i = +step.dataset.i, d = e.target.classList.contains('plus') ? 1 : -1;
-                curW.items[i].qty = Math.max(0, (+curW.items[i].qty || 0) + d);
+                const i = +step.dataset.i, it = curW.items[i];
+                it.qty = Math.max(0, (+it.qty || 0) + (e.target.classList.contains('plus') ? 1 : -1));
+                step.querySelector('.qty').textContent = it.qty.toLocaleString();
+                dirty.add(it.item_id);
                 renderCHead();
-                step.querySelector('.qty').textContent = curW.items[i].qty;
                 return;
             }
             const pad = e.target.closest('[data-pad]');
             if (pad) { openPad(+pad.dataset.pad); return; }
             const itime = e.target.closest('[data-itime]');
             if (itime) { const it = curW.items[+itime.dataset.i]; openTime(itime.dataset.itime, it, it.name); return; }
+
             const act = e.target.closest('[data-act]');
             if (!act) return;
-            const i = +act.dataset.i, it = curW.items[i];
-            if (act.dataset.act === 'del') {
-                curW.items.splice(i, 1); renderItems(); renderWorkers(); flash('품목 삭제');
-            } else if (act.dataset.act === 'start') {
-                it.st = 'working'; if (!it.start) it.start = curD.date + ' ' + hhmm(); renderItems(); flash('작업 시작');
-            } else if (act.dataset.act === 'complete') {
-                if (it.qty <= 0) { flash('세척수량을 확인하세요'); return; }
-                it.st = 'done'; it.end = curD.date + ' ' + hhmm(); renderItems(); renderWorkers();
-                flash(`세척 완료 · ${it.name} ${it.qty} → 크린룸 이동`);
-            } else if (act.dataset.act === 'uncomplete') {
-                it.st = 'working'; it.end = null; renderItems(); renderWorkers(); flash('완료취소 · 다시 작업중');
+            const i = +act.dataset.i, it = curW.items[i], a = act.dataset.act;
+
+            if (a === 'del') {
+                apiPost('/item_delete', {item_id: it.item_id}, () => {
+                    refreshItems(); flash('품목 삭제');
+                });
+            } else if (a === 'start') {
+                /* 로컬에 들고 있던 수량을 함께 보낸다 (수량 입력은 시작 전/후 자유) */
+                apiPost('/item_start', {item_id: it.item_id, qty: it.qty, defect_qty: it.defQty || 0}, () => {
+                    dirty.delete(it.item_id);
+                    refreshItems(); flash('작업 시작 · ' + it.name);
+                });
+            } else if (a === 'complete') {
+                if (!(it.qty > 0)) {
+                    flash('세척수량을 입력하세요');
+                    return;
+                }
+                if (it.qty > it.stock) {
+                    flash(`생산창고 재고 부족 (재고 ${it.stock.toLocaleString()})`);
+                    return;
+                }
+                /* ★ 이 시점에 재고가 실제로 이동한다 (생산창고 → 클린룸창고)
+                   종료시각은 서버 now() 에 맡긴다 — 카드 날짜로 만들면
+                   과거 카드/자정 넘김에서 시작보다 앞서는 문제가 생긴다 */
+                apiPost('/item_finish', {
+                    item_id: it.item_id, qty: it.qty, defect_qty: it.defQty || 0,
+                    spjangcd: CTX.spjangcd
+                }, () => {
+                    dirty.delete(it.item_id);
+                    refreshItems();
+                    flash(`세척 완료 · ${it.name} ${it.qty.toLocaleString()} → 클린룸 이동`);
+                });
+            } else if (a === 'uncomplete') {
+                apiPost('/item_cancel', {item_id: it.item_id}, () => {
+                    refreshItems();
+                    flash('완료취소 · 재고 이동 취소됨');
+                });
             }
         });
         document.getElementById('cAction').addEventListener('click', e => {
             const b = e.target.closest('[data-cact]');
-            if (!b) return;
-            if (b.dataset.cact === 'addItem') openStockSheet();
-            else if (b.dataset.cact === 'finish') {
-                curW.done = true; curW.end = curD.date + ' ' + hhmm(); renderItems(); renderWorkers();
-                const rest = curW.items.filter(i => i.st !== 'done').length;
-                flash(rest ? `작업 완료 (대기 ${rest}종 남음)` : '작업 완료');
-            } else if (b.dataset.cact === 'reopen') {
-                curW.done = false; curW.end = null; renderItems(); renderWorkers(); flash('완료취소 · 작업 재개');
-            }
+            if (b && b.dataset.cact === 'addItem') openStockSheet();
         });
 
         /* ── 시트 공통 ── */
-        function showMask(id) { document.getElementById(id).classList.add('show'); }
-        function hideMask(id) { document.getElementById(id).classList.remove('show'); }
+        function showMask(id) {
+            document.getElementById(id).classList.add('show');
+        }
+
+        function hideMask(id) {
+            document.getElementById(id).classList.remove('show');
+        }
+
         document.querySelectorAll('.mask').forEach(m => m.addEventListener('click', e => {
             if (e.target === m || e.target.closest('[data-close]')) m.classList.remove('show');
         }));
 
-        /* 작업자·설비 선택 */
+        /* 작업자·세척기 선택 — /api/common/combo */
         let selW = null, selE = null;
+
         function openWorkerSheet() {
-            selW = null; selE = null;
-            document.getElementById('workerOpts').innerHTML = WORKERS.map(w => `<button class="opt" data-w="${w}">${w}</button>`).join('');
-            document.getElementById('equipOpts').innerHTML = EQUIPS.map(([c, n]) => `<button class="opt" data-e="${n}" data-c="${c}">${n} <span class="sub">${c}</span></button>`).join('');
+            selW = null;
+            selE = null;
+            if (!WORKERS.length) WORKERS = combo('person');
+            /* ★ 세척 공정의 워크센터에 속한 설비만 (공정↔워크센터 1:1) */
+            if (!EQUIPS.length) EQUIPS = WASH_WC ? combo('equipment', '', '', WASH_WC) : [];
+            document.getElementById('workerOpts').innerHTML = WORKERS.length
+                ? WORKERS.map(w => `<button class="opt" data-w="${w.value}" data-n="${w.text}">${w.text}</button>`).join('')
+                : `<div class="emptybox">작업자 목록이 없습니다</div>`;
+            document.getElementById('equipOpts').innerHTML = EQUIPS.length
+                ? EQUIPS.map(x => `<button class="opt" data-e="${x.value}" data-n="${x.text}">${x.text}</button>`).join('')
+                : `<div class="emptybox">${WASH_WC ? '세척 워크센터에 등록된 설비가 없습니다' : '세척 워크센터를 찾지 못했습니다 (process.Code=bsc01 확인)'}</div>`;
             document.getElementById('workerOk').disabled = true;
             showMask('workerMask');
         }
+
         document.getElementById('workerOpts').addEventListener('click', e => {
-            const b = e.target.closest('[data-w]'); if (!b) return;
+            const b = e.target.closest('[data-w]');
+            if (!b) return;
             document.querySelectorAll('#workerOpts .opt').forEach(x => x.classList.remove('sel'));
-            b.classList.add('sel'); selW = b.dataset.w; ckWorker();
+            b.classList.add('sel');
+            selW = {id: b.dataset.w, name: b.dataset.n};
+            ckWorker();
         });
         document.getElementById('equipOpts').addEventListener('click', e => {
-            const b = e.target.closest('[data-e]'); if (!b) return;
+            const b = e.target.closest('[data-e]');
+            if (!b) return;
             document.querySelectorAll('#equipOpts .opt').forEach(x => x.classList.remove('sel'));
-            b.classList.add('sel'); selE = {name: b.dataset.e, code: b.dataset.c}; ckWorker();
+            b.classList.add('sel');
+            selE = {id: b.dataset.e, name: b.dataset.n};
+            ckWorker();
         });
-        function ckWorker() { document.getElementById('workerOk').disabled = !(selW && selE); }
+
+        function ckWorker() {
+            document.getElementById('workerOk').disabled = !(selW && selE);
+        }
+
         document.getElementById('workerOk').onclick = () => {
-            curD.workers.push(mkWorker(selW, selE.name, selE.code, curD.date + ' ' + hhmm()));
-            hideMask('workerMask'); renderWorkers();
-            openWorker(curD.workers.length - 1);
-            flash(`작업자 추가 · ${selW} / ${selE.name}`);
+            apiPost('/work_start', {
+                date: curD.date, actor_id: selW.id, equipment_id: selE.id, spjangcd: CTX.spjangcd
+            }, (r) => {
+                hideMask('workerMask');
+                const workId = r.data && r.data.work_id;
+                refreshWorkers();
+                const idx = curD.workers.findIndex(w => w.work_id === workId);
+                if (idx >= 0) openWorker(idx);
+                flash((r.data && r.data.reused) ? `기존 작업 열기 · ${selW.name}` : `작업자 추가 · ${selW.name} / ${selE.name}`);
+            });
         };
 
-        /* 품목(재고) 선택 */
+        /* 품목(재고) 선택 — WashYN='Y' + 생산창고 재고>0 */
+        let STOCK = [];
+
         function openStockSheet() {
+            const r = apiGet('/target_materials', {work_id: curW.work_id, spjangcd: CTX.spjangcd});
+            STOCK = (r.data || []).map(m => ({
+                mat_id: m.mat_id, code: m.mat_code, name: m.mat_name, stock: num(m.stock)
+            }));
             const box = document.getElementById('stockList');
-            box.innerHTML = STOCK.map((s, i) => {
-                const already = curW.items.some(it => it.code === s.code);
-                const out = s.stock <= 0;
-                return `<div class="stockrow ${already ? 'added' : ''} ${out && !already ? 'dim' : ''}" data-i="${i}">
+            box.innerHTML = STOCK.length
+                ? STOCK.map((s, i) => `<div class="stockrow" data-i="${i}">
         <div class="sid"><div class="snm">${s.name}</div><div class="scode">${s.code}</div></div>
         <div class="sstk"><div class="sl">재고</div>${s.stock.toLocaleString()}</div>
-        <div class="schk">${already ? '✓' : '＋'}</div></div>`;
-            }).join('');
+        <div class="schk">＋</div></div>`).join('')
+                : `<div class="emptybox">담을 수 있는 세척 대상 재고가 없습니다</div>`;
             showMask('stockMask');
         }
+
         document.getElementById('stockList').addEventListener('click', e => {
-            const row = e.target.closest('.stockrow'); if (!row) return;
+            const row = e.target.closest('.stockrow');
+            if (!row) return;
             const s = STOCK[+row.dataset.i];
-            const exist = curW.items.findIndex(it => it.code === s.code);
-            if (exist >= 0) { // 다시 누르면 대기상태 한정 제거(토글)
-                if (curW.items[exist].st === 'wait') { curW.items.splice(exist, 1); flash('담기 취소'); }
-                else { flash('이미 작업 시작된 품목'); }
-            } else {
-                curW.items.push(mkItem(s, 0, 'wait')); flash('담기 · 대기');
-            }
-            openStockSheet(); renderItems();
+            apiPost('/item_add', {work_id: curW.work_id, mat_id: s.mat_id, spjangcd: CTX.spjangcd}, () => {
+                refreshItems();
+                openStockSheet();
+                flash('담기 · 대기');
+            });
         });
 
-        /* 작업자/품목 시작·종료 시간 수정 */
+        /* 품목 시작·종료 시간 수정 */
         let timeWhich = 'start', timeTarget = null, editDate = new Date();
+
         function fmtDEdit(d) {
             return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} (${WD[d.getDay()]})`;
         }
+
         function openTime(which, target, label) {
-            timeWhich = which; timeTarget = target || curW;
-            document.getElementById('timeTitle').textContent = (label ? label + ' · ' : '') + (which === 'start' ? '시작' : '종료') + ' 일시 수정';
+            timeWhich = which;
+            timeTarget = target;
+            document.getElementById('timeTitle').textContent =
+                (label ? label + ' · ' : '') + (which === 'start' ? '시작' : '종료') + ' 일시 수정';
             const saved = which === 'start' ? timeTarget.start : timeTarget.end;
-            if (saved && saved.includes(' ')) { const [ds, ts] = saved.split(' '); editDate = new Date(ds + 'T' + ts); }
-            else editDate = new Date(curD.date + 'T' + hhmm());
+            if (saved && saved.includes(' ')) {
+                const [ds, ts] = saved.split(' ');
+                editDate = new Date(ds + 'T' + ts);
+            } else editDate = new Date(curD.date + 'T' + hhmm());
             document.getElementById('tDate').textContent = fmtDEdit(editDate);
             document.getElementById('tH').textContent = String(editDate.getHours()).padStart(2, '0');
             document.getElementById('tM').textContent = String(editDate.getMinutes()).padStart(2, '0');
             showMask('timeMask');
         }
-        document.getElementById('cHead').addEventListener('click', e => {
-            const t = e.target.closest('[data-time]');
-            if (t) openTime(t.dataset.time, curW, curW.worker);
-        });
+
         document.querySelector('#timeMask .dateedit').addEventListener('click', e => {
-            const b = e.target.closest('[data-d]'); if (!b) return;
+            const b = e.target.closest('[data-d]');
+            if (!b) return;
             editDate.setDate(editDate.getDate() + (+b.dataset.d));
             document.getElementById('tDate').textContent = fmtDEdit(editDate);
         });
         document.querySelector('#timeMask .timeedit').addEventListener('click', e => {
-            const b = e.target.closest('[data-t]'); if (!b) return;
+            const b = e.target.closest('[data-t]');
+            if (!b) return;
             const H = document.getElementById('tH'), M = document.getElementById('tM');
             let h = +H.textContent, m = +M.textContent;
             if (b.dataset.t === 'h+') h = (h + 1) % 24;
             if (b.dataset.t === 'h-') h = (h + 23) % 24;
             if (b.dataset.t === 'm+') m = (m + 1) % 60;
             if (b.dataset.t === 'm-') m = (m + 59) % 60;
-            H.textContent = String(h).padStart(2, '0'); M.textContent = String(m).padStart(2, '0');
+            H.textContent = String(h).padStart(2, '0');
+            M.textContent = String(m).padStart(2, '0');
         });
         document.getElementById('timeOk').onclick = () => {
             const ds = `${editDate.getFullYear()}-${String(editDate.getMonth() + 1).padStart(2, '0')}-${String(editDate.getDate()).padStart(2, '0')}`;
             const v = ds + ' ' + document.getElementById('tH').textContent + ':' + document.getElementById('tM').textContent;
-            if (timeWhich === 'start') timeTarget.start = v; else timeTarget.end = v;
-            hideMask('timeMask'); renderItems(); renderWorkers();
-            flash((timeWhich === 'start' ? '시작' : '종료') + ' 저장 ' + pillT(v));
+            const p = {item_id: timeTarget.item_id};
+            if (timeWhich === 'start') p.start_time = v; else p.end_time = v;
+            apiPost('/item_update_time', p, () => {
+                hideMask('timeMask');
+                refreshItems();
+                flash((timeWhich === 'start' ? '시작' : '종료') + ' 저장 ' + pillT(v));
+            });
         };
 
         /* 넘패드 */
         let padIdx = null, padVal = '';
+
         function openPad(i) {
-            padIdx = i; padVal = String(curW.items[i].qty || 0);
+            padIdx = i;
+            padVal = String(curW.items[i].qty || 0);
             document.getElementById('padLab').textContent = curW.items[i].name + ' · 세척수량';
             document.getElementById('padDisp').textContent = padVal;
             showMask('padMask');
         }
+
         document.querySelector('#padMask .keys').addEventListener('click', e => {
-            const k = e.target.dataset.k; if (!k) return;
+            const k = e.target.dataset.k;
+            if (!k) return;
             if (k === 'C') padVal = '';
             else if (k === 'OK') {
-                curW.items[padIdx].qty = Math.max(0, parseInt(padVal || '0', 10));
-                hideMask('padMask'); renderItems(); return;
+                const it = curW.items[padIdx];
+                it.qty = Math.max(0, parseInt(padVal || '0', 10));
+                dirty.add(it.item_id);
+                hideMask('padMask');
+                renderItems();   /* 로컬 반영만 — 서버 전송은 시작/완료 시점 */
+                return;
             } else padVal = (padVal === '0' ? '' : padVal) + k;
             document.getElementById('padDisp').textContent = padVal || '0';
         });
 
         /* 토스트 */
         let tT;
+
         function flash(m) {
             let t = document.getElementById('toast');
             if (!t) {
-                t = document.createElement('div'); t.id = 'toast';
+                t = document.createElement('div');
+                t.id = 'toast';
                 t.style.cssText = 'position:fixed;left:50%;bottom:110px;transform:translateX(-50%);background:#15222B;color:#fff;padding:14px 22px;border-radius:14px;font-weight:700;z-index:60;box-shadow:0 12px 30px -10px rgba(0,0,0,.5);transition:opacity .3s';
                 document.body.appendChild(t);
             }
-            t.textContent = m; t.style.opacity = '1';
-            clearTimeout(tT); tT = setTimeout(() => t.style.opacity = '0', 1700);
+            t.textContent = m;
+            t.style.opacity = '1';
+            clearTimeout(tT);
+            tT = setTimeout(() => t.style.opacity = '0', 1700);
         }
 
-        renderDays();
+        /* 시작 — AjaxUtil 이 레이아웃에서 늦게 로드될 수 있어 준비될 때까지 대기 */
+        function loadContext() {
+            const r = apiGet('/context', {factory_id: CTX.factoryId || ''});
+            const d = r.data || {};
+            WASH_WC = d.workcenter_id || null;
+            if (!WASH_WC) console.warn('[wash] 세척 워크센터를 찾지 못했습니다. process."Code"=\'bsc01\' 및 work_center."Process_id" 매핑을 확인하세요.');
+        }
+
+        (function boot(tries) {
+            tries = tries || 0;
+            if (typeof AjaxUtil !== 'undefined' && AjaxUtil.getSyncData) {
+                loadContext();
+                refreshDays();
+                return;
+            }
+            if (tries > 100) {            // 약 5초
+                flash('AjaxUtil 미로드 — 공용 스크립트 로드 순서를 확인하세요');
+                console.error('[wash] AjaxUtil 을 찾을 수 없습니다. typeof AjaxUtil =', typeof AjaxUtil);
+                return;
+            }
+            setTimeout(function () {
+                boot(tries + 1);
+            }, 50);
+        })();
     </script>
 
     <!-- ===== 스텝퍼 롱프레스 자동증감 (원본 유지) ===== -->
     <style>
-        .stepper button, .dateedit button, .timeedit button {touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
+        .stepper button, .dateedit button, .timeedit button {
+            touch-action: manipulation;
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-touch-callout: none;
+        }
     </style>
     <script>
         (function () {
             var SEL = '.stepper button, .dateedit button, .timeedit button';
             var holdTimer = null, repeatTimer = null, maxTimer = null, curBtn = null;
             var END_EVENTS = ['pointerup', 'pointercancel', 'lostpointercapture', 'touchend', 'touchcancel', 'mouseup'];
+
             function stop() {
-                clearTimeout(holdTimer); clearInterval(repeatTimer); clearTimeout(maxTimer);
+                clearTimeout(holdTimer);
+                clearInterval(repeatTimer);
+                clearTimeout(maxTimer);
                 holdTimer = repeatTimer = maxTimer = null;
-                if (curBtn) { END_EVENTS.forEach(function (ev) { curBtn.removeEventListener(ev, stop); }); curBtn = null; }
+                if (curBtn) {
+                    END_EVENTS.forEach(function (ev) {
+                        curBtn.removeEventListener(ev, stop);
+                    });
+                    curBtn = null;
+                }
             }
+
             function tick(x, y) {
                 var el = document.elementFromPoint(x, y);
                 var b = (el && el.closest) ? el.closest(SEL) : null;
-                if (!b) { stop(); return; }
+                if (!b) {
+                    stop();
+                    return;
+                }
                 b.click();
             }
+
             document.addEventListener('pointerdown', function (e) {
                 if (e.button != null && e.button > 0) return;
                 var btn = e.target.closest ? e.target.closest(SEL) : null;
                 if (!btn) return;
-                var x = e.clientX, y = e.clientY; stop();
-                curBtn = btn; END_EVENTS.forEach(function (ev) { btn.addEventListener(ev, stop); });
+                var x = e.clientX, y = e.clientY;
+                stop();
+                curBtn = btn;
+                END_EVENTS.forEach(function (ev) {
+                    btn.addEventListener(ev, stop);
+                });
                 holdTimer = setTimeout(function () {
-                    repeatTimer = setInterval(function () { tick(x, y); }, 80);
+                    repeatTimer = setInterval(function () {
+                        tick(x, y);
+                    }, 80);
                     maxTimer = setTimeout(stop, 8000);
                 }, 400);
                 window.addEventListener('pointerup', stop, {once: true, capture: true});
                 window.addEventListener('touchend', stop, {once: true, capture: true});
             });
             window.addEventListener('blur', stop);
-            document.addEventListener('visibilitychange', function () { if (document.hidden) stop(); });
+            document.addEventListener('visibilitychange', function () {
+                if (document.hidden) stop();
+            });
         })();
     </script>
 </th:block>
-</html>
