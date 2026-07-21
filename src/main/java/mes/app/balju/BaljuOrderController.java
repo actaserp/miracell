@@ -354,6 +354,7 @@ public class BaljuOrderController {
       String title = (String) payload.get("title");
       String content = (String) payload.get("content");
       Integer bhId = (Integer) payload.get("bhId");
+      String replyTo = (String) payload.get("replyTo");
       // 1. 로그인 사용자 정보 추출
       User user = (User) auth.getPrincipal();
       String userid = user.getUsername();
@@ -370,15 +371,15 @@ public class BaljuOrderController {
       String companyName = (String) baljuData.get("CompanyName"); // 구매처명
       String safeCompanyName = companyName.replaceAll("[\\\\/:*?\"<>|]", ""); // 파일명에 쓸 수 없는 문자 제거
 
-      String fileName = String.format("%s_%s_발주서.xlsx", jumunNumber, safeCompanyName);
+      String fileName = String.format("%s_%s_발주서.xlsx", jumunNumber, safeCompanyName); // 메일 첨부명(그대로)
 
       // 4. 엑셀 템플릿 기반 파일 생성
-      // 새 경로: C:/Temp/mes21/{파일명}에 직접 저장
-      Path tempXlsx = Paths.get("C:/Temp/mes21/" + fileName);
-      Files.createDirectories(tempXlsx.getParent()); // 상위 디렉터리 없으면 생성
-      Files.deleteIfExists(tempXlsx);               // 중복 방지
-      Files.createFile(tempXlsx);                   // 새 파일 생성
-
+      // 디스크 임시파일은 반복/동시 전송 충돌 방지를 위해 유니크하게
+      String diskName = String.format("%s_%s_%d.xlsx", jumunNumber, safeCompanyName, System.currentTimeMillis());
+      Path tempXlsx = Paths.get("C:/Temp/mes21/" + diskName);
+      Files.createDirectories(tempXlsx.getParent()); // 상위 디렉터리만 보장
+      tempXlsx.toFile().deleteOnExit();              // 최후 보루(JVM 종료 시 정리)
+      // deleteIfExists / createFile 제거 — FileOutputStream 이 어차피 새로 씀
 
       try (FileInputStream fis = new FileInputStream("C:/Temp/mes21/문서/BaljuTemplate_miracell.xlsx");
            Workbook workbook = new XSSFWorkbook(fis);
@@ -408,11 +409,11 @@ public class BaljuOrderController {
         safeAddMergedRegion(sheet, 5, 6, 5, 7);  // F6:H7
         setCell(sheet, 5, 5, (String) senderInfo.get("adresa"));
 
-        // 날짜 출력
+        // 날짜(발주요청일) — 라벨은 템플릿 B15에 있고, 날짜만 D15에 넣는다
         String rawDate = String.valueOf(baljuData.get("JumunDate"));
         LocalDate date = LocalDate.parse(rawDate);
         String formattedDate = date.format(DateTimeFormatter.ofPattern("yy.MM.dd"));
-        setCell(sheet, 11, 3, formattedDate);  // D12 셀에 날짜만 넣기
+        setCell(sheet, 14, 3, formattedDate);   // D15 (0-based row=14, col=3)
 
         // ============================================================
         //  자재 행 삽입 (미라셀 템플릿)
@@ -421,12 +422,44 @@ public class BaljuOrderController {
         //  자재 시작행: 엑셀 15행 (0-based 인덱스 14)
         // ============================================================
 
-        // 바코드 이미지용 Drawing 객체 (시트당 1개만 생성하여 재사용)
         XSSFDrawing drawing = (XSSFDrawing) sheet.createDrawingPatriarch();
         CreationHelper helper = workbook.getCreationHelper();
 
-        int startRow = 14; // 0-based → 엑셀 15행
-        Row styleTemplateRow = sheet.getRow(startRow); // 15행 스타일 참조
+// ============================================================
+//  발주번호 바코드 (PO + 발주번호) → B12
+//  스캔 입고 시 'PO' 접두어로 발주 바코드임을 판별
+// ============================================================
+        if (jumunNumber != null && !jumunNumber.isEmpty()) {
+          String poBarcodeValue = "PO" + jumunNumber;
+          try {
+            // 넉넉한 해상도로 생성 (인쇄/스캔 안정성)
+            byte[] poPng = BarcodeUtil.createCode128Png(poBarcodeValue, 600, 90);
+            int poPicIdx = workbook.addPicture(poPng, Workbook.PICTURE_TYPE_PNG);
+
+            // B12 시작 → B12:D13 영역을 채움 (스캔 가능한 폭 확보)
+            XSSFClientAnchor poAnchor = (XSSFClientAnchor) helper.createClientAnchor();
+            poAnchor.setCol1(1);   // B
+            poAnchor.setRow1(11);  // 12행
+            poAnchor.setCol2(4);   // D까지(B,C,D 3칸)
+            poAnchor.setRow2(13);  // 12~13행
+            poAnchor.setDx1(20000);  poAnchor.setDy1(10000);
+            poAnchor.setDx2(-20000); poAnchor.setDy2(-10000);
+            // 영역을 채우도록 RESIZE → 충분한 크기 확보(작게 들어가면 스캔 안 됨)
+            poAnchor.setAnchorType(ClientAnchor.AnchorType.MOVE_AND_RESIZE);
+            drawing.createPicture(poAnchor, poPicIdx);
+          } catch (Exception e) {
+            log.warn("발주번호 바코드 생성 실패: {}", e.getMessage());
+          }
+        }
+// 바코드가 세로로 눌리지 않게 12~13행 높이 확보
+        if (sheet.getRow(11) == null) sheet.createRow(11);
+        if (sheet.getRow(12) == null) sheet.createRow(12);
+        sheet.getRow(11).setHeightInPoints(30f);
+        sheet.getRow(12).setHeightInPoints(18f);
+
+        int startRow = 17; // 0-based → 엑셀 18행 (자재는 B18부터)
+
+        Row styleTemplateRow = sheet.getRow(startRow); // 18행 스타일 참조
 
         CellStyle[] cachedStyles = new CellStyle[8];         // 일반 행용 스타일
         CellStyle[] cachedLastRowStyles = new CellStyle[8];  // 마지막 행용 스타일
@@ -467,66 +500,17 @@ public class BaljuOrderController {
               }
             }
           }
+          // ---- 자재명 B:D 병합 (바코드/바코드값 열 제거 → 자재명이 폭 사용) ----
+          safeAddMergedRegion(sheet, currentRowIndex, currentRowIndex, 1, 3); // B:D
 
-          // ---- 값 설정 ----
+// ---- 값 설정 ----
           row.getCell(0).setCellValue(i + 1);                                   // NO
-          row.getCell(1).setCellValue((String) item.get("product_name"));      // 자재명
-          // C(2) = 바코드 이미지 (아래에서 별도 삽입)
-          // D(3) = 코드값 (사람이 읽는 형태, 아래에서 설정)
-          row.getCell(4).setCellValue(((Number) item.get("quantity")).doubleValue());   // 수량
-          row.getCell(5).setCellValue(((Number) item.get("unit_price")).doubleValue()); // 단가
+          row.getCell(1).setCellValue((String) item.get("product_name"));      // 자재명(병합 좌상단=B)
+// C(2)/D(3) 은 병합에 흡수되므로 값 설정 안 함
+          row.getCell(4).setCellValue(((Number) item.get("quantity")).doubleValue());   // 수량 E
+          row.getCell(5).setCellValue(((Number) item.get("unit_price")).doubleValue()); // 단가 F
           Object descObj = item.get("description");
-          row.getCell(6).setCellValue(descObj == null ? "" : descObj.toString());       // 비고
-
-          // ---- 바코드 처리 (balju.barcode_value 가 있다고 가정) ----
-          //   (a) barcode_value 에 완성된 값이 있으면 그대로 인코딩 (수입품 기존 바코드 포함)
-          //   (b) 없으면 gtin14/lot/mfg_date 조각으로 GS1-128 조립 (880 자체 규칙, 자릿수 placeholder)
-          String rawForEncode;   // 바코드 이미지 인코딩용
-          String humanReadable;  // D열 표시용
-
-          Object barcodeValueObj = item.get("barcode_value");
-
-          if (barcodeValueObj != null && !barcodeValueObj.toString().isEmpty()) {
-            // (a) 기존 바코드 그대로 사용 (GS1 형식이 아닐 수 있으므로 FNC1 없이 인코딩)
-            rawForEncode  = barcodeValueObj.toString();
-            humanReadable = barcodeValueObj.toString();
-          } else {
-            // (b) 880 규칙 자체 구성
-            String gtin14  = (String) item.getOrDefault("gtin14", "");   // TODO: 회사+제품+CD 조립 확정
-            String lot     = (String) item.getOrDefault("lot_number", "");
-            String mfgDate = (String) item.getOrDefault("mfg_date", ""); // YYMMDD
-
-            rawForEncode  = BarcodeUtil.buildGs1Raw(gtin14, lot, mfgDate);
-            humanReadable = BarcodeUtil.buildHumanReadable(gtin14, lot, mfgDate);
-          }
-
-          // D열(3) 코드값 텍스트
-          Cell codeCell = row.getCell(3);
-          if (codeCell == null) codeCell = row.createCell(3);
-          codeCell.setCellValue(humanReadable);
-
-          // C열(2) 바코드 이미지 삽입
-          try {
-            byte[] pngBytes = BarcodeUtil.createCode128Png(rawForEncode, 300, 80);
-            int pictureIdx = workbook.addPicture(pngBytes, Workbook.PICTURE_TYPE_PNG);
-
-            XSSFClientAnchor anchor = (XSSFClientAnchor) helper.createClientAnchor();
-            // C열(col=2) 한 칸 안에 들어가도록 앵커링
-            anchor.setCol1(2);
-            anchor.setRow1(currentRowIndex);
-            anchor.setCol2(3);
-            anchor.setRow2(currentRowIndex + 1);
-            // 셀 내부 여백 (EMU) — 테두리와 겹치지 않게 안쪽으로 띄움
-            anchor.setDx1(40000);  anchor.setDy1(20000);
-            anchor.setDx2(-40000); anchor.setDy2(-20000);
-            // 셀 크기 변경 시 이미지는 따라 움직이되 늘어나지 않도록
-            anchor.setAnchorType(ClientAnchor.AnchorType.MOVE_DONT_RESIZE);
-
-            drawing.createPicture(anchor, pictureIdx);
-          } catch (Exception barcodeEx) {
-            // 바코드 생성 실패해도 발주서 자체는 나가도록 — 코드값만 남김
-            log.warn("바코드 생성 실패 (row {}): {}", currentRowIndex, barcodeEx.getMessage());
-          }
+          row.getCell(6).setCellValue(descObj == null ? "" : descObj.toString());       // 비고 G
         }
 
         // ============================================================
@@ -535,7 +519,7 @@ public class BaljuOrderController {
         // ============================================================
         // 1. 특이사항 행 위치 계산
         int lastItemRow = startRow + items.size();
-        int baseSpecialNoteRow = 23;
+        int baseSpecialNoteRow = 26;
         int specialNoteStartRow = Math.max(lastItemRow + 2, baseSpecialNoteRow);
 
         // 2. 병합 범위 계산 (B~G 열, 3행 병합)
@@ -615,7 +599,8 @@ public class BaljuOrderController {
           title,
           content,
           tempXlsx.toFile(),
-          fileName
+          fileName,
+          replyTo
         );
 //      log.info("✅ 메일 전송 완료: 수신자={}", recipients);
         // 임시 파일 삭제 예약

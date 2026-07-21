@@ -388,118 +388,128 @@
   </script>
 
   <script type="text/x-tmpl" id="BalJuMailTemplate">
-<style>
-/* + 아이콘 버튼 (추가용) */
-.btn.in_btn.plus img {
-  width: 15px;
-  height: 15px;
-  display: block;
-  margin-right: 2px;
-}
+    <style>
+    /* + 아이콘 버튼 (추가용) */
+    .btn.in_btn.plus img {
+      width: 15px;
+      height: 15px;
+      display: block;
+      margin-right: 2px;
+    }
 
-/* 버튼 자체 크기와 정렬 */
-.btn.in_btn.plus {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 15px 15px;
-  width: 24px;
-  height: 24px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  margin-left: 6px;
-  background-color: #f9f9f9;
-  cursor: pointer;
-}
+    /* 버튼 자체 크기와 정렬 */
+    .btn.in_btn.plus {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 15px 15px;
+      width: 24px;
+      height: 24px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      margin-left: 6px;
+      background-color: #f9f9f9;
+      cursor: pointer;
+    }
 
-.btn.in_btn.plus:hover {
-  background-color: #e0e0e0;
-}
-/* 삭제 아이콘 크기 및 정렬 */
-.btn.in_btn.del img {
-  width: 15px;
-  height: 15px;
-  display: block;
-  margin-right: 2px;
-}
+    .btn.in_btn.plus:hover {
+      background-color: #e0e0e0;
+    }
+    /* 삭제 아이콘 크기 및 정렬 */
+    .btn.in_btn.del img {
+      width: 15px;
+      height: 15px;
+      display: block;
+      margin-right: 2px;
+    }
 
-/* 삭제 버튼 크기와 스타일 - plus 버튼과 동일 */
-.btn.in_btn.del {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 15px 15px;
-  width: 24px;
-  height: 24px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  margin-left: 6px;
-  background-color: #f9f9f9;
-  cursor: pointer;
-}
+    /* 삭제 버튼 크기와 스타일 - plus 버튼과 동일 */
+    .btn.in_btn.del {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 15px 15px;
+      width: 24px;
+      height: 24px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      margin-left: 6px;
+      background-color: #f9f9f9;
+      cursor: pointer;
+    }
 
-.btn.in_btn.del:hover {
-  background-color: #e0e0e0;
-}
+    .btn.in_btn.del:hover {
+      background-color: #e0e0e0;
+    }
 
-.input-with-button {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
+    .input-with-button {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
 
-.input-with-button input {
-  flex: 1;
-  padding: 6px;
-}
+    .input-with-button input {
+      flex: 1;
+      padding: 6px;
+    }
 
-</style>
-<div class="content_wrap popup" id="div_excel_upload">
-   <div class="table-wrap">
-     <form id="BalJuMailForm">
-       <table class="write-table">
-         <tbody>
-         <tr>
-           <th style="text-align: center">
-             <label for="Recipient">받는사람</label>
-           </th>
-          <td colspan="8">
-            <div id="recipient-container">
-              <div class="input-with-button">
-                <input name="Recipient" style="width: 100%;" />
-                <a class="btn in_btn plus" id="addRecipient" title="추가">
-                  <img th:src="@{/images/icon/ico-plus.svg}" alt="추가 아이콘" />
-                </a>
-              </div>
-            </div>
-          </td>
-         <tr>
-           <th style="text-align: center">
-             <label for="MailTitle">제목</label>
-           </th>
-           <td colspan="8">
-             <input id="MailTitle" name="MailTitle" style="width: 100%;"></input>
-           </td>
-         </tr>
+    </style>
+    <div class="content_wrap popup" id="div_excel_upload">
+       <div class="table-wrap">
+         <form id="BalJuMailForm">
+           <table class="write-table">
+             <tbody>
+             <tr>
+              <th style="text-align: center">
+                <label for="ReplyTo">회신 주소</label>
+              </th>
+              <td colspan="8">
+                <input id="ReplyTo" name="ReplyTo" style="width: 100%;"
+                       placeholder="구매처가 답장할 담당자 이메일" />
+              </td>
+            </tr>
+             <tr>
+               <th style="text-align: center">
+                 <label for="Recipient">받는사람</label>
+               </th>
+              <td colspan="8">
+                <div id="recipient-container">
+                  <div class="input-with-button">
+                    <input name="Recipient" style="width: 100%;" />
+                    <a class="btn in_btn plus" id="addRecipient" title="추가">
+                      <img th:src="@{/images/icon/ico-plus.svg}" alt="추가 아이콘" />
+                    </a>
+                  </div>
+                </div>
+              </td>
+             <tr>
+               <th style="text-align: center">
+                 <label for="MailTitle">제목</label>
+               </th>
+               <td colspan="8">
+                 <input id="MailTitle" name="MailTitle" style="width: 100%;"></input>
+               </td>
+             </tr>
 
-         <tr>
-           <th style="text-align: center">
-             <label for="MailContent">내용</label>
-           </th>
-           <td colspan="8">
-            <textarea id="MailContent" name="MailContent" style="width: 100%; height: 120px; resize: vertical;"></textarea>
-           </td>
-         </tr>
-         </tbody>
-       </table>
-     </form>
-   </div>
-   <div class="popup-button">
-     <button type="button" class="btn-popup y_write_auth" id="btnPopBalJuMail">전송</button>
-     <button type="button" class="btn-popup" id="modal-close-button">닫기</button>
-   </div>
- </div>
+             <tr>
+               <th style="text-align: center">
+                 <label for="MailContent">내용</label>
+               </th>
+               <td colspan="8">
+                <textarea id="MailContent" name="MailContent" style="width: 100%; height: 120px; resize: vertical;"></textarea>
+               </td>
+             </tr>
+             </tbody>
+           </table>
+         </form>
+       </div>
+       <div class="popup-button">
+         <button type="button" class="btn-popup y_write_auth" id="btnPopBalJuMail">전송</button>
+         <button type="button" class="btn-popup" id="modal-close-button">닫기</button>
+       </div>
+     </div>
   </script>
+
 </th:block>
 
 <th:block layout:fragment="scripts">
@@ -855,7 +865,7 @@
           modalContainer = new PopupDraggable('발주서 발송');
         }
 
-        modalContainer.open({ width: 650, height: 410, $content });
+        modalContainer.open({ width: 650, height: 360, $content });
 
         // 수신자 필드 렌더링
         const recipientContainer = $content.find('#recipient-container');
@@ -872,7 +882,7 @@
                 <div class="input-with-button" style="margin-top: 6px;">
                   <input name="Recipient" style="width: 100%; padding: 6px;" value="${email}"/>
                   <a class="btn in_btn del" title="삭제" onclick="this.parentElement.remove()" style="margin-left: 6px;">
-                    <img th:src="@{/images/icon/ico-delete.svg}" alt="삭제 아이콘" style="width: 15px; height: 15px;" />
+                    <img src="/images/icon/ico-delete.svg" alt="삭제 아이콘" style="width: 15px; height: 15px;" />
                   </a>
                 </div>
               `);
@@ -895,7 +905,7 @@
       <div class="input-with-button" style="margin-top: 6px;">
         <input name="Recipient" style="width: 100%; padding: 6px;" />
         <a class="btn in_btn del" title="삭제" onclick="this.parentElement.remove()" style="margin-left: 6px;">
-          <img th:src="@{/images/icon/ico-delete.svg}" alt="삭제 아이콘" style="width: 15px; height: 15px;" />
+          <img src="/images/icon/ico-delete.svg" alt="삭제 아이콘" style="width: 15px; height: 15px;" />
         </a>
       </div>
     `);
@@ -903,60 +913,69 @@
         });
 
         // 전송 버튼 클릭 시
-        $content.find('#btnPopBalJuMail').on('click', function () {
-          const recipientInputs = recipientContainer.find('input[name="Recipient"]');
+       $content.find('#btnPopBalJuMail').on('click', function () {
+        const recipientInputs = recipientContainer.find('input[name="Recipient"]');
 
-          const recipients = recipientInputs
-            .map(function () {
-              return $(this).val().trim();
-            })
-            .get()
-            .filter(email => email); // 빈 문자열 제거
+        const recipients = recipientInputs
+        .map(function () {
+         return $(this).val().trim();
+        })
+        .get()
+        .filter(email => email); // 빈 문자열 제거
 
-          const title = $content.find('#MailTitle').val().trim();
-          const mailContent = $content.find('#MailContent').val().trim();
+        const title = $content.find('#MailTitle').val().trim();
+        const mailContent = $content.find('#MailContent').val().trim();
 
-          if (recipients.length === 0) {
-            Alert.alert('', '받는 사람 이메일을 하나 이상 입력해주세요.');
-            return;
-          }
+        if (recipients.length === 0) {
+         Alert.alert('', '받는 사람 이메일을 하나 이상 입력해주세요.');
+         return;
+        }
 
-          if (!title) {
-            Alert.alert('', '메일 제목을 입력해주세요.');
-            return;
-          }
+        if (!title) {
+         Alert.alert('', '메일 제목을 입력해주세요.');
+         return;
+        }
 
-          if (!mailContent) {
-            Alert.alert('', '메일 내용을 입력해주세요.');
-            return;
-          }
-         AjaxUtil.showLoading();
-          // Ajax로 전송
-          $.ajax({
-            url: '/api/balju/balju_order/sendBalJuMail',
-            type: 'POST',
-            contentType: 'application/json',
-            headers: {
-              'X-CSRF-TOKEN': csrfToken
-            },
-            data: JSON.stringify({
-              recipients: recipients,
-              title: title,
-              content: mailContent,
-              bhId: data.id
-            }),
-            success: function (response) {
-              Alert.alert('', '메일이 성공적으로 전송되었습니다.');
-              modalContainer.close();
-            },
-            error: function () {
-              Alert.alert('', '메일 전송 중 오류가 발생했습니다.');
-            },
-           complete: function () {
-            AjaxUtil.hideLoading();   // ← 성공/실패 모두 로딩 종료
-           }
-          });
+        if (!mailContent) {
+         Alert.alert('', '메일 내용을 입력해주세요.');
+         return;
+        }
+        const replyTo = $content.find('#ReplyTo').val().trim();
+
+        // 형식 검증
+        if (replyTo && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(replyTo)) {
+         Alert.alert('', '회신 주소 이메일 형식이 올바르지 않습니다.');
+         return;
+        }
+
+        AjaxUtil.showLoading();
+        // Ajax로 전송
+        $.ajax({
+         url: '/api/balju/balju_order/sendBalJuMail',
+         type: 'POST',
+         contentType: 'application/json',
+         headers: {
+          'X-CSRF-TOKEN': csrfToken
+         },
+         data: JSON.stringify({
+          replyTo: replyTo,
+          recipients: recipients,
+          title: title,
+          content: mailContent,
+          bhId: data.id
+         }),
+         success: function (response) {
+          Alert.alert('', '메일이 성공적으로 전송되었습니다.');
+          modalContainer.close();
+         },
+         error: function () {
+          Alert.alert('', '메일 전송 중 오류가 발생했습니다.');
+         },
+         complete: function () {
+          AjaxUtil.hideLoading();   // ← 성공/실패 모두 로딩 종료
+         }
         });
+       });
 
       }//showBalJuMailForm
 
