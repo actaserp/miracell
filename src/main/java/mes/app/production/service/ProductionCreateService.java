@@ -82,6 +82,7 @@ public class ProductionCreateService {
         public String startTime;          // 'yyyy-MM-dd HH:mm' (nullable)
         public String endTime;            // (nullable → now)
         public List<BomInput> bomList;    // 투입자재(클린룸 소비) — 화면 편집분
+        public Integer cleanStore;        // 투입 소스창고(클린룸=5). 공정/화면별로 지정. null → 5
         public String spjangcd;
     }
 
@@ -197,10 +198,12 @@ public class ProductionCreateService {
         Integer outStoreId = mp.getStoreHouseId();
 
         LocalDateTime startLdt = (req.startTime != null && !req.startTime.isBlank())
-                ? LocalDateTime.parse(req.startTime, DTM)
-                : mp.getStartTime().toLocalDateTime();
+                ? parseTimeFlexible(req.startTime, mp.getStartTime() != null
+                ? mp.getStartTime().toLocalDateTime() : now.toLocalDateTime())
+                : (mp.getStartTime() != null ? mp.getStartTime().toLocalDateTime() : now.toLocalDateTime());
         LocalDateTime endLdt = (req.endTime != null && !req.endTime.isBlank())
-                ? LocalDateTime.parse(req.endTime, DTM) : now.toLocalDateTime();
+                ? parseTimeFlexible(req.endTime, startLdt) : now.toLocalDateTime();
+        // 날짜+시각 전체로 비교 (시각만이 아니라 날짜까지). 시각만 들어온 경우 위에서 기준일을 붙임.
         if (endLdt.isBefore(startLdt)) { r.success = false; r.message = "종료시각이 시작시각보다 빠릅니다."; return r; }
 
         // ── 수량 확정 (consumeBomForChasu 가 GoodQty 로 소요량 계산하므로 먼저 저장) ──
@@ -211,15 +214,17 @@ public class ProductionCreateService {
         mp.set_audit(user);
         mp = this.matProduceRepository.save(mp);
 
-        // ── 투입자재 소비 = 기존 로직 재사용 ──
-        //   consumeBomForChasu: 마스터 BOM 전개 + mat_proc_input 예약분을 mat_lot_cons 로 차감(+mat_consu/mat_inout).
-        //   예약(mat_proc_input RequestQty)은 작업시작(reserveInput)에서 생성됨.
-        AjaxResult consume = this.productionResultService.consumeBomForChasu(mp.getId(), jr, user, req.spjangcd);
+        // ── 투입자재 소비 = 클린룸(inStore) FIFO 차감 (화면 편집 BOM = 용기 반제품 + 부가자재) ──
+        //   외부 consumeBomForChasu 는 자재 기본창고에서 빼는 문제가 있어, 소스창고(클린룸)를
+        //   명시하는 로컬 consumeBomList 를 사용한다. 예약(mat_proc_input)은 그대로 두어(soft hold)
+        //   완료취소 시 '리퀘스트' 상태가 유지되도록 한다.
+        Integer inStore = (req.cleanStore != null) ? req.cleanStore : 5;
+        AjaxResult consume = consumeBomList(mp, jr, req.bomList, inStore, user, req.spjangcd);
         if (!consume.success) { throw new IllegalStateException(consume.message); }  // 롤백
 
-        // ── 산출 반제품 입고 = 기존 로직 재사용 ──
+        // ── 산출 반제품 입고 (산출창고 = work_center.ProcessStoreHouse_id) ──
         Material outMat = this.materialRepository.getMaterialById(mp.getMaterialId());
-        this.productionResultService.produceInForChasu(mp.getId(), outMat, user, req.spjangcd);
+        produceIn(mp, outMat, outStoreId, user, req.spjangcd, now);
 
         // 상태 완료
         mp.setState("finished");
@@ -325,7 +330,7 @@ public class ProductionCreateService {
         MaterialProduce mp = this.matProduceRepository.getMatProduceById(mpId);
         if (mp == null) { r.success = false; r.message = "차수를 찾을 수 없습니다."; return r; }
         JobRes jr = this.jobResRepository.getJobResById(mp.getJobResponseId());
-        Integer store = (cleanStore == null) ? 5 : cleanStore;
+        // 소스창고는 자재별로 resolveSourceStore 로 결정(아래 루프). cleanStore 파라미터는 미사용(호환 유지).
 
         // 1) mat_proc_input_req 확보 (작지당 1개)
         Integer reqId = jr.getMaterialProcessInputRequestId();
@@ -346,6 +351,8 @@ public class ProductionCreateService {
         for (BomInput bi : bomList) {
             if (bi.matId == null || bi.qty <= 0) continue;
 
+            // 자재 속성으로 소스창고 결정(멸균/반제품·세척=클린룸 / 그 외=생산창고)
+            Integer store = resolveSourceStore(bi.matId);
             MapSqlParameterSource lp = new MapSqlParameterSource();
             lp.addValue("matId", bi.matId);
             lp.addValue("store", store);
@@ -486,15 +493,21 @@ public class ProductionCreateService {
         LocalDate today = LocalDate.now();
         LocalTime nowT = LocalTime.now();
 
+        // 산출품목(용기/PK 등) 이름 — mat_inout 비고에 "{산출품목} 차수생산 투입재고 차감" 형태로 표기
+        Material outMatForDesc = this.materialRepository.getMaterialById(mp.getMaterialId());
+        String outName = (outMatForDesc != null && outMatForDesc.getName() != null)
+                ? outMatForDesc.getName() : ("품목" + mp.getMaterialId());
+
         for (BomInput bi : bomList) {
             if (bi.matId == null || bi.qty <= 0) continue;
             Material consMat = this.materialRepository.getMaterialById(bi.matId);
             float need = bi.qty;
 
-            // 클린룸(inStore) FIFO 로트 차감
+            // 자재 속성으로 소스창고 결정(멸균18 / 반제품·세척=클린룸5 / 그 외 생산창고17)
+            Integer store = resolveSourceStore(bi.matId);
             MapSqlParameterSource lp = new MapSqlParameterSource();
             lp.addValue("matId", bi.matId);
-            lp.addValue("inStore", inStore);
+            lp.addValue("inStore", store);
             List<Map<String, Object>> lots = this.sqlRunner.getRows("""
                 SELECT ml.id AS ml_id, ml."LotNumber" AS lot_no, ml."CurrentStock" AS cs
                   FROM mat_lot ml
@@ -525,7 +538,7 @@ public class ProductionCreateService {
             }
             if (remain > 0) {
                 r.success = false;
-                r.message = "클린룸 재고 부족: " + (consMat != null ? consMat.getName() : ("자재" + bi.matId))
+                r.message = "재고 부족(창고 " + store + "): " + (consMat != null ? consMat.getName() : ("자재" + bi.matId))
                         + " (부족 " + remain + ")";
                 return r;
             }
@@ -543,7 +556,7 @@ public class ProductionCreateService {
             mc.setConsumedQty(bi.qty);
             mc.setState("finished");
             mc.set_status("a");
-            mc.setStoreHouseId(inStore);
+            mc.setStoreHouseId(store);
             mc.set_audit(user);
             mc.setSpjangcd(spjangcd);
             mc = this.matConsuRepository.save(mc);
@@ -551,7 +564,7 @@ public class ProductionCreateService {
             // mat_inout out
             MaterialInout mic = new MaterialInout();
             mic.setMaterialId(bi.matId);
-            mic.setStoreHouseId(inStore);
+            mic.setStoreHouseId(store);
             mic.setLotNumber(mp.getLotNumber());
             mic.setInoutDate(today);
             mic.setInoutTime(nowT);
@@ -562,7 +575,7 @@ public class ProductionCreateService {
             mic.setSourceTableName("mat_consu");
             mic.setState("confirmed");
             mic.set_status("a");
-            mic.setDescription("차수생산 투입재고 차감");
+            mic.setDescription(outName + " 차수생산 투입재고 차감");
             mic.set_audit(user);
             mic.setSpjangcd(spjangcd);
             this.matInoutRepository.save(mic);
@@ -614,6 +627,30 @@ public class ProductionCreateService {
     // =====================================================================
     // 유틸
     // =====================================================================
+
+    /**
+     * 자재별 투입 소스창고 판별(2번안). 소비/예약이 이 리졸버 하나만 보게 격리한다.
+     *   SterilizationYN='Y'            → 18 (멸균창고: 포장의 PK·필터팩)
+     *   MaterialType IN (semi,product) → 5  (클린룸: 조립·블리스터 산출 반제품 = 용기·PK)
+     *   WashYN='Y'                     → 5  (클린룸: 세척 용기 부품)
+     *   그 외(raw 구매 부자재·CK)        → 17 (생산창고)
+     * ※ 나중에 1번(불출 화면으로 부자재도 클린룸화)로 전환 시, 마지막 줄만 17→5 로 바꾸면 됨.
+     */
+    private Integer resolveSourceStore(Integer matId) {
+        if (matId == null) return 17;
+        MapSqlParameterSource p = new MapSqlParameterSource().addValue("matId", matId);
+        Map<String, Object> row = this.sqlRunner.getRow("""
+                SELECT (CASE WHEN COALESCE(m."SterilizationYN",'N')='Y'  THEN 18
+                             WHEN mg."MaterialType" IN ('semi','product') THEN 5
+                             WHEN COALESCE(m."WashYN",'N')='Y'           THEN 5
+                             ELSE 17 END) AS store
+                  FROM material m
+                  LEFT JOIN mat_grp mg ON mg.id = m."MaterialGroup_id"
+                 WHERE m.id = :matId
+                """, p);
+        return (row != null && row.get("store") != null) ? ((Number) row.get("store")).intValue() : 17;
+    }
+
     private Integer resolveProcessStore(Integer wcId) {
         if (wcId == null) return null;
         MapSqlParameterSource p = new MapSqlParameterSource().addValue("wcId", wcId);
@@ -632,4 +669,21 @@ public class ProductionCreateService {
     }
 
     private float toF(Object o) { return (o == null) ? 0f : Float.parseFloat(String.valueOf(o)); }
+
+    /**
+     * 'yyyy-MM-dd HH:mm' 은 그대로 파싱. 'HH:mm' 처럼 시각만 오면 기준(base)의 '날짜' 에 그 시각을 결합한다.
+     * → 종료/시작 비교가 날짜 없이 시각만으로 이뤄지는 것을 방지(자정 넘김 등 오탐 방지).
+     */
+    private LocalDateTime parseTimeFlexible(String s, LocalDateTime base) {
+        String v = s.trim();
+        try {
+            return LocalDateTime.parse(v, DTM);            // 날짜+시각 완전형
+        } catch (Exception ignore) {
+            try {
+                return LocalDateTime.of(base.toLocalDate(), LocalTime.parse(v));  // 시각만 → 기준일 날짜 결합
+            } catch (Exception ignore2) {
+                return base;                                // 파싱 불가 시 기준값 사용(오류 대신 안전)
+            }
+        }
+    }
 }

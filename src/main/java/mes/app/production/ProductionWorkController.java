@@ -58,10 +58,24 @@ public class ProductionWorkController {
     @GetMapping("/crew_list")
     public AjaxResult crewList(
             @RequestParam("process_id") Integer processId,
-            @RequestParam("date") String date,
-            @RequestParam("spjangcd") String spjangcd) {
+            @RequestParam(value = "date", required = false) String date,
+            @RequestParam("spjangcd") String spjangcd,
+            @RequestParam(value = "job_res_id", required = false) Integer jobResId) {
         AjaxResult r = new AjaxResult();
-        r.data = this.productionWorkService.getCrewList(processId, date, spjangcd);
+        // job_res_id 있으면 WO-우선(블리스터): 그 작지에 귀속된 조만. 없으면 날짜 기반(조립).
+        r.data = this.productionWorkService.getCrewList(processId, date, spjangcd, jobResId);
+        return r;
+    }
+
+    /** 작업지시 큐 — WO-우선 공정(블리스터)의 진입 화면. 작지 1건=PK 1개, 진행률 포함. */
+    @GetMapping("/wo_queue")
+    public AjaxResult woQueue(
+            @RequestParam("process_id") Integer processId,
+            @RequestParam("spjangcd") String spjangcd,
+            @RequestParam(value = "date_from", required = false) String dateFrom,
+            @RequestParam(value = "date_to", required = false) String dateTo) {
+        AjaxResult r = new AjaxResult();
+        r.data = this.productionWorkService.getWorkOrderQueue(processId, spjangcd, dateFrom, dateTo);
         return r;
     }
 
@@ -71,9 +85,10 @@ public class ProductionWorkController {
             @RequestParam("date") String date,
             @RequestParam("shift_code") String shiftCode,
             @RequestParam("actor_id") Integer actorId,
-            @RequestParam("spjangcd") String spjangcd) {
+            @RequestParam("spjangcd") String spjangcd,
+            @RequestParam(value = "job_res_id", required = false) Integer jobResId) {
         AjaxResult r = new AjaxResult();
-        r.data = this.productionWorkService.getItemList(processId, date, shiftCode, actorId, spjangcd);
+        r.data = this.productionWorkService.getItemList(processId, date, shiftCode, actorId, spjangcd, jobResId);
         return r;
     }
 
@@ -104,9 +119,29 @@ public class ProductionWorkController {
     @GetMapping("/clean_stock")
     public AjaxResult cleanStock(
             @RequestParam(value = "store_id", defaultValue = "5") Integer storeId,
-            @RequestParam(value = "keyword", required = false) String keyword) {
+            @RequestParam(value = "keyword", required = false) String keyword,
+            @RequestParam(value = "filter_mode", defaultValue = "wash") String filterMode) {
         AjaxResult r = new AjaxResult();
-        r.data = this.productionWorkService.getCleanStock(storeId, keyword);
+        // filter_mode: 'wash'(조립·세척부품 기본) / 'stock'(블리스터·융착·포장·반제품 실재고)
+        r.data = this.productionWorkService.getCleanStock(storeId, keyword, filterMode);
+        return r;
+    }
+
+    /** 완료된 차수가 실제 소비한 투입자재(로트별 집계) — 완료 후 화면 표시용. */
+    @GetMapping("/consumed_inputs")
+    public AjaxResult consumedInputs(@RequestParam("mp_id") Integer mpId) {
+        AjaxResult r = new AjaxResult();
+        r.data = this.productionWorkService.getConsumedInputs(mpId);
+        return r;
+    }
+
+    /** 용기 반제품 로트 목록 — 특정 자재의 클린룸 재고 로트(FIFO 순). */
+    @GetMapping("/material_lots")
+    public AjaxResult materialLots(
+            @RequestParam("material_id") Integer materialId,
+            @RequestParam(value = "store_id", defaultValue = "5") Integer storeId) {
+        AjaxResult r = new AjaxResult();
+        r.data = this.productionWorkService.getMaterialLots(materialId, storeId);
         return r;
     }
 
@@ -220,6 +255,7 @@ public class ProductionWorkController {
             @RequestParam(value = "start_time", required = false) String startTime,
             @RequestParam(value = "end_time", required = false) String endTime,
             @RequestParam(value = "bom_json", required = false) String bomJson,
+            @RequestParam(value = "clean_store", defaultValue = "5") Integer cleanStore,
             @RequestParam("spjangcd") String spjangcd,
             Authentication auth) {
 
@@ -239,6 +275,7 @@ public class ProductionWorkController {
         req.startTime = startTime;
         req.endTime = endTime;
         req.bomList = parseBom(bomJson);
+        req.cleanStore = cleanStore;   // 투입 소스창고(클린룸=5) — 화면 CTX.cleanStore
         req.spjangcd = spjangcd;
 
         // 시작된 차수가 있으면 그걸 완료(세척 패턴), 없으면 장비 원샷
@@ -249,7 +286,8 @@ public class ProductionWorkController {
     }
 
     /**
-     * 용기 완료취소 — 이 차수(mat_produce)가 만든 산출/투입/입출고/실적을 롤백.
+     * 완료취소 — 이 차수(mat_produce)의 산출/투입 재고를 롤백하고 상태를 '작업중'으로 되돌린다.
+     *   차수·조원·예약(mat_proc_input)은 삭제하지 않는다(작지 유지, 재고는 리퀘스트 상태로 원복).
      * 산출 반제품이 후속 공정에서 이미 소진됐으면 차단.
      */
     @PostMapping("/item_cancel")
@@ -261,7 +299,9 @@ public class ProductionWorkController {
         AjaxResult r = new AjaxResult();
         r.success = true;
 
-        MapSqlParameterSource p = new MapSqlParameterSource().addValue("mpId", mpId);
+        MapSqlParameterSource p = new MapSqlParameterSource()
+                .addValue("mpId", mpId)
+                .addValue("userId", user.getId());
 
         // 이 차수가 만든 산출 로트가 이미 소진됐는지 (후속 공정 사용)
         Map<String, Object> used = this.sqlRunner.getRow("""
@@ -296,9 +336,16 @@ public class ProductionWorkController {
              WHERE "JobResponse_id"=(SELECT "JobResponse_id" FROM mat_produce WHERE id=:mpId)
                AND "LotIndex"=(SELECT "LotIndex" FROM mat_produce WHERE id=:mpId)
             """, p);
-        // member + 차수 삭제
-        this.sqlRunner.execute("DELETE FROM mat_produce_member WHERE \"MatProduce_id\"=:mpId", p);
-        this.sqlRunner.execute("UPDATE mat_produce SET \"_status\"='d' WHERE id=:mpId", p);
+        // 완료취소 = 차수를 삭제하지 않고 '작업중'으로 되돌린다. (조원·예약은 유지)
+        //   - 투입 재고: 위 mat_lot_cons 삭제 → 트리거가 클린룸 CurrentStock 복원(리퀘스트 상태로 원복)
+        //   - 산출 반제품: 위에서 삭제 → 재고 제거
+        //   - 예약(mat_proc_input)은 작업시작분 그대로 유지 → 다시 완료 가능
+        this.sqlRunner.execute("""
+            UPDATE mat_produce
+               SET "State"='working', "EndTime"=NULL, "_status"='a',
+                   "_modified"=now(), "_modifier_id"=:userId
+             WHERE id=:mpId
+            """, p);
 
         return r;
     }

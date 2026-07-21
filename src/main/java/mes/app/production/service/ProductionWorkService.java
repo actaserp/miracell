@@ -86,10 +86,20 @@ public class ProductionWorkService {
      * 작업조 목록 — (날짜, ShiftCode, Actor_id) 파생
      */
     public List<Map<String, Object>> getCrewList(Integer processId, String date, String spjangcd) {
+        return getCrewList(processId, date, spjangcd, null);
+    }
+
+    /**
+     * 작업조 목록. jobResId 가 주어지면(WO-우선 공정: 블리스터 등) 그 작업지시에 귀속된
+     * 차수만 대상으로 조를 파생한다(작지는 날짜를 넘길 수 있으므로 날짜 필터 제거).
+     * jobResId 가 null 이면 기존 날짜 기반(조립 등).
+     */
+    public List<Map<String, Object>> getCrewList(Integer processId, String date, String spjangcd, Integer jobResId) {
         MapSqlParameterSource p = new MapSqlParameterSource();
         p.addValue("processId", processId);
-        p.addValue("date", LocalDate.parse(date));
+        p.addValue("date", date == null ? null : LocalDate.parse(date));
         p.addValue("spjangcd", spjangcd);
+        p.addValue("jobResId", jobResId);
         String sql = """
                 SELECT mp."ShiftCode"                                   AS shift_code
                      , sh."Name"                                        AS shift_name
@@ -124,7 +134,10 @@ public class ProductionWorkService {
                  WHERE COALESCE(mp."_status",'a') = 'a'
                    AND wc."Process_id" = :processId
                    AND mp.spjangcd = :spjangcd
-                   AND mp."ProductionDate"::date = :date
+                   AND ( (CAST(:jobResId AS INTEGER) IS NOT NULL
+                          AND mp."JobResponse_id" = CAST(:jobResId AS INTEGER))
+                      OR (CAST(:jobResId AS INTEGER) IS NULL
+                          AND mp."ProductionDate"::date = :date) )
                  GROUP BY mp."ShiftCode", sh."Name", mp."Actor_id", pr."Name",
                           mp."Equipment_id", e."Name"
                  ORDER BY MIN(mp."StartTime") NULLS LAST
@@ -137,12 +150,21 @@ public class ProductionWorkService {
      */
     public List<Map<String, Object>> getItemList(Integer processId, String date, String shiftCode,
                                                  Integer actorId, String spjangcd) {
+        return getItemList(processId, date, shiftCode, actorId, spjangcd, null);
+    }
+
+    /**
+     * 한 작업조가 만든 차수 목록. jobResId 가 주어지면 그 작업지시로 한정(WO-우선 공정).
+     */
+    public List<Map<String, Object>> getItemList(Integer processId, String date, String shiftCode,
+                                                 Integer actorId, String spjangcd, Integer jobResId) {
         MapSqlParameterSource p = new MapSqlParameterSource();
         p.addValue("processId", processId);
-        p.addValue("date", LocalDate.parse(date));
+        p.addValue("date", date == null ? null : LocalDate.parse(date));
         p.addValue("shiftCode", shiftCode);
         p.addValue("actorId", actorId);
         p.addValue("spjangcd", spjangcd);
+        p.addValue("jobResId", jobResId);
         String sql = """
                 SELECT mp.id                          AS mp_id
                      , mp."JobResponse_id"            AS job_res_id
@@ -166,9 +188,12 @@ public class ProductionWorkService {
                  WHERE COALESCE(mp."_status",'a') = 'a'
                    AND wc."Process_id" = :processId
                    AND mp.spjangcd = :spjangcd
-                   AND mp."ProductionDate"::date = :date
                    AND mp."ShiftCode" = :shiftCode
                    AND mp."Actor_id" = :actorId
+                   AND ( (CAST(:jobResId AS INTEGER) IS NOT NULL
+                          AND mp."JobResponse_id" = CAST(:jobResId AS INTEGER))
+                      OR (CAST(:jobResId AS INTEGER) IS NULL
+                          AND mp."ProductionDate"::date = :date) )
                  ORDER BY mp.id
                 """;
         return this.sqlRunner.getRows(sql, p);
@@ -238,10 +263,21 @@ public class ProductionWorkService {
     /**
      * 투입자재 후보 — 클린룸(5) 재고 있는 자재 (화면 BOM 추가용)
      */
-    public List<Map<String, Object>> getCleanStock(Integer storeId, String keyword) {
+    public List<Map<String, Object>> getCleanStock(Integer storeId, String keyword, String filterMode) {
         MapSqlParameterSource p = new MapSqlParameterSource();
         p.addValue("storeId", storeId);
         p.addValue("keyword", (keyword == null || keyword.isBlank()) ? null : "%" + keyword + "%");
+
+        // 투입자재 후보 필터 모드
+        //  'wash'  = 세척부품(WashYN='Y') — 조립 공정용. 재고 0도 노출(세척으로 곧 채워짐).
+        //  'stock' = 소스창고 실재고 있는 자재(용기 반제품 + 부자재) — 블리스터/융착/포장 등
+        //            반제품을 투입으로 쓰는 공정용. WashYN 무관, 물리적으로 창고에 있는 것만.
+        //  기본값 'wash' (조립 기존 동작 보존).
+        boolean stockMode = "stock".equalsIgnoreCase(filterMode);
+        String matPred = stockMode
+                ? "EXISTS (SELECT 1 FROM mat_lot ml2 WHERE ml2.\"Material_id\" = m.id "
+                + "AND ml2.\"StoreHouse_id\" = :storeId AND ml2.\"CurrentStock\" > 0)"
+                : "COALESCE(m.\"WashYN\",'N') = 'Y'";
         String sql = """
                 SELECT m.id AS mat_id, m."Code" AS mat_code, m."Name" AS mat_name,
                        u."Name" AS unit, COALESCE(SUM(ml."CurrentStock"),0) AS stock
@@ -251,14 +287,14 @@ public class ProductionWorkService {
                                       AND ml."CurrentStock" > 0
                   LEFT JOIN unit u ON u.id = m."Unit_id"
                  WHERE m."_status" = 'a'
-                   AND COALESCE(m."WashYN",'N') = 'Y'
+                   AND %s
                    AND (CAST(:keyword AS VARCHAR) IS NULL
                         OR m."Name" LIKE CAST(:keyword AS VARCHAR)
                         OR m."Code" LIKE CAST(:keyword AS VARCHAR))
                  GROUP BY m.id, m."Code", m."Name", u."Name"
                  ORDER BY m."Code"
                  LIMIT 100
-                """;
+                """.formatted(matPred);
         /**
          * 조립 BOM 기본값 — 산출품목(용기)의 manufacturing BOM 을 수량만큼 전개.
          * 클린룸(5) 현재고를 함께 붙여 화면에서 부족 여부 표시.
@@ -282,23 +318,149 @@ public class ProductionWorkService {
                      , u."Name"                                AS unit
                      , bc."Amount" / b."OutputAmount"          AS per
                      , CEIL(bc."Amount" / b."OutputAmount" * :qty) AS default_qty
-                     , COALESCE(clean.stock, 0)                AS stock
+                     , COALESCE(src.stock, 0)                  AS stock
                      , COALESCE(m."LotUseYN",'N')              AS lot_use_yn
+                     , mg."MaterialType"                       AS mat_type
+                     , (CASE WHEN COALESCE(m."SterilizationYN",'N')='Y'  THEN 18
+                             WHEN mg."MaterialType" IN ('semi','product') THEN 5
+                             WHEN COALESCE(m."WashYN",'N')='Y'           THEN 5
+                             ELSE 17 END)                      AS src_store
+                     , sh."Name"                               AS src_store_name
                   FROM bom b
                   JOIN bom_comp bc ON bc."BOM_id" = b.id
                   JOIN material m  ON m.id = bc."Material_id"
                   LEFT JOIN unit u ON u.id = m."Unit_id"
+                  LEFT JOIN mat_grp mg ON mg.id = m."MaterialGroup_id"
                   LEFT JOIN LATERAL (
                         SELECT SUM(ml."CurrentStock") AS stock FROM mat_lot ml
                          WHERE ml."Material_id" = bc."Material_id"
-                           AND ml."StoreHouse_id" = :cleanStore
-                  ) clean ON true
+                           AND ml."StoreHouse_id" = (CASE WHEN COALESCE(m."SterilizationYN",'N')='Y'  THEN 18
+                                                          WHEN mg."MaterialType" IN ('semi','product') THEN 5
+                                                          WHEN COALESCE(m."WashYN",'N')='Y'           THEN 5
+                                                          ELSE 17 END)
+                  ) src ON true
+                  LEFT JOIN store_house sh ON sh.id = (CASE WHEN COALESCE(m."SterilizationYN",'N')='Y'  THEN 18
+                                                            WHEN mg."MaterialType" IN ('semi','product') THEN 5
+                                                            WHEN COALESCE(m."WashYN",'N')='Y'           THEN 5
+                                                            ELSE 17 END)
                  WHERE b."Material_id" = :materialId
                    AND b."BOMType" = 'manufacturing'
                    AND CAST(:prodDate AS date)
                        BETWEEN COALESCE(b."StartDate", DATE '0001-01-01')
                            AND COALESCE(b."EndDate",   DATE '9999-12-31')
                  ORDER BY bc.id
+                """;
+        return this.sqlRunner.getRows(sql, p);
+    }
+
+    /**
+     * 완료된 차수(mp)가 실제 소비한 투입자재 — mat_lot_cons(로트별 차감) 를 자재별로 집계.
+     * 완료 후 화면에서 '차감된 투입자재'를 보여주기 위한 조회(읽기전용).
+     */
+    public List<Map<String, Object>> getConsumedInputs(Integer mpId) {
+        MapSqlParameterSource p = new MapSqlParameterSource().addValue("mpId", mpId);
+        String sql = """
+                SELECT m.id                                   AS mat_id
+                     , m."Code"                                AS mat_code
+                     , m."Name"                                AS mat_name
+                     , u."Name"                                AS unit
+                     , mg."MaterialType"                       AS mat_type
+                     , SUM(COALESCE(mlc."OutputQty",0))        AS consumed_qty
+                     , string_agg(DISTINCT ml."LotNumber", ', ') AS lots
+                     , (array_agg(sh."Name"))[1]               AS store
+                  FROM mat_lot_cons mlc
+                  JOIN mat_lot ml ON ml.id = mlc."MaterialLot_id"
+                  JOIN material m ON m.id = ml."Material_id"
+                  LEFT JOIN unit u ON u.id = m."Unit_id"
+                  LEFT JOIN mat_grp mg ON mg.id = m."MaterialGroup_id"
+                  LEFT JOIN store_house sh ON sh.id = ml."StoreHouse_id"
+                 WHERE mlc."SourceTableName" = 'mat_produce'
+                   AND mlc."SourceDataPk" = :mpId
+                 GROUP BY m.id, m."Code", m."Name", u."Name", mg."MaterialType"
+                 ORDER BY m."Code"
+                """;
+        return this.sqlRunner.getRows(sql, p);
+    }
+
+    /**
+     * 특정 자재의 창고(클린룸) 재고 로트 — FIFO 순서(InputDateTime ASC, id ASC).
+     * 용기 반제품 로트 선택/표시용. 소비 순서(reserveInput·consumeBomForChasu)와 동일 정렬.
+     */
+    public List<Map<String, Object>> getMaterialLots(Integer materialId, Integer storeId) {
+        MapSqlParameterSource p = new MapSqlParameterSource();
+        p.addValue("materialId", materialId);
+        p.addValue("storeId", storeId == null ? 5 : storeId);
+        String sql = """
+                SELECT ml.id                                   AS lot_id
+                     , ml."LotNumber"                          AS lot_no
+                     , m."Name"                                AS mat_name
+                     , m."Code"                                AS mat_code
+                     , COALESCE(ml."CurrentStock",0)           AS avail
+                     , sh."Name"                               AS warehouse
+                     , to_char(ml."InputDateTime", 'yyyy-mm-dd') AS in_date
+                  FROM mat_lot ml
+                  JOIN material m ON m.id = ml."Material_id"
+                  LEFT JOIN store_house sh ON sh.id = ml."StoreHouse_id"
+                 WHERE ml."Material_id" = :materialId
+                   AND ml."StoreHouse_id" = :storeId
+                   AND COALESCE(ml."CurrentStock",0) > 0
+                 ORDER BY ml."InputDateTime" ASC, ml.id ASC
+                 LIMIT 100
+                """;
+        return this.sqlRunner.getRows(sql, p);
+    }
+
+    /**
+     * 작업지시 큐(WO-우선 공정 진입 화면용) — 작지 1건 = PK 1개.
+     * 완제품 작지 전개로 생성된 PK 자식 작지들을 진행률과 함께 개별 카드로 내려준다.
+     * getWorkOrders 는 품목별 집계였지만, 이건 job_res 단위(개별 WO) 로 편다.
+     */
+    public List<Map<String, Object>> getWorkOrderQueue(Integer processId, String spjangcd,
+                                                       String dateFrom, String dateTo) {
+        MapSqlParameterSource p = new MapSqlParameterSource();
+        p.addValue("processId", processId);
+        p.addValue("spjangcd", spjangcd);
+        p.addValue("dateFrom", (dateFrom == null || dateFrom.isBlank()) ? null : LocalDate.parse(dateFrom));
+        p.addValue("dateTo",   (dateTo   == null || dateTo.isBlank())   ? null : LocalDate.parse(dateTo));
+        String sql = """
+                SELECT jr.id                                   AS job_res_id
+                     , jr."WorkOrderNumber"                    AS order_num
+                     , jr."Material_id"                        AS mat_id
+                     , m."Code"                                AS mat_code
+                     , m."Name"                                AS mat_name
+                     , u."Name"                                AS unit
+                     , to_char(jr."ProductionDate", 'yyyy-mm-dd') AS plan_date
+                     , COALESCE(jr."OrderQty",0)               AS plan_qty
+                     , COALESCE(prod.good_qty, 0)              AS good_qty
+                     , COALESCE(prod.chasu_cnt, 0)             AS chasu_cnt
+                     , COALESCE(prod.crew_cnt, 0)              AS crew_cnt
+                     , COALESCE(prod.done_cnt, 0)              AS done_cnt
+                     , COALESCE(prod.working_cnt, 0)           AS working_cnt
+                     , CASE WHEN COALESCE(prod.chasu_cnt,0) = 0 THEN 'wait'
+                            WHEN COALESCE(prod.good_qty,0) >= COALESCE(jr."OrderQty",0)
+                                 AND COALESCE(jr."OrderQty",0) > 0 THEN 'done'
+                            ELSE 'working' END                 AS state
+                  FROM job_res jr
+                  JOIN work_center wc ON wc.id = jr."WorkCenter_id"
+                  LEFT JOIN material m ON m.id = jr."Material_id"
+                  LEFT JOIN unit u ON u.id = m."Unit_id"
+                  LEFT JOIN LATERAL (
+                        SELECT SUM(mp."GoodQty") FILTER (WHERE mp."State"='finished') AS good_qty
+                             , COUNT(*)                                               AS chasu_cnt
+                             , COUNT(*) FILTER (WHERE mp."State"='finished')          AS done_cnt
+                             , COUNT(*) FILTER (WHERE mp."State"='working')           AS working_cnt
+                             , COUNT(DISTINCT (mp."ShiftCode", mp."Actor_id"))        AS crew_cnt
+                          FROM mat_produce mp
+                         WHERE mp."JobResponse_id" = jr.id
+                           AND COALESCE(mp."_status",'a') = 'a'
+                  ) prod ON true
+                 WHERE jr.spjangcd = :spjangcd
+                   AND wc."Process_id" = :processId
+                   AND jr."State" IN ('ordered','working','finished')
+                   AND (CAST(:dateFrom AS date) IS NULL OR jr."ProductionDate"::date >= CAST(:dateFrom AS date))
+                   AND (CAST(:dateTo   AS date) IS NULL OR jr."ProductionDate"::date <= CAST(:dateTo   AS date))
+                 ORDER BY jr."ProductionDate" DESC, jr."WorkOrderNumber" DESC
+                 LIMIT 200
                 """;
         return this.sqlRunner.getRows(sql, p);
     }
@@ -320,7 +482,7 @@ public class ProductionWorkService {
             UPDATE mat_produce
                SET "GoodQty"=:qty, "DefectQty"=:defectQty,
                    "State"=CASE WHEN "State"='wait' AND :qty > 0 THEN 'working' ELSE "State" END,
-                   "StartTime"=COALESCE("StartTime", CASE WHEN :qty > 0 THEN ("ProductionDate"::date + CURRENT_TIME)::timestamp ELSE NULL END),
+                   "StartTime"=COALESCE("StartTime", CASE WHEN :qty > 0 THEN LOCALTIMESTAMP ELSE NULL END),
                    "_modified"=now(), "_modifier_id"=:userId
              WHERE id=:mpId AND "State"<>'finished'
             """, p);
@@ -338,7 +500,7 @@ public class ProductionWorkService {
         this.sqlRunner.execute("""
             UPDATE mat_produce
                SET "State"='working',
-                   "StartTime"=COALESCE("StartTime", ("ProductionDate"::date + CURRENT_TIME)::timestamp),
+                   "StartTime"=COALESCE("StartTime", LOCALTIMESTAMP),
                    "GoodQty"=COALESCE(CAST(:qty AS DOUBLE PRECISION), "GoodQty"),
                    "DefectQty"=COALESCE(CAST(:defectQty AS DOUBLE PRECISION), "DefectQty"),
                    "_modified"=now(), "_modifier_id"=:userId

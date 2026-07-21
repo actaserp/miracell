@@ -223,11 +223,6 @@ public class WashService {
                AND (CAST(:keyword AS VARCHAR) IS NULL
                     OR m."Name" LIKE CAST(:keyword AS VARCHAR)
                     OR m."Code" LIKE CAST(:keyword AS VARCHAR))
-               AND (CAST(:workId AS INTEGER) IS NULL OR NOT EXISTS (
-                        SELECT 1 FROM wash_work_item x
-                         WHERE x."WashWork_id" = CAST(:workId AS INTEGER)
-                           AND x."Material_id" = m.id
-                           AND x."_status" = 'a'))
              GROUP BY m.id, m."Code", m."Name", u."Name"
              ORDER BY m."Code"
             """;
@@ -325,14 +320,7 @@ public class WashService {
         p.addValue("spjangcd", spjangcd);
         p.addValue("userId", user.getId());
 
-        Map<String, Object> dup = this.sqlRunner.getRow("""
-            SELECT id FROM wash_work_item
-             WHERE "WashWork_id" = :workId AND "Material_id" = :matId AND "_status" = 'a'
-            """, p);
-        if (dup != null && dup.get("id") != null) {
-            r.success = false; r.message = "이미 추가된 품목입니다."; return r;
-        }
-
+        // 같은 품목을 여러 번 담을 수 있다(세척은 배치별로 같은 품목을 나눠 담기도 함). 중복 차단 없음.
         Map<String, Object> row = this.sqlRunner.getRow("""
             INSERT INTO wash_work_item
                 ("WashWork_id", "Material_id", "Qty", "DefectQty", "State",

@@ -468,7 +468,7 @@
             });
             return (r.data || []).map(b => ({
                 mat_id: b.mat_id, code: b.mat_code, name: b.mat_name,
-                per: num(b.per) || 1, qty: 0, manual: false, stock: num(b.stock)
+                per: num(b.per) || 1, qty: 0, manual: false, stock: num(b.stock), store: b.src_store_name || '재고'
             }));
         }
 
@@ -487,7 +487,7 @@
             return {
                 workers: workers.slice(), leader_id: workers[0].id,
                 equip: equip.name, equip_id: equip.id, code: equip.code || '',
-                shift: CTX.shiftCode, done: false, start: curD.date + ' ' + hhmm(), end: null,
+                shift: CTX.shiftCode, done: false, start: todayStr() + ' ' + hhmm(), end: null,
                 items: [], _draft: true, _key: CTX.shiftCode + '|' + workers[0].id
             };
         }
@@ -557,13 +557,26 @@
                 return {
                     mp_id: i.mp_id, mat_id: i.mat_id, vcode: i.mat_code, vname: i.mat_name,
                     wo: i.order_num || null, job_res_id: i.job_res_id || null,
+                    lot: i.lot_no || null,
                     qty: num(i.good_qty), defQty: num(i.defect_qty),
                     st: done ? 'done' : (i.state || 'done'),
-                    start: i.start_time, end: i.end_time, open: false,
-                    // 완료분은 이미 소비됨(편집 불가). 작업중분은 BOM 기본값 복원 → 완료 시 소비.
-                    bom: done ? [] : loadBomDefault(i.mat_id, curD.date)
+                    start: i.start_time, end: i.end_time, open: done,
+                    // 완료분: 실제 차감된 투입자재(mat_lot_cons)를 읽어와 읽기전용 표시. 작업중분: BOM 기본값.
+                    bom: done ? loadConsumedInputs(i.mp_id) : loadBomDefault(i.mat_id, curD.date)
                 };
             });
+        }
+
+        /* 완료된 차수가 실제 소비한 투입자재(로트별 집계) — 읽기전용 표시용 */
+        function loadConsumedInputs(mpId) {
+            if (!mpId) return [];
+            const r = apiGet('/consumed_inputs', {mp_id: mpId});
+            return (r.data || []).map(c => ({
+                mat_id: c.mat_id, code: c.mat_code, name: c.mat_name,
+                unit: c.unit || '', qty: num(c.consumed_qty), lots: c.lots || '',
+                store: c.store || '', mat_type: c.mat_type || 'raw',
+                readonly: true, manual: false, per: 1, stock: 0
+            }));
         }
 
         /* 하루치 작업조 = 서버 확정 + 화면 드래프트(아직 완료 용기 없는 조) */
@@ -766,14 +779,22 @@
             const times = (it.st === 'wait') ? '' : `<div class="vtimes">
           <span class="tp" data-vtime="start" data-vi="${i}">시작 <b>${pillT(it.start)}</b></span>
           <span class="tp" data-vtime="end" data-vi="${i}">종료 <b>${pillT(it.end)}</b></span></div>`;
+            const readonly = (it.st === 'done');
             const bomRows = it.bom.map((b, bi) => {
+                if (readonly) {
+                    // 완료 차수: 실제 차감된 자재(수량·로트) 읽기전용
+                    return `<div class="brow">
+          <div class="bid"><div class="bn">${b.name}</div><div class="bc">${b.code}${b.lots ? ' · 로트 ' + b.lots : ''}</div></div>
+          <span class="autotag">차감</span>
+          <span class="qtytag" style="min-width:56px;font-size:16px">${b.qty}</span></div>`;
+                }
                 const auto = !b.manual;
                 const need = bomQ(b, it.qty);
                 const short = b.stock < need;
                 return `<div class="brow">
           <div class="bid"><div class="bn">${b.name}</div><div class="bc">${b.code}</div></div>
           <span class="autotag">${auto ? '자동' : '수정'}</span>
-          <span class="bstock" style="font-size:11px;font-weight:800;white-space:nowrap;margin-right:4px;color:${short ? '#d33' : 'var(--ink-2)'}">재고 ${b.stock}</span>
+          <span class="bstock" style="font-size:11px;font-weight:800;white-space:nowrap;margin-right:4px;color:${short ? '#d33' : 'var(--ink-2)'}">${b.store || '재고'} ${b.stock}</span>
           <div class="bstep" data-bstep="${i}_${bi}"><button class="minus">−</button>
             <div class="bq ${auto ? 'auto' : ''}" data-bpad="${i}_${bi}">${bomQ(b, it.qty)}</div><button class="plus">+</button></div>
           <button class="brm" data-brm="${i}_${bi}">✕</button></div>`;
@@ -784,13 +805,13 @@
         <div class="vid" data-toggle="${i}"><div class="pn">${it.vname}</div>
           <div class="sub"><span class="pc">${it.vcode}</span>${woBadge}</div></div>
         <span class="st-badge ${it.st}">${STLAB[it.st]}</span>
-        ${ctrl}${actions}
+        ${ctrl}${it.lot ? `<span class="autotag" style="font-size:12px;font-weight:800;color:var(--teal-d);background:var(--teal-bg);border:1px solid var(--teal);white-space:nowrap">LOT ${it.lot}</span>` : ''}${actions}
         ${times}
       </div>
       <div class="vbom ${it.open ? 'open' : ''}">
-        <div class="bhead">투입자재 · 세척 완료(클린룸) 재고 소요 <span class="ln"></span>
-          <button class="baddbtn" data-badd="${i}">＋ 자재</button></div>
-        ${bomRows || '<div style="color:var(--ink-2);font-weight:700;padding:8px 0">투입자재가 없습니다. ＋자재로 추가하세요.</div>'}
+        <div class="bhead">${readonly ? '투입자재 · 차감 완료 (클린룸)' : '투입자재 · 세척 완료(클린룸) 재고 소요'} <span class="ln"></span>
+          ${readonly ? '' : `<button class="baddbtn" data-badd="${i}">＋ 자재</button>`}</div>
+        ${bomRows || `<div style="color:var(--ink-2);font-weight:700;padding:8px 0">${readonly ? '차감된 투입자재가 없습니다.' : '투입자재가 없습니다. ＋자재로 추가하세요.'}</div>`}
       </div></div>`;
         }
 
@@ -890,7 +911,7 @@
                     const key = curC._key;
                     refreshDays();
                     reloadCurDay(key);
-                    flash('완료취소 · 산출/투입 롤백');
+                    flash('완료취소 · 작업중 복귀 (재고 원복)');
                 });
             }
         });
@@ -912,7 +933,7 @@
                 clean_store: CTX.cleanStore
             }, (r) => {
                 it.st = 'working';
-                if (!it.start) it.start = curD.date + ' ' + hhmm();
+                if (!it.start) it.start = todayStr() + ' ' + hhmm();
                 renderItems();
                 renderCrews();
                 refreshDays();
@@ -930,16 +951,15 @@
                 good_qty: it.qty,
                 defect_qty: it.defQty || 0,
                 start_time: it.start || '',
-                end_time: it.end || (curD.date + ' ' + hhmm()),
+                end_time: it.end || (todayStr() + ' ' + hhmm()),
                 bom_json: JSON.stringify(it.bom.map(b => ({matId: b.mat_id, qty: bomQ(b, it.qty)}))),
                 equipment_id: curC.equip_id || '',
+                clean_store: CTX.cleanStore,
                 spjangcd: CTX.spjangcd
             }, () => {
-                it.st = 'done';
-                it.end = it.end || (curD.date + ' ' + hhmm());
-                renderItems();
-                renderCrews();
+                const key = curC._key;
                 refreshDays();
+                reloadCurDay(key);   // 서버 재로딩 → 완료 차수에 '차감된 투입자재' 표시
                 flash(`조립 완료 · ${it.vname} ${it.qty} 산출 (클린룸 재고 소요)`);
             });
         }
@@ -1187,7 +1207,7 @@
             if (saved && saved.includes(' ')) {
                 const [ds, ts] = saved.split(' ');
                 editDate = new Date(ds + 'T' + ts);
-            } else editDate = new Date(curD.date + 'T' + hhmm());
+            } else editDate = new Date();   // 기존 값 없으면 실제 현재일시(계획일 아님)
             document.getElementById('tDate').textContent = fmtDEdit(editDate);
             document.getElementById('tH').textContent = String(editDate.getHours()).padStart(2, '0');
             document.getElementById('tM').textContent = String(editDate.getMinutes()).padStart(2, '0');
@@ -1294,7 +1314,7 @@
             }
             m.querySelector('#confirmMsg').textContent = msg;
             const ok = m.querySelector('#confirmOk'), cancel = m.querySelector('#confirmCancel');
-            if (okLabel) ok.textContent = okLabel;
+            ok.textContent = okLabel || '삭제';   // 라벨 미지정 시 항상 '삭제'로 리셋(재사용 모달 라벨 잔존 방지)
             const close = () => { m.style.display = 'none'; ok.onclick = null; cancel.onclick = null; };
             ok.onclick = () => { close(); onOk && onOk(); };
             cancel.onclick = close;
