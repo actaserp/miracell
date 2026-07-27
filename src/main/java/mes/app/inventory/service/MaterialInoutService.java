@@ -701,4 +701,47 @@ public class MaterialInoutService {
 		return itmes;
 	}
 
+	// 발주번호(JumunNumber)로 해당 발주의 미입고 잔량 > 0 인 라인만 조회
+	public List<Map<String, Object>> getBaljuLinesByJumunNumber(String jumunNumber, String spjangcd) {
+		MapSqlParameterSource dicParam = new MapSqlParameterSource();
+		dicParam.addValue("jumunNumber", jumunNumber);
+		dicParam.addValue("spjangcd", spjangcd);
+
+		String sql = """
+        select b.id
+          , b."JumunNumber"
+          , m.id as "Material_id"
+          , m."Code" as product_code
+          , m."Name" as product_name
+          , u."Name" as unit
+          , b."Standard" as standard
+          , b."SujuQty" as "SujuQty"
+          , b."CompanyName"
+          , b."Company_id"
+          , b."StoreHouse_id" as "StoreHouse_id"
+          , to_char(b."DueDate", 'yyyy-mm-dd') as "DueDate"
+          , COALESCE(mi."SujuQty2", 0) AS "SujuQty2"
+          , (b."SujuQty" - COALESCE(mi."SujuQty2", 0)) AS "remainQty"
+          , b."State"
+          from balju b
+          inner join material m on m.id = b."Material_id"
+          inner join mat_grp mg on mg.id = m."MaterialGroup_id"
+          left join unit u on m."Unit_id" = u.id
+          LEFT JOIN (
+               SELECT "SourceDataPk", SUM("InputQty") AS "SujuQty2"
+               FROM mat_inout
+               WHERE "SourceTableName" = 'balju'
+                 AND COALESCE("_status", 'a') = 'a'
+                 AND "InOut" = 'in'
+               GROUP BY "SourceDataPk"
+          ) mi ON mi."SourceDataPk" = b.id
+          where b."JumunNumber" = :jumunNumber
+          and b.spjangcd = :spjangcd
+          and b."State" != 'force_completion'
+          AND (b."SujuQty" - COALESCE(mi."SujuQty2", 0)) > 0
+          order by m."Name"
+        """;
+
+		return this.sqlRunner.getRows(sql, dicParam);
+	}
 }

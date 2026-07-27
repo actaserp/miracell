@@ -109,7 +109,7 @@
           </dl>
         </div>
 
-        <div class="button-wrap">
+        <!--<div class="button-wrap">
           <ul>
             <li><a class="btn" title="출력" id="btnPrint">출력</a></li>
             <li>
@@ -119,11 +119,11 @@
               </a>
             </li>
           </ul>
-        </div>
+        </div>-->
       </div>
 
       <div class="sum-box">
-        <span class="sum-item"><i>판매계획</i><em id="sumPlan">0</em></span>
+<!--        <span class="sum-item"><i>판매계획</i><em id="sumPlan">0</em></span>-->
         <span class="sum-item is-primary"><i>수주</i><em id="sumOrder">0</em></span>
         <span class="sum-item is-primary"><i>출하실적</i><em id="sumActual">0</em></span>
         <span class="sum-item is-warn"><i>차이(실적-계획)</i><em id="sumDiff">0</em></span>
@@ -284,14 +284,14 @@
       });
      }
 
-     cols.push({ binding: 'PlanValue',   header: '판매계획', width: 110, align: 'right', format: fmt });
+     // cols.push({ binding: 'PlanValue',   header: '판매계획', width: 110, align: 'right', format: fmt });
      cols.push({ binding: 'OrderValue',  header: '수주',     width: 110, align: 'right', format: fmt });
      cols.push({ binding: 'ActualValue', header: '출하실적', width: 110, align: 'right', format: fmt });
      cols.push({ binding: 'Diff',        header: '차이',     width: 110, align: 'right', format: fmt });
      cols.push({ binding: 'Rate',        header: '달성률(%)', width: 90, align: 'right', format: 'n1' });
      cols.push({ binding: 'Backlog',     header: '수주잔량', width: 110, align: 'right', format: fmt });
      cols.push({ binding: 'ShareRate',   header: '구성비(%)', width: 90, align: 'right', format: 'n1' });
-     cols.push({ binding: 'Description', header: '비고', width: '*' });
+     cols.push({ binding: 'Description', header: '비고', width: 110 });
 
      this.grid.columns.deferUpdate(() => {
       this.grid.columns.clear();

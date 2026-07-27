@@ -83,11 +83,11 @@
         </div>
         <div class="button-wrap">
           <ul>
-            <li>
+           <!-- <li>
               <a class="btn" title="견적서 출력" id="btnEstimatePrint">
                 견적서 출력
               </a>
-            </li>
+            </li>-->
             <li>
               <a class="btn btn-excell" title="등록" id="btnAddNew">
                 <img th:src="@{/images/icon/ico-plus.svg}" alt="등록 아이콘">
@@ -944,7 +944,7 @@
           )));
         }
 
-// 3) 클릭 핸들러
+        //3) 클릭 핸들러
         $('#btnEstimatePrint').off('click').on('click', async function () {
           const grid = _this.grid;
           const selected = grid?.selectedItems || [];
@@ -1309,7 +1309,7 @@
           calculateTotalSum($content);
 
           // 기존 동작 유지: 단위에 따른 버튼/표시 갱신 트리거
-          $root.find('input[name="unit"], input[name^="unit_"]').trigger('input');
+          // $root.find('input[name="unit"], input[name^="unit_"]').trigger('input');
 
         }, 100);
 
@@ -1408,11 +1408,11 @@
               //if (!materialId) continue;
               if (!productName) continue;
               // ✅ 상세 JSON 파싱
-              let standardDetails = [];
-              try {
-                const raw = data[`standard_detail_json_${i}`];
-                if (raw) standardDetails = JSON.parse(raw);
-              } catch(e){ standardDetails = []; }
+              // let standardDetails = [];
+              // try {
+              //   const raw = data[`standard_detail_json_${i}`];
+              //   if (raw) standardDetails = JSON.parse(raw);
+              // } catch(e){ standardDetails = []; }
 
               items.push({
                 suju_id: data[`suju_id_${i}`] || '',
@@ -1434,8 +1434,8 @@
                   const cur = parseFloat((data[`unitPrice_${i}`] || '0').replace(/,/g, ''));
                   return ori !== cur;
                 })(),
-                standard: data[`standard_${i}`] || '',
-                standardDetails: standardDetails
+               standard: data[`standard_${i}`] || '',
+               standardDetails: []          // 규격 상세 비활성화
               });
             }
 
@@ -1547,11 +1547,11 @@
             const unitPriceRaw = String($row.find('input[name^="unitPrice_"]').val() || '').replace(/,/g, '');
             const hasUnitPrice = unitPriceRaw !== '' && !isNaN(Number(unitPriceRaw));
 
-           const $standard = $row.find('input[type="text"][name^="standard_"]');
-           const standardRaw    = (($standard.val() ?? '') + '').trim();
-           const standardNumStr = standardRaw.replace(/,/g, '');
-           const isStandardNumeric = standardNumStr !== '' && /^\d+(\.\d+)?$/.test(standardNumStr);
-           const standardNum = isStandardNumeric ? parseFloat(standardNumStr) : 0;
+           // const $standard = $row.find('input[type="text"][name^="standard_"]');
+           // const standardRaw    = (($standard.val() ?? '') + '').trim();
+           // const standardNumStr = standardRaw.replace(/,/g, '');
+           // const isStandardNumeric = standardNumStr !== '' && /^\d+(\.\d+)?$/.test(standardNumStr);
+           // const standardNum = isStandardNumeric ? parseFloat(standardNumStr) : 0;
 
            const baseQty = Number.isFinite(quantity) ? quantity : 0;
 
@@ -1702,10 +1702,10 @@
         });
 
         // 표준 변경 시 즉시 재계산
-        $content.on('input change', 'input[name^="standard_"]', function () {
-          const $row = $(this).closest('tr');
-          calculateAmounts($row, 'unit'); // ← 'standard-change' 말고 'unit'으로
-        });
+        // $content.on('input change', 'input[name^="standard_"]', function () {
+        //   const $row = $(this).closest('tr');
+        //   calculateAmounts($row, 'unit'); // ← 'standard-change' 말고 'unit'으로
+        // });
 
         // 숫자 포맷 (input 중 formatting) - 소수점/천단위 지원
         // 1) 입력 중: 포맷(천단위)만, 소수 고정 금지
@@ -1960,9 +1960,9 @@
               setByPrefix('unit_',       saved.unit_name);
 
               // 읽기전용 토글
-              const $std = $row.find('input[type="text"][name^="standard_"]:visible').first();
-              const hasStd = !!(saved.standard && String(saved.standard).trim().length);
-              if ($std.length) $std.prop('readonly', hasStd);
+              // const $std = $row.find('input[type="text"][name^="standard_"]:visible').first();
+              // const hasStd = !!(saved.standard && String(saved.standard).trim().length);
+              // if ($std.length) $std.prop('readonly', hasStd);
             },
 
             // 포커스 복귀
@@ -1995,11 +1995,11 @@
             $productCode.val(item.Code || '');
             $unit_name.val(item.unit_name || '').trigger('input');
             $Standard.val(item.Spec || '');
-            if (item.Spec && item.Spec.trim() !== '') {
-              $standard_locked.val('Y').trigger('change');
-            } else {
-              $standard_locked.val('N').trigger('change');
-            }
+            // if (item.Spec && item.Spec.trim() !== '') {
+            //   $standard_locked.val('Y').trigger('change');
+            // } else {
+            //   $standard_locked.val('N').trigger('change');
+            // }
 
             tryShowPrice($row);
           };

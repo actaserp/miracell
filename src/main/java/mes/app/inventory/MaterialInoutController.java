@@ -1246,5 +1246,161 @@ public class MaterialInoutController {
 		result.data = data;   // null 이면 프론트에서 '미등록 GTIN'(빨강) 처리
 		return result;
 	}
+
+	@PostMapping("/lot_save_by_po")
+	@Transactional
+	public AjaxResult lotSaveByPo(
+		@RequestBody Map<String, Object> payload,
+		Authentication auth) {
+
+		User user = (User) auth.getPrincipal();
+		AjaxResult result = new AjaxResult();
+
+		String spjangcd = (String) payload.get("spjangcd");
+		Integer storeHouseFallback = CommonUtil.tryIntNull(payload.get("store_house_id"));
+
+		@SuppressWarnings("unchecked")
+		List<Map<String, Object>> lines = (List<Map<String, Object>>) payload.get("lines");
+
+		if (lines == null || lines.isEmpty()) {
+			result.success = false; result.message = "입고할 품목이 없습니다."; return result;
+		}
+
+		Timestamp now = new Timestamp(System.currentTimeMillis());
+
+		try {
+			for (Map<String, Object> line : lines) {
+				Integer balPk = CommonUtil.tryIntNull(line.get("balju_id"));   // = balju.id
+				Integer matPk = CommonUtil.tryIntNull(line.get("Material_id"));
+				if (balPk == null || matPk == null) continue;
+
+				int qty = (int) Double.parseDouble(String.valueOf(line.get("InputQty")).replace(",", ""));
+				if (qty <= 0) continue;
+
+				Integer storeHouseId = CommonUtil.tryIntNull(line.get("StoreHouse_id"));
+				if (storeHouseId == null) storeHouseId = storeHouseFallback;
+
+				// ★ 과입고 차단 (기입고합계 + 이번수량 > 발주수량 이면 롤백)
+				double alreadyIn = jdbcTemplate.queryForObject("""
+                SELECT COALESCE(SUM("InputQty"), 0)
+                FROM mat_inout
+                WHERE "SourceDataPk" = ?
+                  AND "SourceTableName" = 'balju'
+                  AND COALESCE("_status", 'a') = 'a'
+                  AND "InOut" = 'in'
+            """, Double.class, balPk);
+
+				Balju balju = this.bujuRepository.getBujuById(balPk);
+				double baljuQty = balju.getSujuQty() != null ? balju.getSujuQty() : 0d;
+				if (alreadyIn + qty > baljuQty) {
+					result.success = false;
+					result.message = "미입고수량 초과 (발주라인 " + balPk + ", 발주 " + (int) baljuQty
+														 + " / 기입고 " + (int) alreadyIn + " / 요청 " + qty + ")";
+					throw new RuntimeException(result.message);
+				}
+
+				// 1) 입고 레코드 — save_balju 와 동일
+				Material m = materialRepository.getMaterialById(matPk);
+				String testYn = m.getInTestYN() != null ? m.getInTestYN() : "";
+
+				MaterialInout mi = new MaterialInout();
+				mi.setInoutDate(LocalDate.now());
+				mi.setInoutTime(LocalTime.now());
+				mi.setMaterialId(matPk);
+				mi.setStoreHouseId(storeHouseId);
+				mi.setCompanyId(CommonUtil.tryIntNull(line.get("Company_id")));
+				mi.setInOut("in");
+				mi.setInputType("order_in");
+				mi.setDescription("발주 스캔 입고");
+				mi.setSourceDataPk(balPk);
+				mi.setSourceTableName("balju");
+				mi.set_audit(user);
+				mi.setSpjangcd(spjangcd);
+
+				boolean isWaiting = "Y".equals(testYn);
+				if (isWaiting) {
+					mi.setPotentialInputQty((float) qty);
+					mi.setState("waiting");
+					mi.set_status("t");
+				} else {
+					mi.setInputQty((float) qty);
+					mi.setState("confirmed");
+					mi.set_status("a");
+				}
+				matInoutRepository.save(mi);
+				matInoutRepository.flush();
+
+				balju.setShipmentState(String.valueOf(storeHouseId));
+				bujuRepository.save(balju);
+
+				// 2) 로트 — 가입고(검사대기) 아니고 로트관리 품목일 때만
+				boolean lotManaged = "Y".equals(m.getLotUseYn());
+				if (lotManaged && !isWaiting) {
+					String lotNumber = (line.get("LotNumber") != null
+																&& !String.valueOf(line.get("LotNumber")).isEmpty())
+															 ? String.valueOf(line.get("LotNumber"))
+															 : lotService.make_lot_in_number();
+
+					String effStr = CommonUtil.tryString(line.get("EffectiveDate"));
+					Timestamp effDt = null;
+					if (!effStr.isEmpty()) {
+						effDt = Timestamp.valueOf(effStr + " 00:00:00");
+					} else if (m.getValidDays() != null) {
+						effDt = Timestamp.valueOf(LocalDate.now().plusDays(m.getValidDays()) + " 00:00:00");
+					}
+
+					MaterialLot ml = new MaterialLot();
+					ml.setLotNumber(lotNumber);
+					ml.setMaterialId(matPk);
+					ml.setInputQty((float) qty);
+					ml.setCurrentStock((float) qty);
+					ml.setInputDateTime(now);
+					ml.setEffectiveDate(effDt);
+					ml.setSourceTableName("mat_inout");
+					ml.setSourceDataPk(mi.getId());
+					ml.setStoreHouseId(storeHouseId);
+					if (line.get("Description") != null) ml.setDescription(String.valueOf(line.get("Description")));
+					ml.set_audit(user);
+					ml.setSpjangcd(spjangcd);
+					matLotRepository.save(ml);
+				}
+			}
+
+			result.success = true;
+		} catch (Exception e) {
+			result.success = false;
+			if (result.message == null) result.message = "발주 스캔 입고 오류: " + e.getMessage();
+			throw new RuntimeException(e); // 롤백
+		}
+		return result;
+	}
+
+	@GetMapping("/receiving_by_barcode")
+	public AjaxResult receivingByBarcode(
+		@RequestParam("barcode") String barcode,
+		@RequestParam("spjangcd") String spjangcd) {
+
+		AjaxResult result = new AjaxResult();
+
+		if (barcode == null || !barcode.toUpperCase().startsWith("PO")) {
+			result.success = false; result.message = "발주 바코드가 아닙니다."; return result;
+		}
+		String jumunNumber = barcode.substring(2); // "PO" + JumunNumber
+
+		List<Map<String, Object>> lines =
+			this.materialInoutService.getBaljuLinesByJumunNumber(jumunNumber, spjangcd);
+
+		Map<String, Object> data = new HashMap<>();
+		data.put("JumunNumber", jumunNumber);
+		data.put("lines", lines);
+		if (lines != null && !lines.isEmpty()) {
+			data.put("companyName", lines.get(0).get("CompanyName"));
+			data.put("company_id",  lines.get(0).get("Company_id"));
+		}
+
+		result.data = data;
+		result.success = true;
+		return result;
+	}
 	
 }

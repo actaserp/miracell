@@ -2691,37 +2691,41 @@
                         }
                         if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
                             e.cell.style.textAlign = 'center';
+                            // 편집 가능한 컬럼 헤더 파랑 표시
+                            const b = sender.columns[e.col].binding;
+                            if (b === 'lotNumber' || b === 'effectiveDate' || b === 'inputQty') {
+                                e.cell.style.color = '#5567ff';
+                            }
                         }
                     },
                     columns: [
-                        {binding: 'gtin', header: 'GTIN', width: 130, align: 'center', isReadOnly: true},
-                        {binding: 'materialCode', header: '품목코드', width: 100, align: 'center', isReadOnly: true},
-                        {binding: 'materialName', header: '품목명', width: 180, align: 'left', isReadOnly: true},
-                        {binding: 'lotNumber', header: '로트번호', width: 130, align: 'center', isReadOnly: true},
-                        {binding: 'manufactureDate', header: '제조일', width: 100, align: 'center', isReadOnly: true},
-                        {binding: 'effectiveDate', header: '유효기한', width: 100, align: 'center', isReadOnly: true},
-                        {binding: 'qty', header: '수량', width: 90, align: 'right', format: 'n0', isReadOnly: false},
-                        {binding: 'statusText', header: '상태', width: 110, align: 'center', isReadOnly: true}
+                        {binding: 'JumunNumber',  header: '발주번호', width: 130, align: 'center', isReadOnly: true},
+                        {binding: 'materialCode', header: '품목코드', width: 90,  align: 'center', isReadOnly: true},
+                        {binding: 'materialName', header: '품목명',   width: 180, align: 'left',   isReadOnly: true},
+                        {binding: 'unit',         header: '단위',     width: 55,  align: 'center', isReadOnly: true},
+                        {binding: 'baljuQty',     header: '발주수량', width: 80,  align: 'right', format: 'n0', isReadOnly: true},
+                        {binding: 'receivedQty',  header: '기입고',   width: 75,  align: 'right', format: 'n0', isReadOnly: true},
+                        {binding: 'remainQty',    header: '미입고',   width: 75,  align: 'right', format: 'n0', isReadOnly: true},
+                        {binding: 'lotNumber',    header: '로트번호(빈칸=자동)', width: 150, align: 'center', isReadOnly: false},
+                        {binding: 'effectiveDate',header: '유효기간(YYYY-MM-DD)', width: 140, align: 'center', isReadOnly: false},
+                        {binding: 'inputQty',     header: '입고수량', width: 90,  align: 'right', isReadOnly: false,
+                            editor: new wijmo.input.InputNumber(document.createElement('div'), {
+                                format: 'n0', min: 0, step: 1
+                            })
+                        },
+                        {binding: 'statusText',   header: '상태', width: 90, align: 'center', isReadOnly: true}
                     ],
                     itemsSource: new wijmo.collections.CollectionView([]),
                     itemFormatter: (panel, row, col, cell) => {
                         if (panel.cellType === wijmo.grid.CellType.Cell) {
                             const item = panel.rows[row].dataItem;
                             if (!item) return;
-                            // 미등록 GTIN 행: 빨강
-                            if (item.status === 'unmatched') {
+                            const b = panel.columns[col].binding;
+                            // 유효기간 비어있음 → 빨강(저장 차단 대상)
+                            if (b === 'effectiveDate' && !item.effectiveDate) cell.classList.add('grid-cell-red');
+                            // 입고수량이 미입고 초과 → 빨강
+                            if (b === 'inputQty' && Number(item.inputQty) > Number(item.remainQty)) {
                                 cell.classList.add('grid-cell-red');
-                            }
-                            // 정상인데 유효기간 비어있음: 빨강 (저장 차단 대상)
-                            if (item.status === 'matched' && !item.effectiveDate) {
-                                cell.classList.add('grid-cell-red');
-                            }
-                            // 유효기간 자동채움했으나 해석 불확실(율리우스 등): 파랑 → 검토
-                            if (item.status === 'matched' && item.effectiveDate && item.needReview) {
-                                const column = panel.columns[col];
-                                if (column.binding === 'effectiveDate' || column.binding === 'statusText') {
-                                    cell.classList.add('grid-cell-blue');
-                                }
                             }
                         }
                     }
@@ -2767,13 +2771,12 @@
                 .css('ime-mode', 'disabled')
                 .on('compositionstart', function (e) { e.preventDefault(); });
 
-                // ★ 바코드 스캔 (스캐너는 끝에 Enter를 보냄)
                 $content.find('#scanBarcode').on('keydown', function (e) {
                     if (e.key !== 'Enter' && e.keyCode !== 13) return;
                     e.preventDefault();
                     const raw = $(this).val().trim();
                     $(this).val('');
-                    if (raw) _this.handleScan(raw, $content);
+                    if (raw) _this.handlePoScan(raw, $content);   // ← PO 조회로 변경
                 });
 
                 // ★ 입고 저장
@@ -2781,35 +2784,38 @@
                     const items = _this.scanResultGrid.itemsSource.items;
                     const storeHouseId = $content.find('#scanStoreHouse').val();
 
-                    if (!storeHouseId) { Alert.alert('', '입고창고를 선택하세요.'); return; }
-                    if (!items || items.length === 0) { Alert.alert('', '스캔된 항목이 없습니다.'); return; }
-                    if (items.some(it => it.status !== 'matched')) {
-                        Alert.alert('', '미등록 바코드가 있습니다. 해당 행을 삭제 후 저장하세요.'); return;
-                    }
-                    if (items.some(it => !(Number(it.qty) > 0))) {
-                        Alert.alert('', '수량이 0 이하인 항목이 있습니다.'); return;
-                    }
-                    if (items.some(it => it.status === 'matched' && !it.effectiveDate)) {
-                        Alert.alert('', '유효기간이 비어 있는 항목이 있습니다. 기본 유효기간을 적용하거나 직접 입력하세요.');
-                        return;
+                    if (!items || items.length === 0) { Alert.alert('', '스캔된 발주 품목이 없습니다.'); return; }
+                    if (!storeHouseId)                { Alert.alert('', '입고창고를 선택하세요.'); return; }
+
+                    for (const it of items) {
+                        if (!(Number(it.inputQty) > 0)) {
+                            Alert.alert('', `입고수량이 0 이하인 항목이 있습니다. (${it.materialName})`); return;
+                        }
+                        if (Number(it.inputQty) > Number(it.remainQty)) {
+                            Alert.alert('', `미입고수량(${it.remainQty})을 초과했습니다. (${it.materialName})`); return;
+                        }
+                        if (!it.effectiveDate || !/^\d{4}-\d{2}-\d{2}$/.test(it.effectiveDate)) {
+                            Alert.alert('', `유효기간을 YYYY-MM-DD로 입력하세요. (${it.materialName})`); return;
+                        }
                     }
 
                     const payload = {
-                        company_id: $content.find('#scanCompany').val() || '',
-                        store_house_id: storeHouseId,
+                        store_house_id: storeHouseId,                      // 라인에 창고 없을 때 fallback
                         spjangcd: sessionStorage.getItem('spjangcd') || '',
-                        items: items.map(it => ({
-                            Material_id: it.Material_id,
-                            lot_number: it.lotNumber,
-                            manufacture_date: it.manufactureDate,
-                            effective_date: it.effectiveDate,   // ← 유효기간 서버 전달
-                            qty: Number(it.qty),
-                            barcode: it.raw
+                        lines: items.map(it => ({
+                            bh_id:         it.bh_id,
+                            balju_id:      it.balju_id,                     // 발주 라인 PK (입고수량 누적용)
+                            Material_id:   it.Material_id,
+                            StoreHouse_id: it.StoreHouse_id || storeHouseId,
+                            InputQty:      Number(it.inputQty),
+                            LotNumber:     it.lotNumber || '',             // 빈칸이면 서버 자동채번
+                            EffectiveDate: it.effectiveDate,
+                            Description:   ''
                         }))
                     };
 
-                    Alert.confirm('', `스캔된 ${items.length}건을 입고 처리하시겠습니까?`, function () {
-                        AjaxUtil.postJsonAsyncData(_this.url + '/save_scan', payload, function (res) {
+                    Alert.confirm('', `${items.length}건을 입고 처리하시겠습니까?`, function () {
+                        AjaxUtil.postJsonAsyncData(_this.url + '/lot_save_by_po', payload, function (res) {
                             if (!res.success) {
                                 Alert.alert('', res.message || '저장 중 오류가 발생했습니다.');
                             } else {
@@ -2868,59 +2874,74 @@
                 return check === parseInt(s[12], 10);
             }
 
-            handleScan(raw, $content) {
+            // PO 바코드 스캔 → 발주 라인 로드
+            handlePoScan(raw, $content) {
                 const _this = this;
-                const p = _this.parseScannedBarcode(raw);
 
-                if (p.gsMissing && (p.lot || p.serial)) {
-                    Notify.warn('GS 구분자 없이 인식됨 — 스캐너 GS(FNC1) 전송 설정을 확인하세요.');
+                // 발주 바코드 판별 (발주등록 화면에서 "PO"+bh_id 로 발행)
+                if (!/^PO/i.test(raw)) {
+                    Notify.warn('발주 바코드가 아닙니다. (PO로 시작해야 함)');
+                    return;
                 }
-                if (p.standard === 'UNKNOWN') {
-                    Notify.warn('표준 미판별 바코드 — 내부 로트로 조회를 시도합니다.');
+                const baljuNo = raw.replace(/^PO/i, '');
+
+                // 중복 스캔 방지 — 이미 로드된 발주면 무시(이중입고 방지 1차 방어)
+                const cv = _this.scanResultGrid.itemsSource;
+                if (cv.sourceCollection.some(it => String(it.bh_id) === String(baljuNo))) {
+                    Notify.warn('이미 불러온 발주입니다.');
+                    $content.find('#scanBarcode').focus();
+                    return;
                 }
 
-                AjaxUtil.getAsyncData(_this.url + '/scan_lookup', {
+                AjaxUtil.getAsyncData(_this.url + '/receiving_by_barcode', {
                     barcode: raw,
-                    barcode_type: p.standard,
-                    gtin14: p.gtin14 || '',
-                    di: p.di || '',          // HIBC/ISBT DI 매칭용
-                    lot: p.lot || '',        // 내부 바코드(로트) 판별용
-                    company_id: $content.find('#scanCompany').val() || '',
                     spjangcd: sessionStorage.getItem('spjangcd') || ''
                 }, function (res) {
-                    const data = res && res.data ? res.data : null;
-                    const matched = !!(data && data.material_id);
+                    if (!res.success) { Alert.alert('', res.message || '발주를 찾을 수 없습니다.'); return; }
+                    const d = res.data;
 
-                    // ── 유효기간 소스: 바코드값(신뢰) → 불확실(검토) → 없으면 헤더 상속 ──
-                    const headerExp = $content.find('#scanHeaderExp').val() || '';
-                    let effDate = '', needReview = false;
-                    if (p.expConf === 'high' && p.expDate) {
-                        effDate = p.expDate;
-                    } else if (p.expConf === 'low' && p.expDate) {
-                        effDate = p.expDate; needReview = true;
-                    } else {
-                        effDate = headerExp;
+                    if (!d.lines || d.lines.length === 0) {
+                        Notify.warn('입고할 미입고 품목이 없습니다. (이미 전량입고 또는 완료)');
+                        return;
                     }
-
-                    _this.addOrMergeScanRow({
-                        gtin: p.gtin14 || (data ? data.gtin : ''),
-                        materialCode: matched ? data.material_code : '',
-                        materialName: matched ? data.material_name : '(미등록 바코드)',
-                        Material_id: matched ? data.material_id : null,
-                        lotNumber: p.lot || '',
-                        manufactureDate: p.mfgDate || '',
-                        effectiveDate: effDate,
-                        expConf: p.expConf,
-                        needReview: needReview,
-                        qty: 1,
-                        raw,
-                        barcodeType: p.standard,
-                        status: matched ? 'matched' : 'unmatched',
-                        statusText: matched
-                            ? (needReview ? '정상(유효기간 검토)' : '정상')
-                            : '미등록 GTIN'
-                    }, $content);
+                    // 구매처 자동 표시
+                    if (d.company_id) {
+                        $content.find('#scanCompany').val(d.company_id);
+                        $content.find('#scanCompanyName').val(d.companyName || '');
+                    }
+                    _this.addPoLines(d, $content);
                 });
+            }
+
+// 발주 라인을 그리드에 추가 (기본 입고수량 = 미입고 전량, 부분입고 가능)
+            addPoLines(d, $content) {
+                const cv = this.scanResultGrid.itemsSource;
+                const headerExp = $content.find('#scanHeaderExp').val() || '';
+
+                (d.lines || []).forEach(line => {
+                    const remain = Number(line.remainQty) || 0;
+                    if (remain <= 0) return;
+                    cv.sourceCollection.push({
+                        bh_id:         d.bh_id,
+                        JumunNumber:   d.baljuNo || d.JumunNumber,
+                        balju_id:      line.balju_id,
+                        Material_id:   line.Material_id,
+                        materialCode:  line.product_code,
+                        materialName:  line.product_name,
+                        unit:          line.unit,
+                        StoreHouse_id: line.StoreHouse_id,   // 발주 지정 납품창고(없으면 저장 시 헤더 창고)
+                        baljuQty:      line.baljuQty,
+                        receivedQty:   line.receivedQty,
+                        remainQty:     remain,
+                        lotNumber:     '',
+                        effectiveDate: headerExp,            // 기본 유효기간 상속
+                        inputQty:      remain,               // ★ 미입고 전량 프리필 → 부분입고 시 수정
+                        statusText:    '대기'
+                    });
+                });
+                cv.refresh();
+                this.updateScanSummary($content);
+                $content.find('#scanBarcode').focus();
             }
 
             // 동일 품목+로트 합산, 아니면 행 추가
