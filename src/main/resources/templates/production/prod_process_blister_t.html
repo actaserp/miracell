@@ -943,10 +943,10 @@
             const woTag = it.wo ? `<span class="autotag">지시 ${it.wo}</span>` : `<span class="autotag" style="color:var(--amber)">작지없음</span>`;
             return `<div class="vitem ${locked ? 'locked' : ''}" data-st="${it.st}"><div class="edge"></div>
       <div class="vhead">
-        <div class="vid"><div class="pn">${it.vname}</div>
+        <div class="vid" data-toggle="${i}" style="cursor:pointer"><div class="pn">${it.vname}</div>
           <div class="sub"><span class="pc">${it.vcode}</span>${woTag}</div></div>
         <span class="st-badge ${it.st}">${STLAB[it.st]}</span>
-        ${ctrl}${it.lot ? `<span class="autotag" style="font-size:12px;font-weight:800;color:var(--teal-d);background:var(--teal-bg);border:1px solid var(--teal);white-space:nowrap">LOT ${it.lot}</span>` : ''}${actions}${times}
+        ${ctrl}${(it.lot && it.st === 'done') ? `<span class="autotag" style="font-size:12px;font-weight:800;color:var(--teal-d);background:var(--teal-bg);border:1px solid var(--teal);white-space:nowrap">LOT ${it.lot}</span>` : ''}${actions}${times}
       </div>
       ${vesRow}
       <div class="bomtoggle ${it.open ? 'open' : ''}" data-toggle="${i}"><span class="caret">▶</span>

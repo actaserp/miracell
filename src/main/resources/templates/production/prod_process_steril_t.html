@@ -309,7 +309,7 @@
                     <button class="back" data-back="A">‹</button>
                     <div class="htitle"><div class="t" id="cName">—</div><div class="s" id="cSub">—</div></div>
                     <div style="display:flex;gap:8px;align-items:center" id="cHead"></div>
-                    <button class="x" id="btnDelOrder" title="작업 삭제" style="margin-left:8px;width:44px;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--surface-2);font-size:18px;cursor:pointer">🗑</button>
+                    <button class="x" id="btnDelOrder" title="배치 삭제" style="margin-left:8px;height:44px;padding:0 16px;border-radius:12px;border:1px solid var(--line);background:var(--surface-2);font-size:15px;font-weight:800;color:var(--ink-2);cursor:pointer">삭제</button>
                 </div>
                 <div class="bscroll"><div class="bgrid" id="cBody"></div></div>
                 <div class="actionbar" id="cAction"></div>
@@ -377,515 +377,207 @@
            root 윗변 위치(=상단 헤더 높이)를 실측하고, 페이지 푸터 높이를 빼서
            root 높이를 화면 바닥(푸터 위)까지 정확히 채운다.
            헤더/푸터 크기가 바뀜도 actionbar(시작/완료)가 푸터에 가리지 않음. */
-        (function(){
-            const root=document.querySelector('.ms-wash-root');
-            if(!root) return;
+        (function () {
+            const root = document.querySelector('.ms-wash-root');
+            if (!root) return;
+
             // 내부(같은 문서) 푸터: 흐름 형제 + fixed/sticky
-            function localBelow(){
-                let below=0,node=root;
-                while(node&&node!==document.body){
-                    let sib=node.nextElementSibling;
-                    while(sib){
-                        const r=sib.getBoundingClientRect();
-                        if(r.height>0&&getComputedStyle(sib).position!=='fixed') below+=r.height;
-                        sib=sib.nextElementSibling;
+            function localBelow() {
+                let below = 0, node = root;
+                while (node && node !== document.body) {
+                    let sib = node.nextElementSibling;
+                    while (sib) {
+                        const r = sib.getBoundingClientRect();
+                        if (r.height > 0 && getComputedStyle(sib).position !== 'fixed') below += r.height;
+                        sib = sib.nextElementSibling;
                     }
-                    node=node.parentElement;
+                    node = node.parentElement;
                 }
-                let fx=0;
-                document.querySelectorAll('body *').forEach(el=>{
-                    if(root.contains(el))return;
-                    const cs=getComputedStyle(el);
-                    if(cs.position!=='fixed'&&cs.position!=='sticky')return;
-                    const r=el.getBoundingClientRect();
-                    if(r.height>0&&r.height<innerHeight*0.5&&r.bottom>innerHeight-2)fx=Math.max(fx,r.height);
+                let fx = 0;
+                document.querySelectorAll('body *').forEach(el => {
+                    if (root.contains(el)) return;
+                    const cs = getComputedStyle(el);
+                    if (cs.position !== 'fixed' && cs.position !== 'sticky') return;
+                    const r = el.getBoundingClientRect();
+                    if (r.height > 0 && r.height < innerHeight * 0.5 && r.bottom > innerHeight - 2) fx = Math.max(fx, r.height);
                 });
-                return Math.max(below,fx);
+                return Math.max(below, fx);
             }
+
             // 화면에서 실제로 사용 가능한 바닥(px, iframe 내부 좌표). 부모 푸터까지 고려.
-            function availBottom(){
-                let bottom=window.innerHeight;          // 기본: iframe 자체 높이
-                try{
-                    const fe=window.frameElement;       // 같은 출처일 때만 접근 가능
-                    if(fe){
-                        const pWin=window.parent,pDoc=pWin.document;
-                        const feTop=fe.getBoundingClientRect().top;   // 부모 좌표계 iframe 상단
+            function availBottom() {
+                let bottom = window.innerHeight;          // 기본: iframe 자체 높이
+                try {
+                    const fe = window.frameElement;       // 같은 출처일 때만 접근 가능
+                    if (fe) {
+                        const pWin = window.parent, pDoc = pWin.document;
+                        const feTop = fe.getBoundingClientRect().top;   // 부모 좌표계 iframe 상단
                         // (1) 흐름상 iframe 뒤에 오는 형제(푸터) 높이 합
-                        let flow=0,node=fe;
-                        while(node&&node!==pDoc.body){
-                            let sib=node.nextElementSibling;
-                            while(sib){
-                                const cs=pWin.getComputedStyle(sib),r=sib.getBoundingClientRect();
-                                if(r.height>0&&cs.position!=='fixed'&&cs.position!=='absolute') flow+=r.height;
-                                sib=sib.nextElementSibling;
+                        let flow = 0, node = fe;
+                        while (node && node !== pDoc.body) {
+                            let sib = node.nextElementSibling;
+                            while (sib) {
+                                const cs = pWin.getComputedStyle(sib), r = sib.getBoundingClientRect();
+                                if (r.height > 0 && cs.position !== 'fixed' && cs.position !== 'absolute') flow += r.height;
+                                sib = sib.nextElementSibling;
                             }
-                            node=node.parentElement;
+                            node = node.parentElement;
                         }
                         // (2) 부모 바닥에 걸친 푸터 바(fixed/sticky/absolute, 작은 높이만 인정)
-                        let fx=0;
-                        pDoc.querySelectorAll('body *').forEach(el=>{
-                            if(el===fe||el.contains(fe))return;
-                            const cs=pWin.getComputedStyle(el);
-                            if(cs.position!=='fixed'&&cs.position!=='sticky'&&cs.position!=='absolute')return;
-                            const r=el.getBoundingClientRect();
-                            if(r.height>0&&r.height<=160&&r.top>feTop&&r.bottom>pWin.innerHeight-40)
-                                fx=Math.max(fx,r.bottom-r.top);
+                        let fx = 0;
+                        pDoc.querySelectorAll('body *').forEach(el => {
+                            if (el === fe || el.contains(fe)) return;
+                            const cs = pWin.getComputedStyle(el);
+                            if (cs.position !== 'fixed' && cs.position !== 'sticky' && cs.position !== 'absolute') return;
+                            const r = el.getBoundingClientRect();
+                            if (r.height > 0 && r.height <= 160 && r.top > feTop && r.bottom > pWin.innerHeight - 40)
+                                fx = Math.max(fx, r.bottom - r.top);
                         });
-                        const pFooter=Math.max(flow,fx);
+                        const pFooter = Math.max(flow, fx);
                         // 부모 가용 바닥(부모 좌표) → iframe 내부 좌표로 환산
-                        bottom=Math.min(bottom,(pWin.innerHeight-pFooter)-feTop);
+                        bottom = Math.min(bottom, (pWin.innerHeight - pFooter) - feTop);
                     }
-                }catch(e){/* 교차 출처: iframe 자체 높이로 폴백 */}
+                } catch (e) {/* 교차 출처: iframe 자체 높이로 폴백 */
+                }
                 return bottom;
             }
-            function fit(){
-                const top=root.getBoundingClientRect().top;
-                const avail=availBottom()-top-localBelow();
-                root.style.setProperty('--wash-h',Math.max(320,Math.floor(avail))+'px');
+
+            function fit() {
+                const top = root.getBoundingClientRect().top;
+                const avail = availBottom() - top - localBelow();
+                root.style.setProperty('--wash-h', Math.max(320, Math.floor(avail)) + 'px');
             }
-            window.addEventListener('resize',fit);
-            window.addEventListener('orientationchange',fit);
-            try{window.parent.addEventListener('resize',fit);}catch(e){}
+
+            window.addEventListener('resize', fit);
+            window.addEventListener('orientationchange', fit);
+            try {
+                window.parent.addEventListener('resize', fit);
+            } catch (e) {
+            }
             fit();
             requestAnimationFrame(fit);
-            setTimeout(fit,200);
-            setTimeout(fit,600);
-            if(document.fonts&&document.fonts.ready) document.fonts.ready.then(fit);
+            setTimeout(fit, 200);
+            setTimeout(fit, 600);
+            if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
         })();
 
-        const PROC_CHIP='멸균';
-        const WD=['일','월','화','수','목','금','토'];
-        const WORKERS=['정우철','김민수','이서연','박지훈'];
-        const EQUIPS=[['조립기 A','AS-01'],['조립기 B','AS-02'],['수동 조립대','MN-01']];
-        const STLAB={working:'작업중',wait:'대기',done:'완료'};
-        function nowHM(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}
-        function pill(v){if(!v)return'--:--';if(v.indexOf(' ')>=0){var a=v.split(' ');return a[0].slice(5)+' '+a[1];}return v;}
+        /* =====================================================================
+           멸균(EO, bsc04) 태블릿 — 2단 배치(배치 > 담긴 로트) + 멸균일지 + BI 판정
+           /api/production/steril/* 연동. 세척과 동일하게 별도 컨트롤러/서비스.
+           흐름: 대기(클린룸 SterilizationYN='Y' 로트) 선택 → 배치 생성 → 로트 담기
+                → 멸균일지 입력 → BI PASS(멸균창고 이동) / FAIL(전량 폐기)
+           ===================================================================== */
+        const CTX = Object.assign({spjangcd: 'ZZ', factoryId: '', dayRange: 30}, window.STERIL_CTX || {});
+        const BASE = '/api/production/steril';
+        let STERIL_WC = null, IN_STORE = 5, OUT_STORE = 18;
 
-
-        /* REAL_INJECTED */
-        // ════ 실제 BSC30 BOM (DB 매칭) ════
-        var REAL={
-            routing:{id:38,name:"BSC 키트공정",steps:["세척","조립","블리스터 포장","멸균","외포장"]},
-            fin:{code:"BSC30-PK00-CK00",name:"BSC+③ 30ml 00차수(3버전)+00차수",grp:112},
-            PK:{code:"BSC30-PK00",name:"BSC+③ 30ml PK 00차수(3버전)"}, CK:{code:"BSC30-CK00",name:"BSC+③ 30ml CK 00차수"}, VES:{code:"BSC30-PK00-VES",name:"BSC+③ 30ml 00차수(3버전) 용기"},
-            vesInputs:[{code:"M-DD00003",name:"BSC+③ 30 상부",grp:117,wash:"Y"},{code:"M-DD00004",name:"BSC+③ 30 하부",grp:117,wash:"Y"},{code:"M-DD00029",name:"혈액주입포트(RHAN-빨강)_R-Rub",grp:117,wash:"Y"},{code:"M-DD00030",name:"셀추출포트(고무-아이보리)_Iv-Rub",grp:117,wash:"Y"},{code:"M-DD00033",name:"플로팅 혈액 30",grp:117,wash:"Y"},{code:"M-DP00058",name:"에어밴트",grp:117,wash:"Y"},{code:"M-DS00053",name:"오링 040",grp:117,wash:"Y"}], pkInputs:[{code:"BSC30-PK00-VES",name:"BSC+③ 30ml 00차수(3버전) 용기",grp:113},{code:"M-DE00016",name:"주사기 세트 소",grp:116},{code:"M-DT00014",name:"BLD-30P",grp:116},{code:"M-DT00015",name:"BLD-30R",grp:116},{code:"M-DT00012",name:"분리형캐뉼라 BLD-60R",grp:116},{code:"M-DS00024",name:"BD락주사기 10CC",grp:116},{code:"M-DS00025",name:"BD락주사기 20CC",grp:116},{code:"M-DU00074-1",name:"캐뉼라 캡 - 60mm",grp:116},{code:"M-DU00074-3",name:"캐뉼라 캡 - 74mm",grp:116},{code:"M-DD00070",name:"스페이서",grp:116},{code:"M-PR00040",name:"멸균지 소",grp:116}], ckInputs:[{code:"M-DS00024",name:"BD락주사기 10CC",grp:116},{code:"M-DS00026",name:"BD락주사기 30CC",grp:116},{code:"M-DDW00037",name:"G.P.카테터 I.V.CATHETER",grp:116},{code:"M-DDW00038",name:"18G-S34(니들)",grp:116},{code:"M-DE00019",name:"부속품 소",grp:116},{code:"ETC-STK-LOT-30",name:"혈액 LOT 스티커(30ml)",grp:116},{code:"M-GP00003",name:"혈액 30ml/60ml/120ml 커버박스",grp:116}], outer:[{code:"M-HS00003",name:"IN BOX BSC+③ 30, 60",grp:116,amount:0.3333,per:3},{code:"M-HS00010",name:"OUT BOX BSC+③ 30, 60",grp:116,amount:0.0833,per:12}], gtin:"08801234560018"
-        };
-
-        // 멸균 대기 PK 로트 (블리스터 산출, 아직 완제품 로트 없음)
-        const PK_LOTS=[
-            {lot:'BSC30-PK00-260626',name:REAL.PK.name,gtin:REAL.gtin,qty:40},
-            {lot:'BSC30-PK00-260625',name:REAL.PK.name,gtin:REAL.gtin,qty:38},
-            {lot:'BmSC60-PK00-260620',name:'BmSC+③ 60 PK',gtin:'08801234560117',qty:30},
-            {lot:'ETC0002-260707',name:'골수용 필터백(M1003)',gtin:'08801234560223',qty:80},
-        ];
-        // F710-3 멸균일지 10단계 정의
-        const LOG_STEPS=[
-            {no:1,name:'챔버 적재',crit:'적재패턴 준수',fields:[{k:'qty',lab:'수량(EA)'},{k:'bi',lab:'BI(EA)'}]},
-            {no:2,name:'전조절',crit:'ISO11135',fields:[{k:'note',lab:'비고'}]},
-            {no:3,name:'온습도',crit:'(50±10)℃ / (50±20)%RH / 4h↑',fields:[{k:'tmin',lab:'최저온도℃'},{k:'tmax',lab:'최고온도℃'},{k:'hmin',lab:'최저습도%'},{k:'hmax',lab:'최고습도%'}]},
-            {no:4,name:'진공',crit:'최저압력 (15±10)kPa',fields:[{k:'pmin',lab:'최저압력kPa'}]},
-            {no:5,name:'조절',crit:'(55±10)℃ / (50±20)%RH',fields:[{k:'t',lab:'온도℃'},{k:'h',lab:'습도%'}]},
-            {no:6,name:'멸균제 투입',crit:'EO (7.5±1.0)kg',fields:[{k:'eo',lab:'EO사용량kg'},{k:'eolot',lab:'EO로트'}]},
-            {no:7,name:'노출',crit:'(165±10)kPa / (55±10)℃ / (60±20)%RH / 6h↑',fields:[{k:'p',lab:'압력kPa'},{k:'t',lab:'온도℃'},{k:'h',lab:'습도%'},{k:'hr',lab:'노출h'}]},
-            {no:8,name:'공기정화',crit:'라운드 5회',fields:[{k:'flush',lab:'플러싱횟수'}]},
-            {no:9,name:'통기',crit:'10℃↑ / 48h↑',fields:[{k:'tmin',lab:'최저온도℃'},{k:'hr',lab:'시간h'}]},
-            {no:10,name:'BI 확인',crit:'BI 색상 변화 PASS/FAIL',fields:[{k:'bilot',lab:'BI로트'}]},
-        ];
-        function mkSess(worker,equip){return {worker:worker,equip:equip,start:nowHM(),end:null,st:'working',lots:[],bi:null,log:{},usb:null};}
-        const ORDERS=[
-            {id:'EO-2406-007',odate:'2026-07-06',st:'working',name:'멸균 작업 · 6/26',mgmt:'KM-MRM-M060',chasu:1,plan:120,sessions:[
-                    {worker:'정우철',equip:'멸균기',start:'2026-06-26 11:00',end:null,st:'working',lots:[{lot:'BSC30-PK00-260626',qty:40,gtin:REAL.gtin,name:REAL.PK.name}],bi:null,log:{},usb:null},
-                ]},
-            {id:'EO-2406-006',odate:'2026-07-05',st:'done',name:'멸균 작업 · 6/25',mgmt:'KM-MRM-M060',chasu:1,plan:38,sessions:[
-                    {worker:'김민수',equip:'멸균기',start:'2026-06-25 14:00',end:'2026-06-25 22:00',st:'done',lots:[{lot:'BSC30-PK00-260625',qty:38,gtin:REAL.gtin,name:REAL.PK.name}],bi:'pass',log:{},usb:'(USB 데이터 업로드됨)'},
-                ]},
-        ];
-        // 배치에 담긴 PK 품목(수주 품목) 요약 — 한 배치에 여러 제품 섞일 수 있음
-        function batchProducts(o){var set={},arr=[];(o.sessions||[]).forEach(function(s){(s.lots||[]).forEach(function(l){var nm=l.name||'';if(nm&&!set[nm]){set[nm]=1;arr.push(nm);}});});return arr;}
-        function batchProdLabel(o){var a=batchProducts(o);return !a.length?'담긴 품목 없음':(a.length===1?a[0]:a[0]+' 외 '+(a.length-1)+'종');}
-        function orderPct(o){var s=o.sessions[0];if(!s)return 0;var done=Object.keys(s.log).length;return Math.round(done/10*100);}
-        EQUIPS.length=0;[['멸균기','EO-01']].forEach(function(e){EQUIPS.push(e);});
-        function biSummary(o){
-            var ss=o.sessions||[];
-            if(!ss.length) return '작업 없음';
-            var pass=0,fail=0,pend=0;
-            ss.forEach(function(s){ if(s.bi==='pass')pass++; else if(s.bi==='fail')fail++; else pend++; });
-            var parts=[];
-            if(pass)parts.push('합격 '+pass);
-            if(fail)parts.push('불합격 '+fail);
-            if(pend)parts.push('판정전 '+pend);
-            return '멸균검증(BI) ' + parts.join(' · ');
+        function apiGet(path, params) {
+            if (typeof AjaxUtil !== 'undefined' && AjaxUtil.getSyncData) return AjaxUtil.getSyncData(BASE + path, params || {}) || {};
+            flash('AjaxUtil 미로드 — 공용 스크립트 로드 순서를 확인하세요');
+            return {};
         }
 
-        let curO=null,curS=null,filter='all';
-        const qgrid=document.getElementById('qgrid');
-        const SC={A:document.getElementById('scA'),B:document.getElementById('scB'),C:document.getElementById('scC')};
-        function show(k){for(var x in SC)SC[x].classList.toggle('hide',x!==k);}
-
-        function orderDoneQty(o){return (o.sessions||[]).reduce(function(a,s){return a+(s.qty||s.outQty||s.packQty||(s.lots?s.lots.reduce(function(b,l){return b+l.qty;},0):0)||0);},0);}
-        function workingCount(o){return (o.sessions||[]).filter(function(s){return s.st==='working';}).length;}
-        function inRange(o){var f=document.getElementById('dFrom').value,t=document.getElementById('dTo').value;
-            if(f&&o.odate<f)return false;if(t&&o.odate>t)return false;return true;}
-        function renderQueue(){
-            var list=ORDERS.filter(function(o){return (filter==='all'||o.st===filter)&&inRange(o);});
-            document.getElementById('qcnt').textContent=list.length+'건';
-            qgrid.innerHTML=list.map(function(o){var pct=orderPct(o);
-                return '<div class="wo" data-st="'+o.st+'" data-id="'+o.id+'"><div class="edge"></div>'+
-                    '<div class="row1"><span class="wono">'+o.id+'</span>'+
-                    '<span style="font-size:13px;color:var(--ink-2);font-weight:700">'+o.odate+'</span>'+
-                    '<span class="chip '+o.st+'">'+STLAB[o.st]+'</span></div>'+
-                    '<div class="name">'+o.name+'</div>'+
-                    '<div style="font-size:13.5px;color:var(--ink-2);font-weight:700;margin:-8px 0 12px">멸균 품목: '+batchProdLabel(o)+'</div>'+
-                    '<div class="meta"><div class="blk"><span class="lab">계획</span><span class="val">'+o.plan+'</span></div>'+
-                    '<div class="blk"><span class="lab">완료</span><span class="val">'+orderDoneQty(o)+'</span></div>'+
-                    '<div class="blk"><span class="lab">작업</span><span class="val">'+workingCount(o)+'</span></div>'+
-                    '<div class="prog"><span class="lab">'+biSummary(o)+'</span></div></div></div>';
-            }).join('');
-        }
-        qgrid.addEventListener('click',function(e){var c=e.target.closest('.wo');if(c)openOrder(c.dataset.id);});
-
-        // ── 멸균 대기 목록 (블리스터 완료 · 가용>0) ──
-        var waitSel={}, waitQty={};
-        function avOf(lot){var l=PK_LOTS.filter(function(x){return x.lot===lot;})[0];return l?lotAvail(l):1;}
-        function renderWait(){
-            var cand=PK_LOTS.filter(function(l){return lotAvail(l)>0;});
-            document.getElementById('waitList').innerHTML = cand.length ? cand.map(function(l){
-                var av=lotAvail(l); if(waitQty[l.lot]==null)waitQty[l.lot]=av; var q=Math.min(waitQty[l.lot],av); if(q<1)q=1; waitQty[l.lot]=q;
-                var sel=!!waitSel[l.lot];
-                return '<div class="wo wcard'+(sel?' sel':'')+'" data-wcard="'+l.lot+'">'+
-                    '<div style="display:flex;align-items:center;gap:12px">'+
-                    '<div class="wchk'+(sel?' on':'')+'">'+(sel?'✓':'')+'</div>'+
-                    '<div style="flex:1;min-width:0"><div style="font-weight:800">'+l.lot+'</div><div class="meta">'+l.name+' · 가용 '+av+'</div></div>'+
-                    '</div>'+
-                    '<div style="display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:12px">'+
-                    '<span class="meta">담을 수량</span>'+
-                    '<div class="stepper"><button class="minus" data-wminus="'+l.lot+'">−</button>'+
-                    '<div class="qty" data-wpad="'+l.lot+'">'+q+'</div>'+
-                    '<button class="plus" data-wplus="'+l.lot+'">+</button></div>'+
-                    '</div></div>';
-            }).join('') : '<div class="emptysess">멸균 대기 PK 로트가 없습니다.</div>';
-        }
-        document.getElementById('waitList').addEventListener('click',function(e){
-            var m=e.target.closest('[data-wminus]'); if(m){var lot=m.dataset.wminus;waitQty[lot]=Math.max(1,(waitQty[lot]||avOf(lot))-1);renderWait();return;}
-            var p=e.target.closest('[data-wplus]'); if(p){var lot=p.dataset.wplus;var av=avOf(lot);waitQty[lot]=Math.min(av,(waitQty[lot]||av)+1);renderWait();return;}
-            var pd=e.target.closest('[data-wpad]'); if(pd){var lot=pd.dataset.wpad;var av=avOf(lot);openPad(waitQty[lot]||av,av,function(v){waitQty[lot]=v;renderWait();});return;}
-            var c=e.target.closest('[data-wcard]'); if(c){var lot=c.dataset.wcard;waitSel[lot]=!waitSel[lot];renderWait();}
-        });
-        // 숫자패드 (다른 공정 화면과 동일)
-        var padVal='', padCb=null, padMax=0;
-        function openPad(cur,max,cb){padVal=String(cur);padMax=max;padCb=cb;document.getElementById('padDisp').textContent=padVal;showMask('padMask');}
-        document.querySelector('#padMask .keys').addEventListener('click',function(e){var k=e.target.dataset.k;if(!k)return;
-            if(k==='C'){padVal='';}
-            else if(k==='OK'){var n=parseInt(padVal||'0',10);if(isNaN(n)||n<1)n=1;if(n>padMax)n=padMax;hideMask('padMask');if(padCb)padCb(n);return;}
-            else padVal=(padVal==='0'?'':padVal)+k;
-            document.getElementById('padDisp').textContent=padVal||'0';});
-        function createFromWait(){
-            var sel=Object.keys(waitSel).filter(function(k){return waitSel[k];});
-            if(!sel.length){flash('멸균할 PK 로트를 선택하세요');return;}
-            var d=nowHM().slice(0,10);
-            var seq=ORDERS.filter(function(o){return o.odate===d;}).length+1;
-            var se=mkSess('이서연','멸균기');
-            sel.forEach(function(lot){ var l=PK_LOTS.filter(function(x){return x.lot===lot;})[0]; if(!l)return;
-                var av=lotAvail(l); var q=Math.min(av,Math.max(1,waitQty[lot]||av));
-                se.lots.push({lot:l.lot,qty:q,gtin:l.gtin,name:l.name}); });
-            var nb={id:'EO-'+d.replace(/-/g,'').slice(2)+'-'+String(seq).padStart(2,'0'),odate:d,st:'working',name:'멸균 작업 · '+d,mgmt:'KM-MRM-M060',chasu:1,plan:0,sessions:[se]};
-            ORDERS.unshift(nb); waitSel={}; waitQty={}; renderQueue(); openOrder(nb.id);
-            flash('멸균 작업 생성 · '+sel.length+'개 로트 담김');
-        }
-        document.getElementById('btnCreateFromWait').addEventListener('click',createFromWait);
-        // 모드 토글 (대기/배치)
-        document.querySelectorAll('[data-mode]').forEach(function(b){b.addEventListener('click',function(){
-            document.querySelectorAll('[data-mode]').forEach(function(x){x.classList.remove('on');}); b.classList.add('on');
-            var m=b.dataset.mode, isWait=(m==='wait');
-            document.getElementById('waitPane').style.display=isWait?'':'none';
-            document.getElementById('qgrid').style.display=isWait?'none':'';
-            document.getElementById('batchSearchbar').style.display=isWait?'none':'';
-            document.getElementById('batchFilter').style.display=isWait?'none':'';
-            document.getElementById('scaTitle').textContent=isWait?'멸균 대기':'멸균 작업';
-            if(isWait)renderWait(); else renderQueue();
-        });});
-        document.querySelectorAll('#batchFilter button').forEach(function(b){b.addEventListener('click',function(){
-            document.querySelectorAll('#batchFilter button').forEach(function(x){x.classList.remove('on');});
-            b.classList.add('on');filter=b.dataset.f;renderQueue();});});
-        document.getElementById('btnSearch').addEventListener('click',renderQueue);
-        renderWait();
-        (function(){var t=new Date(),f=new Date();f.setDate(f.getDate()-7);
-            var fmt=function(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
-            document.getElementById('dFrom').value=fmt(f);document.getElementById('dTo').value=fmt(t);})();
-
-        document.querySelectorAll('[data-back]').forEach(function(b){b.addEventListener('click',function(){
-            var to=b.dataset.back;if(to==='A'){renderQueue();show('A');}else{renderSessList();show('B');}});});
-
-        function openOrder(id){curO=ORDERS.filter(function(x){return x.id===id;})[0];
-            document.getElementById('bName').textContent=curO.name;
-            document.getElementById('bSub').textContent=curO.id+' · 멸균 품목: '+batchProdLabel(curO);
-            if(curO.sessions&&curO.sessions.length){openSess(0);} else {renderSessList();show('B');}}
-        document.getElementById('btnNewSess').onclick=openStart;
-        document.getElementById('btnDelOrder').onclick=function(){
-            if(!curO)return;
-            if(curS&&curS.st==='done'){flash('완료된 작업은 삭제할 수 없습니다');return;}
-            if(!confirm('이 멸균 작업을 삭제할까요? 담긴 PK 로트는 대기로 돌아갑니다.'))return;
-            var i=ORDERS.indexOf(curO); if(i>=0)ORDERS.splice(i,1);
-            curO=null;curS=null; renderQueue(); renderWait(); show('A');
-            flash('멸균 작업 삭제 — 담긴 로트 대기 복귀');
-        };
-
-        /* ── 공정별 세션작업 렌더 ── */
-
-        function batchQty(se){return se.lots.reduce(function(a,l){return a+l.qty;},0);}
-        // 로트 가용수량 추적(부분 적재): 원 로트 qty − 전 세션에서 담은 합
-        function lotUsed(lotId,exceptSess){var u=0;ORDERS.forEach(function(o){(o.sessions||[]).forEach(function(s){if(s===exceptSess)return;(s.lots||[]).forEach(function(l){if(l.lot===lotId)u+=(l.qty||0);});});});return u;}
-        function lotAvail(l){return Math.max(0,l.qty-lotUsed(l.lot,null));}
-        function renderSessList(){
-            var o=curO;
-            document.getElementById('ovbox').innerHTML=
-                '<div class="ov"><div class="l">멸균 작업</div><div class="v">'+o.sessions.length+'</div></div>'+
-                '<div class="ov"><div class="l">대상 PK</div><div class="v">'+o.sessions.reduce(function(a,s){return a+batchQty(s);},0)+'</div></div>';
-            document.getElementById('sessCnt').textContent=o.sessions.length+'건';
-            var box=document.getElementById('sessList');
-            if(!o.sessions.length){box.innerHTML='<div class="emptysess">멸균 작업이 없습니다. ‘작업 시작’으로 챔버 지정 후 PK 로트를 담으세요.</div>';return;}
-            box.innerHTML=o.sessions.map(function(se,i){
-                var biLab=se.bi==='pass'?'<span class="badge done">멸균검증 합격</span>':se.bi==='fail'?'<span class="bad">멸균검증 불합격</span>':'<span class="badge working">멸균검증 판정전</span>';
-                var del = se.st!=='done' ? '<button class="sessdel" data-del="'+i+'">삭제</button>' : '';
-                return '<div class="sess" data-st="'+se.st+'" data-i="'+i+'"><div class="edge"></div>'+
-                    '<div class="who"><span class="nm">'+se.equip+'</span><span class="eq">'+se.worker+' · PK 로트 '+se.lots.length+'</span></div>'+
-                    '<div class="time">'+pill(se.start)+' ~ '+pill(se.end)+'</div>'+
-                    '<div class="qty"><div class="l">멸균수량</div><div class="v">'+batchQty(se)+'</div></div>'+
-                    biLab+'<span class="badge '+se.st+'">'+STLAB[se.st]+'</span>'+del+'</div>';
-            }).join('');
-        }
-        document.getElementById('sessList').addEventListener('click',function(e){
-            var d=e.target.closest('[data-del]');
-            if(d){var i=+d.dataset.del,se=curO.sessions[i];
-                if(se.st==='done'){flash('완료된 작업조는 삭제할 수 없습니다');return;}
-                curO.sessions.splice(i,1);renderSessList();flash('작업조 삭제 — 담긴 로트 대기 복귀');return;}
-            var s=e.target.closest('.sess');if(s)openSess(+s.dataset.i);});
-        document.getElementById('cBody').addEventListener('change',function(e){
-            var fi=e.target.closest('#tUsbFile'); if(!fi)return;
-            var n=(fi.files||[]).length; var info=document.getElementById('tUsbInfo');
-            if(info) info.textContent = n ? ('USB 파일 '+n+'개 받아둠 — 초단위 파싱·그래프·10단계 일지는 PC 관리화면에서 작성합니다.') : '';
-            flash(n?('USB 파일 '+n+'개 첨부 (목업 · PC에서 일지 작성)'):'');
-        });
-        function openSess(i){curS=curO.sessions[i];curS._idx=i;
-            document.getElementById('cName').textContent=curS.equip+' · 멸균 (PK만)';
-            document.getElementById('cSub').textContent=curO.id+' · 멸균기 '+curO.mgmt;
-            renderCHead();renderCBody();renderCAction();show('C');}
-        function renderCHead(){
-            document.getElementById('cHead').innerHTML=
-                '<div class="infopill"><span>담당</span><b>'+curS.worker+'</b></div>'+
-                '<div class="infopill tap" data-time="start"><span>시작</span><b>'+pill(curS.start)+'</b></div>'+
-                '<div class="infopill tap" data-time="end"><span>종료</span><b>'+pill(curS.end)+'</b></div>'+
-                '<span class="sstate '+curS.st+'">'+STLAB[curS.st]+'</span>';
-        }
-        function renderCBody(){
-            var locked=curS.st!=='working';var html='';
-            if(curS.bi==='fail'){html+='<div class="warn-banner">⚠ BI 불합격 — 재멸균 불가, 이 작업 PK 전량 폐기 대상입니다.</div>';}
-            // PK 로트
-            html+='<div class="secline">멸균 대상 Process Kit 로트 <span class="ln"></span><span>'+curS.lots.length+'건 · '+batchQty(curS)+' EA</span></div>';
-            html+=curS.lots.map(function(l,idx){
-                var base=(PK_LOTS.filter(function(x){return x.lot===l.lot;})[0]||{qty:l.qty}).qty;
-                return '<div class="part"><div class="id"><span class="pn">'+l.lot+'</span><span class="pc">'+l.name+' · 로트 가용 '+base+' 중 <b>'+l.qty+'</b> 담음 · PK</span></div>'+
-                    (locked?'<div class="stat"><div class="col"><span class="l">수량</span><span class="v">'+l.qty+'</span></div></div>':
-                        '<div class="stepper" data-lotstep="'+idx+'"><button class="minus">−</button><div class="qty" data-lotpad="'+idx+'">'+l.qty+'</div><button class="plus">+</button></div>'+
-                        '<button class="defbtn" data-rmlot="'+l.lot+'" style="margin-left:8px">제외</button>')+'</div>';
-            }).join('');
-            if(!locked){html+='<div style="margin:6px 2px"><button class="btn ghost" id="addLot" style="width:100%">＋ PK 로트 담기</button></div>';}
-            // USB·일지는 PC가 주 작성. 태블릿은 선택적 폴백(파일 받아두기)만.
-            html+='<div class="secline">멸균 데이터 · 일지 <span class="ln"></span><span>PC 작성 · 태블릿 선택</span></div>';
-            html+='<div class="part"><div class="id"><span class="pn">USB 데이터 · F710-3 10단계 일지</span>'+
-                '<span class="pc">초단위 온도·습도·압력 파싱·그래프·일지 작성은 <b>PC 관리화면</b>이 기본입니다. 태블릿에서는 USB 파일만 받아둘 수 있어요(선택).</span></div>'+
-                '<label class="btn ghost" style="min-height:44px;cursor:pointer">＋ USB 파일<input type="file" id="tUsbFile" accept=".xlsx,.xls,.csv" multiple style="display:none"></label></div>';
-            html+='<div id="tUsbInfo" class="pc" style="margin:4px 2px 0"></div>';
-            // BI
-            html+='<div class="secline">멸균검증(BI) 판정 <span class="ln"></span><span></span></div>';
-            html+='<div class="judge"><button class="pass '+(curS.bi==='pass'?'on':'')+'" data-bi="pass">합격 PASS</button>'+
-                '<button class="fail '+(curS.bi==='fail'?'on':'')+'" data-bi="fail">불합격 FAIL</button></div>';
-            document.getElementById('cBody').innerHTML=html;
-        }
-        function renderLogSteps(){
-            var box=document.getElementById('logSteps');if(!box)return;var locked=curS.st!=='working';
-            box.innerHTML=LOG_STEPS.map(function(st){
-                var fields=st.fields.map(function(f){var key=st.no+'_'+f.k;var v=curS.log[key]||'';
-                    return '<div class="log-field"><label>'+f.lab+'</label><input '+(locked?'disabled':'')+' data-log="'+key+'" value="'+v+'" placeholder="입력"/></div>';
-                }).join('');
-                return '<div class="log-step"><div class="h"><span class="no">'+st.no+'</span><span class="nm">'+st.name+'</span><span class="crit">'+st.crit+'</span></div>'+fields+'</div>';
-            }).join('');
-        }
-        function chartSvg(){
-            // 가짜 곡선 (온도/습도/압력) — 멸균 프로파일 흉내
-            function path(seed,amp,base){var pts=[];for(var i=0;i<=40;i++){var x=i/40*100;
-                var y=base+amp*Math.sin(i/6+seed)+ (i>10&&i<30?amp*0.6:0);pts.push(x.toFixed(1)+','+(100-y).toFixed(1));}return pts.join(' ');}
-            return '<svg class="chart-svg" viewBox="0 0 100 100" preserveAspectRatio="none">'+
-                '<polyline fill="none" stroke="#C8483B" stroke-width="1.2" points="'+path(0,18,35)+'"/>'+
-                '<polyline fill="none" stroke="#0E7C86" stroke-width="1.2" points="'+path(1,14,45)+'"/>'+
-                '<polyline fill="none" stroke="#6B3FA0" stroke-width="1.2" points="'+path(2,22,30)+'"/></svg>';
-        }
-        function renderCAction(){
-            var bar=document.getElementById('cAction');
-            if(curS.st==='done'){
-                var lab=curS.bi==='fail'?'<span class="v" style="color:var(--red);font-size:16px">전량 폐기</span>':'<span class="v" style="color:var(--green);font-size:16px">멸균필</span>';
-                bar.innerHTML='<div class="actsum"><span class="l">결과</span>'+lab+'</div>'+
-                    '<button class="btn danger" id="cCancel">완료취소</button>';
-                document.getElementById('cCancel').onclick=function(){curS.st='working';curS.end=null;renderCHead();renderCBody();renderCAction();renderSessList();flash('완료취소 (목업)');};
-            }else if(curS.bi==='fail'){
-                bar.innerHTML='<div class="actsum"><span class="l">멸균검증 불합격</span><span class="v" style="color:var(--red);font-size:15px">재멸균 불가·전량폐기</span></div>'+
-                    '<button class="btn danger" id="cScrap" style="background:var(--red);color:#fff">PK 전량 폐기</button>';
-                document.getElementById('cScrap').onclick=function(){curS.st='done';curS.end=nowHM();(curS.lots||[]).forEach(function(l){l.sterilYN='X';});renderCHead();renderCBody();renderCAction();renderSessList();flash('멸균 FAIL — PK '+batchQty(curS)+'EA 전량 재고 소진(폐기) (목업)');};
-            }else{
-                var ready=curS.bi==='pass'&&curS.lots.length>0;
-                bar.innerHTML='<div class="actsum"><span class="l">멸균수량</span><span class="v">'+batchQty(curS)+' EA</span></div>'+
-                    '<button class="btn primary" id="cFinish" '+(ready?'':'disabled style="opacity:.5"')+'>멸균 완료 → 담긴 PK 멸균완</button>';
-                document.getElementById('cFinish').onclick=function(){if(!ready){flash('BI 합격 + PK 로트가 있어야 합니다');return;}curS.st='done';curS.end=nowHM();(curS.lots||[]).forEach(function(l){l.sterilYN='Y';});renderCHead();renderCBody();renderCAction();renderSessList();flash('멸균 완료 — 담긴 PK 로트 멸균완(SterilYN=Y) (목업)');};
-            }
-        }
-        function finLotOf(l){return l.lot.replace(/-PK.*/,'').replace(/PK/,'')+'-'+(curS.start?curS.start.slice(0,10).replace(/-/g,''):'LOT');}
-
-        document.getElementById('cBody').addEventListener('click',function(e) {
-            var bi = e.target.closest('[data-bi]');
-            if (bi) {
-                curS.bi = bi.dataset.bi;
-                renderCBody();
-                renderCAction();
-                renderSessList();
-                return;
-            }
-            var rm = e.target.closest('[data-rmlot]');
-            if (rm) {
-                curS.lots = curS.lots.filter(function (l) {
-                    return l.lot !== rm.dataset.rmlot;
-                });
-                renderCBody();
-                renderCAction();
-                renderSessList();
-                return;
-            }
-            // 담은 로트 수량 조절
-            var st = e.target.closest('[data-lotstep]');
-            if (st && (e.target.classList.contains('plus') || e.target.classList.contains('minus'))) {
-                var li = +st.dataset.lotstep, ll = curS.lots[li], d = e.target.classList.contains('plus') ? 1 : -1;
-                ll.qty = Math.max(1, Math.min(lotCap(ll.lot), ll.qty + d));
-                renderCBody();
-                renderCAction();
-                renderSessList();
-                return;
-            }
-            var lp = e.target.closest('[data-lotpad]');
-            if (lp) {
-                var i2 = +lp.dataset.lotpad, l2 = curS.lots[i2];
-                openQtyPad('담을 수량', l2.qty, lotCap(l2.lot), function (v) {
-                    l2.qty = Math.max(1, v);
-                    renderCBody();
-                    renderCAction();
-                    renderSessList();
-                });
-                return;
-            }
-            if (e.target.id === 'addLot') {
-                openLotAdd();
-                return;
-            }
-        });
-        document.getElementById('cHead').addEventListener('click', function (e) {
-            var t = e.target.closest('[data-time]');
-            if (t) openTime(t.dataset.time);
-        });
-
-        // 이 세션이 특정 로트에 담을 수 있는 상한(원 로트 가용 − 타 세션 소비)
-        function lotCap(lotId) {
-            var base = (PK_LOTS.filter(function (x) {
-                return x.lot === lotId;
-            })[0] || {qty: 0}).qty;
-            return Math.max(0, base - lotUsed(lotId, curS));
-        }
-
-        function openLotAdd() {
-            var have = {};
-            curS.lots.forEach(function (l) {
-                have[l.lot] = 1;
-            });
-            var avail = PK_LOTS.filter(function (l) {
-                return !have[l.lot] && lotAvail(l) > 0 && (!curO.fam || true);
-            });
-            document.getElementById('lotTitle').textContent = '멸균할 PK 로트 담기';
-            document.getElementById('lotList').innerHTML = avail.length ? avail.map(function (l) {
-                var av = lotAvail(l);
-                return '<div class="lotopt" data-lot="' + l.lot + '"><div><span class="ln">' + l.lot + '</span>' +
-                    '<div class="meta" style="margin:0">' + l.name + '</div></div>' +
-                    '<div class="meta" style="margin-left:auto;text-align:right"><div style="font-size:20px;font-weight:800;color:var(--teal-d)">가용 ' + av + '</div><div>탭하여 수량 선택</div></div></div>';
-            }).join('') : '<div class="emptysess">담을 PK 로트가 없습니다.</div>';
-            document.getElementById('lotList').onclick = function (e) {
-                var o = e.target.closest('[data-lot]');
-                if (!o) return;
-                var f = PK_LOTS.filter(function (l) {
-                    return l.lot === o.dataset.lot;
-                })[0];
-                var av = lotAvail(f);
-                hideMask('lotMask');
-                openQtyPad(f.lot + ' 담을 수량', av, av, function (v) {
-                    if (v <= 0) {
-                        flash('수량을 입력하세요');
+        function apiPost(path, params, cb) {
+            if (typeof AjaxUtil !== 'undefined' && AjaxUtil.postAsyncData) {
+                AjaxUtil.postAsyncData(BASE + path, params || {}, function (r) {
+                    r = r || {};
+                    if (r.success === false) {
+                        flash(r.message || '처리에 실패했습니다');
                         return;
                     }
-                    curS.lots.push({lot: f.lot, qty: v, gtin: f.gtin, name: f.name});
-                    renderCBody();
-                    renderCAction();
-                    renderSessList();
-                    flash(f.lot + ' · ' + v + ' EA 담음');
+                    cb && cb(r);
                 });
-            };
-            showMask('lotMask');
-        }
-
-        // 수량 넘패드(로트 부분 적재 공용)
-        var _qpVal = '', _qpMax = 0, _qpCb = null;
-
-        function openQtyPad(title, initial, max, cb) {
-            _qpVal = String(initial || 0);
-            _qpMax = max;
-            _qpCb = cb;
-            document.getElementById('qpTitle').textContent = title;
-            document.getElementById('qpMax').textContent = '최대 ' + max;
-            document.getElementById('qpDisp').textContent = _qpVal;
-            showMask('qtyMask');
-        }
-
-        document.querySelector('#qtyMask .keys').addEventListener('click', function (e) {
-            var k = e.target.dataset.k;
-            if (!k) return;
-            if (k === 'C') _qpVal = '';
-            else if (k === 'OK') {
-                var v = Math.min(_qpMax, parseInt(_qpVal || '0', 10));
-                hideMask('qtyMask');
-                if (_qpCb) _qpCb(v);
                 return;
-            } else _qpVal = (_qpVal === '0' ? '' : _qpVal) + k;
-            var pv = Math.min(_qpMax, parseInt(_qpVal || '0', 10));
-            document.getElementById('qpDisp').textContent = _qpVal || '0';
-            document.getElementById('qpDisp').style.color = (parseInt(_qpVal || '0', 10) > _qpMax) ? 'var(--red)' : '';
-        });
-
-        // 멸균일지 양식 출력 (이미지/그래프 포함)
-        function printLog() {
-            var rows = LOG_STEPS.map(function (st) {
-                var rec = st.fields.map(function (f) {
-                    var v = curS.log[st.no + '_' + f.k] || '-';
-                    return f.lab + ': ' + v;
-                }).join(' / ');
-                return '<tr><td>' + st.no + '</td><td>' + st.name + '</td><td>' + st.crit + '</td><td>' + rec + '</td></tr>';
-            }).join('');
-            var meta = '<table class="form-tbl" style="margin-bottom:8px"><tr><th>멸균일</th><td>' + pill(curS.start) + '</td><th>멸균기 관리번호</th><td>' + curO.mgmt + '</td></tr>' +
-                '<tr><th>담당자</th><td>' + curS.worker + '</td><th>멸균수량(블리스터)</th><td>' + batchQty(curS) + ' EA</td></tr>' +
-                '<tr><th>멸균품목</th><td colspan="3">' + curS.lots.map(function (l) {
-                    return l.name + ' ' + l.lot + '(' + l.qty + ')';
-                }).join(', ') + '</td></tr>' +
-                '<tr><th>BI 판정</th><td colspan="3"><b>' + (curS.bi === 'pass' ? 'PASS (녹색·투명)' : curS.bi === 'fail' ? 'FAIL (황색·불투명)' : '-') + '</b></td></tr></table>';
-            var note = '<div style="font-size:11px;color:#555;margin-bottom:6px">※ 멸균일지의 압력은 게이지압력임. 게이지압력 = 절대압력 − 대기압(1bar)</div>';
-            var chart = curS.usb ? '<div style="margin-top:10px"><b>멸균 데이터 그래프</b><div style="border:1px solid #000;border-radius:4px;padding:6px">' + chartSvg().replace('chart-svg', '') + '</div></div>' : '';
-            openPrintForm('멸 균 일 지 (F710-3)', meta + note + '<table class="form-tbl"><tr><th>번호</th><th>공정 단계</th><th>작업절차 및 기준</th><th>기록</th></tr>' + rows + '</table>' + chart);
+            }
+            flash('AjaxUtil 미로드 — 공용 스크립트 로드 순서를 확인하세요');
         }
 
+        function combo(comboType, cond1, cond2, cond3) {
+            if (typeof AjaxUtil === 'undefined' || !AjaxUtil.getSyncData) return [];
+            var r = AjaxUtil.getSyncData('/api/common/combo', {
+                combo_type: comboType,
+                cond1: cond1 || '',
+                cond2: cond2 || '',
+                cond3: cond3 || ''
+            }) || {};
+            return (r.data || []).map(function (x) {
+                return {value: x.value, text: x.text};
+            });
+        }
 
-        /* ── 시작 시트 ── */
+        const WD = ['일', '월', '화', '수', '목', '금', '토'];
+
+        function num(v) {
+            var n = parseFloat(v);
+            return isNaN(n) ? 0 : n;
+        }
+
+        function todayStr() {
+            var d = new Date();
+            return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+        }
+
+        function shiftDay(b, n) {
+            var d = new Date(b + 'T00:00:00');
+            d.setDate(d.getDate() + n);
+            return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+        }
+
+        function nowHM() {
+            var d = new Date();
+            return todayStr() + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+        }
+
+        function pill(v) {
+            if (!v) return '--:--';
+            if (String(v).indexOf(' ') >= 0) {
+                var a = String(v).split(' ');
+                return a[0].slice(5) + ' ' + a[1];
+            }
+            return v;
+        }
+
+        function typeLabel(t) {
+            return t === 'bag' ? '필터백' : (t === 'pk' ? 'PK' : '-');
+        }
+
+        function tag(txt) {
+            return '<span style="font-size:11px;font-weight:800;color:var(--ink-2);background:var(--surface-2);padding:2px 6px;border-radius:6px;margin-left:4px">' + txt + '</span>';
+        }
+
+        // F710-3 멸균일지 10단계
+        const LOG_STEPS = [
+            {no: 1, name: '챔버 적재', crit: '적재패턴 준수', fields: [{k: 'qty', lab: '수량(EA)'}, {k: 'bi', lab: 'BI(EA)'}]},
+            {no: 2, name: '전조절', crit: 'ISO11135', fields: [{k: 'note', lab: '비고'}]},
+            {
+                no: 3,
+                name: '온습도',
+                crit: '(50±10)℃ / (50±20)%RH / 4h↑',
+                fields: [{k: 'tmin', lab: '최저온도℃'}, {k: 'tmax', lab: '최고온도℃'}, {k: 'hmin', lab: '최저습도%'}, {
+                    k: 'hmax',
+                    lab: '최고습도%'
+                }]
+            },
+            {no: 4, name: '진공', crit: '최저압력 (15±10)kPa', fields: [{k: 'pmin', lab: '최저압력kPa'}]},
+            {no: 5, name: '조절', crit: '(55±10)℃ / (50±20)%RH', fields: [{k: 't', lab: '온도℃'}, {k: 'h', lab: '습도%'}]},
+            {
+                no: 6,
+                name: '멸균제 투입',
+                crit: 'EO (7.5±1.0)kg',
+                fields: [{k: 'eo', lab: 'EO사용량kg'}, {k: 'eolot', lab: 'EO로트'}]
+            },
+            {
+                no: 7,
+                name: '노출',
+                crit: '(165±10)kPa / (55±10)℃ / (60±20)%RH / 6h↑',
+                fields: [{k: 'p', lab: '압력kPa'}, {k: 't', lab: '온도℃'}, {k: 'h', lab: '습도%'}, {k: 'hr', lab: '노출h'}]
+            },
+            {no: 8, name: '공기정화', crit: '라운드 5회', fields: [{k: 'flush', lab: '플러싱횟수'}]},
+            {no: 9, name: '통기', crit: '10℃↑ / 48h↑', fields: [{k: 'tmin', lab: '최저온도℃'}, {k: 'hr', lab: '시간h'}]},
+            {no: 10, name: 'BI 확인', crit: 'BI 색상 변화 PASS/FAIL', fields: [{k: 'bilot', lab: 'BI로트'}]},
+        ];
+
+        // ── 시트/토스트 공통 ──
         function showMask(id) {
             document.getElementById(id).classList.add('show');
         }
@@ -896,135 +588,705 @@
 
         document.querySelectorAll('.mask').forEach(function (m) {
             m.addEventListener('click', function (e) {
-                if (e.target === m || (e.target.closest && e.target.closest('[data-close]'))) m.classList.remove('show');
+                if (e.target === m || e.target.closest('[data-close]')) m.classList.remove('show');
             });
         });
-
-        let selW = null, selE = null;
-
-        function openStart() {
-            selW = null;
-            selE = null;
-            document.getElementById('workerOpts').innerHTML = WORKERS.map(function (w) {
-                return '<button class="opt" data-w="' + w + '">' + w + '</button>';
-            }).join('');
-            document.getElementById('equipOpts').innerHTML = EQUIPS.map(function (e) {
-                return '<button class="opt" data-e="' + e[0] + '">' + e[0] + ' <span class="sub">' + e[1] + '</span></button>';
-            }).join('');
-            var so = document.getElementById('startOk');
-            so.disabled = true;
-            if (typeof beforeStartSheet === 'function') beforeStartSheet();
-            showMask('startMask');
-        }
-
-        document.getElementById('workerOpts').addEventListener('click', function (e) {
-            var b = e.target.closest('[data-w]');
-            if (!b) return;
-            document.querySelectorAll('#workerOpts .opt').forEach(function (x) {
-                x.classList.remove('sel');
-            });
-            b.classList.add('sel');
-            selW = b.dataset.w;
-            ckStart();
-        });
-        document.getElementById('equipOpts').addEventListener('click', function (e) {
-            var b = e.target.closest('[data-e]');
-            if (!b) return;
-            document.querySelectorAll('#equipOpts .opt').forEach(function (x) {
-                x.classList.remove('sel');
-            });
-            b.classList.add('sel');
-            selE = b.dataset.e;
-            ckStart();
-        });
-
-        function ckStart() {
-            document.getElementById('startOk').disabled = !(selW && selE && (typeof startReady !== 'function' || startReady()));
-        }
-
-        window.ckStart = ckStart;
-        document.getElementById('startOk').onclick = function () {
-            var se = mkSess(selW, selE);
-            curO.sessions.push(se);
-            if (curO.st === 'wait') curO.st = 'working';
-            hideMask('startMask');
-            renderSessList();
-            openSess(curO.sessions.length - 1);
-            flash('작업 시작 · ' + selW + ' / ' + selE);
-        };
-
-        /* 토스트 */
-        let tT;
+        var _toastT;
 
         function flash(m) {
             var t = document.getElementById('toast');
             if (!t) {
                 t = document.createElement('div');
                 t.id = 'toast';
-                t.style.cssText = 'position:fixed;left:50%;bottom:110px;transform:translateX(-50%);background:#15222B;color:#fff;padding:14px 22px;border-radius:14px;font-weight:700;z-index:60;box-shadow:0 12px 30px -10px rgba(0,0,0,.5);transition:opacity .3s';
+                t.style.cssText = 'position:fixed;left:50%;bottom:110px;transform:translateX(-50%);background:#15222B;color:#fff;padding:14px 22px;border-radius:14px;font-weight:700;z-index:90;box-shadow:0 12px 30px -10px rgba(0,0,0,.5);transition:opacity .3s;max-width:90vw;text-align:center';
                 document.body.appendChild(t);
             }
             t.textContent = m;
             t.style.opacity = '1';
-            clearTimeout(tT);
-            tT = setTimeout(function () {
+            clearTimeout(_toastT);
+            _toastT = setTimeout(function () {
                 t.style.opacity = '0';
-            }, 1700);
+            }, 1800);
         }
 
-        window.flash = flash;
-        window.showMask = showMask;
-        window.hideMask = hideMask;
-        window.pill = pill;
-        window.nowHM = nowHM;
-        window.STLAB = STLAB;
-        window.WD = WD;
-
-        /* ── 바코드/출력 공통 ── */
-        function bcCard(d) {
-            return '<div class="bc-card"><div class="bc-bars"></div>' +
-                '<div class="bc-data">' + d.line + '</div>' +
-                (d.sub ? '<div class="bc-sub">' + d.sub + '</div>' : '') + '</div>';
+        function uiConfirm(msg, onOk, okLabel) {
+            var m = document.getElementById('confirmMask');
+            if (!m) {
+                m = document.createElement('div');
+                m.id = 'confirmMask';
+                m.style.cssText = 'position:fixed;inset:0;background:rgba(21,34,43,.45);display:none;align-items:center;justify-content:center;z-index:100;padding:24px';
+                m.innerHTML = '<div style="background:var(--surface);border-radius:20px;max-width:420px;width:100%;padding:24px 22px 18px;box-shadow:0 20px 50px -12px rgba(0,0,0,.4)"><div id="confirmMsg" style="font-size:17px;font-weight:800;color:var(--ink);line-height:1.5;margin-bottom:20px;white-space:pre-line"></div><div style="display:flex;gap:10px"><button id="confirmCancel" style="flex:1;height:52px;border-radius:14px;border:1px solid var(--line);background:var(--surface-2);color:var(--ink-2);font-weight:800;font-size:16px">취소</button><button id="confirmOk" style="flex:1;height:52px;border-radius:14px;border:none;background:#0E7C86;color:#fff;font-weight:800;font-size:16px">확인</button></div></div>';
+                document.body.appendChild(m);
+                m.addEventListener('click', function (e) {
+                    if (e.target === m) m.style.display = 'none';
+                });
+            }
+            m.querySelector('#confirmMsg').textContent = msg;
+            var ok = m.querySelector('#confirmOk'), cancel = m.querySelector('#confirmCancel');
+            ok.textContent = okLabel || '확인';
+            var close = function () {
+                m.style.display = 'none';
+                ok.onclick = null;
+                cancel.onclick = null;
+            };
+            ok.onclick = function () {
+                close();
+                onOk && onOk();
+            };
+            cancel.onclick = close;
+            m.style.display = 'flex';
         }
 
-        window.openBarcode = function (title, labels) {
-            document.getElementById('bcTitle').textContent = title;
-            document.getElementById('bcList').innerHTML = labels.map(function (l) {
-                return '<div style="margin-bottom:12px">' + bcCard(l) +
-                    (l.copies > 1 ? '<div class="bc-sub" style="text-align:center">× ' + l.copies + '장 출력</div>' : '') + '</div>';
-            }).join('');
-            window.__printLabels = labels;
-            showMask('bcMask');
+        // ── 화면 전환 ──
+        const SC = {
+            A: document.getElementById('scA'),
+            B: document.getElementById('scB'),
+            C: document.getElementById('scC')
         };
-        document.getElementById('bcPrint').onclick = function () {
-            var labels = window.__printLabels || [];
-            var html = '';
-            labels.forEach(function (l) {
-                var n = l.copies || 1;
-                for (var i = 0; i < n; i++) {
-                    html += '<div style="border:1px solid #000;border-radius:6px;padding:12px;margin:6px;display:inline-block;width:220px;text-align:center;page-break-inside:avoid">' +
-                        '<div style="height:54px;background:repeating-linear-gradient(90deg,#000 0 2px,#fff 2px 4px,#000 4px 5px,#fff 5px 9px,#000 9px 12px,#fff 12px 13px);border-radius:2px;margin-bottom:6px"></div>' +
-                        '<div style="font-size:12px;font-weight:700">' + l.line + '</div>' + (l.sub ? '<div style="font-size:11px;color:#555">' + l.sub + '</div>' : '') + '</div>';
+
+        function show(k) {
+            for (var x in SC) SC[x].classList.toggle('hide', x !== k);
+        }
+
+        document.querySelectorAll('[data-back]').forEach(function (b) {
+            b.addEventListener('click', function () {
+                refreshQueue();
+                show('A');
+            });
+        });
+
+        // ── 부팅 ── (모든 상태변수 초기화 이후 실행되도록 스크립트 끝에서 호출)
+        function boot() {
+            var r = apiGet('/context', {factory_id: CTX.factoryId || ''});
+            var c = r.data || {};
+            STERIL_WC = c.work_center_id || null;
+            IN_STORE = c.in_store_id || 5;
+            OUT_STORE = c.out_store_id || 18;
+            loadEquips();
+            initDates();
+            show('A');
+            document.getElementById('waitPane').style.display = '';
+            document.getElementById('qgrid').style.display = 'none';
+            loadWait();
+        }
+
+        // ── 모드(대기/배치) + 필터 + 조회 ──
+        var mode = 'wait', qfilter = 'all';
+
+        function initDates() {
+            var t = todayStr(), f = shiftDay(t, -CTX.dayRange);
+            document.getElementById('dFrom').value = f;
+            document.getElementById('dTo').value = t;
+        }
+
+        function refreshQueue() {
+            if (mode === 'wait') loadWait(); else renderQueue();
+        }
+
+        document.querySelectorAll('[data-mode]').forEach(function (b) {
+            b.addEventListener('click', function () {
+                document.querySelectorAll('[data-mode]').forEach(function (x) {
+                    x.classList.remove('on');
+                });
+                b.classList.add('on');
+                mode = b.dataset.mode;
+                var isWait = mode === 'wait';
+                document.getElementById('waitPane').style.display = isWait ? '' : 'none';
+                document.getElementById('qgrid').style.display = isWait ? 'none' : '';
+                document.getElementById('batchFilter').style.display = isWait ? 'none' : 'flex';
+                document.getElementById('batchSearchbar').style.display = isWait ? 'none' : 'flex';
+                document.getElementById('scaTitle').textContent = isWait ? '멸균 대기' : '멸균 작업';
+                if (isWait) loadWait(); else renderQueue();
+            });
+        });
+        document.querySelectorAll('#batchFilter button').forEach(function (b) {
+            b.addEventListener('click', function () {
+                document.querySelectorAll('#batchFilter button').forEach(function (x) {
+                    x.classList.remove('on');
+                });
+                b.classList.add('on');
+                qfilter = b.dataset.f;
+                renderQueue();
+            });
+        });
+        document.getElementById('btnSearch').addEventListener('click', renderQueue);
+
+        // ── 대기: 클린룸 SterilizationYN='Y' 로트 ──
+        var TARGET = [], waitSel = {}, waitQty = {};
+
+        function tOf(id) {
+            return TARGET.filter(function (x) {
+                return x.mat_lot_id == id;
+            })[0];
+        }
+
+        function loadWait() {
+            var r = apiGet('/target_lots', {spjangcd: CTX.spjangcd});
+            TARGET = (r.data || []).map(function (l) {
+                return {
+                    mat_lot_id: l.mat_lot_id,
+                    lot: l.lot_no,
+                    mat_id: l.mat_id,
+                    name: l.mat_name,
+                    code: l.mat_code,
+                    avail: num(l.avail),
+                    in_date: l.in_date
+                };
+            });
+            drawWait();
+        }
+
+        function drawWait() {
+            document.getElementById('qcnt').textContent = TARGET.length + '건';
+            var box = document.getElementById('waitList');
+            if (!box) {
+                flash('waitList 영역을 찾지 못했습니다');
+                return;
+            }
+            if (!TARGET.length) {
+                box.innerHTML = '<div class="emptysess">멸균 대기 로트가 없습니다.<br>클린룸(5)에 SterilizationYN=Y 재고가 있어야 합니다.</div>';
+                return;
+            }
+            box.innerHTML = TARGET.map(function (l) {
+                if (waitQty[l.mat_lot_id] == null) waitQty[l.mat_lot_id] = l.avail;
+                var q = Math.min(waitQty[l.mat_lot_id], l.avail);
+                if (q < 1) q = 1;
+                waitQty[l.mat_lot_id] = q;
+                var sel = !!waitSel[l.mat_lot_id];
+                return '<div class="wo wcard' + (sel ? ' sel' : '') + '" data-st="wait" data-wcard="' + l.mat_lot_id + '" style="min-height:96px"><div class="edge"></div>' +
+                    '<div style="display:flex;align-items:center;gap:12px">' +
+                    '<div class="wchk' + (sel ? ' on' : '') + '">' + (sel ? '✓' : '') + '</div>' +
+                    '<div style="flex:1;min-width:0"><div style="font-weight:800">' + l.lot + '</div>' +
+                    '<div class="meta">' + l.name + ' · ' + l.code + ' · 가용 ' + l.avail + '</div></div></div>' +
+                    '<div style="display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:12px">' +
+                    '<span class="meta">담을 수량</span>' +
+                    '<div class="stepper"><button class="minus" data-wminus="' + l.mat_lot_id + '">−</button>' +
+                    '<div class="qty" data-wpad="' + l.mat_lot_id + '">' + q + '</div>' +
+                    '<button class="plus" data-wplus="' + l.mat_lot_id + '">+</button></div></div></div>';
+            }).join('');
+        }
+
+        document.getElementById('waitList').addEventListener('click', function (e) {
+            var m = e.target.closest('[data-wminus]');
+            if (m) {
+                var id = m.dataset.wminus;
+                waitQty[id] = Math.max(1, (waitQty[id] || 1) - 1);
+                drawWait();
+                return;
+            }
+            var p = e.target.closest('[data-wplus]');
+            if (p) {
+                var id = p.dataset.wplus;
+                var t = tOf(id);
+                waitQty[id] = Math.min(t ? t.avail : 1, (waitQty[id] || 1) + 1);
+                drawWait();
+                return;
+            }
+            var pd = e.target.closest('[data-wpad]');
+            if (pd) {
+                var id = pd.dataset.wpad;
+                var t = tOf(id);
+                openQtyPad('담을 수량', waitQty[id] || 1, t ? t.avail : 1, function (v) {
+                    waitQty[id] = v;
+                    drawWait();
+                });
+                return;
+            }
+            var c = e.target.closest('[data-wcard]');
+            if (c) {
+                var id = c.dataset.wcard;
+                waitSel[id] = !waitSel[id];
+                drawWait();
+            }
+        });
+        var EQUIPS = [], pendingSel = [], startEquip = null;
+
+        function loadEquips() {
+            EQUIPS = STERIL_WC ? combo('equipment', '', '', STERIL_WC) : combo('equipment');
+        }
+
+        document.getElementById('btnCreateFromWait').addEventListener('click', function () {
+            var sel = Object.keys(waitSel).filter(function (k) {
+                return waitSel[k];
+            });
+            if (!sel.length) {
+                flash('멸균할 로트를 선택하세요');
+                return;
+            }
+            pendingSel = sel;
+            openStartSheet();
+        });
+
+        function openStartSheet() {
+            startEquip = null;
+            if (!EQUIPS.length) loadEquips();
+            var body = document.querySelector('#startMask .body');
+            body.innerHTML = '<div class="sh"><h3>멸균 작업 시작</h3><button class="x" data-close>✕</button></div>' +
+                '<div style="color:var(--ink-2);font-weight:700;font-size:13px;margin:2px 2px 12px">담당자는 로그인 사용자로 자동 지정됩니다.</div>' +
+                '<div class="fieldlab">멸균기</div><div class="opts" id="equipOpts">' +
+                (EQUIPS.length ? EQUIPS.map(function (e) {
+                        return '<button class="opt" data-eq="' + e.value + '">' + e.text + '</button>';
+                    }).join('')
+                    : '<div style="color:var(--ink-2);font-weight:700">등록된 멸균기가 없습니다 · 멸균기 없이 시작</div>') +
+                '</div><button class="ok" id="startOk"' + (EQUIPS.length ? ' disabled' : '') + '>' + (EQUIPS.length ? '멸균기를 선택하세요' : '멸균기 없이 시작') + '</button>';
+            showMask('startMask');
+        }
+
+        document.getElementById('startMask').addEventListener('click', function (e) {
+            var eq = e.target.closest('[data-eq]');
+            if (eq) {
+                startEquip = eq.dataset.eq;
+                this.querySelectorAll('#equipOpts .opt').forEach(function (b) {
+                    b.classList.remove('sel');
+                });
+                eq.classList.add('sel');
+                var ok = document.getElementById('startOk');
+                ok.disabled = false;
+                ok.textContent = '이 멸균기로 시작';
+                return;
+            }
+            if (e.target.closest('#startOk')) {
+                hideMask('startMask');
+                createBatch();
+            }
+        });
+
+        function createBatch() {
+            apiPost('/batch_start', {
+                date: todayStr(),
+                equipment_id: startEquip || '',
+                spjangcd: CTX.spjangcd
+            }, function (r) {
+                var batchId = r.data.batch_id, i = 0, sel = pendingSel;
+                (function addNext() {
+                    if (i >= sel.length) {
+                        flash('멸균 배치 생성 · ' + sel.length + '개 로트');
+                        waitSel = {};
+                        waitQty = {};
+                        openBatch(batchId);
+                        return;
+                    }
+                    var id = sel[i++], t = tOf(id), q = Math.min(t.avail, Math.max(1, waitQty[id] || t.avail));
+                    apiPost('/lot_add', {
+                        batch_id: batchId,
+                        mat_lot_id: id,
+                        qty: q,
+                        spjangcd: CTX.spjangcd
+                    }, function () {
+                        addNext();
+                    });
+                })();
+            });
+        }
+
+        // ── 배치 큐 ──
+        var BATCHES = [];
+
+        function renderQueue() {
+            var r = apiGet('/batch_list', {
+                date_from: document.getElementById('dFrom').value,
+                date_to: document.getElementById('dTo').value,
+                spjangcd: CTX.spjangcd
+            });
+            var all = (r.data || []);
+            BATCHES = all.filter(function (o) {
+                if (qfilter === 'all') return true;
+                if (qfilter === 'working') return o.state === 'working';
+                if (qfilter === 'wait') return o.state === 'working' && num(o.item_cnt) === 0;
+                return true;
+            });
+            document.getElementById('qcnt').textContent = BATCHES.length + '건';
+            var box = document.getElementById('qgrid');
+            if (!BATCHES.length) {
+                box.innerHTML = '<div class="emptysess">해당 조건의 배치가 없습니다.</div>';
+                return;
+            }
+            box.innerHTML = BATCHES.map(function (o) {
+                var st = (o.state === 'working' || o.state === 'wait') ? 'working' : 'done';
+                var badge = o.state === 'scrapped' ? '폐기' : (o.state === 'done' ? '멸균필' : (o.state === 'wait' ? '대기' : '작업중'));
+                var bi = o.bi_result === 'pass' ? '합격' : (o.bi_result === 'fail' ? '불합격' : '판정전');
+                return '<div class="wo" data-st="' + st + '" data-id="' + o.batch_id + '"><div class="edge"></div>' +
+                    '<div class="row1"><span class="wono">' + (o.batch_no || ('배치 ' + o.batch_id)) + '</span>' +
+                    '<span style="font-size:13px;color:var(--ink-2);font-weight:700">' + o.steril_date + '</span>' +
+                    '<span class="chip ' + st + '">' + badge + '</span></div>' +
+                    '<div style="font-size:13.5px;color:var(--ink-2);font-weight:700;margin:2px 0 12px">로트 ' + num(o.item_cnt) + '건 · ' + num(o.total_qty) + ' EA · BI ' + bi + (o.maker_lot_no ? ' · ' + o.maker_lot_no : '') + '</div>' +
+                    '<div class="meta" style="display:flex;gap:18px">' +
+                    '<div class="blk"><span class="lab">담당</span><span class="val">' + currentUser() + '</span></div>' +
+                    '<div class="blk"><span class="lab">멸균기</span><span class="val">' + (o.equip_name || '-') + '</span></div></div></div>';
+            }).join('');
+        }
+
+        document.getElementById('qgrid').addEventListener('click', function (e) {
+            var c = e.target.closest('.wo');
+            if (c) openBatch(+c.dataset.id);
+        });
+
+        // ── 배치 상세 (scC) ──
+        var curB = null;
+
+        function locked() {
+            return !curB || (curB.state !== 'working' && curB.state !== 'wait');
+        }
+
+        function batchQty() {
+            return (curB.items || []).reduce(function (a, i) {
+                return a + num(i.qty);
+            }, 0);
+        }
+
+        function openBatch(batchId) {
+            var r = apiGet('/batch_detail', {batch_id: batchId});
+            curB = r.data;
+            if (!curB) {
+                flash('배치를 찾을 수 없습니다');
+                return;
+            }
+            curB._log = {};
+            (curB.log || []).forEach(function (s) {
+                try {
+                    var d = JSON.parse(s.data || '{}');
+                    Object.keys(d).forEach(function (k) {
+                        curB._log[s.step_no + '_' + k] = d[k];
+                    });
+                } catch (e) {
                 }
             });
-            var pa = document.getElementById('printArea');
-            pa.innerHTML = '<h3 style="margin:0 0 10px">' + document.getElementById('bcTitle').textContent + '</h3>' + html;
-            hideMask('bcMask');
-            setTimeout(function () {
-                window.print();
-            }, 100);
-        };
-        window.openPrintForm = function (title, innerHtml) {
-            var pa = document.getElementById('printArea');
-            pa.innerHTML = '<h2 style="text-align:center;margin:0 0 14px">' + title + '</h2>' + innerHtml;
-            setTimeout(function () {
-                window.print();
-            }, 100);
-        };
+            document.getElementById('cName').textContent = (curB.batch_no || ('배치 ' + batchId));
+            document.getElementById('cSub').textContent = curB.steril_date + ' · 멸균기 ' + (curB.equip_name || '-');
+            document.getElementById('btnDelOrder').style.display = locked() ? 'none' : '';
+            renderCHead();
+            renderCBody();
+            renderCAction();
+            show('C');
+        }
 
+        function currentUser() {
+            try {
+                return sessionStorage.getItem('username') || sessionStorage.getItem('userId') || sessionStorage.getItem('userid') || '-';
+            } catch (e) {
+                return '-';
+            }
+        }
 
-        /* 시간 수정 */
-        let timeWhich = 'start', editDate = new Date();
+        function renderCHead() {
+            var lk = locked();
+            document.getElementById('cHead').innerHTML =
+                '<div class="infopill"><span>담당</span><b>' + currentUser() + '</b></div>' +
+                '<div class="infopill tap" data-time="start"><span>시작</span><b>' + pill(curB.start_time) + '</b></div>' +
+                '<div class="infopill tap" data-time="end"><span>종료</span><b>' + pill(curB.end_time) + '</b></div>' +
+                '<div class="infopill big"><span>멸균수량</span><b>' + batchQty() + '</b></div>';
+        }
+
+        document.getElementById('cHead').addEventListener('click', function (e) {
+            var t = e.target.closest('[data-time]');
+            if (t) openTime(t.dataset.time);   // 시간은 판정 후에도 수정 가능
+        });
+
+        function renderCBody() {
+            var lk = locked(), html = '';
+            if (curB.bi_result === 'fail') html += '<div class="warn-banner">⚠ BI 불합격 — 전량 폐기된 배치입니다.</div>';
+            if (curB.state === 'done') html += '<div class="secline" style="color:var(--green)">멸균필 · 멸균창고 이동 완료 <span class="ln"></span></div>';
+            // 담긴 로트
+            html += '<div class="secline">멸균 대상 로트 <span class="ln"></span><span>' + (curB.items || []).length + '건 · ' + batchQty() + ' EA</span></div>';
+            html += (curB.items || []).map(function (l, idx) {
+                var mark = l.state === 'moved' ? ' · 멸균필' : (l.state === 'scrapped' ? ' · 폐기' : '');
+                var ctrl = lk
+                    ? '<span style="margin-left:auto;font-weight:800;font-variant-numeric:tabular-nums">' + num(l.qty) + ' EA</span>'
+                    : '<div class="stepper" data-lotstep="' + idx + '" style="margin-left:auto"><button class="minus">−</button>' +
+                    '<div class="qty" data-lotpad="' + idx + '">' + num(l.qty) + '</div><button class="plus">+</button></div>' +
+                    '<button class="defbtn" data-rmitem="' + l.item_id + '" style="margin-left:8px">제외</button>';
+                return '<div class="part"><div class="id"><span class="pn">' + l.lot_no + '</span>' +
+                    '<span class="pc">' + l.mat_name + ' · 가용 ' + num(l.lot_avail) + mark + '</span></div>' + ctrl + '</div>';
+            }).join('');
+            if (!lk) html += '<div style="margin:6px 2px"><button class="btn ghost" id="addLot" style="width:100%">＋ 로트 담기</button></div>';
+            // 멸균 데이터(USB) — 태블릿은 파일 첨부만. F710-3 10단계 일지는 PC 관리화면.
+            html += '<div class="secline">멸균 데이터(USB) <span class="ln"></span><span>판정 후에도 첨부 가능 · 일지 작성은 PC</span></div>';
+            html += '<div class="part"><div class="id"><span class="pn">USB 데이터 파일</span>' +
+                '<span class="pc">초단위 온·습도·압력 파싱과 F710-3 10단계 일지는 <b>PC 관리화면</b>에서 작성합니다. 태블릿은 파일만 받아둡니다.</span></div>' +
+                '<label class="btn ghost" style="min-height:44px;cursor:pointer;margin-left:auto">＋ USB 파일<input type="file" id="usbFile" accept=".xlsx,.xls,.csv,.txt" multiple style="display:none"></label></div>';
+            html += '<div id="usbInfo" style="font-size:12.5px;color:var(--ink-2);font-weight:700;margin:4px 2px 0"></div>';
+            // 업체 로트번호 (완료·합격 시)
+            if (curB.state === 'done' && curB.maker_lot_no) {
+                html += '<div class="secline">업체 로트번호 <span class="ln"></span></div>';
+                html += '<div class="part"><div class="id"><span class="pn">' + curB.maker_lot_no + '</span><span class="pc">멸균필 로트에 부여됨 (MakerLotNo)</span></div></div>';
+            }
+            // BI
+            html += '<div class="secline">멸균검증(BI) 판정 <span class="ln"></span><span></span></div>';
+            html += '<div class="judge"><button class="pass ' + (curB.bi_result === 'pass' ? 'on' : '') + '" ' + (lk ? 'disabled' : '') + ' data-bi="pass">합격 PASS</button>' +
+                '<button class="fail ' + (curB.bi_result === 'fail' ? 'on' : '') + '" ' + (lk ? 'disabled' : '') + ' data-bi="fail">불합격 FAIL</button></div>';
+            document.getElementById('cBody').innerHTML = html;
+        }
+
+        function renderCAction() {
+            var bar = document.getElementById('cAction');
+            if (locked()) {
+                var lab = curB.state === 'scrapped'
+                    ? '<span class="v" style="color:var(--red);font-size:16px">전량 폐기</span>'
+                    : '<span class="v" style="color:var(--green);font-size:16px">멸균필</span>';
+                bar.innerHTML = '<div class="actsum"><span class="l">결과</span>' + lab +
+                    (curB.maker_lot_no ? '<span class="l">로트 ' + curB.maker_lot_no + '</span>' : '') + '</div>' +
+                    '<button class="btn danger" id="cCancel">판정취소</button>';
+                document.getElementById('cCancel').onclick = function () {
+                    var msg = curB.state === 'scrapped'
+                        ? '폐기 판정을 취소하고 폐기된 재고를 클린룸으로 되돌립니다. 계속할까요?'
+                        : '합격 판정을 취소합니다. 멸균창고 로트를 삭제하고 클린룸 재고를 되돌립니다. 계속할까요?';
+                    uiConfirm(msg, function () {
+                        apiPost('/bi_cancel', {batch_id: curB.batch_id}, function () {
+                            flash('판정취소 · 작업중 복귀 (재고 원복)');
+                            openBatch(curB.batch_id);
+                        });
+                    }, '판정취소');
+                };
+            } else {
+                bar.innerHTML = '<div class="actsum"><span class="l">멸균수량</span><span class="v">' + batchQty() + ' EA</span></div>' +
+                    '<span class="l" style="color:var(--ink-2);font-weight:700">BI 판정으로 완료/폐기</span>';
+            }
+        }
+
+        // USB 파일 첨부 (태블릿: 받아두기만, 파싱·일지는 PC)
+        document.getElementById('cBody').addEventListener('change', function (e) {
+            var fi = e.target.closest('#usbFile');
+            if (!fi) return;
+            var n = (fi.files || []).length;
+            var info = document.getElementById('usbInfo');
+            if (info) info.textContent = n ? ('USB 파일 ' + n + '개 받아둠 — 파싱·그래프·10단계 일지는 PC 관리화면에서 작성합니다.') : '';
+            flash(n ? ('USB 파일 ' + n + '개 첨부') : '');
+        });
+        // BI / 제외 / 로트담기 / 담긴 로트 수량 조절
+        document.getElementById('cBody').addEventListener('click', function (e) {
+            var bi = e.target.closest('[data-bi]');
+            if (bi && !locked()) {
+                judgeBI(bi.dataset.bi);
+                return;
+            }
+            var rm = e.target.closest('[data-rmitem]');
+            if (rm) {
+                apiPost('/lot_remove', {item_id: +rm.dataset.rmitem}, function () {
+                    openBatch(curB.batch_id);
+                });
+                return;
+            }
+            if (e.target.closest('#addLot')) {
+                openLotSheet();
+                return;
+            }
+            if (locked()) return;
+            var st = e.target.closest('[data-lotstep]');
+            if (st) {
+                var idx = +st.dataset.lotstep,
+                    d = e.target.classList.contains('plus') ? 1 : (e.target.classList.contains('minus') ? -1 : 0);
+                if (d) bumpLotQty(idx, d);
+                return;
+            }
+            var pd = e.target.closest('[data-lotpad]');
+            if (pd) {
+                var idx = +pd.dataset.lotpad, l = curB.items[idx];
+                if (l) openQtyPad('담을 수량', num(l.qty), num(l.lot_avail), function (v) {
+                    saveLotQty(idx, v);
+                });
+                return;
+            }
+        });
+
+        function bumpLotQty(idx, d) {
+            var l = curB.items[idx];
+            if (!l) return;
+            var max = num(l.lot_avail), q = num(l.qty) + d;
+            if (q < 1) q = 1;
+            if (q > max) {
+                q = max;
+                flash('가용 ' + max + ' 초과');
+            }
+            saveLotQty(idx, q);
+        }
+
+        function saveLotQty(idx, q) {
+            var l = curB.items[idx];
+            if (!l) return;
+            var max = num(l.lot_avail);
+            if (q < 1) q = 1;
+            if (q > max) q = max;
+            l.qty = q;
+            renderCBody();
+            renderCHead();
+            renderCAction();
+            apiPost('/lot_add', {
+                batch_id: curB.batch_id,
+                mat_lot_id: l.mat_lot_id,
+                qty: q,
+                spjangcd: CTX.spjangcd
+            }, function () {
+            });
+        }
+
+        function judgeBI(result) {
+            // 태블릿엔 별도 시작 버튼이 없다 → 아직 '대기'면 판정 시 시작 시각을 기록해 working 으로 전이
+            if (curB.state === 'wait') {
+                apiPost('/batch_time', {batch_id: curB.batch_id, start_time: curB.start_time || nowHM()}, function () {
+                    curB.state = 'working';
+                    doJudge(result);
+                });
+                return;
+            }
+            doJudge(result);
+        }
+
+        function doJudge(result) {
+            if (result === 'pass') {
+                var def = 'BMJ' + todayStr().replace(/-/g, '');
+                askMakerLot(def, function (maker) {
+                    apiPost('/bi_judge', {
+                        batch_id: curB.batch_id,
+                        result: 'pass',
+                        maker_lot_no: maker,
+                        spjangcd: CTX.spjangcd
+                    }, function () {
+                        flash('멸균 완료 · 멸균창고 이동 · 로트 ' + maker);
+                        refreshQueue();
+                        show('A');
+                    });
+                });
+            } else {
+                uiConfirm('BI 불합격 — 이 배치 전량을 폐기합니다. (클린룸 재고에서 폐기 처리) 계속할까요?', function () {
+                    apiPost('/bi_judge', {
+                        batch_id: curB.batch_id,
+                        result: 'fail',
+                        spjangcd: CTX.spjangcd
+                    }, function () {
+                        flash('멸균 FAIL · 전량 폐기');
+                        refreshQueue();
+                        show('A');
+                    });
+                }, '전량 폐기');
+            }
+        }
+
+        // 업체 로트번호 입력 시트 (합격 시)
+        function askMakerLot(defVal, onOk) {
+            var m = document.getElementById('makerMask');
+            if (!m) {
+                m = document.createElement('div');
+                m.id = 'makerMask';
+                m.className = 'mask';
+                m.innerHTML = '<div class="sheet"><div class="body"><div class="sh"><h3>업체 로트번호 입력</h3><button class="x" data-close>✕</button></div>' +
+                    '<div style="color:var(--ink-2);font-weight:700;font-size:13.5px;margin:2px 2px 12px">합격 시 이 배치의 멸균필 로트에 부여할 업체 로트번호입니다. 기본값을 확인·수정하세요.</div>' +
+                    '<input id="makerInput" style="width:100%;height:58px;border:1px solid var(--line);border-radius:14px;padding:0 16px;font-size:21px;font-weight:800;background:var(--surface-2)"/>' +
+                    '<button class="ok" id="makerOk">합격 처리 · 멸균필</button></div></div>';
+                document.body.appendChild(m);
+                m.addEventListener('click', function (e) {
+                    if (e.target === m || (e.target.closest && e.target.closest('[data-close]'))) m.classList.remove('show');
+                });
+            }
+            m.querySelector('#makerInput').value = defVal || '';
+            m.querySelector('#makerOk').onclick = function () {
+                var v = m.querySelector('#makerInput').value.trim();
+                if (!v) {
+                    flash('업체 로트번호를 입력하세요');
+                    return;
+                }
+                m.classList.remove('show');
+                onOk(v);
+            };
+            m.classList.add('show');
+            setTimeout(function () {
+                try {
+                    m.querySelector('#makerInput').focus();
+                } catch (e) {
+                }
+            }, 60);
+        }
+
+        // 배치 삭제
+        document.getElementById('btnDelOrder').addEventListener('click', function () {
+            if (!curB) return;
+            if (locked()) {
+                flash('판정된 배치는 삭제할 수 없습니다');
+                return;
+            }
+            uiConfirm('이 배치를 삭제하시겠습니까?', function () {
+                apiPost('/batch_delete', {batch_id: curB.batch_id}, function () {
+                    flash('배치 삭제');
+                    refreshQueue();
+                    show('A');
+                });
+            }, '삭제');
+        });
+
+        // 로트 담기 시트 — 목업 스타일(.lotopt), 탭하여 수량 선택
+        var LOTPICK = [];
+
+        function openLotSheet() {
+            var r = apiGet('/target_lots', {spjangcd: CTX.spjangcd});
+            // 이미 배치에 담긴 로트는 제외
+            var inBatch = {};
+            (curB.items || []).forEach(function (i) {
+                inBatch[i.mat_lot_id] = 1;
+            });
+            LOTPICK = (r.data || []).filter(function (l) {
+                return !inBatch[l.mat_lot_id];
+            });
+            document.getElementById('lotTitle').textContent = '멸균할 로트 담기';
+            document.getElementById('lotList').innerHTML = LOTPICK.length ? LOTPICK.map(function (l) {
+                return '<div class="lotopt" data-lot="' + l.mat_lot_id + '"><div><span class="ln">' + l.lot_no + '</span>' +
+                    '<div class="meta" style="margin-left:0;text-align:left">' + l.mat_name + ' · ' + l.mat_code + '</div></div>' +
+                    '<div class="meta" style="margin-left:auto;text-align:right"><div style="font-size:20px;font-weight:800;color:var(--teal-d)">가용 ' + num(l.avail) + '</div><div>탭하여 수량 선택</div></div></div>';
+            }).join('') : '<div class="emptysess">담을 수 있는 로트가 없습니다.</div>';
+            showMask('lotMask');
+        }
+
+        document.getElementById('lotList').addEventListener('click', function (e) {
+            var row = e.target.closest('[data-lot]');
+            if (!row) return;
+            var id = +row.dataset.lot, l = LOTPICK.filter(function (x) {
+                return x.mat_lot_id == id;
+            })[0];
+            if (!l) return;
+            var av = num(l.avail);
+            hideMask('lotMask');
+            openQtyPad(l.lot_no + ' 담을 수량', av, av, function (v) {
+                apiPost('/lot_add', {
+                    batch_id: curB.batch_id,
+                    mat_lot_id: id,
+                    qty: v,
+                    spjangcd: CTX.spjangcd
+                }, function () {
+                    openBatch(curB.batch_id);
+                });
+            });
+        });
+
+        // 수량 넘패드 (대기 수량 · 로트 담기 공용) — 목업 qtyMask 사용
+        var qpVal = '', qpCb = null, qpMax = 0;
+
+        function openQtyPad(title, cur, max, cb) {
+            qpVal = String(cur);
+            qpMax = max;
+            qpCb = cb;
+            document.getElementById('qpTitle').textContent = title || '담을 수량';
+            document.getElementById('qpDisp').textContent = qpVal;
+            var mx = document.getElementById('qpMax');
+            if (mx) mx.textContent = '최대 ' + max;
+            showMask('qtyMask');
+        }
+
+        document.querySelector('#qtyMask .keys').addEventListener('click', function (e) {
+            var k = e.target.dataset.k;
+            if (!k) return;
+            if (k === 'C') {
+                qpVal = '';
+            } else if (k === 'OK') {
+                var n = parseInt(qpVal || '0', 10);
+                if (isNaN(n) || n < 1) n = 1;
+                if (n > qpMax) n = qpMax;
+                hideMask('qtyMask');
+                if (qpCb) qpCb(n);
+                return;
+            } else qpVal = (qpVal === '0' ? '' : qpVal) + k;
+            document.getElementById('qpDisp').textContent = qpVal || '0';
+        });
+
+        // 시작/종료 시간 수정 (timeMask) → /batch_time
+        var timeWhich = 'start', editDate = new Date();
 
         function fmtD(d) {
             return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0') + ' (' + WD[d.getDay()] + ')';
@@ -1033,9 +1295,9 @@
         function openTime(which) {
             timeWhich = which;
             document.getElementById('timeTitle').textContent = (which === 'start' ? '시작' : '종료') + ' 일시 수정';
-            var saved = which === 'start' ? curS.start : curS.end;
-            if (saved && saved.indexOf(' ') >= 0) {
-                var a = saved.split(' ');
+            var saved = which === 'start' ? curB.start_time : curB.end_time;
+            if (saved && String(saved).indexOf(' ') >= 0) {
+                var a = String(saved).split(' ');
                 editDate = new Date(a[0] + 'T' + a[1]);
             } else editDate = new Date();
             document.getElementById('tDate').textContent = fmtD(editDate);
@@ -1044,7 +1306,6 @@
             showMask('timeMask');
         }
 
-        window.openTime = openTime;
         document.querySelector('#timeMask .dateedit').addEventListener('click', function (e) {
             var b = e.target.closest('[data-d]');
             if (!b) return;
@@ -1066,15 +1327,19 @@
         document.getElementById('timeOk').onclick = function () {
             var ds = editDate.getFullYear() + '-' + String(editDate.getMonth() + 1).padStart(2, '0') + '-' + String(editDate.getDate()).padStart(2, '0');
             var v = ds + ' ' + document.getElementById('tH').textContent + ':' + document.getElementById('tM').textContent;
-            if (timeWhich === 'start') curS.start = v; else curS.end = v;
-            hideMask('timeMask');
-            renderCHead();
-            renderSessList();
-            flash((timeWhich === 'start' ? '시작' : '종료') + ' 저장 ' + pill(v));
+            var payload = {batch_id: curB.batch_id};
+            if (timeWhich === 'start') payload.start_time = v; else payload.end_time = v;
+            apiPost('/batch_time', payload, function () {
+                hideMask('timeMask');
+                openBatch(curB.batch_id);
+                flash((timeWhich === 'start' ? '시작' : '종료') + ' 저장 ' + pill(v));
+            });
         };
 
+        // 모든 함수/상태변수 정의 이후 부팅
+        boot();
 
-        renderQueue();
+
     </script>
     <!-- ===== 스텝퍼 눌러서 빠르게 증감 (press & hold auto-repeat) — 태블릿/PC 공통 ===== -->
     <style>
@@ -1098,7 +1363,9 @@
                 clearTimeout(maxTimer);
                 holdTimer = repeatTimer = maxTimer = null;
                 if (curBtn) {                                   // ★ 버튼에 직접 걸었던 리스너 정리
-                    END_EVENTS.forEach(function (ev) { curBtn.removeEventListener(ev, stop); });
+                    END_EVENTS.forEach(function (ev) {
+                        curBtn.removeEventListener(ev, stop);
+                    });
                     curBtn = null;
                 }
             }
@@ -1106,7 +1373,10 @@
             function tick(x, y) {
                 var el = document.elementFromPoint(x, y);
                 var b = (el && el.closest) ? el.closest(SEL) : null;
-                if (!b) { stop(); return; }
+                if (!b) {
+                    stop();
+                    return;
+                }
                 b.click();
             }
 

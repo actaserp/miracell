@@ -805,7 +805,7 @@
         <div class="vid" data-toggle="${i}"><div class="pn">${it.vname}</div>
           <div class="sub"><span class="pc">${it.vcode}</span>${woBadge}</div></div>
         <span class="st-badge ${it.st}">${STLAB[it.st]}</span>
-        ${ctrl}${it.lot ? `<span class="autotag" style="font-size:12px;font-weight:800;color:var(--teal-d);background:var(--teal-bg);border:1px solid var(--teal);white-space:nowrap">LOT ${it.lot}</span>` : ''}${actions}
+        ${ctrl}${(it.lot && it.st === 'done') ? `<span class="autotag" style="font-size:12px;font-weight:800;color:var(--teal-d);background:var(--teal-bg);border:1px solid var(--teal);white-space:nowrap">LOT ${it.lot}</span>` : ''}${actions}
         ${times}
       </div>
       <div class="vbom ${it.open ? 'open' : ''}">
