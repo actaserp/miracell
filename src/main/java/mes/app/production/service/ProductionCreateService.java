@@ -84,6 +84,7 @@ public class ProductionCreateService {
         public List<BomInput> bomList;    // 투입자재(클린룸 소비) — 화면 편집분
         public Integer cleanStore;        // 투입 소스창고(클린룸=5). 공정/화면별로 지정. null → 5
         public String spjangcd;
+        public String  lotNumber;
     }
 
     // =====================================================================
@@ -134,7 +135,9 @@ public class ProductionCreateService {
         LocalDateTime startLdt = parseOr(req.startTime, prodDate, now);
 
         int chasu = this.matProduceRepository.findByJobResponseId(jr.getId()).size() + 1;
-        String lotNumber = this.lotService.make_production_lot_in_number("W");
+        String lotNumber = (req.lotNumber != null && !req.lotNumber.isBlank())
+                ? req.lotNumber
+                : this.lotService.make_production_lot_in_number("W");
 
         MaterialProduce mp = new MaterialProduce();
         mp.setJobResponseId(jr.getId());
@@ -280,7 +283,9 @@ public class ProductionCreateService {
         Timestamp prodDate = prodDateTs(req, jr);
 
         int chasu = this.matProduceRepository.findByJobResponseId(jr.getId()).size() + 1;
-        String lotNumber = this.lotService.make_production_lot_in_number("W");
+        String lotNumber = (req.lotNumber != null && !req.lotNumber.isBlank())
+                ? req.lotNumber
+                : this.lotService.make_production_lot_in_number("W");
 
         MaterialProduce mp = new MaterialProduce();
         mp.setJobResponseId(jr.getId());
@@ -640,9 +645,15 @@ public class ProductionCreateService {
         if (matId == null) return 17;
         MapSqlParameterSource p = new MapSqlParameterSource().addValue("matId", matId);
         Map<String, Object> row = this.sqlRunner.getRow("""
-                SELECT (CASE WHEN COALESCE(m."SterilizationYN",'N')='Y'  THEN 18
+                SELECT (CASE
+                             -- 2공장(M-CELL) : 클린룸/멸균 개념 없음
+                             WHEN COALESCE(m."Factory_id",1) = 2 THEN
+                                  (CASE WHEN COALESCE(m."InspectYN",'N')='Y' THEN 19   -- 검사완료창고
+                                        ELSE 17 END)                                   -- 생산창고
+                             -- 1공장(키트) : 기존 규칙 유지
+                             WHEN COALESCE(m."SterilizationYN",'N')='Y'   THEN 18
                              WHEN mg."MaterialType" IN ('semi','product') THEN 5
-                             WHEN COALESCE(m."WashYN",'N')='Y'           THEN 5
+                             WHEN COALESCE(m."WashYN",'N')='Y'            THEN 5
                              ELSE 17 END) AS store
                   FROM material m
                   LEFT JOIN mat_grp mg ON mg.id = m."MaterialGroup_id"
@@ -685,5 +696,224 @@ public class ProductionCreateService {
                 return base;                                // 파싱 불가 시 기준값 사용(오류 대신 안전)
             }
         }
+    }
+
+    // =====================================================================
+//  ★ 공용 파일 패치 5·6 — ProductionCreateService.java 에 그대로 추가
+//     (기존 4곳 패치에 이어지는 것. 클래스 안 아무 곳에나, produceIn 아래 권장)
+//
+//  왜 여기에 두는가
+//    수리는 "특정 로트 1건을 지정해서 소비" 하고 "생산 아닌 입고" 를 한다.
+//    둘 다 mat_lot_cons / mat_consu / mat_lot / mat_inout 을 건드리는데,
+//    이걸 화면 서비스에서 raw SQL 로 쓰면 §5 함정(InputQty/OutputQty)을
+//    또 재현한다. 엔티티를 쓰는 공용 메서드로 내려 한 곳에서만 틀리게 한다.
+//    1공장 포장(PK+CK 결합)도 "지정 로트 소비" 라서 그대로 재사용된다.
+// =====================================================================
+
+    /**
+     * 패치 5 — 지정 로트 직접 소비.
+     *
+     * consumeBomList 는 자재 id 로 FIFO 를 돈다. 하지만 수리의 '원 M-CELL 로트 투입'처럼
+     * 소비 대상이 특정 로트 1건으로 이미 확정된 경우가 있다. 그때 이 메서드를 쓴다.
+     *
+     * ★ resolveSourceStore 를 타지 않는다. 창고는 로트 행이 들고 있는 값을 그대로 쓴다.
+     *   (수리 대상은 InspectYN='Y' 라 resolveSourceStore 가 19 로 오판한다. 그 함정 회피)
+     *
+     * mat_lot_cons 의 SourceTableName/SourceDataPk 를 'mat_produce'/mpId 로 남기므로,
+     * 롤백은 기존 rollbackProduce 와 똑같은 한 줄(DELETE ... SourceDataPk=:mpId)로 정리된다.
+     *
+     * @param mpId      startProduction 이 만든 mat_produce id (아직 finishProduction 전)
+     * @param matLotId  소비할 mat_lot.id
+     * @param qty       소비 수량
+     */
+    @Transactional
+    public AjaxResult consumeLot(Integer mpId, Integer matLotId, float qty,
+                                 User user, String spjangcd) {
+        AjaxResult r = new AjaxResult();
+        r.success = true;
+
+        if (matLotId == null || qty <= 0) {
+            r.success = false; r.message = "소비할 로트/수량이 없습니다."; return r;
+        }
+
+        MaterialProduce mp = this.matProduceRepository.getMatProduceById(mpId);
+        if (mp == null) { r.success = false; r.message = "생산 차수를 찾을 수 없습니다."; return r; }
+        JobRes jr = this.jobResRepository.getJobResById(mp.getJobResponseId());
+
+        MapSqlParameterSource p = new MapSqlParameterSource().addValue("id", matLotId);
+        Map<String, Object> lot = this.sqlRunner.getRow("""
+            SELECT ml.id, ml."Material_id" AS mat_id, ml."StoreHouse_id" AS store,
+                   ml."LotNumber" AS lot_no, COALESCE(ml."CurrentStock",0) AS cs
+              FROM mat_lot ml WHERE ml.id = :id
+            """, p);
+        if (lot == null) { r.success = false; r.message = "로트를 찾을 수 없습니다. (mat_lot " + matLotId + ")"; return r; }
+
+        float cs = toF(lot.get("cs"));
+        if (cs < qty) {
+            r.success = false;
+            r.message = "로트 재고 부족: " + lot.get("lot_no") + " (보유 " + fmtQty(cs) + " / 필요 " + fmtQty(qty) + ")";
+            return r;
+        }
+
+        Integer matId = ((Number) lot.get("mat_id")).intValue();
+        Integer store = ((Number) lot.get("store")).intValue();
+        Timestamp now = DateUtil.getNowTimeStamp();
+        LocalDate today = LocalDate.now();
+        LocalTime nowT = LocalTime.now();
+
+        // 1) mat_lot_cons — 트리거가 mat_lot.CurrentStock 을 깎는다
+        MatLotCons mlc = new MatLotCons();
+        mlc.setMaterialLotId(matLotId);
+        mlc.setOutputDateTime(now);
+        mlc.setSourceDataPk(mp.getId());
+        mlc.setSourceTableName("mat_produce");
+        mlc.setCurrentStock(cs);
+        mlc.setOutputQty(qty);
+        mlc.set_audit(user);
+        mlc.setSpjangcd(spjangcd);
+        this.matLotConsRepository.save(mlc);
+
+        // 2) mat_consu — 투입 실적
+        MaterialConsume mc = new MaterialConsume();
+        mc.setJobResponseId(jr.getId());
+        mc.setMaterialId(matId);
+        mc.setProcessOrder(mp.getProcessOrder());
+        mc.setLotIndex(mp.getLotIndex());
+        mc.setStartTime(now);
+        mc.setEndTime(now);
+        mc.setDescription("지정로트 투입 " + lot.get("lot_no"));
+        mc.setBomQty(qty);
+        mc.setConsumedQty(qty);
+        mc.setState("finished");
+        mc.set_status("a");
+        mc.setStoreHouseId(store);
+        mc.set_audit(user);
+        mc.setSpjangcd(spjangcd);
+        mc = this.matConsuRepository.save(mc);
+
+        // 3) mat_inout out  ★ out 은 OutputQty (§5)
+        MaterialInout mio = new MaterialInout();
+        mio.setMaterialId(matId);
+        mio.setStoreHouseId(store);
+        mio.setLotNumber((String) lot.get("lot_no"));
+        mio.setInoutDate(today);
+        mio.setInoutTime(nowT);
+        mio.setInOut("out");
+        mio.setOutputType("consumed_out");
+        mio.setOutputQty(qty);
+        mio.setSourceDataPk(mc.getId());
+        mio.setSourceTableName("mat_consu");
+        mio.setState("confirmed");
+        mio.set_status("a");
+        mio.setDescription("지정로트 투입 차감");
+        mio.set_audit(user);
+        mio.setSpjangcd(spjangcd);
+        this.matInoutRepository.save(mio);
+
+        r.data = Map.of("mat_lot_id", matLotId, "lot_number", String.valueOf(lot.get("lot_no")),
+                "material_id", matId, "qty", qty);
+        return r;
+    }
+
+
+    /**
+     * 패치 6 — 생산이 아닌 입고(로트 신규 생성).
+     *
+     * 쓰는 곳
+     *   · 수리 접수 : 이미 출하되어 재고가 0 인 반품품을 수리창고로 되받는다
+     *   · 수리 완료 : 뜯어낸 부품(−회수)을 생산창고(17)로 되돌린다
+     *
+     * mat_produce 를 만들지 않는다 = 생산 수량에 잡히지 않는다.
+     * SourceTableName/SourceDataPk 를 호출자가 지정하므로 롤백 시 정확히 되짚을 수 있다.
+     *
+     * @return data.mat_lot_id
+     */
+    @Transactional
+    public AjaxResult receiveLot(Integer matId, String lotNumber, String makerLotNo, float qty,
+                                 Integer storeId, String srcTable, Integer srcPk,
+                                 String memo, User user, String spjangcd) {
+        AjaxResult r = new AjaxResult();
+        r.success = true;
+
+        if (matId == null || qty <= 0 || storeId == null) {
+            r.success = false; r.message = "입고 품목/수량/창고가 없습니다."; return r;
+        }
+        Material m = this.materialRepository.getMaterialById(matId);
+        if (m == null) { r.success = false; r.message = "품목을 찾을 수 없습니다. (" + matId + ")"; return r; }
+
+        Timestamp now = DateUtil.getNowTimeStamp();
+        LocalDate today = LocalDate.now();
+        LocalTime nowT = LocalTime.now();
+
+        MaterialLot ml = new MaterialLot();
+        ml.setLotNumber(lotNumber);
+        ml.setMaterialId(matId);
+        ml.setInputDateTime(now);
+        ml.setInputQty(qty);
+        ml.setCurrentStock(qty);
+        ml.setDescription(memo);
+        ml.setSourceDataPk(srcPk);
+        ml.setSourceTableName(srcTable);
+        ml.setStoreHouseId(storeId);
+        ml.set_audit(user);
+        ml.setSpjangcd(spjangcd);
+        ml = this.matLotRepository.save(ml);
+
+        // MakerLotNo 는 엔티티에 없을 수 있어 별도 UPDATE (db_setup_repair.sql 에서 추가한 컬럼)
+        if (makerLotNo != null && !makerLotNo.isBlank()) {
+            this.sqlRunner.execute("UPDATE mat_lot SET \"MakerLotNo\"=:mk WHERE id=:id",
+                    new MapSqlParameterSource().addValue("mk", makerLotNo).addValue("id", ml.getId()));
+        }
+
+        // ★ in 은 InputQty (§5)
+        MaterialInout mio = new MaterialInout();
+        mio.setMaterialId(matId);
+        mio.setStoreHouseId(storeId);
+        mio.setLotNumber(lotNumber);
+        mio.setInoutDate(today);
+        mio.setInoutTime(nowT);
+        mio.setInOut("in");
+        mio.setInputQty(qty);
+        mio.setInputType("etc_in");
+        mio.setSourceDataPk(ml.getId());
+        mio.setSourceTableName("mat_lot");
+        mio.setState("confirmed");
+        mio.set_status("a");
+        mio.setDescription(memo);
+        mio.set_audit(user);
+        mio.setSpjangcd(spjangcd);
+        this.matInoutRepository.save(mio);
+
+        r.data = Map.of("mat_lot_id", ml.getId(), "lot_number", String.valueOf(lotNumber));
+        return r;
+    }
+
+    /**
+     * 패치 7 — 이미 만들어진 차수에 자재를 더 소비한다.
+     *
+     * 왜 필요한가
+     *   수리가 검사에서 걸리면 자재를 더 넣어 계속 손본다. 실물은 갈라지지 않으므로
+     *   새 차수를 만들거나 기존 차수를 되돌리는 게 아니라, 그 차수에 소비를 더 얹는 게 맞다.
+     *   finishProduction 은 산출 입고까지 함께 하므로 재사용할 수 없고,
+     *   consumeBomList 는 private 이라 밖에서 못 부른다. 그 사이를 여는 얇은 창구.
+     *
+     * 1공장 포장에서 자재를 나중에 보강할 때도 그대로 쓸 수 있다.
+     */
+    @Transactional
+    public AjaxResult consumeAdditional(Integer mpId, List<BomInput> bomList,
+                                        Integer cleanStore, User user, String spjangcd) {
+        AjaxResult r = new AjaxResult();
+        r.success = true;
+        if (bomList == null || bomList.isEmpty()) return r;
+
+        MaterialProduce mp = this.matProduceRepository.getMatProduceById(mpId);
+        if (mp == null) {
+            r.success = false;
+            r.message = "생산 차수를 찾을 수 없습니다.";
+            return r;
+        }
+        JobRes jr = this.jobResRepository.getJobResById(mp.getJobResponseId());
+
+        return consumeBomList(mp, jr, bomList, cleanStore, user, spjangcd);
     }
 }

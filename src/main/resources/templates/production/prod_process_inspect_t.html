@@ -13,6 +13,110 @@
         .screen{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden}.screen.hide{display:none}
 
         .wrap{padding:22px 20px 28px;max-width:1180px;margin:0 auto;width:100%;overflow:auto;-webkit-overflow-scrolling:touch;flex:1 1 auto;min-height:0}
+        /* 양식 관리 모달 */
+        .gearbtn{margin-left:10px;height:44px;padding:0 16px;border-radius:999px;border:1px solid var(--line);
+            background:var(--surface);color:var(--ink-2);font-weight:800;font-size:15px;cursor:pointer;
+            display:inline-flex;align-items:center;gap:7px;flex:0 0 auto}
+        .gearbtn:active{background:var(--surface-2)}
+        .gearbtn span{white-space:nowrap}
+        @media (max-width:720px){.gearbtn span{display:none}.gearbtn{padding:0 14px}}
+        .fullmask{position:fixed;inset:0;background:rgba(21,34,43,.5);display:none;z-index:80;align-items:center;justify-content:center;padding:40px 24px}
+        .fullmask.show{display:flex}
+        .fbox{background:var(--surface);border-radius:20px;width:min(1180px,100%);max-height:calc(100vh - 80px);display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 60px -18px rgba(0,0,0,.5)}
+        .fbox .fhd{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+        .fbox .fhd h3{margin:0;font-size:20px;font-weight:800;flex:0 0 auto}
+        .fbox .fhd .sub{font-size:13px;color:var(--ink-2);font-weight:700;flex:1;min-width:180px}
+        .fbox .fbody{display:flex;min-height:0;flex:1}
+        .fbox .fleft{width:280px;flex:0 0 auto;border-right:1px solid var(--line);overflow:auto;padding:12px}
+        .fbox .fright{flex:1;min-width:0;overflow:auto;padding:16px 20px}
+        .frow{display:flex;align-items:center;gap:8px;padding:11px 12px;border:1px solid var(--line);border-radius:12px;margin-bottom:8px;cursor:pointer;background:var(--surface)}
+        .frow.on{border-color:var(--teal);background:var(--teal-bg)}
+        .frow .fn{font-weight:800;font-size:15px}
+        .frow{align-items:flex-start}
+        .frow .fc{font-size:12px;color:var(--ink-2);font-weight:700;margin-top:3px;line-height:1.45;word-break:break-all}
+        .frow .fmats{font-size:11.5px;color:var(--teal-d);font-weight:800;margin-top:3px;line-height:1.5;word-break:break-all}
+        .frow .fmats.none{color:var(--amber)}
+        .frow .fuse{font-size:11.5px;font-weight:800;padding:3px 8px;border-radius:999px;background:var(--surface-2);color:var(--ink-2);flex:0 0 auto}
+        .frow .fuse.on{background:var(--green-bg);color:var(--green)}
+        /* 기본정보 줄 — 체크박스는 stretch 대상에서 제외(겹침 방지) */
+        .frowline{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+        .frowline.top{align-items:flex-start}
+        .frowline>label{width:88px;flex:0 0 auto;font-size:13.5px;font-weight:800;color:var(--ink-2)}
+        .frowline>input,.frowline>select{height:44px;border:1px solid var(--line);border-radius:10px;padding:0 12px;
+            font-size:15px;font-weight:700;background:var(--surface-2);flex:1;min-width:120px}
+        .matbox{flex:1;min-width:200px;display:flex;flex-wrap:wrap;gap:10px}
+        .fchk{display:inline-flex;align-items:center;gap:7px;font-size:14px;font-weight:700;cursor:pointer;
+            border:1px solid var(--line);border-radius:10px;padding:9px 12px;background:var(--surface-2);white-space:nowrap}
+        .fchk input[type=checkbox]{width:18px;height:18px;flex:0 0 auto;margin:0;accent-color:#0E7C86}
+        /* 이력 삭제 — 드물게 쓰는 파괴적 동작이라 판정 태그보다 조용하게 */
+        .rwbadge{padding:4px 9px;border-radius:999px;background:var(--amber-bg);color:var(--amber);
+            font-size:11.5px;font-weight:800;flex:0 0 auto}
+        /* 수리(mc04)에서 넘어온 유닛 — 조립 유닛과 섞여 보이므로 출처를 표시한다 */
+        .rpbadge{padding:4px 9px;border-radius:999px;background:#EDE6FB;color:#6D3BD1;
+            font-size:11.5px;font-weight:800;flex:0 0 auto}
+        .failwhy{display:block;font-size:12.5px;font-weight:700;color:var(--red);margin-top:3px;line-height:1.45}
+        .histdel{height:34px;padding:0 12px;margin-left:10px;border-radius:9px;
+            border:1px solid var(--line);background:transparent;color:var(--ink-2);
+            font-weight:800;font-size:13px;cursor:pointer;flex:0 0 auto}
+        .histdel:hover{border-color:var(--red);background:var(--red-bg);color:var(--red)}
+        /* 이력 상세 — 뒤로가기는 위 */
+        .histback{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+        .histback button{height:40px;padding:0 16px;border-radius:12px;border:1px solid var(--line);
+            background:var(--surface);color:var(--ink-2);font-weight:800;font-size:14px;cursor:pointer}
+        .histback button:hover{background:var(--surface-2)}
+        .fhead{display:flex;align-items:center;gap:10px;margin:18px 0 10px;font-weight:800;font-size:14px;color:var(--ink-2)}
+        .fhead .ln{flex:1;height:1px;background:var(--line)}
+        .fbtn{height:36px;padding:0 14px;border-radius:10px;border:1px solid var(--line);background:var(--surface-2);
+            font-weight:800;font-size:13px;cursor:pointer;flex:0 0 auto}
+        .fbtn.sm{height:32px;width:32px;padding:0;font-size:12px}
+        .fbtn.del{color:var(--red);background:var(--red-bg);border-color:transparent}
+        /* 항목 = 카드 (긴 문장이 잘리지 않게 전폭 입력) */
+        .fcard{border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:10px;background:var(--surface)}
+        .fcard .ftop{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+        .fcard .fno{width:30px;height:30px;border-radius:9px;background:var(--teal-bg);color:var(--teal-d);
+            font-weight:800;display:grid;place-items:center;font-size:14px;flex:0 0 auto}
+        .fcard .ftop input{flex:1;min-width:0;height:44px;border:1px solid var(--line);border-radius:10px;
+            padding:0 12px;font-size:16px;font-weight:800;background:#fff}
+        .fcard .fsub{display:flex;gap:8px;align-items:flex-start;margin-bottom:10px}
+        .fcard .fsub>label{width:66px;flex:0 0 auto;font-size:12.5px;font-weight:800;color:var(--ink-2);padding-top:11px}
+        .fcard textarea{flex:1;min-width:0;height:44px;min-height:44px;max-height:150px;
+            border:1px solid var(--line);border-radius:10px;
+            padding:10px 12px;font-size:14.5px;font-weight:700;background:#fff;resize:vertical;
+            font-family:inherit;line-height:1.4;overflow:hidden}
+        /* 도움말 */
+        .hlp{display:inline-grid;place-items:center;width:17px;height:17px;border-radius:50%;
+            background:var(--line);color:var(--surface);font-size:11px;font-weight:800;
+            margin-left:5px;cursor:help;vertical-align:middle;flex:0 0 auto;user-select:none}
+        .hlp:hover{background:var(--teal)}
+        #hlpTip{position:fixed;z-index:200;max-width:340px;background:#15222B;color:#fff;
+            padding:11px 14px;border-radius:12px;font-size:13px;font-weight:600;line-height:1.55;
+            white-space:pre-line;box-shadow:0 12px 30px -10px rgba(0,0,0,.5);pointer-events:none;display:none}
+        #hlpTip b{display:block;font-size:13.5px;font-weight:800;margin-bottom:4px;color:#7FD3D9}
+        /* PC용 액션 바 */
+        .factions{display:flex;align-items:center;gap:10px;padding:14px 20px;border-top:1px solid var(--line);
+            background:var(--surface-2)}
+        .pcbtn{height:40px;padding:0 22px;border-radius:10px;border:1px solid var(--line);background:var(--surface);
+            font-weight:800;font-size:14px;cursor:pointer;flex:0 0 auto}
+        .pcbtn:hover{background:var(--surface-2)}
+        .pcbtn.primary{background:var(--teal);border-color:var(--teal);color:#fff}
+        .pcbtn.primary:hover{background:var(--teal-d)}
+        .pcbtn.danger{background:var(--surface);border-color:var(--red-bg);color:var(--red)}
+        .pcbtn.danger:hover{background:var(--red-bg)}
+        .fopts{display:flex;flex-wrap:wrap;gap:10px}
+        .fopt{display:flex;align-items:center;gap:6px}
+        .fopt>label{font-size:12.5px;font-weight:800;color:var(--ink-2)}
+        .fopt input,.fopt select{height:40px;border:1px solid var(--line);border-radius:9px;padding:0 10px;
+            font-size:14px;font-weight:700;background:#fff}
+        .fopt input:disabled{background:var(--surface-2);color:#aaa}
+        @media (max-width:900px){
+            .fullmask{padding:0}
+            .fbox{border-radius:0;max-height:100vh;height:100vh;width:100%}
+            .fbox .fbody{flex-direction:column}
+            .fbox .fleft{width:100%;max-height:180px;border-right:none;border-bottom:1px solid var(--line)}
+            .fullmask{padding:0}
+            .fcard .fsub{flex-direction:column;gap:4px}
+            .fcard .fsub>label{width:auto;padding-top:0}
+        }
         .qhead{display:flex;align-items:baseline;gap:12px;margin:2px 2px 18px}
         .qhead h1{font-size:26px;font-weight:800;letter-spacing:-.03em;margin:0}
         .qhead .cnt{color:var(--ink-2);font-weight:700}
@@ -137,10 +241,11 @@
         <div class="app">
             <!-- A. 검사 작업지시(수주) -->
             <div class="screen" id="scA"><div class="wrap">
-                <div class="qhead"><h1>M-CELL 검사 · 작업지시</h1><span class="cnt" id="qcnt"></span>
+                <div class="qhead"><h1>M-CELL 검사 · 생산계획</h1><span class="cnt" id="qcnt"></span>
                     <div class="qfilter"><button class="on" data-f="all">전체</button>
-                        <button data-f="wait">대기</button><button data-f="working">검사중</button></div></div>
-                <div class="searchbar"><span class="slab">작업지시일</span>
+                        <button data-f="wait">대기</button><button data-f="working">검사중</button></div>
+                    <button class="gearbtn" id="btnForms" title="검사 양식 설정">⚙<span>양식 설정</span></button></div>
+                <div class="searchbar"><span class="slab">계획일</span>
                     <input type="date" id="dFrom" class="dinput"/><span class="tilde">~</span><input type="date" id="dTo" class="dinput"/>
                     <button class="sbtn" id="btnSearch">조회</button></div>
                 <div class="qgrid" id="qgrid"></div>
@@ -192,6 +297,21 @@
                 <button class="clr" data-k="C">C</button><button data-k="0">0</button><button data-k="dot">.</button>
                 <button data-k="unit">mm</button><button data-k="bs">←</button><button class="ok" data-k="OK">확인</button></div>
         </div></div></div>
+
+        <!-- 검사 양식 관리 (PC 접속 시) -->
+        <div class="fullmask" id="formMask"><div class="fbox">
+            <div class="fhd"><h3>검사 양식</h3>
+                <span class="sub">항목별로 판정방식(합/불 · 수치)과 반복횟수를 정합니다. 적용 품목을 체크해야 검사 화면에 탭으로 나타납니다.</span>
+                <span style="flex:1"></span>
+                <button class="fbtn" id="fNew">＋ 새 양식</button>
+                <button class="fbtn" data-close>닫기</button>
+            </div>
+            <div class="fbody">
+                <div class="fleft" id="fList"></div>
+                <div class="fright" id="fEdit"></div>
+            </div>
+            <div class="factions" id="fActions"></div>
+        </div></div>
     </div>
     </div>
 </th:block>
@@ -208,436 +328,954 @@
             fit(); requestAnimationFrame(fit); setTimeout(fit, 200); setTimeout(fit, 600); if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
         })();
 
-        /* ── 기준 데이터 ── */
-        const WORKERS = ['정우철', '김민수', '이서연', '박지훈', '한재범'];
-        const UST = {wait: '검사대기', inspecting: '검사중', pass: '합격', reject: '조립복귀'};
+        /* =====================================================================
+           M-CELL 검사 (2공장 · mc02) — /api/production/inspect/*
+             A 검사대상 작지 → B 유닛(1대=1로트) → C 양식 탭별 검사
+           상단 «양식» = 검사 양식 관리(PC 접속 시 사용). 별도 기준정보 화면 없음.
 
-        const INSP = {
-            'ROTOR': {key: 'ROTOR', name: '#50 ROTOR', type: 'checklist', items: [
-                    {no: 1, item: '전원 ON/OFF (3회)', criteria: 'ON·OFF / 전원 LED·스위치 문제 없을 것', method: '육안'},
-                    {no: 2, item: '외관 및 손잡이 고정', criteria: '파손·이물질·얼룩 없을 것 / 손잡이 헛돎 없이 고정', method: '육안'},
-                    {no: 3, item: '배터리 충전', criteria: '충전 LED 점등·점멸 및 100% 충전', method: '육안'},
-                    {no: 4, item: '블루투스', criteria: '연결 멘트 및 모니터에 ROTOR 배터리 잔량 표시', method: '육안'},
-                    {no: 5, item: 'BASKET', criteria: '움직임 부드럽고 소음 없을 것 / 챔버·모터 쏠림 없을 것', method: '육안'},
-                    {no: 6, item: 'ROTOR 진동 밸런스', criteria: 'ROTOR 진동 및 소음 없을 것', method: '육안 / EAR'}
-                ]},
-            'BASKET-50': {key: 'BASKET-50', name: '#60 BASKET TEST 50회', type: 'repeat', count: 50, item: 'BASKET LOCK ON/OFF',
-                criteria: [{label: 'BSC 30 - 30 추', tool: '30ml 추'}, {label: 'BSC 60 - 60 추', tool: '60ml 추'}, {label: 'BMSC - 60 추', tool: '60ml 추'}]}
-        };
-        const TABS = ['ROTOR', 'BASKET-50'];
-        const TABKEY = {'ROTOR': 'rotor', 'BASKET-50': 'basket'};
-        const TABNM = {'ROTOR': 'ROTOR', 'BASKET-50': 'BASKET'};
+           양식 모델
+             · 유형 없음. 판정방식은 항목별 (ox=합/불, num=수치)
+             · 반복은 항목의 repeat_count 숫자 하나
+               - repeat_count <= 5  : 회차를 한 번에 펼쳐 표시 (ROTOR 전원 3회)
+               - repeat_count >  5  : 진행형 기록 UI (BASKET 50회)
+           ===================================================================== */
+        const BASE = '/api/production/inspect';
+        const CTX = Object.assign({spjangcd: 'ZZ', dayRange: 30}, window.INSP_CTX || {});
+        const REPEAT_INLINE_MAX = 5;
+
+        function clean(o) { const p = {}; Object.keys(o || {}).forEach(k => { if (o[k] !== null && o[k] !== undefined && o[k] !== '') p[k] = o[k]; }); return p; }
+        function apiGet(path, params) {
+            if (typeof AjaxUtil === 'undefined' || !AjaxUtil.getSyncData) throw new Error('AjaxUtil 미로드 — 공용 스크립트 로드 순서를 확인하세요');
+            const r = AjaxUtil.getSyncData(BASE + path, clean(params)) || {};
+            if (r.success === false) throw new Error(r.message || '조회에 실패했습니다');
+            return r.data;
+        }
+        function apiPost(path, params) {
+            return new Promise(function (resolve, reject) {
+                if (typeof AjaxUtil === 'undefined' || !AjaxUtil.postAsyncData) { reject(new Error('AjaxUtil 미로드')); return; }
+                AjaxUtil.postAsyncData(BASE + path, clean(params), function (r) {
+                    r = r || {};
+                    if (r.success === false) { reject(new Error(r.message || '처리에 실패했습니다')); return; }
+                    resolve(r);
+                });
+            });
+        }
+        function combo(t, c1) {
+            if (typeof AjaxUtil === 'undefined' || !AjaxUtil.getSyncData) return [];
+            const r = AjaxUtil.getSyncData('/api/common/combo', {combo_type: t, cond1: c1 || '', cond2: '', cond3: ''}) || {};
+            return (r.data || []).map(x => ({value: x.value, text: x.text}));
+        }
+        async function guard(fn) {
+            try { document.body.style.cursor = 'progress'; return await fn(); }
+            catch (e) { flash(e.message || String(e)); console.error('[inspect]', e); }
+            finally { document.body.style.cursor = ''; }
+        }
+
+        /* ── 기준 데이터 ── */
+        const UST = {inspect_wait: '검사대기', inspecting: '검사중', pass: '합격', reject: '조립복귀', packed: '포장완료'};
+        let WORKERS = [];
 
         function todayStr() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
-        function nowFull() { const d = new Date(); return todayStr() + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
+        function shiftDay(b, n) { const d = new Date(b + 'T00:00:00'); d.setDate(d.getDate() + n); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+        function esc(s) { return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c])); }
+        function num(v) { const n = parseFloat(v); return isNaN(n) ? 0 : n; }
 
-        function mkUnit(no, lot, from) { return {no: no, lot: lot, from: from || '조립완료', rotor: null, basket: null}; }
-        function initChk(u, tab) {
-            var k = TABKEY[tab];
-            if (u[k]) return u[k];
-            if (tab === 'BASKET-50') { var c0 = INSP['BASKET-50'].criteria[0]; u[k] = {cycles: [], cur: {result: null, val: '', reason: c0.label, tool: c0.tool}, verdict: null, by: null, at: null, history: []}; }
-            else { u[k] = {res: {}, val: {}, verdict: null, by: null, at: null, history: []}; }
-            return u[k];
-        }
-        function chkStarted(c) { if (!c) return false; if (c.verdict) return true; if (c.res && Object.keys(c.res).length) return true; if (c.cycles && c.cycles.length) return true; return false; }
-        function distinct(a) { var o = [], s = {}; a.forEach(function (x) { if (x && !s[x]) { s[x] = 1; o.push(x); } }); return o; }
-        function checkInspectors(c, tab) {
-            if (tab === 'BASKET-50' && c.cycles && c.cycles.length) { var b = distinct(c.cycles.map(function (cy) { return cy.by || c.by; })); if (b.length) return b; }
-            return c.by ? [c.by] : [];
-        }
-        function fullRotorRes(v) { var r = {}; rotorAllKeys(INSP.ROTOR).forEach(function (k) { r[k] = v; }); return r; }
-        // 읽기전용 상세
-        function roRotor(snap) {
-            var res = snap.res || {}, val = snap.val || {};
-            return INSP.ROTOR.items.map(function (it) {
-                return rotorItemKeys(it.no).map(function (key, ki) {
-                    var r = res[key], v = val[key] || '';
-                    var pn = rotorItemKeys(it.no).length > 1 ? (it.no + '. ' + it.item.replace(/\s*\(3회\)/, '') + ' — 측정 ' + (ki + 1) + '회') : (it.no + '. ' + it.item);
-                    return '<div class="part"><div class="id"><span class="pn">' + pn + '</span></div>' +
-                        (v ? '<span class="valchip">' + v + '</span>' : '') +
-                        '<span class="vtag ' + (r === 'pass' ? 'pass' : 'fail') + '">' + (r === 'pass' ? '합격' : r === 'fail' ? '불합격' : '-') + '</span></div>';
-                }).join('');
-            }).join('');
-        }
-        function roBasket(snap) {
-            var cy = snap.cycles || [];
-            var failN = cy.filter(function (c) { return c.result === 'fail'; }).length;
-            var html = '<div class="auto-box"><div style="flex:1"><div style="font-size:13px;color:var(--ink-2);font-weight:700">BASKET LOCK ON/OFF · 기록 ' + cy.length + '회' + (failN ? ' · 불 ' + failN : '') + '</div></div></div>';
-            html += cy.map(function (c) {
-                return '<div class="part"><div class="id"><span class="pn">' + c.n + '회차 · ' + (c.result === 'pass' ? '합' : '불') + '</span>' +
-                    '<span class="pc">' + c.reason + (c.tool ? ' · ' + c.tool : '') + (c.val ? ' · 측정 ' + c.val : '') + (c.by ? ' · 검사자 ' + c.by : '') + '</span></div>' +
-                    '<span class="vtag ' + (c.result === 'pass' ? 'pass' : 'fail') + '">' + (c.result === 'pass' ? '합격' : '불합격') + '</span></div>';
-            }).join('');
-            return html;
-        }
-        function unitState(u) {
-            var rv = u.rotor && u.rotor.verdict, bv = u.basket && u.basket.verdict;
-            if (rv && bv) return (rv === 'pass' && bv === 'pass') ? 'pass' : 'reject';
-            if (chkStarted(u.rotor) || chkStarted(u.basket)) return 'inspecting';
-            return 'wait';
-        }
+        /* ── 상태 ── */
+        let ORDERS = [], curO = null, UNITS = [], curU = null;
+        let FORMS = [], curForm = null, DET = null, ITEMS = {}, histView = null, histItems = null;
+        let filter = 'all';
 
-        const ORDERS = [
-            {id: 'MC-2407-011', odate: '2026-07-08', model: '국내', pcode: 'MRCN-21022', pname: 'SMART-M-CELL2N (국내)', qty: 10, units: []},
-            {id: 'MC-2407-012', odate: '2026-07-09', model: '해외', pcode: 'MRCN-21023', pname: 'SMART-M-CELL2 (해외)', qty: 3, units: []}
-        ];
-        (function seed() {
-            var o = ORDERS[0];
-            for (var i = 1; i <= o.qty; i++) o.units.push(mkUnit(i, 'MCN-260709-' + String(i).padStart(3, '0')));
-            o.units[0].rotor = {res: fullRotorRes('pass'), val: {}, verdict: 'pass', by: '이서연', at: '2026-07-09 09:20', history: [{n: 1, result: 'pass', by: '이서연', at: '2026-07-09 09:20', snap: {type: 'checklist', res: fullRotorRes('pass'), val: {}}}]};
-            o.units[0].basket = {cycles: [], cur: null, verdict: 'pass', by: '박지훈', at: '2026-07-09 10:05', history: [{n: 1, result: 'pass', by: '박지훈', at: '2026-07-09 10:05', snap: {type: 'repeat', cycles: [{n: 1, result: 'pass', reason: 'BSC 30 - 30 추', tool: '30ml 추', val: 'OK', by: '박지훈'}]}}]};
-            o.units[1].rotor = {res: fullRotorRes('pass'), val: {}, verdict: 'pass', by: '이서연', at: '2026-07-09 09:40', history: [{n: 1, result: 'pass', by: '이서연', at: '2026-07-09 09:40', snap: {type: 'checklist', res: fullRotorRes('pass'), val: {}}}]};
-            o.units[2].rotor = {res: fullRotorRes('pass'), val: {}, verdict: 'pass', by: '김민수', at: '2026-07-09 09:50', history: [{n: 1, result: 'pass', by: '김민수', at: '2026-07-09 09:50', snap: {type: 'checklist', res: fullRotorRes('pass'), val: {}}}]};
-            var f3res = fullRotorRes('pass'); f3res['6'] = 'fail';
-            o.units[2].basket = {cycles: [], cur: null, verdict: 'fail', by: '박지훈', at: '2026-07-09 10:30', history: [{n: 1, result: 'fail', by: '박지훈', at: '2026-07-09 10:30', snap: {type: 'repeat', cycles: [{n: 1, result: 'pass', reason: 'BSC 30 - 30 추', tool: '30ml 추', val: 'OK', by: '박지훈'}, {n: 2, result: 'fail', reason: 'BSC 30 - 30 추', tool: '30ml 추', val: '걸림', by: '박지훈'}]}}]};
-            // 5호기: BASKET 진행 중 · 회차별 검사자 교체(1~7 정우철, 8~ 박지훈)
-            var bk = {cycles: [], cur: null, verdict: null, by: '박지훈', at: null, history: []};
-            for (var ci = 1; ci <= 9; ci++) { var who = ci <= 7 ? '정우철' : '박지훈'; var rg = ci <= 5 ? {r: 'BSC 30 - 30 추', tl: '30ml 추'} : {r: 'BMSC - 60 추', tl: '60ml 추'}; bk.cycles.push({n: ci, result: 'pass', reason: rg.r, tool: rg.tl, val: 'OK', by: who}); }
-            bk.cur = {result: null, val: '', reason: 'BMSC - 60 추', tool: '60ml 추'};
-            o.units[4].basket = bk;
-            o.units[3].from = '재검사(재조립)';
-            var e = ORDERS[1];
-            for (var j = 1; j <= e.qty; j++) e.units.push(mkUnit(j, 'MCX-260709-' + String(j).padStart(3, '0')));
+        /* ══════════ A. 검사대상 작지 ══════════ */
+        function renderQueue() {
+            return guard(async () => {
+                ORDERS = apiGet('/wo_queue', {
+                    date_from: document.getElementById('dFrom').value,
+                    date_to: document.getElementById('dTo').value,
+                    spjangcd: CTX.spjangcd
+                }) || [];
+                drawQueue();
+            });
+        }
+        function drawQueue() {
+            const list = ORDERS.filter(o => filter === 'all' || o.state === filter);
+            document.getElementById('qcnt').textContent = list.length + '건';
+            document.getElementById('qgrid').innerHTML = list.map(o => {
+                const stlab = o.state === 'done' ? '완료' : o.state === 'working' ? '검사중' : '대기';
+                const rptag = num(o.repair_cnt) > 0 ? '<span class="rpbadge">수리 ' + num(o.repair_cnt) + '</span>' : '';
+                return '<div class="wo" data-st="' + o.state + '" data-id="' + o.job_res_id + '"><div class="edge"></div>' +
+                    '<div class="row1"><span class="wono">' + esc(o.order_num || ('WO-' + o.job_res_id)) + '</span>' +
+                    '<span class="modeltag dom">' + esc(o.mat_code) + '</span>' + rptag +
+                    '<span class="chip ' + o.state + '">' + stlab + '</span></div>' +
+                    '<div class="name">' + esc(o.mat_name) + '</div>' +
+                    '<div class="code">' + esc(o.plan_date || '') +
+                    (num(o.pending_cnt) > 0 ? ' · 아직 안 넘어온 ' + num(o.pending_cnt) + '대' : '') + '</div>' +
+                    '<div class="meta"><div class="blk"><span class="lab">검사도착</span><span class="val">' + num(o.unit_cnt) + '대</span></div>' +
+                    '<div class="blk"><span class="lab">검사대기</span><span class="val a">' + num(o.wait_cnt) + '</span></div>' +
+                    '<div class="blk"><span class="lab">합격</span><span class="val g">' + num(o.pass_cnt) + '</span></div>' +
+                    '<div class="blk"><span class="lab">복귀</span><span class="val r">' + num(o.reject_cnt) + '</span></div></div></div>';
+            }).join('') || '<div style="grid-column:1/-1;text-align:center;color:var(--ink-2);font-weight:700;padding:40px">검사 대상이 없습니다. 조립을 먼저 완료하세요.</div>';
+        }
+        document.getElementById('qgrid').addEventListener('click', e => { const c = e.target.closest('.wo'); if (c) openOrder(+c.dataset.id); });
+        document.querySelectorAll('.qfilter button').forEach(b => b.addEventListener('click', () => {
+            document.querySelectorAll('.qfilter button').forEach(x => x.classList.remove('on'));
+            b.classList.add('on'); filter = b.dataset.f; drawQueue();
+        }));
+        document.getElementById('btnSearch').addEventListener('click', renderQueue);
+        (function initDates() {
+            const t = todayStr();
+            document.getElementById('dFrom').value = shiftDay(t, -CTX.dayRange);
+            document.getElementById('dTo').value = t;
         })();
 
-        function oCount(o) { var w = 0, p = 0, r = 0, ing = 0; o.units.forEach(function (u) { var s = unitState(u); if (s === 'wait') w++; else if (s === 'pass') p++; else if (s === 'reject') r++; else ing++; }); return {wait: w, pass: p, rej: r, ing: ing}; }
-        function orderSt(o) { var c = oCount(o); if (c.pass + c.rej >= o.qty) return 'done'; if (c.ing || c.pass || c.rej) return 'working'; return 'wait'; }
-
-        let curO = null, curU = null, curTab = 'ROTOR', curChk = null, histView = null;
-
-        /* A. 큐 */
-        const qgrid = document.getElementById('qgrid');
-        let filter = 'all';
-        function inRange(o) { var f = document.getElementById('dFrom').value, t = document.getElementById('dTo').value; if (f && o.odate < f) return false; if (t && o.odate > t) return false; return true; }
-        function renderQueue() {
-            var list = ORDERS.filter(function (o) { return (filter === 'all' || orderSt(o) === filter) && inRange(o); });
-            document.getElementById('qcnt').textContent = list.length + '건';
-            qgrid.innerHTML = list.map(function (o) {
-                var st = orderSt(o), c = oCount(o), mtag = o.model === '해외' ? '<span class="modeltag exp">해외</span>' : '<span class="modeltag dom">국내</span>';
-                var stlab = st === 'done' ? '완료' : st === 'working' ? '검사중' : '대기';
-                return '<div class="wo" data-st="' + st + '" data-id="' + o.id + '"><div class="edge"></div>' +
-                    '<div class="row1"><span class="wono">' + o.id + '</span>' + mtag + '<span class="chip ' + st + '">' + stlab + '</span></div>' +
-                    '<div class="name">' + o.pname + '</div><div class="code">' + o.pcode + ' · ' + o.odate + '</div>' +
-                    '<div class="meta"><div class="blk"><span class="lab">수주</span><span class="val">' + o.qty + '대</span></div>' +
-                    '<div class="blk"><span class="lab">검사대기</span><span class="val a">' + c.wait + '</span></div>' +
-                    '<div class="blk"><span class="lab">합격</span><span class="val g">' + c.pass + '</span></div>' +
-                    '<div class="blk"><span class="lab">복귀</span><span class="val r">' + c.rej + '</span></div></div></div>';
-            }).join('');
-        }
-        qgrid.addEventListener('click', function (e) { var c = e.target.closest('.wo'); if (c) openOrder(c.dataset.id); });
-        document.querySelectorAll('.qfilter button').forEach(function (b) { b.addEventListener('click', function () { document.querySelectorAll('.qfilter button').forEach(function (x) { x.classList.remove('on'); }); b.classList.add('on'); filter = b.dataset.f; renderQueue(); }); });
-        document.getElementById('btnSearch').addEventListener('click', renderQueue);
-        (function initDates() { var t = new Date(), f = new Date(); f.setDate(f.getDate() - 7); var fmt = function (d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }; document.getElementById('dFrom').value = fmt(f); document.getElementById('dTo').value = fmt(t); })();
-
         const SC = {A: document.getElementById('scA'), B: document.getElementById('scB'), C: document.getElementById('scC')};
-        function show(k) { for (var x in SC) SC[x].classList.toggle('hide', x !== k); }
-        document.querySelectorAll('[data-back]').forEach(function (b) { b.addEventListener('click', function () { var to = b.dataset.back; if (to === 'A') { renderQueue(); show('A'); } else { renderUnits(); show('B'); } }); });
+        function show(k) { for (const x in SC) SC[x].classList.toggle('hide', x !== k); }
+        document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', () => {
+            const to = b.dataset.back;
+            if (to === 'A') { renderQueue(); show('A'); }
+            else { renderUnits().then(() => show('B')); }
+        }));
 
-        /* B. 유닛 목록 */
-        function openOrder(id) { curO = ORDERS.find(function (o) { return o.id === id; }); renderUnits(); show('B'); }
-        function ckChip(u, tab) {
-            var c = u[TABKEY[tab]], nm = TABNM[tab];
-            if (c && c.verdict === 'pass') return '<span class="ckchip pass">' + nm + ' 합격</span>';
-            if (c && c.verdict === 'fail') return '<span class="ckchip fail">' + nm + ' 불합격</span>';
-            if (chkStarted(c)) return '<span class="ckchip prog">' + nm + ' 진행</span>';
+        /* ══════════ B. 유닛 목록 ══════════ */
+        function openOrder(jobResId) {
+            curO = ORDERS.find(o => +o.job_res_id === +jobResId);
+            return renderUnits().then(() => show('B'));
+        }
+        function unitState(u) { return u.state; }
+        function ckChip(f) {
+            const nm = esc(f.form_name);
+            if (f.verdict === 'pass') return '<span class="ckchip pass">' + nm + ' 합격</span>';
+            if (f.verdict === 'fail') return '<span class="ckchip fail">' + nm + ' 불합격</span>';
+            if (f.result_id) return '<span class="ckchip prog">' + nm + ' 진행</span>';
             return '<span class="ckchip">' + nm + ' 대기</span>';
         }
         function renderUnits() {
-            document.getElementById('bName').textContent = curO.pname;
-            document.getElementById('bSub').textContent = curO.id + ' · ' + curO.model + ' · ' + curO.pcode;
-            var c = oCount(curO);
-            document.getElementById('bPass').textContent = c.pass; document.getElementById('bRej').textContent = c.rej;
-            document.getElementById('ovQty').textContent = curO.qty; document.getElementById('ovWait').textContent = c.wait;
-            document.getElementById('ovPass').textContent = c.pass; document.getElementById('ovRej').textContent = c.rej;
-            document.getElementById('uCnt').textContent = curO.qty + '대';
-            document.getElementById('uGrid').innerHTML = curO.units.map(function (u, i) {
-                var st = unitState(u);
-                return '<div class="unit" data-st="' + st + '" data-i="' + i + '"><div class="edge"></div>' +
-                    '<div style="display:flex;align-items:center;gap:8px"><span class="un">#' + String(u.no).padStart(2, '0') + '호기</span>' +
-                    '<span class="ubadge ' + st + '" style="margin-left:auto">' + UST[st] + '</span></div>' +
-                    '<div class="lot">' + u.lot + '</div>' + (u.from !== '조립완료' ? '<div class="from">' + u.from + '</div>' : '') +
-                    '<div class="ckchips">' + ckChip(u, 'ROTOR') + ckChip(u, 'BASKET-50') + '</div></div>';
-            }).join('');
+            return guard(async () => {
+                UNITS = apiGet('/unit_list', {job_res_id: curO.job_res_id}) || [];
+                const cw = UNITS.filter(u => u.state === 'inspect_wait').length;
+                const cp = UNITS.filter(u => u.state === 'pass' || u.state === 'packed').length;
+                const cr = UNITS.filter(u => u.state === 'reject').length;
+                document.getElementById('bName').textContent = curO.mat_name || '';
+                document.getElementById('bSub').textContent = (curO.order_num || '') + ' · ' + (curO.mat_code || '');
+                document.getElementById('bPass').textContent = cp;
+                document.getElementById('bRej').textContent = cr;
+                document.getElementById('ovQty').textContent = num(curO.plan_qty);
+                document.getElementById('ovWait').textContent = cw;
+                document.getElementById('ovPass').textContent = cp;
+                document.getElementById('ovRej').textContent = cr;
+                document.getElementById('uCnt').textContent = UNITS.length + '대';
+                document.getElementById('uGrid').innerHTML = UNITS.map((u, i) =>
+                        '<div class="unit" data-st="' + u.state + '" data-i="' + i + '"><div class="edge"></div>' +
+                        '<div style="display:flex;align-items:center;gap:8px"><span class="un">#' + String(u.unit_no).padStart(2, '0') + '호기</span>' +
+                        (u.repair_id ? '<span class="rpbadge">수리 · ' + (u.repair_cat === 'spec' ? '사양변경' : '반품') + '</span>' : '') +
+                        (num(u.rework_cnt) > 0 ? '<span class="rwbadge">재조립 ' + num(u.rework_cnt) + '회</span>' : '') +
+                        '<span class="ubadge ' + u.state + '" style="margin-left:auto">' + (UST[u.state] || u.state) + '</span></div>' +
+                        '<div class="lot">' + esc(u.lot_number || '로트 없음') + '</div>' +
+                        (u.repair_id && u.src_lot && u.src_lot !== u.lot_number
+                            ? '<div class="from">원 로트 ' + esc(u.src_lot) + '</div>' : '') +
+                        (u.state === 'reject' && u.reject_reason ? '<div class="from">불합격 : ' + esc(u.reject_reason) + '</div>' : '') +
+                        '<div class="ckchips">' + (u.forms || []).map(ckChip).join('') + '</div></div>').join('')
+                    || '<div class="emptysess" style="grid-column:1/-1">검사 대상 유닛이 없습니다.</div>';
+            });
         }
-        document.getElementById('uGrid').addEventListener('click', function (e) { var u = e.target.closest('.unit'); if (u) openUnit(+u.dataset.i); });
+        document.getElementById('uGrid').addEventListener('click', e => { const u = e.target.closest('.unit'); if (u) openUnit(+u.dataset.i); });
 
-        /* C. 유닛 검사 */
+        /* ══════════ C. 유닛 검사 ══════════ */
         function openUnit(i) {
-            curU = curO.units[i]; curU._idx = i; histView = null;
-            curTab = (curU.rotor && curU.rotor.verdict) ? ((curU.basket && curU.basket.verdict) ? 'ROTOR' : 'BASKET-50') : 'ROTOR';
-            curChk = initChk(curU, curTab);
-            var sc = document.getElementById('cGrid').closest('.bscroll'); if (sc) sc.scrollTop = 0;
-            renderUnit(); show('C');
+            return guard(async () => {
+                curU = UNITS[i];
+                FORMS = curU.forms || [];
+                if (!FORMS.length) { flash('이 품목에 연결된 검사 양식이 없습니다. «양식»에서 지정하세요.'); return; }
+                const next = FORMS.find(f => f.verdict !== 'pass') || FORMS[0];
+                curForm = next.form_id;
+                histView = null; histItems = null;
+                const sc = document.getElementById('cGrid').closest('.bscroll'); if (sc) sc.scrollTop = 0;
+                await loadDetail();
+                show('C');
+            });
         }
-        function tpl() { return INSP[curTab]; }
-        function setTab(tab) { curTab = tab; curChk = initChk(curU, tab); histView = null; renderUnit(); }
+        async function loadDetail() {
+            DET = apiGet('/result_detail', {unit_id: curU.unit_id, form_id: curForm});
+            ITEMS = {};
+            SPEC = {};
+            (DET.items || []).forEach(it => {
+                ITEMS[it.item_id + '_' + it.repeat_no] =
+                    {result: it.result, value: it.value, spec_label: it.spec_label, spec_tool: it.spec_tool};
+            });
+            renderUnit();
+        }
+        function curFormMeta() { return FORMS.find(f => +f.form_id === +curForm) || {}; }
+        function formItems() { return (DET && DET.form && DET.form.items) || []; }
+        function itemKey(it, rep) { return it.item_id + '_' + rep; }
+        function got(it, rep) { return ITEMS[itemKey(it, rep)] || {}; }
+        function needCount() { return formItems().reduce((a, it) => a + Math.max(1, num(it.repeat_count)), 0); }
+        function gotCount() { return Object.keys(ITEMS).filter(k => ITEMS[k].result).length; }
+        function failCount() { return Object.keys(ITEMS).filter(k => ITEMS[k].result === 'fail').length; }
+        /** `라벨|공구` 줄 목록 파싱 */
+        function specList(it) {
+            return String(it.spec_options || '').split(/\r?\n/)
+                .map(l => l.trim()).filter(Boolean)
+                .map(l => { const a = l.split('|'); return {label: a[0].trim(), tool: (a[1] || '').trim()}; });
+        }
+        /* 규격 선택지가 있으면 반복횟수와 무관하게 '회차별 기록' 방식 */
+        function isProgressive(it) { return specList(it).length > 0 || num(it.repeat_count) > REPEAT_INLINE_MAX; }
+        /* 회차별 규격 — 직전 회차 규격을 이어받고, 바꾸면 다음 회차부터 적용 */
+        let SPEC = {};
+        function curSpec(it) {
+            const opts = specList(it); if (!opts.length) return null;
+            if (SPEC[it.item_id]) return SPEC[it.item_id];
+            for (let k = num(it.repeat_count); k >= 1; k--) {
+                const g = got(it, k);
+                if (g.result && g.spec_label) return {label: g.spec_label, tool: g.spec_tool || ''};
+            }
+            return opts[0];
+        }
+        function judgedRes() { return DET && DET.result && DET.result.verdict; }
+
+        /** 수치 항목 자동 판정 */
+        function autoJudge(it, v) {
+            if (it.judge_type !== 'num') return null;
+            const n = parseFloat(String(v).replace(/[^0-9.\-]/g, ''));
+            if (isNaN(n)) return null;
+            if (it.lower_limit != null && n < num(it.lower_limit)) return 'fail';
+            if (it.upper_limit != null && n > num(it.upper_limit)) return 'fail';
+            return 'pass';
+        }
 
         function renderUnit() {
-            var u = curU, st = unitState(u);
-            var _sc = document.getElementById('cGrid').closest('.bscroll'); var _keep = _sc ? _sc.scrollTop : 0;
-            document.getElementById('cUnit').textContent = '#' + String(u.no).padStart(2, '0') + '호기 · ' + UST[st];
-            document.getElementById('cSub').textContent = curO.pname + ' · ' + curO.id + (u.from !== '조립완료' ? ' · ' + u.from : '');
-            document.getElementById('cLot').textContent = u.lot;
+            const _sc = document.getElementById('cGrid').closest('.bscroll');
+            const _keep = _sc ? _sc.scrollTop : 0;
+            document.getElementById('cUnit').textContent = '#' + String(curU.unit_no).padStart(2, '0') + '호기 · ' + (UST[curU.state] || curU.state);
+            document.getElementById('cSub').textContent = (curO.mat_name || '') + ' · ' + (curO.order_num || '');
+            document.getElementById('cLot').textContent = curU.lot_number || '—';
 
             if (histView !== null) { renderHistDetail(); if (_sc) _sc.scrollTop = 0; return; }
 
-            var html = '';
-            html += '<div class="tabbar">' + TABS.map(function (tb) {
-                var c = u[TABKEY[tb]], ts = '', cls = '';
-                if (c && c.verdict === 'pass') { ts = '합격'; cls = 'pass'; }
-                else if (c && c.verdict === 'fail') { ts = '불합격'; cls = 'fail'; }
-                else if (chkStarted(c)) ts = '진행중'; else ts = '대기';
-                return '<button class="' + (tb === curTab ? 'on' : '') + '" data-tab="' + tb + '">' + INSP[tb].name + '<span class="ts ' + cls + '">' + ts + '</span></button>';
+            let html = '';
+            // 수리품은 신규 조립품과 이력이 다르다. 검사자가 먼저 알아야 할 정보라 맨 위에 둔다.
+            if (curU.repair_id) {
+                html += '<div class="rejban" style="background:#EDE6FB;color:#6D3BD1">' +
+                    '수리품 검사 · ' + (curU.repair_cat === 'spec' ? '사양변경' : '반품') +
+                    (curU.repair_no ? ' (' + esc(curU.repair_no) + ')' : '') +
+                    (curU.src_lot ? '<span class="rl">원 로트 : <b>' + esc(curU.src_lot) + '</b>' +
+                        (curU.lot_number && curU.lot_number !== curU.src_lot
+                            ? ' → 수리 후 <b>' + esc(curU.lot_number) + '</b>' : ' (로트 유지)') + '</span>' : '') +
+                    (curU.repair_reason ? '<span class="rl">접수 사유 : ' + esc(curU.repair_reason) + '</span>' : '') +
+                    '</div>';
+            }
+            if (num(curU.rework_cnt) > 0 && curU.state !== 'pass') {
+                html += '<div class="rejban" style="background:var(--amber-bg);color:var(--amber)">' +
+                    '재조립 후 재검사 · 이전 불합격 ' + num(curU.rework_cnt) + '회' +
+                    (curU.rework_mods ? '<span class="rl">다시 조립한 모듈 : <b>' + esc(curU.rework_mods) + '</b> — 이 부분을 중점 확인하세요</span>' : '') +
+                    (curU.reject_reason ? '<span class="rl">직전 사유 : ' + esc(curU.reject_reason) + '</span>' : '') +
+                    '</div>';
+            }
+            html += '<div class="tabbar">' + FORMS.map(f => {
+                let ts = '대기', cls = '';
+                if (f.verdict === 'pass') { ts = '합격'; cls = 'pass'; }
+                else if (f.verdict === 'fail') { ts = '불합격'; cls = 'fail'; }
+                else if (f.result_id) ts = '진행중';
+                return '<button class="' + (+f.form_id === +curForm ? 'on' : '') + '" data-tab="' + f.form_id + '">' +
+                    esc(f.form_name) + '<span class="ts ' + cls + '">' + ts + '</span></button>';
             }).join('') + '</div>';
 
-            var c = curChk, t = tpl(), confirmed = !!c.verdict;
-            html += '<div class="whoRow"><span class="l">' + TABNM[curTab] + ' 검사자</span>' +
-                '<span class="nm">' + (c.by || '미배정') + '</span>' +
-                (confirmed ? '' : '<button class="assign" data-who>' + (c.by ? '변경' : '배정') + '</button>') + '</div>';
+            const res = DET.result, confirmed = !!judgedRes();
+            const actor = res && res.actor_name;
+            html += '<div class="whoRow"><span class="l">' + esc(curFormMeta().form_name) + ' 검사자</span>' +
+                '<span class="nm">' + esc(actor || '미배정') + '</span>' +
+                (confirmed ? '' : '<button class="assign" data-who>' + (actor ? '변경' : '배정') + '</button>') + '</div>';
 
             if (confirmed) {
-                var pass = c.verdict === 'pass';
+                const pass = res.verdict === 'pass';
                 html += '<div class="auto-box"><div class="ic" style="background:' + (pass ? 'var(--green-bg)' : 'var(--red-bg)') + '">' + (pass ? '✓' : '✕') + '</div>' +
-                    '<div style="flex:1"><div style="font-size:13px;color:var(--ink-2);font-weight:700">' + t.name + ' 판정</div>' +
+                    '<div style="flex:1"><div style="font-size:13px;color:var(--ink-2);font-weight:700">' + esc(curFormMeta().form_name) + ' 판정 · ' + res.try_no + '차</div>' +
                     '<div class="big" style="color:' + (pass ? 'var(--green)' : 'var(--red)') + ';font-size:26px">' + (pass ? '합격' : '불합격') + '</div>' +
-                    '<div style="font-size:12.5px;color:var(--ink-2);font-weight:700;margin-top:2px">검사자 ' + (checkInspectors(c, curTab).join(', ') || '-') + ' · ' + (c.at || '') + '</div></div>' +
-                    (st === 'pass' || st === 'reject' ? '' : '<button class="btn ghost" data-recheck>재검사</button>') + '</div>';
+                    '<div style="font-size:12.5px;color:var(--ink-2);font-weight:700;margin-top:2px">검사자 ' + esc(actor || '-') + ' · ' + esc(res.end_time || '') + '</div>' +
+                    (res.fail_reason ? '<div class="failwhy">사유 : ' + esc(res.fail_reason) + '</div>' : '') + '</div>' +
+                    '<button class="btn ghost" data-recheck>재검사</button></div>';
+            } else if (!actor) {
+                html += '<div class="part" style="justify-content:center;color:var(--ink-2);font-weight:700">검사자를 먼저 배정하세요</div>';
             } else {
-                if (!c.by) {
-                    html += '<div class="part" style="justify-content:center;color:var(--ink-2);font-weight:700">검사자를 먼저 배정하세요</div>';
-                } else {
-                    html += (t.type === 'repeat') ? basketBody(c, t) : rotorBody(c, t);
-                }
+                html += bodyHtml();
             }
-            if (c.history && c.history.length) {
-                html += '<div class="secline">' + TABNM[curTab] + ' 검사 이력 <span class="ln"></span><span>' + c.history.length + '회</span></div>';
-                html += c.history.slice().reverse().map(function (h, ri) {
-                    var idx = c.history.length - 1 - ri;
-                    return '<div class="part" style="cursor:pointer" data-hist="' + idx + '"><div class="id"><span class="pn">' + h.n + '차 · ' + (h.result === 'pass' ? '합격' : '불합격') + '</span>' +
-                        '<span class="pc">검사자 ' + (h.by || '-') + ' · ' + (h.at || '') + ' · 눌러서 상세</span></div>' +
-                        '<span class="vtag ' + (h.result === 'pass' ? 'pass' : 'fail') + '">' + (h.result === 'pass' ? '합격' : '불합격') + '</span>' +
-                        '<span style="font-size:22px;color:var(--ink-2);margin-left:4px">›</span></div>';
-                }).join('');
+
+            const hist = (DET.history || []);
+            if (hist.length) {
+                html += '<div class="secline">' + esc(curFormMeta().form_name) + ' 검사 이력 <span class="ln"></span><span>' + hist.length + '회</span></div>';
+                html += hist.map(h => '<div class="part">' +
+                    '<div class="id" style="cursor:pointer" data-hist="' + h.result_id + '"><span class="pn">' + h.try_no + '차 · ' + (h.verdict === 'pass' ? '합격' : '불합격') + '</span>' +
+                    '<span class="pc">검사자 ' + esc(h.actor_name || '-') + ' · ' + esc(h.judged_at || '') + ' · 눌러서 상세</span>' +
+                    (h.fail_reason ? '<span class="failwhy">사유 : ' + esc(h.fail_reason) + '</span>' : '') + '</div>' +
+                    '<span class="vtag ' + (h.verdict === 'pass' ? 'pass' : 'fail') + '">' + (h.verdict === 'pass' ? '합격' : '불합격') + '</span>' +
+                    '<button class="histdel" data-histdel="' + h.result_id + '">삭제</button>' +
+                    '<span style="font-size:22px;color:var(--ink-2);margin-left:4px;cursor:pointer" data-hist="' + h.result_id + '">›</span></div>').join('');
             }
             document.getElementById('cGrid').innerHTML = html;
             renderCAction();
             if (_sc) _sc.scrollTop = _keep;
         }
 
-        function renderHistDetail() {
-            var u = curU, c = curChk, h = c.history[histView], snap = h.snap;
-            var html = '';
-            html += '<div class="tabbar"><button class="on" style="cursor:default">' + INSP[curTab].name + ' · ' + h.n + '차 상세<span class="ts ' + (h.result === 'pass' ? 'pass' : 'fail') + '">' + (h.result === 'pass' ? '합격' : '불합격') + '</span></button></div>';
-            html += '<div class="whoRow"><span class="l">검사자</span><span class="nm">' + (h.by || '-') + '</span>' +
-                '<span style="margin-left:auto;font-size:12.5px;font-weight:700;color:var(--ink-2)">' + (h.at || '') + ' · 읽기전용(원본 보존)</span></div>';
-            if (!snap) html += '<div class="part" style="justify-content:center;color:var(--ink-2);font-weight:700">상세 기록이 없습니다</div>';
-            else html += (snap.type === 'repeat') ? roBasket(snap) : roRotor(snap);
-            html += '<div style="display:flex;gap:10px;margin-top:4px"><button class="btn ghost" data-histback style="flex:1">‹ 이력으로</button>' +
-                (unitState(u) === 'pass' || unitState(u) === 'reject' ? '' : '<button class="btn primary" data-histedit style="flex:1">이 기록 불러와 재검사</button>') + '</div>';
-            document.getElementById('cGrid').innerHTML = html;
-            document.getElementById('cAction').innerHTML = '<div class="actsum"><span class="l">' + INSP[curTab].name + ' ' + h.n + '차 이력</span><span class="v">읽기전용 상세</span></div>';
+        /* ── 검사 본문 : 인라인 항목 + 진행형 항목 ── */
+        function bodyHtml() {
+            const items = formItems();
+            let html = '';
+            const prog = items.filter(isProgressive);
+            const inline = items.filter(it => !isProgressive(it));
+
+            inline.forEach(it => {
+                const rep = Math.max(1, num(it.repeat_count));
+                for (let k = 1; k <= rep; k++) {
+                    const g = got(it, k);
+                    const pn = (rep > 1) ? (it.seq_no + '. ' + esc(it.item_name) + ' — 측정 ' + k + '회') : (it.seq_no + '. ' + esc(it.item_name));
+                    const pc = (k > 1) ? '' : ('기준: ' + esc(it.criteria || '-') + ' · 방법: ' + esc(it.method || '-') +
+                        (it.judge_type === 'num' ? (' · ' + (it.lower_limit == null ? '' : it.lower_limit) + '~' + (it.upper_limit == null ? '' : it.upper_limit) + ' ' + esc(it.unit || '')) : ''));
+                    html += '<div class="part"><div class="id"><span class="pn">' + pn + '</span>' + (pc ? '<span class="pc">' + pc + '</span>' : '') + '</div>' +
+                        (g.value ? '<span class="valchip">' + esc(g.value) + '</span>' : '') +
+                        '<button class="defbtn' + (g.value ? ' has' : '') + '" data-val="' + it.item_id + ',' + k + '">측정값</button>' +
+                        (it.judge_type === 'num' ? '' :
+                            '<div class="judge" style="flex:0 0 auto;gap:8px;margin-left:8px">' +
+                            '<button class="pass ' + (g.result === 'pass' ? 'on' : '') + '" data-chk="' + it.item_id + ',' + k + ',pass" style="min-height:48px;padding:0 14px">합</button>' +
+                            '<button class="fail ' + (g.result === 'fail' ? 'on' : '') + '" data-chk="' + it.item_id + ',' + k + ',fail" style="min-height:48px;padding:0 14px">불</button></div>') +
+                        (it.judge_type === 'num' && g.result ? '<span class="vtag ' + g.result + '">' + (g.result === 'pass' ? '합격' : '불합격') + '</span>' : '') +
+                        '</div>';
+                }
+            });
+
+            prog.forEach(it => {
+                const total = num(it.repeat_count);
+                let done = 0, bad = 0;
+                for (let k = 1; k <= total; k++) { const g = got(it, k); if (g.result) { done++; if (g.result === 'fail') bad++; } }
+                html += '<div class="auto-box"><div style="flex:1"><div style="font-size:13px;color:var(--ink-2);font-weight:700">' +
+                    esc(it.item_name) + ' 진행' + (bad ? ' · 불 ' + bad + '회' : '') + '</div>' +
+                    '<div class="big" style="font-size:24px">' + done + ' / ' + total + '</div>' +
+                    '<div style="font-size:12.5px;color:var(--ink-2);font-weight:700;margin-top:2px">기준: ' + esc(it.criteria || '-') + '</div>' +
+                    '<div style="margin-top:6px;height:8px;background:var(--surface-2);border-radius:6px;overflow:hidden"><i style="display:block;height:100%;width:' + Math.round(done / total * 100) + '%;background:var(--green)"></i></div></div></div>';
+                const opts = specList(it), sp = curSpec(it);
+                if (done < total) {
+                    const n = done + 1, cg = got(it, n);
+                    html += '<div class="part"><div class="id"><span class="pn">' + n + '회차 · ' + esc(it.item_name) + '</span>' +
+                        '<span class="pc">방법: ' + esc(it.method || '-') + (sp ? ' · 규격 ' + esc(sp.label) : '') + ' · 측정값은 선택 입력</span></div>' +
+                        (cg.value ? '<span class="valchip">' + esc(cg.value) + '</span>' : '') +
+                        '<button class="defbtn' + (cg.value ? ' has' : '') + '" data-val="' + it.item_id + ',' + n + '">측정값</button>' +
+                        '<div class="judge" style="flex:0 0 auto;gap:8px;margin-left:8px">' +
+                        '<button class="pass" data-cyc="' + it.item_id + ',' + n + ',pass" style="min-height:48px;padding:0 14px">합</button>' +
+                        '<button class="fail" data-cyc="' + it.item_id + ',' + n + ',fail" style="min-height:48px;padding:0 14px">불</button></div></div>';
+                    if (opts.length) {
+                        html += '<div class="part"><div class="id"><span class="pn">적용 규격 (합격기준)</span>' +
+                            '<span class="pc">지금 고른 규격이 다음 회차에도 이어집니다. 바꾸면 그 다음 회차부터 적용됩니다.</span></div>' +
+                            '<div style="display:flex;gap:6px;flex-wrap:wrap">' + opts.map(o =>
+                                '<button class="opt ' + (sp && sp.label === o.label ? 'sel' : '') + '" data-spec="' + it.item_id + ',' + esc(o.label) + '" style="min-height:44px;padding:8px 14px;font-size:14px">' + esc(o.label) + '</button>').join('') +
+                            '</div></div>';
+                        html += '<div class="part"><div class="id"><span class="pn">사용공구</span>' +
+                            '<span class="pc">선택한 규격에 따라 자동 지정</span></div>' +
+                            '<span class="done-tag" style="background:var(--surface-2);color:var(--ink)">' + esc((sp && sp.tool) || '-') + '</span></div>';
+                    }
+                }
+                if (done > 0) {
+                    html += '<div class="secline">기록된 회차 <span class="ln"></span><span>' + done + '회</span></div>';
+                    for (let k = done; k >= 1; k--) {
+                        const g = got(it, k);
+                        html += '<div class="part"><div class="id"><span class="pn">' + k + '회차 · ' + (g.result === 'pass' ? '합' : '불') + '</span>' +
+                            '<span class="pc">' + (g.spec_label ? esc(g.spec_label) + (g.spec_tool ? ' · ' + esc(g.spec_tool) : '') : esc(it.item_name)) +
+                            (g.value ? ' · 측정 ' + esc(g.value) : '') + '</span></div>' +
+                            '<span class="vtag ' + (g.result === 'pass' ? 'pass' : 'fail') + '">' + (g.result === 'pass' ? '합격' : '불합격') + '</span>' +
+                            (k === done ? '<button class="defbtn" data-cycdel="' + it.item_id + ',' + k + '" style="margin-left:8px;color:var(--red);border-color:var(--red-bg);background:var(--red-bg)">삭제</button>' : '') +
+                            '</div>';
+                    }
+                }
+            });
+
+            const need = needCount(), g2 = gotCount(), bad2 = failCount();
+            const allDone = g2 >= need, verdict = bad2 ? '불합격' : (allDone ? '합격' : '미완료');
+            const col = bad2 ? 'var(--red)' : (allDone ? 'var(--green)' : 'var(--ink-2)');
+            html += '<div class="auto-box"><div class="ic" style="background:' + (bad2 ? 'var(--red-bg)' : allDone ? 'var(--green-bg)' : 'var(--surface-2)') + '">' + (bad2 ? '✕' : allDone ? '✓' : '…') + '</div>' +
+                '<div style="flex:1"><div style="font-size:13px;color:var(--ink-2);font-weight:700">종합 판정 · ' + g2 + '/' + need + ' 입력</div>' +
+                '<div class="big" style="color:' + col + ';font-size:24px">' + verdict + '</div></div>' +
+                '<button class="btn ghost" id="resetCur">초기화</button>' +
+                '<button class="btn primary" id="commitJudge" ' + (allDone ? '' : 'disabled') + '>이 검사 확정</button></div>';
+            return html;
         }
 
-        function rotorItemKeys(no) { return no === 1 ? ['1_1', '1_2', '1_3'] : [String(no)]; }
-        function rotorAllKeys(t) { var ks = []; t.items.forEach(function (it) { ks = ks.concat(rotorItemKeys(it.no)); }); return ks; }
-        function rotorBody(u, t) {
-            var html = t.items.map(function (it) {
-                var keys = rotorItemKeys(it.no);
-                return keys.map(function (key, ki) {
-                    var r = u.res[key], val = (u.val && u.val[key]) || '';
-                    var pn = keys.length > 1 ? (it.no + '. ' + it.item.replace(/\s*\(3회\)/, '') + ' — 측정 ' + (ki + 1) + '회') : (it.no + '. ' + it.item);
-                    var pc = (keys.length > 1 && ki > 0) ? '' : ('기준: ' + it.criteria + ' · 공구: ' + it.method);
-                    return '<div class="part"><div class="id"><span class="pn">' + pn + '</span>' + (pc ? '<span class="pc">' + pc + '</span>' : '') + '</div>' +
-                        (val ? '<span class="valchip">' + val + '</span>' : '') +
-                        '<button class="defbtn' + (val ? ' has' : '') + '" data-val="' + key + '">측정값</button>' +
-                        '<div class="judge" style="flex:0 0 auto;gap:8px;margin-left:8px">' +
-                        '<button class="pass ' + (r === 'pass' ? 'on' : '') + '" data-chk="' + key + '" data-v="pass" style="min-height:48px;padding:0 14px">합</button>' +
-                        '<button class="fail ' + (r === 'fail' ? 'on' : '') + '" data-chk="' + key + '" data-v="fail" style="min-height:48px;padding:0 14px">불</button></div></div>';
-                }).join('');
-            }).join('');
-            var allKeys = rotorAllKeys(t);
-            var allPass = allKeys.every(function (k) { return u.res[k] === 'pass'; });
-            var anyFail = allKeys.some(function (k) { return u.res[k] === 'fail'; });
-            var verdict = anyFail ? '불합격' : (allPass ? '합격' : '미완료');
-            var col = anyFail ? 'var(--red)' : (allPass ? 'var(--green)' : 'var(--ink-2)');
-            html += '<div class="auto-box"><div class="ic" style="background:' + (anyFail ? 'var(--red-bg)' : allPass ? 'var(--green-bg)' : 'var(--surface-2)') + '">' + (anyFail ? '✕' : allPass ? '✓' : '…') + '</div>' +
-                '<div style="flex:1"><div style="font-size:13px;color:var(--ink-2);font-weight:700">종합 판정</div>' +
-                '<div class="big" style="color:' + col + ';font-size:24px">' + verdict + '</div></div>' +
-                '<button class="btn ghost" id="resetCur">초기화</button><button class="btn primary" id="commitJudge" ' + ((allPass || anyFail) ? '' : 'disabled') + '>이 검사 확정</button></div>';
-            return html;
-        }
-        function basketBody(u, t) {
-            var done = u.cycles.length, finished = done >= t.count;
-            var failN = u.cycles.filter(function (c) { return c.result === 'fail'; }).length;
-            var html = '<div class="auto-box"><div style="flex:1"><div style="font-size:13px;color:var(--ink-2);font-weight:700">' + t.item + ' 진행' + (failN ? ' · 불 ' + failN + '회' : '') + '</div>' +
-                '<div class="big" style="font-size:24px">' + done + ' / ' + t.count + '</div>' +
-                '<div style="margin-top:6px;height:8px;background:var(--surface-2);border-radius:6px;overflow:hidden"><i style="display:block;height:100%;width:' + Math.round(done / t.count * 100) + '%;background:var(--green)"></i></div></div></div>';
-            if (!finished) {
-                var c = u.cur;
-                html += '<div class="part"><div class="id"><span class="pn">' + (done + 1) + '회차 · LOCK ON/OFF</span>' +
-                    '<span class="pc">규격: ' + c.reason + (c.tool ? ' · 공구 ' + c.tool : '') + '</span></div>' +
-                    (c.val ? '<span class="valchip">' + c.val + '</span>' : '') +
-                    '<button class="defbtn' + (c.val ? ' has' : '') + '" data-bval="1">측정값</button>' +
-                    '<div class="judge" style="flex:0 0 auto;gap:8px;margin-left:8px">' +
-                    '<button class="pass ' + (c.result === 'pass' ? 'on' : '') + '" data-bres="pass" style="min-height:48px;padding:0 14px">합</button>' +
-                    '<button class="fail ' + (c.result === 'fail' ? 'on' : '') + '" data-bres="fail" style="min-height:48px;padding:0 14px">불</button></div></div>';
-                html += '<div class="part"><div class="id"><span class="pn">적용 규격(합격기준)</span></div>' +
-                    '<div style="display:flex;gap:6px;flex-wrap:wrap">' + t.criteria.map(function (cr) { return '<button class="opt ' + (c.reason === cr.label ? 'sel' : '') + '" data-bcrit="' + cr.label + '" style="min-height:44px;padding:8px 14px;font-size:14px">' + cr.label + '</button>'; }).join('') + '</div></div>';
-                html += '<div class="part"><div class="id"><span class="pn">사용공구</span><span class="pc">합격기준에 따라 자동 지정</span></div><span class="done-tag" style="background:var(--surface-2);color:var(--ink)">' + (c.tool || '-') + '</span></div>';
-                html += '<div style="display:flex;gap:10px"><button class="btn ghost" id="resetCur">초기화</button><button class="btn primary" id="commitCycle" style="flex:1" ' + (c.result ? '' : 'disabled') + '>이 회차 기록 → 다음</button></div>';
-            } else {
-                var pass = failN === 0;
-                html += '<div class="auto-box"><div class="ic" style="background:' + (pass ? 'var(--green-bg)' : 'var(--red-bg)') + '">' + (pass ? '✓' : '✕') + '</div>' +
-                    '<div style="flex:1"><div style="font-size:13px;color:var(--ink-2);font-weight:700">50회 완료</div>' +
-                    '<div class="big" style="color:' + (pass ? 'var(--green)' : 'var(--red)') + ';font-size:24px">' + (pass ? '합격' : '불합격') + '</div></div>' +
-                    '<button class="btn ghost" id="resetCur">초기화</button><button class="btn primary" id="commitJudge">이 검사 확정</button></div>';
-            }
-            if (done > 0) {
-                var bys = distinct(u.cycles.map(function (cy) { return cy.by; }));
-                html += '<div class="secline">기록된 회차 <span class="ln"></span><span>' + done + '회' + (bys.length ? ' · 검사자 ' + bys.join(', ') : '') + '</span></div>';
-                html += u.cycles.slice().reverse().map(function (cy) {
-                    return '<div class="part"><div class="id"><span class="pn">' + cy.n + '회차 · ' + (cy.result === 'pass' ? '합' : '불') + '</span>' +
-                        '<span class="pc">' + cy.reason + (cy.tool ? ' · ' + cy.tool : '') + (cy.val ? ' · 측정 ' + cy.val : '') + (cy.by ? ' · 검사자 ' + cy.by : '') + '</span></div>' +
-                        '<span class="vtag ' + (cy.result === 'pass' ? 'pass' : 'fail') + '">' + (cy.result === 'pass' ? '합격' : '불합격') + '</span>' +
-                        '<button class="defbtn" data-cycledel="' + cy.n + '" style="margin-left:8px;color:var(--red);border-color:var(--red-bg);background:var(--red-bg)">삭제</button></div>';
-                }).join('');
-            }
-            return html;
+        /* ── 이력 상세(읽기전용) ── */
+        function renderHistDetail() {
+            const h = (DET.history || []).find(x => +x.result_id === +histView) || {};
+            let html = '<div class="histback"><button data-histback>‹ 이력으로</button>' +
+                '<span style="font-size:13px;font-weight:700;color:var(--ink-2)">읽기전용 · 원본은 수정되지 않습니다</span></div>';
+            html += '<div class="tabbar"><button class="on" style="cursor:default">' + esc(curFormMeta().form_name) + ' · ' + h.try_no + '차 상세' +
+                '<span class="ts ' + (h.verdict === 'pass' ? 'pass' : 'fail') + '">' + (h.verdict === 'pass' ? '합격' : '불합격') + '</span></button></div>';
+            html += '<div class="whoRow"><span class="l">검사자</span><span class="nm">' + esc(h.actor_name || '-') + '</span>' +
+                '<span style="margin-left:auto;font-size:12.5px;font-weight:700;color:var(--ink-2)">' + esc(h.judged_at || '') + ' · 읽기전용(원본 보존)</span></div>';
+            if (h.fail_reason) html += '<div class="rejban">불합격 사유<span class="rl">' + esc(h.fail_reason) + '</span></div>';
+            html += (histItems || []).length
+                ? histItems.map(r => '<div class="part"><div class="id"><span class="pn">' + esc(r.item_name) + (num(r.repeat_no) > 1 ? ' — ' + r.repeat_no + '회' : '') + '</span>' +
+                    (r.spec_label ? '<span class="pc">' + esc(r.spec_label) + (r.spec_tool ? ' · ' + esc(r.spec_tool) : '') + '</span>' : '') + '</div>' +
+                    (r.value ? '<span class="valchip">' + esc(r.value) + '</span>' : '') +
+                    '<span class="vtag ' + (r.result === 'pass' ? 'pass' : 'fail') + '">' + (r.result === 'pass' ? '합격' : '불합격') + '</span></div>').join('')
+                : '<div class="part" style="justify-content:center;color:var(--ink-2);font-weight:700">상세 기록이 없습니다</div>';
+            document.getElementById('cGrid').innerHTML = html;
+            document.getElementById('cAction').innerHTML =
+                '<div class="actsum"><span class="l">' + esc(curFormMeta().form_name) + ' ' + h.try_no + '차 이력</span>' +
+                '<span class="v">' + (h.verdict === 'pass' ? '합격' : '불합격') + ' · ' + esc(h.actor_name || '-') + '</span></div>' +
+                (judgedRes() ? '' : '<button class="btn primary" data-histedit>이 기록 불러와 재검사</button>');
         }
 
         function renderCAction() {
-            var u = curU, st = unitState(u), bar = document.getElementById('cAction');
-            var rv = u.rotor && u.rotor.verdict, bv = u.basket && u.basket.verdict;
-            var sub = 'ROTOR ' + (rv === 'pass' ? '합격' : rv === 'fail' ? '불합격' : '미검') + ' · BASKET ' + (bv === 'pass' ? '합격' : bv === 'fail' ? '불합격' : '미검');
-            if (st === 'pass') bar.innerHTML = '<div class="actsum"><span class="l">' + sub + '</span><span class="v" style="color:var(--green)">합격 · 완제품 확정</span></div><button class="btn ghost" data-recheckall>재검사</button>';
-            else if (st === 'reject') bar.innerHTML = '<div class="actsum"><span class="l">' + sub + '</span><span class="v" style="color:var(--red)">불합격 · 조립 복귀</span></div><button class="btn ghost" data-recheckall>재검사</button>';
-            else bar.innerHTML = '<div class="actsum"><span class="l">' + sub + '</span><span class="v">ROTOR·BASKET 둘 다 확정 시 최종 판정</span></div>';
+            const bar = document.getElementById('cAction');
+            const sub = FORMS.map(f => esc(f.form_name) + ' ' + (f.verdict === 'pass' ? '합격' : f.verdict === 'fail' ? '불합격' : '미검')).join(' · ');
+            if (curU.state === 'pass' || curU.state === 'packed')
+                bar.innerHTML = '<div class="actsum"><span class="l">' + sub + '</span><span class="v" style="color:var(--green)">합격 · 검사완료창고 이동</span></div>';
+            else if (curU.state === 'reject')
+                bar.innerHTML = '<div class="actsum"><span class="l">' + sub + '</span><span class="v" style="color:var(--red)">불합격 · 조립 복귀</span></div>';
+            else
+                bar.innerHTML = '<div class="actsum"><span class="l">' + sub + '</span><span class="v">모든 양식 확정 시 최종 판정</span></div>';
         }
 
-        function finalizeUnit() {
-            var u = curU, st = unitState(u);
-            if (st === 'pass') flash('완제품 확정 · ' + u.lot + ' (ROTOR+BASKET 합격)');
-            else if (st === 'reject') flash('조립 복귀 · ' + u.lot + ' (불합격) → 재조립 후 재검사');
-        }
+        /* ══════════ C 상호작용 ══════════ */
+        document.getElementById('cAction').addEventListener('click', e => {
+            if (e.target.closest('[data-histedit]')) copyFromHistory();
+        });
 
-        document.getElementById('cGrid').addEventListener('click', function (e) {
-            var u = curU, c = curChk, t = tpl();
-            var hr = e.target.closest('[data-hist]'); if (hr) { histView = +hr.dataset.hist; renderUnit(); return; }
-            if (e.target.closest('[data-histback]')) { histView = null; renderUnit(); return; }
-            if (e.target.closest('[data-histedit]')) {
-                var h = c.history[histView], snap = h.snap; histView = null;
-                if (snap) {
-                    if (snap.type === 'repeat') { c.cycles = snap.cycles.map(function (cy) { return {n: cy.n, result: cy.result, reason: cy.reason, tool: cy.tool, val: cy.val, by: cy.by}; }); var lc = c.cycles[c.cycles.length - 1] || {reason: t.criteria[0].label, tool: t.criteria[0].tool}; c.cur = {result: null, val: '', reason: lc.reason, tool: lc.tool}; }
-                    else { c.res = Object.assign({}, snap.res); c.val = Object.assign({}, snap.val); }
-                }
-                c.verdict = null; c.at = null; renderUnit(); flash(h.n + '차 기록을 복사해 왔습니다 · 원본은 그대로, 다시 확정하면 새 회차로 기록됩니다'); return;
-            }
-            var tab = e.target.closest('[data-tab]'); if (tab) { setTab(tab.dataset.tab); return; }
-            if (e.target.closest('[data-who]')) { openWho(); return; }
-            if (e.target.closest('[data-recheck]')) {
-                c.verdict = null; c.at = null;
-                if (t.type === 'repeat') { c.cycles = []; var rc0 = t.criteria[0]; c.cur = {result: null, val: '', reason: rc0.label, tool: rc0.tool}; }
-                else { c.res = {}; c.val = {}; }
-                renderUnit(); flash('재검사 · ' + TABNM[curTab] + ' 다시 판정 (이력 유지)'); return;
-            }
-            var ck = e.target.closest('[data-chk]');
-            if (ck) { c.res[ck.dataset.chk] = ck.dataset.v; renderUnit(); return; }
-            var vb = e.target.closest('[data-val]'); if (vb) { openVal(vb.dataset.val, 'item'); return; }
-            var br = e.target.closest('[data-bres]'); if (br) { c.cur.result = br.dataset.bres; renderUnit(); return; }
-            var bc = e.target.closest('[data-bcrit]'); if (bc) { var cr = t.criteria.find(function (x) { return x.label === bc.dataset.bcrit; }); c.cur.reason = cr.label; c.cur.tool = cr.tool; renderUnit(); return; }
-            var bv = e.target.closest('[data-bval]'); if (bv) { openVal('cyc', 'cycleval'); return; }
-            if (e.target.id === 'commitCycle') {
-                if (!c.cur.result) { flash('합/불을 선택하세요'); return; }
-                c.cycles.push({n: c.cycles.length + 1, result: c.cur.result, reason: c.cur.reason, tool: c.cur.tool, val: c.cur.val, by: c.by});
-                var last = c.cur; c.cur = {result: null, val: '', reason: last.reason, tool: last.tool};
-                renderUnit(); return;
-            }
-            var cdel = e.target.closest('[data-cycledel]');
-            if (cdel) { var n = +cdel.dataset.cycledel; c.cycles = c.cycles.filter(function (cy) { return cy.n !== n; }); c.cycles.forEach(function (cy, k) { cy.n = k + 1; }); if (!c.cur) { var lc = c.cycles[c.cycles.length - 1] || {reason: t.criteria[0].label, tool: t.criteria[0].tool}; c.cur = {result: null, val: '', reason: lc.reason, tool: lc.tool}; } renderUnit(); flash(n + '회차 삭제'); return; }
-            if (e.target.id === 'resetCur') {
-                if (t.type === 'repeat') { c.cycles = []; var c0 = t.criteria[0]; c.cur = {result: null, val: '', reason: c0.label, tool: c0.tool}; }
-                else { c.res = {}; c.val = {}; }
-                renderUnit(); flash('초기화'); return;
-            }
-            if (e.target.id === 'commitJudge') {
-                var fail;
-                if (t.type === 'repeat') { if (c.cycles.length < t.count) { flash('50회를 모두 기록하세요'); return; } fail = c.cycles.some(function (cy) { return cy.result === 'fail'; }); }
-                else { var ak = rotorAllKeys(t); if (!ak.every(function (k) { return c.res[k]; })) { flash('모든 항목을 판정하세요'); return; } fail = ak.some(function (k) { return c.res[k] === 'fail'; }); }
-                c.verdict = fail ? 'fail' : 'pass'; c.at = nowFull();
-                if (!c.history) c.history = [];
-                var bys = checkInspectors(c, curTab);
-                var snap = (t.type === 'repeat') ? {type: 'repeat', cycles: c.cycles.map(function (cy) { return {n: cy.n, result: cy.result, reason: cy.reason, tool: cy.tool, val: cy.val, by: cy.by}; })}
-                    : {type: 'checklist', res: Object.assign({}, c.res), val: Object.assign({}, c.val)};
-                c.history.push({n: c.history.length + 1, result: c.verdict, by: bys.join(', '), bys: bys, at: c.at, snap: snap});
-                var both = (u.rotor && u.rotor.verdict) && (u.basket && u.basket.verdict);
-                renderUnit(); renderUnits();
-                if (both) finalizeUnit(); else flash(TABNM[curTab] + ' ' + (fail ? '불합격' : '합격') + ' 확정 · 나머지 검사 남음');
+        document.getElementById('cGrid').addEventListener('click', e => {
+            const hd = e.target.closest('[data-histdel]');
+            if (hd) {
+                uiConfirm('이 검사 이력을 삭제합니다.\n최신 회차를 지우면 유닛 판정이 다시 계산되고,\n합격이 풀리면 로트가 생산창고로 돌아갑니다.', function () {
+                    guard(async () => {
+                        const r = await apiPost('/result_delete', {result_id: +hd.dataset.histdel, spjangcd: CTX.spjangcd});
+                        histView = null; histItems = null;
+                        await refreshUnitAfterJudge();
+                        flash(r.message || '이력 삭제');
+                    });
+                }, '이력 삭제');
                 return;
             }
-        });
-        document.getElementById('cAction').addEventListener('click', function (e) {
-            if (e.target.closest('[data-recheckall]')) {
-                ['ROTOR', 'BASKET-50'].forEach(function (tb) {
-                    var cc = curU[TABKEY[tb]]; if (!cc || !cc.verdict) return;
-                    cc.verdict = null; cc.at = null;
-                    if (tb === 'BASKET-50') { cc.cycles = []; var b0 = INSP['BASKET-50'].criteria[0]; cc.cur = {result: null, val: '', reason: b0.label, tool: b0.tool}; }
-                    else { cc.res = {}; cc.val = {}; }
+            const hr = e.target.closest('[data-hist]');
+            if (hr) {
+                guard(async () => {
+                    histView = +hr.dataset.hist;
+                    histItems = apiGet('/result_items', {result_id: histView}) || [];
+                    renderUnit();
                 });
-                curChk = initChk(curU, curTab);
-                renderUnit(); renderUnits(); flash('재검사 · 두 검사 판정 해제 (이력 유지)');
+                return;
+            }
+            if (e.target.closest('[data-histback]')) { histView = null; histItems = null; renderUnit(); return; }
+            if (e.target.closest('[data-histedit]')) { copyFromHistory(); return; }
+
+            const tab = e.target.closest('[data-tab]');
+            if (tab) { curForm = +tab.dataset.tab; histView = null; guard(loadDetail); return; }
+            if (e.target.closest('[data-who]')) { openWho(); return; }
+            if (e.target.closest('[data-recheck]')) { doRecheck(); return; }
+
+            const sp = e.target.closest('[data-spec]');
+            if (sp) {
+                const raw = sp.dataset.spec, ci = raw.indexOf(',');
+                const itemId = +raw.slice(0, ci), label = raw.slice(ci + 1);
+                const it = formItems().find(x => +x.item_id === itemId);
+                const o = specList(it).find(x => x.label === label);
+                if (o) { SPEC[itemId] = o; renderUnit(); }
+                return;
+            }
+            const ck = e.target.closest('[data-chk]') || e.target.closest('[data-cyc]');
+            if (ck) {
+                const raw = ck.dataset.chk || ck.dataset.cyc;
+                const [itemId, rep, v] = raw.split(',');
+                saveItem(+itemId, +rep, v, null);
+                return;
+            }
+            const vb = e.target.closest('[data-val]');
+            if (vb) { const [itemId, rep] = vb.dataset.val.split(','); openVal(+itemId, +rep); return; }
+
+            const cd = e.target.closest('[data-cycdel]');
+            if (cd) {
+                const [itemId, rep] = cd.dataset.cycdel.split(',');
+                guard(async () => {
+                    await apiPost('/item_delete', {result_id: DET.result.result_id, form_item_id: itemId, repeat_no: rep});
+                    await loadDetail(); flash(rep + '회차 삭제');
+                });
+                return;
+            }
+            if (e.target.id === 'resetCur') { resetCurrent(); return; }
+            if (e.target.id === 'commitJudge') { commitJudge(); return; }
+        });
+
+        /** 항목 결과 저장 — 수치 항목은 값으로 자동 판정 */
+        function saveItem(itemId, rep, result, value) {
+            const it = formItems().find(x => +x.item_id === +itemId);
+            if (!it) return;
+            let res = result;
+            let val = (value === null || value === undefined) ? (got(it, rep).value || '') : value;
+            if (it.judge_type === 'num') res = autoJudge(it, val);
+            return guard(async () => {
+                const sp = curSpec(it);
+                await apiPost('/item_save', {
+                    result_id: DET.result.result_id, form_item_id: itemId,
+                    seq_no: it.seq_no, repeat_no: rep,
+                    result: res || '', value: val || '',
+                    spec_label: (sp && sp.label) || '', spec_tool: (sp && sp.tool) || '',
+                    actor_id: DET.result.actor_id, spjangcd: CTX.spjangcd
+                });
+                ITEMS[itemKey(it, rep)] = {result: res, value: val,
+                    spec_label: sp && sp.label, spec_tool: sp && sp.tool};
+                renderUnit();
+            });
+        }
+
+        function resetCurrent() {
+            uiConfirm('이 회차에 입력한 결과를 모두 지웁니다. 계속할까요?', function () {
+                guard(async () => {
+                    const keys = Object.keys(ITEMS);
+                    for (const k of keys) {
+                        const [itemId, rep] = k.split('_');
+                        await apiPost('/item_delete', {result_id: DET.result.result_id, form_item_id: itemId, repeat_no: rep});
+                    }
+                    await loadDetail(); flash('초기화');
+                });
+            }, '초기화');
+        }
+
+        function commitJudge() {
+            const bad = failCount();
+            const go = function (reason) {
+                guard(async () => {
+                    const r = await apiPost('/judge', {
+                        result_id: DET.result.result_id, fail_reason: reason || '', spjangcd: CTX.spjangcd
+                    });
+                    const st = (r.data && r.data.unit && r.data.unit.state) || '';
+                    await refreshUnitAfterJudge();
+                    if (st === 'pass') flash('최종 합격 · ' + (curU.lot_number || '') + ' → 검사완료창고 이동');
+                    else if (st === 'reject') flash('조립 복귀 · 재조립 후 재검사');
+                    else flash((r.message || '확정') + ' · 나머지 검사 남음');
+                });
+            };
+            if (bad > 0) askReason(go); else go('');
+        }
+
+        /** 확정 후 유닛/양식 상태 갱신 */
+        async function refreshUnitAfterJudge() {
+            await renderUnits();
+            const u = UNITS.find(x => +x.unit_id === +curU.unit_id);
+            if (u) { curU = u; FORMS = u.forms || []; }
+            await loadDetail();
+        }
+
+        function doRecheck() {
+            uiConfirm('이 양식을 다시 검사합니다.\n새 회차가 열리고 이전 회차는 이력으로 남습니다.', function () {
+                guard(async () => {
+                    await apiPost('/recheck', {
+                        unit_id: curU.unit_id, form_id: curForm,
+                        actor_id: (DET.result && DET.result.actor_id) || '', spjangcd: CTX.spjangcd
+                    });
+                    await refreshUnitAfterJudge();
+                    flash('재검사 시작 · 이력 유지');
+                });
+            }, '재검사');
+        }
+
+        /** 이력 회차를 복사해 새 회차로 (원본 보존) */
+        function copyFromHistory() {
+            const src = (histItems || []).slice();
+            histView = null; histItems = null;
+            guard(async () => {
+                await apiPost('/recheck', {
+                    unit_id: curU.unit_id, form_id: curForm,
+                    actor_id: (DET.result && DET.result.actor_id) || '', spjangcd: CTX.spjangcd
+                });
+                DET = apiGet('/result_detail', {unit_id: curU.unit_id, form_id: curForm});
+                for (const r of src) {
+                    await apiPost('/item_save', {
+                        result_id: DET.result.result_id, form_item_id: r.item_id,
+                        seq_no: r.seq_no, repeat_no: r.repeat_no,
+                        result: r.result || '', value: r.value || '',
+                        actor_id: DET.result.actor_id, spjangcd: CTX.spjangcd
+                    });
+                }
+                await refreshUnitAfterJudge();
+                flash('이전 기록을 복사했습니다 · 원본은 그대로, 확정하면 새 회차로 기록됩니다');
+            });
+        }
+
+        /* ══════════ 시트 ══════════ */
+        function showMask(id) { document.getElementById(id).classList.add('show'); }
+        function hideMask(id) { document.getElementById(id).classList.remove('show'); }
+        document.querySelectorAll('.mask').forEach(m => m.addEventListener('click', e => {
+            if (e.target === m || e.target.closest('[data-close]')) m.classList.remove('show');
+        }));
+
+        /* 검사자 배정 */
+        let whoSel = null;
+        function openWho() {
+            if (!WORKERS.length) WORKERS = combo('person');
+            whoSel = (DET.result && DET.result.actor_id) || null;
+            document.getElementById('whoTitle').textContent = curFormMeta().form_name + ' 검사자 배정';
+            document.getElementById('whoOpts').innerHTML = WORKERS.map(w =>
+                    '<button class="opt' + (+w.value === +whoSel ? ' sel' : '') + '" data-w="' + w.value + '">' + esc(w.text) + '</button>').join('')
+                || '<div style="color:var(--ink-2);font-weight:700">등록된 인원이 없습니다</div>';
+            document.getElementById('whoOk').disabled = !whoSel;
+            showMask('whoMask');
+        }
+        document.getElementById('whoOpts').addEventListener('click', e => {
+            const b = e.target.closest('[data-w]'); if (!b) return;
+            document.querySelectorAll('#whoOpts .opt').forEach(x => x.classList.remove('sel'));
+            b.classList.add('sel'); whoSel = b.dataset.w;
+            document.getElementById('whoOk').disabled = false;
+        });
+        document.getElementById('whoOk').onclick = function () {
+            hideMask('whoMask');
+            guard(async () => {
+                await apiPost('/result_start', {
+                    unit_id: curU.unit_id, form_id: curForm, actor_id: whoSel, spjangcd: CTX.spjangcd
+                });
+                await loadDetail();
+                await renderUnits();
+                const u = UNITS.find(x => +x.unit_id === +curU.unit_id);
+                if (u) { curU = u; FORMS = u.forms || []; }
+                renderUnit();
+                flash('검사자 배정');
+            });
+        };
+
+        /* 측정값 넘패드 */
+        let valItem = null, valRep = null, valBuf = '';
+        function openVal(itemId, rep) {
+            const it = formItems().find(x => +x.item_id === +itemId); if (!it) return;
+            valItem = itemId; valRep = rep;
+            valBuf = got(it, rep).value || '';
+            document.getElementById('padLab').textContent = it.item_name + (num(it.repeat_count) > 1 ? ' — ' + rep + '회' : '') + ' 측정값';
+            document.getElementById('padDisp').textContent = valBuf || '-';
+            const ub = document.querySelector('#padMask [data-k="unit"]');
+            if (ub) ub.textContent = it.unit || 'mm';
+            showMask('padMask');
+        }
+        document.querySelector('#padMask .keys').addEventListener('click', e => {
+            const k = e.target.dataset.k; if (!k) return;
+            const it = formItems().find(x => +x.item_id === +valItem);
+            if (k === 'C') valBuf = '';
+            else if (k === 'bs') valBuf = valBuf.slice(0, -1);
+            else if (k === 'dot') { if (valBuf.indexOf('.') < 0) valBuf += (valBuf === '' ? '0.' : '.'); }
+            else if (k === 'unit') { const u = (it && it.unit) || 'mm'; if (valBuf && valBuf.indexOf(u) < 0) valBuf += u; }
+            else if (k === 'OK') {
+                hideMask('padMask');
+                const cur = got(it, valRep);
+                saveItem(valItem, valRep, cur.result, valBuf);
+                return;
+            } else valBuf += k;
+            document.getElementById('padDisp').textContent = valBuf || '-';
+        });
+
+        /* 불합격 사유 */
+        function askReason(onOk) {
+            let m = document.getElementById('reasonMask');
+            if (!m) {
+                m = document.createElement('div');
+                m.id = 'reasonMask'; m.className = 'mask';
+                m.innerHTML = '<div class="sheet"><div class="body"><div class="sh"><h3>불합격 사유</h3><button class="x" data-close>✕</button></div>' +
+                    '<div style="color:var(--ink-2);font-weight:700;font-size:13.5px;margin:2px 2px 12px">조립으로 복귀시킬 때 작업자에게 전달됩니다.</div>' +
+                    '<input id="reasonInput" style="width:100%;height:58px;border:1px solid var(--line);border-radius:14px;padding:0 16px;font-size:18px;font-weight:700;background:var(--surface-2)" placeholder="예: ROTOR 진동 과다"/>' +
+                    '<button class="ok" id="reasonOk">불합격 확정</button></div></div>';
+                document.body.appendChild(m);
+                m.addEventListener('click', e => { if (e.target === m || (e.target.closest && e.target.closest('[data-close]'))) m.classList.remove('show'); });
+            }
+            m.querySelector('#reasonInput').value = '';
+            m.querySelector('#reasonOk').onclick = function () {
+                const v = m.querySelector('#reasonInput').value.trim();
+                m.classList.remove('show'); onOk(v);
+            };
+            m.classList.add('show');
+        }
+
+        /* 확인 시트 */
+        function uiConfirm(msg, onOk, okLabel) {
+            let m = document.getElementById('confirmMask');
+            if (!m) {
+                m = document.createElement('div');
+                m.id = 'confirmMask';
+                m.style.cssText = 'position:fixed;inset:0;background:rgba(21,34,43,.45);display:none;align-items:center;justify-content:center;z-index:100;padding:24px';
+                m.innerHTML = '<div style="background:var(--surface);border-radius:20px;max-width:420px;width:100%;padding:24px 22px 18px;box-shadow:0 20px 50px -12px rgba(0,0,0,.4)">' +
+                    '<div id="confirmMsg" style="font-size:17px;font-weight:800;color:var(--ink);line-height:1.5;margin-bottom:20px;white-space:pre-line"></div>' +
+                    '<div style="display:flex;gap:10px">' +
+                    '<button id="confirmCancel" style="flex:1;height:52px;border-radius:14px;border:1px solid var(--line);background:var(--surface-2);color:var(--ink-2);font-weight:800;font-size:16px">취소</button>' +
+                    '<button id="confirmOk" style="flex:1;height:52px;border-radius:14px;border:none;background:#0E7C86;color:#fff;font-weight:800;font-size:16px">확인</button>' +
+                    '</div></div>';
+                document.body.appendChild(m);
+                m.addEventListener('click', e => { if (e.target === m) m.style.display = 'none'; });
+            }
+            m.querySelector('#confirmMsg').textContent = msg;
+            const ok = m.querySelector('#confirmOk'), cancel = m.querySelector('#confirmCancel');
+            ok.textContent = okLabel || '확인';
+            const close = function () { m.style.display = 'none'; ok.onclick = null; cancel.onclick = null; };
+            ok.onclick = function () { close(); onOk && onOk(); };
+            cancel.onclick = close;
+            m.style.display = 'flex';
+        }
+
+        /* 토스트 */
+        let tT;
+        function flash(m) {
+            let t = document.getElementById('toast');
+            if (!t) { t = document.createElement('div'); t.id = 'toast'; t.style.cssText = 'position:fixed;left:50%;bottom:110px;transform:translateX(-50%);background:#15222B;color:#fff;padding:14px 22px;border-radius:14px;font-weight:700;z-index:120;box-shadow:0 12px 30px -10px rgba(0,0,0,.5);transition:opacity .3s;max-width:90vw;text-align:center'; document.body.appendChild(t); }
+            t.textContent = m; t.style.opacity = '1'; clearTimeout(tT); tT = setTimeout(() => t.style.opacity = '0', 1900);
+        }
+
+        /* ══════════ 양식 관리 (PC) ══════════ */
+        let FLIST = [], fCur = null, fItems = [], fMats = [], fSelMats = [];
+
+        /* 양식 모달은 여백 클릭으로 닫히지 않는다 (편집 중 실수 방지) */
+        document.getElementById('formMask').addEventListener('click', e => {
+            if (e.target.closest('[data-close]')) hideMask('formMask');
+        });
+
+        document.getElementById('btnForms').addEventListener('click', () => {
+            guard(async () => {
+                fMats = apiGet('/form_materials') || [];
+                FLIST = apiGet('/form_list', {spjangcd: CTX.spjangcd}) || [];
+                fCur = null; fItems = []; fSelMats = [];
+                drawFormList(); drawFormEditor();
+                showMask('formMask');
+            });
+        });
+
+        function drawFormList() {
+            document.getElementById('fList').innerHTML = FLIST.map(f =>
+                    '<div class="frow' + (fCur && +fCur.form_id === +f.form_id ? ' on' : '') + '" data-f="' + f.form_id + '">' +
+                    '<div style="flex:1;min-width:0">' +
+                    '<div class="fn">' + esc(f.form_name) + '</div>' +
+                    '<div class="fc">' + esc(f.form_code || '코드 없음') + ' · 항목 ' + f.item_cnt + '개</div>' +
+                    '<div class="fmats' + (f.mat_names ? '' : ' none') + '">' + esc(f.mat_names || '적용품목 없음') + '</div>' +
+                    '</div>' +
+                    '<span class="fuse ' + (f.use_yn === 'Y' ? 'on' : '') + '">' + (f.use_yn === 'Y' ? '사용' : '미사용') + '</span></div>').join('')
+                || '<div style="color:var(--ink-2);font-weight:700;padding:14px 4px">등록된 양식이 없습니다.</div>';
+        }
+
+        document.getElementById('fList').addEventListener('click', e => {
+            const r = e.target.closest('[data-f]'); if (!r) return;
+            guard(async () => {
+                const d = apiGet('/form_detail', {form_id: +r.dataset.f});
+                fCur = d;
+                fItems = (d.items || []).map(x => Object.assign({}, x));
+                fSelMats = (d.materials || []).map(m => +m.mat_id);
+                drawFormList(); drawFormEditor();
+            });
+        });
+
+        document.getElementById('fNew').addEventListener('click', () => {
+            fCur = {form_id: null, form_code: '', form_name: '', use_yn: 'Y', seq_no: (FLIST.length + 1), description: ''};
+            fItems = []; fSelMats = [];
+            drawFormList(); drawFormEditor();
+        });
+
+        /* ── 항목 도움말 ── */
+        const HELP = {
+            name: ['검사명', '검사 화면 상단에 탭 이름으로 보입니다.\n\n예: #50 ROTOR, #60 BASKET TEST'],
+            code: ['검사 코드', '내부 관리용 코드입니다. 비워두면 저장할 때 자동으로 만들어집니다.\n화면에는 거의 보이지 않으니 몰라도 됩니다.'],
+            mats: ['적용 품목', '이 양식으로 검사할 품목을 고릅니다.\n\n체크한 품목의 유닛을 검사할 때 이 양식이 탭으로 나타납니다.\n하나도 체크하지 않으면 검사 화면에 아예 안 보입니다.\n\n여러 품목에 같은 양식을 붙일 수 있습니다.'],
+            seq: ['탭 순서', '검사 화면에서 탭이 놓이는 순서입니다. 숫자가 작을수록 왼쪽입니다.'],
+            use: ['사용 여부', '«미사용»으로 바꾸면 검사 화면에 나타나지 않습니다.\n\n이미 검사한 실적이 있는 양식은 삭제할 수 없으니, 대신 미사용으로 두세요.'],
+            item: ['검사 항목', '작업자가 확인할 내용을 짧게 적습니다.\n\n예: 전원 ON/OFF, 외관 및 손잡이 고정, BASKET LOCK'],
+            crit: ['합격 기준', '무엇을 보고 합격으로 볼지, 작업자가 읽고 바로 판단할 수 있게 적습니다.\n\n예: ON·OFF 시 전원 LED 점등, 스위치 유격 없을 것'],
+            method: ['검사방법', '어떻게 확인하는지입니다.\n\n예: 육안, 육안/EAR, 반복(추), 게이지'],
+            judge: ['판정방식', '«합/불» — 작업자가 합격·불합격 버튼만 누릅니다. 대부분 이걸 씁니다.\n\n«수치» — 측정값을 입력받아 아래 하한~상한과 비교해 자동으로 판정합니다.\n버튼 대신 숫자패드가 뜹니다.'],
+            rep: ['반복 횟수', '같은 항목을 몇 번 측정하는지입니다. 기본 1회.\n\n5회 이하 — 검사 화면에 회차가 한 번에 펼쳐집니다. (예: 전원 3회)\n\n6회 이상 — 진행바와 함께 한 회차씩 기록하는 화면이 됩니다. (예: BASKET 50회)'],
+            unit: ['단위', '판정방식이 «수치»일 때만 씁니다.\n\n예: mm, kg, ℃. 숫자패드의 단위 버튼에도 이 값이 들어갑니다.'],
+            lower: ['하한', '판정방식이 «수치»일 때, 이 값보다 작으면 불합격입니다.\n비워두면 아래쪽 제한이 없습니다.'],
+            spec: ['규격 선택지', '회차마다 어떤 규격·공구로 시험했는지 남겨야 할 때만 씁니다. 보통은 비워둡니다.\n\n한 줄에 하나씩, 「라벨|공구」 형식으로 적습니다.\n  BSC 30 - 30 추|30ml 추\n  BSC 60 - 60 추|60ml 추\n  BMSC - 60 추|60ml 추\n\n선택지를 넣으면 반복횟수가 적어도 «회차별 기록» 방식으로 바뀝니다.\n작업자가 고른 규격은 다음 회차에도 이어지고, 바꾸면 그 다음 회차부터 적용됩니다.'],
+            upper: ['상한', '판정방식이 «수치»일 때, 이 값보다 크면 불합격입니다.\n비워두면 위쪽 제한이 없습니다.']
+        };
+        function hlp(k) { return '<span class="hlp" data-hlp="' + k + '">?</span>'; }
+
+        /* 도움말 툴팁 — 마우스오버로 표시. body 에 띄워 스크롤 영역에 잘리지 않는다. */
+        (function () {
+            let tip = null;
+            function ensure() {
+                if (!tip) { tip = document.createElement('div'); tip.id = 'hlpTip'; document.body.appendChild(tip); }
+                return tip;
+            }
+            function place(el) {
+                const t = ensure(), r = el.getBoundingClientRect();
+                t.style.display = 'block';
+                const w = t.offsetWidth, h = t.offsetHeight;
+                let left = r.left + r.width / 2 - w / 2;
+                left = Math.max(10, Math.min(left, window.innerWidth - w - 10));
+                let top = r.bottom + 8;
+                if (top + h > window.innerHeight - 10) top = r.top - h - 8;
+                t.style.left = left + 'px';
+                t.style.top = Math.max(10, top) + 'px';
+            }
+            document.addEventListener('mouseover', e => {
+                const el = e.target.closest && e.target.closest('[data-hlp]');
+                if (!el) return;
+                const d = HELP[el.dataset.hlp]; if (!d) return;
+                const t = ensure();
+                t.innerHTML = '<b></b>';
+                t.firstChild.textContent = d[0];
+                t.appendChild(document.createTextNode(d[1]));
+                place(el);
+            });
+            document.addEventListener('mouseout', e => {
+                if (e.target.closest && e.target.closest('[data-hlp]') && tip) tip.style.display = 'none';
+            });
+            document.addEventListener('scroll', () => { if (tip) tip.style.display = 'none'; }, true);
+        })();
+
+        function drawFormEditor() {
+            const box = document.getElementById('fEdit');
+            if (!fCur) {
+                box.innerHTML = '<div style="color:var(--ink-2);font-weight:700;padding:30px;text-align:center">왼쪽에서 양식을 고르거나 «＋ 새 양식» 을 누르세요.</div>';
+                drawFormActions();
+                return;
+            }
+            box.innerHTML =
+                '<div class="frowline"><label>검사명' + hlp('name') + '</label><input id="fName" value="' + esc(fCur.form_name || '') + '" placeholder="예: #50 ROTOR"></div>' +
+                '<div class="frowline"><label>검사 코드' + hlp('code') + '</label><input id="fCode" value="' + esc(fCur.form_code || '') + '" placeholder="비워도 됩니다"></div>' +
+                '<div class="frowline"><label>탭 순서' + hlp('seq') + '</label><input id="fSeq" type="number" min="0" style="width:100px" value="' + (fCur.seq_no == null ? 1 : fCur.seq_no) + '">' +
+                '<label style="margin-left:18px">사용' + hlp('use') + '</label><select id="fUse" style="width:110px"><option value="Y"' + (fCur.use_yn !== 'N' ? ' selected' : '') + '>사용</option><option value="N"' + (fCur.use_yn === 'N' ? ' selected' : '') + '>미사용</option></select></div>' +
+                '<div class="frowline top"><label>적용 품목' + hlp('mats') + '</label><div class="matbox">' +
+                (fMats.length ? fMats.map(m => '<label class="fchk"><input type="checkbox" class="fmat" value="' + m.mat_id + '"' + (fSelMats.indexOf(+m.mat_id) >= 0 ? ' checked' : '') + '><b>' + esc(m.mat_code) + '</b> ' + esc(m.mat_name || '') + '</label>').join('')
+                    : '<span style="color:var(--red);font-weight:700">검사 대상 품목이 없습니다 (material.InspectYN=\'Y\')</span>') + '</div></div>' +
+                '<div class="fhead">검사 항목 <span class="ln"></span><button class="fbtn" id="fAddItem">＋ 항목</button></div>' +
+                (fItems.map((it, i) => itemRow(it, i)).join('') ||
+                    '<div style="color:var(--ink-2);font-weight:700;padding:14px 6px;border:1.5px dashed var(--line);border-radius:12px;text-align:center">«＋ 항목» 으로 검사 항목을 추가하세요.</div>') +
+                '';
+            drawFormActions();
+            growAll();
+        }
+
+        /* 저장·삭제는 모달 하단 고정 바에 (PC 기준 크기) */
+        function drawFormActions() {
+            const bar = document.getElementById('fActions');
+            if (!fCur) { bar.innerHTML = '<span style="color:var(--ink-2);font-weight:700;font-size:13px">양식을 선택하거나 새로 만드세요.</span>'; return; }
+            bar.innerHTML =
+                (fCur.form_id ? '<button class="pcbtn danger" id="fDel">삭제</button>' : '') +
+                '<span style="flex:1;font-size:12.5px;color:var(--ink-2);font-weight:700">' +
+                (fCur.form_id ? '수정 중 · 저장해야 반영됩니다' : '새 양식 · 저장해야 반영됩니다') + '</span>' +
+                '<button class="pcbtn" data-close>닫기</button>' +
+                '<button class="pcbtn primary" id="fSave">저장</button>';
+        }
+
+        /* 항목 1개 = 카드. 검사항목·합격기준은 전폭(textarea)이라 긴 문장도 다 보인다. */
+        function itemRow(it, i) {
+            const numMode = it.judge_type === 'num';
+            return '<div class="fcard">' +
+                '<div class="ftop"><span class="fno">' + (i + 1) + '</span>' +
+                '<input data-fi="' + i + ',item_name" value="' + esc(it.item_name || '') + '" placeholder="검사 항목 (예: 전원 ON/OFF)">' + hlp('item') +
+                '<button class="fbtn sm" data-fup="' + i + '" title="위로">▲</button>' +
+                '<button class="fbtn sm" data-fdn="' + i + '" title="아래로">▼</button>' +
+                '<button class="fbtn sm del" data-frm="' + i + '" title="삭제">✕</button></div>' +
+                '<div class="fsub"><label>합격 기준' + hlp('crit') + '</label>' +
+                '<textarea data-fi="' + i + ',criteria" rows="1" placeholder="작업자가 읽는 문장으로 적으세요. 예: ON·OFF 시 전원 LED 점등, 스위치 유격 없을 것">' + esc(it.criteria || '') + '</textarea></div>' +
+                '<div class="fsub"><label>규격 선택지' + hlp('spec') + '</label>' +
+                '<textarea data-fi="' + i + ',spec_options" rows="1" placeholder="한 줄에 하나씩. 형식: 라벨|공구   (비워두면 사용 안 함)">' + esc(it.spec_options || '') + '</textarea></div>' +
+                '<div class="fopts">' +
+                '<div class="fopt"><label>검사방법' + hlp('method') + '</label><input style="width:130px" data-fi="' + i + ',method" value="' + esc(it.method || '육안') + '"></div>' +
+                '<div class="fopt"><label>판정방식' + hlp('judge') + '</label><select style="width:104px" data-fi="' + i + ',judge_type">' +
+                '<option value="ox"' + (numMode ? '' : ' selected') + '>합/불</option>' +
+                '<option value="num"' + (numMode ? ' selected' : '') + '>수치</option></select></div>' +
+                '<div class="fopt"><label>반복' + hlp('rep') + '</label><input type="number" min="1" style="width:76px" data-fi="' + i + ',repeat_count" value="' + (it.repeat_count == null ? 1 : it.repeat_count) + '"><span style="font-size:12.5px;color:var(--ink-2);font-weight:700">회</span></div>' +
+                '<div class="fopt"><label>단위' + hlp('unit') + '</label><input style="width:72px" data-fi="' + i + ',unit" value="' + esc(it.unit || '') + '"' + (numMode ? '' : ' disabled') + '></div>' +
+                '<div class="fopt"><label>하한' + hlp('lower') + '</label><input style="width:84px" data-fi="' + i + ',lower_limit" value="' + (it.lower_limit == null ? '' : it.lower_limit) + '"' + (numMode ? '' : ' disabled') + '></div>' +
+                '<div class="fopt"><label>상한' + hlp('upper') + '</label><input style="width:84px" data-fi="' + i + ',upper_limit" value="' + (it.upper_limit == null ? '' : it.upper_limit) + '"' + (numMode ? '' : ' disabled') + '></div>' +
+                '</div></div>';
+        }
+
+        /* 합격 기준 textarea — 내용만큼만 늘어난다(기본 1줄, 최대 150px) */
+        function autoGrow(el) {
+            if (!el || el.tagName !== 'TEXTAREA') return;
+            el.style.height = 'auto';
+            el.style.height = Math.min(150, Math.max(44, el.scrollHeight + 2)) + 'px';
+        }
+        function growAll() { document.querySelectorAll('#fEdit textarea').forEach(autoGrow); }
+
+        document.getElementById('fEdit').addEventListener('input', e => {
+            const t = e.target.closest('[data-fi]'); if (!t) return;
+            const [i, k] = t.dataset.fi.split(',');
+            fItems[+i][k] = t.value;
+            autoGrow(t);
+        });
+        document.getElementById('fEdit').addEventListener('change', e => {
+            const t = e.target.closest('[data-fi]'); if (!t) return;
+            const [i, k] = t.dataset.fi.split(',');
+            fItems[+i][k] = t.value;
+            if (k === 'judge_type') { syncMats(); drawFormEditor(); }
+        });
+        document.getElementById('fEdit').addEventListener('click', e => {
+            const up = e.target.closest('[data-fup]'), dn = e.target.closest('[data-fdn]'), rm = e.target.closest('[data-frm]');
+            if (up || dn) {
+                const i = +((up || dn).dataset.fup || (up || dn).dataset.fdn), j = i + (up ? -1 : 1);
+                if (j < 0 || j >= fItems.length) return;
+                const t = fItems[i]; fItems[i] = fItems[j]; fItems[j] = t;
+                syncMats(); drawFormEditor(); return;
+            }
+            if (rm) { fItems.splice(+rm.dataset.frm, 1); syncMats(); drawFormEditor(); return; }
+            if (e.target.id === 'fAddItem') {
+                fItems.push({item_name: '', criteria: '', method: '육안', judge_type: 'ox', repeat_count: 1, unit: '', lower_limit: null, upper_limit: null, spec_options: ''});
+                syncMats(); drawFormEditor(); return;
             }
         });
 
-        /* 검사자 배정 */
-        function showMask(id) { document.getElementById(id).classList.add('show'); }
-        function hideMask(id) { document.getElementById(id).classList.remove('show'); }
-        document.querySelectorAll('.mask').forEach(function (m) { m.addEventListener('click', function (e) { if (e.target === m || e.target.closest('[data-close]')) m.classList.remove('show'); }); });
-        var whoSel = null;
-        function openWho() {
-            whoSel = curChk.by;
-            document.getElementById('whoTitle').textContent = TABNM[curTab] + ' 검사자 배정';
-            document.getElementById('whoOpts').innerHTML = WORKERS.map(function (w) { return '<button class="opt' + (curChk.by === w ? ' sel' : '') + '" data-w="' + w + '">' + w + '</button>'; }).join('');
-            document.getElementById('whoOk').disabled = !curChk.by;
-            showMask('whoMask');
-        }
-        document.getElementById('whoOpts').addEventListener('click', function (e) { var b = e.target.closest('[data-w]'); if (!b) return; document.querySelectorAll('#whoOpts .opt').forEach(function (x) { x.classList.remove('sel'); }); b.classList.add('sel'); whoSel = b.dataset.w; document.getElementById('whoOk').disabled = false; });
-        document.getElementById('whoOk').onclick = function () { curChk.by = whoSel; hideMask('whoMask'); renderUnit(); flash(TABNM[curTab] + ' 검사자 · ' + whoSel); };
-
-        /* 측정값 넘패드 */
-        var valKey = null, valMode = null, valBuf = '';
-        function openVal(k, mode) {
-            valMode = mode || 'item'; valKey = k;
-            valBuf = (valMode === 'cycleval') ? (curChk.cur.val || '') : ((curChk.val && curChk.val[k]) || '');
-            document.getElementById('padLab').textContent = (valMode === 'cycleval') ? (tpl().item + ' 측정값') : (padItemName(k) + ' 측정값');
-            document.getElementById('padDisp').textContent = valBuf || '-';
-            showMask('padMask');
-        }
-        function padItemName(no) {
-            var s = String(no), sub = '';
-            if (s.indexOf('_') >= 0) { sub = ' — 측정 ' + s.split('_')[1] + '회'; s = s.split('_')[0]; }
-            var it = INSP['ROTOR'].items.filter(function (x) { return String(x.no) === s; })[0];
-            return (it ? it.item.replace(/\s*\(3회\)/, '') : ('항목 ' + s)) + sub;
-        }
-        document.querySelector('#padMask .keys').addEventListener('click', function (e) {
-            var key = e.target.dataset.k; if (!key) return;
-            if (key === 'C') valBuf = '';
-            else if (key === 'bs') valBuf = valBuf.slice(0, -1);
-            else if (key === 'dot') { if (valBuf.indexOf('.') < 0) valBuf += (valBuf === '' ? '0.' : '.'); }
-            else if (key === 'unit') { if (valBuf && valBuf.indexOf('mm') < 0) valBuf += 'mm'; }
-            else if (key === 'OK') { if (valMode === 'cycleval') curChk.cur.val = valBuf; else curChk.val[valKey] = valBuf; hideMask('padMask'); renderUnit(); return; }
-            else valBuf += key;
-            document.getElementById('padDisp').textContent = valBuf || '-';
+        document.getElementById('fActions').addEventListener('click', e => {
+            if (e.target.id === 'fSave') { saveFormNow(); return; }
+            if (e.target.id === 'fDel') {
+                uiConfirm('이 검사 양식을 삭제할까요?', function () {
+                    guard(async () => {
+                        const r = await apiPost('/form_delete', {form_id: fCur.form_id});
+                        flash(r.message || '삭제되었습니다');
+                        FLIST = apiGet('/form_list', {spjangcd: CTX.spjangcd}) || [];
+                        fCur = null; fItems = []; fSelMats = [];
+                        drawFormList(); drawFormEditor(); drawFormActions();
+                    });
+                }, '삭제');
+            }
         });
 
-        /* 토스트 */
-        var tT;
-        function flash(m) {
-            var t = document.getElementById('toast');
-            if (!t) { t = document.createElement('div'); t.id = 'toast'; t.style.cssText = 'position:fixed;left:50%;bottom:110px;transform:translateX(-50%);background:#15222B;color:#fff;padding:14px 22px;border-radius:14px;font-weight:700;z-index:60;box-shadow:0 12px 30px -10px rgba(0,0,0,.5);transition:opacity .3s;max-width:90vw;text-align:center'; document.body.appendChild(t); }
-            t.textContent = m; t.style.opacity = '1'; clearTimeout(tT); tT = setTimeout(function () { t.style.opacity = '0'; }, 1900);
+        function syncMats() {
+            fSelMats = Array.prototype.slice.call(document.querySelectorAll('.fmat'))
+                .filter(c => c.checked).map(c => +c.value);
+            const n = document.getElementById('fName'), c = document.getElementById('fCode'),
+                s = document.getElementById('fSeq'), u = document.getElementById('fUse');
+            if (n) fCur.form_name = n.value;
+            if (c) fCur.form_code = c.value;
+            if (s) fCur.seq_no = s.value;
+            if (u) fCur.use_yn = u.value;
         }
 
-        renderQueue();
+        function saveFormNow() {
+            syncMats();
+            if (!fCur.form_name || !fCur.form_name.trim()) { flash('검사명을 입력하세요'); return; }
+            const items = fItems.filter(x => (x.item_name || '').trim() !== '');
+            if (!items.length) { flash('검사 항목을 1개 이상 등록하세요'); return; }
+            guard(async () => {
+                const p = {
+                    form_code: fCur.form_code || '', form_name: fCur.form_name.trim(),
+                    use_yn: fCur.use_yn || 'Y', seq_no: fCur.seq_no || 0,
+                    description: fCur.description || '',
+                    items_json: JSON.stringify(items), mat_ids_json: JSON.stringify(fSelMats),
+                    spjangcd: CTX.spjangcd
+                };
+                if (fCur.form_id) p.form_id = fCur.form_id;
+                const r = await apiPost('/form_save', p);
+                const id = (r.data && r.data.form_id) || fCur.form_id;
+                flash(r.message || '저장되었습니다');
+                FLIST = apiGet('/form_list', {spjangcd: CTX.spjangcd}) || [];
+                fCur = apiGet('/form_detail', {form_id: id});
+                fItems = (fCur.items || []).map(x => Object.assign({}, x));
+                fSelMats = (fCur.materials || []).map(m => +m.mat_id);
+                drawFormList(); drawFormEditor();
+            });
+        }
+
+        /* ══════════ 부팅 ══════════ */
+        (function boot(tries) {
+            tries = tries || 0;
+            if (typeof AjaxUtil !== 'undefined' && AjaxUtil.getSyncData) {
+                WORKERS = combo('person');
+                renderQueue();
+                return;
+            }
+            if (tries > 100) {
+                flash('AjaxUtil 미로드 — 공용 스크립트 로드 순서를 확인하세요');
+                return;
+            }
+            setTimeout(function () {
+                boot(tries + 1);
+            }, 50);
+        })();
     </script>
 </th:block>
 </html>

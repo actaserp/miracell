@@ -23,12 +23,13 @@
         .wo{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px 18px 16px;cursor:pointer;box-shadow:var(--shadow);transition:transform .12s ease;position:relative;overflow:hidden}
         .wo:active{transform:scale(.985)}
         .wo .edge{position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--line)}
-        .wo[data-cat="return"] .edge{background:var(--amber)}.wo[data-cat="spec"] .edge{background:var(--purple)}.wo[data-cat="rework"] .edge{background:var(--teal)}
+        .wo[data-cat="return"] .edge{background:var(--amber)}.wo[data-cat="spec"] .edge{background:var(--purple)}
         .wo .row1{display:flex;align-items:center;gap:10px;margin-bottom:8px}
         .wo .wono{font-weight:800;font-size:15px;color:var(--ink-2)}
         .cattag{font-size:12px;font-weight:800;padding:3px 10px;border-radius:999px}
-        .cattag.return{background:var(--amber-bg);color:var(--amber)}.cattag.spec{background:var(--purple-bg);color:var(--purple)}.cattag.rework{background:var(--teal-bg);color:var(--teal-d)}
+        .cattag.return{background:var(--amber-bg);color:var(--amber)}.cattag.spec{background:var(--purple-bg);color:var(--purple)}
         .chip{margin-left:auto;padding:5px 11px;border-radius:999px;font-size:13px;font-weight:800;background:var(--surface-2);color:var(--ink-2)}
+        .chip.rej{background:var(--red-bg);color:var(--red)}
         .wo .name{font-size:18px;font-weight:800;letter-spacing:-.02em;line-height:1.3;margin:2px 0 4px}
         .wo .code{font-size:13px;color:var(--ink-2);font-weight:700;font-variant-numeric:tabular-nums;margin-bottom:14px}
         .wo .meta{display:flex;gap:18px;align-items:flex-end}
@@ -53,22 +54,25 @@
         .unit{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;cursor:pointer;box-shadow:var(--shadow);position:relative;overflow:hidden;transition:transform .12s}
         .unit:active{transform:scale(.98)}
         .unit .edge{position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--amber)}
-        .unit[data-st="repairing"] .edge{background:var(--teal)}.unit[data-st="inspect_wait"] .edge{background:var(--purple)}.unit[data-st="done"] .edge{background:var(--green)}
+        .unit[data-st="repairing"] .edge{background:var(--teal)}.unit[data-st="inspect_wait"] .edge{background:var(--purple)}
+        .unit[data-st="pass"] .edge,.unit[data-st="packed"] .edge{background:var(--green)}.unit[data-st="reject"] .edge{background:var(--red)}
         .unit .un{font-size:16px;font-weight:800}
         .unit .lot{font-size:12.5px;color:var(--ink-2);font-weight:700;font-variant-numeric:tabular-nums;margin-top:2px}
         .unit .arrow{font-size:12.5px;color:var(--purple);font-weight:800;margin-top:2px}
+        .unit .rej, .wo .rej{font-size:12.5px;color:var(--red);font-weight:800;margin-top:4px;line-height:1.35}
         .ubadge{padding:5px 10px;border-radius:999px;font-size:12.5px;font-weight:800}
-        .ubadge.wait{background:var(--amber-bg);color:var(--amber)}.ubadge.repairing{background:var(--teal-bg);color:var(--teal-d)}.ubadge.inspect_wait{background:var(--purple-bg);color:var(--purple)}.ubadge.done{background:var(--green-bg);color:var(--green)}
+        .ubadge.wait{background:var(--amber-bg);color:var(--amber)}.ubadge.repairing{background:var(--teal-bg);color:var(--teal-d)}
+        .ubadge.inspect_wait{background:var(--purple-bg);color:var(--purple)}
+        .ubadge.pass,.ubadge.packed{background:var(--green-bg);color:var(--green)}.ubadge.reject{background:var(--red-bg);color:var(--red)}
 
         .srcbox{background:linear-gradient(180deg,#FBF7FF,#FFF);border:1px solid var(--purple-bg);border-radius:var(--r);padding:14px 16px;box-shadow:var(--shadow)}
         .srcbox .h{font-size:12.5px;font-weight:800;color:var(--purple)}
         .srcbox .lot{font-size:20px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
         .srcbox .sub{font-size:12.5px;color:var(--ink-2);font-weight:700;margin-top:2px}
+        .srcbox .warn{font-size:12.5px;color:var(--red);font-weight:800;margin-top:6px}
         .resbox{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;box-shadow:var(--shadow)}
         .resbox .h{font-size:12.5px;font-weight:800;color:var(--ink-2)}
         .resbox .lot{font-size:19px;font-weight:800;font-variant-numeric:tabular-nums}
-        .resbox .badge{margin-left:auto;padding:6px 12px;border-radius:999px;font-size:12.5px;font-weight:800;background:var(--surface-2);color:var(--ink-2)}
-        .resbox .badge.newlot{background:var(--purple-bg);color:var(--purple)}
         .lotmode{display:inline-flex;border:1px solid var(--line);border-radius:12px;overflow:hidden;flex:0 0 auto}
         .lotmode button{height:44px;padding:0 12px;border:none;background:var(--surface);color:var(--ink-2);font-weight:800;font-size:13px;cursor:pointer}
         .lotmode button.on{background:var(--purple);color:#fff}
@@ -77,12 +81,36 @@
         .whoRow .l{font-size:13px;color:var(--ink-2);font-weight:800}.whoRow .nm{font-size:17px;font-weight:800}
         .whoRow .assign{margin-left:auto;height:46px;padding:0 16px;border-radius:12px;border:1px solid var(--teal);background:var(--teal-bg);color:var(--teal-d);font-weight:800;font-size:14px;cursor:pointer}
 
+        .timerow{display:flex;gap:12px}
+        .timebtn{flex:1;min-height:64px;text-align:left;background:var(--surface);border:1px solid var(--line);
+            border-radius:var(--r);padding:11px 16px;box-shadow:var(--shadow);cursor:pointer;display:block}
+        .timebtn:active{background:var(--surface-2)}
+        .timebtn .l{display:block;font-size:12.5px;color:var(--ink-2);font-weight:800}
+        .timebtn .v{display:block;font-size:16px;font-weight:800;font-variant-numeric:tabular-nums;margin-top:2px}
+        .timebtn .v.none{color:var(--ink-2)}
+        .timebtn:disabled{cursor:default;opacity:.65}
+        .durline{text-align:center;font-size:13px;color:var(--ink-2);font-weight:800;margin-top:-4px}
+
+        .dateedit{display:flex;align-items:center;justify-content:center;gap:14px;margin:4px 0 10px}
+        .dateedit .dbtn{width:56px;height:52px;border-radius:14px;border:1px solid var(--line);background:var(--surface-2);font-size:22px;font-weight:700;cursor:pointer}
+        .dateedit .dbtn:active{background:var(--line)}
+        .dateedit .dval{min-width:200px;text-align:center;font-size:22px;font-weight:800;font-variant-numeric:tabular-nums}
+        .timeedit{display:flex;align-items:center;justify-content:center;gap:6px;margin:8px 0}
+        .tcol{display:flex;flex-direction:column;align-items:center;gap:8px}
+        .tcol button{width:84px;height:52px;border-radius:14px;border:1px solid var(--line);background:var(--surface-2);font-size:24px;font-weight:700;cursor:pointer}
+        .tcol button:active{background:var(--line)}
+        .tcol .tv{font-size:42px;font-weight:800;font-variant-numeric:tabular-nums;width:84px;text-align:center}
+        .tsep{font-size:34px;font-weight:800;padding:0 4px}
+
         .mrow{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;display:flex;align-items:center;gap:10px;box-shadow:var(--shadow)}
+        .mrow.frozen{background:var(--surface-2)}
+        .mrow .fz{font-size:11px;font-weight:800;padding:2px 7px;border-radius:999px;background:var(--line);color:var(--ink-2);vertical-align:1px}
         .mrow.plus{border-left:5px solid var(--green)}.mrow.minus{border-left:5px solid var(--red)}
         .mrow .dir{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;font-size:18px;font-weight:800;flex:0 0 auto}
         .mrow.plus .dir{background:var(--green-bg);color:var(--green)}.mrow.minus .dir{background:var(--red-bg);color:var(--red)}
         .mrow .id{flex:1;min-width:0}.mrow .mn{font-size:15.5px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .mrow .mc{font-size:12px;color:var(--ink-2);font-weight:700;font-variant-numeric:tabular-nums}
+        .mrow .mc.short{color:var(--red)}
         .stepper{display:flex;align-items:center;flex:0 0 auto}
         .stepper button{width:42px;height:46px;border:1px solid var(--line);background:var(--surface-2);font-size:20px;font-weight:700;cursor:pointer;display:grid;place-items:center}
         .stepper button:active{background:var(--line)}.stepper button.minus{border-radius:12px 0 0 12px}.stepper button.plus{border-radius:0 12px 12px 0}
@@ -91,17 +119,16 @@
         .addbar{display:flex;gap:10px;flex-wrap:wrap}
         .addbtn{min-height:50px;padding:0 16px;border-radius:14px;border:1px solid var(--teal);background:var(--teal-bg);color:var(--teal-d);font-weight:800;font-size:14px;cursor:pointer}
         .addbtn.minus{border-color:var(--red);background:var(--red-bg);color:var(--red)}
-        .addbtn.setbtn{border-color:var(--purple);background:var(--purple-bg);color:var(--purple)}
         .emptybox{text-align:center;color:var(--ink-2);font-weight:700;padding:22px;border:1.5px dashed var(--line);border-radius:var(--r)}
+        .notebox{background:var(--amber-bg);border:1px solid var(--amber);border-radius:var(--r);padding:12px 16px;font-size:14px;font-weight:700;color:var(--amber)}
 
         .actionbar{flex:0 0 auto;background:var(--surface);border-top:1px solid var(--line);padding:14px 18px calc(14px + env(safe-area-inset-bottom));display:flex;gap:12px;align-items:center;box-shadow:0 -8px 24px -18px rgba(21,34,43,.4)}
-        .actionbar .actsum{display:flex;flex-direction:column;margin-right:auto}
+        .actionbar .actsum{display:flex;flex-direction:column;margin-right:auto;min-width:0}
         .actionbar .actsum .l{font-size:12.5px;color:var(--ink-2);font-weight:700}
         .actionbar .actsum .v{font-size:19px;font-weight:800;font-variant-numeric:tabular-nums}
         .btn{min-height:var(--tap);padding:0 24px;border-radius:16px;border:none;cursor:pointer;font-size:18px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;gap:8px}
         .btn.ghost{background:var(--surface-2);color:var(--ink-2);border:1px solid var(--line)}.btn.ghost:active{background:var(--line)}
         .btn.primary{background:var(--teal);color:#fff;padding:0 26px;box-shadow:0 8px 18px -8px rgba(14,124,134,.7)}.btn.primary:active{background:var(--teal-d)}
-        .btn.purple{background:var(--purple);color:#fff}
         .btn.start{background:var(--teal);color:#fff;flex:1;justify-content:center;font-size:20px}
         .btn:disabled{background:var(--line)!important;color:var(--ink-2)!important;box-shadow:none;cursor:default}
 
@@ -118,13 +145,21 @@
         .opt:active{background:var(--surface-2)}.opt.sel{border-color:var(--teal);background:var(--teal-bg);color:var(--teal-d)}
         .sheet .ok{width:100%;margin-top:20px;background:var(--teal);color:#fff;min-height:var(--tap);border:none;border-radius:16px;font-size:19px;font-weight:800;cursor:pointer}
         .sheet .ok:disabled{background:var(--line);color:var(--ink-2)}
+        .txin{width:100%;height:54px;border:1.5px solid var(--line);border-radius:14px;padding:0 14px;font-size:16px;font-weight:700;background:var(--surface)}
         .picklist{display:flex;flex-direction:column;gap:8px;max-height:52dvh;overflow:auto;margin-top:6px}
         .prow{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:var(--surface);cursor:pointer}
         .prow:active{background:var(--surface-2)}.prow.added{border-color:var(--teal);background:var(--teal-bg)}
+        .prow.sel{border-color:var(--purple);background:var(--purple-bg)}
         .prow .pid{flex:1;min-width:0}.prow .pnm{font-size:16px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .prow .pcode{font-size:12.5px;color:var(--ink-2);font-weight:700;font-variant-numeric:tabular-nums}
         .prow .pchk{width:34px;height:34px;border-radius:10px;border:1.5px solid var(--line);display:grid;place-items:center;flex:0 0 auto;font-weight:800;color:var(--teal-d)}
         .prow.added .pchk{background:var(--teal);color:#fff;border-color:var(--teal)}
+        .prow.nostock{opacity:.5;background:var(--surface-2)}
+        .prow.nostock .pcode{color:var(--red)}
+        .itag{font-size:11.5px;font-weight:800;padding:3px 9px;border-radius:999px;flex:0 0 auto}
+        .itag.move{background:var(--teal-bg);color:var(--teal-d)}.itag.new{background:var(--amber-bg);color:var(--amber)}
+        .itag.no{background:var(--red-bg);color:var(--red)}
+        .prow .pwarn{font-size:12px;font-weight:800;color:var(--red);margin-top:4px;line-height:1.4}
 
         @media (max-width:680px){.qgrid{grid-template-columns:1fr}}
         @media (prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important}}
@@ -137,72 +172,96 @@
                 <div class="qhead"><h1>M-CELL 수리 · 작업지시</h1><span class="cnt" id="qcnt"></span>
                     <div class="qfilter"><button class="on" data-f="all">전체</button>
                         <button data-f="return">반품</button><button data-f="spec">사양변경</button>
+                        <button data-g="open">진행중</button>
+                        <button data-g="reject" style="border-color:var(--red);color:var(--red)">재작업</button>
                         <button id="btnReg" style="background:var(--teal);color:#fff;border-color:var(--teal)">＋ 수리 접수</button></div></div>
                 <div class="qgrid" id="qgrid"></div>
             </div></div>
 
-            <!-- B. 수리 유닛 -->
-            <div class="screen hide" id="scB"><div class="col-stack">
-                <div class="topbar2"><button class="back" data-back="A">‹</button>
-                    <div class="htitle"><div class="t" id="bName">—</div><div class="s" id="bSub">—</div></div>
-                    <div class="infopill"><span>검사전달</span><b id="bDone">0</b></div>
-                </div>
-                <div class="bscroll"><div class="bgrid">
-                    <div class="secline">수리 대상 유닛 (1대 = 개별 로트·바코드) <span class="ln"></span><span id="uCnt"></span></div>
-                    <div class="ugrid" id="uGrid"></div>
-                </div></div>
-            </div></div>
-
-            <!-- C. 유닛 수리 -->
+            <!-- B. 유닛 수리 (접수 = 원 로트 1개 = 유닛 1대 라서 목록 화면 없음) -->
             <div class="screen hide" id="scC"><div class="col-stack">
-                <div class="topbar2"><button class="back" data-back="B">‹</button>
+                <div class="topbar2"><button class="back" data-back="A">‹</button>
                     <div class="htitle"><div class="t" id="cUnit">—</div><div class="s" id="cSub">—</div></div>
                     <div class="infopill"><span>원 로트</span><b id="cSrc">—</b></div>
+                    <button id="btnRegCancel" style="background:var(--red-bg);border:1px solid var(--red);color:var(--red);height:46px;padding:0 14px;border-radius:12px;font-weight:800;font-size:14px;cursor:pointer;flex:0 0 auto;display:none">접수 취소</button>
                 </div>
                 <div class="bscroll"><div class="bgrid" id="cGrid"></div></div>
                 <div class="actionbar" id="cAction"></div>
             </div></div>
         </div>
 
-        <!-- 작업자 배정 -->
+        <!-- 작업자 · 설비 배정 -->
         <div class="mask" id="whoMask"><div class="sheet"><div class="body">
-            <div class="sh"><h3>수리 작업자 배정</h3><button class="x" data-close>✕</button></div>
-            <div class="fieldlab">작업자</div><div class="opts" id="whoOpts"></div>
-            <button class="ok" id="whoOk" disabled>배정 · 수리 시작</button>
+            <div class="sh"><h3>수리 작업자 · 설비 배정</h3><button class="x" data-close>✕</button></div>
+            <div class="fieldlab">작업자 <span style="color:var(--red)">*</span></div>
+            <div class="opts" id="whoOpts"></div>
+            <div class="fieldlab">설비 <span style="color:var(--ink-2);font-weight:700">(선택 · 고르면 가동 이력이 남습니다)</span></div>
+            <div class="opts" id="equOpts"></div>
+            <button class="ok" id="whoOk" disabled>배정 저장</button>
         </div></div></div>
 
-        <!-- 자재 추가 -->
+        <!-- 시작/완료 시각 수정 -->
+        <div class="mask" id="timeMask"><div class="sheet"><div class="body">
+            <div class="sh"><h3 id="timeTitle">시작 일시 수정</h3><button class="x" data-close>✕</button></div>
+            <div class="dateedit"><button class="dbtn" data-d="-1">◀</button><div class="dval" id="tDate">—</div><button class="dbtn" data-d="1">▶</button></div>
+            <div class="timeedit">
+                <div class="tcol"><button data-t="h+">▲</button><div class="tv" id="tH">09</div><button data-t="h-">▼</button></div>
+                <div class="tsep">:</div>
+                <div class="tcol"><button data-t="m+">▲</button><div class="tv" id="tM">00</div><button data-t="m-">▼</button></div>
+            </div>
+            <button class="ok" id="timeOk">저장</button>
+        </div></div></div>
+
+        <!-- 자재 추가/차감 -->
         <div class="mask" id="matMask"><div class="sheet"><div class="body">
             <div class="sh"><h3 id="matTitle">자재 추가</h3><button class="x" data-close>✕</button></div>
-            <div class="fieldlab" id="matLab">자재 창고 · 눌러서 담기</div>
+            <div class="fieldlab" id="matLab">자재 · 눌러서 담기</div>
+            <div id="matScopeBar" style="display:none;margin-bottom:8px">
+                <div class="lotmode" style="width:100%">
+                    <button id="scopeUsed" class="on" style="flex:1" data-scope="used">이 M-CELL 에 들어간 자재</button>
+                    <button id="scopeAll" style="flex:1" data-scope="all">전체 자재</button>
+                </div>
+            </div>
+            <input class="txin" id="matKw" placeholder="품목코드 / 품명 검색" autocomplete="off"/>
             <div class="picklist" id="matList"></div>
             <button class="ok" data-close style="background:var(--surface-2);color:var(--ink);border:1.5px solid var(--line)">닫기</button>
         </div></div></div>
+
         <!-- 수리 접수 등록 -->
         <div class="mask" id="regMask"><div class="sheet"><div class="body">
             <div class="sh"><h3>수리 접수 · 작업지시 등록</h3><button class="x" data-close>✕</button></div>
+
             <div class="fieldlab">수리 유형</div>
             <div class="opts" id="regCat">
                 <button class="opt sel" data-c="return">반품</button>
                 <button class="opt" data-c="spec">사양변경</button>
             </div>
-            <div class="fieldlab">원 M-CELL 로트 <span style="color:var(--ink-2);font-weight:700">(직접 입력 또는 스캔)</span></div>
+
+            <div class="fieldlab">원 M-CELL 로트 <span style="color:var(--ink-2);font-weight:700">(사내 로트 또는 외부 라벨)</span></div>
             <div style="display:flex;gap:10px">
-                <input id="regLot" placeholder="예: MCN-260701-004" autocomplete="off"
-                    style="flex:1;height:54px;border:1.5px solid var(--line);border-radius:14px;padding:0 14px;font-size:16px;font-weight:800;font-variant-numeric:tabular-nums;background:var(--surface-2)"/>
-                <button class="opt" id="regScan" style="border-color:var(--teal);color:var(--teal-d);background:var(--teal-bg)">📷 스캔</button>
+                <input id="regLot" class="txin" style="flex:1;font-weight:800;font-variant-numeric:tabular-nums;background:var(--surface-2)"
+                       placeholder="예: MC20022N-260701-004" autocomplete="off"/>
+                <button class="opt" id="regFind" style="border-color:var(--teal);color:var(--teal-d);background:var(--teal-bg)">조회</button>
             </div>
+            <div id="regLotResult"></div>
+
+            <div id="regTargetWrap" style="display:none">
+                <div class="fieldlab">변경 후 품목 <span style="color:var(--ink-2);font-weight:700">(품목이 바뀌지 않고 옵션만 바뀌면 비워 두세요)</span></div>
+                <input class="txin" id="regTgtKw" placeholder="품목코드 / 품명 검색" autocomplete="off"/>
+                <div class="picklist" id="regTgtList" style="max-height:28dvh"></div>
+            </div>
+
             <div class="fieldlab">사유 / 메모</div>
-            <input id="regNote" placeholder="예: 전원 불량 반품" autocomplete="off"
-                style="width:100%;height:54px;border:1.5px solid var(--line);border-radius:14px;padding:0 14px;font-size:16px;font-weight:700"/>
-            <button class="ok" id="regOk">수리 작업지시 생성</button>
+            <input id="regNote" class="txin" placeholder="예: 전원 불량 반품" autocomplete="off"/>
+
+            <button class="ok" id="regOk" disabled>수리 작업지시 생성</button>
         </div></div></div>
-    </div>
     </div>
 </th:block>
 
 <th:block layout:fragment="scripts">
     <script th:inline="none">
+        /* ── 화면 높이 맞춤 (조립·검사 화면과 동일) ───────────────── */
         (function () {
             const root = document.querySelector('.ms-wash-root'); if (!root) return;
             function localBelow() { let below = 0, node = root; while (node && node !== document.body) { let sib = node.nextElementSibling; while (sib) { const r = sib.getBoundingClientRect(); if (r.height > 0 && getComputedStyle(sib).position !== 'fixed') below += r.height; sib = sib.nextElementSibling; } node = node.parentElement; } let fx = 0; document.querySelectorAll('body *').forEach(el => { if (root.contains(el)) return; const cs = getComputedStyle(el); if (cs.position !== 'fixed' && cs.position !== 'sticky') return; const r = el.getBoundingClientRect(); if (r.height > 0 && r.height < innerHeight * 0.5 && r.bottom > innerHeight - 2) fx = Math.max(fx, r.height); }); return Math.max(below, fx); }
@@ -212,258 +271,855 @@
             fit(); requestAnimationFrame(fit); setTimeout(fit, 200); setTimeout(fit, 600); if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
         })();
 
-        const WORKERS = ['정우철', '김민수', '이서연', '박지훈', '한재범'];
-        const CAT = {return: '반품', spec: '사양변경'};
-        const UST = {wait: '수리대기', repairing: '수리중', inspect_wait: '검사대기', done: '완료'};
+        /* =====================================================================
+           수리 화면 본체
+           ★ API 는 반드시 AjaxUtil. fetch 를 쓰면 CSRF 로 POST 가 막힌다(405/404).
 
-        // 수리 부품 카탈로그(자유 가감)
-        const PARTS = [
-            {code: 'M-IB00025', name: '모터제어기_신형'}, {code: 'M-HA00010', name: '메인보드_BMK'},
-            {code: 'M-ID00121', name: 'LCD'}, {code: 'M-IH00076', name: '블루투스 보드'},
-            {code: 'M-IB00022', name: 'BMK90B300B-SY1(MOTOR)'}, {code: 'WIP-MA2006N', name: 'M2 로터 Ass\'y(개선품)'},
-            {code: 'M-HA00025', name: '전원 파워선_BMK'}, {code: 'M-IW00068', name: '베어링(로터)'},
-            {code: 'M-ISP00122', name: '로터리래치(잠금장치)'}, {code: 'WIP-MA0009', name: 'SMPS_Ass\'y'}
-        ];
-        function todayStr() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
-        function nowFull() { const d = new Date(); return todayStr() + ' ' + String(new Date().getHours()).padStart(2, '0') + ':' + String(new Date().getMinutes()).padStart(2, '0'); }
-        function mkMat(p, dir, qty) { return {code: p.code, name: p.name, dir: dir, qty: qty == null ? 1 : qty}; }
-        // lotMode: 'keep'(원 로트 유지) | 'new'(새 로트 발번). 기본: 반품=keep, 사양변경=new
-        function mkUnit(no, srcLot, srcModel, lotMode) { return {no: no, srcLot: srcLot, srcModel: srcModel, st: 'wait', worker: null, lotMode: lotMode || 'keep', newLot: null, mats: [], start: null, end: null}; }
-
-        const ORDERS = [
-            {id: 'RP-2407-002', odate: '2026-07-09', cat: 'spec', model: '국내', title: '사양 변경 (수출 사양으로 전환)', units: [
-                mkUnit(1, 'MCN-260701-004', '국내', 'new')
-            ]},
-            {id: 'RP-2407-003', odate: '2026-07-10', cat: 'return', model: '해외', title: '반품 입고 (해외 · 전원 불량)', units: [
-                mkUnit(1, 'MCX-260620-001', '해외', 'keep')
-            ]},
-            {id: 'RP-2407-004', odate: '2026-07-10', cat: 'return', model: '국내', title: '반품 입고 (국내 · 블루투스 불량)', units: [
-                mkUnit(1, 'MCN-260618-003', '국내', 'keep')
-            ]}
-        ];
-        // 데모 상태
-        ORDERS[0].units[0].mats = [mkMat(PARTS[2], '-', 1), mkMat(PARTS[0], '+', 1)];
-        ORDERS[1].units[0].st = 'repairing'; ORDERS[1].units[0].worker = '정우철'; ORDERS[1].units[0].start = '2026-07-10 09:20';
-        ORDERS[1].units[0].mats = [mkMat(PARTS[6], '-', 1), mkMat(PARTS[6], '+', 1)];
-        var _seq = 5;   // 다음 RP 번호
-
-        function newLotSuffix(u) { return (u.srcModel === '해외' ? 'MCX-' : 'MCN-') + todayStr().slice(2).replace(/-/g, '') + '-R' + String(u.no).padStart(2, '0'); }
-        function newLotFor(u, o) { return u.lotMode === 'new' ? (u.newLot || newLotSuffix(u)) : u.srcLot; }
-        function uDone(o) { return o.units.filter(function (u) { return u.st === 'inspect_wait' || u.st === 'done'; }).length; }
-        function ordSt(o) { if (o.units.every(function (u) { return u.st === 'inspect_wait' || u.st === 'done'; })) return 'done'; if (o.units.some(function (u) { return u.st !== 'wait'; })) return 'working'; return 'wait'; }
-
-        let curO = null, curU = null;
-
-        /* A */
-        const qgrid = document.getElementById('qgrid');
-        let filter = 'all';
-        function renderQueue() {
-            var list = ORDERS.filter(function (o) { return filter === 'all' || o.cat === filter; });
-            document.getElementById('qcnt').textContent = list.length + '건';
-            qgrid.innerHTML = list.map(function (o) {
-                return '<div class="wo" data-cat="' + o.cat + '" data-id="' + o.id + '"><div class="edge"></div>' +
-                    '<div class="row1"><span class="wono">' + o.id + '</span><span class="cattag ' + o.cat + '">' + CAT[o.cat] + '</span>' +
-                    '<span class="chip">' + o.model + '</span></div>' +
-                    '<div class="name">' + o.title + '</div><div class="code">' + o.odate + '</div>' +
-                    '<div class="meta"><div class="blk"><span class="lab">수리대상</span><span class="val">' + o.units.length + '대</span></div>' +
-                    '<div class="blk"><span class="lab">검사전달</span><span class="val g">' + uDone(o) + '</span></div></div></div>';
-            }).join('');
+           부팅이 조용히 실패하면 "아무것도 안 뜨는" 상태가 되어 원인을 못 찾는다.
+           그래서 실패 지점을 콘솔과 화면 양쪽에 남긴다.
+           ===================================================================== */
+        function repairBootMsg(html, isErr) {
+            var g = document.getElementById('qgrid');
+            if (!g) return;
+            g.innerHTML = '<div class="emptybox" style="grid-column:1/-1' +
+                (isErr ? ';color:#C8483B;border-color:#C8483B' : '') + '">' + html + '</div>';
         }
-        qgrid.addEventListener('click', function (e) { var c = e.target.closest('.wo'); if (c) openOrder(c.dataset.id); });
-        document.querySelectorAll('.qfilter button').forEach(function (b) { b.addEventListener('click', function () { document.querySelectorAll('.qfilter button').forEach(function (x) { x.classList.remove('on'); }); b.classList.add('on'); filter = b.dataset.f; renderQueue(); }); });
 
-        const SC = {A: document.getElementById('scA'), B: document.getElementById('scB'), C: document.getElementById('scC')};
-        function show(k) { for (var x in SC) SC[x].classList.toggle('hide', x !== k); }
-        document.querySelectorAll('[data-back]').forEach(function (b) { b.addEventListener('click', function () { var to = b.dataset.back; if (to === 'A') { renderQueue(); show('A'); } else { renderUnits(); show('B'); } }); });
+        (function boot(n) {
+            n = n || 0;
+            // ★ AjaxUtil 은 window 프로퍼티가 아니다.
+            //   공용 스크립트가 let/const/class 로 선언해서 전역 렉시컬 환경에만 올라간다.
+            //   window.AjaxUtil 로 보면 영원히 undefined —  조립·검사 화면도 typeof 로 본다.
+            var ready = (typeof AjaxUtil !== 'undefined') && !!AjaxUtil.getSyncData;
+            if (!ready) {
+                if (n > 100) {
+                    console.error('[repair] AjaxUtil 을 5초간 찾지 못했습니다.');
+                    repairBootMsg('AjaxUtil 을 찾지 못했습니다.<br>' +
+                        'layout_page 의 스크립트 로드 순서를 확인하세요.', true);
+                    return;
+                }
+                if (n === 0) repairBootMsg('로딩 중…');
+                return setTimeout(function () { boot(n + 1); }, 50);
+            }
+            console.log('[repair] AjaxUtil 확인 — start() 진입');
+            try {
+                start();
+                console.log('[repair] start() 완료');
+            } catch (e) {
+                console.error('[repair] start() 실패', e);
+                repairBootMsg('화면 초기화 실패 : ' + ((e && e.message) || e), true);
+            }
+        })(0);
 
-        /* B */
-        function openOrder(id) { curO = ORDERS.find(function (o) { return o.id === id; }); renderUnits(); show('B'); }
-        function renderUnits() {
-            document.getElementById('bName').textContent = CAT[curO.cat] + ' · ' + curO.title;
-            document.getElementById('bSub').textContent = curO.id + ' · ' + curO.model;
-            document.getElementById('bDone').textContent = uDone(curO) + ' / ' + curO.units.length;
-            document.getElementById('uCnt').textContent = curO.units.length + '대';
-            document.getElementById('uGrid').innerHTML = curO.units.map(function (u, i) {
-                var res = newLotFor(u, curO), changed = res !== u.srcLot;
-                return '<div class="unit" data-st="' + u.st + '" data-i="' + i + '"><div class="edge"></div>' +
-                    '<div style="display:flex;align-items:center;gap:8px"><span class="un">수리 #' + String(u.no).padStart(2, '0') + '</span>' +
-                    '<span class="ubadge ' + u.st + '" style="margin-left:auto">' + UST[u.st] + '</span></div>' +
-                    '<div class="lot">원 로트 ' + u.srcLot + '</div>' +
-                    (changed ? '<div class="arrow">→ 새 로트 ' + res + '</div>' : '') + '</div>';
-            }).join('');
-        }
-        document.getElementById('uGrid').addEventListener('click', function (e) { var u = e.target.closest('.unit'); if (u) openUnit(+u.dataset.i); });
+        function start() {
 
-        /* C */
-        function openUnit(i) { curU = curO.units[i]; curU._idx = i; var sc = document.getElementById('cGrid').closest('.bscroll'); if (sc) sc.scrollTop = 0; renderUnit(); show('C'); }
-        function renderUnit() {
-            var u = curU, o = curO;
-            var _sc = document.getElementById('cGrid').closest('.bscroll'); var _keep = _sc ? _sc.scrollTop : 0;
-            document.getElementById('cUnit').textContent = '수리 #' + String(u.no).padStart(2, '0') + ' · ' + UST[u.st];
-            document.getElementById('cSub').textContent = CAT[o.cat] + ' · ' + o.model;
-            document.getElementById('cSrc').textContent = u.srcLot;
+            var CTX = window.REPAIR_CTX || {};
+            var SPJANGCD = CTX.spjangcd || 'ZZ';
+            var API = '/api/production/repair';
 
-            var res = newLotFor(u, o), changed = res !== u.srcLot;
-            var locked = (u.st === 'inspect_wait' || u.st === 'done');
-            var html = '';
-            // 원 M-CELL 로트 투입(추적)
-            html += '<div class="srcbox"><div class="h">투입: 원 M-CELL 로트 (계보 추적)</div>' +
-                '<div class="lot">' + u.srcLot + '</div>' +
-                '<div class="sub">' + u.srcModel + ' 원 장비 1대 투입 · ' + CAT[o.cat] + '</div></div>';
-            // 결과 로트 방식 선택 (원 로트 유지 / 새 로트 발번)
-            html += '<div class="resbox"><div style="flex:1"><div class="h">수리 결과 로트</div>' +
-                '<div class="lot">' + (u.lotMode === 'new' ? res + (u.st === 'wait' ? ' (시작 시 확정)' : '') : u.srcLot) + '</div>' +
-                '<div class="sub" style="font-size:12px;color:var(--ink-2);font-weight:700">' + (u.lotMode === 'new' ? '새 로트 발번 · 원 로트(' + u.srcLot + ') 링크' : '원 로트 그대로 유지') + '</div></div>' +
-                (locked ? '' : '<div class="lotmode"><button class="' + (u.lotMode === 'keep' ? 'on' : '') + '" data-lotmode="keep">원 로트 유지</button><button class="' + (u.lotMode === 'new' ? 'on' : '') + '" data-lotmode="new">새 로트 발번</button></div>') + '</div>';
-            // 작업자
-            html += '<div class="whoRow"><span class="l">수리 작업자</span><span class="nm">' + (u.worker || '미배정') + '</span>' +
-                (locked ? '' : '<button class="assign" data-who>' + (u.worker ? '변경' : '배정') + '</button>') + '</div>';
+            var CAT = {return: '반품', spec: '사양변경'};
+            var UST = {wait: '수리대기', repairing: '수리중', inspect_wait: '검사대기',
+                pass: '검사합격', packed: '포장완료', reject: '재작업'};
 
-            // 자재 가감
-            var plus = u.mats.filter(function (m) { return m.dir === '+'; });
-            var minus = u.mats.filter(function (m) { return m.dir === '-'; });
-            html += '<div class="secline">투입 자재 (＋추가 / −차감 자유 조정) <span class="ln"></span><span>＋' + plus.length + ' / −' + minus.length + '</span></div>';
-            if (!u.mats.length) html += '<div class="emptybox">투입 자재가 없습니다. 아래에서 자재를 담으세요.</div>';
-            html += u.mats.map(function (m) {
-                var gi = u.mats.indexOf(m);
-                return '<div class="mrow ' + (m.dir === '+' ? 'plus' : 'minus') + '"><div class="dir">' + (m.dir === '+' ? '＋' : '−') + '</div>' +
-                    '<div class="id"><div class="mn">' + m.name + '</div><div class="mc">' + m.code + ' · ' + (m.dir === '+' ? '추가 투입' : '차감(회수)') + '</div></div>' +
-                    (locked ? '<span class="stepper"><span class="q">' + m.qty + '</span></span>' :
-                        '<div class="stepper" data-mstep="' + gi + '"><button class="minus">−</button><div class="q">' + m.qty + '</div><button class="plus">+</button></div>' +
-                        '<button class="rm" data-mrm="' + gi + '">✕</button>') + '</div>';
-            }).join('');
-            if (!locked) {
-                html += '<div class="addbar" style="margin-top:4px">' +
-                    '<button class="addbtn" data-add="+">＋ 자재 추가(투입)</button>' +
-                    '<button class="addbtn minus" data-add="-">− 자재 차감(회수)</button></div>';
+            function api(path, params) {
+                try {
+                    if (typeof AjaxUtil === 'undefined' || !AjaxUtil.getSyncData) {
+                        throw new Error('AjaxUtil 미로드 — 공용 스크립트 로드 순서를 확인하세요');
+                    }
+                    var r = AjaxUtil.getSyncData(API + path, params || {});
+                    if (r && r.success === false) { flash(r.message || '조회 실패'); return null; }
+                    return (r && r.data !== undefined) ? r.data : null;
+                } catch (e) { console.error(path, e); flash('조회 중 오류'); return null; }
+            }
+            function post(path, params, cb) {
+                if (typeof AjaxUtil === 'undefined' || !AjaxUtil.postAsyncData) {
+                    flash('AjaxUtil 미로드 — 공용 스크립트 로드 순서를 확인하세요'); return;
+                }
+                AjaxUtil.postAsyncData(API + path, params || {}, function (r) {
+                    if (!r || r.success === false) { flash((r && r.message) || '처리 실패'); return; }
+                    if (r.message) flash(r.message);
+                    if (cb) cb(r);
+                });
             }
 
-            document.getElementById('cGrid').innerHTML = html;
-            renderCAction();
-            if (_sc) _sc.scrollTop = _keep;
-        }
-        function renderCAction() {
-            var u = curU, bar = document.getElementById('cAction');
-            var pc = u.mats.filter(function (m) { return m.dir === '+'; }).length, mc = u.mats.filter(function (m) { return m.dir === '-'; }).length;
-            if (u.st === 'wait') {
-                bar.innerHTML = '<div class="actsum"><span class="l">작업자 배정 후 수리 시작</span><span class="v">＋' + pc + ' / −' + mc + ' 자재</span></div>' +
-                    '<button class="btn start" data-act="start">수리 시작 · 로트 확정</button>';
-            } else if (u.st === 'repairing') {
-                bar.innerHTML = '<div class="actsum"><span class="l">' + (u.worker || '') + ' · 수리중</span><span class="v">＋' + pc + ' / −' + mc + ' 자재</span></div>' +
-                    '<button class="btn ghost" data-act="cancel">시작취소</button><button class="btn primary" data-act="finish">수리 완료 · 검사 전달</button>';
-            } else if (u.st === 'inspect_wait') {
-                bar.innerHTML = '<div class="actsum"><span class="l">' + newLotFor(u, curO) + ' · 검사 대기</span><span class="v" style="color:var(--purple)">검사 공정으로 전달됨</span></div>' +
-                    '<button class="btn ghost" data-act="reopen">검사취소 · 수리 복귀</button>';
-            } else bar.innerHTML = '<div class="actsum"><span class="l">완료</span></div>';
-        }
-
-        document.getElementById('cGrid').addEventListener('click', function (e) {
-            var u = curU, o = curO;
-            if (e.target.closest('[data-who]')) { openWho(); return; }
-            var ms = e.target.closest('[data-mstep]');
-            if (ms && (e.target.classList.contains('plus') || e.target.classList.contains('minus'))) {
-                var m = u.mats[+ms.dataset.mstep]; m.qty = Math.max(1, m.qty + (e.target.classList.contains('plus') ? 1 : -1)); renderUnit(); return;
+            // 확인 시트. 조립·검사 화면도 각자 같은 걸 들고 있다(레이아웃 전역이 아님).
+            function ask(msg, onOk, okLabel) {
+                var m = document.getElementById('confirmMask');
+                if (!m) {
+                    m = document.createElement('div');
+                    m.id = 'confirmMask';
+                    m.style.cssText = 'position:fixed;inset:0;background:rgba(21,34,43,.45);display:none;align-items:center;justify-content:center;z-index:100;padding:24px';
+                    m.innerHTML = '<div style="background:var(--surface);border-radius:20px;max-width:420px;width:100%;padding:24px 22px 18px;box-shadow:0 20px 50px -12px rgba(0,0,0,.4)">'
+                        + '<div id="confirmMsg" style="font-size:17px;font-weight:800;color:var(--ink);line-height:1.5;margin-bottom:20px;white-space:pre-line"></div>'
+                        + '<div style="display:flex;gap:10px">'
+                        + '<button id="confirmCancel" style="flex:1;height:52px;border-radius:14px;border:1px solid var(--line);background:var(--surface-2);color:var(--ink-2);font-weight:800;font-size:16px">취소</button>'
+                        + '<button id="confirmOk" style="flex:1;height:52px;border-radius:14px;border:none;background:#0E7C86;color:#fff;font-weight:800;font-size:16px">확인</button>'
+                        + '</div></div>';
+                    document.body.appendChild(m);
+                    m.addEventListener('click', function (e) { if (e.target === m) m.style.display = 'none'; });
+                }
+                m.querySelector('#confirmMsg').textContent = msg;
+                var ok = m.querySelector('#confirmOk'), cancel = m.querySelector('#confirmCancel');
+                ok.textContent = okLabel || '확인';
+                var close = function () { m.style.display = 'none'; ok.onclick = null; cancel.onclick = null; };
+                ok.onclick = function () { close(); onOk && onOk(); };
+                cancel.onclick = close;
+                m.style.display = 'flex';
             }
-            var rm = e.target.closest('[data-mrm]'); if (rm) { u.mats.splice(+rm.dataset.mrm, 1); renderUnit(); flash('자재 삭제'); return; }
-            var ab = e.target.closest('[data-add]'); if (ab) { openMat(ab.dataset.add); return; }
-            var lm = e.target.closest('[data-lotmode]'); if (lm) { u.lotMode = lm.dataset.lotmode; if (u.lotMode === 'new' && u.st !== 'wait' && !u.newLot) u.newLot = newLotSuffix(u); renderUnit(); flash(u.lotMode === 'new' ? '새 로트 발번' : '원 로트 유지'); return; }
-        });
-        document.getElementById('cAction').addEventListener('click', function (e) {
-            var u = curU, o = curO, a = e.target.closest('[data-act]'); if (!a) return;
-            if (a.dataset.act === 'start') {
-                if (!u.worker) { flash('작업자를 먼저 배정하세요'); openWho(); return; }
-                u.st = 'repairing'; u.start = nowFull(); if (u.lotMode === 'new') u.newLot = newLotSuffix(u); renderUnit(); renderUnits();
-                flash('수리 시작 · 결과 로트 ' + newLotFor(u, o));
-            } else if (a.dataset.act === 'cancel') { u.st = 'wait'; u.start = null; renderUnit(); renderUnits(); flash('시작취소'); }
-            else if (a.dataset.act === 'finish') {
-                u.st = 'inspect_wait'; u.end = nowFull(); renderUnit(); renderUnits();
-                flash('수리 완료 · ' + newLotFor(u, o) + ' → 검사 공정 전달');
-            } else if (a.dataset.act === 'reopen') { u.st = 'repairing'; u.end = null; renderUnit(); renderUnits(); flash('검사취소 · 수리 복귀'); }
-        });
+            function esc(s) { return (s == null ? '' : String(s)).replace(/[&<>"]/g, function (c) { return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]; }); }
+            function num(v) { var n = Number(v); return isNaN(n) ? 0 : n; }
+            function qtyTxt(v) { var n = num(v); return (n % 1 === 0) ? String(n) : String(n); }
+            // 'yyyy-mm-dd hh:mm' 두 개로 소요 시간 문자열
+            function durTxt(a, b) {
+                if (!a || !b) return '';
+                var t1 = Date.parse(a.replace(' ', 'T')), t2 = Date.parse(b.replace(' ', 'T'));
+                if (isNaN(t1) || isNaN(t2) || t2 < t1) return '';
+                var mins = Math.round((t2 - t1) / 60000);
+                var h = Math.floor(mins / 60), m = mins % 60;
+                return (h ? h + '시간 ' : '') + m + '분';
+            }
 
-        /* 작업자 */
-        function showMask(id) { document.getElementById(id).classList.add('show'); }
-        function hideMask(id) { document.getElementById(id).classList.remove('show'); }
-        document.querySelectorAll('.mask').forEach(function (m) { m.addEventListener('click', function (e) { if (e.target === m || e.target.closest('[data-close]')) m.classList.remove('show'); }); });
-        var whoSel = null;
-        function openWho() {
-            whoSel = curU.worker;
-            document.getElementById('whoOpts').innerHTML = WORKERS.map(function (w) { return '<button class="opt' + (curU.worker === w ? ' sel' : '') + '" data-w="' + w + '">' + w + '</button>'; }).join('');
-            document.getElementById('whoOk').disabled = !curU.worker;
-            showMask('whoMask');
+            var ORDERS = [], WORKERS = [], EQUIPS = [];
+            var curU = null;
+            var filter = 'all';    // 유형 : all | return | spec
+            var flag = null;       // 상태 : null | open | reject
+
+            var SC = {A: document.getElementById('scA'), C: document.getElementById('scC')};
+            function show(k) { for (var x in SC) SC[x].classList.toggle('hide', x !== k); }
+
+            /* ── A. 수리 큐 (카드 1장 = 유닛 1대) ──────────────── */
+            var qgrid = document.getElementById('qgrid');
+
+            function loadQueue() {
+                var p = {cat: filter, spjangcd: SPJANGCD};
+                if (flag) p.flag = flag;
+                ORDERS = api('/wo_queue', p) || [];
+                console.log('[repair] wo_queue', p, '→', ORDERS.length + '건');
+                renderQueue();
+            }
+            function renderQueue() {
+                document.getElementById('qcnt').textContent = ORDERS.length + '대';
+                if (!ORDERS.length) {
+                    qgrid.innerHTML = '<div class="emptybox" style="grid-column:1/-1">접수된 수리 건이 없습니다.</div>';
+                    return;
+                }
+                qgrid.innerHTML = ORDERS.map(function (o) {
+                    var title = o.reason || (o.cat === 'spec' ? '사양 변경' : '반품 입고');
+                    var mat = o.src_code || '';
+                    if (o.tgt_code && o.tgt_code !== o.src_code) mat += ' → ' + o.tgt_code;
+                    // 한 접수에 여러 대가 묶인 경우에만 몇 호기인지 밝힌다
+                    var no = num(o.sibling_cnt) > 1 ? ' #' + String(o.unit_no).padStart(2, '0') : '';
+                    var res = o.result_lot || (o.lot_mode === 'new' ? '완료 시 발번' : o.src_lot);
+                    var changed = o.result_lot && o.result_lot !== o.src_lot;
+                    return '<div class="wo" data-cat="' + esc(o.cat) + '" data-id="' + o.unit_id + '"><div class="edge"></div>' +
+                        '<div class="row1"><span class="wono">' + esc((o.repair_no || ('#' + o.repair_id)) + no) + '</span>' +
+                        '<span class="cattag ' + esc(o.cat) + '">' + (CAT[o.cat] || o.cat) + '</span>' +
+                        '<span class="ubadge ' + esc(o.unit_state) + '" style="margin-left:auto">' +
+                        (UST[o.unit_state] || o.unit_state) + '</span></div>' +
+                        '<div class="name">' + esc(title) + '</div>' +
+                        '<div class="code">' + esc(o.receipt_date) + ' · ' + esc(mat) + '</div>' +
+                        '<div class="meta"><div class="blk"><span class="lab">원 로트</span>' +
+                        '<span class="val" style="font-size:15px">' + esc(o.src_lot) + '</span></div>' +
+                        (changed ? '<div class="blk"><span class="lab">결과 로트</span>' +
+                            '<span class="val g" style="font-size:15px">' + esc(res) + '</span></div>' : '') +
+                        (o.actor_name ? '<div class="blk"><span class="lab">작업자</span>' +
+                            '<span class="val" style="font-size:15px">' + esc(o.actor_name) + '</span></div>' : '') +
+                        (function () {
+                            var d = durTxt(o.start_time, o.end_time);
+                            if (d) return '<div class="blk"><span class="lab">소요</span>' +
+                                '<span class="val" style="font-size:15px">' + d + '</span></div>';
+                            if (o.unit_state === 'repairing' && o.start_time)
+                                return '<div class="blk"><span class="lab">시작</span>' +
+                                    '<span class="val" style="font-size:15px">' + esc(o.start_time.slice(11)) + '</span></div>';
+                            return '';
+                        })() +
+                        '</div></div>';
+                }).join('');
+            }
+            qgrid.addEventListener('click', function (e) {
+                var c = e.target.closest('.wo'); if (c) openUnit(+c.dataset.id);
+            });
+            // 유형 필터 — 셋 중 하나만 선택
+            document.querySelectorAll('.qfilter button[data-f]').forEach(function (b) {
+                b.addEventListener('click', function () {
+                    document.querySelectorAll('.qfilter button[data-f]').forEach(function (x) { x.classList.remove('on'); });
+                    b.classList.add('on'); filter = b.dataset.f; loadQueue();
+                });
+            });
+            // 상태 필터 — 유형과 별개 축. 같은 걸 다시 누르면 해제된다.
+            document.querySelectorAll('.qfilter button[data-g]').forEach(function (b) {
+                b.addEventListener('click', function () {
+                    var g = b.dataset.g;
+                    flag = (flag === g) ? null : g;
+                    document.querySelectorAll('.qfilter button[data-g]').forEach(function (x) {
+                        x.classList.toggle('on', x.dataset.g === flag);
+                    });
+                    loadQueue();
+                });
+            });
+
+            /* ── 접수 취소 (C화면 헤더 · 수리 시작 전에만 노출) ── */
+            document.getElementById('btnRegCancel').addEventListener('click', function () {
+                var many = num(curU.sibling_cnt) > 1;
+                var msg = '접수를 취소합니다.\n\n' +
+                    (curU.intake_type === 'new'
+                        ? '· 반품으로 신규 입고한 로트가 삭제됩니다\n'
+                        : '· 수리창고로 옮긴 재고가 원래 창고로 돌아갑니다\n') +
+                    '· 수리 작업지시와 유닛이 함께 삭제됩니다' +
+                    (many ? '\n\n★ 이 접수에 묶인 ' + num(curU.sibling_cnt) + '대가 모두 취소됩니다.' : '');
+                ask(msg, function () {
+                    post('/regist_cancel', {repair_id: curU.repair_id, spjangcd: SPJANGCD}, function () {
+                        flash('접수 취소됨');
+                        loadQueue(); show('A');
+                    });
+                });
+            });
+
+            /* ── B. 유닛 수리 ──────────────────────────────────── */
+            function openUnit(id) {
+                curU = api('/unit_detail', {unit_id: id});
+                if (!curU) return;
+                var sc = document.getElementById('cGrid').closest('.bscroll'); if (sc) sc.scrollTop = 0;
+                renderUnit(); show('C');
+            }
+            function reloadUnit() {
+                curU = api('/unit_detail', {unit_id: curU.id}) || curU;
+                renderUnit();
+            }
+            function renderUnit() {
+                var u = curU;
+                var sc = document.getElementById('cGrid').closest('.bscroll');
+                var keep = sc ? sc.scrollTop : 0;
+
+                document.getElementById('cUnit').textContent = (u.repair_no || '수리') +
+                    (num(u.sibling_cnt) > 1 ? ' #' + String(u.unit_no).padStart(2, '0') : '') +
+                    ' · ' + (UST[u.state] || u.state);
+                document.getElementById('cSub').textContent = (CAT[u.cat] || u.cat) + ' · ' + (u.mat_code || '');
+                document.getElementById('cSrc').textContent = u.src_lot || '—';
+                // 접수 취소는 아직 손대지 않은 유닛에서만. 서버도 같은 조건으로 막는다.
+                document.getElementById('btnRegCancel').style.display = (u.state === 'wait') ? '' : 'none';
+
+                var locked = ['inspect_wait', 'pass', 'packed'].indexOf(u.state) >= 0;
+                var html = '';
+
+                // 원 M-CELL 로트 투입 (계보)
+                var shortStock = num(u.src_stock) < 1 && !u.mat_produce_id;
+                html += '<div class="srcbox"><div class="h">투입: 원 M-CELL 로트 (계보 추적)</div>' +
+                    '<div class="lot">' + esc(u.src_lot) + '</div>' +
+                    '<div class="sub">' + esc(u.mat_code || '') + ' · 수리창고 보유 ' + qtyTxt(u.src_stock) + '대 · ' +
+                    (u.intake_type === 'new' ? '반품 신규입고' : '기존 재고 이동') + '</div>' +
+                    (shortStock ? '<div class="warn">⚠ 수리창고에 재고가 없습니다. 접수 상태를 확인하세요.</div>' : '') + '</div>';
+
+                // 결과 로트
+                html += '<div class="resbox"><div style="flex:1;min-width:0"><div class="h">수리 결과 로트</div>' +
+                    '<div class="lot">' + esc(u.next_lot || '—') + (u.mat_produce_id ? '' : (u.lot_mode === 'new' ? ' <span style="font-size:12px;color:var(--ink-2)">(완료 시 확정)</span>' : '')) + '</div>' +
+                    '<div style="font-size:12px;color:var(--ink-2);font-weight:700;margin-top:2px">' +
+                    (u.mat_produce_id ? '이미 발번됨 · 재작업해도 바뀌지 않습니다'
+                        : (u.lot_mode === 'new' ? '새 로트 발번 · 원 로트 소비로 계보 연결' : '원 로트번호 그대로 유지')) + '</div></div>' +
+                    (locked ? '' : '<div class="lotmode">' +
+                        '<button class="' + (u.lot_mode === 'keep' ? 'on' : '') + '" data-lotmode="keep">원 로트 유지</button>' +
+                        '<button class="' + (u.lot_mode === 'new' ? 'on' : '') + '" data-lotmode="new">새 로트 발번</button></div>') + '</div>';
+
+                // 재작업 사유 (검사에서 넘어온 것)
+                if (u.reject_reason) {
+                    html += '<div class="notebox" style="background:var(--red-bg);border-color:var(--red);color:var(--red)">' +
+                        '재작업 필요 · 검사 결과 : ' + esc(u.reject_reason) + '</div>';
+                }
+
+                // 시작 · 완료 시각 (탭하면 수정)
+                var tEdit = ['pass', 'packed'].indexOf(u.state) < 0;
+                var tb = function (which, lab, val, on) {
+                    return '<button class="timebtn" data-time="' + which + '"' + (on ? '' : ' disabled') + '>' +
+                        '<span class="l">' + lab + '</span>' +
+                        '<span class="v' + (val ? '' : ' none') + '">' + esc(val || '—') + '</span></button>';
+                };
+                html += '<div class="timerow">' +
+                    tb('start', '시작', u.start_time, tEdit && u.state !== 'wait') +
+                    tb('end', '완료', u.end_time, tEdit && !!u.end_time) + '</div>';
+                var dur = durTxt(u.start_time, u.end_time);
+                if (dur) html += '<div class="durline">소요 ' + dur + '</div>';
+
+                // 작업자 · 설비
+                html += '<div class="whoRow"><span class="l">수리 작업자</span>' +
+                    '<span class="nm">' + esc(u.actor_name || '미배정') + '</span>' +
+                    (u.equipment_name
+                        ? '<span class="l" style="margin-left:14px">설비</span><span class="nm">' + esc(u.equipment_name) + '</span>'
+                        : '') +
+                    (locked ? '' : '<button class="assign" data-who>' + (u.actor_name ? '변경' : '배정') + '</button>') + '</div>';
+
+                // 자재 가감
+                var mats = u.mats || [];
+                var plus = mats.filter(function (m) { return m.dir === '+'; });
+                var minus = mats.filter(function (m) { return m.dir === '-'; });
+                html += '<div class="secline">투입 자재 (＋추가 / −차감 자유 조정) <span class="ln"></span><span>＋' + plus.length + ' / −' + minus.length + '</span></div>';
+                if (!mats.length) html += '<div class="emptybox">투입 자재가 없습니다. 아래에서 자재를 담으세요.</div>';
+                html += mats.map(function (m) {
+                    var isPlus = m.dir === '+';
+                    var cap = isPlus ? num(m.stock)
+                        : (m.used_qty != null ? num(m.used_qty) : null);
+                    var atCap = (cap != null) && num(m.qty) >= cap;
+                    var short = isPlus && num(m.stock) < num(m.qty);
+                    var sub;
+                    if (isPlus) {
+                        sub = '추가 투입 · 생산창고 재고 ' + qtyTxt(m.stock) + (short ? ' (부족)' : '');
+                    } else if (cap != null) {
+                        // '원 로트' 라고만 쓰면 부품 자신의 로트로 읽힌다. 둘을 구분해서 적는다.
+                        sub = '회수 → 생산창고 재입고' +
+                            (m.src_lot_number ? ' · 부품로트 ' + esc(m.src_lot_number) : '') +
+                            ' · 원 M-CELL 조립 시 ' + qtyTxt(cap) + ' 투입 (최대 ' + qtyTxt(cap) + ')';
+                    } else {
+                        sub = '회수 → 생산창고 재입고 · 조립 이력이 없어 상한 없음';
+                    }
+                    // 이미 소비된 행은 이력이라 잠근다 (재작업 때 1차 투입이 여기 해당)
+                    var frozen = (m.state === 'applied');
+                    return '<div class="mrow ' + (isPlus ? 'plus' : 'minus') + (frozen ? ' frozen' : '') + '">' +
+                        '<div class="dir">' + (isPlus ? '＋' : '−') + '</div>' +
+                        '<div class="id"><div class="mn">' + esc(m.mat_name) +
+                        (frozen ? ' <span class="fz">반영됨</span>' : '') + '</div>' +
+                        '<div class="mc' + (short ? ' short' : '') + '">' + esc(m.mat_code) + ' · ' + sub + '</div></div>' +
+                        (locked || frozen
+                            ? '<span class="stepper"><span class="q">' + qtyTxt(m.qty) + '</span></span>'
+                            : '<div class="stepper" data-mstep="' + m.rmat_id + '"><button class="minus">−</button>' +
+                            '<div class="q">' + qtyTxt(m.qty) + '</div>' +
+                            '<button class="plus"' + (atCap ? ' disabled' : '') + '>+</button></div>' +
+                            '<button class="rm" data-mrm="' + m.rmat_id + '">✕</button>') + '</div>';
+                }).join('');
+
+                if (!locked) {
+                    html += '<div class="addbar" style="margin-top:4px">' +
+                        '<button class="addbtn" data-add="+">＋ 자재 추가(투입)</button>' +
+                        '<button class="addbtn minus" data-add="-">− 자재 회수(재사용품)</button></div>';
+                }
+                if (locked && num(u.insp_cnt) > 0) {
+                    html += '<div class="notebox">검사 회차가 있어 수리 복귀가 막혀 있습니다. 검사 화면에서 회차를 먼저 삭제하세요.</div>';
+                }
+
+                document.getElementById('cGrid').innerHTML = html;
+                renderAction();
+                if (sc) sc.scrollTop = keep;
+            }
+
+            function renderAction() {
+                var u = curU, bar = document.getElementById('cAction');
+                var mats = u.mats || [];
+                var pc = mats.filter(function (m) { return m.dir === '+'; }).length;
+                var mc = mats.filter(function (m) { return m.dir === '-'; }).length;
+
+                if (u.state === 'wait' || u.state === 'reject') {
+                    bar.innerHTML = '<div class="actsum"><span class="l">' +
+                        (u.state === 'reject' ? '재작업 · 시작하면 이전 실적이 되돌아갑니다' : '작업자 배정 후 수리 시작') +
+                        '</span><span class="v">＋' + pc + ' / −' + mc + ' 자재</span></div>' +
+                        '<button class="btn start" data-act="start">' +
+                        (u.state === 'reject' ? '재작업 시작' : '수리 시작') + '</button>';
+                } else if (u.state === 'repairing') {
+                    bar.innerHTML = '<div class="actsum"><span class="l">' + esc(u.actor_name || '') +
+                        (u.mat_produce_id ? ' · 재작업중 (' + esc(u.result_lot || '') + ')' : ' · 수리중') + '</span>' +
+                        '<span class="v">＋' + pc + ' / −' + mc + ' 자재</span></div>' +
+                        '<button class="btn ghost" data-act="cancel">시작취소</button>' +
+                        '<button class="btn primary" data-act="finish">' +
+                        (u.mat_produce_id ? '재작업 반영 · 검사 전달' : '수리 완료 · 검사 전달') + '</button>';
+                } else if (u.state === 'inspect_wait') {
+                    bar.innerHTML = '<div class="actsum"><span class="l">' + esc(u.result_lot || '') + ' · 검사 대기</span>' +
+                        '<span class="v" style="color:var(--purple);font-size:15px">검사 공정으로 전달됨</span></div>' +
+                        '<button class="btn ghost" data-act="reopen"' + (num(u.insp_cnt) > 0 ? ' disabled' : '') + '>검사취소 · 수리 복귀</button>';
+                } else {
+                    bar.innerHTML = '<div class="actsum"><span class="l">' + (UST[u.state] || u.state) + '</span>' +
+                        '<span class="v">' + esc(u.result_lot || '') + '</span></div>';
+                }
+            }
+
+            document.getElementById('cGrid').addEventListener('click', function (e) {
+                if (e.target.closest('[data-who]')) { openWho(); return; }
+
+                var tb = e.target.closest('[data-time]');
+                if (tb && !tb.disabled) { openTime(tb.dataset.time); return; }
+
+                var ms = e.target.closest('[data-mstep]');
+                if (ms && (e.target.classList.contains('plus') || e.target.classList.contains('minus'))) {
+                    if (e.target.disabled) return;
+                    var rid = +ms.dataset.mstep;
+                    var row = (curU.mats || []).find(function (m) { return m.rmat_id === rid; });
+                    if (!row) return;
+                    var up = e.target.classList.contains('plus');
+                    var next = num(row.qty) + (up ? 1 : -1);
+                    if (next < 1) return;
+                    if (up) {
+                        if (row.dir === '-' && row.used_qty != null && next > num(row.used_qty)) {
+                            flash('원 M-CELL 에 투입된 수량은 ' + qtyTxt(row.used_qty) + ' 입니다'); return;
+                        }
+                        if (row.dir === '+' && next > num(row.stock)) {
+                            flash(num(row.stock) <= 0
+                                ? '생산창고에 재고가 없습니다'
+                                : '생산창고 재고가 ' + qtyTxt(row.stock) + ' 뿐입니다'); return;
+                        }
+                    }
+                    row.qty = next; renderUnit();                       // 낙관적 반영(연타 대응)
+                    post('/mat_qty', {rmat_id: rid, qty: next});
+                    return;
+                }
+                var rm = e.target.closest('[data-mrm]');
+                if (rm) { post('/mat_del', {rmat_id: +rm.dataset.mrm}, reloadUnit); return; }
+
+                var ab = e.target.closest('[data-add]');
+                if (ab) { openMat(ab.dataset.add); return; }
+
+                var lm = e.target.closest('[data-lotmode]');
+                if (lm) { post('/lot_mode', {unit_id: curU.id, mode: lm.dataset.lotmode}, reloadUnit); return; }
+            });
+
+            document.getElementById('cAction').addEventListener('click', function (e) {
+                var a = e.target.closest('[data-act]'); if (!a || a.disabled) return;
+                var act = a.dataset.act, u = curU;
+
+                if (act === 'start') {
+                    if (!u.actor_id) { flash('작업자를 먼저 배정하세요'); openWho(); return; }
+                    var go = function () {
+                        post('/unit_start', {unit_id: u.id, actor_id: u.actor_id, equipment_id: u.equipment_id},
+                            function () { reloadUnit(); loadQueue(); });
+                    };
+                    if (u.state === 'reject' && u.mat_produce_id) {
+                        // 되돌리지도, 새로 만들지도 않는다. 기존 실적을 이어서 고친다.
+                        ask('재작업을 시작합니다.\n\n' +
+                            '· 결과 로트 ' + (u.result_lot || '') + ' 는 그대로 유지됩니다\n' +
+                            '· 이미 반영된 자재는 이력이라 수정할 수 없습니다\n' +
+                            '· 추가로 쓴 자재만 담고 다시 «수리 완료» 를 누르세요\n\n' +
+                            '★ 불량으로 버린 자재는 «불량 등록»에 따로 기록하세요.',
+                            go, '재작업 시작');
+                    } else {
+                        go();
+                    }
+                } else if (act === 'cancel') {
+                    post('/unit_cancel', {unit_id: u.id}, function () { reloadUnit(); loadQueue(); });
+                } else if (act === 'finish') {
+                    var pend = (u.mats || []).filter(function (m) { return m.state !== 'applied'; });
+                    var msg = u.mat_produce_id
+                        ? ('재작업을 반영하고 검사로 다시 전달합니다.\n\n' +
+                            '· 결과 로트 ' + (u.result_lot || '') + ' 유지 (새 로트 없음)\n' +
+                            '· 추가 자재 ' + pend.filter(function (m) { return m.dir === '+'; }).length + '건 소비\n' +
+                            (pend.filter(function (m) { return m.dir === '-'; }).length
+                                ? '· 회수 부품은 생산창고로 재입고\n' : ''))
+                        : ('수리를 완료하고 검사로 전달합니다.\n\n' +
+                            '· 원 로트 ' + u.src_lot + ' 1대 소비\n' +
+                            '· 결과 로트 ' + (u.next_lot || '') + ' 생산창고 입고\n' +
+                            (pend.filter(function (m) { return m.dir === '-'; }).length
+                                ? '· 회수 부품은 생산창고로 재입고\n' : ''));
+                    ask(msg, function () {
+                        post('/unit_finish', {unit_id: u.id, spjangcd: SPJANGCD}, function () {
+                            reloadUnit(); loadQueue();
+                        });
+                    });
+                } else if (act === 'reopen') {
+                    ask('검사 전달을 취소하고 수리로 되돌립니다.\n생성된 결과 로트와 회수 부품 로트가 삭제됩니다.', function () {
+                        post('/unit_reopen', {unit_id: u.id}, function () { reloadUnit(); loadQueue(); });
+                    });
+                }
+            });
+
+            /* ── 시트 공통 ─────────────────────────────────────── */
+            function showMask(id) { document.getElementById(id).classList.add('show'); }
+            function hideMask(id) { document.getElementById(id).classList.remove('show'); }
+            document.querySelectorAll('.mask').forEach(function (m) {
+                m.addEventListener('click', function (e) {
+                    if (e.target === m || e.target.closest('[data-close]')) m.classList.remove('show');
+                });
+            });
+            document.querySelectorAll('[data-back]').forEach(function (b) {
+                b.addEventListener('click', function () { loadQueue(); show('A'); });
+            });
+
+            /* ── 시작 · 완료 시각 수정 ─────────────────────────── */
+            var timeWhich = 'start', editDate = new Date();
+            function pad2(n) { return String(n).padStart(2, '0'); }
+            function fmtD(d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
+
+            function openTime(which) {
+                timeWhich = which;
+                document.getElementById('timeTitle').textContent =
+                    (which === 'start' ? '시작' : '완료') + ' 일시 수정';
+                var saved = (which === 'start') ? curU.start_time : curU.end_time;
+                editDate = (saved && saved.indexOf(' ') >= 0)
+                    ? new Date(saved.split(' ')[0] + 'T' + saved.split(' ')[1]) : new Date();
+                document.getElementById('tDate').textContent = fmtD(editDate);
+                document.getElementById('tH').textContent = pad2(editDate.getHours());
+                document.getElementById('tM').textContent = pad2(editDate.getMinutes());
+                showMask('timeMask');
+            }
+            document.querySelector('#timeMask .dateedit').addEventListener('click', function (e) {
+                var b = e.target.closest('[data-d]'); if (!b) return;
+                editDate.setDate(editDate.getDate() + (+b.dataset.d));
+                document.getElementById('tDate').textContent = fmtD(editDate);
+            });
+            document.querySelector('#timeMask .timeedit').addEventListener('click', function (e) {
+                var b = e.target.closest('[data-t]'); if (!b) return;
+                var H = document.getElementById('tH'), M = document.getElementById('tM');
+                var h = +H.textContent, m = +M.textContent;
+                if (b.dataset.t === 'h+') h = (h + 1) % 24;
+                if (b.dataset.t === 'h-') h = (h + 23) % 24;
+                if (b.dataset.t === 'm+') m = (m + 1) % 60;
+                if (b.dataset.t === 'm-') m = (m + 59) % 60;
+                H.textContent = pad2(h); M.textContent = pad2(m);
+            });
+            document.getElementById('timeOk').onclick = function () {
+                var v = fmtD(editDate) + ' ' +
+                    document.getElementById('tH').textContent + ':' +
+                    document.getElementById('tM').textContent;
+                // 문자열 비교로 충분하다 — 'yyyy-mm-dd hh:mm' 는 사전순 = 시간순
+                if (timeWhich === 'start' && curU.end_time && v > curU.end_time) {
+                    flash('시작이 완료보다 늦을 수 없습니다'); return;
+                }
+                if (timeWhich === 'end' && curU.start_time && v < curU.start_time) {
+                    flash('완료가 시작보다 빠를 수 없습니다'); return;
+                }
+                hideMask('timeMask');
+                post('/unit_time', {unit_id: curU.id, which: timeWhich, value: v}, function () {
+                    reloadUnit(); loadQueue();
+                    flash((timeWhich === 'start' ? '시작' : '완료') + ' 일시 저장 · ' + v);
+                });
+            };
+
+            /* ── 작업자 · 설비 배정 ────────────────────────────── */
+            var whoSel = null, equSel = null;
+
+            function openWho() {
+                if (!WORKERS.length) WORKERS = api('/workers') || [];
+                if (!EQUIPS.length)  EQUIPS  = api('/equipments') || [];
+                whoSel = curU.actor_id || null;
+                equSel = curU.equipment_id || null;
+
+                document.getElementById('whoOpts').innerHTML = WORKERS.map(function (w) {
+                    return '<button class="opt' + (whoSel === w.actor_id ? ' sel' : '') + '" data-w="' + w.actor_id + '">' +
+                        esc(w.actor_name) + '</button>';
+                }).join('') || '<div class="emptybox">등록된 작업자가 없습니다.</div>';
+
+                document.getElementById('equOpts').innerHTML = EQUIPS.length
+                    ? EQUIPS.map(function (q) {
+                        return '<button class="opt' + (equSel === q.equipment_id ? ' sel' : '') + '" data-q="' + q.equipment_id + '">' +
+                            esc(q.equipment_name) + '</button>';
+                    }).join('')
+                    : '<div class="emptybox">수리 워크센터에 등록된 설비가 없습니다.</div>';
+
+                document.getElementById('whoOk').disabled = !whoSel;
+                showMask('whoMask');
+            }
+
+            document.getElementById('whoOpts').addEventListener('click', function (e) {
+                var b = e.target.closest('[data-w]'); if (!b) return;
+                document.querySelectorAll('#whoOpts .opt').forEach(function (x) { x.classList.remove('sel'); });
+                b.classList.add('sel'); whoSel = +b.dataset.w;
+                document.getElementById('whoOk').disabled = false;
+            });
+
+            // 설비는 선택 항목 — 같은 걸 다시 누르면 해제된다(가동 이력 안 남김)
+            document.getElementById('equOpts').addEventListener('click', function (e) {
+                var b = e.target.closest('[data-q]'); if (!b) return;
+                var id = +b.dataset.q;
+                equSel = (equSel === id) ? null : id;
+                document.querySelectorAll('#equOpts .opt').forEach(function (x) {
+                    x.classList.toggle('sel', +x.dataset.q === equSel);
+                });
+            });
+
+            // 배정 = 수리 시작. 이미 수리중이면 서버가 상태·시작시각을 보존하고 배정만 바꾼다.
+            document.getElementById('whoOk').onclick = function () {
+                if (!whoSel) { flash('작업자를 선택하세요'); return; }
+                hideMask('whoMask');
+                post('/unit_start', {unit_id: curU.id, actor_id: whoSel, equipment_id: equSel},
+                    function () { reloadUnit(); loadQueue(); });
+            };
+
+            /* ── 자재 시트 ─────────────────────────────────────── */
+            //  ＋ 투입 : 생산창고 재고 전체
+            //  − 회수 : 원 로트에 실제 투입됐던 자재 (계보 유지). 필요하면 전체로 전환.
+            var addDir = '+', matPool = [], matScope = 'all';
+
+            function openMat(dir) {
+                addDir = dir;
+                matScope = (dir === '-') ? 'used' : 'all';
+                document.getElementById('matTitle').textContent = (dir === '+' ? '자재 추가 (투입)' : '자재 회수 (재사용품)');
+                document.getElementById('matLab').textContent =
+                    (dir === '+' ? '추가 투입할 자재 (생산창고 재고)'
+                        : '재사용 가능한 회수 부품 (생산창고로 재입고 · 폐기품은 불량 등록)') + ' · 눌러서 담기';
+                document.getElementById('matScopeBar').style.display = (dir === '-') ? '' : 'none';
+                setScopeBtn();
+                document.getElementById('matKw').value = '';
+                loadMatList('');
+                showMask('matMask');
+            }
+            function setScopeBtn() {
+                document.getElementById('scopeUsed').classList.toggle('on', matScope === 'used');
+                document.getElementById('scopeAll').classList.toggle('on', matScope === 'all');
+            }
+            document.getElementById('matScopeBar').addEventListener('click', function (e) {
+                var b = e.target.closest('[data-scope]'); if (!b) return;
+                matScope = b.dataset.scope; setScopeBtn();
+                loadMatList(document.getElementById('matKw').value);
+            });
+
+            function loadMatList(kw) {
+                var usedMode = (addDir === '-' && matScope === 'used');
+                if (usedMode) {
+                    matPool = api('/consumed_list', {unit_id: curU.id}) || [];
+                    if (kw) {
+                        var k = kw.toLowerCase();
+                        matPool = matPool.filter(function (p) {
+                            return (p.mat_code || '').toLowerCase().indexOf(k) >= 0
+                                || (p.mat_name || '').toLowerCase().indexOf(k) >= 0;
+                        });
+                    }
+                } else {
+                    matPool = api('/stock_list', {keyword: kw || ''}) || [];
+                }
+                var have = {};
+                (curU.mats || []).forEach(function (m) {
+                    if (m.dir !== addDir) return;
+                    if (m.state === 'applied') return;      // 반영된 건 이력 — 다시 담을 수 있다
+                    have[usedMode ? (m.mat_id + '|' + (m.src_mat_lot_id || '')) : String(m.mat_id)] = true;
+                });
+
+                var rows = matPool.map(function (p) {
+                    var noStock = (addDir === '+') && num(p.stock) <= 0;
+                    var key = usedMode ? (p.mat_id + '|' + (p.src_mat_lot_id || '')) : String(p.mat_id);
+                    var sub = usedMode
+                        ? esc(p.mat_code) +
+                        (p.src_lot_number ? ' · 로트 ' + esc(p.src_lot_number) : ' · 로트 미상') +
+                        ' · 조립 시 ' + qtyTxt(p.used_qty) + ' 투입' + (p.unit ? ' ' + esc(p.unit) : '')
+                        : esc(p.mat_code) + ' · 재고 ' + qtyTxt(p.stock) + (p.unit ? ' ' + esc(p.unit) : '')
+                        + (noStock ? ' · 담을 수 없음' : '');
+                    return '<div class="prow ' + (have[key] ? 'added' : '') + (noStock ? ' nostock' : '') +
+                        '" data-m="' + p.mat_id + '" data-stock="' + num(p.stock) +
+                        '" data-srclot="' + (p.src_mat_lot_id || '') + '">' +
+                        '<div class="pid"><div class="pnm">' + esc(p.mat_name) + '</div>' +
+                        '<div class="pcode">' + sub + '</div></div>' +
+                        '<div class="pchk">' + (have[key] ? '✓' : (addDir === '+' ? '＋' : '−')) + '</div></div>';
+                }).join('');
+
+                if (!rows) {
+                    rows = usedMode
+                        ? '<div class="emptybox">' + (kw ? '검색 결과가 없습니다.'
+                        : '이 로트의 조립 이력을 찾지 못했습니다.<br>시스템 도입 전에 만들어졌거나 외부에서 들어온 장비일 수 있습니다.<br>«전체 자재»로 전환해 직접 고르세요.') + '</div>'
+                        : '<div class="emptybox">검색 결과가 없습니다.</div>';
+                }
+                document.getElementById('matList').innerHTML = rows;
+            }
+            var kwT;
+            document.getElementById('matKw').addEventListener('input', function (e) {
+                clearTimeout(kwT); var v = e.target.value;
+                kwT = setTimeout(function () { loadMatList(v); }, 250);
+            });
+            document.getElementById('matList').addEventListener('click', function (e) {
+                var r = e.target.closest('[data-m]'); if (!r) return;
+                var matId = +r.dataset.m;
+                var srcLot = r.dataset.srclot ? +r.dataset.srclot : null;
+                var ex = (curU.mats || []).find(function (m) {
+                    return m.mat_id === matId && m.dir === addDir && m.state !== 'applied'
+                        && (addDir !== '-' || (m.src_mat_lot_id || null) === srcLot);
+                });
+                if (ex) { post('/mat_del', {rmat_id: ex.rmat_id}, afterMat); return; }
+                // 없는 걸 투입할 수는 없다. 서버도 같은 조건으로 막는다.
+                if (addDir === '+' && num(r.dataset.stock) <= 0) {
+                    flash('생산창고에 재고가 없습니다'); return;
+                }
+                var pr = {unit_id: curU.id, material_id: matId, dir: addDir, qty: 1, spjangcd: SPJANGCD};
+                if (srcLot) pr.src_mat_lot_id = srcLot;
+                post('/mat_add', pr, afterMat);
+            });
+            function afterMat() {
+                curU = api('/unit_detail', {unit_id: curU.id}) || curU;
+                renderUnit();
+                loadMatList(document.getElementById('matKw').value);
+            }
+
+            /* ── 수리 접수 ─────────────────────────────────────── */
+            var regCat = 'return', regLotSel = null, regTgtSel = null, regLots = [];
+
+            document.getElementById('btnReg').addEventListener('click', function () {
+                regCat = 'return'; regLotSel = null; regTgtSel = null; regLots = [];
+                document.querySelectorAll('#regCat .opt').forEach(function (x) { x.classList.toggle('sel', x.dataset.c === 'return'); });
+                document.getElementById('regLot').value = '';
+                document.getElementById('regNote').value = '';
+                document.getElementById('regTgtKw').value = '';
+                document.getElementById('regLotResult').innerHTML = '';
+                document.getElementById('regTgtList').innerHTML = '';
+                document.getElementById('regTargetWrap').style.display = 'none';
+                document.getElementById('regOk').disabled = true;
+                showMask('regMask');
+            });
+            document.getElementById('regCat').addEventListener('click', function (e) {
+                var b = e.target.closest('[data-c]'); if (!b) return;
+                regCat = b.dataset.c;
+                document.querySelectorAll('#regCat .opt').forEach(function (x) { x.classList.remove('sel'); });
+                b.classList.add('sel');
+                document.getElementById('regTargetWrap').style.display = (regCat === 'spec') ? '' : 'none';
+                if (regCat === 'spec' && !document.getElementById('regTgtList').innerHTML) loadTgtList('');
+                // 유형이 바뀌면 허용 판정도 바뀐다 (검사 전 재고는 사양변경만 가능)
+                if (regLots.length) { regLotSel = null; doFind(); }
+            });
+
+            document.getElementById('regFind').addEventListener('click', doFind);
+            document.getElementById('regLot').addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') { e.preventDefault(); doFind(); }
+            });
+
+            function doFind() {
+                var key = (document.getElementById('regLot').value || '').trim().toUpperCase();
+                document.getElementById('regLot').value = key;
+                regLotSel = null;
+                if (!key) { flash('원 M-CELL 로트를 입력하세요'); return; }
+
+                regLots = api('/src_lot_search', {key: key}) || [];
+                var box = document.getElementById('regLotResult');
+
+                if (!regLots.length) {
+                    // 미등록 — 품목을 사람이 지정해야 반품 입고가 가능하다
+                    box.innerHTML = '<div class="notebox" style="margin-top:10px">' +
+                        '등록되지 않은 로트입니다. 반품으로 <b>신규 입고</b>합니다. 아래에서 품목을 선택하세요.</div>' +
+                        '<div class="fieldlab">품목 선택 (필수)</div>' +
+                        '<input class="txin" id="regSrcKw" placeholder="품목코드 / 품명 검색" autocomplete="off"/>' +
+                        '<div class="picklist" id="regSrcList" style="max-height:28dvh"></div>';
+                    bindSrcPicker();
+                    loadSrcList('');
+                    document.getElementById('regOk').disabled = true;
+                    return;
+                }
+
+                box.innerHTML = '<div class="fieldlab">조회 결과 · 대상 선택</div>' +
+                    '<div class="picklist" style="max-height:34dvh">' + regLots.map(function (l, i) {
+                        var ok = lotAllowed(l);
+                        var tag = ok
+                            ? (l.intake_type === 'move'
+                                ? '<span class="itag move">재고 이동</span>'
+                                : '<span class="itag new">반품 신규입고</span>')
+                            : '<span class="itag no">접수 불가</span>';
+                        return '<div class="prow' + (ok ? '' : ' nostock') + '" data-l="' + i + '">' +
+                            '<div class="pid"><div class="pnm">' + esc(l.mat_name) + '</div>' +
+                            '<div class="pcode">' + esc(l.lot_number) +
+                            (l.maker_lot_no ? ' · 라벨 ' + esc(l.maker_lot_no) : '') +
+                            ' · ' + esc(l.store_name || ('창고' + l.store_id)) + ' 재고 ' + qtyTxt(l.stock) + '</div>' +
+                            (l.verdict_note ? '<div class="pwarn">' + esc(l.verdict_note) + '</div>' : '') +
+                            '</div>' + tag + '</div>';
+                    }).join('') + '</div>';
+
+                var okList = regLots.filter(lotAllowed);
+                if (okList.length === 1) selectLot(regLots.indexOf(okList[0]));
+                else document.getElementById('regOk').disabled = true;
+            }
+            document.getElementById('regLotResult').addEventListener('click', function (e) {
+                var r = e.target.closest('[data-l]'); if (!r) return;
+                selectLot(+r.dataset.l);
+            });
+            // 유형별 접수 가능 여부. 서버가 내려준 판정을 그대로 쓴다.
+            function lotAllowed(l) {
+                return (regCat === 'spec') ? (l.allow_spec !== false) : (l.allow_return !== false);
+            }
+            function selectLot(i) {
+                var l = regLots[i];
+                if (!lotAllowed(l)) {
+                    flash(l.verdict_note || '이 로트는 접수할 수 없습니다');
+                    return;
+                }
+                regLotSel = l;
+                document.querySelectorAll('#regLotResult [data-l]').forEach(function (x) {
+                    x.classList.toggle('sel', +x.dataset.l === i);
+                });
+                document.getElementById('regOk').disabled = false;
+            }
+
+            // 미등록 품목 선택
+            var srcSel = null;
+            function bindSrcPicker() {
+                var kwEl = document.getElementById('regSrcKw'), t;
+                kwEl.addEventListener('input', function (e) {
+                    clearTimeout(t); var v = e.target.value;
+                    t = setTimeout(function () { loadSrcList(v); }, 250);
+                });
+                document.getElementById('regSrcList').addEventListener('click', function (e) {
+                    var r = e.target.closest('[data-s]'); if (!r) return;
+                    srcSel = +r.dataset.s;
+                    document.querySelectorAll('#regSrcList [data-s]').forEach(function (x) {
+                        x.classList.toggle('sel', +x.dataset.s === srcSel);
+                    });
+                    document.getElementById('regOk').disabled = false;
+                });
+            }
+            function loadSrcList(kw) {
+                var d = api('/target_materials', {keyword: kw || ''}) || [];
+                document.getElementById('regSrcList').innerHTML = d.map(function (m) {
+                    return '<div class="prow' + (srcSel === m.mat_id ? ' sel' : '') + '" data-s="' + m.mat_id + '">' +
+                        '<div class="pid"><div class="pnm">' + esc(m.mat_name) + '</div>' +
+                        '<div class="pcode">' + esc(m.mat_code) + '</div></div></div>';
+                }).join('') || '<div class="emptybox">검색 결과가 없습니다.</div>';
+            }
+
+            // 사양변경 대상 품목
+            var tgtT;
+            document.getElementById('regTgtKw').addEventListener('input', function (e) {
+                clearTimeout(tgtT); var v = e.target.value;
+                tgtT = setTimeout(function () { loadTgtList(v); }, 250);
+            });
+            function loadTgtList(kw) {
+                var d = api('/target_materials', {keyword: kw || ''}) || [];
+                document.getElementById('regTgtList').innerHTML = d.map(function (m) {
+                    return '<div class="prow' + (regTgtSel === m.mat_id ? ' sel' : '') + '" data-t="' + m.mat_id + '">' +
+                        '<div class="pid"><div class="pnm">' + esc(m.mat_name) + '</div>' +
+                        '<div class="pcode">' + esc(m.mat_code) + '</div></div></div>';
+                }).join('') || '<div class="emptybox">검색 결과가 없습니다.</div>';
+            }
+            document.getElementById('regTgtList').addEventListener('click', function (e) {
+                var r = e.target.closest('[data-t]'); if (!r) return;
+                var id = +r.dataset.t;
+                regTgtSel = (regTgtSel === id) ? null : id;    // 다시 누르면 해제(= 옵션만 변경)
+                document.querySelectorAll('#regTgtList [data-t]').forEach(function (x) {
+                    x.classList.toggle('sel', +x.dataset.t === regTgtSel);
+                });
+            });
+
+            document.getElementById('regOk').onclick = function () {
+                var key = (document.getElementById('regLot').value || '').trim().toUpperCase();
+                if (!key) { flash('원 M-CELL 로트를 입력하세요'); return; }
+                if (!regLotSel && !srcSel) { flash('조회 후 대상을 선택하거나 품목을 지정하세요'); return; }
+
+                var p = {
+                    cat: regCat,
+                    scan_key: key,
+                    reason: (document.getElementById('regNote').value || '').trim(),
+                    spjangcd: SPJANGCD
+                };
+                if (regLotSel) p.mat_lot_id = regLotSel.mat_lot_id;
+                else p.material_id = srcSel;
+                if (regCat === 'spec' && regTgtSel) p.target_material_id = regTgtSel;
+
+                document.getElementById('regOk').disabled = true;
+                post('/regist', p, function (r) {
+                    hideMask('regMask');
+                    filter = 'all';
+                    document.querySelectorAll('.qfilter button[data-f]').forEach(function (x) { x.classList.toggle('on', x.dataset.f === 'all'); });
+                    loadQueue();
+                    var d = r.data || {};
+                    flash('수리 접수 · ' + (d.repair_no || '') + ' (' + (CAT[regCat] || regCat) + ')');
+                });
+                setTimeout(function () { document.getElementById('regOk').disabled = false; }, 1200);
+            };
+
+            /* ── 토스트 ────────────────────────────────────────── */
+            var tT;
+            window.flash = function (m) {
+                var t = document.getElementById('toast');
+                if (!t) {
+                    t = document.createElement('div'); t.id = 'toast';
+                    t.style.cssText = 'position:fixed;left:50%;bottom:110px;transform:translateX(-50%);background:#15222B;color:#fff;padding:14px 22px;border-radius:14px;font-weight:700;z-index:60;box-shadow:0 12px 30px -10px rgba(0,0,0,.5);transition:opacity .3s;max-width:90vw;text-align:center';
+                    document.body.appendChild(t);
+                }
+                t.textContent = m; t.style.opacity = '1';
+                clearTimeout(tT); tT = setTimeout(function () { t.style.opacity = '0'; }, 1900);
+            };
+
+            loadQueue();
         }
-        document.getElementById('whoOpts').addEventListener('click', function (e) { var b = e.target.closest('[data-w]'); if (!b) return; document.querySelectorAll('#whoOpts .opt').forEach(function (x) { x.classList.remove('sel'); }); b.classList.add('sel'); whoSel = b.dataset.w; document.getElementById('whoOk').disabled = false; });
-        document.getElementById('whoOk').onclick = function () {
-            curU.worker = whoSel;
-            if (curU.st === 'wait') { curU.st = 'repairing'; curU.start = nowFull(); if (curU.lotMode === 'new') curU.newLot = newLotSuffix(curU); }
-            hideMask('whoMask'); renderUnit(); renderUnits(); flash('작업자 · ' + whoSel + ' · 수리 시작');
-        };
-
-        /* 자재 추가 */
-        var addDir = '+';
-        function openMat(dir) {
-            addDir = dir;
-            var pool = PARTS;
-            document.getElementById('matTitle').textContent = (dir === '+' ? '자재 추가 (투입)' : '자재 차감 (회수)');
-            document.getElementById('matLab').textContent = (dir === '+' ? '추가 투입할 자재' : '차감(회수)할 자재') + ' · 눌러서 담기';
-            var has = function (code) { return curU.mats.some(function (m) { return m.code === code && m.dir === dir; }); };
-            document.getElementById('matList').innerHTML = pool.map(function (p, i) {
-                return '<div class="prow ' + (has(p.code) ? 'added' : '') + '" data-p="' + i + '"><div class="pid"><div class="pnm">' + p.name + '</div><div class="pcode">' + p.code + '</div></div>' +
-                    '<div class="pchk">' + (has(p.code) ? '✓' : (dir === '+' ? '＋' : '−')) + '</div></div>';
-            }).join('');
-            window._matPool = pool;
-            showMask('matMask');
-        }
-        document.getElementById('matList').addEventListener('click', function (e) {
-            var r = e.target.closest('[data-p]'); if (!r) return;
-            var p = window._matPool[+r.dataset.p];
-            var k = curU.mats.findIndex(function (m) { return m.code === p.code && m.dir === addDir; });
-            if (k >= 0) { curU.mats.splice(k, 1); flash('자재 제거'); } else { curU.mats.push(mkMat(p, addDir, 1)); flash(addDir === '+' ? '자재 추가' : '자재 차감'); }
-            openMat(addDir); renderUnit();
-        });
-
-        /* 수리 접수 등록 */
-        var regCatVal = 'return';
-        document.getElementById('btnReg').addEventListener('click', function () {
-            regCatVal = 'return';
-            document.querySelectorAll('#regCat .opt').forEach(function (x) { x.classList.toggle('sel', x.dataset.c === 'return'); });
-            document.getElementById('regLot').value = ''; document.getElementById('regNote').value = '';
-            showMask('regMask');
-        });
-        document.getElementById('regCat').addEventListener('click', function (e) { var b = e.target.closest('[data-c]'); if (!b) return; regCatVal = b.dataset.c; document.querySelectorAll('#regCat .opt').forEach(function (x) { x.classList.remove('sel'); }); b.classList.add('sel'); });
-        document.getElementById('regScan').addEventListener('click', function () {
-            // 바코드 스캔(목업): 원 M-CELL 로트 GS1/시리얼을 읽어온 셈
-            var samples = ['MCN-260701-004', 'MCX-260620-001', 'MCN-260618-003', 'MCN-260705-007'];
-            var v = samples[Math.floor(Math.random() * samples.length)];
-            document.getElementById('regLot').value = v; flash('스캔됨 · ' + v);
-        });
-        document.getElementById('regOk').onclick = function () {
-            var lot = (document.getElementById('regLot').value || '').trim().toUpperCase();
-            if (!lot) { flash('원 M-CELL 로트를 입력하거나 스캔하세요'); return; }
-            var note = (document.getElementById('regNote').value || '').trim();
-            var model = lot.indexOf('MCX') === 0 ? '해외' : '국내';
-            var title = note || (regCatVal === 'spec' ? '사양 변경' : '반품 입고');
-            var id = 'RP-2407-' + String(_seq++).padStart(3, '0');
-            var u = mkUnit(1, lot, model, regCatVal === 'spec' ? 'new' : 'keep');
-            var o = {id: id, odate: todayStr(), cat: regCatVal, model: model, title: title, units: [u]};
-            ORDERS.unshift(o);
-            hideMask('regMask'); filter = 'all';
-            document.querySelectorAll('.qfilter button[data-f]').forEach(function (x) { x.classList.toggle('on', x.dataset.f === 'all'); });
-            renderQueue(); flash('수리 작업지시 생성 · ' + id + ' (' + CAT[regCatVal] + ')');
-        };
-
-        var tT;
-        function flash(m) {
-            var t = document.getElementById('toast');
-            if (!t) { t = document.createElement('div'); t.id = 'toast'; t.style.cssText = 'position:fixed;left:50%;bottom:110px;transform:translateX(-50%);background:#15222B;color:#fff;padding:14px 22px;border-radius:14px;font-weight:700;z-index:60;box-shadow:0 12px 30px -10px rgba(0,0,0,.5);transition:opacity .3s;max-width:90vw;text-align:center'; document.body.appendChild(t); }
-            t.textContent = m; t.style.opacity = '1'; clearTimeout(tT); tT = setTimeout(function () { t.style.opacity = '0'; }, 1900);
-        }
-
-        renderQueue();
     </script>
 
     <style>.stepper button {touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}</style>
-    <script>
+    <script th:inline="none">
+        /* 스테퍼 길게 누르기 반복 */
         (function () {
             var SEL = '.stepper button'; var holdTimer = null, repeatTimer = null, maxTimer = null, curBtn = null;
             var END = ['pointerup', 'pointercancel', 'lostpointercapture', 'touchend', 'touchcancel', 'mouseup'];

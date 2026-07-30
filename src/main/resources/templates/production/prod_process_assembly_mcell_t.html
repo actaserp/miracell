@@ -156,6 +156,11 @@
         .bhead{display:flex;align-items:center;gap:8px;margin-bottom:8px;color:var(--ink-2);font-weight:800;font-size:13px}
         .bhead .ln{flex:1;height:1px;background:var(--line)}
         .baddbtn{height:36px;padding:0 12px;border-radius:10px;border:1px solid var(--teal);background:var(--teal-bg);color:var(--teal-d);font-weight:800;font-size:13px;cursor:pointer}
+        .asmtag{padding:6px 12px;border-radius:999px;font-size:13px;font-weight:800;flex:0 0 auto;margin-right:6px}
+        .asmtag.ok{background:var(--green-bg);color:var(--green)}
+        .asmtag.no{background:var(--amber-bg);color:var(--amber)}
+        .asmtag.stk{background:#EEF0FF;color:#4A54C9}
+        .brow.asm{background:var(--surface-2)}
         .subasm{display:flex;align-items:center;gap:8px;padding:8px 10px;margin-bottom:8px;border:1px dashed var(--line);border-radius:12px;background:var(--surface);font-size:13px;font-weight:700;color:var(--ink-2)}
         .subasm b{color:var(--ink)}
         .subasm .ok{color:var(--green)}.subasm .no{color:var(--amber)}
@@ -362,611 +367,613 @@
         })();
 
         /* ══════════════════════════════════════════════════════════
-           공정 간 공유 저장소 (조립 ↔ 검사 ↔ 수리)
-           - 조립 완료  : st=inspect_wait 로 upsert → 검사 큐에 뜸
-           - 검사 불합격: st=reject + reject{} 로 upsert → 조립이 재작업으로 읽음
+           M-CELL 조립 (2공장 · mc01) — /api/production/mcell/*
+             A 작업지시 큐 → B 유닛(1대=1로트) → C BOM 계층 스텝
+           서버가 스텝 트리(BOM 재귀 전개)·잠금·스킵을 계산해 내려준다.
            ══════════════════════════════════════════════════════════ */
-        const MCS = {
-            key: 'MCELL_MES_V1',
-            read() { try { return JSON.parse(localStorage.getItem(this.key)) || {units: {}}; } catch (e) { return {units: {}}; } },
-            write(s) { try { localStorage.setItem(this.key, JSON.stringify(s)); } catch (e) {} },
-            get(lot) { return this.read().units[lot] || null; },
-            upsert(lot, patch) { const s = this.read(); s.units[lot] = Object.assign(s.units[lot] || {}, patch); this.write(s); }
-        };
+        const BASE = '/api/production/mcell';
+        const CTX = Object.assign({
+            spjangcd: 'ZZ',
+            factoryId: 2,
+            processCode: 'mc01',
+            outStore: 17            // 2공장 투입/산출 = 생산창고
+        }, window.MCELL_CTX || {});
+        let PROC_ID = null, WC = null;
 
-        /* ══════════════════════════════════════════════════════════
-           M-CELL2 BOM 트리 (엑셀 원본 계층 그대로)
-           A(code,name,qty,children) = 어셈블리(=조립 스텝)
-           M(code,name,qty)          = 자재/구매·도장 반제품(=투입자재)
-           ══════════════════════════════════════════════════════════ */
-        function M(code, name, q) { return {code, name, q, mat: 1}; }
-        function A(code, name, q, c) { return {code, name, q, c}; }
-
-        const HINGE = A('WIP-MA0001', '힌지_모니터 Ass\'y', 1, [
-            M('M-IH00050', '힌지_A_BK_01(6061)', 1), M('M-IH00063', '힌지_A_BK_02(6061)', 1),
-            M('M-IH00052', '힌지_A_BK_03(6061)', 1), M('M-IH00053', '힌지_A_BK_04(6061)', 1),
-            M('M-IH00145', '모니터_힌지', 1)]);
-
-        const MONITOR = A('WIP-MA2002', 'M2 모니터_Ass`y', 1, [
-            M('M-ISR0016', '모니터_M2 (전면)(도장)', 1), M('M-ISR0019', '모니터_M2 (후면)(도장)', 1),
-            M('M-IH00137', 'AUDIO-LCD 보드', 1), M('M-ID00121', 'LCD', 1), M('M-ID00017', '판금-LCD 브라켓', 1),
-            M('M-IV00115', 'LCD 스피커 (좌,우BV36N)', 2), M('M-IH00110', '하네스 LCD 스피커 케이블', 2),
-            M('M-ID00014', '판금-스피커브라켓', 2), M('M-ID00012', '판금-팬커버', 1),
-            M('M-IM00100', 'LCD 전원 스위치', 1), M('M-IH00147', '하네스 모니터 스위치 전원선', 1),
-            M('M-IH00093', '하네스 LCD 팬커버 접지', 1), M('M-IH00095', '하네스 LCD 스피커 접지', 2),
-            M('M-IH00064', '힌지_A_BK_06(6061)', 1)]);
-
-        const LOCK_R = A('WIP-MA0004', '락커 Right_Ass\'y', 1, [
-            M('M-IH00057', '락커_BK_R(AL6061)', 1), M('M-IH00055', '락커_BK(AL6061)', 2),
-            M('M-ISP00122', '로터리래치 (잠금장치)', 1), M('M-IH00134', 'LOOK_JLINK_PIN_A', 1),
-            M('M-IH00135', 'LOOK_JLINK_PIN_B', 1), M('M-ID00015', '판금-락커 LINK', 1),
-            M('M-MO00032', '잠금_솔레노이드_우[10.4Ω]_BMK', 1)]);
-
-        const LOCK_L = A('WIP-MA0005', '락커 Left_Ass\'y', 1, [
-            M('M-IH00056', '락커_BK_L(AL6061)', 1), M('M-IH00055', '락커_BK(AL6061)', 2),
-            M('M-IHB00150', 'RX 보드', 1), M('M-IHB00149', 'TX 보드', 1),
-            M('M-ISP00122', '로터리래치 (잠금장치)', 1), M('M-IH00134', 'LOOK_JLINK_PIN_A', 1),
-            M('M-IH00135', 'LOOK_JLINK_PIN_B', 1), M('M-ID00015', '판금-락커 LINK', 1),
-            M('M-IM00018', '잠금_솔레노이드_Ass`y(좌 25cm)', 1),
-            M('M-HA00011', '하네스 도어센서 RX_BMK', 1), M('M-HA00012', '하네스 도어센서 TX_BMK', 1)]);
-
-        const SMPS = A('WIP-MA0009', 'SMPS_Ass\'y', 1, [
-            M('M-IM00016', '파워_MSP-300-24', 1), M('M-ID00016', '판금-SMPS 브라켓', 1),
-            M('M-IH00096', '하네스 전원플로그접지', 1), M('M-IH00097', '하네스 전원플로그L,N과 EMZ', 2),
-            M('M-IH00161', '하네스 그라운드 프레임', 1), M('M-HA00025', '전원 파워선_BMK', 1)]);
-
-        const CHAMBER = A('WIP-MA2007', 'M2 챔버_Ass`y', 1, [
-            M('M-ID00010', '판금-챔버 원심분리기 (사출용)', 1), M('M-IB00022', 'BMK90B300B-SY1(MOTOR)', 1),
-            M('M-DN00071', '모터 케이스_BMK', 1), M('M-IH00076', '블루투스 보드', 1),
-            M('M-IH00071', 'HC-06 블루투스 모듈', 1), M('M-IH00062', '블루투스케이스', 1),
-            M('M-IU00070', 'LED BAR_RED', 2), M('M-IU00069', 'LED BAR_GREEN', 2),
-            M('M-IU00142', 'LED BAR_BLUE', 2), M('M-IU00143', 'LED BAR_YELLOW', 2),
-            M('M-HA00018', '하네스 LED BAR Green S_BMK', 1), M('M-HA00017', '하네스 LED BAR Green L_BMK', 1),
-            M('M-HA00020', '하네스 LED BAR Red S_BMK', 1), M('M-HA00019', '하네스 LED BAR Red L_BMK', 1),
-            M('M-HA00016', '하네스 LED BAR Blue S_BMK', 1), M('M-HA00015', '하네스 LED BAR Blue L_BMK', 1),
-            M('M-HA00022', '하네스 LED BAR Yellow S_BMK', 1), M('M-HA00021', '하네스 LED BAR Yellow L_BMK', 1),
-            M('M-HA00014', '하네스 블루투스 케이블_BMK', 1),
-            SMPS]);
-
-        const UPPER = A('WIP-MA2011', 'M2_Upper Ass\'y', 1, [
-            M('WIP-MH0014', 'Upper Cover_A', 1), M('M-IJ20019', '커버-상판아크릴2', 1)]);
-
-        const LOWER = A('WIP-MA2012', 'M2_Lower Ass\'y', 1, [
-            M('M-ISR0015', 'Lower Cover 2(도장)', 1), M('M-ID00113', '원심분리기 고무', 1)]);
-
-        const BODY = A('WIP-MA2010', 'M-CELL2 본체 Ass\'y', 1, [
-            HINGE, MONITOR, LOCK_R, LOCK_L, CHAMBER, UPPER, LOWER,
-            M('M-HA00026', '60mm 팬', 1), M('M-DNA0073', '판금-본체판금A2', 1), M('M-DNA0072', '커버판금B2', 1),
-            M('M-IH00058', 'HOOK(6061)', 2), M('M-DN00074', '판금-베이스판_BMK', 1),
-            M('M-IM00063', '원심분리기하단 고무조절좌', 6), M('M-IS00010', 'Front Cover', 1),
-            M('M-IS00011', 'Rear Cover', 1), M('M-ISR0012', 'Side Cover Left M2', 1),
-            M('M-IS00013', 'Side Cover Right', 1), M('M-ISJ00119', '전원플러그(IQ-0642-H2)', 1),
-            M('M-IH00059', '그라운드핀(SUS-303)', 1), M('M-ISP00021', '토크힌지(커버)', 1),
-            M('M-HA00010', '메인보드_BMK', 1), M('M-HA00013', '하네스 모니터 케이블_BMK', 1),
-            M('M-IH00148', '후크스토퍼', 2), M('M-HA00024', '하네스 모터 연결선_BMK', 1),
-            M('M-HA00023', '하네스 모터 전원선_BMK', 1), M('M-IH00161', '하네스 그라운드 프레임', 1),
-            M('M-IB00025', '모터제어기_신형', 1)]);
-
-        const ROTOR = A('WIP-MA2006', 'M2 로터_Ass\'y', 1, [
-            M('M-IA20003', '로터 하판 2구 Ass\'y', 1), M('M-IA20002', '로터 상판 2구 Ass\'y', 1),
-            M('M-IH00074', 'RT 2보드', 1), M('M-HAA0027', '로터_솔레노이드', 2),
-            M('M-IHR0033', '스토퍼 상(SUS303)-우', 4), M('M-IH00035', '스토퍼 켑(SUS-303)', 4),
-            M('M-IH00034', '스토퍼 하(스틸-S45C)', 4), M('M-ID00069', '로터핀', 20),
-            M('M-IW00068', '베어링 (로터)', 8), M('M-IH00032', '베어링하우징(SUS-303)', 8),
-            M('M-IYGA0017', 'M2_배터리케이스_유광', 2), M('M-IP00131', '배터리(내수-7.2V 3350mAh)', 2),
-            M('M-IH00071', 'HC-06 블루투스 모듈', 1), M('M-IYGA0016', '손잡이_유광', 1),
-            M('M-IH00039', '원판(스틸)', 1), M('M-IH00129', '커플링 커버', 3),
-            M('M-IH00031', '바구니 와셔(SUS)(사각)', 4), M('M-SE00112', '모터 샤프트_BMK', 1),
-            M('M-SE00111', '모터 커플링 볼트_BMK', 1)]);
-
-        const ROTOR_N = A('WIP-MA2006N', 'M2_로터_Ass`y (개선품적용)', 1, [
-            ROTOR, M('M-MS00717', '3버전 바구니 홀가공', 2), M('M-IH00046N', '수평링(원통형)', 2),
-            M('M-IH00036N', '레치 받침판 (수평링보호형)', 2), M('M-IH00040N', '수평 보호대(AL6061)', 2)]);
-
-        const WIP20022 = A('WIP-MC20022', 'SMART-M-CELL2N (재공품)', 1, [BODY]);
-        const WIP20022N = A('WIP-MC20022N', 'SMART-M-CELL2N (재공품, 로터개선품)', 1, [WIP20022, ROTOR_N]);
-
-        /* 완제품 직속 = 포장자재. 국내/해외는 여기서만 갈린다 */
-        const PACK_DOM = [
-            M('M-IY00024', '엠셀 내수용 IN BOX 200*160*50', 2), M('M-IY00023', '엠셀 내수용 C/T BOX', 1),
-            M('M-IY00025', '엠셀 내수용 TOP FOAM', 1), M('M-IY00123', 'BOTTOM FOAM1 (내수용)', 1),
-            M('M-IY00124', 'BOTTOM FOAM 2 (내수용)', 1)];
-        const PACK_EXP = [
-            M('M-IY10023', '수출용박스(유공) 685*575*450', 2), M('M-IY10123', '수출용-PE-BOTTOM FOAM', 1),
-            M('M-IY10025', '수출용-PE-TOP COVER', 1), M('M-IY00026', '수출용-PE-MIDDLE FOAM', 1)];
-        const PACK_COMMON = [
-            M('M-IY00127', 'IN FOAM 2 (원형)', 1), M('M-IO00127', '본체 전원 케이블(3m)', 1),
-            M('M-IPD00027', '전원케이블 (1m 3구)', 1), M('M-IPD00026', '어댑터-19V SW60-19003160-W', 1)];
-
-        const PRODUCT = {
-            'MRCN-21022': A('MRCN-21022', 'SMART-M-CELL2N (국내)', 1, [WIP20022N].concat(PACK_DOM, PACK_COMMON)),
-            'MRCN-21023': A('MRCN-21023', 'SMART-M-CELL2N (해외)', 1, [WIP20022N].concat(PACK_EXP, PACK_COMMON)),
-            'WIP-MA2006N': ROTOR_N   /* 자체재고용 로터 모듈 단독 지시 */
-        };
-
-        /* BOM 트리 → 스텝 리스트 (하위부터: post-order). 스텝 = 자식을 가진 노드 */
-        function buildSteps(rootCode) {
-            const root = PRODUCT[rootCode], out = [];
-            (function walk(n, depth, parent) {
-                if (!n.c) return null;
-                const kids = n.c.filter(x => x.c).map(x => walk(x, depth + 1, n.code)).filter(Boolean);
-                out.push({
-                    code: n.code, name: n.name, depth,
-                    parent, kids: kids.map(k => k.code),
-                    worker: null, equip: null, start: null, at: null,
-                    src: 'build', stockLot: null,
-                    mats: n.c.filter(x => x.mat).map(x => ({code: x.code, name: x.name, per: x.q, qty: x.q, manual: 0})),
-                    subs: n.c.filter(x => x.c).map(x => x.code),
-                    st: 'wait'
+        /* ── API (공용 AjaxUtil 사용 — CSRF 토큰 자동 처리) ── */
+        function clean(o) {
+            const p = {};
+            Object.keys(o || {}).forEach(k => {
+                if (o[k] !== null && o[k] !== undefined && o[k] !== '') p[k] = o[k];
+            });
+            return p;
+        }
+        function apiGet(path, params) {
+            if (typeof AjaxUtil === 'undefined' || !AjaxUtil.getSyncData) {
+                throw new Error('AjaxUtil 미로드 — 공용 스크립트 로드 순서를 확인하세요');
+            }
+            const r = AjaxUtil.getSyncData(BASE + path, clean(params)) || {};
+            if (r.success === false) throw new Error(r.message || '조회에 실패했습니다');
+            return r.data;
+        }
+        function apiPost(path, params) {
+            return new Promise(function (resolve, reject) {
+                if (typeof AjaxUtil === 'undefined' || !AjaxUtil.postAsyncData) {
+                    reject(new Error('AjaxUtil 미로드 — 공용 스크립트 로드 순서를 확인하세요'));
+                    return;
+                }
+                AjaxUtil.postAsyncData(BASE + path, clean(params), function (r) {
+                    r = r || {};
+                    if (r.success === false) { reject(new Error(r.message || '처리에 실패했습니다')); return; }
+                    if (r.message) flash(r.message);
+                    resolve(r.data);
                 });
-                return n;
-            })(root, 0, null);
-            /* post-order 보장: depth 깊은 것부터, 같은 depth는 원래 순서 */
-            return out.sort((a, b) => b.depth - a.depth);
+            });
+        }
+        /* 공용 콤보 — /api/common/combo (반환: [{value, text}]) */
+        function combo(comboType, cond1, cond2, cond3) {
+            if (typeof AjaxUtil === 'undefined' || !AjaxUtil.getSyncData) return [];
+            const r = AjaxUtil.getSyncData('/api/common/combo', {
+                combo_type: comboType, cond1: cond1 || '', cond2: cond2 || '', cond3: cond3 || ''
+            }) || {};
+            return (r.data || []).map(x => ({value: x.value, text: x.text, code: x.Code || ''}));
+        }
+        async function guard(fn) {
+            try { busy(true); return await fn(); }
+            catch (e) { flash(e.message || String(e)); console.error('[mcell]', e); }
+            finally { busy(false); }
+        }
+        let busyN = 0;
+        function busy(on) {
+            busyN = Math.max(0, busyN + (on ? 1 : -1));
+            document.body.style.cursor = busyN ? 'progress' : '';
         }
 
-        function assetOf(code) { return code.startsWith('MRCN') ? '완제품' : code.startsWith('WIP-MC') ? '제공품' : '반제품 모듈'; }
+        /* ── 기준 데이터 (서버 로드) ── */
+        let WORKERS = [];   // {actor_id, actor_name}
+        let EQUIPS = [];    // {equipment_id, equipment_code, equipment_name}
+        const UST = {wait: '조립대기', assembling: '조립중', inspect_wait: '검사대기', reject: '재작업', pass: '합격', packed: '포장완료'};
 
-        /* 재고 재공품(반제품) 로트 — 창고에 이미 만들어둔 것. FIFO 자동선택 */
-        const WIP_STOCK = {
-            'WIP-MC20022': [{lot: 'MC20022-260701', qty: 2}, {lot: 'MC20022-260704', qty: 4}],
-            'WIP-MC20022N': [{lot: 'MC20022N-260703', qty: 3}],
-            'WIP-MA2010': [{lot: 'MA2010-260702', qty: 3}, {lot: 'MA2010-260705', qty: 2}],
-            'WIP-MA2006': [{lot: 'MA2006-260702', qty: 5}],
-            'WIP-MA2006N': [{lot: 'MA2006N-260705', qty: 6}],
-            'WIP-MA2007': [{lot: 'MA2007-260701', qty: 3}],
-            'WIP-MA2002': [{lot: 'MA2002-260702', qty: 4}],
-            'WIP-MA0001': [{lot: 'MA0001-260701', qty: 8}]
-        };
-        function wipLots(code) { return WIP_STOCK[code] || []; }
-        function autoWip(code) { const a = wipLots(code).filter(x => x.qty > 0).slice().sort((x, y) => x.lot < y.lot ? -1 : x.lot > y.lot ? 1 : 0); return a[0] ? a[0].lot : null; }
-        function eligStock(s) { return s.code.indexOf('WIP') === 0; }          /* 모든 재공품 레벨 허용 */
-        /* 투입된 조상 아래(하위 레벨)는 스킵 */
-        function ancStock(u, s) { let p = s.parent; while (p) { const ps = stepOf(u, p); if (ps && ps.src === 'stock') return ps; p = ps ? ps.parent : null; } return null; }
-        function skipped(u, s) { return !!ancStock(u, s); }
-        function descOf(u, s) { return u.steps.filter(x => ancStock(u, x) === s); }
-        function activeSteps(u) { return u.steps.filter(s => !skipped(u, s)); }
-
-        /* 자재 창고 재고 (추가용) — 트리 전체에서 수집 + 해외/국내 교차 자재 */
-        const STOCK = (function () {
-            const seen = {}, out = [];
-            (function walk(n) { (n.c || []).forEach(x => { if (x.mat) { if (!seen[x.code]) { seen[x.code] = 1; out.push({code: x.code, name: x.name, stock: 10 + (x.code.length * 7) % 90}); } } else walk(x); }); })(PRODUCT['MRCN-21022']);
-            PACK_EXP.forEach(x => { if (!seen[x.code]) { seen[x.code] = 1; out.push({code: x.code, name: x.name, stock: 24}); } });
-            return out;
-        })();
-
-        /* ── 기준 데이터 ── */
-        const WORKERS = ['정우철', '김민수', '이서연', '박지훈', '한재범'];
-        const EQUIPS = [['AS-01', '조립대 A'], ['AS-02', '조립대 B'], ['MN-01', '수동 조립대']];
-        const UST = {wait: '조립대기', assembling: '조립중', inspect_wait: '검사대기', reject: '재작업', pass: '합격'};
-
-        function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
         function todayStr() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
         function hhmm() { const d = new Date(); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
         function nowFull() { return todayStr() + ' ' + hhmm(); }
-        function shortT(v) { return v ? v.slice(5).replace('-', '.') : ''; }   /* 07.09 08:32 */
+        function shortT(v) { return v ? v.slice(5).replace('-', '.') : ''; }
         const WD = ['일', '월', '화', '수', '목', '금', '토'];
-        function unitName(u) { return 'SN-' + String(u.no).padStart(3, '0'); }
-        function bomQ(row) { return row.manual ? (row.qty || 0) : row.per; }
+        function unitName(u) { return 'SN-' + String(u.unit_no).padStart(3, '0'); }
+        function bomQ(row) { return row.manual ? (row.qty || 0) : row.default_qty; }
+        function esc(s) { return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c])); }
 
-        function genLot(o, no) { return o.pcode.replace(/[^A-Z0-9]/g, '') + '-' + o.odate.replace(/-/g, '').slice(2) + '-' + String(no).padStart(3, '0'); }
-        function mkUnit(o, no) { return {no, lot: null, worker: null, equip: null, st: 'wait', start: null, end: null, steps: buildSteps(o.pcode), reject: null}; }
+        /* ── 상태 ── */
+        let ORDERS = [], curO = null, UNITS = [], curU = null, STEPS = [], filt = 'all';
 
-        const ORDERS = [
-            {id: 'WO-25-0431', odate: todayStr(), due: addDays(3), pcode: 'MRCN-21022', pname: 'SMART-M-CELL2N (국내)', kind: 'FIN', qty: 10},
-            {id: 'WO-25-0432', odate: todayStr(), due: addDays(5), pcode: 'MRCN-21023', pname: 'SMART-M-CELL2N (해외)', kind: 'FIN', qty: 4},
-            {id: 'WO-25-0433', odate: todayStr(), due: addDays(2), pcode: 'WIP-MA2006N', pname: 'M2_로터_Ass`y (개선품)', kind: 'MOD', qty: 6}
-        ];
-        ORDERS.forEach(o => { o.units = []; for (let i = 1; i <= o.qty; i++) o.units.push(mkUnit(o, i)); });
-
-        /* 데모 시드 + 공유 저장소 병합 */
-        (function seed() {
-            const o = ORDERS[0];
-            const u1 = o.units[0]; u1.lot = genLot(o, 1); u1.worker = '정우철'; u1.equip = 'AS-01'; u1.st = 'assembling'; u1.start = todayStr() + ' 08:12';
-            u1.steps.filter(s => s.depth >= 5).forEach((s, k) => { s.st = 'done'; s.worker = WORKERS[k % 3]; s.equip = EQUIPS[k % 3][0]; s.start = todayStr() + ' 08:10'; s.at = todayStr() + ' 08:' + String(20 + k * 4).padStart(2, '0'); });
-            const ch = u1.steps.find(s => s.code === 'WIP-MA2007'); ch.st = 'working'; ch.worker = '이서연'; ch.equip = 'AS-02'; ch.start = todayStr() + ' 08:32';
-            u1.steps.filter(s => s.code === 'WIP-MA0001' || s.code === 'WIP-MA2002').forEach((s, k) => { s.st = 'done'; s.worker = WORKERS[k]; s.equip = 'AS-01'; s.start = todayStr() + ' 08:05'; s.at = todayStr() + ' 08:' + String(40 + k * 6); });
-            const u2 = o.units[1]; u2.lot = genLot(o, 2); u2.worker = '김민수'; u2.equip = 'AS-02'; u2.st = 'inspect_wait'; u2.start = todayStr() + ' 08:05'; u2.end = todayStr() + ' 10:40';
-            u2.steps.forEach((s, k) => { s.st = 'done'; s.worker = WORKERS[(k + 1) % 4]; s.equip = EQUIPS[k % 3][0]; s.start = todayStr() + ' 09:00'; s.at = todayStr() + ' 09:' + String(10 + k * 3).padStart(2, '0'); });
-            const u3 = o.units[2]; u3.lot = genLot(o, 3); u3.worker = '이서연'; u3.equip = 'AS-01'; u3.st = 'reject'; u3.start = todayStr() + ' 08:20';
-            u3.steps.forEach((s, k) => { s.st = 'done'; s.worker = WORKERS[(k + 2) % 5]; s.equip = EQUIPS[k % 3][0]; s.start = todayStr() + ' 10:00'; s.at = todayStr() + ' 10:' + String(5 + k * 3).padStart(2, '0'); });
-            u3.reject = {insp: 'IQ-25-0087', at: todayStr() + ' 11:05', by: '박지훈', reason: '회전 진동 기준 초과 (2.1mm/s > 1.5)', steps: ['WIP-MA2006'], items: ['로터 밸런스', '진동/소음']};
-
-            /* 4호기: 제공품 재공품을 재고에서 투입(하위 레벨 생략) 데모 */
-            const u4 = ORDERS[0].units[3];
-            if (u4) { u4.worker = '정우철'; u4.equip = '조립대 A'; u4.lot = genLot(ORDERS[0], 4); u4.st = 'assembling'; u4.start = todayStr() + ' 09:40';
-                const sv = u4.steps.find(s => s.code === 'WIP-MC20022'); if (sv) { sv.src = 'stock'; sv.stockLot = autoWip('WIP-MC20022'); } }
-
-            /* 검사 화면이 이 로트들을 볼 수 있게 */
-            ORDERS.forEach(oo => oo.units.forEach(u => {
-                if (!u.lot) return;
-                MCS.upsert(u.lot, {lot: u.lot, wo: oo.id, unitNo: u.no, pcode: oo.pcode, pname: oo.pname, src: '조립', worker: u.worker, st: u.st, reject: u.reject});
-            }));
-        })();
-
-        /* 공유 저장소 → 유닛 상태 반영(검사에서 불합격 처리된 건) */
-        function syncFromStore() {
-            const s = MCS.read();
-            ORDERS.forEach(o => o.units.forEach(u => {
-                if (!u.lot) return;
-                const r = s.units[u.lot]; if (!r) return;
-                if (r.st === 'reject' && u.st !== 'reject') { u.st = 'reject'; u.reject = r.reject || null; }
-                else if (r.st === 'pass') u.st = 'pass';
-                else if (r.st === 'inspect_wait' && u.st === 'assembling') u.st = 'inspect_wait';
-            }));
+        /* ══════════ A 화면 : 작업지시 큐 ══════════ */
+        function inRange() { /* 서버에서 필터 */ }
+        async function renderQueue() {
+            await guard(async () => {
+                const f = document.getElementById('dFrom').value, t = document.getElementById('dTo').value;
+                ORDERS = await apiGet('/wo_queue', {
+                    process_id: PROC_ID, date_from: f, date_to: t, spjangcd: CTX.spjangcd
+                }) || [];
+                drawQueue();
+            });
         }
-
-        function unitProg(u) { const act = activeSteps(u); const done = act.filter(s => s.st === 'done').length; return {done, total: act.length, pct: act.length ? Math.round(done / act.length * 100) : 0}; }
-        function orderDone(o) { return o.units.filter(u => u.st === 'inspect_wait' || u.st === 'pass').length; }
-        function orderRej(o) { return o.units.filter(u => u.st === 'reject').length; }
-        function orderSt(o) {
-            if (o.units.every(u => u.st === 'pass')) return 'done';
-            if (o.units.some(u => u.st !== 'wait')) return 'working';
-            return 'wait';
-        }
-        /* 계층 잠금: 하위 스텝(kids)이 전부 done 이어야 활성. 단, 투입 노드는 하위 불필요 → 잠금 해제 */
-        function stepOf(u, code) { return u.steps.find(s => s.code === code); }
-        function kidsDone(u, s) { return s.kids.every(k => stepOf(u, k).st === 'done'); }
-        function stepLocked(u, s) { if (s.src === 'stock') return false; return !kidsDone(u, s); }
-        function allStepsDone(u) { return activeSteps(u).every(s => s.st === 'done'); }
-        function workingSteps(u) { return u.steps.filter(s => s.st === 'working'); }
-        function isRework(u, s) { return u.st === 'reject' && u.reject && u.reject.steps.indexOf(s.code) >= 0; }
-        /* 완료취소: 상위(조상) 스텝이 done 이면 함께 취소 */
-        function clearWho(s) { s.worker = null; s.equip = null; s.start = null; s.at = null; }
-        function cancelCascade(u, s) {
-            s.st = 'wait'; clearWho(s); u.end = null;
-            let p = s.parent, n = 0;
-            while (p) { const ps = stepOf(u, p); if (ps && ps.st === 'done') { ps.st = 'wait'; clearWho(ps); n++; } p = ps ? ps.parent : null; }
-            return n;
-        }
-
-        /* ── A 화면 ── */
-        let filt = 'all';
-        function inRange(o) { const f = document.getElementById('dFrom').value, t = document.getElementById('dTo').value; if (f && o.odate < f) return false; if (t && o.odate > t) return false; return true; }
-        function renderQueue() {
-            syncFromStore();
-            const list = ORDERS.filter(o => inRange(o)).filter(o => filt === 'all' ? 1 : filt === 'reject' ? orderRej(o) > 0 : orderSt(o) === filt);
+        function drawQueue() {
+            const list = ORDERS.filter(o => filt === 'all' ? 1
+                : filt === 'reject' ? (o.reject_cnt > 0) : (o.state === filt));
             document.getElementById('qcnt').textContent = list.length + '건';
             document.getElementById('qgrid').innerHTML = list.map(o => {
-                const st = orderSt(o), d = orderDone(o), rj = orderRej(o), pct = Math.round(d / o.qty * 100);
-                const tag = o.kind === 'MOD' ? '<span class="modeltag mod">자체재고 모듈</span>'
-                    : o.pcode === 'MRCN-21022' ? '<span class="modeltag dom">국내</span>' : '<span class="modeltag exp">해외</span>';
-                return '<div class="wo" data-st="' + st + '" data-id="' + o.id + '"><div class="edge"></div>' +
-                    '<div class="row1"><span class="wono">' + o.id + '</span>' + tag +
+                const plan = +o.plan_qty || 0, d = +o.done_cnt || 0, rj = +o.reject_cnt || 0;
+                const pct = plan ? Math.round(d / plan * 100) : 0;
+                return '<div class="wo" data-st="' + o.state + '" data-id="' + o.job_res_id + '"><div class="edge"></div>' +
+                    '<div class="row1"><span class="wono">' + esc(o.order_num || ('WO-' + o.job_res_id)) + '</span>' +
+                    '<span class="modeltag dom">' + esc(o.mat_code) + '</span>' +
                     (rj ? '<span class="rejdot">재작업 ' + rj + '</span>' : '') +
-                    '<span class="chip ' + st + '">' + (st === 'done' ? '완료' : st === 'working' ? '작업중' : '대기') + '</span></div>' +
-                    '<div class="name">' + o.pname + '</div><div class="code">' + o.pcode + '</div>' +
-                    '<div class="meta"><div class="blk"><span class="lab">계획</span><span class="val">' + o.qty + '</span></div>' +
+                    '<span class="chip ' + o.state + '">' + (o.state === 'done' ? '완료' : o.state === 'working' ? '작업중' : '대기') + '</span></div>' +
+                    '<div class="name">' + esc(o.mat_name) + '</div><div class="code">' + esc(o.plan_date || '') + '</div>' +
+                    '<div class="meta"><div class="blk"><span class="lab">계획</span><span class="val">' + plan + '</span></div>' +
                     '<div class="blk"><span class="lab">조립완료</span><span class="val left">' + d + '</span></div>' +
                     '<div class="prog"><span class="lab">진행률 ' + pct + '%</span><div class="bar"><i style="width:' + pct + '%"></i></div></div></div></div>';
             }).join('') || '<div style="grid-column:1/-1;text-align:center;color:var(--ink-2);font-weight:700;padding:40px">해당 조건의 생산계획이 없습니다.</div>';
         }
-        document.getElementById('qgrid').addEventListener('click', e => { const c = e.target.closest('.wo'); if (c) openOrder(c.dataset.id); });
+        document.getElementById('qgrid').addEventListener('click', e => {
+            const c = e.target.closest('.wo'); if (c) openOrder(+c.dataset.id);
+        });
         document.querySelectorAll('.qfilter button').forEach(b => b.addEventListener('click', () => {
-            document.querySelectorAll('.qfilter button').forEach(x => x.classList.remove('on')); b.classList.add('on'); filt = b.dataset.f; renderQueue();
+            document.querySelectorAll('.qfilter button').forEach(x => x.classList.remove('on'));
+            b.classList.add('on'); filt = b.dataset.f; drawQueue();
         }));
         document.getElementById('btnSearch').addEventListener('click', renderQueue);
-        (function initDates() { const t = new Date(), f = new Date(); f.setDate(f.getDate() - 7);
+        (function initDates() {
+            const t = new Date(), f = new Date(); f.setDate(f.getDate() - 7);
             const fmt = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-            document.getElementById('dFrom').value = fmt(f); document.getElementById('dTo').value = fmt(t); })();
+            document.getElementById('dFrom').value = fmt(f); document.getElementById('dTo').value = fmt(t);
+        })();
 
         /* ── 화면 전환 ── */
         const SC = {A: document.getElementById('scA'), B: document.getElementById('scB'), C: document.getElementById('scC')};
         function show(k) { for (const x in SC) SC[x].classList.toggle('hide', x !== k); }
         document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', () => {
-            const t = b.dataset.back; if (t === 'A') renderQueue(); if (t === 'B') renderUnits(); show(t);
+            const t = b.dataset.back;
+            if (t === 'A') { renderQueue(); show('A'); }
+            if (t === 'B') { renderUnits().then(() => show('B')); }
         }));
 
-        let curO = null, curU = null;
-        function openOrder(id) { syncFromStore(); curO = ORDERS.find(o => o.id === id); renderUnits(); show('B'); }
-        function renderUnits() {
-            const o = curO;
-            document.getElementById('bName').textContent = o.pname;
-            document.getElementById('bSub').textContent = o.id + ' · ' + o.pcode + ' · 계획 ' + o.qty + '대' + (o.kind === 'MOD' ? ' · 반제품 입고' : '');
-            document.getElementById('bDone').textContent = orderDone(o) + ' / ' + o.qty;
-            document.getElementById('uCnt').textContent = o.units.length + '대';
-            document.getElementById('uGrid').innerHTML = o.units.map((u, i) => {
-                const p = unitProg(u);
-                return '<div class="unit" data-st="' + u.st + '" data-i="' + i + '"><div class="edge"></div>' +
+        /* ══════════ B 화면 : 유닛 목록 ══════════ */
+        async function openOrder(jobResId) {
+            await guard(async () => {
+                curO = ORDERS.find(o => +o.job_res_id === +jobResId);
+                /* 작지 진입 시 유닛 N개 + 스텝 트리 생성 (멱등) */
+                await apiPost('/unit_init', {job_res_id: jobResId, spjangcd: CTX.spjangcd});
+                await renderUnits();
+                show('B');
+            });
+        }
+        async function renderUnits() {
+            if (!curO) return;
+            UNITS = await apiGet('/unit_list', {job_res_id: curO.job_res_id}) || [];
+            const doneN = UNITS.filter(u => ['inspect_wait', 'pass', 'packed'].includes(u.state)).length;
+            document.getElementById('bName').textContent = curO.mat_name || '';
+            document.getElementById('bSub').textContent = (curO.order_num || '') + ' · ' + (curO.mat_code || '') + ' · 계획 ' + curO.plan_qty + '대';
+            document.getElementById('bDone').textContent = doneN + ' / ' + curO.plan_qty;
+            document.getElementById('uCnt').textContent = UNITS.length + '대';
+            document.getElementById('uGrid').innerHTML = UNITS.map((u, i) => {
+                const tot = +u.step_total || 0, dn = +u.step_done || 0;
+                const pct = tot ? Math.round(dn / tot * 100) : 0;
+                return '<div class="unit" data-st="' + u.state + '" data-i="' + i + '"><div class="edge"></div>' +
                     '<div class="un">' + unitName(u) + '</div>' +
-                    '<div class="lot">' + (u.lot || '로트 미발번') + '</div>' +
-                    '<div class="row"><span class="ubadge ' + u.st + '">' + UST[u.st] + '</span>' +
-                    '<span class="pct">' + p.done + '/' + p.total + ' 레벨</span></div>' +
-                    (u.start ? '<div class="utime"><span>시작 <b>' + u.start + '</b></span>' +
-                        (u.end ? '<span>완료 <b>' + u.end + '</b></span>' : '') + '</div>' : '') +
-                    '<div class="ubar"><i style="width:' + p.pct + '%"></i></div></div>';
+                    '<div class="lot">' + esc(u.lot_number || '로트 미발번') + '</div>' +
+                    '<div class="row"><span class="ubadge ' + u.state + '">' + (UST[u.state] || u.state) + '</span>' +
+                    '<span class="pct">' + dn + '/' + tot + ' 레벨</span></div>' +
+                    (u.start_time ? '<div class="utime"><span>시작 <b>' + esc(u.start_time) + '</b></span>' +
+                        (u.end_time ? '<span>완료 <b>' + esc(u.end_time) + '</b></span>' : '') + '</div>' : '') +
+                    '<div class="ubar"><i style="width:' + pct + '%"></i></div></div>';
             }).join('');
         }
-        document.getElementById('uGrid').addEventListener('click', e => { const c = e.target.closest('.unit'); if (c) openUnit(+c.dataset.i); });
+        document.getElementById('uGrid').addEventListener('click', e => {
+            const c = e.target.closest('.unit'); if (c) openUnit(+c.dataset.i);
+        });
 
-        /* ── C 화면: 스텝 트리 ── */
-        function openUnit(i) { curU = curO.units[i]; curU._idx = i; const sc = document.getElementById('cGrid').closest('.bscroll'); if (sc) sc.scrollTop = 0; renderUnit(); show('C'); }
+        /* ══════════ C 화면 : 스텝 트리 ══════════ */
+        async function openUnit(i) {
+            await guard(async () => {
+                curU = UNITS[i];
+                const sc = document.getElementById('cGrid').closest('.bscroll'); if (sc) sc.scrollTop = 0;
+                await loadSteps();
+                show('C');
+            });
+        }
+        async function loadSteps() {
+            STEPS = await apiGet('/step_list', {unit_id: curU.unit_id}) || [];
+            STEPS.forEach(s => { s.mats = null; });   // 투입자재는 펼칠 때 지연 로드
+            renderUnit();
+        }
+        function stepIdx(i) { return STEPS[i]; }
+        function stepByMat(matId) { return STEPS.find(s => +s.mat_id === +matId); }
+        function assetOf(code) { return (code || '').startsWith('WIP-MC') ? '반제품 (검사대상)' : '반제품 모듈'; }
+
+        function unitProg() {
+            const act = STEPS.filter(s => !s.skipped);
+            const done = act.filter(s => s.state === 'done' || (s.source === 'stock' && s.stock_lot_id)).length;
+            return {done, total: act.length, pct: act.length ? Math.round(done / act.length * 100) : 0};
+        }
+        function allStepsDone() { const p = unitProg(); return p.total > 0 && p.done === p.total; }
+
         function renderUnit() {
-            const u = curU, o = curO;
+            const u = curU;
             const _sc = document.getElementById('cGrid').closest('.bscroll');
             const _keep = _sc ? _sc.scrollTop : 0;
-            document.getElementById('cUnit').textContent = unitName(u) + ' · ' + o.pname;
-            const who = Array.from(new Set(u.steps.filter(s => s.worker).map(s => s.worker)));
-            document.getElementById('cSub').textContent = o.id + (u.lot ? (who.length ? ' · 작업자 ' + who.join(', ') : ' · 작업자 미배정') : ' · 미시작');
-            document.getElementById('cLotPill').innerHTML = (u.lot ? '<span class="infopill"><span>LOT</span><b>' + u.lot + '</b></span>' : '<span class="infopill"><span>로트</span><b>발번 전</b></span>') +
-                (u.start ? '<span class="tpill" data-time="start"><span>시작</span><b>' + u.start + '</b></span>' : '') +
-                (u.end ? '<span class="tpill" data-time="end"><span>완료</span><b>' + u.end + '</b></span>' : '');
+            document.getElementById('cUnit').textContent = unitName(u) + ' · ' + (curO.mat_name || '');
+            const who = Array.from(new Set(STEPS.filter(s => s.actor_name).map(s => s.actor_name)));
+            document.getElementById('cSub').textContent = (curO.order_num || '') +
+                (u.lot_number ? (who.length ? ' · 작업자 ' + who.join(', ') : ' · 작업자 미배정') : ' · 미시작');
+            document.getElementById('cLotPill').innerHTML =
+                (u.lot_number ? '<span class="infopill"><span>LOT</span><b>' + esc(u.lot_number) + '</b></span>'
+                    : '<span class="infopill"><span>로트</span><b>발번 전</b></span>') +
+                (u.start_time ? '<span class="tpill"><span>시작</span><b>' + esc(u.start_time) + '</b></span>' : '') +
+                (u.end_time ? '<span class="tpill"><span>완료</span><b>' + esc(u.end_time) + '</b></span>' : '');
 
             let html = '';
-            if (u.st === 'reject' && u.reject) {
-                html += '<div class="rejban">검사 불합격 복귀 · ' + u.reject.insp +
-                    '<span class="rl">사유 : ' + u.reject.reason + ' · 판정 ' + u.reject.by + ' ' + u.reject.at + '</span>' +
-                    '<span class="rl">귀책 모듈 : ' + u.reject.steps.join(', ') + ' → 해당 스텝을 <b>완료취소</b> 후 자재를 교체·가감하고 다시 완료하세요.</span></div>';
+            if (u.state === 'reject' && u.reject_reason) {
+                html += '<div class="rejban">검사 불합격 복귀' + (u.reject_insp_no ? ' · ' + esc(u.reject_insp_no) : '') +
+                    '<span class="rl">사유 : ' + esc(u.reject_reason) + ' · ' + esc(u.reject_at || '') + '</span>' +
+                    '<span class="rl">귀책 모듈을 <b>완료취소</b> 후 자재를 교체·가감하고 다시 완료하세요.</span></div>';
             }
-            /* 화면 순서: 하위(깊은) → 상위. 같은 부모끼리 묶어 계층 라벨 */
             let lastDepth = null;
-            u.steps.forEach((s, i) => {
+            STEPS.forEach((s, i) => {
                 if (s.depth !== lastDepth) {
-                    html += '<div class="tierlab">레벨 ' + (s.depth + 1) + ' · ' + assetOf(s.code) + (s.depth === 0 ? ' (최종)' : '') + '</div>';
+                    html += '<div class="tierlab">레벨 ' + (s.depth + 1) + ' · ' + assetOf(s.mat_code) + (s.depth === 0 ? ' (최종)' : '') + '</div>';
                     lastDepth = s.depth;
                 }
-                html += stepCard(s, i);
+                html += s.skipped ? replacedCard(s, i) : (s.source === 'stock' ? stockCard(s, i) : stepCard(s, i));
             });
             document.getElementById('cGrid').innerHTML = html;
             renderCAction();
             if (_sc) _sc.scrollTop = _keep;
         }
-        function stepCard(s, i) {
-            const u = curU;
-            if (skipped(u, s)) return replacedCard(s, i);
-            if (s.src === 'stock') return stockCard(s, i);
-            const locked = stepLocked(u, s), done = s.st === 'done', rw = isRework(u, s);
-            const started = !!u.lot;
-            const canToggle = eligStock(s) && !done;
-            const srcTog = canToggle ? '<span class="srctog"><button class="on" data-src="' + i + ',build">조립</button><button data-src="' + i + ',stock">투입</button></span>' : '';
-            const cls = 'step' + (locked ? ' locked' : '') + (!locked && !done ? ' avail' : '') + (rw ? ' rework' : '');
-            const working = s.st === 'working';
-            const badge = rw ? '<span class="st-badge rw">재작업 대상</span>'
-                : done ? '<span class="st-badge done">완료</span>'
-                    : working ? '<span class="st-badge working"><i></i>작업중</span>'
-                        : locked ? '<span class="lockicon">🔒 하위 ' + s.kids.length + '개 완료 후</span>'
-                            : '<span class="st-badge wait">대기</span>';
-            const who = s.worker ? '<span class="swho' + (rw ? ' rw' : working ? ' on' : '') + '">' + s.worker + ' · ' + s.equip + '</span>' : '';
-            const tchips = s.start ? '<span class="stime">' +
-                '<button data-stime="' + i + ',start">시작 <b>' + shortT(s.start) + '</b></button>' +
-                (s.at ? '<button data-stime="' + i + ',end">완료 <b>' + shortT(s.at) + '</b></button>' : '') +
-                '</span>' : '';
-            let btn = '';
-            if (done) btn = '<button class="sbtn2 ' + (rw ? 'warn' : 'ghost') + '" data-cancel="' + i + '">완료취소</button>';
-            else if (working) btn = '<button class="sbtn2 del" data-del="' + i + '">작업 삭제</button>' +
-                '<button class="sbtn2 done" data-done="' + i + '">' + (s.depth === 0 ? '최종 완료' : '모듈 완료') + '</button>';
-            else if (!locked) btn = '<button class="sbtn2 go" data-go="' + i + '">작업 시작</button>';
-            const subs = s.subs.length ? '<div class="subasm">하위 어셈블리 ' + s.subs.length + '개 : ' + s.subs.map(c => {
-                const ss = stepOf(u, c);
-                return '<b>' + c + '</b> <span class="' + (ss.st === 'done' ? 'ok' : 'no') + '">' + (ss.st === 'done' ? '완료' : '미완료') + '</span>';
-            }).join(' · ') + '</div>' : '';
-            const rows = s.mats.map((r, bi) => '<div class="brow"><div class="bid"><div class="bn">' + r.name + '</div>' +
-                '<div class="bc">' + r.code + ' · 소요 ' + r.per + (r.manual ? ' <span class="autotag">수정</span>' : ' <span class="autotag">자동</span>') + '</div></div>' +
+
+        /* 투입자재 1행 — 하위 어셈블리도 같은 목록에서 상태로 표시 */
+        function asmRow(r, i, bi, done) {
+            const head = '<div class="bid"><div class="bn">' + esc(r.mat_name) + '</div>';
+            if (r.is_assembly === 'Y') {
+                const ss = stepByMat(r.mat_id);
+                const stk = ss && ss.source === 'stock' && ss.stock_lot_id;
+                const ok = stk || (ss && ss.state === 'done');
+                const cls = stk ? 'stk' : (ok ? 'ok' : 'no');
+                const lab = stk ? '재고 투입' : (ok ? '완료' : '미완료');
+                const sub = stk ? ('하위 어셈블리 · LOT ' + esc(ss.stock_lot_no || ''))
+                    : (ok ? ('하위 어셈블리 · LOT ' + esc(ss.lot_number || ''))
+                        : '하위 어셈블리 · 이 레벨을 먼저 완료해야 합니다');
+                return '<div class="brow asm">' + head + '<div class="bc">' + esc(r.mat_code) + ' · ' + sub + '</div></div>' +
+                    '<span class="asmtag ' + cls + '">' + lab + '</span>' +
+                    '<div style="font-weight:800;font-variant-numeric:tabular-nums;padding-right:8px">' + (r.default_qty || 1) + '</div></div>';
+            }
+            return '<div class="brow">' + head +
+                '<div class="bc">' + esc(r.mat_code) + ' · 소요 ' + (r.per || 1) +
+                (r.manual ? ' <span class="autotag">수정</span>' : ' <span class="autotag">자동</span>') +
+                ' · 재고 ' + (r.stock || 0) + ' (' + esc(r.src_store_name || '') + ')</div></div>' +
                 (done ? '<div style="font-weight:800;font-variant-numeric:tabular-nums;padding-right:8px">' + bomQ(r) + '</div>' :
                     '<div class="bstep"><button class="minus" data-m="' + i + ',' + bi + ',-1">−</button>' +
                     '<div class="bq ' + (r.manual ? '' : 'auto') + '" data-pad="' + i + ',' + bi + '">' + bomQ(r) + '</div>' +
                     '<button class="plus" data-m="' + i + ',' + bi + ',1">＋</button></div>' +
-                    '<button class="brm" data-rm="' + i + ',' + bi + '">✕</button>') + '</div>').join('');
-            const ind = s.depth;
-            return '<div class="' + cls + '" data-st="' + s.st + '" style="--ind:' + ind + ';--gd:' + (ind ? 'block' : 'none') + '"><div class="edge"></div>' +
-                '<div class="shead"><button class="caret' + (locked ? ' dis' : '') + '" data-caret="' + i + '">▶</button>' +
-                '<span class="lvl">L' + (s.depth + 1) + '</span>' +
-                '<div class="sid"><div class="sn">' + s.name + '</div><div class="sc">' + s.code + ' · 자재 ' + s.mats.length + '종' + (s.subs.length ? ' · 하위 ' + s.subs.length : '') + '</div></div>' +
-                badge + '<span class="sgap"></span>' + srcTog + btn +
-                ((who || tchips) ? '<div class="smeta">' + who + tchips + '</div>' : '') + '</div>' +
-                '<div class="sbom" id="sbom' + i + '">' + subs +
-                '<div class="bhead">투입자재 <span class="ln"></span>' + (done ? '' : '<button class="baddbtn" data-add="' + i + '">＋ 자재</button>') + '</div>' +
-                (rows || '<div style="color:var(--ink-2);font-weight:700;font-size:14px;padding:6px 0">직접 투입자재 없음 (하위 어셈블리로 구성)</div>') +
-                '</div></div>';
+                    '<button class="brm" data-rm="' + i + ',' + bi + '">✕</button>') + '</div>';
         }
+
+        function stepCard(s, i) {
+            const locked = !!s.locked, done = s.state === 'done', rw = s.rework_yn === 'Y';
+            const working = s.state === 'working';
+            const canToggle = !done;
+            const srcTog = canToggle ? '<span class="srctog"><button class="on" data-src="' + i + ',build">조립</button><button data-src="' + i + ',stock">투입</button></span>' : '';
+            const cls = 'step' + (locked ? ' locked' : '') + (!locked && !done ? ' avail' : '') + (rw ? ' rework' : '');
+            const badge = rw ? '<span class="st-badge rw">재작업 대상</span>'
+                : done ? '<span class="st-badge done">완료</span>'
+                    : working ? '<span class="st-badge working"><i></i>작업중</span>'
+                        : locked ? '<span class="lockicon">🔒 하위 ' + s.kid_cnt + '개 완료 후</span>'
+                            : '<span class="st-badge wait">대기</span>';
+            const whoTxt = s.actor_name ? '<span class="swho' + (rw ? ' rw' : working ? ' on' : '') + '">' + esc(s.actor_name) + ' · ' + esc(s.equipment_name || '') + '</span>' : '';
+            const tchips = s.start_time ? '<span class="stime">' +
+                '<button data-stime="' + i + ',start">시작 <b>' + shortT(s.start_time) + '</b></button>' +
+                (s.end_time ? '<button data-stime="' + i + ',end">완료 <b>' + shortT(s.end_time) + '</b></button>' : '') +
+                '</span>' : '';
+            let btn = '';
+            if (done) btn = '<button class="sbtn2 ' + (rw ? 'warn' : 'ghost') + '" data-cancel="' + i + '">분해</button>';
+            else if (working) btn = '<button class="sbtn2 del" data-del="' + i + '">작업 삭제</button>' +
+                '<button class="sbtn2 done" data-done="' + i + '">' + (s.depth === 0 ? '최종 완료' : '모듈 완료') + '</button>';
+            else if (!locked) btn = '<button class="sbtn2 go" data-go="' + i + '">작업 시작</button>';
+
+            const rows = (s.mats == null)
+                ? '<div style="color:var(--ink-2);font-weight:700;font-size:14px;padding:6px 0">펼치면 투입자재를 불러옵니다…</div>'
+                : (s.mats.map((r, bi) => asmRow(r, i, bi, done)).join('')
+                    || '<div style="color:var(--ink-2);font-weight:700;font-size:14px;padding:6px 0">투입자재가 없습니다</div>');
+
+            return '<div class="' + cls + '" data-st="' + s.state + '" style="--ind:' + s.depth + ';--gd:' + (s.depth ? 'block' : 'none') + '"><div class="edge"></div>' +
+                '<div class="shead"><button class="caret" data-caret="' + i + '">▶</button>' +
+                '<span class="lvl">L' + (s.depth + 1) + '</span>' +
+                '<div class="sid"><div class="sn">' + esc(s.mat_name) + '</div><div class="sc">' + esc(s.mat_code) +
+                ' · 자재 ' + (s.bom_cnt || 0) + '종' + (s.kid_cnt ? ' · 하위 ' + s.kid_cnt : '') +
+                (s.lot_number ? ' · LOT ' + esc(s.lot_number) : '') + '</div></div>' +
+                badge + '<span class="sgap"></span>' + srcTog + btn +
+                ((whoTxt || tchips) ? '<div class="smeta">' + whoTxt + tchips + '</div>' : '') + '</div>' +
+                '<div class="sbom" id="sbom' + i + '">' +
+                '<div class="bhead">투입자재 <span class="ln"></span>' + (done ? '' : '<button class="baddbtn" data-add="' + i + '">＋ 자재</button>') + '</div>' +
+                rows + '</div></div>';
+        }
+
         function replacedCard(s, i) {
-            const anc = ancStock(curU, s);
             return '<div class="step replaced" data-st="repl" style="--ind:' + s.depth + ';--gd:' + (s.depth ? 'block' : 'none') + '"><div class="edge"></div>' +
                 '<div class="shead"><span class="caret dis">▶</span><span class="lvl">L' + (s.depth + 1) + '</span>' +
-                '<div class="sid"><div class="sn">' + s.name + '</div><div class="sc">' + s.code + ' · ' + (anc ? anc.name + ' 투입으로 대체' : '투입 대체') + '</div></div>' +
+                '<div class="sid"><div class="sn">' + esc(s.mat_name) + '</div><div class="sc">' + esc(s.mat_code) + ' · 상위 재고 투입으로 대체</div></div>' +
                 '<span class="st-badge repl2">투입 대체</span></div></div>';
         }
+
         function stockCard(s, i) {
-            const u = curU, done = s.st === 'done', started = !!u.lot;
-            const lot = s.stockLot, meta = lot ? wipLots(s.code).find(x => x.lot === lot) : null;
-            const canToggle = !done;
-            const srcTog = canToggle ? '<span class="srctog"><button data-src="' + i + ',build">조립</button><button class="on" data-src="' + i + ',stock">투입</button></span>' : '';
-            const badge = done ? '<span class="st-badge done">완료 · 투입</span>' : '<span class="st-badge stock">투입</span>';
-            const btn = done ? '<button class="sbtn2 ghost" data-stockcancel="' + i + '">확정취소</button>'
-                : '<button class="sbtn2 go" data-stockok="' + i + '"' + (lot ? '' : ' disabled') + '>투입 확정</button>';
-            const lotRow = '<div class="wlot"><div class="wl"><div class="wlt">재고 재공품 로트 · FIFO 자동선택</div>' +
-                '<div class="wll">' + (lot || '가용 재고 없음') + '</div>' +
-                '<div class="wlm">' + (meta ? '가용 ' + meta.qty + ' · ' + s.name : '창고에 이 재공품 재고가 없습니다') + '</div></div>' +
-                (done ? '<span class="autotag">' + (lot || '-') + '</span>' : '<button class="wchg" data-wlot="' + i + '"' + (wipLots(s.code).length ? '' : ' disabled') + '>변경</button>') + '</div>';
-            return '<div class="step stock' + (done ? ' done' : '') + '" data-st="' + s.st + '" style="--ind:' + s.depth + ';--gd:' + (s.depth ? 'block' : 'none') + '"><div class="edge"></div>' +
+            const fixed = !!s.stock_lot_id;
+            const srcTog = '<span class="srctog"><button data-src="' + i + ',build">조립</button><button class="on" data-src="' + i + ',stock">투입</button></span>';
+            const badge = fixed ? '<span class="st-badge done">확정 · 투입</span>' : '<span class="st-badge stock">투입</span>';
+            const btn = fixed ? '<button class="sbtn2 ghost" data-stockcancel="' + i + '">확정취소</button>'
+                : '<button class="sbtn2 go" data-wlot="' + i + '">재고 로트 선택</button>';
+            const lotRow = '<div class="wlot"><div class="wl"><div class="wlt">재고 재공품 로트 · FIFO 권장</div>' +
+                '<div class="wll">' + esc(s.stock_lot_no || '로트 미지정') + '</div>' +
+                '<div class="wlm">' + (fixed ? esc(s.mat_name) + ' 재고분을 그대로 투입 · 하위 레벨 생략' : '창고 로트를 선택하세요') + '</div></div>' +
+                '<button class="wchg" data-wlot="' + i + '">' + (fixed ? '변경' : '선택') + '</button></div>';
+            return '<div class="step stock' + (fixed ? ' done' : '') + '" data-st="' + s.state + '" style="--ind:' + s.depth + ';--gd:' + (s.depth ? 'block' : 'none') + '"><div class="edge"></div>' +
                 '<div class="shead"><button class="caret" data-caret="' + i + '">▶</button><span class="lvl">L' + (s.depth + 1) + '</span>' +
-                '<div class="sid"><div class="sn">' + s.name + '</div><div class="sc">' + s.code + ' · 재고 투입 · ' + (lot || '로트 미지정') + '</div></div>' +
+                '<div class="sid"><div class="sn">' + esc(s.mat_name) + '</div><div class="sc">' + esc(s.mat_code) + ' · 재고 투입 · ' + esc(s.stock_lot_no || '로트 미지정') + '</div></div>' +
                 badge + '<span class="sgap"></span>' + srcTog + btn + '</div>' +
                 '<div class="sbom" id="sbom' + i + '">' + lotRow + '</div></div>';
         }
+
         function renderCAction() {
-            const u = curU, bar = document.getElementById('cAction'), p = unitProg(u);
-            if (!u.lot) {
+            const u = curU, bar = document.getElementById('cAction'), p = unitProg();
+            if (!u.lot_number) {
                 bar.innerHTML = '<div class="actsum"><span class="l">조립 대기 · 어셈블리 ' + p.total + '레벨</span>' +
                     '<span class="v">첫 어셈블리 «작업 시작» 시 로트 발번</span></div>' +
-                    '<button class="btn ghost" disabled>조립 완료 · 검사 전달</button>'; return;
+                    '<button class="btn ghost" disabled>조립 완료 · 검사 전달</button>';
+                return;
             }
-            const rejMode = u.st === 'reject';
-            const doneAll = allStepsDone(u);
+            const rejMode = u.state === 'reject';
             bar.innerHTML = '<div class="actsum"><span class="l">' + (rejMode ? '재작업 진행' : '레벨 진행') + '</span><span class="v">' + p.done + ' / ' + p.total + '</span></div>' +
-                (u.st === 'inspect_wait' ? '<button class="btn ghost" disabled>검사 대기 중</button>' :
-                    u.st === 'pass' ? '<button class="btn ghost" disabled>검사 합격</button>' :
-                        '<button class="btn ' + (rejMode ? 'red' : 'primary') + '" id="btnFin"' + (doneAll ? '' : ' disabled') + '>' +
-                        (rejMode ? '재조립 완료 · 재검사 전달' : '조립 완료 · 검사 전달') + '</button>');
-            const f = document.getElementById('btnFin'); if (f) f.onclick = finishUnit;
-        }
-        function finishUnit() {
-            const u = curU, o = curO;
-            u.st = 'inspect_wait'; u.end = u.end || nowFull(); const was = !!u.reject; u.reject = null;
-            const who = Array.from(new Set(u.steps.filter(x => x.worker).map(x => x.worker))).join(', ');
-            MCS.upsert(u.lot, {lot: u.lot, wo: o.id, unitNo: u.no, pcode: o.pcode, pname: o.pname, src: was ? '재작업' : '조립', worker: who, st: 'inspect_wait', reject: null, at: u.end});
-            flash(was ? '재조립 완료 · 재검사로 전달되었습니다' : '조립 완료 · 검사 공정으로 전달되었습니다');
-            renderUnits(); show('B');
+                (u.state === 'inspect_wait' ? '<button class="btn ghost" disabled>검사 대기 중</button>' :
+                    u.state === 'pass' ? '<button class="btn ghost" disabled>검사 합격</button>' :
+                        '<button class="btn ' + (rejMode ? 'red' : 'primary') + '" disabled>' +
+                        '최종 완료시 자동 완료</button>');
         }
 
-        /* 재고 재공품 로트 선택(FIFO) */
-        let wlotI = null;
-        function openWlot(i) {
-            wlotI = i; const s = curU.steps[i];
-            const lots = wipLots(s.code).slice().sort((a, b) => a.lot < b.lot ? -1 : a.lot > b.lot ? 1 : 0);
-            const oldest = lots.find(x => x.qty > 0);
-            document.getElementById('wlotTitle').textContent = s.name + ' · 재고 로트 선택';
-            document.getElementById('wlotList').innerHTML = lots.map(l => '<div class="prow ' + (l.lot === s.stockLot ? 'added' : '') + '" data-wl="' + l.lot + '">' +
-                    '<div class="pid"><div class="pnm">' + l.lot + '</div><div class="pcode">' + s.code + '</div></div>' +
-                    (oldest && l.lot === oldest.lot ? '<span class="fifo">FIFO</span>' : '') +
-                    '<div class="pr"><div class="pl">가용</div>' + l.qty + '</div><div class="pchk">' + (l.lot === s.stockLot ? '✓' : '＋') + '</div></div>').join('')
-                || '<div style="color:var(--ink-2);font-weight:700;padding:8px 2px">가용 재고가 없습니다.</div>';
-            showMask('wlotMask');
-        }
-        document.getElementById('wlotList').addEventListener('click', e => {
-            const r = e.target.closest('[data-wl]'); if (!r) return;
-            curU.steps[wlotI].stockLot = r.dataset.wl; hideMask('wlotMask'); renderUnit(); flash('재고 로트 변경 · ' + r.dataset.wl);
-        });
-
-        /* 스텝 상호작용 */
+        /* ══════════ 스텝 상호작용 ══════════ */
         document.getElementById('cGrid').addEventListener('click', e => {
-            const u = curU;
+            /* 조립 ↔ 투입 전환 */
             const sc = e.target.closest('[data-src]');
-            if (sc) { const parts = sc.dataset.src.split(','), s = u.steps[+parts[0]];
-                if (parts[1] === 'stock') { s.src = 'stock'; s.stockLot = autoWip(s.code); s.st = 'wait'; clearWho(s); flash('투입 전환 · 하위 레벨 생략'); }
-                else { s.src = 'build'; s.stockLot = null; s.st = 'wait'; flash('조립 전환 · 하위 레벨 복원'); }
-                renderUnit(); return; }
-            const so = e.target.closest('[data-stockok]');
-            if (so) { const s = u.steps[+so.dataset.stockok]; if (!s.stockLot) { flash('재고 로트가 없습니다'); return; }
-                if (!u.lot) { u.lot = genLot(curO, u.no); u.st = 'assembling'; u.start = nowFull(); }
-                s.st = 'done'; s.at = nowFull(); if (s.depth === 0) u.end = s.at; flash('투입 확정 · ' + s.stockLot); renderUnit(); renderUnits(); return; }
-            const scn = e.target.closest('[data-stockcancel]');
-            if (scn) { const s = u.steps[+scn.dataset.stockcancel]; s.st = 'wait'; flash('확정취소'); renderUnit(); return; }
+            if (sc) {
+                const [i, mode] = sc.dataset.src.split(',');
+                const s = stepIdx(+i);
+                if (mode === 'stock') { openWlot(+i); }
+                else guard(async () => {
+                    await apiPost('/step_source', {step_id: s.step_id, source: 'build'});
+                    flash('조립 전환 · 하위 레벨 복원'); await loadSteps();
+                });
+                return;
+            }
+            /* 재고 로트 선택 */
             const wl = e.target.closest('[data-wlot]');
             if (wl) { openWlot(+wl.dataset.wlot); return; }
-            const sk = e.target.closest('[data-skip]');
-            if (sk) { const i = +sk.dataset.skip; const bx = document.getElementById('skb' + i), cc2 = document.getElementById('skc' + i); if (bx) bx.classList.toggle('open'); if (cc2) cc2.classList.toggle('open'); return; }
+            /* 투입 확정취소 → 조립으로 */
+            const scn = e.target.closest('[data-stockcancel]');
+            if (scn) {
+                const s = stepIdx(+scn.dataset.stockcancel);
+                guard(async () => {
+                    await apiPost('/step_source', {step_id: s.step_id, source: 'build'});
+                    flash('확정취소'); await loadSteps();
+                });
+                return;
+            }
+            /* 펼치기 — 투입자재 지연 로드 */
             const c = e.target.closest('[data-caret]');
-            if (c) { if (c.classList.contains('dis')) { flash('하위 어셈블리를 먼저 완료하세요'); return; } const i = +c.dataset.caret;
-                c.classList.toggle('open'); document.getElementById('sbom' + i).classList.toggle('open'); return; }
+            if (c) {
+                const i = +c.dataset.caret, s = stepIdx(i);
+                const box = document.getElementById('sbom' + i);
+                const opening = !box.classList.contains('open');
+                c.classList.toggle('open'); box.classList.toggle('open');
+                if (opening && s.mats == null && s.source !== 'stock') loadStepMats(i);
+                return;
+            }
+            /* 시각 수정 */
             const ts = e.target.closest('[data-stime]');
             if (ts) { const [si, wh] = ts.dataset.stime.split(','); openTime(wh, +si); return; }
+            /* 작업 시작 */
             const g = e.target.closest('[data-go]');
-            if (g) { const s = u.steps[+g.dataset.go];
-                if (stepLocked(u, s)) { flash('하위 어셈블리 미완료'); return; }
-                openWhoSheet(+g.dataset.go); return; }
+            if (g) { const i = +g.dataset.go; if (stepIdx(i).locked) { flash('하위 어셈블리 미완료'); return; } openWhoSheet(i); return; }
+            /* 완료 */
             const d = e.target.closest('[data-done]');
-            if (d) { const s = u.steps[+d.dataset.done];
-                s.st = 'done'; s.at = nowFull();
-                if (s.depth === 0) u.end = s.at;
-                flash('완료 · ' + s.name + ' (' + s.worker + ')' + (s.depth === 0 ? '' : ' → 상위 레벨 확인')); renderUnit(); return; }
+            if (d) { finishStep(+d.dataset.done); return; }
+            /* 작업 삭제 */
             const dl = e.target.closest('[data-del]');
-            if (dl) { const s = u.steps[+dl.dataset.del];
-                s.st = 'wait'; clearWho(s);
-                if (!u.steps.some(x => x.st !== 'wait')) u.st = 'wait';
-                flash('작업 삭제 · ' + s.name + ' 대기로 되돌림'); renderUnit(); return; }
+            if (dl) {
+                const s = stepIdx(+dl.dataset.del);
+                guard(async () => {
+                    await apiPost('/step_delete', {step_id: s.step_id});
+                    flash('작업 삭제 · 대기로 되돌림'); await loadSteps();
+                });
+                return;
+            }
+            /* 완료취소 (서버가 상위까지 캐스케이드) */
             const cc = e.target.closest('[data-cancel]');
-            if (cc) { const s = u.steps[+cc.dataset.cancel];
-                const n = cancelCascade(u, s);
-                flash('완료취소 · ' + s.name + (n ? ' (상위 ' + n + '개 레벨도 함께 취소)' : '')); renderUnit(); return; }
+            if (cc) {
+                const s = stepIdx(+cc.dataset.cancel);
+                const above = (function () {   /* 함께 분해될 상위 개수 */
+                    let n = 0, pm = s.parent_mat_id;
+                    while (pm != null) { const ps = stepByMat(pm); if (!ps) break; if (ps.state === 'done') n++; pm = ps.parent_mat_id; }
+                    return n;
+                })();
+                uiConfirm(s.mat_name + ' 을(를) 분해합니다.' +
+                    (above ? '\n\n이 모듈에 접근하려면 위에 조립된 어셈블리 ' + above + '개도 함께 분해해야 합니다.' : '') +
+                    '\n\n로트번호는 그대로 유지되고, 투입했던 자재는 재고로 되돌아갑니다.\n자재를 교체·추가한 뒤 다시 완료하세요.', function () {
+                    guard(async () => {
+                        await apiPost('/step_cancel', {step_id: s.step_id});
+                        await loadSteps(); await renderUnits();
+                    });
+                }, '완료취소');
+                return;
+            }
+            /* 수량 가감 */
             const m = e.target.closest('[data-m]');
-            if (m) { const [i, bi, dv] = m.dataset.m.split(',').map(Number); const r = u.steps[i].mats[bi];
-                r.manual = 1; r.qty = Math.max(0, bomQ(r) + dv); renderUnit(); openStep(i); return; }
+            if (m) {
+                const [i, bi, dv] = m.dataset.m.split(',').map(Number);
+                const r = stepIdx(i).mats[bi];
+                r.manual = 1; r.qty = Math.max(0, bomQ(r) + dv);
+                renderUnit(); openStep(i); return;
+            }
             const pd = e.target.closest('[data-pad]');
             if (pd) { const [i, bi] = pd.dataset.pad.split(',').map(Number); openPad(i, bi); return; }
             const rm = e.target.closest('[data-rm]');
-            if (rm) { const [i, bi] = rm.dataset.rm.split(',').map(Number); u.steps[i].mats.splice(bi, 1); renderUnit(); openStep(i); return; }
+            if (rm) { const [i, bi] = rm.dataset.rm.split(',').map(Number); stepIdx(i).mats.splice(bi, 1); renderUnit(); openStep(i); return; }
             const ad = e.target.closest('[data-add]');
             if (ad) { openPartSheet(+ad.dataset.add); return; }
         });
-        function openStep(i) { const c = document.querySelector('[data-caret="' + i + '"]'); if (c) { c.classList.add('open'); document.getElementById('sbom' + i).classList.add('open'); } }
 
-        /* 시트 */
+        function openStep(i) {
+            const c = document.querySelector('[data-caret="' + i + '"]');
+            if (c) { c.classList.add('open'); document.getElementById('sbom' + i).classList.add('open'); }
+        }
+
+        /* 투입자재 로드 — 하위 어셈블리도 같은 목록에 포함(서버 정렬: 어셈블리 우선).
+           단 완료 전송(bom_json) 에서는 제외한다. 서버 finishStep 이 자식 스텝 산출 로트를 자동 합류시킴. */
+        async function loadStepMats(i) {
+            const s = stepIdx(i);
+            await guard(async () => {
+                const rows = await apiGet('/step_materials', {step_id: s.step_id}) || [];
+                s.mats = rows.map(r => Object.assign({}, r, {manual: 0, qty: r.default_qty}));
+                renderUnit(); openStep(i);
+            });
+        }
+
+        /* 스텝 완료 — 편집한 투입자재를 bom_json 으로 전송 */
+        async function finishStep(i) {
+            const s = stepIdx(i);
+            if (s.mats == null) { await loadStepMats(i); }
+            const bom = (s.mats || []).filter(r => r.is_assembly !== 'Y' && bomQ(r) > 0)
+                .map(r => ({matId: r.mat_id, qty: bomQ(r)}));
+            await guard(async () => {
+                await apiPost('/step_finish', {
+                    step_id: s.step_id,
+                    actor_id: s.actor_id, equipment_id: s.equipment_id,
+                    start_time: s.start_time, end_time: nowFull(),
+                    bom_json: JSON.stringify(bom),
+                    spjangcd: CTX.spjangcd
+                });
+                flash('완료 · ' + s.mat_name + (s.depth === 0 ? ' → 검사 공정으로 전달' : ' → 상위 레벨 확인'));
+                await loadSteps();
+                await renderUnits();
+                curU = UNITS.find(u => +u.unit_id === +curU.unit_id) || curU;
+                if (s.depth === 0) { show('B'); }
+                else renderUnit();
+            });
+        }
+
+        /* ══════════ 재고 로트 선택 시트 ══════════ */
+        let wlotI = null;
+        async function openWlot(i) {
+            wlotI = i;
+            const s = stepIdx(i);
+            await guard(async () => {
+                const lots = await apiGet('/wip_lots', {material_id: s.mat_id, store_id: CTX.outStore}) || [];
+                document.getElementById('wlotTitle').textContent = s.mat_name + ' · 재고 로트 선택';
+                document.getElementById('wlotList').innerHTML = lots.map((l, k) =>
+                        '<div class="prow ' + (+l.mat_lot_id === +s.stock_lot_id ? 'added' : '') + '" data-wl="' + l.mat_lot_id + '">' +
+                        '<div class="pid"><div class="pnm">' + esc(l.lot_number) + '</div><div class="pcode">' + esc(s.mat_code) + ' · ' + esc(l.input_time || '') + '</div></div>' +
+                        (k === 0 ? '<span class="fifo">FIFO</span>' : '') +
+                        '<div class="pr"><div class="pl">가용</div>' + l.stock + '</div>' +
+                        '<div class="pchk">' + (+l.mat_lot_id === +s.stock_lot_id ? '✓' : '＋') + '</div></div>').join('')
+                    || '<div style="color:var(--ink-2);font-weight:700;padding:8px 2px">가용 재고가 없습니다.</div>';
+                showMask('wlotMask');
+            });
+        }
+        document.getElementById('wlotList').addEventListener('click', e => {
+            const r = e.target.closest('[data-wl]'); if (!r) return;
+            const s = stepIdx(wlotI);
+            hideMask('wlotMask');
+            guard(async () => {
+                await apiPost('/step_source', {step_id: s.step_id, source: 'stock', mat_lot_id: r.dataset.wl});
+                flash('재고 투입 확정 · 하위 레벨 생략');
+                await loadSteps();
+            });
+        });
+
+        /* ══════════ 시트 공통 ══════════ */
         function showMask(id) { document.getElementById(id).classList.add('show'); }
         function hideMask(id) { document.getElementById(id).classList.remove('show'); }
-        document.querySelectorAll('.mask').forEach(m => m.addEventListener('click', e => { if (e.target === m || e.target.closest('[data-close]')) m.classList.remove('show'); }));
+        document.querySelectorAll('.mask').forEach(m => m.addEventListener('click', e => {
+            if (e.target === m || e.target.closest('[data-close]')) m.classList.remove('show');
+        }));
 
+        /* ── 작업자/설비 선택 → 작업 시작 ── */
         let selW = null, selE = null, whoStep = null;
         function openWhoSheet(si) {
             whoStep = si;
-            const s = curU.steps[si], last = curU.steps.filter(x => x.worker).slice(-1)[0];
-            selW = last ? last.worker : null; selE = last ? last.equip : null;
-            document.getElementById('startTitle').textContent = '작업 시작 · ' + s.name;
-            document.getElementById('startSub').textContent = s.code + ' · 이 어셈블리를 작업할 사람과 설비를 지정하세요';
-            document.getElementById('workerOpts').innerHTML = WORKERS.map(w => '<button class="opt' + (w === selW ? ' sel' : '') + '" data-w="' + w + '">' + w + '</button>').join('');
-            document.getElementById('equipOpts').innerHTML = EQUIPS.map(e => '<button class="opt' + (e[0] === selE ? ' sel' : '') + '" data-e="' + e[0] + '">' + e[1] + '<span class="sub">' + e[0] + '</span></button>').join('');
+            const s = stepIdx(si);
+            const last = STEPS.filter(x => x.actor_id).slice(-1)[0];
+            selW = s.actor_id || (last ? last.actor_id : null);
+            selE = s.equipment_id || (last ? last.equipment_id : null);
+            document.getElementById('startTitle').textContent = '작업 시작 · ' + s.mat_name;
+            document.getElementById('startSub').textContent = s.mat_code + ' · 이 어셈블리를 작업할 사람과 설비를 지정하세요';
+            document.getElementById('workerOpts').innerHTML = WORKERS.map(w =>
+                '<button class="opt' + (+w.actor_id === +selW ? ' sel' : '') + '" data-w="' + w.actor_id + '">' + esc(w.actor_name) + '</button>').join('');
+            document.getElementById('equipOpts').innerHTML = EQUIPS.map(eq =>
+                '<button class="opt' + (+eq.equipment_id === +selE ? ' sel' : '') + '" data-e="' + eq.equipment_id + '">' + esc(eq.equipment_name) +
+                '<span class="sub">' + esc(eq.equipment_code || '') + '</span></button>').join('');
             document.getElementById('startOk').textContent = '이 어셈블리 작업 시작';
             ckStart(); showMask('startMask');
         }
-        document.getElementById('workerOpts').addEventListener('click', e => { const b = e.target.closest('[data-w]'); if (!b) return;
-            document.querySelectorAll('#workerOpts .opt').forEach(x => x.classList.remove('sel')); b.classList.add('sel'); selW = b.dataset.w; ckStart(); });
-        document.getElementById('equipOpts').addEventListener('click', e => { const b = e.target.closest('[data-e]'); if (!b) return;
-            document.querySelectorAll('#equipOpts .opt').forEach(x => x.classList.remove('sel')); b.classList.add('sel'); selE = b.dataset.e; ckStart(); });
+        document.getElementById('workerOpts').addEventListener('click', e => {
+            const b = e.target.closest('[data-w]'); if (!b) return;
+            document.querySelectorAll('#workerOpts .opt').forEach(x => x.classList.remove('sel'));
+            b.classList.add('sel'); selW = b.dataset.w; ckStart();
+        });
+        document.getElementById('equipOpts').addEventListener('click', e => {
+            const b = e.target.closest('[data-e]'); if (!b) return;
+            document.querySelectorAll('#equipOpts .opt').forEach(x => x.classList.remove('sel'));
+            b.classList.add('sel'); selE = b.dataset.e; ckStart();
+        });
         function ckStart() { document.getElementById('startOk').disabled = !(selW && selE); }
         document.getElementById('startOk').onclick = () => {
-            const u = curU, o = curO, s = u.steps[whoStep];
-            if (!u.lot) {   /* 첫 어셈블리 착수 = 로트 발번 */
-                u.lot = genLot(o, u.no); u.start = nowFull();
-                MCS.upsert(u.lot, {lot: u.lot, wo: o.id, unitNo: u.no, pcode: o.pcode, pname: o.pname, src: '조립', st: 'assembling'});
-                flash('로트 발번 · ' + u.lot);
-            }
-            s.st = 'working'; s.worker = selW; s.equip = selE; s.start = nowFull(); s.at = null;
-            u.st = u.st === 'reject' ? 'reject' : 'assembling';
-            u.worker = selW; u.equip = selE;
+            const s = stepIdx(whoStep);
             hideMask('startMask');
-            flash('작업 시작 · ' + s.name + ' (' + selW + ')');
-            renderUnit();
+            guard(async () => {
+                await apiPost('/step_start', {
+                    step_id: s.step_id, actor_id: selW, equipment_id: selE,
+                    start_time: nowFull(), spjangcd: CTX.spjangcd
+                });
+                await loadSteps();
+                await renderUnits();
+                curU = UNITS.find(u => +u.unit_id === +curU.unit_id) || curU;
+                renderUnit();
+                openStep(whoStep);
+                if (stepIdx(whoStep) && stepIdx(whoStep).mats == null) loadStepMats(whoStep);
+                flash('작업 시작' + (curU.lot_number ? ' · LOT ' + curU.lot_number : ''));
+            });
         };
 
-        let partStep = null;
-        function openPartSheet(si) {
-            partStep = si; document.getElementById('partTitle').textContent = '투입자재 추가 · ' + curU.steps[si].name;
-            document.getElementById('partSearch').value = ''; drawPartList(''); showMask('partMask');
+        /* ── 투입자재 추가 시트 ── */
+        let partStep = null, STOCK = [];
+        async function openPartSheet(si) {
+            partStep = si;
+            document.getElementById('partTitle').textContent = '투입자재 추가 · ' + stepIdx(si).mat_name;
+            document.getElementById('partSearch').value = '';
+            await guard(async () => {
+                STOCK = await apiGet('/stock_list', {store_id: CTX.outStore}) || [];
+                drawPartList(''); showMask('partMask');
+            });
         }
         document.getElementById('partSearch').addEventListener('input', e => drawPartList(e.target.value.trim().toLowerCase()));
         function drawPartList(q) {
-            const have = curU.steps[partStep].mats.map(r => r.code);
-            document.getElementById('partList').innerHTML = STOCK.filter(p => !q || (p.code + p.name).toLowerCase().includes(q)).map(p =>
-                '<div class="prow' + (have.includes(p.code) ? ' added' : '') + '" data-p="' + p.code + '">' +
-                '<div class="pid"><div class="pnm">' + p.name + '</div><div class="pcode">' + p.code + '</div></div>' +
-                '<div class="pr"><div class="pl">재고</div>' + p.stock + '</div>' +
-                '<div class="pchk">' + (have.includes(p.code) ? '✓' : '＋') + '</div></div>').join('');
+            const s = stepIdx(partStep);
+            const have = (s.mats || []).map(r => +r.mat_id);
+            document.getElementById('partList').innerHTML = STOCK
+                .filter(p => !q || ((p.mat_code || '') + (p.mat_name || '')).toLowerCase().includes(q))
+                .slice(0, 200)
+                .map(p => '<div class="prow' + (have.includes(+p.mat_id) ? ' added' : '') + '" data-p="' + p.mat_id + '">' +
+                    '<div class="pid"><div class="pnm">' + esc(p.mat_name) + '</div><div class="pcode">' + esc(p.mat_code) + '</div></div>' +
+                    '<div class="pr"><div class="pl">재고</div>' + (p.stock || 0) + '</div>' +
+                    '<div class="pchk">' + (have.includes(+p.mat_id) ? '✓' : '＋') + '</div></div>').join('');
         }
         document.getElementById('partList').addEventListener('click', e => {
             const r = e.target.closest('[data-p]'); if (!r) return;
-            const p = STOCK.find(x => x.code === r.dataset.p), s = curU.steps[partStep];
-            if (s.mats.some(m => m.code === p.code)) { flash('이미 투입된 자재입니다'); return; }
-            s.mats.push({code: p.code, name: p.name, per: 1, qty: 1, manual: 1});
-            flash('추가 · ' + p.name); drawPartList(document.getElementById('partSearch').value.trim().toLowerCase());
+            const p = STOCK.find(x => +x.mat_id === +r.dataset.p), s = stepIdx(partStep);
+            if (s.mats == null) s.mats = [];
+            if (s.mats.some(m => +m.mat_id === +p.mat_id)) { flash('이미 투입된 자재입니다'); return; }
+            s.mats.push({mat_id: p.mat_id, mat_code: p.mat_code, mat_name: p.mat_name, per: 1, default_qty: 1, qty: 1, manual: 1, stock: p.stock, src_store_name: ''});
+            flash('추가 · ' + p.mat_name);
+            drawPartList(document.getElementById('partSearch').value.trim().toLowerCase());
             renderUnit(); openStep(partStep);
         });
 
+        /* ── 넘패드 ── */
         let padTarget = null, padVal = '';
-        function openPad(si, bi) { padTarget = [si, bi]; padVal = '';
-            document.getElementById('padLab').textContent = curU.steps[si].mats[bi].name;
-            document.getElementById('padDisp').textContent = bomQ(curU.steps[si].mats[bi]); showMask('padMask'); }
+        function openPad(si, bi) {
+            padTarget = [si, bi]; padVal = '';
+            document.getElementById('padLab').textContent = stepIdx(si).mats[bi].mat_name;
+            document.getElementById('padDisp').textContent = bomQ(stepIdx(si).mats[bi]);
+            showMask('padMask');
+        }
         document.querySelector('#padMask .keys').addEventListener('click', e => {
-            const b = e.target.closest('[data-k]'); if (!b) return; const k = b.dataset.k;
+            const b = e.target.closest('[data-k]'); if (!b) return;
+            const k = b.dataset.k;
             if (k === 'C') padVal = '';
-            else if (k === 'OK') { const [si, bi] = padTarget, r = curU.steps[si].mats[bi];
-                r.manual = 1; r.qty = Math.max(0, parseInt(padVal || '0', 10)); hideMask('padMask'); renderUnit(); openStep(si); return; }
-            else padVal = (padVal === '0' ? '' : padVal) + k;
+            else if (k === 'OK') {
+                const [si, bi] = padTarget, r = stepIdx(si).mats[bi];
+                r.manual = 1; r.qty = Math.max(0, parseInt(padVal || '0', 10));
+                hideMask('padMask'); renderUnit(); openStep(si); return;
+            } else padVal = (padVal === '0' ? '' : padVal) + k;
             document.getElementById('padDisp').textContent = padVal || '0';
         });
 
-        /* 시작/완료 일시 수정 */
+        /* ── 시작/완료 일시 수정 ── */
         let timeWhich = null, timeStep = null, editDate = null;
         function fmtD(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0') + ' (' + WD[d.getDay()] + ')'; }
-        document.getElementById('cLotPill').addEventListener('click', e => {
-            const t = e.target.closest('[data-time]'); if (t) openTime(t.dataset.time);
-        });
         function openTime(which, si) {
-            timeWhich = which; timeStep = (si == null ? null : si);
-            const tgt = timeStep == null ? null : curU.steps[timeStep];
-            document.getElementById('timeTitle').textContent = (which === 'start' ? '시작' : '완료') + ' 일시 수정 · ' +
-                (tgt ? tgt.name : unitName(curU));
-            const saved = timeStep == null ? (which === 'start' ? curU.start : curU.end) : (which === 'start' ? tgt.start : tgt.at);
-            editDate = saved && saved.indexOf(' ') >= 0 ? new Date(saved.split(' ')[0] + 'T' + saved.split(' ')[1]) : new Date();
+            timeWhich = which; timeStep = si;
+            const s = stepIdx(si);
+            document.getElementById('timeTitle').textContent = (which === 'start' ? '시작' : '완료') + ' 일시 수정 · ' + s.mat_name;
+            const saved = which === 'start' ? s.start_time : s.end_time;
+            editDate = (saved && saved.indexOf(' ') >= 0) ? new Date(saved.split(' ')[0] + 'T' + saved.split(' ')[1]) : new Date();
             document.getElementById('tDate').textContent = fmtD(editDate);
             document.getElementById('tH').textContent = String(editDate.getHours()).padStart(2, '0');
             document.getElementById('tM').textContent = String(editDate.getMinutes()).padStart(2, '0');
@@ -990,31 +997,18 @@
         document.getElementById('timeOk').onclick = () => {
             const ds = editDate.getFullYear() + '-' + String(editDate.getMonth() + 1).padStart(2, '0') + '-' + String(editDate.getDate()).padStart(2, '0');
             const v = ds + ' ' + document.getElementById('tH').textContent + ':' + document.getElementById('tM').textContent;
-            const u = curU;
-            if (timeStep == null) {
-                if (timeWhich === 'start') { if (u.end && v > u.end) { flash('시작이 완료보다 늦을 수 없습니다'); return; } u.start = v; }
-                else { if (u.start && v < u.start) { flash('완료가 시작보다 빠를 수 없습니다'); return; } u.end = v; }
-            } else {
-                const s = u.steps[timeStep];
-                if (timeWhich === 'start') {
-                    if (s.at && v > s.at) { flash('시작이 완료보다 늦을 수 없습니다'); return; }
-                    s.start = v;
-                    if (!u.steps.some(x => x.start && x.start < v)) u.start = v;   /* 최초 착수 갱신 */
-                } else {
-                    if (s.start && v < s.start) { flash('완료가 시작보다 빠를 수 없습니다'); return; }
-                    const kidLate = s.kids.map(k => stepOf(u, k)).filter(k => k.at && k.at > v);
-                    if (kidLate.length) { flash('하위 «' + kidLate[0].name + '» 완료보다 빠를 수 없습니다'); return; }
-                    const par = s.parent ? stepOf(u, s.parent) : null;
-                    if (par && par.at && v > par.at) { flash('상위 «' + par.name + '» 완료보다 늦을 수 없습니다'); return; }
-                    s.at = v;
-                    if (s.depth === 0) u.end = v;
-                }
-            }
-            hideMask('timeMask'); renderUnit();
-            flash((timeWhich === 'start' ? '시작' : '완료') + ' 일시 저장 · ' + v);
+            const s = stepIdx(timeStep);
+            if (timeWhich === 'start' && s.end_time && v > s.end_time) { flash('시작이 완료보다 늦을 수 없습니다'); return; }
+            if (timeWhich === 'end' && s.start_time && v < s.start_time) { flash('완료가 시작보다 빠를 수 없습니다'); return; }
+            hideMask('timeMask');
+            guard(async () => {
+                await apiPost('/step_time', {step_id: s.step_id, which: timeWhich, value: v});
+                await loadSteps();
+                flash((timeWhich === 'start' ? '시작' : '완료') + ' 일시 저장 · ' + v);
+            });
         };
 
-        /* 토스트 */
+        /* ── 토스트 ── */
         let tT;
         function flash(m) {
             let t = document.getElementById('toast');
@@ -1022,8 +1016,69 @@
             t.textContent = m; t.style.opacity = '1'; clearTimeout(tT); tT = setTimeout(() => t.style.opacity = '0', 1800);
         }
 
-        renderQueue();
-        document.addEventListener('visibilitychange', () => { if (!document.hidden) { syncFromStore(); if (!SC.A.classList.contains('hide')) renderQueue(); else if (!SC.B.classList.contains('hide')) renderUnits(); } });
+        /* ── 확인 시트 (멸균 화면과 동일) ── */
+        function uiConfirm(msg, onOk, okLabel) {
+            let m = document.getElementById('confirmMask');
+            if (!m) {
+                m = document.createElement('div');
+                m.id = 'confirmMask';
+                m.style.cssText = 'position:fixed;inset:0;background:rgba(21,34,43,.45);display:none;align-items:center;justify-content:center;z-index:100;padding:24px';
+                m.innerHTML = '<div style="background:var(--surface);border-radius:20px;max-width:420px;width:100%;padding:24px 22px 18px;box-shadow:0 20px 50px -12px rgba(0,0,0,.4)">'
+                    + '<div id="confirmMsg" style="font-size:17px;font-weight:800;color:var(--ink);line-height:1.5;margin-bottom:20px;white-space:pre-line"></div>'
+                    + '<div style="display:flex;gap:10px">'
+                    + '<button id="confirmCancel" style="flex:1;height:52px;border-radius:14px;border:1px solid var(--line);background:var(--surface-2);color:var(--ink-2);font-weight:800;font-size:16px">취소</button>'
+                    + '<button id="confirmOk" style="flex:1;height:52px;border-radius:14px;border:none;background:#0E7C86;color:#fff;font-weight:800;font-size:16px">확인</button>'
+                    + '</div></div>';
+                document.body.appendChild(m);
+                m.addEventListener('click', function (e) { if (e.target === m) m.style.display = 'none'; });
+            }
+            m.querySelector('#confirmMsg').textContent = msg;
+            const ok = m.querySelector('#confirmOk'), cancel = m.querySelector('#confirmCancel');
+            ok.textContent = okLabel || '확인';
+            const close = function () { m.style.display = 'none'; ok.onclick = null; cancel.onclick = null; };
+            ok.onclick = function () { close(); onOk && onOk(); };
+            cancel.onclick = close;
+            m.style.display = 'flex';
+        }
+
+        /* ══════════ 부팅 ══════════ */
+        function loadContext() {
+            const d = apiGet('/context', {process_code: CTX.processCode, factory_id: CTX.factoryId}) || {};
+            PROC_ID = d.process_id || null;
+            WC = d.workcenter_id || null;
+            CTX.outStore = d.out_store_id || CTX.outStore;
+            if (!PROC_ID) console.warn('[mcell] 공정을 찾지 못했습니다. process."Code"=\'' + CTX.processCode + '\' 확인');
+            if (!WC) console.warn('[mcell] 워크센터를 찾지 못했습니다. work_center."Process_id" 매핑 확인');
+        }
+        function loadBaseData() {
+            /* 1공장과 동일하게 공용 콤보 우선, 없으면 전용 엔드포인트로 폴백 */
+            const ps = combo('person');
+            WORKERS = ps.length ? ps.map(x => ({actor_id: x.value, actor_name: x.text}))
+                : (apiGet('/workers') || []);
+            const es = combo('equipment', WC);
+            EQUIPS = es.length ? es.map(x => ({equipment_id: x.value, equipment_name: x.text, equipment_code: x.code}))
+                : (apiGet('/equipments', {workcenter_id: WC}) || []);
+        }
+
+        /* AjaxUtil 이 레이아웃에서 늦게 로드될 수 있어 준비될 때까지 대기 */
+        (function boot(tries) {
+            tries = tries || 0;
+            if (typeof AjaxUtil !== 'undefined' && AjaxUtil.getSyncData) {
+                guard(async () => {
+                    loadContext();
+                    if (!PROC_ID) { flash('공정(mc01)을 찾을 수 없습니다'); return; }
+                    loadBaseData();
+                    await renderQueue();
+                });
+                return;
+            }
+            if (tries > 100) {
+                flash('AjaxUtil 미로드 — 공용 스크립트 로드 순서를 확인하세요');
+                console.error('[mcell] AjaxUtil 을 찾을 수 없습니다. typeof AjaxUtil =', typeof AjaxUtil);
+                return;
+            }
+            setTimeout(function () { boot(tries + 1); }, 50);
+        })();
     </script>
 
     <!-- 스텝퍼 롱프레스 자동증감 -->
