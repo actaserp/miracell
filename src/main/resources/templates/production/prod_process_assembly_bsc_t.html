@@ -19,6 +19,12 @@
         .qhead{display:flex;align-items:baseline;gap:12px;margin:2px 2px 18px}
         .qhead h1{font-size:26px;font-weight:800;letter-spacing:-.03em;margin:0}
         .qhead .cnt{color:var(--ink-2);font-weight:700}
+        .searchbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 2px 18px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px;box-shadow:var(--shadow)}
+        .searchbar .slab{font-weight:800;color:var(--ink-2);font-size:14px}
+        .searchbar .tilde{font-weight:800;color:var(--ink-2)}
+        .dinput{height:48px;border:1px solid var(--line);border-radius:12px;padding:0 12px;font-size:16px;font-weight:700;color:var(--ink);background:var(--surface-2);font-variant-numeric:tabular-nums;min-width:150px}
+        .sbtn{height:48px;padding:0 22px;border:none;border-radius:12px;background:var(--teal);color:#fff;font-weight:800;font-size:16px;cursor:pointer;margin-left:auto}
+        .sbtn:active{background:var(--teal-d)}
         .qgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
         .day{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px 18px 16px;
             cursor:pointer;box-shadow:var(--shadow);transition:transform .12s ease;position:relative;overflow:hidden}
@@ -203,6 +209,9 @@
             <!-- A. 날짜 카드 -->
             <div class="screen" id="scA"><div class="wrap">
                 <div class="qhead"><h1>용기 조립 공정</h1><span class="cnt" id="dayCnt"></span></div>
+                <div class="searchbar"><span class="slab">작업일</span>
+                    <input type="date" id="dFrom" class="dinput"/><span class="tilde">~</span><input type="date" id="dTo" class="dinput"/>
+                    <button class="sbtn" id="btnSearch">조회</button></div>
                 <div class="qgrid" id="dayGrid"></div>
             </div></div>
 
@@ -497,7 +506,7 @@
         let curD = null, curC = null;
 
         function loadDays() {
-            const to = todayStr(), from = shiftDay(to, -CTX.dayRange);
+            const to = dateTo(), from = dateFrom();
             const r = apiGet('/day_list', {process_id: PROC_ID, date_from: from, date_to: to, spjangcd: CTX.spjangcd});
             DAYS = (r.data || []).map(d => ({
                 date: d.work_date_str,
@@ -1387,10 +1396,38 @@
             if (!WC) console.warn('[work] 워크센터를 찾지 못했습니다. work_center."Process_id" 매핑 확인');
         }
 
+        /* ── 날짜 필터 ─────────────────────────────────────
+           비워두면 기본 기간(CTX.dayRange, 30일)으로 되돌린다.
+           서버 day_list 는 date_from/date_to 를 이미 받으므로 API 변경 없음. */
+        function dateFrom() {
+            const v = document.getElementById('dFrom').value;
+            return v || shiftDay(todayStr(), -CTX.dayRange);
+        }
+        function dateTo() {
+            const v = document.getElementById('dTo').value;
+            return v || todayStr();
+        }
+        function initDates() {
+            const t = todayStr();
+            const f = document.getElementById('dFrom'), o = document.getElementById('dTo');
+            if (!f.value) f.value = shiftDay(t, -CTX.dayRange);
+            if (!o.value) o.value = t;
+        }
+        document.getElementById('btnSearch').addEventListener('click', function () {
+            if (dateFrom() > dateTo()) { flash('시작일이 종료일보다 늦습니다'); return; }
+            refreshDays();
+        });
+        document.querySelectorAll('#dFrom,#dTo').forEach(function (el) {
+            el.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') { e.preventDefault(); document.getElementById('btnSearch').click(); }
+            });
+        });
+
         (function boot(tries) {
             tries = tries || 0;
             if (typeof AjaxUtil !== 'undefined' && AjaxUtil.getSyncData) {
                 loadContext();
+                initDates();
                 refreshDays();
                 return;
             }
