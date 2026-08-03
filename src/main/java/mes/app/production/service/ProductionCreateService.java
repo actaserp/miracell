@@ -249,6 +249,11 @@ public class ProductionCreateService {
             this.equRunRepository.save(er);
         }
 
+        // ── 작지 롤업 (★ 이게 없으면 생산실적현황·작업일보에 0건으로 나온다) ──
+        //   jr."GoodQty"/"DefectQty" 합계 갱신 + 지시량 충족 시 State='finished'.
+        //   ProdResultListService 두 쿼리 모두 jr."State"='finished' 를 요구한다.
+        recalcJobRes(jr.getId(), user);
+
         r.data = Map.of("mat_produce_id", mp.getId(), "job_res_id", jr.getId(),
                 "lot_number", mp.getLotNumber(), "chasu", mp.getLotIndex());
         return r;
@@ -915,5 +920,123 @@ public class ProductionCreateService {
         JobRes jr = this.jobResRepository.getJobResById(mp.getJobResponseId());
 
         return consumeBomList(mp, jr, bomList, cleanStore, user, spjangcd);
+    }
+
+    // =====================================================================
+    // 작지 롤업 — mat_produce 실적을 job_res 로 되올린다.
+    //
+    // ★ 이 호출이 없으면 job_res."State" 가 'working' 에 영구히 남아
+    //   ProdResultListService(생산실적현황·작업일보)에서 0건으로 나온다.
+    //   v3 문서의 "손대지 않음 = 자동 노출" 은 mat_produce 만으로는 성립하지 않는다.
+    //
+    // 판정 축이 두 가지다.
+    //   1공장 (조립·블리스터·융착·포장) : 차수 합계가 지시량을 채우면 완료
+    //   2공장 (M-CELL 조립·수리)        : mcell_unit 이 진행률의 진실
+    //
+    // ★ 2공장을 1공장 규칙으로 판정하면 안 된다.
+    //   유닛 5대 작지에서 1대만 완료해도 그 시점엔 mat_produce 가 1건뿐이라
+    //   "미완료 차수 없음"이 성립해 작지가 조기에 finished 로 닫힌다.
+    //   검사 wo_queue 가 같은 함정에 빠졌던 것과 동일한 구조다.
+    // =====================================================================
+    public void recalcJobRes(Integer jrId, User user) {
+        if (jrId == null) return;
+
+        MapSqlParameterSource p = new MapSqlParameterSource().addValue("jrId", jrId);
+        Map<String, Object> u = this.sqlRunner.getRow("""
+                SELECT COUNT(*)                                   AS unit_cnt
+                     , COUNT(*) FILTER (WHERE "State" = 'packed')  AS packed_cnt
+                  FROM mcell_unit
+                 WHERE "JobResponse_id" = :jrId
+                """, p);
+
+        int unitCnt = (u == null || u.get("unit_cnt") == null)
+                ? 0 : ((Number) u.get("unit_cnt")).intValue();
+
+        if (unitCnt == 0) {
+            // 1공장 — 기존 롤업 그대로 재사용
+            this.productionResultService.recalcJobResAndCheckComplete(jrId, user);
+            patchJobResState(jrId, user);
+            return;
+        }
+
+        int packedCnt = (u.get("packed_cnt") == null)
+                ? 0 : ((Number) u.get("packed_cnt")).intValue();
+        recalcJobResByUnits(jrId, unitCnt, packedCnt, user);
+    }
+
+    /**
+     * 유닛 기반 작지(M-CELL) 롤업.
+     * 수량 합계는 mat_produce 에서 가져오되, 완료 판정만 mcell_unit 으로 한다.
+     *
+     * ★ 완료 기준을 'packed' 로 둔 이유 — 포장까지 끝나야 완제품이다.
+     *   포장(mc03)이 아직 미구현이라 지금은 M-CELL 작지가 finished 로 닫히지 않는다.
+     *   = 생산실적현황에 M-CELL 이 안 뜬다. 버그가 아니라 공정이 안 끝난 것이다.
+     *   포장 전에도 보고 싶으면 아래 'packed' 를 'pass' 로 바꾼다 — 다만 그러면
+     *   "포장 안 된 것도 생산 완료"가 되어 제품창고(4) 재고와 의미가 어긋난다.
+     *
+     * 1공장 롤업과 달리 **되돌리기도 한다.** 분해·재작업으로 유닛이 packed 에서
+     * 빠지면 작지도 working 으로 열어준다. 안 하면 취소했는데 실적에 계속 남는다.
+     */
+    private void recalcJobResByUnits(Integer jrId, int unitCnt, int packedCnt, User user) {
+        JobRes jr = this.jobResRepository.getJobResById(jrId);
+        if (jr == null) return;
+
+        Map<String, Object> sum = this.productionResultService.getJobResponseGoodDefectQty(jrId);
+        jr.setGoodQty(toF(sum == null ? null : sum.get("good_qty")));
+        jr.setDefectQty(toF(sum == null ? null : sum.get("defect_qty")));
+
+        boolean complete = (packedCnt >= unitCnt);
+        if (complete) {
+            jr.setState("finished");
+            jr.setEndTime(DateUtil.getNowTimeStamp());
+        } else if ("finished".equals(jr.getState())) {
+            jr.setState("working");
+            jr.setEndTime(null);
+        }
+        jr.set_audit(user);
+        this.jobResRepository.save(jr);
+    }
+
+    /**
+     * 기존 롤업(recalcJobResAndCheckComplete)이 못 덮는 두 경우를 보정한다.
+     * 그 메서드는 다른 화면도 쓰므로 직접 고치지 않고 여기서 후처리한다.
+     *
+     * 1) ordered 인데 차수가 있다
+     *    「담기」(addWaitItem) 는 mp 만 만들고 jr 을 working 으로 올리지 않는다.
+     *    ordered → working 전환은 startProduction 에만 있어서,
+     *    담기 → 완료 순으로 작업하면 작지가 영구히 ordered 로 남는다.
+     *
+     * 2) OrderQty <= 0 인 작지
+     *    기존 판정이 `orderQty > 0` 를 요구해 아무리 생산해도 finished 가 안 된다.
+     *    지시량이 없는 작지는 "모든 차수가 끝났으면 끝난 것"으로 본다.
+     */
+    private void patchJobResState(Integer jrId, User user) {
+        JobRes jr = this.jobResRepository.getJobResById(jrId);
+        if (jr == null || "finished".equals(jr.getState())) return;
+
+        Map<String, Object> c = this.sqlRunner.getRow("""
+                SELECT COUNT(*)                                        AS cnt
+                     , COUNT(*) FILTER (WHERE "State" <> 'finished')    AS open_cnt
+                  FROM mat_produce
+                 WHERE "JobResponse_id" = :jrId
+                   AND COALESCE(_status, 'a') = 'a'
+                """, new MapSqlParameterSource().addValue("jrId", jrId));
+
+        int cnt     = (c == null || c.get("cnt") == null) ? 0 : ((Number) c.get("cnt")).intValue();
+        int openCnt = (c == null || c.get("open_cnt") == null) ? 0 : ((Number) c.get("open_cnt")).intValue();
+        if (cnt == 0) return;
+
+        float orderQty = (jr.getOrderQty() == null) ? 0f : jr.getOrderQty().floatValue();
+
+        if (orderQty <= 0 && openCnt == 0) {
+            jr.setState("finished");
+            jr.setEndTime(DateUtil.getNowTimeStamp());
+        } else if ("ordered".equals(jr.getState())) {
+            jr.setState("working");
+        } else {
+            return;                       // 바뀔 것 없음 — 저장하지 않는다
+        }
+        jr.set_audit(user);
+        this.jobResRepository.save(jr);
     }
 }

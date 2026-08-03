@@ -1,4 +1,5 @@
-<html layout:decorate="~{layout_page}">
+<html layout:decorate="~{layout_page}" xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout">
 
 <th:block layout:fragment="content">
     <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet"/>
@@ -8,12 +9,13 @@
             --amber:#C77A00;--amber-bg:#FBEFD8;--red:#C8483B;--red-bg:#F7E4E1;--purple:#6D3BD1;--purple-bg:#EDE6FB;
             --r:18px;--tap:60px;--shadow:0 1px 0 rgba(21,34,43,.04),0 8px 24px -16px rgba(21,34,43,.28)}
         *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-        .ms-wash-root{font-family:"Pretendard","Noto Sans KR",-apple-system,sans-serif;color:var(--ink);font-size:17px;line-height:1.45;-webkit-font-smoothing:antialiased;flex:1 1 auto;min-height:0;height:var(--wash-h,100%);max-height:var(--wash-h,none);display:flex;flex-direction:column}
+        .ms-wash-root{position:relative;font-family:"Pretendard","Noto Sans KR",-apple-system,sans-serif;color:var(--ink);font-size:17px;line-height:1.45;-webkit-font-smoothing:antialiased;flex:1 1 auto;min-height:0;height:var(--wash-h,100%);max-height:var(--wash-h,none);display:flex;flex-direction:column}
         .ms-wash-root .app{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;background:var(--bg);border-radius:12px;overflow:hidden}
         .col-stack{display:flex;flex-direction:column;flex:1 1 auto;min-height:0;height:100%}
         .topbar{flex:0 0 auto;background:var(--surface);border-bottom:1px solid var(--line);padding:14px 18px;display:flex;align-items:center;gap:12px;box-shadow:var(--shadow);z-index:2;flex-wrap:wrap}
         .topbar h1{font-size:20px;font-weight:800;letter-spacing:-.02em;margin:0}
-        .fbadge{font-size:11.5px;font-weight:800;padding:3px 10px;border-radius:6px;background:#FBEEE5;color:#c9620a}
+        .fbadge{font-size:11.5px;font-weight:800;padding:3px 10px;border-radius:6px;background:#EAF0FF;color:#2f6fed}
+        .fbadge.f2{background:#FBEEE5;color:#c9620a}
         .filt{display:flex;gap:8px;align-items:center;margin-left:auto;flex-wrap:wrap}
         .dinput{height:48px;border:1px solid var(--line);border-radius:12px;padding:0 12px;font-size:15px;font-weight:700;background:var(--surface-2);font-variant-numeric:tabular-nums}
         .selbox{height:48px;border:1px solid var(--line);border-radius:12px;padding:0 12px;font-size:15px;font-weight:700;background:var(--surface-2)}
@@ -34,16 +36,29 @@
         .ditem{font-size:17px;font-weight:800;letter-spacing:-.02em}
         .dcode{font-size:12px;color:var(--ink-2);font-weight:700;font-variant-numeric:tabular-nums}
         .dmeta{font-size:12.5px;color:var(--ink-2);font-weight:700}
+        .dlot{font-size:12px;color:var(--teal-d);font-weight:800;background:var(--teal-bg);padding:2px 8px;border-radius:6px;display:inline-block}
         .dqty{font-size:22px;font-weight:800;color:var(--red);font-variant-numeric:tabular-nums;flex:0 0 auto}
         .dqty small{font-size:12px;color:var(--ink-2);font-weight:700}
         .dthumb{width:52px;height:52px;border-radius:10px;object-fit:cover;border:1px solid var(--line);cursor:pointer;flex:0 0 auto}
         .ddel{width:52px;height:52px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--red);font-size:20px;cursor:pointer;flex:0 0 auto}
         .ddel:active{background:var(--red-bg)}
+        .drow{cursor:pointer}
+        .drow:active{background:var(--surface-2)}
+        .dsum{display:flex;flex-wrap:wrap;gap:8px 18px;padding:12px 14px;background:var(--surface-2);border-radius:14px;margin-bottom:6px}
+        .dsum div{font-size:14px;font-weight:700}
+        .dsum span{color:var(--ink-2);font-weight:700;margin-right:6px}
+        .lotrow{display:flex;align-items:center;gap:12px;padding:11px 14px;border:1px solid var(--line);border-radius:12px;margin-bottom:6px}
+        .lotrow .ln{flex:1;min-width:0}
+        .lotrow .lnum{font-size:15px;font-weight:800;font-variant-numeric:tabular-nums}
+        .lotrow .lsub{font-size:12px;color:var(--ink-2);font-weight:700}
+        .lotrow .lq{font-size:17px;font-weight:800;color:var(--red);font-variant-numeric:tabular-nums}
+        .pgrid{display:flex;flex-wrap:wrap;gap:8px}
+        .pgrid img{width:92px;height:92px;object-fit:cover;border-radius:12px;border:1px solid var(--line);cursor:pointer}
         .empty{text-align:center;color:var(--ink-2);font-weight:700;padding:40px 10px;border:1.5px dashed var(--line);border-radius:16px}
 
-        .mask{position:fixed;inset:0;background:rgba(21,34,43,.42);display:none;z-index:40;align-items:flex-end}
+        .mask{position:absolute;inset:0;height:var(--wash-h,100%);max-height:var(--wash-h,100%);background:rgba(21,34,43,.42);display:none;z-index:40;align-items:flex-end;overflow:hidden}
         .mask.show{display:flex;animation:fade .15s ease}@keyframes fade{from{opacity:0}to{opacity:1}}
-        .sheet{width:100%;background:var(--surface);border-radius:24px 24px 0 0;padding:14px 20px calc(18px + env(safe-area-inset-bottom));box-shadow:0 -20px 40px -20px rgba(0,0,0,.4);animation:rise .2s cubic-bezier(.2,.7,.3,1);max-height:94dvh;overflow:auto}
+        .sheet{width:100%;background:var(--surface);border-radius:24px 24px 0 0;padding:14px 20px calc(18px + env(safe-area-inset-bottom));box-shadow:0 -20px 40px -20px rgba(0,0,0,.4);animation:rise .2s cubic-bezier(.2,.7,.3,1);max-height:100%;overflow:auto;overscroll-behavior:contain}
         @keyframes rise{from{transform:translateY(40px)}to{transform:translateY(0)}}
         .sheet .sh{display:flex;align-items:center;margin-bottom:8px}.sheet .sh h3{font-size:19px;font-weight:800;margin:0}
         .sheet .sh .x{margin-left:auto;width:42px;height:42px;border-radius:12px;border:1px solid var(--line);background:var(--surface-2);font-size:20px;cursor:pointer}
@@ -56,15 +71,27 @@
         .stepq{display:flex;align-items:center;max-width:230px}
         .stepq button{width:52px;height:52px;border:1px solid var(--line);background:var(--surface-2);font-size:24px;font-weight:700;cursor:pointer}
         .stepq button.m{border-radius:12px 0 0 12px}.stepq button.p{border-radius:0 12px 12px 0}
+        .stepq button:disabled{opacity:.4;cursor:default}
         .stepq .q{flex:1;height:52px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:#FFFDF4;text-align:center;font-size:23px;font-weight:800;font-variant-numeric:tabular-nums;display:grid;place-items:center}
+        .stockhint{font-size:12.5px;font-weight:700;color:var(--ink-2);margin:6px 2px 0}
+        .stockhint b{color:var(--teal-d)}
+        .stockhint.over{color:var(--red)}
         .tin{width:100%;border:1.5px solid var(--line);border-radius:12px;padding:11px 13px;font-size:15px;font-weight:600;background:var(--surface-2);color:var(--ink)}
-        textarea.tin{resize:vertical;min-height:48px}
-        .picklist{display:flex;flex-direction:column;gap:8px;max-height:44dvh;overflow:auto}
+        textarea.tin{resize:vertical;height:44px;min-height:40px;max-height:120px}
+        .picklist{display:flex;flex-direction:column;gap:8px;max-height:min(44dvh,40vh);overflow:auto;overscroll-behavior:contain}
         .prow{display:flex;align-items:center;gap:12px;padding:13px 14px;border:1.5px solid var(--line);border-radius:14px;background:var(--surface);cursor:pointer}
         .prow:active{background:var(--surface-2)}.prow.sel{border-color:var(--red);background:var(--red-bg)}
+        .prow.zero{opacity:.5}
         .prow .pid{flex:1;min-width:0}.prow .pnm{font-size:16px;font-weight:800}.prow .pcode{font-size:12.5px;color:var(--ink-2);font-weight:700;font-variant-numeric:tabular-nums}
+        .prow .pstk{font-size:12.5px;font-weight:800;color:var(--teal-d);flex:0 0 auto;text-align:right}
+        .prow .pstk small{display:block;color:var(--ink-2);font-weight:700}
+        .prow.wo.sel{border-color:var(--teal);background:var(--teal-bg)}
+        .prow.wo.sel .pchk{background:var(--teal);border-color:var(--teal)}
+        .dwo{font-size:12px;font-weight:800;color:#3a4759;background:#EEF2F8;padding:2px 8px;border-radius:6px;font-variant-numeric:tabular-nums}
         .prow .pchk{width:32px;height:32px;border-radius:9px;border:1.5px solid var(--line);display:grid;place-items:center;font-weight:800;color:var(--red);flex:0 0 auto}
         .prow.sel .pchk{background:var(--red);color:#fff;border-color:var(--red)}
+        .selbox.pick{display:inline-flex;align-items:center;gap:8px;cursor:pointer;border:1.5px solid var(--line)}
+        .selbox.pick .car{color:var(--ink-2);font-size:12px}
         .matsearch{width:100%;border:1.5px solid var(--line);border-radius:12px;padding:12px 14px;font-size:15px;font-weight:600;background:var(--surface-2);margin-bottom:8px}
         .photos{display:flex;gap:8px;flex-wrap:wrap}
         .photo{position:relative}.photo img{width:58px;height:58px;border-radius:10px;object-fit:cover;border:1px solid var(--line)}
@@ -72,17 +99,19 @@
         .addphoto{width:58px;height:58px;border:1.5px dashed #B8C2CC;border-radius:10px;background:var(--surface-2);color:var(--ink-2);font-size:24px;cursor:pointer;display:grid;place-items:center}
         .sheet .ok{width:100%;margin-top:14px;background:var(--red);color:#fff;min-height:54px;border:none;border-radius:14px;font-size:18px;font-weight:800;cursor:pointer}
         .sheet .ok:disabled{background:var(--line);color:var(--ink-2)}
-        .imgview{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;z-index:60}
+        .imgview{position:absolute;inset:0;height:var(--wash-h,100%);background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;z-index:60}
         .imgview.on{display:flex}.imgview img{max-width:92vw;max-height:92vh;border-radius:10px}
+        .toast{position:absolute;left:50%;bottom:26px;transform:translateX(-50%);background:#15222B;color:#fff;font-weight:700;font-size:15px;padding:12px 20px;border-radius:12px;z-index:70;opacity:0;transition:opacity .2s;pointer-events:none;max-width:88vw}
+        .toast.on{opacity:.96}
         @media (max-width:560px){ .filt{width:100%;margin-left:0} }
     </style>
 
     <div class="ms-wash-root">
         <div class="app"><div class="col-stack">
             <div class="topbar">
-                <h1>부적합 관리</h1><span class="fbadge">2공장 · M-CELL</span>
+                <h1>부적합 관리</h1><span class="fbadge f2" id="fBadge">2공장 · M-CELL</span>
                 <div class="filt">
-                    <select class="selbox" id="fProc"><option value="">공정 전체</option></select>
+                    <button class="selbox pick" id="fProcBtn" type="button"><span id="fProcLabel">공정 전체</span><span class="car">▾</span></button>
                     <input type="date" class="dinput" id="fFrom"><span style="font-weight:800;color:var(--ink-2)">~</span><input type="date" class="dinput" id="fTo">
                     <button class="addbtn" id="btnAdd">＋ 부적합 등록</button>
                 </div>
@@ -104,6 +133,9 @@
             <div class="fieldlab">공정</div>
             <div class="opts" id="regProc"></div>
 
+            <div class="fieldlab">관련 작업지시 <span style="color:var(--ink-2);font-weight:700">(선택 — 알면 고르고, 모르면 비웁니다)</span></div>
+            <button class="opt" id="woPick" style="width:100%;justify-content:space-between"><span id="woPickLabel">작업지시 없음</span><span style="color:var(--ink-2)">›</span></button>
+
             <div class="fieldlab">불량 자재 <span style="color:var(--ink-2);font-weight:700">(공정에서 다루는 자재)</span></div>
             <button class="opt" id="matPick" style="width:100%;justify-content:space-between"><span id="matPickLabel">자재 선택</span><span style="color:var(--ink-2)">›</span></button>
 
@@ -116,10 +148,11 @@
 
             <div class="fieldlab">불량 수량</div>
             <div class="stepq"><button class="m" id="qMinus">−</button><div class="q" id="qVal">1</div><button class="p" id="qPlus">＋</button></div>
+            <div class="stockhint" id="stockHint"></div>
 
             <div class="fieldlab">작업자 · 발생일자</div>
             <div style="display:flex;gap:10px;flex-wrap:wrap">
-                <select class="selbox" id="mWorker" style="flex:1;min-width:150px;height:56px"></select>
+                <button class="opt" id="workerPick" type="button" style="flex:1;min-width:150px;height:56px;justify-content:space-between"><span id="workerPickLabel">작업자 선택</span><span style="color:var(--ink-2)">›</span></button>
                 <input type="date" class="dinput" id="mDate" style="flex:1;min-width:150px;height:56px">
             </div>
 
@@ -128,178 +161,1115 @@
 
             <div class="fieldlab">사진 첨부 <span style="color:var(--ink-2);font-weight:700">(선택)</span></div>
             <div class="photos" id="mPhotos"></div>
-            <input type="file" id="mFile" accept="image/*" capture="environment" style="display:none" multiple>
+            <!-- capture 가 붙은 input 은 기기에 따라 카메라로 바로 넘어가 사진첩을 못 고른다.
+                 그래서 둘로 나누고 어느 쪽을 열지 시트에서 고르게 한다. -->
+            <input type="file" id="mFileCam" accept="image/*" capture="environment" style="display:none">
+            <input type="file" id="mFileLib" accept="image/*" style="display:none" multiple>
 
             <button class="ok" id="btnSave">부적합 저장</button>
+        </div></div></div>
+
+        <!-- 상세 -->
+        <div class="mask" id="detMask"><div class="sheet"><div class="body">
+            <div class="sh"><h3>부적합 상세</h3><button class="x" data-close>✕</button></div>
+            <div id="detBody"></div>
+        </div></div></div>
+
+        <!-- 사진 추가 방식 선택 -->
+        <div class="mask" id="photoMask"><div class="sheet"><div class="body">
+            <div class="sh"><h3>사진 추가</h3><button class="x" data-close>✕</button></div>
+            <div style="display:flex;flex-direction:column;gap:10px;padding-bottom:6px">
+                <button class="opt" id="btnCam" type="button" style="width:100%;min-height:60px;font-size:17px;justify-content:flex-start;gap:14px"><span style="font-size:22px">📷</span> 카메라로 촬영</button>
+                <button class="opt" id="btnLib" type="button" style="width:100%;min-height:60px;font-size:17px;justify-content:flex-start;gap:14px"><span style="font-size:22px">🖼️</span> 사진첩에서 선택</button>
+            </div>
+        </div></div></div>
+
+        <!-- 공정 필터 시트 -->
+        <div class="mask" id="fProcMask"><div class="sheet"><div class="body">
+            <div class="sh"><h3>공정 선택</h3><button class="x" data-close>✕</button></div>
+            <div class="picklist" id="fProcList"></div>
+        </div></div></div>
+
+        <!-- 작업자 선택 시트 -->
+        <div class="mask" id="workerMask"><div class="sheet"><div class="body">
+            <div class="sh"><h3>작업자 선택</h3><button class="x" data-close>✕</button></div>
+            <input class="matsearch" id="workerSearch" placeholder="이름 검색">
+            <div class="picklist" id="workerList"></div>
+        </div></div></div>
+
+        <!-- 작업지시 선택 시트 -->
+        <div class="mask" id="woMask"><div class="sheet"><div class="body">
+            <div class="sh"><h3 id="woTitle">작업지시 선택</h3><button class="x" data-close>✕</button></div>
+            <div class="picklist" id="woList"></div>
         </div></div></div>
 
         <!-- 자재 선택 시트 -->
         <div class="mask" id="matMask"><div class="sheet"><div class="body">
             <div class="sh"><h3 id="matTitle">자재 선택</h3><button class="x" data-close>✕</button></div>
             <input class="matsearch" id="matSearch" placeholder="자재명·코드 검색">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                <button class="opt" id="matAllBtn" type="button" style="min-height:42px;font-size:14px">전체 자재 보기</button>
+                <span id="matScopeNote" style="font-size:12.5px;font-weight:700;color:var(--ink-2)"></span>
+            </div>
             <div class="picklist" id="matList"></div>
         </div></div></div>
 
         <div class="imgview" id="imgView"><img id="imgViewImg" src="" alt=""></div>
+        <div class="toast" id="toast"></div>
     </div>
 </th:block>
 
 <th:block layout:fragment="scripts">
     <script th:inline="none">
         (function () {
+            // ============================================================
+            // 높이 맞춤 (세척·조립 화면과 동일)
+            // ============================================================
             const root = document.querySelector('.ms-wash-root'); if (!root) return;
             function localBelow(){ let b=0,n=root; while(n&&n!==document.body){ let s=n.nextElementSibling; while(s){ const r=s.getBoundingClientRect(); if(r.height>0&&getComputedStyle(s).position!=='fixed')b+=r.height; s=s.nextElementSibling; } n=n.parentElement; } return b; }
-            function availBottom(){ let bottom=window.innerHeight; try{ const fe=window.frameElement; if(fe){ const pWin=window.parent,pDoc=pWin.document; const feTop=fe.getBoundingClientRect().top; let flow=0,node=fe; while(node&&node!==pDoc.body){ let sib=node.nextElementSibling; while(sib){ const cs=pWin.getComputedStyle(sib),r=sib.getBoundingClientRect(); if(r.height>0&&cs.position!=='fixed'&&cs.position!=='absolute')flow+=r.height; sib=sib.nextElementSibling; } node=node.parentElement; } bottom=Math.min(bottom,(pWin.innerHeight-flow)-feTop); } }catch(e){} return bottom; }
+            // 부모 문서 바닥에 붙은 푸터(fixed/sticky/absolute) — 이게 빠지면 --wash-h 가
+            // 실제 보이는 영역보다 커져서, root 바닥에 붙는 시트 하단이 잘린다.
+            // (세척 화면에서 같은 증상을 잡은 최종판. 높이 ≤160px 만 푸터로 인정)
+            function parentFixedBottom(pWin,pDoc,fe,feTop){ let fx=0; try{ pDoc.querySelectorAll('body *').forEach(function(el){ if(el===fe||el.contains(fe))return; const cs=pWin.getComputedStyle(el); if(cs.position!=='fixed'&&cs.position!=='sticky'&&cs.position!=='absolute')return; const r=el.getBoundingClientRect(); if(r.height>0&&r.height<=160&&r.top>feTop&&r.bottom>pWin.innerHeight-40) fx=Math.max(fx,r.bottom-r.top); }); }catch(e){} return fx; }
+            function availBottom(){ let bottom=window.innerHeight; try{ const fe=window.frameElement; if(fe){ const pWin=window.parent,pDoc=pWin.document; const feTop=fe.getBoundingClientRect().top; let flow=0,node=fe; while(node&&node!==pDoc.body){ let sib=node.nextElementSibling; while(sib){ const cs=pWin.getComputedStyle(sib),r=sib.getBoundingClientRect(); if(r.height>0&&cs.position!=='fixed'&&cs.position!=='absolute')flow+=r.height; sib=sib.nextElementSibling; } node=node.parentElement; } const below=Math.max(flow, parentFixedBottom(pWin,pDoc,fe,feTop)); bottom=Math.min(bottom,(pWin.innerHeight-below)-feTop); } }catch(e){} return bottom; }
             function fit(){ const top=root.getBoundingClientRect().top; const avail=availBottom()-top-localBelow(); root.style.setProperty('--wash-h',Math.max(320,Math.floor(avail))+'px'); }
-            window.addEventListener('resize',fit); window.addEventListener('orientationchange',fit); try{ window.parent.addEventListener('resize',fit); }catch(e){}
-            fit(); requestAnimationFrame(fit); setTimeout(fit,200); setTimeout(fit,600); if(document.fonts&&document.fonts.ready)document.fonts.ready.then(fit);
+            window.__defectFit = fit;   // 시트 열 때 재계산용
+            window.addEventListener('resize',fit); window.addEventListener('orientationchange',fit);
+            window.addEventListener('scroll',fit,true);
+            try{ window.parent.addEventListener('resize',fit); window.parent.addEventListener('scroll',fit,true); }catch(e){}
+            if(window.ResizeObserver){ try{ new ResizeObserver(fit).observe(document.body); }catch(e){} try{ new ResizeObserver(fit).observe(window.parent.document.body); }catch(e){} }
+            fit(); requestAnimationFrame(fit);
+            [100,200,400,700,1200].forEach(function(t){ setTimeout(fit,t); });
+            if(document.fonts&&document.fonts.ready)document.fonts.ready.then(fit);
         })();
 
-        const WORKERS = ['정우철','김민수','이서연','박지훈','한재범','한지민'];
-        const PROCS = [
-            {k:'assy', n:'조립', types:['조립불량','부품누락','파손','치수불량','기타'], mats:[
-                    {code:'M-IB00025',name:'모터제어기_신형'},{code:'M-HA00010',name:'메인보드_BMK'},{code:'M-ID00121',name:'LCD'},{code:'M-IH00076',name:'블루투스 보드'},{code:'M-IW00068',name:'베어링(로터)'},{code:'M-ISP00122',name:'로터리래치'},{code:'WIP-MA2006N',name:'M2 로터 Ass\'y'}]},
-            {k:'insp', n:'검사', types:['외관불량','진동 초과','전원불량','블루투스불량','배터리불량','기타'], mats:[
-                    {code:'WIP-MA2006N',name:'M2 로터 Ass\'y'},{code:'M-IB00022',name:'BMK MOTOR'},{code:'M-BAT0007',name:'배터리팩'},{code:'M-IH00076',name:'블루투스 보드'},{code:'WIP-MC20022',name:'제공품(본체)'}]},
-            {k:'repair', n:'수리', types:['재수리','부품불량','사양오류','기타'], mats:[
-                    {code:'M-IB00025',name:'모터제어기_신형'},{code:'M-HA00010',name:'메인보드_BMK'},{code:'M-HA00025',name:'전원 파워선'},{code:'M-BAT0007',name:'배터리팩'},{code:'M-ID00121',name:'LCD'}]},
-            {k:'pack', n:'포장', types:['라벨오류','박스손상','구성품누락','기타'], mats:[
-                    {code:'M-LBL-MC01',name:'완제품 라벨(국내)'},{code:'M-LBL-MC02',name:'수출용 라벨(영문)'},{code:'M-BOX-MC01',name:'M-CELL 박스'},{code:'M-FOAM-MC',name:'PE FOAM 세트'},{code:'M-ADP-MC',name:'어댑터'}]},
-        ];
-        const procName = k => { const p=PROCS.find(x=>x.k===k); return p?p.n:k; };
+        (function () {
+            // ============================================================
+            // 컨텍스트
+            //   공장은 URL ?factory=1|2 또는 window.DEFECT_CTX.factory_id
+            // ============================================================
+            // ============================================================
+            // 이 파일은 2공장 · M-CELL 전용이다. 공장은 URL 로 바꿀 수 없다.
+            //   → 다른 공장은 prod_defect_f1_t.html 을 쓴다
+            // ============================================================
+            const CTX = Object.assign(
+                { factory_id: 2, spjangcd: 'ZZ' },
+                (window.DEFECT_CTX || {})
+            );
+            const API = '/api/production/defect';
 
-        let DEFECTS = [
-            {id:1, date:'2026-07-10', proc:'assy',   mat:{code:'WIP-MA2006N',name:'M2 로터 Ass\'y'}, type:'부품누락', qty:1, worker:'이서연', note:'베어링 누락', photos:[]},
-            {id:2, date:'2026-07-11', proc:'insp',   mat:{code:'WIP-MA2006N',name:'M2 로터 Ass\'y'}, type:'진동 초과', qty:1, worker:'정우철', note:'2.1mm/s > 1.5 → 조립 복귀', photos:[]},
-            {id:3, date:'2026-07-11', proc:'insp',   mat:{code:'M-IH00076',name:'블루투스 보드'},   type:'블루투스불량', qty:1, worker:'박지훈', note:'', photos:[]},
-            {id:4, date:'2026-07-12', proc:'pack',   mat:{code:'M-LBL-MC02',name:'수출용 라벨(영문)'}, type:'라벨오류', qty:2, worker:'김민수', note:'라벨 오부착', photos:[]},
-        ];
-        let _seq = 5;
+            let PROCS = [];            // [{id, code, name, types:[{defect_type_id,defect_type_name}]}]
+            let WORKERS = [];
+            let DEFECTS = [];
 
-        (function(){
-            document.getElementById('fProc').innerHTML = '<option value="">공정 전체</option>' + PROCS.map(p=>'<option value="'+p.k+'">'+p.n+'</option>').join('');
-            document.getElementById('mWorker').innerHTML = WORKERS.map(w=>'<option>'+w+'</option>').join('');
+            // ---------- 공용 ----------
+            function toast(msg){
+                const t=document.getElementById('toast');
+                t.textContent=msg; t.classList.add('on');
+                clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('on'), 2600);
+            }
+            // ★ AjaxUtil 은 window 프로퍼티가 아니다 (const 선언 → 전역 렉시컬 환경에만 올라간다)
+            //   typeof 로 확인한다. window.AjaxUtil 은 영원히 undefined.
+            // ★ 특정 메서드명을 조건에 걸지 않는다 — 이름이 다르면 로드돼 있는데도
+            //   "미로드" 로 오판하고 대기 루프가 5초 뒤 죽는다. (실제로 그 사고가 났다)
+            function ajaxReady(){ return typeof AjaxUtil !== 'undefined'; }
+
+            function ajaxKeys(){
+                try { return Object.keys(AjaxUtil).join(', '); } catch(e){ return '(확인 불가)'; }
+            }
+            function ajaxMissing(cb){
+                console.error('[defect] AjaxUtil 에서 호출 메서드를 찾지 못했습니다. 사용 가능:', ajaxKeys());
+                toast('통신 모듈을 찾을 수 없습니다. (콘솔 확인)');
+                cb(null);
+            }
+
+            function get(url, params, cb){
+                const q = new URLSearchParams(params||{}).toString();
+                const u = url + (q ? '?'+q : '');
+                try {
+                    if (typeof AjaxUtil.getAsyncData === 'function') { AjaxUtil.getAsyncData(u, {}, cb); return; }
+                    if (typeof AjaxUtil.getSyncData  === 'function') { cb(AjaxUtil.getSyncData(u, {})); return; }
+                    if (typeof AjaxUtil.getData      === 'function') { AjaxUtil.getData(u, {}, cb); return; }
+                } catch(e) {
+                    console.error('[defect] GET 실패', u, e);
+                    toast('조회 중 오류가 발생했습니다.'); cb(null); return;
+                }
+                ajaxMissing(cb);
+            }
+
+            function post(url, body, cb){
+                try {
+                    if (typeof AjaxUtil.postAsyncData === 'function') { AjaxUtil.postAsyncData(url, body, cb); return; }
+                    if (typeof AjaxUtil.postSyncData  === 'function') { cb(AjaxUtil.postSyncData(url, body)); return; }
+                    if (typeof AjaxUtil.sendPostData  === 'function') { AjaxUtil.sendPostData(url, body, cb); return; }
+                } catch(e) {
+                    console.error('[defect] POST 실패', url, e);
+                    toast('저장 중 오류가 발생했습니다.'); cb(null); return;
+                }
+                ajaxMissing(cb);
+            }
+            function procName(id){ const p=PROCS.find(x=>x.id===id); return p?p.name:('공정#'+id); }
+            function fmtNum(n){ n=Number(n)||0; return (n%1===0)? String(n) : String(Math.round(n*100)/100); }
+
+            // ============================================================
+            // 부팅
+            // ============================================================
+            let boot = 0;
+            (function waitBoot(){
+                if (ajaxReady()) { init(); return; }
+                if (++boot > 50) {
+                    // 조용히 죽지 않게 — 화면에 이유를 남긴다
+                    console.error('[defect] AjaxUtil 미로드. typeof AjaxUtil =', typeof AjaxUtil);
+                    document.getElementById('list').innerHTML =
+                        '<div class="empty">화면 초기화에 실패했습니다.<br>'
+                        + '공용 스크립트(AjaxUtil)가 로드되지 않았습니다.<br>'
+                        + '<span style="font-size:12.5px">레이아웃 없이 이 화면만 단독으로 열면 발생합니다.</span></div>';
+                    return;
+                }
+                setTimeout(waitBoot, 100);
+            })();
+
+            function init(){
+                const badge = document.getElementById('fBadge');
+                badge.textContent = '2공장 · M-CELL';
+                badge.classList.add('f2');
+
+                const t=new Date(), f=new Date(); f.setDate(f.getDate()-14);
+                const fmt=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+                document.getElementById('fFrom').value=fmt(f);
+                document.getElementById('fTo').value=fmt(t);
+
+                loadContext(function(){ loadWorkers(); loadList(); });
+                bind();
+            }
+
+            function loadContext(done){
+                get(API+'/context', {factory_id:CTX.factory_id}, function(res){
+                    if(!res || res.success===false){ toast(res&&res.message||'공정 조회 실패'); return; }
+                    const d = res.data || {};
+                    const types = d.defect_types || [];
+                    PROCS = (d.processes||[]).map(function(p){
+                        return { id:p.id, code:p.code, name:p.name,
+                            types: types.filter(t=>t.process_id===p.id) };
+                    });
+                    if (done) done();
+                });
+            }
+
+            function loadWorkers(){
+                get('/api/common/combo', {combo_type:'person'}, function(res){
+                    const rows = (res && res.data) || [];
+                    WORKERS = rows.map(r=>({ id:r.id!==undefined?r.id:r.value, name:r.name!==undefined?r.name:r.text }));
+                });
+            }
+
+            // ============================================================
+            // 목록
+            // ============================================================
+            function loadList(){
+                get(API+'/list', {
+                    factory_id: CTX.factory_id,
+                    date_from : document.getElementById('fFrom').value,
+                    date_to   : document.getElementById('fTo').value,
+                    process_id: fProcVal || ''
+                }, function(res){
+                    if(!res || res.success===false){ toast(res&&res.message||'조회 실패'); return; }
+                    DEFECTS = res.data || [];
+                    render();
+                });
+            }
+
+            function render(){
+                document.getElementById('kCnt').textContent = DEFECTS.length;
+                document.getElementById('kQty').textContent =
+                    fmtNum(DEFECTS.reduce((a,x)=>a+(Number(x.defect_qty)||0),0));
+                const ps={}; DEFECTS.forEach(x=>ps[x.process_id]=1);
+                document.getElementById('kProc').textContent = Object.keys(ps).length;
+
+                const el=document.getElementById('list');
+                if(!DEFECTS.length){ el.innerHTML='<div class="empty">조회된 부적합이 없습니다.</div>'; return; }
+
+                el.innerHTML = DEFECTS.map(function(x){
+                    const thumb = (x.file_cnt>0)
+                        ? '<img class="dthumb" src="'+API+'/photo?defect_id='+x.id+'&idx=1">'
+                        : '';
+                    return '<div class="drow" data-row="'+x.id+'"><div class="dl">'
+                        + '<div class="r1"><span class="proc">'+(x.process_name||'')+'</span>'
+                        +   '<span class="dtype">'+(x.defect_type_name||'')+'</span>'
+                        +   '<span class="dmeta">'+(x.defect_date||'')+(x.actor_name?' · '+x.actor_name:'')+'</span>'
+                        +   (x.order_num?'<span class="dwo">'+x.order_num+'</span>':'')+'</div>'
+                        + '<div><span class="ditem">'+(x.mat_name||'')+'</span> <span class="dcode">'+(x.mat_code||'')+'</span></div>'
+                        + (x.lot_numbers?'<div><span class="dlot">차감 로트 '+x.lot_numbers+'</span>'
+                            + (x.src_store_name?' <span class="dmeta">· '+x.src_store_name+'</span>':'')+'</div>':'')
+                        + (x.description?'<div class="dmeta">'+x.description+'</div>':'')
+                        + '</div>'
+                        + '<div class="dqty">'+fmtNum(x.defect_qty)+'<small> '+(x.unit||'개')+'</small></div>'
+                        + thumb
+                        + '<button class="ddel" data-del="'+x.id+'">✕</button></div>';
+                }).join('');
+            }
+
+            // ============================================================
+            // 등록
+            // ============================================================
+            let regProc=null, regMat=null, regType=null, regEtc=false, regQty=1, regPhotos=[], MATS=[];
+            let regWo=null, WOS=[];
+            let regWorker=null, fProcVal='';
+            let matAll=false;
+            let detPhotoTarget=false, detWorkerPick=false;
+
+            function renderRegProc(){
+                document.getElementById('regProc').innerHTML = PROCS.map(p=>
+                    '<button class="opt proc'+(regProc===p.id?' sel':'')+'" data-rp="'+p.id+'">'+p.name+'</button>'
+                ).join('') || '<span style="color:var(--ink-2);font-weight:700">등록된 공정이 없습니다.</span>';
+            }
+            function renderRegType(){
+                const p=PROCS.find(x=>x.id===regProc);
+                document.getElementById('regType').innerHTML = p
+                    ? (p.types.length
+                        ? p.types.map(t=>'<button class="opt'+(regType===t.defect_type_id?' sel':'')
+                            +'" data-rt="'+t.defect_type_id+'" data-nm="'+t.defect_type_name+'">'+t.defect_type_name+'</button>').join('')
+                        : '<span style="color:var(--ink-2);font-weight:700">이 공정에 등록된 부적합 유형이 없습니다.</span>')
+                    : '<span style="color:var(--ink-2);font-weight:700">공정을 먼저 선택하세요</span>';
+                document.getElementById('etcWrap').style.display = regEtc ? '' : 'none';
+            }
+            // ---------- 공정 필터 피커 (태블릿: select 대신 큰 행) ----------
+            function renderProcFilter(){
+                const el=document.getElementById('fProcList');
+                let html='<div class="prow'+(fProcVal===''?' sel':'')+'" data-fp=""><div class="pid"><div class="pnm">공정 전체</div></div><div class="pchk">'+(fProcVal===''?'✓':'＋')+'</div></div>';
+                html+=PROCS.map(function(p){
+                    const sel=String(fProcVal)===String(p.id);
+                    return '<div class="prow'+(sel?' sel':'')+'" data-fp="'+p.id+'"><div class="pid"><div class="pnm">'+p.name+'</div></div><div class="pchk">'+(sel?'✓':'＋')+'</div></div>';
+                }).join('');
+                el.innerHTML=html;
+            }
+
+            // ---------- 작업자 피커 ----------
+            function updateWorkerLabel(){
+                document.getElementById('workerPickLabel').textContent =
+                    regWorker ? regWorker.name : '작업자 선택';
+            }
+            function renderWorkerList(kw){
+                const el=document.getElementById('workerList');
+                const q=(kw||'').trim().toLowerCase();
+                const list=WORKERS.filter(w=>!q||String(w.name).toLowerCase().includes(q));
+                let html='<div class="prow'+(regWorker?'':' sel')+'" data-wk="none"><div class="pid"><div class="pnm">작업자 없음</div><div class="pcode">작업자를 지정하지 않고 등록합니다</div></div><div class="pchk">'+(regWorker?'＋':'✓')+'</div></div>';
+                html+=list.length?list.map(function(w){
+                    const sel=regWorker&&String(regWorker.id)===String(w.id);
+                    return '<div class="prow'+(sel?' sel':'')+'" data-wk="'+w.id+'"><div class="pid"><div class="pnm">'+w.name+'</div></div><div class="pchk">'+(sel?'✓':'＋')+'</div></div>';
+                }).join(''):'<div style="color:var(--ink-2);font-weight:700;padding:16px 2px">검색 결과가 없습니다.</div>';
+                el.innerHTML=html;
+            }
+
+            function updateWoLabel(){
+                document.getElementById('woPickLabel').textContent =
+                    regWo ? ((regWo.order_num || '작지#'+regWo.wo_id) + ' · ' + (regWo.mat_name||''))
+                        : '작업지시 없음';
+            }
+
+            // 공정·발생일자가 정해져야 후보를 뽑을 수 있다. 둘 중 하나가 바뀌면 선택을 비운다.
+            function loadWos(open){
+                const ddate = document.getElementById('mDate').value;
+                if (!regProc || !ddate) { WOS=[]; return; }
+                const el = document.getElementById('woList');
+                if (open) el.innerHTML='<div style="color:var(--ink-2);font-weight:700;padding:16px 2px">불러오는 중…</div>';
+                get(API+'/wo_list', {process_id:regProc, defect_date:ddate}, function(res){
+                    WOS = (res && res.data) || [];
+                    if (open) renderWoList();
+                });
+            }
+            function renderWoList(){
+                const el = document.getElementById('woList');
+                const p = PROCS.find(x=>x.id===regProc);
+                document.getElementById('woTitle').textContent = (p?p.name:'') + ' · 작업지시 선택';
+                let html = '<div class="prow wo'+(regWo?'':' sel')+'" data-wo="none">'
+                    + '<div class="pid"><div class="pnm">작업지시 없음</div>'
+                    + '<div class="pcode">작지와 연결하지 않고 등록합니다</div></div>'
+                    + '<div class="pchk">'+(regWo?'＋':'✓')+'</div></div>';
+                if (!WOS.length) {
+                    html += '<div style="color:var(--ink-2);font-weight:700;padding:16px 2px">'
+                        +  '발생일자 전후 7일 내에 이 공정의 작업지시가 없습니다.</div>';
+                } else {
+                    html += WOS.map(function(w){
+                        const sel = regWo && regWo.wo_id === w.wo_id;
+                        return '<div class="prow wo'+(sel?' sel':'')+'" data-wo="'+w.wo_id+'">'
+                            + '<div class="pid">'
+                            +   '<div class="pnm">'+(w.order_num || '작지#'+w.wo_id)+'</div>'
+                            +   '<div class="pcode">'+(w.mat_name||'')+' · '+(w.mat_code||'')+'</div>'
+                            +   '<div class="pcode">'+(w.prod_date||'')+' · '+(w.state_name||w.state||'')
+                            +     ' · 지시 '+fmtNum(w.order_qty)+' '+(w.unit||'')+'</div>'
+                            + '</div>'
+                            + '<div class="pchk">'+(sel?'✓':'＋')+'</div></div>';
+                    }).join('');
+                }
+                el.innerHTML = html;
+            }
+
+            function updateMatLabel(){
+                document.getElementById('matPickLabel').textContent =
+                    regMat ? (regMat.mat_name+' · '+regMat.mat_code) : '자재 선택';
+                renderStockHint();
+            }
+            function renderStockHint(){
+                const el=document.getElementById('stockHint');
+                if(!regMat){ el.textContent=''; el.classList.remove('over');
+                    document.getElementById('qPlus').disabled=false; return; }
+                const stk=Number(regMat.stock_qty)||0;
+                const over = regQty > stk;
+                el.classList.toggle('over', over);
+                el.innerHTML = over
+                    ? '재고를 초과했습니다 — '+(regMat.src_store_name||'')+' 재고 <b>'+fmtNum(stk)+'</b>'
+                    : (regMat.src_store_name||'')+' 재고 <b>'+fmtNum(stk)+'</b> 중 '+fmtNum(regQty)+' 차감 (선입선출)';
+                document.getElementById('qPlus').disabled = regQty >= stk;
+            }
+            function setQty(n){
+                regQty = Math.max(1, n);
+                document.getElementById('qVal').textContent = regQty;
+                document.getElementById('qMinus').disabled = regQty<=1;
+                renderStockHint();
+            }
+
+            function openReg(){
+                regProc=null; regMat=null; regType=null; regEtc=false; regPhotos=[]; MATS=[];
+                regWo=null; WOS=[];
+                document.getElementById('mDate').value=new Date().toISOString().slice(0,10);
+                regWorker=null; updateWorkerLabel();
+                document.getElementById('mNote').value=''; document.getElementById('mEtc').value='';
+                setQty(1);
+                renderRegProc(); renderRegType(); updateWoLabel(); updateMatLabel(); renderPhotos();
+                showMask('regMask');
+            }
+
+            function bind(){
+                document.getElementById('btnAdd').addEventListener('click', openReg);
+                document.getElementById('fProcBtn').addEventListener('click', function(){
+                    renderProcFilter(); showMask('fProcMask');
+                });
+                document.getElementById('fProcList').addEventListener('click', function(e){
+                    const r=e.target.closest('[data-fp]'); if(!r)return;
+                    fProcVal=r.dataset.fp;
+                    const p=PROCS.find(x=>String(x.id)===fProcVal);
+                    document.getElementById('fProcLabel').textContent = p?p.name:'공정 전체';
+                    hideMask('fProcMask'); loadList();
+                });
+                document.getElementById('workerPick').addEventListener('click', function(){
+                    detWorkerPick=false;
+                    document.getElementById('workerSearch').value='';
+                    renderWorkerList(''); showMask('workerMask');
+                });
+                document.getElementById('workerSearch').addEventListener('input', function(e){
+                    renderWorkerList(e.target.value);
+                });
+                document.getElementById('workerList').addEventListener('click', function(e){
+                    const r=e.target.closest('[data-wk]'); if(!r)return;
+                    const picked = (r.dataset.wk==='none') ? null : WORKERS.find(w=>String(w.id)===r.dataset.wk);
+                    hideMask('workerMask');
+                    if(detWorkerPick){ edWorker=picked; detWorkerPick=false; loadDetail(); }
+                    else             { regWorker=picked; updateWorkerLabel(); }
+                });
+                document.getElementById('fFrom').addEventListener('change', loadList);
+                document.getElementById('fTo').addEventListener('change', loadList);
+
+                document.getElementById('list').addEventListener('click', function(e){
+                    const d=e.target.closest('[data-del]');
+
+                    if(d){ askDelete(+d.dataset.del); return; }
+
+                    const row=e.target.closest('[data-row]');
+
+                    if(row){ openDetail(+row.dataset.row); }
+                });
+
+                document.getElementById('regProc').addEventListener('click', function(e){
+                    const b=e.target.closest('[data-rp]'); if(!b)return;
+                    regProc=+b.dataset.rp; regMat=null; regType=null; regEtc=false; MATS=[];
+                    regWo=null; WOS=[];                 // 공정이 바뀌면 작지 후보가 완전히 달라진다
+                    setQty(1);
+                    renderRegProc(); renderRegType(); updateWoLabel(); updateMatLabel();
+                    loadWos(false);
+                });
+                document.getElementById('regType').addEventListener('click', function(e){
+                    const b=e.target.closest('[data-rt]'); if(!b)return;
+                    regType=+b.dataset.rt;
+                    regEtc = (b.dataset.nm === '기타');
+                    renderRegType();
+                });
+
+                document.getElementById('qMinus').addEventListener('click', ()=>setQty(regQty-1));
+                document.getElementById('qPlus').addEventListener('click', ()=>setQty(regQty+1));
+
+                document.getElementById('mDate').addEventListener('change', function(){
+                    regWo=null; WOS=[]; updateWoLabel(); loadWos(false);
+                });
+                document.getElementById('woPick').addEventListener('click', function(){
+                    if(!regProc){ toast('공정을 먼저 선택하세요'); return; }
+                    showMask('woMask');
+                    if (WOS.length) renderWoList(); else loadWos(true);
+                });
+                document.getElementById('woList').addEventListener('click', function(e){
+                    const r=e.target.closest('[data-wo]'); if(!r)return;
+                    const v=r.dataset.wo;
+                    regWo = (v==='none') ? null : WOS.find(w=>String(w.wo_id)===v);
+                    hideMask('woMask'); updateWoLabel();
+                });
+
+                document.getElementById('matPick').addEventListener('click', function(){
+                    if(!regProc){ toast('공정을 먼저 선택하세요'); return; }
+                    document.getElementById('matSearch').value='';
+                    matAll=false;
+                    loadMats('');
+                    showMask('matMask');
+                });
+                document.getElementById('matAllBtn').addEventListener('click', function(){
+                    matAll = !matAll;
+                    loadMats(document.getElementById('matSearch').value);
+                });
+                document.getElementById('matSearch').addEventListener('input', function(e){
+                    clearTimeout(this._h); const v=e.target.value;
+                    this._h=setTimeout(()=>loadMats(v), 250);
+                });
+                document.getElementById('matList').addEventListener('click', function(e){
+                    const r=e.target.closest('[data-mid]'); if(!r)return;
+                    regMat = MATS.find(m=>String(m.mat_id)===r.dataset.mid);
+                    hideMask('matMask');
+                    setQty(1);
+                    updateMatLabel();
+                });
+
+                document.getElementById('mPhotos').addEventListener('click', function(e){
+                    if(e.target.id==='addPhoto'||e.target.closest('#addPhoto')){ showMask('photoMask'); return; }
+                    const pr=e.target.closest('[data-pr]'); if(pr){ regPhotos.splice(+pr.dataset.pr,1); renderPhotos(); return; }
+                    const pv=e.target.closest('[data-pv]'); if(pv){ imgView(regPhotos[+pv.dataset.pv]); }
+                });
+                function onPhotoPicked(e){
+                    // 등록 시트와 상세 수정, 두 곳에서 같은 input 을 쓴다
+                    Array.prototype.forEach.call(e.target.files, function(f){
+                        shrinkImage(f, function(dataUrl){
+                            if(detPhotoTarget){ detNewPhotos.push(dataUrl); loadDetail(); }
+                            else               { regPhotos.push(dataUrl); renderPhotos(); }
+                        });
+                    });
+                    e.target.value='';
+                }
+                document.getElementById('mFileCam').addEventListener('change', onPhotoPicked);
+                document.getElementById('mFileLib').addEventListener('change', onPhotoPicked);
+                document.getElementById('btnCam').addEventListener('click', function(){
+                    hideMask('photoMask'); document.getElementById('mFileCam').click();
+                });
+                // 등록 시트의 ＋ 는 항상 등록용
+                document.getElementById('mPhotos').addEventListener('pointerdown', function(e){
+                    if(e.target.id==='addPhoto'||e.target.closest('#addPhoto')) detPhotoTarget=false;
+                }, true);
+                document.getElementById('btnLib').addEventListener('click', function(){
+                    hideMask('photoMask'); document.getElementById('mFileLib').click();
+                });
+
+                document.getElementById('btnSave').addEventListener('click', save);
+
+                document.querySelectorAll('.mask').forEach(m=>m.addEventListener('click',function(e){
+                    if(e.target===m||e.target.closest('[data-close]')) m.classList.remove('show');
+                }));
+                document.getElementById('imgView').addEventListener('click', function(){ this.classList.remove('on'); });
+            }
+
+            function loadMats(kw){
+                const el=document.getElementById('matList');
+                el.innerHTML='<div style="color:var(--ink-2);font-weight:700;padding:16px 2px">불러오는 중…</div>';
+                get(API+'/material_list', {factory_id:CTX.factory_id, process_id:regProc, keyword:kw||'', all:matAll?'true':'false'},
+                    function(res){
+                        if(!res || res.success===false){ el.innerHTML='<div class="empty">'+(res&&res.message||'조회 실패')+'</div>'; return; }
+                        MATS = res.data || [];
+                        const p=PROCS.find(x=>x.id===regProc);
+                        document.getElementById('matTitle').textContent=(p?p.name:'')+' · 자재 선택';
+                        // 공정 범위로 0건이면 서버가 전체 자재로 폴백해 내려준다.
+                        // 세척처럼 작지·BOM 이 없는 공정이 그렇다 — 사실을 알려준다.
+                        document.getElementById('matAllBtn').classList.toggle('sel', matAll);
+                        document.getElementById('matScopeNote').textContent =
+                            matAll ? '재고 있는 자재 전체'
+                                : (MATS.length ? '' : '이 공정의 자재를 찾지 못해 전체를 표시합니다');
+                        el.innerHTML = MATS.length ? MATS.map(function(m){
+                            const stk=Number(m.stock_qty)||0;
+                            return '<div class="prow'+(regMat&&regMat.mat_id===m.mat_id?' sel':'')+(stk<=0?' zero':'')+'" data-mid="'+m.mat_id+'">'
+                                + '<div class="pid"><div class="pnm">'+m.mat_name+'</div><div class="pcode">'+m.mat_code+'</div></div>'
+                                + '<div class="pstk">'+fmtNum(stk)+' '+(m.unit||'')+'<small>'+(m.src_store_name||'')+'</small></div>'
+                                + '<div class="pchk">'+(regMat&&regMat.mat_id===m.mat_id?'✓':'＋')+'</div></div>';
+                        }).join('') : '<div style="color:var(--ink-2);font-weight:700;padding:16px 2px">자재가 없습니다.</div>';
+                    });
+            }
+
+            // 태블릿 카메라 원본은 한 장에 수 MB 라 그대로 보내면 POST 크기 제한에 걸린다.
+
+            // 긴 변 1280px · JPEG 0.7 로 줄여 보낸다 (불량 판독에는 충분).
+
+            function shrinkImage(file, cb){
+
+                const MAX = 1280;
+
+                const reader = new FileReader();
+
+                reader.onload = function(){
+
+                    const img = new Image();
+
+                    img.onload = function(){
+
+                        let w = img.width, h = img.height;
+
+                        if (w > MAX || h > MAX) {
+
+                            if (w >= h) { h = Math.round(h * MAX / w); w = MAX; }
+
+                            else        { w = Math.round(w * MAX / h); h = MAX; }
+
+                        }
+
+                        const cv = document.createElement('canvas');
+
+                        cv.width = w; cv.height = h;
+
+                        cv.getContext('2d').drawImage(img, 0, 0, w, h);
+
+                        try { cb(cv.toDataURL('image/jpeg', 0.7)); }
+
+                        catch(err){ cb(reader.result); }
+
+                    };
+
+                    img.onerror = function(){ cb(reader.result); };
+
+                    img.src = reader.result;
+
+                };
+
+                reader.readAsDataURL(file);
+
+            }
+
+            function renderPhotos(){
+                document.getElementById('mPhotos').innerHTML =
+                    regPhotos.map((src,i)=>'<div class="photo"><img src="'+src+'" data-pv="'+i+'"><button class="rm" data-pr="'+i+'">×</button></div>').join('')
+                    + '<div class="addphoto" id="addPhoto">＋</div>';
+            }
+
+            function save(){
+                if(!regProc){ toast('공정을 선택하세요'); return; }
+                if(!regMat){ toast('불량 자재를 선택하세요'); return; }
+                if(!regType){ toast('불량 유형을 선택하세요'); return; }
+                let etc=null;
+                if(regEtc){
+                    etc=document.getElementById('mEtc').value.trim();
+                    if(!etc){ toast('기타 유형을 입력하세요'); return; }
+                }
+                const stk=Number(regMat.stock_qty)||0;
+                if(regQty>stk){ toast('재고를 초과했습니다. ('+(regMat.src_store_name||'')+' 재고 '+fmtNum(stk)+')'); return; }
+
+                const btn=document.getElementById('btnSave');
+                btn.disabled=true; btn.textContent='저장 중…';
+
+                post(API+'/regist', {
+                    factory_id     : CTX.factory_id,
+                    defect_date    : document.getElementById('mDate').value,
+                    process_id     : regProc,
+                    mat_id         : regMat.mat_id,
+                    defect_type_id : regEtc ? null : regType,
+                    defect_type_etc: etc,
+                    qty            : regQty,
+                    job_res_id     : regWo ? regWo.wo_id : null,
+                    actor_id       : regWorker ? regWorker.id : null,
+                    description    : document.getElementById('mNote').value.trim() || null,
+                }, function(res){
+                    if(!res || res.success===false){
+
+                        btn.disabled=false; btn.textContent='부적합 저장';
+
+                        toast(res&&res.message||'저장 실패'); return;
+
+                    }
+
+                    // ★ 사진은 등록 후 한 장씩 따로 올린다.
+
+                    //   등록 폼에 base64 를 같이 실으면 POST 크기 제한에 걸려 조용히 잘린다.
+
+                    const newId = (res.data && res.data.defect_id) || null;
+
+                    uploadPhotos(newId, regPhotos, function(){
+
+                        btn.disabled=false; btn.textContent='부적합 저장';
+
+                        hideMask('regMask');
+
+                        toast('부적합이 등록되고 재고가 차감되었습니다.');
+
+                        loadList();
+
+                    }, function(done,total){
+
+                        btn.textContent='사진 저장 중… ('+done+'/'+total+')';
+
+                    });
+                });
+            }
+
+            let detId=null, detEdit=false, detHead=null, detFiles=[], detNewPhotos=[];
+
+
+            function openDetail(id){
+
+                detId=id; detEdit=false; detNewPhotos=[];
+
+                document.getElementById('detBody').innerHTML =
+
+                    '<div style="color:var(--ink-2);font-weight:700;padding:20px 2px">불러오는 중…</div>';
+
+                showMask('detMask');
+
+                loadDetail();
+
+            }
+
+
+            function loadDetail(){
+
+                get(API+'/detail', {defect_id:detId}, function(res){
+
+                    if(!res || res.success===false){ toast(res&&res.message||'조회 실패'); hideMask('detMask'); return; }
+
+                    const d=res.data||{};
+
+                    detHead=d.head||{}; detFiles=d.files||[];
+
+                    renderDetail(d.lots||[]);
+
+                });
+
+            }
+
+
+            function renderDetail(lots){
+
+                const h=detHead, body=document.getElementById('detBody');
+
+                // 수정 가능한 것 / 아닌 것을 화면에서 구분한다.
+
+                // 수량·자재는 재고를 차감한 값이라 여기서 못 바꾼다(삭제 후 재등록).
+
+                let html='';
+
+                if(detEdit){
+
+                    const p=PROCS.find(x=>x.id===h.process_id);
+
+                    const types=p?p.types:[];
+
+                    html+='<div class="dsum"><div><span>공정</span>'+(h.process_name||'-')+'</div>'
+
+                        + '<div><span>자재</span>'+(h.mat_name||'-')+'</div>'
+
+                        + '<div><span>수량</span>'+fmtNum(h.defect_qty)+' '+(h.unit||'')+'</div></div>'
+
+                        + '<div style="font-size:12.5px;font-weight:700;color:var(--ink-2);margin:0 2px 4px">'
+
+                        + '공정·자재·수량은 재고를 차감한 값이라 수정할 수 없습니다. 바꾸려면 삭제 후 다시 등록하세요.</div>';
+
+                    html+='<div class="fieldlab">불량 유형</div><div class="opts" id="edType">'
+
+                        + types.map(t=>'<button class="opt'+(edType===t.defect_type_id?' sel':'')
+
+                            +'" data-et="'+t.defect_type_id+'" data-nm="'+t.defect_type_name+'">'+t.defect_type_name+'</button>').join('')
+
+                        + '</div>';
+
+                    html+='<div id="edEtcWrap" style="display:'+(edEtc?'':'none')+'">'
+
+                        + '<div class="fieldlab">기타 유형 직접 입력</div>'
+
+                        + '<input class="tin" id="edEtcVal" value="'+(h.defect_type_etc||'')+'" placeholder="유형을 입력하세요"></div>';
+
+                    html+='<div class="fieldlab">발생일자</div>'
+
+                        + '<input type="date" class="dinput" id="edDate" style="width:100%;height:52px" value="'+(h.defect_date||'')+'">';
+
+                    html+='<div class="fieldlab">작업자</div>'
+
+                        + '<button class="opt" id="edWorker" type="button" style="width:100%;justify-content:space-between">'
+
+                        + '<span id="edWorkerLabel">'+(edWorker?edWorker.name:'작업자 없음')+'</span><span style="color:var(--ink-2)">›</span></button>';
+
+                    html+='<div class="fieldlab">비고</div>'
+
+                        + '<textarea class="tin" id="edNote" placeholder="상세 내용(선택)">'+(h.description||'')+'</textarea>';
+
+                } else {
+
+                    html+='<div class="dsum">'
+
+                        + '<div><span>공정</span>'+(h.process_name||'-')+'</div>'
+
+                        + '<div><span>유형</span>'+(h.defect_type_name||'-')+'</div>'
+
+                        + '<div><span>수량</span>'+fmtNum(h.defect_qty)+' '+(h.unit||'')+'</div>'
+
+                        + '<div><span>발생일</span>'+(h.defect_date||'-')+'</div>'
+
+                        + '<div><span>작업자</span>'+(h.actor_name||'-')+'</div>'
+
+                        + '<div><span>작업지시</span>'+(h.order_num||'미지정')+'</div>'
+
+                        + '<div><span>등록</span>'+(h.created_at||'-')+'</div></div>';
+
+                    html+='<div class="fieldlab">'+(h.mat_name||'')+' <span style="color:var(--ink-2)">'+(h.mat_code||'')+'</span></div>';
+
+                    html+='<div class="fieldlab">차감 로트 <span style="color:var(--ink-2);font-weight:700">'
+
+                        +(h.src_store_name||'')+' · 선입선출</span></div>';
+
+                    html+= lots.length ? lots.map(function(l){
+
+                        return '<div class="lotrow"><div class="ln">'
+
+                            + '<div class="lnum">'+(l.lot_number||'-')+'</div>'
+
+                            + '<div class="lsub">'+(l.maker_lot_no?'외부 '+l.maker_lot_no+' · ':'')
+
+                            +   '입고 '+(l.input_date||'-')+'</div></div>'
+
+                            + '<div class="lq">'+fmtNum(l.qty)+'</div></div>';
+
+                    }).join('') : '<div style="color:var(--ink-2);font-weight:700;padding:8px 2px">차감 내역이 없습니다.</div>';
+
+                    if(h.description){
+
+                        html+='<div class="fieldlab">비고</div><div style="font-size:15px;font-weight:600">'+h.description+'</div>';
+
+                    }
+
+                }
+
+                // 사진 — 보기/수정 모두 표시. 수정 중에는 삭제 버튼과 추가 버튼이 붙는다.
+
+                const total = detFiles.length + detNewPhotos.length;
+
+                html+='<div class="fieldlab">사진 '+(total?'('+total+')':'')+'</div><div class="pgrid">';
+
+                html+= detFiles.map(function(fl,ix){
+
+                    return '<div class="photo"><img src="'+API+'/photo?defect_id='+detId+'&idx='+(ix+1)+'&t='+Date.now()+'" data-pf="'+(ix+1)+'" style="width:92px;height:92px">'
+
+                        + (detEdit?'<button class="rm" data-pdel="'+fl.file_id+'">×</button>':'')+'</div>';
+
+                }).join('');
+
+                html+= detNewPhotos.map(function(src,ix){
+
+                    return '<div class="photo"><img src="'+src+'" style="width:92px;height:92px">'
+
+                        + '<button class="rm" data-pnew="'+ix+'">×</button></div>';
+
+                }).join('');
+
+                if(detEdit) html+='<div class="addphoto" id="detAddPhoto" style="width:92px;height:92px">＋</div>';
+
+                html+='</div>';
+
+                if(!total && !detEdit) html+='<div style="color:var(--ink-2);font-weight:700;padding:4px 2px">첨부된 사진이 없습니다.</div>';
+
+
+                html+='<div style="display:flex;gap:10px;margin-top:16px">';
+
+                if(detEdit){
+
+                    html+='<button class="opt" id="detCancel" style="flex:0 0 34%;justify-content:center;min-height:54px">취소</button>'
+
+                        + '<button class="ok" id="detSave" style="flex:1;margin-top:0">저장</button>';
+
+                } else {
+
+                    html+='<button class="ok" id="detEditBtn" style="margin-top:0;background:var(--teal)">수정</button>';
+
+                }
+
+                html+='</div>';
+
+                body.innerHTML=html;
+
+                bindDetail();
+
+            }
+
+
+            let edType=null, edEtc=false, edWorker=null;
+
+
+            function bindDetail(){
+
+                const body=document.getElementById('detBody');
+
+                const eb=document.getElementById('detEditBtn');
+
+                if(eb) eb.onclick=function(){
+
+                    detEdit=true;
+
+                    edType=detHead.defect_type_id||null;
+
+                    edEtc=!detHead.defect_type_id && !!detHead.defect_type_etc;
+
+                    edWorker=detHead.actor_id?{id:detHead.actor_id,name:detHead.actor_name}:null;
+
+                    detNewPhotos=[];
+
+                    loadDetail();
+
+                };
+
+                const cb=document.getElementById('detCancel');
+
+                if(cb) cb.onclick=function(){ detEdit=false; detNewPhotos=[]; loadDetail(); };
+
+
+                const et=document.getElementById('edType');
+
+                if(et) et.onclick=function(e){
+
+                    const b=e.target.closest('[data-et]'); if(!b)return;
+
+                    edType=+b.dataset.et; edEtc=(b.dataset.nm==='기타');
+
+                    et.querySelectorAll('.opt').forEach(x=>x.classList.toggle('sel', +x.dataset.et===edType));
+
+                    document.getElementById('edEtcWrap').style.display = edEtc?'':'none';
+
+                };
+
+                const ew=document.getElementById('edWorker');
+
+                if(ew) ew.onclick=function(){
+
+                    detWorkerPick=true;
+
+                    document.getElementById('workerSearch').value='';
+
+                    renderWorkerList(''); showMask('workerMask');
+
+                };
+
+                const ap=document.getElementById('detAddPhoto');
+
+                if(ap) ap.onclick=function(){ detPhotoTarget=true; showMask('photoMask'); };
+
+
+                body.onclick=function(ev){
+
+                    const dn=ev.target.closest('[data-pnew]');
+
+                    if(dn){ detNewPhotos.splice(+dn.dataset.pnew,1); loadDetail(); return; }
+
+                    const dd=ev.target.closest('[data-pdel]');
+
+                    if(dd){
+
+                        uiConfirm('이 사진을 삭제할까요?', function(){
+
+                            post(API+'/photo_delete', {file_id:+dd.dataset.pdel}, function(res){
+
+                                if(!res || res.success===false){ toast(res&&res.message||'삭제 실패'); return; }
+
+                                toast('사진을 삭제했습니다.'); loadDetail();
+
+                            });
+
+                        });
+
+                        return;
+
+                    }
+
+                    const im=ev.target.closest('[data-pf]');
+
+                    if(im && !detEdit) imgView(im.getAttribute('src'));
+
+                };
+
+
+                const sv=document.getElementById('detSave');
+
+                if(sv) sv.onclick=saveDetail;
+
+            }
+
+
+            function saveDetail(){
+
+                let etc=null;
+
+                if(edEtc){
+
+                    etc=(document.getElementById('edEtcVal').value||'').trim();
+
+                    if(!etc){ toast('기타 유형을 입력하세요'); return; }
+
+                }
+
+                if(!edType){ toast('불량 유형을 선택하세요'); return; }
+
+                const sv=document.getElementById('detSave');
+
+                sv.disabled=true; sv.textContent='저장 중…';
+
+                post(API+'/update', {
+
+                    defect_id      : detId,
+
+                    defect_type_id : edEtc ? null : edType,
+
+                    defect_type_etc: etc,
+
+                    defect_date    : document.getElementById('edDate').value,
+
+                    job_res_id     : detHead.job_res_id || null,
+
+                    actor_id       : edWorker ? edWorker.id : null,
+
+                    description    : (document.getElementById('edNote').value||'').trim() || null
+
+                }, function(res){
+
+                    if(!res || res.success===false){
+
+                        sv.disabled=false; sv.textContent='저장';
+
+                        toast(res&&res.message||'저장 실패'); return;
+
+                    }
+
+                    uploadPhotos(detId, detNewPhotos, function(){
+
+                        detEdit=false; detNewPhotos=[];
+
+                        toast('수정되었습니다.');
+
+                        loadDetail(); loadList();
+
+                    }, function(done,total){ sv.textContent='사진 저장 중… ('+done+'/'+total+')'; });
+
+                });
+
+            }
+
+            // 사진을 한 장씩 순차 업로드한다. 동시에 보내면 서버 부하와 순서 뒤섞임이 생긴다.
+
+            function uploadPhotos(defectId, list, onDone, onProgress){
+
+                if(!defectId || !list || !list.length){ onDone && onDone(); return; }
+
+                let i = 0, failed = 0;
+
+                (function next(){
+
+                    if(i >= list.length){
+
+                        if(failed) toast('사진 '+failed+'장 저장에 실패했습니다.');
+
+                        onDone && onDone(); return;
+
+                    }
+
+                    onProgress && onProgress(i+1, list.length);
+
+                    post(API+'/photo_add', {defect_id:defectId, photo:list[i]}, function(res){
+
+                        if(!res || res.success===false) failed++;
+
+                        i++; next();
+
+                    });
+
+                })();
+
+            }
+
+
+            function askDelete(id){
+                const x=DEFECTS.find(d=>d.id===id);
+                const msg = x
+                    ? '이 부적합을 삭제하면 차감한 재고가 되돌아갑니다.\n('+x.mat_name+' '+fmtNum(x.defect_qty)+')\n삭제할까요?'
+                    : '이 부적합 기록을 삭제할까요?';
+                uiConfirm(msg, function(){
+                    post(API+'/delete', {defect_id:id}, function(res){
+                        if(!res || res.success===false){ toast(res&&res.message||'삭제 실패'); return; }
+                        toast('삭제되고 재고가 복구되었습니다.');
+                        loadList();
+                    });
+                });
+            }
+
+            // uiConfirm 은 레이아웃 전역이 아니다 — 화면이 자기 것을 갖는다.
+
+            // 브라우저 confirm 은 PC 디자인이라 태블릿 화면 톤과 안 맞는다(융착 화면과 동일 방식).
+
+            function uiConfirm(msg, onOk, okLabel){
+
+                let m = document.getElementById('confirmMask');
+
+                if (!m) {
+
+                    m = document.createElement('div');
+
+                    m.id = 'confirmMask';
+
+                    m.style.cssText = 'position:fixed;inset:0;background:rgba(21,34,43,.45);display:none;'
+
+                        + 'align-items:center;justify-content:center;z-index:80;padding:24px';
+
+                    m.innerHTML = '<div style="background:#FFF;border-radius:20px;max-width:420px;width:100%;'
+
+                        + 'padding:24px 22px 18px;box-shadow:0 20px 50px -12px rgba(0,0,0,.4)">'
+
+                        + '<div id="confirmMsg" style="font-size:17px;font-weight:800;color:#15222B;'
+
+                        +   'line-height:1.5;margin-bottom:20px;white-space:pre-line"></div>'
+
+                        + '<div style="display:flex;gap:10px">'
+
+                        + '<button id="confirmCancel" style="flex:1;height:52px;border-radius:14px;'
+
+                        +   'border:1px solid #D8E0E5;background:#F4F7F9;color:#5A6B76;font-weight:800;font-size:16px">취소</button>'
+
+                        + '<button id="confirmOk" style="flex:1;height:52px;border-radius:14px;border:none;'
+
+                        +   'background:#C8483B;color:#fff;font-weight:800;font-size:16px">삭제</button>'
+
+                        + '</div></div>';
+
+                    document.body.appendChild(m);
+
+                    m.addEventListener('click', function(e){ if (e.target === m) m.style.display='none'; });
+
+                }
+
+                m.querySelector('#confirmMsg').textContent = msg;
+
+                const ok = m.querySelector('#confirmOk'), cancel = m.querySelector('#confirmCancel');
+
+                ok.textContent = okLabel || '삭제';   // 재사용 모달이라 라벨을 매번 리셋한다
+
+                const close = function(){ m.style.display='none'; ok.onclick=null; cancel.onclick=null; };
+
+                ok.onclick = function(){ close(); onOk && onOk(); };
+
+                cancel.onclick = close;
+
+                m.style.display = 'flex';
+
+            }
+
+            function showMask(id){ if(window.__defectFit)window.__defectFit(); document.getElementById(id).classList.add('show'); }
+            function hideMask(id){ document.getElementById(id).classList.remove('show'); }
+            function imgView(src){
+                document.getElementById('imgViewImg').src=src;
+                document.getElementById('imgView').classList.add('on');
+            }
         })();
-
-        function inRange(d){ const f=document.getElementById('fFrom').value,t=document.getElementById('fTo').value; if(f&&d<f)return false; if(t&&d>t)return false; return true; }
-        function render(){
-            const fp=document.getElementById('fProc').value;
-            const list=DEFECTS.filter(x=>(!fp||x.proc===fp)&&inRange(x.date));
-            document.getElementById('kCnt').textContent=list.length;
-            document.getElementById('kQty').textContent=list.reduce((a,x)=>a+x.qty,0);
-            const ps={}; list.forEach(x=>ps[x.proc]=1); document.getElementById('kProc').textContent=Object.keys(ps).length;
-            const el=document.getElementById('list');
-            if(!list.length){ el.innerHTML='<div class="empty">조회된 부적합이 없습니다.</div>'; return; }
-            el.innerHTML=list.map(function(x){
-                const thumb = x.photos.length ? '<img class="dthumb" src="'+x.photos[0]+'" data-view="'+x.photos[0]+'">' : '';
-                return '<div class="drow"><div class="dl">'
-                    + '<div class="r1"><span class="proc">'+procName(x.proc)+'</span><span class="dtype">'+x.type+'</span>'
-                    +   '<span class="dmeta">'+x.date+' · '+x.worker+'</span></div>'
-                    + '<div><span class="ditem">'+x.mat.name+'</span> <span class="dcode">'+x.mat.code+'</span></div>'
-                    + (x.note?'<div class="dmeta">'+x.note+'</div>':'')
-                    + '</div>'
-                    + '<div class="dqty">'+x.qty+'<small> 개</small></div>'
-                    + thumb
-                    + '<button class="ddel" data-del="'+x.id+'">✕</button></div>';
-            }).join('');
-        }
-        document.getElementById('list').addEventListener('click', function(e){
-            const v=e.target.closest('[data-view]'); if(v){ imgView(v.dataset.view); return; }
-            const d=e.target.closest('[data-del]'); if(d){ if(confirm('이 부적합 기록을 삭제할까요?')){ DEFECTS=DEFECTS.filter(x=>x.id!==+d.dataset.del); render(); } }
-        });
-        document.getElementById('fProc').addEventListener('change', render);
-        document.getElementById('fFrom').addEventListener('change', render);
-        document.getElementById('fTo').addEventListener('change', render);
-
-        function showMask(id){ document.getElementById(id).classList.add('show'); }
-        function hideMask(id){ document.getElementById(id).classList.remove('show'); }
-        document.querySelectorAll('.mask').forEach(m=>m.addEventListener('click',e=>{ if(e.target===m||e.target.closest('[data-close]')) m.classList.remove('show'); }));
-
-        let regProc=null, regMat=null, regType=null, regQty=1, regPhotos=[];
-        function renderRegProc(){
-            document.getElementById('regProc').innerHTML = PROCS.map(p=>'<button class="opt proc'+(regProc===p.k?' sel':'')+'" data-rp="'+p.k+'">'+p.n+'</button>').join('');
-        }
-        function renderRegType(){
-            const p=PROCS.find(x=>x.k===regProc);
-            document.getElementById('regType').innerHTML = p ? p.types.map(t=>'<button class="opt'+(regType===t?' sel':'')+'" data-rt="'+t+'">'+t+'</button>').join('') : '<span style="color:var(--ink-2);font-weight:700">공정을 먼저 선택하세요</span>';
-            document.getElementById('etcWrap').style.display = (regType==='기타')?'':'none';
-        }
-        function updateMatLabel(){
-            document.getElementById('matPickLabel').textContent = regMat ? (regMat.name+' · '+regMat.code) : '자재 선택';
-        }
-        function openReg(){
-            regProc=null; regMat=null; regType=null; regQty=1; regPhotos=[];
-            document.getElementById('mDate').value=new Date().toISOString().slice(0,10);
-            document.getElementById('mWorker').selectedIndex=0;
-            document.getElementById('mNote').value=''; document.getElementById('mEtc').value='';
-            document.getElementById('qVal').textContent='1';
-            renderRegProc(); renderRegType(); updateMatLabel(); renderPhotos();
-            showMask('regMask');
-        }
-        document.getElementById('regProc').addEventListener('click', function(e){
-            const b=e.target.closest('[data-rp]'); if(!b)return;
-            regProc=b.dataset.rp; regMat=null; regType=null;
-            renderRegProc(); renderRegType(); updateMatLabel();
-        });
-        document.getElementById('regType').addEventListener('click', function(e){
-            const b=e.target.closest('[data-rt]'); if(!b)return; regType=b.dataset.rt; renderRegType();
-        });
-        document.getElementById('qMinus').addEventListener('click', ()=>{ regQty=Math.max(1,regQty-1); document.getElementById('qVal').textContent=regQty; });
-        document.getElementById('qPlus').addEventListener('click', ()=>{ regQty++; document.getElementById('qVal').textContent=regQty; });
-
-        document.getElementById('matPick').addEventListener('click', function(){
-            if(!regProc){ alert('공정을 먼저 선택하세요'); return; }
-            document.getElementById('matSearch').value=''; renderMatList(''); showMask('matMask');
-        });
-        function renderMatList(q){
-            const p=PROCS.find(x=>x.k===regProc); const mats=(p?p.mats:[]).filter(m=>!q||(m.name+m.code).toLowerCase().includes(q.toLowerCase()));
-            document.getElementById('matTitle').textContent=(p?p.n:'')+' · 자재 선택';
-            document.getElementById('matList').innerHTML = mats.length ? mats.map(m=>
-                '<div class="prow'+(regMat&&regMat.code===m.code?' sel':'')+'" data-mc="'+m.code+'"><div class="pid"><div class="pnm">'+m.name+'</div><div class="pcode">'+m.code+'</div></div><div class="pchk">'+(regMat&&regMat.code===m.code?'✓':'＋')+'</div></div>'
-            ).join('') : '<div style="color:var(--ink-2);font-weight:700;padding:16px 2px">자재가 없습니다.</div>';
-        }
-        document.getElementById('matSearch').addEventListener('input', e=>renderMatList(e.target.value));
-        document.getElementById('matList').addEventListener('click', function(e){
-            const r=e.target.closest('[data-mc]'); if(!r)return;
-            const p=PROCS.find(x=>x.k===regProc); regMat=p.mats.find(m=>m.code===r.dataset.mc);
-            hideMask('matMask'); updateMatLabel();
-        });
-
-        function renderPhotos(){
-            document.getElementById('mPhotos').innerHTML = regPhotos.map((src,i)=>'<div class="photo"><img src="'+src+'" data-pv="'+i+'"><button class="rm" data-pr="'+i+'">×</button></div>').join('')
-                + '<div class="addphoto" id="addPhoto">＋</div>';
-        }
-        document.getElementById('mPhotos').addEventListener('click', function(e){
-            if(e.target.id==='addPhoto'||e.target.closest('#addPhoto')){ document.getElementById('mFile').click(); return; }
-            const pr=e.target.closest('[data-pr]'); if(pr){ regPhotos.splice(+pr.dataset.pr,1); renderPhotos(); return; }
-            const pv=e.target.closest('[data-pv]'); if(pv){ imgView(regPhotos[+pv.dataset.pv]); }
-        });
-        document.getElementById('mFile').addEventListener('change', function(e){
-            Array.prototype.forEach.call(e.target.files, f=>{ const r=new FileReader(); r.onload=()=>{ regPhotos.push(r.result); renderPhotos(); }; r.readAsDataURL(f); });
-            e.target.value='';
-        });
-
-        document.getElementById('btnSave').addEventListener('click', function(){
-            if(!regProc){ alert('공정을 선택하세요'); return; }
-            if(!regMat){ alert('불량 자재를 선택하세요'); return; }
-            let type=regType;
-            if(!type){ alert('불량 유형을 선택하세요'); return; }
-            if(type==='기타'){ const etc=document.getElementById('mEtc').value.trim(); if(!etc){ alert('기타 유형을 입력하세요'); return; } type=etc; }
-            DEFECTS.unshift({ id:_seq++, date:document.getElementById('mDate').value, proc:regProc, mat:regMat, type:type, qty:regQty,
-                worker:document.getElementById('mWorker').value, note:document.getElementById('mNote').value.trim(), photos:regPhotos.slice() });
-            hideMask('regMask'); render();
-        });
-        document.getElementById('btnAdd').addEventListener('click', openReg);
-
-        function imgView(src){ document.getElementById('imgViewImg').src=src; document.getElementById('imgView').classList.add('on'); }
-        document.getElementById('imgView').addEventListener('click', function(){ this.classList.remove('on'); });
-
-        document.addEventListener('DOMContentLoaded', function(){
-            const t=new Date(), f=new Date(); f.setDate(f.getDate()-14);
-            const fmt=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-            document.getElementById('fFrom').value=fmt(f); document.getElementById('fTo').value=fmt(t);
-            render();
-        });
     </script>
 </th:block>
 </html>

@@ -814,6 +814,14 @@ public class McellAssemblyService {
                      WHERE "SourceTableName"='mcell_unit' AND "LotNumber"=:lot
                     """, lp);
         }
+        // ★ 롤백 후 작지 롤업 재실행 —
+        //   안 하면 분해했는데도 작지가 finished 로 남아 실적에 계속 뜬다.
+        Map<String, Object> jrRow = this.sqlRunner.getRow(
+                "SELECT \"JobResponse_id\" AS jr_id FROM mat_produce WHERE id = :mpId", p);
+        if (jrRow != null && jrRow.get("jr_id") != null) {
+            this.productionCreateService.recalcJobRes(
+                    ((Number) jrRow.get("jr_id")).intValue(), user);
+        }
         return r;
     }
 

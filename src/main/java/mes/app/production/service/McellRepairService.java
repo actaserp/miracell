@@ -1491,6 +1491,13 @@ public class McellRepairService {
                     DELETE FROM mat_inout WHERE "SourceTableName"='mcell_unit' AND "LotNumber"=:lot
                     """, new MapSqlParameterSource().addValue("lot", lotNumber));
         }
+        // ★ 롤백 후 작지 롤업 재실행 (수정 3 과 같은 이유)
+        Map<String, Object> jrRow = this.sqlRunner.getRow(
+                "SELECT \"JobResponse_id\" AS jr_id FROM mat_produce WHERE id = :mpId", p);
+        if (jrRow != null && jrRow.get("jr_id") != null) {
+            this.productionCreateService.recalcJobRes(
+                    ((Number) jrRow.get("jr_id")).intValue(), user);
+        }
         return r;
     }
 
