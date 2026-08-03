@@ -505,7 +505,12 @@ public class McellAssemblyService {
         // 유닛 로트 발번 (첫 스텝 시작 시)
         Map<String, Object> unit = getUnit(unitId);
         if (unit.get("lot_number") == null) {
+            // 두 사람이 동시에 시작하면 같은 번호를 받을 수 있다.
+            // 이미 쓰인 번호면 다음 번호로 밀어 최대 20회까지 비켜 간다.
             String lot = makeLot(asInt(unit.get("mat_id")));
+            for (int i = 0; i < 20 && lotTaken(lot); i++) {
+                lot = makeLot(asInt(unit.get("mat_id")));
+            }
             MapSqlParameterSource up = new MapSqlParameterSource()
                     .addValue("unitId", unitId).addValue("lot", lot).addValue("userId", user.getId());
             this.sqlRunner.execute("""
@@ -729,6 +734,10 @@ public class McellAssemblyService {
                        "_modified"=now(), "_modifier_id"=:userId
                  WHERE id=:stepId
                 """, p);
+
+        // 이 유닛에서 진행 중인 것이 하나도 안 남았으면 발번한 로트를 되돌린다.
+        // 안 하면 그 번호가 영구히 비고 다음 유닛이 -002 부터 시작한다.
+        releaseUnitLotIfEmpty(asInt(st.get("unit_id")), user);
         return r;
     }
 
@@ -936,6 +945,13 @@ public class McellAssemblyService {
      *   WIP-MC20022N → MC20022N-260728-001   (유닛 = 검사·포장이 물고 가는 번호)
      *   WIP-MA2007   → MA2007-260728-001     (모듈 = 재고 투입 대상)
      * 외부 라벨(M2FJ109393)과는 무관한 사내 번호. 포장에서 외부 로트와 매칭한다.
+     *
+     * ★ 일련번호는 mat_lot 만 봐서는 안 된다.
+     *   유닛 로트는 "발번 ≠ 재고 생성" 이라 첫 스텝 시작 시 mcell_unit 에만 쓰이고
+     *   mat_lot 행은 스텝을 완료해야 생긴다. mat_lot 만 세면 같은 날 두 대를 시작할 때
+     *   둘 다 -001 을 받는다. 실제로 그 사고가 났다.
+     *   → 번호를 들고 있을 수 있는 세 곳(mat_lot / mcell_unit / mcell_unit_step)을
+     *     모두 훑어 최댓값을 구한다.
      */
     private String makeLot(Integer matId) {
         MapSqlParameterSource p = new MapSqlParameterSource().addValue("matId", matId);
@@ -947,11 +963,72 @@ public class McellAssemblyService {
 
         MapSqlParameterSource lp = new MapSqlParameterSource().addValue("head", head + "%");
         Map<String, Object> row = this.sqlRunner.getRow("""
-                SELECT COALESCE(MAX(CAST(RIGHT("LotNumber",3) AS integer)),0) AS mx
-                  FROM mat_lot WHERE "LotNumber" LIKE :head AND RIGHT("LotNumber",3) ~ '^[0-9]{3}$'
+                SELECT COALESCE(MAX(seq), 0) AS mx
+                  FROM (
+                        SELECT CAST(RIGHT("LotNumber",3) AS integer) AS seq
+                          FROM mat_lot
+                         WHERE "LotNumber" LIKE :head AND RIGHT("LotNumber",3) ~ '^[0-9]{3}$'
+                        UNION ALL
+                        SELECT CAST(RIGHT("LotNumber",3) AS integer)
+                          FROM mcell_unit
+                         WHERE "LotNumber" LIKE :head AND RIGHT("LotNumber",3) ~ '^[0-9]{3}$'
+                        UNION ALL
+                        SELECT CAST(RIGHT("LotNumber",3) AS integer)
+                          FROM mcell_unit_step
+                         WHERE "LotNumber" LIKE :head AND RIGHT("LotNumber",3) ~ '^[0-9]{3}$'
+                  ) t
                 """, lp);
         int next = (row == null || asInt(row.get("mx")) == null) ? 1 : asInt(row.get("mx")) + 1;
         return head + String.format("%03d", next);
+    }
+
+    /**
+     * 유닛 로트 회수 — 아무 실적도 없는 상태로 되돌아갔을 때만.
+     *
+     * ★ 왜 조건을 다는가
+     *   분해(재조립)는 「로트번호 유지」가 원칙이다. 같은 물건을 다시 조립하는 것이라
+     *   번호가 바뀌면 검사·포장 이력이 끊긴다. 그래서 롤백 일반에는 손대지 않는다.
+     *
+     *   다만 「작업 삭제」로 스텝이 전부 wait 으로 돌아가고 실적(mat_produce)도 없는
+     *   경우는 얘기가 다르다. 그건 시작 자체를 무른 것이고, 번호만 남으면
+     *   그 번호가 영구히 비어 버린다(다음 유닛은 -002 를 받는다).
+     *   → 실적이 하나도 없고 모든 스텝이 wait 일 때만 비운다.
+     */
+    /** 이미 누군가 쓰고 있는 로트번호인지 (동시 시작 대비) */
+    private boolean lotTaken(String lot) {
+        MapSqlParameterSource p = new MapSqlParameterSource().addValue("lot", lot);
+        Map<String, Object> row = this.sqlRunner.getRow("""
+                SELECT 1 AS x FROM mat_lot        WHERE "LotNumber" = :lot
+                 UNION ALL
+                SELECT 1     FROM mcell_unit      WHERE "LotNumber" = :lot
+                 UNION ALL
+                SELECT 1     FROM mcell_unit_step WHERE "LotNumber" = :lot
+                 LIMIT 1
+                """, p);
+        return row != null;
+    }
+
+    private void releaseUnitLotIfEmpty(Integer unitId, User user) {
+        MapSqlParameterSource p = new MapSqlParameterSource().addValue("unitId", unitId);
+        Map<String, Object> row = this.sqlRunner.getRow("""
+                SELECT COUNT(*) FILTER (WHERE st."State" <> 'wait')        AS busy
+                     , COUNT(*) FILTER (WHERE st."MatProduce_id" IS NOT NULL) AS produced
+                  FROM mcell_unit_step st
+                 WHERE st."McellUnit_id" = :unitId
+                """, p);
+        if (row == null) return;
+        Integer busy = asInt(row.get("busy"));
+        Integer produced = asInt(row.get("produced"));
+        if ((busy != null && busy > 0) || (produced != null && produced > 0)) return;
+
+        MapSqlParameterSource up = new MapSqlParameterSource()
+                .addValue("unitId", unitId).addValue("userId", user.getId());
+        this.sqlRunner.execute("""
+                UPDATE mcell_unit
+                   SET "LotNumber" = NULL, "State" = 'wait', "StartTime" = NULL,
+                       "_modified" = now(), "_modifier_id" = :userId
+                 WHERE id = :unitId
+                """, up);
     }
 
     private static Integer asInt(Object o) {
