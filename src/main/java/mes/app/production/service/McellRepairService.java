@@ -1289,13 +1289,15 @@ public class McellRepairService {
                 minus.add(m);
             }
         }
-        if (plus.isEmpty() && minus.isEmpty()) {
-            r.success = false;
-            r.message = "추가하거나 회수한 자재가 없습니다. 무엇을 손봤는지 담아 주세요.";
-            return r;
-        }
+        // ★ 자재 없이 끝내는 재작업을 막지 않는다.
+        //   검사 불합격이 늘 부품 교체로 이어지는 건 아니다 —
+        //   조립 상태만 바로잡거나, 체결을 다시 하거나, 배선을 정리해서
+        //   통과하는 경우가 실제로 많다. 그때는 재고 인·아웃이 아예 없다.
+        //   여기서 막으면 작업자는 쓰지도 않은 자재를 담아 재고를 틀리게 만든다.
+        //   (1차 실적·소비는 그대로 남아 있으므로 이력이 비는 것도 아니다)
+        boolean noMat = plus.isEmpty() && minus.isEmpty();
 
-        // 1) 추가 투입 → 기존 차수에 소비 더하기
+        // 1) 추가 투입 → 기존 차수에 소비 더하기 (없으면 건너뛴다)
         if (!plus.isEmpty()) {
             AjaxResult add = this.productionCreateService.consumeAdditional(
                     mpId, plus, STORE_PROD, user, spjangcd);
@@ -1349,7 +1351,9 @@ public class McellRepairService {
                 .addValue("et", (endTime == null || endTime.isBlank()) ? null : endTime));
         touchRepairState(asInt(u.get("repair_id")), user);
 
-        r.message = "재작업 반영 · 검사로 다시 전달했습니다. 로트 " + resultLot + " 유지";
+        r.message = noMat
+                ? ("재작업 완료 · 검사로 다시 전달했습니다. 자재 변동 없음 · 로트 " + resultLot + " 유지")
+                : ("재작업 반영 · 검사로 다시 전달했습니다. 로트 " + resultLot + " 유지");
         r.data = Map.of("mat_produce_id", mpId, "lot_number", resultLot,
                 "plus_cnt", plus.size(), "minus_cnt", minus.size());
         return r;

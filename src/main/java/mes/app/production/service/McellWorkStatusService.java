@@ -135,6 +135,65 @@ public class McellWorkStatusService {
         return nz(this.sqlRunner.getRows(sql, p));
     }
 
+    /**
+     * 조립 스텝 — 카드/행 1건 = 모듈 1개.
+     *
+     * ★ 일보는 유닛이 아니라 스텝으로 본다.
+     *   한 대가 BOM 계층 스텝 13개로 이루어지고 며칠에 걸쳐 조립된다.
+     *   유닛 단위로만 적으면 그날 무슨 모듈을 만들었는지가 통째로 사라지고,
+     *   완성되지 않은 날은 아무 실적도 없는 것처럼 보인다.
+     *   → "그날 끝낸 모듈"을 한 줄씩 적는다. 최상위(Depth=0)가 끝난 날이 곧 완성일.
+     *
+     * 기준일은 스텝 실적(mat_produce)의 종료일.
+     */
+    public List<Map<String, Object>> getAssemblySteps(String dateFrom, String dateTo,
+                                                      Integer actorPk, String spjangcd) {
+        MapSqlParameterSource p = period(dateFrom, dateTo, actorPk, spjangcd);
+
+        String sql = """
+                SELECT us.id                          AS pk
+                     , us."Depth"                     AS depth
+                     , us."State"                     AS state
+                     , us."Source"                    AS source
+                     , COALESCE(us."ReworkYN",'N')    AS rework_yn
+                     , us."LotNumber"                 AS step_lot
+                     , sm."Code"                      AS mat_code
+                     , sm."Name"                      AS mat_name
+                     , pm."Name"                      AS parent_name
+                     , mu.id                          AS unit_pk
+                     , mu."UnitNo"                    AS unit_no
+                     , mu."LotNumber"                 AS lot_number
+                     , mu."State"                     AS unit_state
+                     , CASE WHEN mu."McellRepair_id" IS NOT NULL THEN 'Y' ELSE 'N' END AS is_repair
+                     , jr."WorkOrderNumber"           AS wo
+                     , m."Name"                       AS unit_mat_name
+                     , pe."Name"                      AS worker
+                     , e."Name"                       AS equipment
+                     , COALESCE(mp."GoodQty", 0)      AS good_qty
+                     , to_char(COALESCE(mp."EndTime", mp."StartTime"), 'yyyy-mm-dd') AS prod_date
+                     , to_char(mp."StartTime", 'yyyy-mm-dd hh24:mi') AS start_time
+                     , to_char(mp."EndTime",   'yyyy-mm-dd hh24:mi') AS end_time
+                     , to_char(mp."StartTime", 'mm-dd hh24:mi')      AS start_short
+                     , to_char(mp."EndTime",   'mm-dd hh24:mi')      AS end_short
+                  FROM mcell_unit_step us
+                  JOIN mat_produce mp ON mp.id = us."MatProduce_id"
+                  JOIN mcell_unit  mu ON mu.id = us."McellUnit_id"
+                  LEFT JOIN material sm ON sm.id = us."Material_id"
+                  LEFT JOIN material pm ON pm.id = us."ParentMaterial_id"
+                  LEFT JOIN job_res  jr ON jr.id = mu."JobResponse_id"
+                  LEFT JOIN material m  ON m.id  = jr."Material_id"
+                  LEFT JOIN person   pe ON pe.id = COALESCE(us."Actor_id", mu."Actor_id")
+                  LEFT JOIN equ      e  ON e.id  = COALESCE(us."Equipment_id", mu."Equipment_id")
+                 WHERE COALESCE(mp."EndTime", mp."StartTime") BETWEEN :date_from AND :date_to
+                   AND COALESCE(mp._status,'a') = 'a'
+                   AND (CAST(:actor_pk AS integer) IS NULL
+                        OR COALESCE(us."Actor_id", mu."Actor_id") = CAST(:actor_pk AS integer))
+                 ORDER BY COALESCE(mp."EndTime", mp."StartTime"), mu."UnitNo", us."Depth" DESC
+                """;
+
+        return nz(this.sqlRunner.getRows(sql, p));
+    }
+
     // =================================================================
     // mc02 검사 — 카드 1장 = 검사 회차 1건
     // =================================================================

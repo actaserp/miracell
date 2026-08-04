@@ -209,6 +209,7 @@
         let WS = {assembly:[], inspect:[], repair:[], pack:[], defect:[]};
         let WS_ONLY = null;
         let WS_TRIES = [];   // 모달에서 연 검사 회차 목록
+        let WS_STEPS = {};   // 유닛별 그 기간에 끝낸 모듈 스텝
 
         function wsReady(){ return (typeof AjaxUtil !== 'undefined') && AjaxUtil && AjaxUtil.getSyncData; }
         function wsData(res){
@@ -245,6 +246,11 @@
                 {date_from:df, date_to:dt, actor_pk:actorPk, spjangcd:WS_SPJANGCD}));
             if(!d){ fail('조회에 실패했습니다.'); return; }
 
+            /* 그날 끝낸 모듈 스텝 — 카드에 "무엇을 만들었는지"를 적기 위해 */
+            WS_STEPS = {};
+            (d.asm_steps || []).forEach(function(x){
+                (WS_STEPS[x.unit_pk] = WS_STEPS[x.unit_pk] || []).push(x);
+            });
             WS = {
                 assembly: d.assembly || [], inspect: d.inspect || [],
                 repair:   d.repair   || [], pack:    d.pack    || [],
@@ -657,21 +663,20 @@
         function wsClose(){ document.getElementById('ov').classList.remove('on'); }
 
         // =====================================================
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function(){
             const t = new Date(), f = new Date();
             f.setDate(f.getDate() - 7);
-            const fmt = function (d) {
-                return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+            const fmt = function(d){
+                return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
             };
             document.getElementById('date_from').value = fmt(f);
-            document.getElementById('date_to').value = fmt(t);
+            document.getElementById('date_to').value   = fmt(t);
 
             /* 공정 콤보는 고정 4개 — DB 조회가 필요 없다 */
             const cbo = document.getElementById('cboProc');
-            WS_FLOW.forEach(function (x) {
+            WS_FLOW.forEach(function(x){
                 const o = document.createElement('option');
-                o.value = x.key;
-                o.textContent = x.name;
+                o.value = x.key; o.textContent = x.name;
                 cbo.appendChild(o);
             });
 

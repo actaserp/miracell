@@ -46,6 +46,8 @@ public class McellWorkStatusController {
 
         Map<String, Object> data = new HashMap<>();
         data.put("assembly", this.svc.getAssemblyUnits(dateFrom, dateTo, actorPk, spjangcd));
+        // 일보용 — 그날 끝낸 모듈 스텝. 유닛만 세면 며칠 걸리는 조립이 안 보인다
+        data.put("asm_steps", this.svc.getAssemblySteps(dateFrom, dateTo, actorPk, spjangcd));
         data.put("inspect",  this.svc.getInspectUnits(dateFrom, dateTo, actorPk, spjangcd));
         data.put("repair",   this.svc.getRepairUnits(dateFrom, dateTo, actorPk, spjangcd));
         data.put("pack",     this.svc.getPackUnits(dateFrom, dateTo, actorPk, spjangcd));
