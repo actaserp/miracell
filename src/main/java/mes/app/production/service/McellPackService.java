@@ -607,7 +607,7 @@ public class McellPackService {
 	 * 박스 1개 포장 = 유닛 1대.
 	 *
 	 *   (작지 없으면) 작지 자동 발행
-	 *   startProduction    mat_produce 생성 (재고 안 움직임)
+	 *   createPackProduce  mat_produce 생성 (재고 안 움직임) ★전용 — startProduction 미사용
 	 *   consumeLot         검사완료창고의 유닛 로트 1대 소비   ← 패치5, 지정 로트
 	 *   finishProduction   포장자재 FIFO 소비 + 완제품 로트 제품창고(4) 입고
 	 *   mcell_unit         pass → packed
@@ -719,9 +719,9 @@ public class McellPackService {
 		req.lotNumber    = lotNumber;
 		req.spjangcd     = spjangcd;
 
-		AjaxResult st = this.productionCreateService.startProduction(req, user);
-		if (!st.success) return st;
-		Integer mpId = asInt(((Map<?, ?>) st.data).get("mat_produce_id"));
+		// ★ startProduction 을 쓰지 않는다 (§포장 차수는 직접 만든다)
+		Integer mpId = createPackProduce(jrId, actorId, equipmentId, lotNumber,
+			startTime, spjangcd, user);
 
 		// 유닛 로트 1대 지정 소비 (FIFO 아님)
 		AjaxResult cons = this.productionCreateService.consumeLot(mpId, matLotId, 1f, user, spjangcd);
@@ -762,6 +762,89 @@ public class McellPackService {
 			"unit_id", unitId, "job_res_id", jrId);
 		r.message = "포장 완료 · 제품창고 입고";
 		return r;
+	}
+
+	/**
+	 * 포장 차수 1건 생성 — `ProductionCreateService.startProduction` 을 쓰지 않는다.
+	 *
+	 * ★ 왜 떼어냈나 (2026-08)
+	 *   1) 산출창고가 틀렸다. startProduction 은 `req.workCenterId` 를 무시하고
+	 *      **작지의 워크센터**를 쓴다. 포장 작지가 조립 워크센터(52)로 발행돼 있어
+	 *      산출창고도 그쪽(생산 17)을 따라갔고, 완제품이 제품창고(4)가 아니라
+	 *      생산창고에 쌓였다. 뒤에서 UPDATE 로 되돌리고 있었지만 그건
+	 *      '남의 로직을 부르고 결과를 덮어쓰는' 모양이라 언제든 다시 어긋난다.
+	 *   2) 차수 번호가 계속 늘었다. LotIndex 를 `findByJobResponseId().size() + 1` 로
+	 *      매기는데 `_status='d'`(취소분)까지 세기 때문이다. 취소·재포장을 반복하면
+	 *      1대만 포장해도 「5차수」가 된다.
+	 *   3) 나머지 기능이 포장에 해당사항이 없다. 작지 자동생성(포장은 작지 필수),
+	 *      조원 저장(2공장은 1인 작업), 산출창고 판정(포장은 항상 4).
+	 *
+	 * ★ 소비·입고는 그대로 공용 로직을 쓴다.
+	 *   consumeLot / finishProduction 은 `mat_lot_cons`·`mat_consu`·`mat_inout`
+	 *   3종 세트를 한 곳에서만 쓰게 해 주는 자리다(2공장 §6). 여기까지 복제하면
+	 *   InOut 과 수량 컬럼 짝을 틀릴 자리가 하나 더 늘어난다.
+	 *
+	 * @return 생성된 mat_produce.id
+	 */
+	private Integer createPackProduce(Integer jrId, Integer actorId, Integer equipmentId,
+																		String lotNumber, String startTime,
+																		String spjangcd, User user) {
+		MapSqlParameterSource p = new MapSqlParameterSource()
+																.addValue("jrId", jrId)
+																.addValue("wc", WC_PACK)
+																.addValue("store", STORE_PRODUCT)
+																.addValue("lot", lotNumber)
+																.addValue("actorId", actorId)
+																.addValue("equipId", equipmentId)
+																.addValue("st", (startTime == null || startTime.isBlank()) ? null : startTime)
+																.addValue("spjangcd", spjangcd)
+																.addValue("userId", user.getId());
+
+		Map<String, Object> ins = this.sqlRunner.getRow("""
+                INSERT INTO mat_produce
+                       ("JobResponse_id","Material_id","Process_id","ProcessOrder","LotIndex",
+                        "LotNumber","LastProcessYN","StoreHouse_id","ProductionDate","ShiftCode",
+                        "WorkCenter_id","Equipment_id","Actor_id",
+                        "InputQty","GoodQty","DefectQty","LossQty","ScrapQty",
+                        "State","StartTime","Description",
+                        _status,_created,_creater_id,spjangcd)
+                SELECT jr.id
+                     , jr."Material_id"
+                     , wc."Process_id"
+                     , COALESCE(jr."WorkIndex", 1)
+                     -- ★ MAX+1 이지 COUNT+1 이 아니다.
+                     --   취소분(_status='d')을 세면 번호가 계속 늘고,
+                     --   하드 삭제가 섞이면 COUNT 방식은 번호가 겹친다.
+                     , COALESCE((SELECT MAX(mp2."LotIndex") FROM mat_produce mp2
+                                  WHERE mp2."JobResponse_id" = jr.id
+                                    AND COALESCE(mp2._status,'a') = 'a'), 0) + 1
+                     , :lot
+                     , 'Y'                                  -- 포장이 마지막 공정
+                     , CAST(:store AS integer)              -- 제품창고(4) 고정
+                     , jr."ProductionDate"
+                     , jr."ShiftCode"
+                     , CAST(:wc AS integer)                 -- 포장 워크센터(56) 고정
+                     , CAST(:equipId AS integer)
+                     , CAST(:actorId AS integer)
+                     , 0, 1, 0, 0, 0                        -- 1대 = 1박스
+                     , 'working'
+                     , COALESCE(CAST(:st AS timestamptz), now())
+                     , '포장'
+                     , 'a', now(), CAST(:userId AS integer), CAST(:spjangcd AS varchar)
+                  FROM job_res jr
+                  JOIN work_center wc ON wc.id = CAST(:wc AS integer)
+                 WHERE jr.id = :jrId
+                RETURNING id
+                """, p);
+		if (ins == null) throw new IllegalStateException("포장 차수를 생성하지 못했습니다.");
+
+		// 작지 ordered → working (「작업 추가」를 건너뛰고 바로 포장한 경우 대비)
+		this.sqlRunner.execute("""
+                UPDATE job_res SET "State"='working', "_modified"=now(), "_modifier_id"=:userId
+                 WHERE id = :jrId AND COALESCE("State",'ordered') = 'ordered'
+                """, p);
+
+		return asInt(ins.get("id"));
 	}
 
 	/**
