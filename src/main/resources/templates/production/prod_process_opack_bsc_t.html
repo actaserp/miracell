@@ -1,21 +1,33 @@
 <html layout:decorate="~{layout_page}">
 
 <!--
-  1공장 포장공정 (bsc05) — PK → CK생산 → 인박스 → 아웃박스
+  1공장 포장공정 (bsc05) — v3.1
 
   A화면  한 목록에 두 종류가 섞인다
          · 작지 카드      job_res 1건 → 누르면 세션 목록(B)
          · 포장대기 카드   멸균창고(18) PK 로트 1건 → 골라서 「선택 포장 작업 생성」
-                          (작지가 자동발행되고 바로 B로 들어간다)
   B화면  세션 목록 (한 작지를 여러 작업자가 나눠 포장. 세션 1건 = 작업자 1명)
-  C화면  ① PK·수량·국가 → ② CK 생산 → ③ 인박스(완제) → ④ 아웃박스(카톤)
+  C화면  ① PK → ② 인박스·CK → ③ 라벨 스캔 → ④ 아웃박스
 
-  ═══ 공정 순서 (v2) ═══
-  ① PK 담기      PK 로트를 서버에 저장. 재고는 안 움직인다. BOM 품목이 자동 선택된다
-  ② 인박스       PK + IN BOX 소비 · UDI 라벨 2회 스캔        ★첫 재고 이동
-  ③ CK 생산/투입  CK 소비 → 완제품 로트                      ★완제 시점
-                  국가별로 「새로 생산」 또는 「자체재고 투입」
-  ④ 아웃박스      OUT BOX 소비 + 세션 완료
+  ═══ v2 → v3 ═══
+  ① PK 담기      작지 BOM 의 PK 품목을 서버가 멸균창고에서 FIFO 로 자동 선택해
+                 pack_alloc_item(ItemKind='pk') 에 저장한다. 화면에서 변경 가능.
+                 ★ 화면 메모리가 없다 — 새로고침·다른 태블릿에도 그대로 남는다
+  ② 인박스 · CK  한 화면에서 배분·CK 자재를 정하고 한 번에 반영한다  ★완제 시점
+                 PK + IN BOX + CK 소비 → 완제품 로트(제품창고 4)
+                 배분·자재는 바꿀 때마다 서버에 계획(plan)으로 자동 저장된다
+  ③ 라벨 스캔    완제품이 나온 뒤 CK·PK / 인박스 라벨 2회.
+                 스캔 로트가 완제품 mat_lot."MakerLotNo" 로 붙는다
+  ④ 아웃박스     OUT BOX 소비 + 세션 완료
+
+  ═══ v3 → v3.1 (CK 자체재고) ═══
+  · CK 자체재고 세션(jobKind='ckstock')은 **국가를 지정하지 않는다.**
+    배분 줄 하나(country = NO_CTRY '-')에 수량만 담아 CK 를 만들고 생산창고(17)에 남긴다.
+    pack_alloc."CountryCode" 가 NOT NULL 이라 표식 '-' 를 쓴다 —
+    country."Code" 형식(^[A-Z0-9]{2,6}$)을 통과 못 하므로 실제 국가와 겹치지 않는다.
+  · CK 를 만드는 자리에서 CK 재고를 투입할 수는 없다 → 조달 방식 선택을 숨기고
+    mode 를 항상 'produce' 로 고정한다(서버 packFinish 도 동일하게 강제).
+  · 「생산완료 취소」가 /pack_work_cancel 로 열렸다 (서버 packWorkCancel 의 ckstock 분기).
 
   ═══ 단계(phase)는 서버가 재고 흔적에서 파생한다 ═══
   pack_session 이 없다. session_detail 이 내려주는 phase 를 그대로 믿는다.
@@ -71,6 +83,7 @@
       .srcbadge.auto{background:#EEE7FA;color:#6B3FA0}
       .kindbadge{padding:3px 7px;border-radius:7px;background:var(--teal-bg);color:var(--teal-d);font-size:10.5px;font-weight:800}
       .lotbadge{padding:3px 7px;border-radius:7px;background:var(--amber-bg);color:var(--amber);font-size:10.5px;font-weight:800}
+      .autobadge{padding:3px 7px;border-radius:7px;background:var(--green-bg);color:var(--green);font-size:10.5px;font-weight:800}
       .wo .name{font-size:16px;font-weight:800;letter-spacing:-.02em;line-height:1.3;margin:1px 0 9px}
       .wo .meta{display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap}
       .wo .meta .blk{display:flex;flex-direction:column;gap:1px}
@@ -134,6 +147,8 @@
       .infopill.tap b{color:var(--teal-d);text-decoration:underline dotted}
       .sstate{padding:8px 14px;border-radius:999px;font-weight:800;font-size:14px}
       .sstate.working{background:var(--teal-bg);color:var(--teal-d)}.sstate.done{background:var(--green-bg);color:var(--green)}
+      .savetag{font-size:12px;font-weight:800;color:var(--ink-2);padding:6px 10px;border-radius:999px;background:var(--surface-2)}
+      .savetag.on{background:var(--green-bg);color:var(--green)}
       .part{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;
           display:flex;align-items:center;gap:14px;box-shadow:var(--shadow);flex-wrap:wrap}
       .part.locked{opacity:.7}
@@ -302,7 +317,7 @@
       <!-- A. 큐 : 작지 + 포장대기 PK 로트를 한 목록에 -->
       <div class="screen" id="scA"><div class="wrap">
         <div class="qhead">
-          <h1>포장</h1><span class="cnt" id="qcnt"></span>
+          <h1>1공장 포장공정</h1><span class="cnt" id="qcnt"></span>
           <div class="qfilter" id="queueFilter" style="margin-left:auto">
             <button class="on" data-f="all">전체</button>
             <button data-f="wait">대기</button>
@@ -336,7 +351,7 @@
           <div id="sessList"></div>
         </div></div>
         <div class="actionbar">
-          <div class="actsum"><span class="l">한 작지를 여러 작업자가 나눠 작업</span></div>
+          <div class="actsum"><span class="l">한 작지를 여러 작업자가 나눠 작업 · PK 는 자동 배정됩니다</span></div>
           <button class="btn start" id="btnNewSess">＋ 작업 추가</button>
         </div>
       </div></div>
@@ -452,7 +467,8 @@
     <div class="ctry-note">
       · 코드는 CK 투입·배분 내역의 키라서 <b>등록 후 변경할 수 없습니다.</b> 바꾸려면 삭제 후 새로 등록하세요.<br/>
       · 이미 배분에 사용된 국가는 삭제되지 않습니다.<br/>
-      · 국기를 비워두면 2자리 영문 코드에서 자동 생성됩니다 (FR → 🇫🇷).
+      · 국기를 비워두면 2자리 영문 코드에서 자동 생성됩니다 (FR → 🇫🇷).<br/>
+      · <b>CK 자체재고 생산은 국가를 쓰지 않습니다</b> — 완제품 포장에서만 배분에 사용됩니다.
     </div>
     <div style="display:flex;gap:10px;margin-top:16px">
       <button class="btn ghost" id="ctryReset" style="flex:0 0 auto">새로고침</button>
@@ -533,32 +549,38 @@
    })();
 
    /* ═══════════════════════════════════════════════════════════════════════
-      1공장 포장공정 — PK → CK 생산 → 인박스 → 아웃박스
+      1공장 포장공정 v3.1 — ① PK → ② 인박스·CK → ③ 라벨 → ④ 아웃박스
 
-      ★ 서버에 저장되는 시점은 ②·③·④ 세 곳뿐이다.
-        ①(PK 로트 · 국가 배분)은 화면 메모리다 — 재고가 안 움직이는 구간이라
-        새로고침해도 잃을 게 없고, 되돌리기도 화면에서 끝난다.
-        ②CK생산이 PK로트 + 배분 + 투입자재를 한 번에 실어 보내고 거기서 처음 저장된다.
+      ★ 화면 메모리가 없다.
+        PK 는 세션을 만들 때 서버가 자동으로 잡아 저장하고,
+        국가 배분·CK 투입자재는 바꿀 때마다 /alloc_save 로 계획 저장된다.
+        그래서 새로고침해도, 다른 태블릿에서 열어도 같은 상태가 보인다.
 
       ★ 단계는 서버가 재고 흔적에서 파생해 내려준다(session_detail.phase).
         화면은 그걸 그대로 믿는다 — 로컬 전진이 없다.
+
+      ★ CK 자체재고 세션(jobKind='ckstock')은 국가를 쓰지 않는다.
+        배분 줄 하나(country=NO_CTRY)에 수량만 담는다.
       ═══════════════════════════════════════════════════════════════════════ */
 
    var PACK_API = '/api/production/pack';
    var WD = ['일','월','화','수','목','금','토'];
    var STLAB = {working:'작업중', wait:'대기', done:'완료'};
-   var PHLAB = {pk:'① PK', inbox:'② 인박스', ck:'③ CK', outbox:'④ 아웃박스', done:'완료'};
+   var PHLAB = {pk:'① PK', pack:'② 인박스·CK', label:'③ 라벨', outbox:'④ 아웃박스', done:'완료'};
    var SRCLAB = {order:'수주', stock:'자재재고', auto:'작지 없음'};
 
    var PACK_CTX = {}, WORKERS = [], EQUIPS = [], COUNTRIES = [], PRODUCTS = [];
    var WORKERS_LOADED = false, EQUIPS_LOADED = false, COUNTRIES_LOADED = false;
    var PK_WAIT = [];        // 포장 대기 = 멸균창고 PK 로트 (A화면 카드)
    var FILTERBAG_LOTS = []; // 필터백 멸균필
-   var CK_STOCK_LOTS = [];  // ③ CK 자체재고 투입 후보 (생산창고 17)
+   var CK_STOCK_LOTS = [];  // ② CK 자체재고 투입 후보 (생산창고 17)
    var ORDERS = [], ORDERS_LOADED = false, ORDERS_ERROR = null;
 
    var queueFilter = 'all';
    var curO = null, curS = null, curDetail = null;
+
+   /* CK 국가 펼침 상태 — 세션을 다시 읽어도 접히지 않게 mpId|국가 로 따로 든다 */
+   var ckOpenMap = {};
 
    function _sp() {
     try { if (typeof spjangcd !== 'undefined' && spjangcd) return spjangcd; } catch (e) {}
@@ -634,9 +656,7 @@
     return new Error('요청 실패' + (st ? ' (' + st + ')' : ''));
    }
 
-   /* ── 토스트 / 확인 ──
-      네이티브 alert/confirm 은 쓰지 않는다. uiConfirm 은 레이아웃 전역이 아니라
-      각 화면이 자기 파일에 정의한다. */
+   /* ── 토스트 / 확인 ── */
    var _tT;
    function flash(m) {
     var t = document.getElementById('toast');
@@ -649,7 +669,7 @@
     t.textContent = m;
     t.style.opacity = '1';
     clearTimeout(_tT);
-    _tT = setTimeout(function () { t.style.opacity = '0'; }, 2000);
+    _tT = setTimeout(function () { t.style.opacity = '0'; }, 2400);
    }
    function uiConfirm(msg, onOk, okLabel) {
     var m = document.getElementById('confirmMask');
@@ -728,7 +748,8 @@
    function loadProducts(cb) {
     apiGet(PACK_API + '/product_candidates', {spjangcd:_sp()}).then(function (r) {
      PRODUCTS = ((r && r.data) || []).map(function (m) {
-      return {matId:m.mat_id, code:m.mat_code, name:m.mat_name, unit:m.unit || '', ckMatId:m.ck_mat_id};
+      return {matId:m.mat_id, code:m.mat_code, name:m.mat_name, unit:m.unit || '',
+       ckMatId:m.ck_mat_id, pkMatId:m.pk_mat_id};
      });
      cb && cb();
     }).catch(function () { flash('완제품 목록을 불러오지 못했습니다'); cb && cb(); });
@@ -767,9 +788,8 @@
       kind 는 SterilizationYN 이 아니라 산출 공정으로 갈린다.
       PK 도 멸균을 타야 해서 SterilizationYN='Y' 가 되므로 그 컬럼으론 구분이 안 된다.
 
-      avail 은 서버가 「CK생산까지 마치고 인박스 전인 다른 세션이 잡아둔 수량」을
-      빼고 내려준다. ①은 화면 메모리라 서버가 모르므로, 같은 로트를 두 사람이
-      ①에서 동시에 고를 수는 있다 — 먼저 ②를 누른 쪽이 가져간다.
+      avail 은 서버가 「다른 세션이 담아두고 아직 ②를 안 한 예약분」을 빼고 내려준다.
+      v3 에서는 세션을 만들자마자 PK 가 잡히므로 예약이 곧바로 반영된다.
       ══════════════════════════════════════════════════════════════════════ */
    function normLot(r) {
     return {matLotId:r.mat_lot_id, lot:r.lot_no, udi:r.udi_lot || null,
@@ -798,10 +818,6 @@
 
    /* ══════════════════════════════════════════════════════════════════════
       A화면 — 작지 + 포장대기 PK 로트를 한 목록에
-
-      카드 두 종류가 같은 그리드에 섞인다.
-        · 작지 카드      누르면 세션 목록(B)
-        · 포장대기 카드   체크 → 「선택 포장 작업 생성」 → 작지 자동발행 후 B
       ══════════════════════════════════════════════════════════════════════ */
    var waitSel = {}, waitQty = {};
    function waitOf(id) { return PK_WAIT.filter(function (x) { return String(x.matLotId) === String(id); })[0]; }
@@ -869,7 +885,8 @@
 
    function orderCard(o) {
     var pct = orderPct(o);
-    var ph = o.phases ? o.phases.split(',').map(function (x) {
+    // CK 자체재고 카드는 ②만 쓰므로 단계 배지를 달지 않는다 (전부 '① PK' 로 보여 오해를 준다)
+    var ph = (o.jobKind !== 'ckstock' && o.phases) ? o.phases.split(',').map(function (x) {
      return '<span class="phbadge">' + (PHLAB[x] || x) + '</span>';
     }).join(' ') : '';
     return '<div class="wo" data-st="' + o.st + '" data-jr="' + o.jrPk + '"><div class="edge"></div>' +
@@ -914,7 +931,6 @@
     var all = ORDERS.filter(function (o) { return queueFilter === 'all' || o.st === queueFilter; });
     var orders = all.filter(function (o) { return o.jobKind !== 'ckstock'; });
     var ckJobs = all.filter(function (o) { return o.jobKind === 'ckstock'; });
-    // 포장대기 로트는 아직 시작 전이라 '대기' 로만 잡힌다
     var waits = (queueFilter === 'all' || queueFilter === 'wait') ? PK_WAIT : [];
 
     document.getElementById('qcnt').textContent = (orders.length + ckJobs.length + waits.length) + '건';
@@ -938,12 +954,13 @@
 
     var html = '';
     if (orders.length) {
-     html += '<div class="grouphead">포장 작업지시 <span class="ln"></span><span>' + orders.length + '건</span></div>';
+     html += '<div class="grouphead">포장 작업지시 <span class="ln"></span><span>' + orders.length + '건 · ' +
+      '작업을 추가하면 PK 가 자동으로 배정됩니다</span></div>';
      html += orders.map(orderCard).join('');
     }
     if (ckJobs.length) {
      html += '<div class="grouphead">CK 자체재고 생산지시 <span class="ln"></span>' +
-      '<span>' + ckJobs.length + '건 · CK 만 만들어 창고에 둡니다</span></div>';
+      '<span>' + ckJobs.length + '건 · 국가 지정 없이 CK 만 만들어 생산창고에 둡니다</span></div>';
      html += ckJobs.map(orderCard).join('');
     }
     if (waits.length) {
@@ -955,7 +972,6 @@
    }
 
    document.getElementById('qgrid').addEventListener('click', function (e) {
-    // 포장대기 카드 — 수량 조절
     var m = e.target.closest('[data-wminus]');
     if (m) { var id = m.dataset.wminus; waitQty[id] = Math.max(1, (waitQty[id] || 1) - 1); renderQueue(); return; }
     var p = e.target.closest('[data-wplus]');
@@ -969,10 +985,8 @@
      openPad('포장할 수량', waitQty[id3] || 1, t3 ? t3.avail : 1, function (v) { waitQty[id3] = v; renderQueue(); });
      return;
     }
-    // 포장대기 카드 — 선택 토글
     var c = e.target.closest('[data-wcard]');
     if (c) { var id4 = c.dataset.wcard; waitSel[id4] = !waitSel[id4]; renderQueue(); return; }
-    // 작지 카드
     var w = e.target.closest('[data-jr]');
     if (w) openOrder(+w.dataset.jr);
    });
@@ -993,7 +1007,7 @@
    document.querySelectorAll('[data-back]').forEach(function (b) {
     b.addEventListener('click', function () {
      if (b.dataset.back === 'A') { show('A'); refreshQueue(); }
-     else { renderSessList(); show('B'); }
+     else { loadSessions(curO.jrPk, function () { renderSessList(); show('B'); }); }
     });
    });
 
@@ -1005,6 +1019,7 @@
     if (!curO) return;
     document.getElementById('bName').textContent = curO.name;
     document.getElementById('bSub').textContent = curO.id + ' · ' + (curO.wcName || '포장')
+     + (curO.jobKind === 'ckstock' ? ' · CK 자체재고' : '')
      + (curO.noJob ? ' · 작지 없음' : '');
     curO.sessions = curO.sessions || [];
     renderSessList();
@@ -1037,31 +1052,41 @@
      st:(r.state === 'finished') ? 'done' : 'working',
      units:num(r.units),
      phase:r.phase || 'pk', noJob:r.no_job_yn === 'Y',
+     jobKind:r.job_kind || 'kit',
      pkQty:num(r.pk_qty), pkCnt:num(r.pk_cnt)
     };
    }
 
    function renderSessList() {
     var o = curO;
+    var isCk = (o.jobKind === 'ckstock');
     var packed = (o.sessions || []).reduce(function (a, s) { return a + (s.units || 0); }, 0);
     document.getElementById('ovbox').innerHTML =
      '<div class="ov"><div class="l">계획수량</div><div class="v">' + o.plan + '</div></div>' +
-     '<div class="ov"><div class="l">완제품 포장</div><div class="v">' + packed + '</div></div>' +
+     '<div class="ov"><div class="l">' + (isCk ? 'CK 생산' : '완제품 포장') + '</div><div class="v">' + packed + '</div></div>' +
      '<div class="ov left"><div class="l">잔여수량</div><div class="v">' + Math.max(0, o.plan - packed) + '</div></div>';
     document.getElementById('sessCnt').textContent = (o.sessions || []).length + '건';
     var box = document.getElementById('sessList');
     if (!o.sessions || !o.sessions.length) {
-     box.innerHTML = '<div class="emptysess">작업이 없습니다. ‘작업 추가’로 포장을 시작하세요.</div>';
+     box.innerHTML = '<div class="emptysess">작업이 없습니다. ‘작업 추가’로 ' +
+      (isCk ? 'CK 생산' : '포장') + '을 시작하세요.<br/>' +
+      '<span style="font-weight:600;font-size:13px">' +
+      (isCk ? '국가 지정 없이 수량과 투입자재만 정하면 됩니다.'
+       : '작업을 만들면 이 작지의 PK 로트가 자동으로 담깁니다.') + '</span></div>';
      return;
     }
     box.innerHTML = o.sessions.map(function (se, i) {
-     // ①단계 세션은 아직 서버에 수량이 없다(화면 메모리) → 담은 PK 로 대신 보여준다
-     var qty = se.st === 'done' ? se.units : (se.units || se.pkQty || 0);
+     // ②(완제) 전 세션은 아직 GoodQty 가 0 이다 → 담은 PK 로 대신 보여준다
+     var qty = se.units || se.pkQty || 0;
+     var isCkS = (se.jobKind === 'ckstock');
      return '<div class="sess" data-st="' + se.st + '" data-i="' + i + '"><div class="edge"></div>' +
       '<div class="who"><span class="nm">' + esc(se.worker) + '</span><span class="eq">' + esc(se.equip) + '</span></div>' +
       '<div class="time">' + pill(se.start) + ' ~ ' + pill(se.end) + '</div>' +
-      '<span class="phbadge">' + (PHLAB[se.phase] || se.phase) + '</span>' +
-      '<div class="qty"><div class="l">' + (se.st === 'done' ? '완제품' : '진행') + '</div><div class="v">' + qty + '</div></div>' +
+      (isCkS ? '<span class="phbadge">CK 생산</span>'
+       : '<span class="phbadge">' + (PHLAB[se.phase] || se.phase) + '</span>') +
+      '<div class="qty"><div class="l">' +
+      (isCkS ? 'CK' : (se.st === 'done' ? '완제품' : (se.units ? '완제품' : '담은 PK'))) +
+      '</div><div class="v">' + qty + '</div></div>' +
       '<span class="badge ' + se.st + '">' + STLAB[se.st] + '</span></div>';
     }).join('');
    }
@@ -1096,28 +1121,27 @@
    }
 
    /* ══════════════════════════════════════════════════════════════════════
-      C화면 — ① PK → ② CK생산 → ③ 인박스 → ④ 아웃박스
-
-      단계 결정
-        서버 phase 가 곧 진실이다. 단계 막대를 눌러 지난 단계를 볼 수는 있지만(viewPhase)
-        편집은 현재 단계에서만 되고, 되돌리기는 각 단계의 취소 버튼이 담당한다.
+      C화면 — ① PK → ② 인박스·CK → ③ 라벨 → ④ 아웃박스
       ══════════════════════════════════════════════════════════════════════ */
-   var PHASES = ['pk','inbox','ck','outbox'];
-   function phase() {
-    // v2 : ① PK 도 서버에 저장되므로 로컬 전진이 없다. 서버 단계가 곧 진실이다
-    return curS.serverPhase || 'pk';
-   }
+
+   /** 국가 미지정 표식 — 서버 PackService.NO_COUNTRY 와 같아야 한다.
+    country."Code" 형식(^[A-Z0-9]{2,6}$)을 통과하지 못하는 값이라
+    실제 국가 코드와 절대 겹치지 않는다. */
+   var NO_CTRY = '-';
+
+   var PHASES = ['pk','pack','label','outbox'];
+   function phase() { return curS.serverPhase || 'pk'; }
    function phaseIndex() { var i = PHASES.indexOf(phase()); return i < 0 ? 3 : i; }
    function locked() { return curS.st !== 'working'; }
+   function isCkStock() { return curS && curS.jobKind === 'ckstock'; }
 
    /* ── 보기 단계 ──
       단계 막대를 눌러 지나온 단계를 다시 볼 수 있다. 실제 단계(phase)는 그대로다.
-      ★ 이동은 아무것도 지우지 않는다 — 되돌리는 것은 「CK 취소」/「완료취소」뿐이다.
-        그래서 지난 단계는 읽기 전용으로만 보여준다(고치려면 취소해야 한다). */
+      ★ 이동은 아무것도 지우지 않는다 — 되돌리는 것은 각 단계의 취소 버튼뿐이다. */
    function viewPhase() {
     var vp = curS.viewPhase;
     if (!vp) return phase();
-    if (PHASES.indexOf(vp) > phaseIndex()) return phase();   // 앞질러 갈 수는 없다
+    if (PHASES.indexOf(vp) > phaseIndex()) return phase();
     return vp;
    }
    function viewIndex() { var i = PHASES.indexOf(viewPhase()); return i < 0 ? 3 : i; }
@@ -1126,10 +1150,10 @@
    function openSess(i) {
     curS = curO.sessions[i];
     curS._idx = i;
-    document.getElementById('cName').textContent = curS.worker + ' · 포장';
+    document.getElementById('cName').textContent = curS.worker +
+     (curS.jobKind === 'ckstock' ? ' · CK 생산' : ' · 포장');
     document.getElementById('cSub').textContent = curO.id + ' · ' + curO.name + ' · 계획 ' + curO.plan;
 
-    // 서버 상태로 복원 — 화면 로컬 상태를 신뢰하지 않는다(다른 태블릿이 만졌을 수 있다)
     apiGet(PACK_API + '/session_detail', {mp_id:curS.mpId, spjangcd:_sp()}).then(function (r) {
      curDetail = (r && r.data) || {};
      hydrate();
@@ -1146,11 +1170,10 @@
    }
 
    /**
-    * 서버 응답 → 화면 편집 상태.
+    * 서버 응답 → 화면 상태.
     *
-    * ★ phase='pk' 면 PK·배분이 서버에 없는 게 정상이다(①은 화면 메모리).
-    *   이때 화면이 들고 있던 값을 지우지 않고 유지한다 — 사용자가 방금 고른 것이다.
-    *   그 외 단계에서는 서버 값이 진실이므로 통째로 덮어쓴다.
+    * ★ v3 : 화면 메모리를 유지하지 않는다. 서버가 곧 진실이다.
+    *   PK·배분·CK 자재가 전부 DB 에 있으므로 통째로 덮어써도 잃을 것이 없다.
     */
    function hydrate() {
     var s = (curDetail && curDetail.session) || {};
@@ -1158,57 +1181,79 @@
     curS.jobKind   = s.job_kind || 'kit';               // kit | ckstock
     curS.outboxCap = num(s.outbox_cap) || outboxCap();
     curS.units     = num(s.units);
+    curS.orderQty  = num(s.order_qty);
+    curS.makerLot  = s.maker_lot || null;
+    curS.gtin      = s.gtin || (curO && curO.gtin) || '';
     curS.unitsPlan = num((curDetail && curDetail.units_planned)) || curS.units;
-    curS.pkMatId   = (curDetail && curDetail.pk_material_id) || null;   // ① 자동선택 대상
-    // ③ 「CK 자체재고 투입」 후보
+    curS.pkMatId   = (curDetail && curDetail.pk_material_id) || null;
+    curS.ckMatId   = (curDetail && curDetail.ck_material_id) || null;
+    curS.orderRemain = num(curDetail && curDetail.order_remain);
+
+    // ② 「CK 자체재고 투입」 후보
     CK_STOCK_LOTS = ((curDetail && curDetail.ck_stock_lots) || []).map(function (l) {
      return {matLotId:l.mat_lot_id, lot:l.lot_no, matId:l.mat_id, name:l.mat_name,
       code:l.mat_code, avail:num(l.avail), madeDate:l.made_date || null};
     });
 
-    var fromServer = ((curDetail && curDetail.pk_lots) || []).map(function (p) {
+    curS.pkLots = ((curDetail && curDetail.pk_lots) || []).map(function (p) {
      return {matLotId:p.mat_lot_id, lot:p.lot_no, udi:p.udi_lot, matId:p.mat_id,
       name:p.mat_name, code:p.mat_code, avail:num(p.avail), qty:num(p.qty)};
     });
-    var allocFromServer = ((curDetail && curDetail.allocations) || []).map(function (a) {
+
+    curS.allocations = ((curDetail && curDetail.allocations) || []).map(function (a) {
      return {allocId:a.alloc_id, country:a.country, countryId:a.country_id,
       qty:num(a.qty), ckLot:a.ck_lot, ckState:a.ck_state || 'plan', ckMpId:a.ck_mp_id};
     });
 
-    // v2 : PK 도 서버에 저장된다. 화면 로컬 상태를 신뢰하지 않는다
-    curS.pkLots = fromServer;
-    curS.allocations = allocFromServer.length ? allocFromServer : (curS.allocations || []);
-
-    // 국가|자재코드 → 수량 / 멸균로트
-    var srvQty = {}, srvLot = {};
+    /* 국가별 CK 투입자재.
+       ★ 「자체재고 투입」은 mat_id = CK 반제품 품목인 한 줄로 저장된다.
+         mode 컬럼을 따로 두지 않고 그 줄의 존재로 방식을 복원한다. */
+    var srvQty = {}, srvLot = {}, mode = {}, stock = {};
     ((curDetail && curDetail.items) || []).forEach(function (it) {
+     if (curS.ckMatId && String(it.mat_id) === String(curS.ckMatId)) {
+      mode[it.country]  = 'stock';
+      stock[it.country] = it.mat_lot_id;
+      return;
+     }
      var m = ckInputs().filter(function (x) { return String(x.matId) === String(it.mat_id); })[0];
      var code = m ? m.code : it.mat_code;
      var key = it.country + '|' + code;
      srvQty[key] = num(it.qty);
      if (it.lot_no) srvLot[key] = it.lot_no;
     });
-    if (Object.keys(srvQty).length) { curS.ckQty = srvQty; curS.ckLotSel = srvLot; }
-    else { curS.ckQty = curS.ckQty || {}; curS.ckLotSel = curS.ckLotSel || {}; }
+    curS.ckQty   = srvQty;
+    curS.ckLotSel = srvLot;
+    curS.ckMode  = mode;
+    curS.ckStock = stock;
 
-    curS.ckOpen  = curS.ckOpen  || {};
-    curS.ckMode  = curS.ckMode  || {};   // 국가 → 'produce' | 'stock'
-    curS.ckStock = curS.ckStock || {};   // 국가 → CK 재고 matLotId
-    // 보기 단계는 세션을 다시 읽을 때마다 '지금'으로 되돌린다 —
-    // 단계가 바뀐 뒤에도 옛 화면에 머물러 있으면 혼란스럽다
     curS.viewPhase = null;
 
     var labels = (curDetail && curDetail.labels) || [];
-    curS.scanCkpk  = labels.filter(function (l) { return l.kind === 'ckpk';  })[0] || curS.scanCkpk || null;
-    // 카톤 로트는 ③인박스 완료 시 서버가 발번해 pack_label(kind='carton') 에 1행 남긴다.
-    // 한 세션의 카톤은 전부 같은 로트라 번호 1개로 N장을 인쇄한다.
+    curS.scanCkpk   = labels.filter(function (l) { return l.kind === 'ckpk';  })[0] || null;
+    curS.scanInbox  = labels.filter(function (l) { return l.kind === 'inbox'; })[0] || null;
+    // 카톤 로트는 ②(완제) 시점에 서버가 발번해 pack_label(kind='carton') 에 1행 남긴다
     curS.scanCarton = labels.filter(function (l) { return l.kind === 'carton'; })[0] || null;
-    curS.scanInbox = labels.filter(function (l) { return l.kind === 'inbox'; })[0] || curS.scanInbox || null;
 
-    // 카톤은 저장하지 않는다 — 서버가 완제품수량 ÷ 입수 로 만들어 내려준다
     curS.cartons = ((curDetail && curDetail.cartons) || []).map(function (c) {
      return {cartonNo:c.carton_no, inboxQty:num(c.inbox_qty), fullYn:c.full_yn};
     });
+
+    // ★ 배분 줄이 없으면 한 줄을 자동으로 깔아 둔다.
+    //   kit     : 국가가 하나뿐인 현장은 그대로 두고 「반영」만 누르면 된다
+    //   ckstock : 국가를 쓰지 않는다 — 수량 한 줄만 만든다.
+    //             phase 가 'pack' 이 아니라 'pk' 라서 조건이 다르다(PK 를 안 담으므로).
+    if (!locked() && !curS.allocations.length) {
+     if (isCkStock()) {
+      curS.allocations.push({country:NO_CTRY, countryId:null, qty:0, ckState:'plan'});
+     } else if (phase() === 'pack' && COUNTRIES.length) {
+      var first = COUNTRIES.filter(function (c) { return c.useYn !== 'N'; })[0];
+      if (first) {
+       curS.allocations.push({country:first.code, countryId:first.id,
+        qty:pkTotal(), ckState:'plan'});
+       scheduleAllocSave();
+      }
+     }
+    }
    }
 
    function renderC() { renderCHead(); renderCBody(); renderCAction(); }
@@ -1218,21 +1263,31 @@
      '<div class="infopill"><span>포장대</span><b>' + esc(curS.equip) + '</b></div>' +
      '<div class="infopill tap" data-time="start"><span>시작</span><b>' + pill(curS.start) + '</b></div>' +
      '<div class="infopill tap" data-time="end"><span>종료</span><b>' + pill(curS.end) + '</b></div>' +
+     '<span class="savetag" id="saveTag">자동 저장</span>' +
      '<span class="sstate ' + curS.st + '">' + STLAB[curS.st] + '</span>';
    }
    document.getElementById('cHead').addEventListener('click', function (e) {
     var t = e.target.closest('[data-time]');
     if (t) openTime(t.dataset.time);
    });
+   function markSaved(txt) {
+    var el = document.getElementById('saveTag');
+    if (!el) return;
+    el.textContent = txt || '저장됨';
+    el.classList.add('on');
+    setTimeout(function () {
+     var e2 = document.getElementById('saveTag');
+     if (e2) { e2.textContent = '자동 저장'; e2.classList.remove('on'); }
+    }, 1600);
+   }
 
    function phaseBar() {
     var idx = phaseIndex(), ph = phase(), vidx = viewIndex();
-    var steps = curS.jobKind === 'ckstock'
-     ? ['—','—','CK 생산','—']
-     : ['PK 담기','인박스','CK 생산/투입','아웃박스'];
+    var steps = isCkStock()
+     ? ['—','CK 생산','—','—']
+     : ['PK 담기','인박스 · CK','라벨 스캔','아웃박스'];
     return '<div class="phasebar">' + steps.map(function (s, i) {
      var cls = (ph === 'done' || i < idx) ? 'done' : (i === idx ? 'active' : 'idle');
-     // 지나온 단계(+현재)는 눌러서 볼 수 있다. 앞 단계는 잠긴다.
      var canGo = i <= idx;
      var viewing = (i === vidx);
      return (i > 0 ? '<div class="pline ' + (i <= idx ? 'on' : '') + '"></div>' : '') +
@@ -1242,20 +1297,28 @@
     }).join('') + '</div>';
    }
 
-   /* ── ① PK · 수량 · 국가 (화면 메모리) ── */
+   /* ── ① PK ── */
    function pkTotal() { return (curS.pkLots || []).reduce(function (a, x) { return a + (x.qty||0); }, 0); }
    function allocTotal() { return (curS.allocations || []).reduce(function (a, x) { return a + (x.qty||0); }, 0); }
    function allocRemain() { return pkTotal() - allocTotal(); }
    function allocSummary() {
+    if (isCkStock()) return 'CK ' + allocTotal() + ' EA';
     if (pkTotal() <= 0) return 'PK 로트를 먼저 담으세요';
     var r = allocRemain();
     if (r === 0) return '배분 완료';
     return r > 0 ? ('미배분 ' + r) : ('초과 ' + (-r));
    }
+   /** CK 로트 미리보기 번호 — 국가 미지정이면 국가 토막을 빼고 만든다 */
    function ckLotFor(country) {
     var prod = (curO && curO.code) || 'PACK';
     var d = (curS.start ? curS.start.split(' ')[0] : todayStr()).replace(/-/g,'').slice(2);
-    return prod + '-CK-' + country + '-' + d;
+    return (country === NO_CTRY) ? (prod + '-CK-' + d) : (prod + '-CK-' + country + '-' + d);
+   }
+   /** 오류 메시지·헤더용 표시명 — 국가 미지정이면 그냥 'CK' */
+   function allocLabel(a) {
+    if (!a || a.country === NO_CTRY) return 'CK';
+    var c = countryOf(a.country);
+    return c ? c.name : a.country;
    }
 
    function pkBlock(lk) {
@@ -1266,17 +1329,45 @@
       '<div class="mc">' + esc(l.name || '') + (l.udi ? ' · UDI ' + esc(l.udi) : '') + '</div></div>' +
       '<span class="done-tag">' + l.qty + ' EA</span></div>';
     }).join('');
-    return '<div class="part"><div class="id"><span class="pn">멸균 완료 PK 로트</span>' +
-     '<span class="pc">' + (lots.length
-      ? lots.length + '개 로트 · 합계 ' + total + ' EA — 완제품 로트는 1건으로 발번됩니다'
-      : '미선택 — 멸균창고의 멸균 완료 PK 로트를 담으세요') + '</span></div>' +
+    var note = lots.length
+     ? lots.length + '개 로트 · 합계 ' + total + ' EA — 완제품 로트는 1건으로 발번됩니다'
+     : '미선택 — 멸균창고에 사용 가능한 PK 로트가 없었습니다. 직접 담아주세요';
+    return '<div class="part"><div class="id">' +
+     '<span class="pn">멸균 완료 PK 로트' +
+     (lots.length ? ' <span class="autobadge">작지에서 자동 선택</span>' : '') + '</span>' +
+     '<span class="pc">' + note +
+     (!lk && curS.orderRemain > 0 ? ' · 작지 잔여 ' + curS.orderRemain : '') + '</span></div>' +
      (lk ? '<span class="done-tag" style="background:var(--surface-2);color:var(--ink-2)">' +
       (lots.length ? lots.length + '건' : '-') + '</span>'
       : '<button class="btn ghost" data-pickpk="1" style="min-height:54px">' +
       (lots.length ? '변경' : '담기') + '</button>') + '</div>' + rows;
    }
 
+   /**
+    * 배분 블록.
+    *
+    * ★ CK 자체재고 세션은 국가를 쓰지 않는다 — 수량 한 줄만 낸다.
+    *   국가 드롭다운·「＋ 국가 추가」·「잔여 자동배분」·삭제 버튼이 전부 사라진다.
+    *   배분 줄의 country 는 NO_CTRY 이고 서버가 pack_alloc."CountryCode" 에 그대로 넣는다.
+    */
    function allocBlock(lk) {
+    // ── CK 자체재고 : 국가 없이 수량 한 줄 ──
+    if (isCkStock()) {
+     var a0 = (curS.allocations || [])[0];
+     if (!a0) return '<div class="emptysess">생산 수량을 지정할 수 없습니다.</div>';
+     var prod0 = (a0.ckState === 'produced');
+     return '<div class="mat on">' +
+      '<div class="mid" style="flex:1 1 170px">' +
+      '<div class="mn">CK 생산 수량</div>' +
+      '<div class="mc">' + (a0.ckLot ? 'CK 로트 ' + esc(a0.ckLot) : 'CK 로트는 완료 시 발번됩니다') +
+      (prod0 ? ' <span style="color:var(--green);font-weight:800">· 반영됨</span>' : '') + '</div></div>' +
+      ((lk || prod0)
+       ? '<span class="done-tag">' + (a0.qty||0) + ' EA</span>'
+       : '<div class="mstep" data-allocqty="0"><button class="minus">−</button>' +
+       '<div class="n" data-padalloc="0">' + (a0.qty||0) + '</div><button class="plus">+</button></div>') +
+      '</div>';
+    }
+
     var rows = curS.allocations || [];
     var html = rows.map(function (a, i) {
      var c = countryOf(a.country);
@@ -1290,7 +1381,7 @@
       ((lk || produced)
        ? '<div class="mn">' + (c ? c.flag + ' ' + esc(c.name) : esc(a.country)) + '</div>' +
        '<div class="mc">' + (a.ckLot ? 'CK ' + esc(a.ckLot) : '') +
-       (produced ? ' <span style="color:var(--green);font-weight:800">· 생산됨</span>' : '') + '</div>'
+       (produced ? ' <span style="color:var(--green);font-weight:800">· 반영됨</span>' : '') + '</div>'
        : '<select class="csel" data-alloc="' + i + '">' + sel + '</select>') + '</div>' +
       ((lk || produced)
        ? '<span class="done-tag">' + (a.qty||0) + ' EA</span>'
@@ -1305,7 +1396,7 @@
     return html;
    }
 
-   /* ── ② CK 생산 : 국가별 자재 투입 ── */
+   /* ── ② CK 투입자재 ── */
    function ckKey(country, code) { return country + '|' + code; }
    function ckMatOf(code) { return ckInputs().filter(function (x) { return x.code === code; })[0]; }
    function allocQtyOf(country) {
@@ -1323,38 +1414,50 @@
     curS.ckQty[key] = Math.max(0, n|0);
    }
    function ckLotOf(key) { return (curS.ckLotSel && curS.ckLotSel[key]) || null; }
-   /* 국가별 CK 조달 방식 — 기본은 '새로 생산'. 재고가 있으면 화면에서 바꿀 수 있다 */
    function ckModeOf(country) { return (curS.ckMode && curS.ckMode[country]) || 'produce'; }
    function ckStockOf(id) {
     return CK_STOCK_LOTS.filter(function (x) { return String(x.matLotId) === String(id); })[0];
+   }
+   function ckOpenKey(country) { return curS.mpId + '|' + country; }
+   function isCkOpen(country) { return !!ckOpenMap[ckOpenKey(country)]; }
+   function toggleCkOpen(country) {
+    var k = ckOpenKey(country);
+    ckOpenMap[k] = !ckOpenMap[k];
    }
 
    function ckMatList(lk, reviewOnly) {
     var allocs = (curS.allocations || []).filter(function (a) { return (a.qty||0) > 0; });
     if (!allocs.length)
-     return '<div class="emptysess">국가별 배분이 없습니다. ① 단계에서 국가별 수량을 먼저 지정하세요.</div>';
+     return '<div class="emptysess">' +
+      (isCkStock() ? 'CK 생산 수량을 먼저 입력하세요.'
+       : '국가별 배분이 없습니다. 위에서 국가별 수량을 먼저 지정하세요.') + '</div>';
     var list = ckInputs();
     if (!list.length)
      return '<div class="region-warn">⚠ CK 반제품 BOM 구성자재를 찾을 수 없습니다. BOM 등록을 확인하세요.</div>';
-    if (!curS.ckOpen) curS.ckOpen = {};
 
     return allocs.map(function (a) {
      var c = countryOf(a.country);
-     var open = !!curS.ckOpen[a.country];
+     var isNo = (a.country === NO_CTRY);
+     var open = isCkOpen(a.country);
      var produced = a.ckState === 'produced';
      var matCount = list.filter(function (m) { return ckQtyByKey(ckKey(a.country, m.code)) > 0; }).length;
 
      var ro = lk || reviewOnly || produced;
-     var mode = ckModeOf(a.country);
+     // ★ CK 자체재고 세션은 조달 방식이 없다 — CK 를 만드는 자리에서 CK 재고를 투입할 수 없다.
+     //   서버(packFinish)도 ckStock 이면 mode 를 'produce' 로 강제한다. 화면이 먼저 맞춘다.
+     var mode = isCkStock() ? 'produce' : ckModeOf(a.country);
      var sl = ckStockOf(curS.ckStock ? curS.ckStock[a.country] : null);
 
-     var modeTag = (mode === 'stock')
-      ? '<span class="kindbadge">자체재고 투입</span>'
-      : '<span class="srcbadge stock">새로 생산</span>';
+     // ★ ckstock 은 선택지가 하나뿐이라 배지도 달지 않는다
+     var modeTag = isCkStock() ? ''
+      : ((mode === 'stock')
+       ? '<span class="kindbadge">자체재고 투입</span>'
+       : '<span class="srcbadge stock">새로 생산</span>');
 
      var head = '<div class="mat" data-ckcountry="' + a.country + '" style="background:var(--surface-2);cursor:pointer">' +
       '<div class="mid"><div class="mn" style="font-size:15px">' +
-      (c ? c.flag + ' ' + esc(c.name) : esc(a.country)) + ' · ' + a.qty + ' EA ' + modeTag +
+      (isNo ? 'CK 생산' : (c ? c.flag + ' ' + esc(c.name) : esc(a.country))) +
+      ' · ' + a.qty + ' EA ' + modeTag +
       (produced ? ' <span style="color:var(--green);font-size:12px">반영됨</span>' : '') + '</div>' +
       '<div class="mc">' + (mode === 'stock'
        ? (sl ? 'CK 재고 ' + esc(sl.lot) + ' · 가용 ' + sl.avail : '투입할 CK 재고 로트를 고르세요')
@@ -1363,8 +1466,8 @@
       (open ? '▲ 접기' : '▼ 펼치기') + '</span></div>';
      if (!open) return head;
 
-     // 조달 방식 전환 — 자체재고가 있을 때만 고를 수 있다
-     var modeBar = ro ? '' :
+     // ★ ckstock 세션에서는 「새로 생산 / 자체재고 투입」 선택 자체를 숨긴다
+     var modeBar = (ro || isCkStock()) ? '' :
       '<div class="mat-tools" style="margin:8px 2px">' +
       '<button data-ckmode="' + a.country + '|produce"' +
       (mode === 'produce' ? ' style="background:var(--teal);color:#fff;border-color:var(--teal)"' : '') +
@@ -1424,7 +1527,6 @@
        : '<div class="mstep" data-ckqty="' + key + '"><button class="minus">−</button>' +
        '<div class="n" data-ckpad="' + key + '">' + qty + '</div><button class="plus">+</button></div>';
 
-      // 재고 — 실제 차감 창고와 같은 기준으로 보여준다
       var stock, detail = '';
       if (isFB) {
        stock = m.sterilStock;
@@ -1448,34 +1550,33 @@
        stockHtml + fbInfo + '</div></div>' + fbBtn + qtyCtrl + '</div>';
      }).join('');
 
-     var rowsHtml = rows || '<div class="mc" style="padding:8px 12px;color:var(--ink-2)">이 국가에 투입된 자재가 없습니다.</div>';
+     var rowsHtml = rows || '<div class="mc" style="padding:8px 12px;color:var(--ink-2)">투입된 자재가 없습니다.</div>';
      return head + '<div style="padding:0 2px 10px;margin-bottom:6px">' + tools + rowsHtml + '</div>';
     }).join('');
    }
 
-   /* ── ③ 인박스 : 라벨 스캔 ── */
+   /* ── ③ 라벨 스캔 ── */
    function udiScanBlock(lk) {
     var done = !!(curS.scanCkpk && curS.scanInbox);
-    var html = '<div class="secline" style="margin-top:10px">완제품 라벨(UDI) <span class="ln"></span>' +
-     '<span>CK·PK + 인박스 = 2회 스캔</span></div>';
+    var html = '';
     if (!done) {
      html += '<div class="part"><div class="id"><span class="pn">📷 UDI 라벨 2회 스캔</span>' +
-      '<span class="pc">① CK·PK 라벨(수량 없음) + ② 인박스 라벨(수량 있음). MES 자체 바코드는 부착하지 않습니다.</span></div>' +
+      '<span class="pc">① CK·PK 라벨(수량 없음) + ② 인박스 라벨(수량 있음). ' +
+      '스캔한 로트가 완제품 로트(' + esc(curS.lotNo || '-') + ')의 외부 로트로 기록됩니다.</span></div>' +
       (lk ? '' : '<button class="btn primary" id="scanIn" style="min-height:54px">스캔</button>') + '</div>';
     } else {
      var ck = curS.scanCkpk, ib = curS.scanInbox;
      html += '<table class="form-tbl"><tr><th>구분</th><th>스캔 로트</th><th>GTIN</th><th>수량</th></tr>' +
       '<tr><td><b>CK·PK</b></td><td>' + esc(ck.lot || '-') + '</td><td>' + esc(ck.gtin || '-') + '</td><td>-</td></tr>' +
       '<tr><td><b>인박스</b></td><td>' + esc(ib.lot || '-') + '</td><td>' + esc(ib.gtin || '-') + '</td><td>' +
-      (ib.qty != null ? ib.qty : '-') + '</td></tr></table>' +
-      (lk ? '' : '<div style="margin-top:6px"><button class="btn ghost" id="rescanIn">다시 스캔</button></div>');
+      (ib.qty != null ? ib.qty : '-') + '</td></tr>' +
+      '<tr><td><b>완제품 로트</b></td><td colspan="3">' + esc(curS.lotNo || '-') +
+      ' ↔ 외부 ' + esc(curS.makerLot || ib.lot || '-') + '</td></tr></table>';
     }
     return html;
    }
 
-   /* ── ④ 아웃박스 : 카톤 ──
-      카톤은 저장하지 않는다. 완제품수량 ÷ 입수 로 계산하며, 서버도 같은 식으로
-      OUT BOX 소비량을 정한다. 라벨은 인쇄용으로만 만든다. */
+   /* ── ④ 아웃박스 : 카톤 ── */
    function buildCartons() {
     var units = curS.units || pkTotal();
     var cap = outboxCap();
@@ -1498,7 +1599,7 @@
     var part = cartons.length - full;
 
     var html = '<div class="part"><div class="id"><span class="pn">인박스</span>' +
-     '<span class="pc">완제품 ' + units + '개 = 인박스 ' + units + ' (완제품 1개당 인박스 1개)</span></div>' +
+     '<span class="pc">완제품 ' + units + '개 = 인박스 ' + units + ' (완제품 1개당 인박스 1개) · ②에서 소비됨</span></div>' +
      '<span class="done-tag">' + units + ' 박스</span></div>' +
      '<div class="part"><div class="id"><span class="pn">카톤(아웃박스)</span>' +
      '<span class="pc">인박스 ' + units + ' ÷ ' + cap + '입 = 카톤 ' + cartons.length +
@@ -1521,18 +1622,23 @@
 
    function renderCBody() {
     var lk = locked();
-    var ph  = phase();                          // 실제 단계
-    var vph = viewPhase(), vidx = viewIndex();   // 보고 있는 단계
+    var ph  = phase();
+    var vph = viewPhase(), vidx = viewIndex();
     var ro  = lk || viewingPast();
     var html = phaseBar();
 
-    // ── CK 자체재고 세션 : ③만 쓴다 ──
-    if (curS.jobKind === 'ckstock') {
+    // ── CK 자체재고 세션 : ②만 쓴다. 국가 지정 없음 ──
+    if (isCkStock()) {
      html += '<div class="region-warn" style="background:var(--teal-bg);color:var(--teal-d)">' +
-      '🧷 CK 자체재고 생산지시입니다 · CK 만 만들어 생산창고에 재고로 남깁니다 ' +
-      '(PK·인박스·아웃박스 없음)</div>';
+      '🧷 CK 자체재고 생산지시입니다 · 국가 지정 없이 CK 만 만들어 생산창고에 재고로 남깁니다 ' +
+      '(PK·인박스·라벨·아웃박스 없음)</div>';
      html += '<div class="secline">CK 생산 <span class="ln"></span><span>' +
-      (curS.st === 'done' ? '완료 — 생산창고 재고' : '국가/차수별 투입자재 지정') + '</span></div>';
+      (curS.st === 'done' ? '완료 — 생산창고 재고' : '생산 수량·투입자재 지정 · ' + allocSummary()) + '</span></div>';
+     html += allocBlock(ro || curS.st === 'done');
+     if (!ro && curS.st !== 'done')
+      html += '<div class="bc-sub" style="margin:-6px 2px 0">' +
+       '수량을 먼저 정한 뒤 아래에서 「전체 선택(BOM 권장)」을 누르면 BOM 소요량이 자동으로 채워집니다. ' +
+       '수량을 바꾸면 다시 눌러주세요.</div>';
      html += ckMatList(ro || curS.st === 'done', curS.st === 'done');
      document.getElementById('cBody').innerHTML = html;
      return;
@@ -1546,43 +1652,37 @@
     if (curS.st === 'done')
      html += '<div class="secline" style="color:var(--green)">포장 완료 · 제품창고 입고 <span class="ln"></span></div>';
 
-    // ── ① PK 담기 ──
-    if (vph === 'pk' || vph === 'inbox') {
-     html += '<div class="secline">① PK 담기 <span class="ln"></span><span>' +
-      (ro || vph !== 'pk' ? '담기 완료 · ' + pkTotal() + ' EA' : 'BOM 의 PK 품목이 자동 선택됩니다') + '</span></div>';
-     html += pkBlock(ro || vph !== 'pk');
-    } else {
-     html += '<div class="secline">① PK 담기 <span class="ln"></span><span>완료</span></div>';
-     html += '<div class="part"><div class="id"><span class="pn" style="font-size:15px">' +
-      esc((curS.pkLots||[]).map(function (l) { return l.lot + '(' + l.qty + ')'; }).join(' + ') || '-') +
-      '</span><span class="pc">멸균창고에서 소비됨</span></div>' +
-      '<span class="done-tag">' + pkTotal() + ' EA</span></div>';
-    }
+    // ── ① PK ──
+    var pkEdit = !ro && (vph === 'pk' || vph === 'pack');
+    html += '<div class="secline">① PK 담기 <span class="ln"></span><span>' +
+     (pkEdit ? 'BOM 의 PK 품목이 자동 선택됩니다 · 필요하면 변경' : '합계 ' + pkTotal() + ' EA') + '</span></div>';
+    html += pkBlock(!pkEdit);
 
-    // ── ② 인박스 ──
-    if (vph === 'inbox') {
-     html += '<div class="secline">② 인박스 포장 <span class="ln"></span>' +
-      '<span>' + (ro ? '읽기 전용' : 'PK + IN BOX 소비 · UDI 라벨 2회 스캔') + '</span></div>';
-     html += udiScanBlock(ro);
-    } else if (vidx > 1) {
-     html += '<div class="secline">② 인박스 포장 <span class="ln"></span><span>완료</span></div>';
-     html += udiScanBlock(true);
-    }
-
-    // ── ③ CK 생산 / 투입 (완제 시점) ──
-    if (vph === 'ck') {
-     html += '<div class="secline">③ CK 생산 / 투입 <span class="ln"></span>' +
-      '<span>' + (ro ? '읽기 전용' : '국가별로 새로 만들거나 자체재고를 투입') + '</span></div>';
+    // ── ② 인박스 · CK ──
+    if (vph === 'pack') {
+     html += '<div class="secline">② 인박스 · CK <span class="ln"></span>' +
+      '<span>' + (ro ? '읽기 전용' : 'PK + IN BOX + CK 를 한 번에 소비해 완제품을 만듭니다') + '</span></div>';
      html += '<div class="secline">국가별 배분 <span class="ln"></span><span>' + allocSummary() + '</span></div>';
      html += allocBlock(ro);
      html += ckMatList(ro, false);
-    } else if (vidx > 2) {
-     html += '<div class="secline">③ CK 생산 / 투입 <span class="ln"></span><span>완료 · 완제품 산출</span></div>';
+    } else if (vidx > 1) {
+     html += '<div class="secline">② 인박스 · CK <span class="ln"></span><span>완료 · 완제품 ' +
+      (curS.units || pkTotal()) + ' EA 산출</span></div>';
      html += ckMatList(true, true);
     }
 
+    // ── ③ 라벨 스캔 ──
+    if (vph === 'label') {
+     html += '<div class="secline">③ 라벨 스캔 <span class="ln"></span>' +
+      '<span>' + (ro ? '읽기 전용' : 'CK·PK + 인박스 = 2회 스캔') + '</span></div>';
+     html += udiScanBlock(ro);
+    } else if (vidx > 2) {
+     html += '<div class="secline">③ 라벨 스캔 <span class="ln"></span><span>완료</span></div>';
+     html += udiScanBlock(true);
+    }
+
     // ── ④ 아웃박스 ──
-    if (vph === 'outbox' || vph === 'done' || curS.st === 'done') {
+    if (vph === 'outbox' || curS.st === 'done') {
      html += '<div class="secline">④ 아웃박스(카톤) <span class="ln"></span>' +
       '<span>인박스 ' + outboxCap() + '입 = 카톤 1</span></div>';
      html += cartonBlock(ro);
@@ -1598,7 +1698,6 @@
    function renderCAction() {
     var bar = document.getElementById('cAction'), ph = phase();
 
-    // 지난 단계를 보는 중 — 실행 버튼을 감추고 복귀만 남긴다
     if (viewingPast()) {
      bar.innerHTML = actsum('보는 중', (PHLAB[viewPhase()] || viewPhase()) + ' · 읽기 전용') +
       '<button class="btn primary" id="backToNow">' + (PHLAB[ph] || ph) + ' 단계로 ›</button>';
@@ -1607,21 +1706,22 @@
     }
 
     // ── CK 자체재고 세션 ──
-    if (curS.jobKind === 'ckstock') {
+    if (isCkStock()) {
      if (curS.st === 'done') {
       bar.innerHTML = actsum('CK 생산 완료', curS.units + ' EA · 생산창고 재고') +
-       '<button class="btn danger" id="cCancel">완료취소</button>';
+       '<button class="btn danger" id="cCancel">생산완료 취소</button>';
       document.getElementById('cCancel').onclick = function () {
        uiConfirm('CK 생산을 취소하고 재고를 되돌립니다.\n이미 포장에 투입됐으면 거부됩니다.', function () {
-        post('/ck_cancel', {mp_id:curS.mpId}, 'CK 생산취소 — 재고를 되돌렸습니다', reopen);
-       }, '완료취소');
+        post('/pack_work_cancel', {mp_id:curS.mpId}, 'CK 생산취소 — 재고를 되돌렸습니다', reopen);
+       }, '생산완료 취소');
       };
       return;
      }
-     bar.innerHTML = actsum('CK 자체재고', '국가/차수 ' + (curS.allocations||[]).length + '건') +
+     var okQty = allocTotal() > 0;
+     bar.innerHTML = actsum('CK 생산 수량', allocTotal() + ' EA') +
       '<button class="btn ghost" id="cDelete">삭제</button>' +
-      '<button class="btn primary" id="ckDone">CK 생산 완료</button>';
-     document.getElementById('ckDone').onclick = doCkProduce;
+      '<button class="btn primary" id="ckDone"' + (okQty ? '' : ' disabled') + '>CK 생산 완료</button>';
+     document.getElementById('ckDone').onclick = doPackFinish;
      document.getElementById('cDelete').onclick = askDelete;
      return;
     }
@@ -1631,45 +1731,45 @@
      bar.innerHTML = actsum('완제품 포장', curS.units + ' EA') +
       '<button class="btn danger" id="cCancel">완료취소</button>';
      document.getElementById('cCancel').onclick = function () {
-      uiConfirm('아웃박스(④)를 취소합니다.\nOUT BOX 소비만 되돌아가고 완제품 로트는 그대로 남습니다.', function () {
+      uiConfirm('아웃박스(④)를 취소합니다.\nOUT BOX 소비만 되돌아가고 완제품 로트와 라벨은 그대로 남습니다.', function () {
        post('/pack_cancel', {mp_id:curS.mpId}, '완료취소 — 아웃박스를 되돌렸습니다', reopen);
       }, '완료취소');
      };
      return;
     }
 
-    // ── ① PK 담기 ──
+    // ── ① PK ──
     if (ph === 'pk') {
      bar.innerHTML = actsum('PK 담은 수량', pkTotal() + ' EA') +
       '<button class="btn ghost" id="cDelete">삭제</button>' +
-      '<button class="btn primary" id="pkSave"' + (pkTotal() > 0 ? '' : ' disabled') + '>PK 담기 저장 ›</button>';
-     document.getElementById('pkSave').onclick = doPkSave;
+      '<button class="btn primary" id="pkPick">PK 로트 담기</button>';
+     document.getElementById('pkPick').onclick = openPkSheet;
      document.getElementById('cDelete').onclick = askDelete;
      return;
     }
 
-    // ── ② 인박스 ──
-    if (ph === 'inbox') {
-     var scanned = !!(curS.scanCkpk && curS.scanInbox);
-     bar.innerHTML = actsum('인박스 수량', pkTotal() + ' EA') +
-      '<button class="btn ghost" id="cDelete">삭제</button>' +
-      '<button class="btn primary" id="inDone"' + (scanned ? '' : ' disabled') + '>인박스 포장 완료</button>';
-     document.getElementById('inDone').onclick = doInboxFinish;
-     document.getElementById('cDelete').onclick = askDelete;
-     return;
-    }
-
-    // ── ③ CK 생산 / 투입 (완제 시점) ──
-    if (ph === 'ck') {
+    // ── ② 인박스 · CK (완제 시점) ──
+    if (ph === 'pack') {
      var okAlloc = allocRemain() === 0 && (curS.allocations||[]).length > 0;
      bar.innerHTML = actsum('완제품 수량', pkTotal() + ' EA · ' + allocSummary()) +
-      '<button class="btn ghost" id="inBack">‹ 인박스 취소</button>' +
-      '<button class="btn primary" id="ckDone"' + (okAlloc ? '' : ' disabled') + '>CK 반영 · 완제품 산출</button>';
-     document.getElementById('ckDone').onclick = doCkProduce;
-     document.getElementById('inBack').onclick = function () {
-      uiConfirm('인박스 포장을 취소합니다.\nPK 와 IN BOX 소비가 되돌아갑니다.\n담아둔 PK 로트는 그대로 남습니다.', function () {
-       post('/inbox_cancel', {mp_id:curS.mpId}, '인박스 취소 — 재고를 되돌렸습니다', reopen);
-      }, '인박스 취소');
+      '<button class="btn ghost" id="cDelete">삭제</button>' +
+      '<button class="btn primary" id="packDone"' + (okAlloc ? '' : ' disabled') + '>인박스 · CK 반영 · 완제품 산출</button>';
+     document.getElementById('packDone').onclick = doPackFinish;
+     document.getElementById('cDelete').onclick = askDelete;
+     return;
+    }
+
+    // ── ③ 라벨 스캔 ──
+    if (ph === 'label') {
+     bar.innerHTML = actsum('완제품 로트', esc(curS.lotNo || '-') + ' · ' + (curS.units || 0) + ' EA') +
+      '<button class="btn ghost" id="packBack">‹ 포장 취소</button>' +
+      '<button class="btn primary" id="scanOpen">📷 라벨 스캔</button>';
+     document.getElementById('scanOpen').onclick = openScan;
+     document.getElementById('packBack').onclick = function () {
+      uiConfirm('인박스·CK 반영을 취소합니다.\n완제품 로트가 사라지고 PK·IN BOX·CK 소비가 모두 되돌아갑니다.\n' +
+       '담아둔 PK 와 국가 배분은 그대로 남습니다.', function () {
+       post('/pack_work_cancel', {mp_id:curS.mpId}, '포장 취소 — 재고를 되돌렸습니다', reopen);
+      }, '포장 취소');
      };
      return;
     }
@@ -1677,19 +1777,20 @@
     // ── ④ 아웃박스 ──
     var cartons = cartonList();
     bar.innerHTML = actsum('카톤(아웃박스)', cartons.length + ' 박스') +
-     '<button class="btn ghost" id="ckBack">‹ CK 취소</button>' +
+     '<button class="btn ghost" id="labelBack">‹ 라벨 취소</button>' +
      '<button class="btn primary" id="outDone">포장 공정 완료</button>';
     document.getElementById('outDone').onclick = doOutboxFinish;
-    document.getElementById('ckBack').onclick = function () {
-     uiConfirm('CK 생산/투입을 취소합니다.\n완제품 로트가 사라지고 CK 가 되돌려집니다.\n인박스는 그대로 유지됩니다.', function () {
-      post('/ck_cancel', {mp_id:curS.mpId}, 'CK 취소 — 완제품을 되돌렸습니다', reopen);
-     }, 'CK 취소');
+    document.getElementById('labelBack').onclick = function () {
+     uiConfirm('라벨 스캔을 취소합니다.\n완제품 로트는 그대로 남고 외부 UDI 로트만 지워집니다.', function () {
+      post('/label_cancel', {mp_id:curS.mpId}, '라벨 취소 — 다시 스캔할 수 있습니다', reopen);
+     }, '라벨 취소');
     };
    }
 
    function askDelete() {
-    uiConfirm('이 작업을 삭제합니다.\n소비한 자재와 로트가 모두 되돌려집니다.', function () {
-     post('/pack_delete', {mp_id:curS.mpId}, '작업 삭제', function () {
+    uiConfirm('이 작업을 삭제합니다.\n소비한 자재와 로트가 모두 되돌려지고,\n' +
+     '남은 작업이 없으면 작업지시가 작업 전 상태로 돌아갑니다.', function () {
+     post('/pack_delete', {mp_id:curS.mpId}, '작업 삭제 — 작업 전 상태로 되돌렸습니다', function () {
       loadSessions(curO.jrPk, function () { renderSessList(); show('B'); });
      });
     }, '삭제');
@@ -1704,121 +1805,134 @@
      then && then(r);
     }).catch(function (e) { flash('실패 · ' + ((e && e.message) || '알 수 없는 오류')); });
    }
-   /** 세션을 서버에서 다시 읽어 화면을 갱신 */
+   /** 세션을 서버에서 다시 읽어 화면을 갱신 — 화면 메모리가 없으므로 넘겨줄 것도 없다 */
    function reopen() {
     loadSessions(curO.jrPk, function () {
      renderSessList();
      var i = curO.sessions.findIndex(function (x) { return String(x.mpId) === String(curS.mpId); });
-     if (i >= 0) {
-      // 화면 메모리(①)를 새 세션 객체로 옮겨준다 — 그래야 취소 후에도 고른 게 남는다
-      var keep = {allocations:curS.allocations, ckQty:curS.ckQty, ckLotSel:curS.ckLotSel,
-       ckOpen:curS.ckOpen, ckMode:curS.ckMode, ckStock:curS.ckStock,
-       scanCkpk:curS.scanCkpk, scanInbox:curS.scanInbox};
-      Object.assign(curO.sessions[i], keep);
-      openSess(i);
-     } else show('B');
+     if (i >= 0) openSess(i); else show('B');
     });
    }
 
-   /** ① PK 담기 저장 — 재고는 안 움직인다 */
-   function doPkSave() {
-    if (pkTotal() <= 0) { flash('PK 로트를 담아주세요'); return; }
-    var pkPayload = (curS.pkLots || []).map(function (l) {
-     return {mat_lot_id:l.matLotId, qty:l.qty};
-    });
-    post('/pk_save', {mp_id:curS.mpId, pk_lots:JSON.stringify(pkPayload)},
-     'PK ' + pkTotal() + ' EA 담기 저장 → 인박스', reopen);
+   /* ── ② 계획 자동저장 ──
+      배분·CK 자재를 바꿀 때마다 서버에 plan 으로 남긴다.
+      ★ 재고는 안 움직인다. 그래서 저장 실패해도 잃는 건 입력뿐이고,
+        성공하면 새로고침·다른 태블릿에서도 그대로 보인다. */
+   var _allocT = null;
+   function scheduleAllocSave() {
+    clearTimeout(_allocT);
+    _allocT = setTimeout(saveAllocNow, 700);
+   }
+   function saveAllocNow() {
+    if (!curS || locked()) return;
+    var ph = phase();
+    if (ph !== 'pk' && ph !== 'pack') return;
+    var built = buildAllocPayload(false);
+    apiPost(PACK_API + '/alloc_save', {
+     mp_id:curS.mpId, allocations:JSON.stringify(built.rows), spjangcd:_sp()
+    }).then(function (r) {
+     if (r && r.success === false) { flash(r.message || '계획 저장 실패'); return; }
+     markSaved();
+    }).catch(function () { flash('계획 저장 실패 — 네트워크를 확인하세요'); });
    }
 
    /**
-    * ③ CK 생산 / 투입 — ★완제 시점.
-    *   국가별로 mode 를 실어 보낸다.
-    *     produce → items(구성자재)로 CK 를 새로 만든다
-    *     stock   → ck_mat_lot_id 의 자체재고를 그대로 투입한다
+    * 배분 payload 구성.
+    *   strict=true 면 반영 직전 검증까지 한다(부족·미선택이면 error 를 채운다).
+    *   ★ 「자체재고 투입」은 items 에 CK 품목 한 줄로 실린다 —
+    *     서버가 그 줄을 보고 화면 상태를 복원한다(mode 컬럼을 안 만든 이유).
+    *   ★ CK 자체재고 세션은 country 가 NO_CTRY 이고 mode 는 항상 'produce' 다.
     */
-   function doCkProduce() {
+   function buildAllocPayload(strict) {
     var allocs = (curS.allocations || []).filter(function (a) { return (a.qty||0) > 0; });
-    if (!allocs.length) { flash('국가별 배분이 없습니다'); return; }
-    if (curS.jobKind !== 'ckstock' && allocRemain() !== 0) {
-     flash('국가별 배분 합계가 인박스 수량과 일치해야 합니다'); return;
-    }
+    var out = [], error = null;
+    var ckStock = isCkStock();
 
-    var payload = [], shortMsg = null;
-    for (var i = 0; i < allocs.length && !shortMsg; i++) {
+    for (var i = 0; i < allocs.length; i++) {
      var a = allocs[i], c = countryOf(a.country);
-     var mode = ckModeOf(a.country);
-     var row = {country:a.country, country_id:c ? c.id : null, country_name:c ? c.name : null,
+     var isNoC = (a.country === NO_CTRY);
+     var mode = ckStock ? 'produce' : ckModeOf(a.country);
+     var row = {country:a.country, country_id:(c ? c.id : null), country_name:(c ? c.name : null),
       qty:a.qty, mode:mode, ck_lot:a.ckLot || ckLotFor(a.country), items:[]};
 
      if (mode === 'stock') {
-      // ── 자체재고 투입 ──
-      var lotId = curS.ckStock[a.country];
-      var sl = ckStockOf(lotId);
-      if (!sl) { shortMsg = (c ? c.name : a.country) + ' — 투입할 CK 재고 로트를 선택하세요'; break; }
-      if (sl.avail < a.qty) {
-       shortMsg = (c ? c.name : a.country) + ' — CK 재고 부족 (필요 ' + a.qty + ' / 가용 ' + sl.avail + ')';
+      var sl = ckStockOf(curS.ckStock ? curS.ckStock[a.country] : null);
+      if (!sl) {
+       if (strict) { error = allocLabel(a) + ' — 투입할 CK 재고 로트를 선택하세요'; break; }
+       out.push(row); continue;
+      }
+      if (strict && sl.avail < a.qty) {
+       error = allocLabel(a) + ' — CK 재고 부족 (필요 ' + a.qty + ' / 가용 ' + sl.avail + ')';
        break;
       }
       row.ck_mat_lot_id = sl.matLotId;
       row.ck_lot = sl.lot;
-      payload.push(row);
+      // 복원용 한 줄 (CK 품목 자신)
+      if (curS.ckMatId) row.items.push({mat_id:curS.ckMatId, qty:a.qty, mat_lot_id:sl.matLotId});
+      out.push(row);
       continue;
      }
 
      // ── 새로 생산 ── 필터백 로트 확정(미변경이면 선입선출 기본값)
-     for (var j = 0; j < ckInputs().length; j++) {
-      var m = ckInputs()[j];
-      var key = ckKey(a.country, m.code), q = ckQtyByKey(key);
+     var list = ckInputs();
+     for (var j = 0; j < list.length; j++) {
+      var m = list[j], key = ckKey(a.country, m.code), q = ckQtyByKey(key);
       if (q <= 0) continue;
       var it = {mat_id:m.matId, qty:q};
       if (m.sterileLot) {
        var lotNo = ckLotOf(key) || fifoBagLot();
        if (!lotNo) {
-        curS.ckOpen[a.country] = true;
-        shortMsg = (c ? c.name + ' · ' : '') + m.name + ' — 멸균창고에 사용 가능한 로트가 없습니다';
-        break;
+        if (strict) {
+         ckOpenMap[ckOpenKey(a.country)] = true;
+         error = (isNoC ? '' : (c ? c.name + ' · ' : '')) + m.name +
+          ' — 멸균창고에 사용 가능한 로트가 없습니다';
+         break;
+        }
+       } else {
+        var lot = bagLotOf(lotNo);
+        if (lot) { it.mat_lot_id = lot.matLotId; it.mat_id = lot.matId; }
+        if (!curS.ckLotSel) curS.ckLotSel = {};
+        curS.ckLotSel[key] = lotNo;
        }
-       var lot = bagLotOf(lotNo);
-       if (lot) { it.mat_lot_id = lot.matLotId; it.mat_id = lot.matId; }
-       curS.ckLotSel[key] = lotNo;
       }
       row.items.push(it);
      }
-     if (shortMsg) break;
-     if (!row.items.length) { shortMsg = (c ? c.name : a.country) + ' — 투입 자재가 없습니다'; break; }
-     payload.push(row);
+     if (error) break;
+     if (strict && !row.items.length) { error = allocLabel(a) + ' — 투입 자재가 없습니다'; break; }
+     out.push(row);
     }
-    if (shortMsg) { renderC(); flash(shortMsg); return; }
+    return {rows:out, error:error};
+   }
 
-    var msg = curS.jobKind === 'ckstock'
-     ? 'CK 를 생산해 생산창고에 재고로 남깁니다.\n구성자재가 소비됩니다.'
-     : 'CK 를 반영해 완제품을 산출합니다.\n완제품 로트가 제품창고에 입고됩니다.';
+   /** ② 인박스 · CK 반영 = 완제품 산출 / ckstock 이면 CK 생산 */
+   function doPackFinish() {
+    var ckStock = isCkStock();
+    var allocs = (curS.allocations || []).filter(function (a) { return (a.qty||0) > 0; });
+    if (!allocs.length) {
+     flash(ckStock ? 'CK 생산 수량을 입력하세요' : '국가별 배분이 없습니다');
+     return;
+    }
+    if (!ckStock && allocRemain() !== 0) {
+     flash('국가별 배분 합계가 담은 PK 수량과 일치해야 합니다'); return;
+    }
+    var built = buildAllocPayload(true);
+    if (built.error) { renderC(); flash(built.error); return; }
+
+    var msg = ckStock
+     ? 'CK ' + allocTotal() + ' EA 를 생산해 생산창고에 재고로 남깁니다.\n구성자재가 소비됩니다.'
+     : '인박스·CK 를 반영해 완제품을 산출합니다.\n' +
+     'PK · IN BOX · CK 가 소비되고 완제품 로트가 제품창고에 입고됩니다.\n' +
+     '라벨 스캔은 다음 단계입니다.';
 
     uiConfirm(msg, function () {
-     post('/ck_produce', {mp_id:curS.mpId, allocations:JSON.stringify(payload)},
-      curS.jobKind === 'ckstock' ? 'CK 생산 완료 · 재고 입고' : '완제품 산출 완료 → 아웃박스', reopen);
-    }, curS.jobKind === 'ckstock' ? 'CK 생산' : '완제품 산출');
-   }
-
-   /** ③ 인박스 = 완제품 산출. PK 는 서버가 저장분에서 읽는다 */
-   function doInboxFinish() {
-    if (!(curS.scanCkpk && curS.scanInbox)) { flash('CK·PK + 인박스 라벨 2회 스캔이 필요합니다'); return; }
-    var labels = [];
-    [['ckpk', curS.scanCkpk], ['inbox', curS.scanInbox]].forEach(function (pair) {
-     var d = pair[1];
-     if (!d) return;
-     labels.push({kind:pair[0], gtin:d.gtin, lot:d.lot, date:d.date, expiry:d.expiry, qty:d.qty, raw:d.raw});
-    });
-    uiConfirm('인박스 포장을 완료합니다.\nPK 와 IN BOX 가 소비됩니다.\n완제품 로트는 ③ CK 반영 후에 나옵니다.', function () {
-     post('/inbox_finish', {
-      mp_id:curS.mpId, labels:JSON.stringify(labels),
+     post('/pack_finish', {
+      mp_id:curS.mpId, allocations:JSON.stringify(built.rows),
       start_time:curS.start || '', end_time:nowHM()
-     }, '인박스 포장 완료 → CK 단계', reopen);
-    }, '인박스 완료');
+     }, ckStock ? 'CK 생산 완료 · 재고 입고' : '완제품 산출 완료 → 라벨 스캔', reopen);
+    }, ckStock ? 'CK 생산' : '완제품 산출');
    }
 
-   /** ④ 아웃박스 = OUT BOX 소비 + 세션 완료.
-    카톤 목록은 보내지 않는다 — 서버가 완제품수량 ÷ 입수 로 같은 답을 낸다 */
+   /** ④ 아웃박스 = OUT BOX 소비 + 세션 완료 */
    function doOutboxFinish() {
     var cartons = cartonList();
     uiConfirm('아웃박스(카톤) 포장을 완료하고 작업을 종료합니다.\nOUT BOX ' + cartons.length + '개가 소비됩니다.', function () {
@@ -1831,34 +1945,34 @@
       C화면 이벤트
       ══════════════════════════════════════════════════════════════════════ */
    document.getElementById('cBody').addEventListener('click', function (e) {
-    // 단계 이동 — 아무것도 저장·삭제하지 않는다. 보기 전환일 뿐이다
     var go = e.target.closest('[data-goto]');
     if (go) {
      var to = go.dataset.goto;
-     // 실제 단계를 누르면 '지금'으로 복귀
      curS.viewPhase = (to === phase()) ? null : to;
      renderC();
      return;
     }
 
-    // PK 담기
+    // PK 담기 / 변경
     if (e.target.closest('[data-pickpk]')) { openPkSheet(); return; }
 
-    // 국가 배분
+    // 국가 배분 (ckstock 이면 인덱스 0 = CK 생산 수량)
     var aStep = e.target.closest('[data-allocqty]');
     if (aStep && (e.target.classList.contains('plus') || e.target.classList.contains('minus'))) {
      var ai = +aStep.dataset.allocqty, d = e.target.classList.contains('plus') ? 1 : -1;
      var a = curS.allocations[ai];
-     if (a) { a.qty = Math.max(0, (a.qty||0) + d); renderCBody(); renderCAction(); }
+     if (a) { a.qty = Math.max(0, (a.qty||0) + d); renderCBody(); renderCAction(); scheduleAllocSave(); }
      return;
     }
     var padA = e.target.closest('[data-padalloc]');
     if (padA) {
      var i2 = +padA.dataset.padalloc, aa = curS.allocations[i2];
      var c2 = aa ? countryOf(aa.country) : null;
-     openPad((c2 ? c2.name : '국가') + ' 배분 수량', (aa && aa.qty) || 0, pkTotal(), function (v) {
-      if (aa) { aa.qty = v; renderCBody(); renderCAction(); }
-     });
+     var padTitle = isCkStock() ? 'CK 생산 수량' : ((c2 ? c2.name : '국가') + ' 배분 수량');
+     openPad(padTitle, (aa && aa.qty) || 0,
+      isCkStock() ? 99999 : pkTotal(), function (v) {
+       if (aa) { aa.qty = v; renderCBody(); renderCAction(); scheduleAllocSave(); }
+      });
      return;
     }
     if (e.target.closest('[data-allocadd]')) {
@@ -1868,8 +1982,9 @@
       flash(COUNTRIES_LOADED ? '추가할 국가가 없습니다 — [국가 관리]에서 등록하세요' : '국가 목록을 읽는 중입니다');
       return;
      }
-     curS.allocations.push({country:next.code, qty:Math.max(0, allocRemain()), ckState:'plan'});
-     renderCBody(); renderCAction();
+     curS.allocations.push({country:next.code, countryId:next.id,
+      qty:Math.max(0, allocRemain()), ckState:'plan'});
+     renderCBody(); renderCAction(); scheduleAllocSave();
      return;
     }
     if (e.target.closest('[data-allocfill]')) {
@@ -1877,33 +1992,33 @@
      if (!curS.allocations.length) {
       var first = COUNTRIES.filter(function (c) { return c.useYn !== 'N'; })[0];
       if (!first) { flash('등록된 국가가 없습니다'); return; }
-      curS.allocations.push({country:first.code, qty:Math.max(0, pkTotal()), ckState:'plan'});
+      curS.allocations.push({country:first.code, countryId:first.id,
+       qty:Math.max(0, pkTotal()), ckState:'plan'});
      } else {
       var last = curS.allocations[curS.allocations.length - 1];
       last.qty = Math.max(0, (last.qty||0) + rem);
      }
-     renderCBody(); renderCAction();
+     renderCBody(); renderCAction(); scheduleAllocSave();
      return;
     }
     var adel = e.target.closest('[data-allocdel]');
-    if (adel) { curS.allocations.splice(+adel.dataset.allocdel, 1); renderCBody(); renderCAction(); return; }
-
-    // CK 국가 펼침
-    var ckHead = e.target.closest('[data-ckcountry]');
-    if (ckHead) {
-     var cc = ckHead.dataset.ckcountry;
-     if (!curS.ckOpen) curS.ckOpen = {};
-     curS.ckOpen[cc] = !curS.ckOpen[cc];
-     renderCBody();
+    if (adel) {
+     curS.allocations.splice(+adel.dataset.allocdel, 1);
+     renderCBody(); renderCAction(); scheduleAllocSave();
      return;
     }
+
+    // CK 펼침
+    var ckHead = e.target.closest('[data-ckcountry]');
+    if (ckHead) { toggleCkOpen(ckHead.dataset.ckcountry); renderCBody(); return; }
+
     var ckMode = e.target.closest('[data-ckmode]');
     if (ckMode) {
      var mp2 = ckMode.dataset.ckmode.split('|');
      if (!curS.ckMode) curS.ckMode = {};
      curS.ckMode[mp2[0]] = mp2[1];
-     curS.ckOpen[mp2[0]] = true;
-     renderCBody();
+     ckOpenMap[ckOpenKey(mp2[0])] = true;
+     renderCBody(); scheduleAllocSave();
      return;
     }
     var ckStk = e.target.closest('[data-ckstock]');
@@ -1911,31 +2026,31 @@
      var sp2 = ckStk.dataset.ckstock.split('|');
      if (!curS.ckStock) curS.ckStock = {};
      curS.ckStock[sp2[0]] = +sp2[1];
-     renderCBody();
+     renderCBody(); scheduleAllocSave();
      return;
     }
     var ckAll = e.target.closest('[data-ckall]');
     if (ckAll) {
      var c3 = ckAll.dataset.ckall;
      ckInputs().forEach(function (m) { setCkQty(ckKey(c3, m.code), ckDefaultQty(c3, m)); });
-     renderCBody(); return;
+     renderCBody(); scheduleAllocSave(); return;
     }
     var ckNone = e.target.closest('[data-cknone]');
     if (ckNone) {
      var c4 = ckNone.dataset.cknone;
      ckInputs().forEach(function (m) { setCkQty(ckKey(c4, m.code), 0); });
-     renderCBody(); return;
+     renderCBody(); scheduleAllocSave(); return;
     }
     var ckChk = e.target.closest('[data-ckchk]');
     if (ckChk) {
      var k = ckChk.dataset.ckchk, parts = k.split('|'), mm = ckMatOf(parts[1]);
-     if (mm) { setCkQty(k, ckQtyByKey(k) > 0 ? 0 : ckDefaultQty(parts[0], mm)); renderCBody(); }
+     if (mm) { setCkQty(k, ckQtyByKey(k) > 0 ? 0 : ckDefaultQty(parts[0], mm)); renderCBody(); scheduleAllocSave(); }
      return;
     }
     var ckStep = e.target.closest('[data-ckqty]');
     if (ckStep && (e.target.classList.contains('plus') || e.target.classList.contains('minus'))) {
      var kk = ckStep.dataset.ckqty, dd = e.target.classList.contains('plus') ? 1 : -1;
-     setCkQty(kk, ckQtyByKey(kk) + dd); renderCBody();
+     setCkQty(kk, ckQtyByKey(kk) + dd); renderCBody(); scheduleAllocSave();
      return;
     }
     var ckPad = e.target.closest('[data-ckpad]');
@@ -1944,14 +2059,14 @@
      var m2 = ckMatOf(parts2[1]), c5 = countryOf(parts2[0]);
      var max = m2 ? (m2.sterileLot ? m2.sterilStock : m2.usable) : 9999;
      openPad((c5 ? c5.flag + ' ' : '') + (m2 ? m2.name : '자재') + ' 투입수량',
-      ckQtyByKey(k2), max, function (v) { setCkQty(k2, v); renderCBody(); });
+      ckQtyByKey(k2), max, function (v) { setCkQty(k2, v); renderCBody(); scheduleAllocSave(); });
      return;
     }
     var ckLotBtn = e.target.closest('[data-cklot]');
     if (ckLotBtn) { openBagSheet(ckLotBtn.dataset.cklot); return; }
 
     // 라벨 스캔
-    if (e.target.id === 'scanIn' || e.target.id === 'rescanIn') { openScan(); return; }
+    if (e.target.id === 'scanIn') { openScan(); return; }
 
     // 카톤 바코드 (인쇄용 — DB 에 남기지 않는다)
     if (e.target.id === 'bcCartonFull' || e.target.id === 'bcCartonPart') {
@@ -1960,7 +2075,7 @@
      var target = cartons.filter(function (c) { return wantFull ? c.fullYn !== 'N' : c.fullYn === 'N'; });
      if (!target.length) { flash('출력할 카톤이 없습니다'); return; }
      var src = curS.scanInbox || curS.scanCkpk || {};
-     var gtin = src.gtin || (curO && curO.gtin) || '';
+     var gtin = src.gtin || curS.gtin || (curO && curO.gtin) || '';
      // 카톤 로트가 발번돼 있으면 그걸 쓴다(출고 스캔용). 없으면 UDI 로트로 폴백
      var lot = (curS.scanCarton && curS.scanCarton.lot) || src.lot || '';
      var dt = src.date || (curS.start || '').slice(2,10).replace(/-/g,'');
@@ -1979,12 +2094,17 @@
     var sel = e.target.closest('[data-alloc]');
     if (sel && sel.tagName === 'SELECT') {
      var i = +sel.dataset.alloc;
-     if (curS.allocations[i]) { curS.allocations[i].country = sel.value; renderCBody(); renderCAction(); }
+     if (curS.allocations[i]) {
+      var co = countryOf(sel.value);
+      curS.allocations[i].country = sel.value;
+      curS.allocations[i].countryId = co ? co.id : null;
+      renderCBody(); renderCAction(); scheduleAllocSave();
+     }
     }
    });
 
    /* ══════════════════════════════════════════════════════════════════════
-      PK 로트 담기 시트 — 화면 메모리에만 반영한다(서버 저장 없음)
+      PK 로트 담기 시트 — 확정 즉시 서버에 저장한다(화면 메모리 없음)
       ══════════════════════════════════════════════════════════════════════ */
    var pkPick = [], pkOpts = [];
    function openPkSheet() {
@@ -1996,17 +2116,7 @@
       return {matLotId:l.matLotId, lot:l.lot, udi:l.udi, name:l.name, code:l.code,
        matId:l.matId, avail:l.avail, qty:l.qty};
      });
-     // ★ 아직 아무것도 안 담았으면 BOM 의 PK 품목 로트를 자동으로 채워 둔다.
-     //   작업자는 확인만 하면 되고, 다른 품목은 어차피 위에서 걸러진다.
-     if (!pkPick.length && curS.pkMatId) {
-      pkOpts.filter(function (l) {
-       return String(l.matId) === String(curS.pkMatId) && l.avail > 0;
-      }).forEach(function (l) {
-       pkPick.push({matLotId:l.matLotId, lot:l.lot, udi:l.udi, name:l.name, code:l.code,
-        matId:l.matId, avail:l.avail, qty:l.avail});
-      });
-     }
-     document.getElementById('lotTitle').textContent = '멸균 완료 PK 로트 담기';
+     document.getElementById('lotTitle').textContent = '멸균 완료 PK 로트';
      renderPkSheet();
      document.getElementById('lotList').onclick = pkSheetClick;
      showMask('lotMask');
@@ -2047,9 +2157,9 @@
      '<span style="font-size:22px;font-variant-numeric:tabular-nums;color:var(--teal-d)">' + total + '</span>' +
      '<span style="color:var(--ink-2)">EA</span></div>';
     var note = '<div class="bc-sub" style="margin:8px 2px 0">' +
-     'BOM 의 PK 품목이 자동 선택돼 있습니다. 재고는 ② 인박스에서 소비됩니다.</div>';
-    var btn = '<button class="ok" data-pkok="1"' + (total > 0 ? '' : ' disabled') + '>' +
-     (total > 0 ? '이 로트들로 확정 (' + total + ' EA)' : 'PK 로트를 담아주세요') + '</button>';
+     '작지에 걸린 PK 품목이 자동으로 담겨 있습니다. 확정하면 바로 저장되고, 재고는 ②에서 소비됩니다.</div>';
+    var btn = '<button class="ok" data-pkok="1">' +
+     (total > 0 ? '이 로트들로 저장 (' + total + ' EA)' : '담은 로트 없이 저장(비우기)') + '</button>';
     box.innerHTML = list + tools + sum + note + btn;
    }
 
@@ -2067,11 +2177,12 @@
      return;
     }
     if (e.target.closest('[data-pkok]')) {
-     // 시트에서는 화면 메모리에만 반영. 저장은 액션바의 「PK 담기 저장」이 한다
-     curS.pkLots = pkPick.map(function (x) { return x; });
+     // ★ 시트에서 바로 서버 저장 — 화면 메모리로 들고 있지 않는다
+     var payload = pkPick.map(function (x) { return {mat_lot_id:x.matLotId, qty:x.qty}; });
      hideMask('lotMask');
-     renderC();
-     flash('PK 로트 ' + curS.pkLots.length + '건 · ' + pkTotal() + ' EA 담았습니다');
+     post('/pk_save', {mp_id:curS.mpId, pk_lots:JSON.stringify(payload)},
+      payload.length ? ('PK ' + payload.length + '건 · ' + pkPickTotal() + ' EA 저장') : 'PK 로트를 비웠습니다',
+      reopen);
      return;
     }
     var row = e.target.closest('[data-pklot]');
@@ -2120,6 +2231,7 @@
       curS.ckLotSel[key] = o.dataset.baglot;
       hideMask('lotMask');
       renderCBody();
+      scheduleAllocSave();
       flash('필터백 멸균 로트 ' + o.dataset.baglot + ' 선택');
      };
      showMask('lotMask');
@@ -2127,20 +2239,21 @@
    }
 
    /* ══════════════════════════════════════════════════════════════════════
-      라벨 스캔 — 2단계
+      ③ 라벨 스캔 — 2단계
         ① CK·PK  : (01)GTIN(10)LOT(11)제조일          ← 수량(30) 없음
         ② 인박스  : (01)GTIN(10)LOT(30)수량(11)제조일  ← 수량(30) 있음
+      마지막에 /label_scan 으로 저장하면 완제품 로트에 외부 UDI 가 붙는다.
       ══════════════════════════════════════════════════════════════════════ */
    var SCAN_STEPS = [
     {key:'ckpk', label:'① CK·PK', title:'① CK · PK 라벨 스캔', kind:'CK · PK 라벨 (수량 없음)',
      hint:'CK·PK 라벨을 사각형 안에 · (01)GTIN(10)LOT(11)제조일',
      apply:'다음 · 인박스 스캔 ›',
-     sample:function () { return '(01)' + (curO ? curO.gtin : '') + '(10)' + sampleLot() + '(11)' + sampleDate(); },
+     sample:function () { return '(01)' + (curS.gtin || '') + '(10)' + sampleLot() + '(11)' + sampleDate(); },
      validate:function (d) { return d.qty != null ? 'CK·PK 라벨엔 수량(30)이 없어야 합니다 (인박스 라벨로 보임)' : null; }},
     {key:'inbox', label:'② 인박스', title:'② 인박스 라벨 스캔', kind:'인박스 라벨 (수량 있음)',
      hint:'인박스 라벨을 사각형 안에 · (01)GTIN(10)LOT(30)수량(11)제조일',
      apply:'이 데이터로 지정',
-     sample:function () { return '(01)' + (curO ? curO.gtin : '') + '(10)' + sampleLot() + '(30)1(11)' + sampleDate(); },
+     sample:function () { return '(01)' + (curS.gtin || '') + '(10)' + sampleLot() + '(30)1(11)' + sampleDate(); },
      validate:function (d) { return d.qty == null ? '인박스 라벨엔 수량(30)이 있어야 합니다 (CK·PK 라벨로 보임)' : null; }}
    ];
    var scanState = {i:0, buf:{}}, scanPending = null;
@@ -2257,8 +2370,9 @@
    document.getElementById('scanApply').onclick = function () {
     var st = scanCur(), d = scanPending;
     if (!d) return;
-    if (d.gtin && curO.gtin && d.gtin !== curO.gtin) {
-     flash('GTIN 불일치 — 이 작업지시(' + curO.gtin + ')의 완제품 라벨이 아닙니다');
+    var expect = curS.gtin || (curO && curO.gtin) || '';
+    if (d.gtin && expect && d.gtin !== expect) {
+     flash('GTIN 불일치 — 이 작업지시(' + expect + ')의 완제품 라벨이 아닙니다');
      return;
     }
     // 투입 PK 로트의 UDI 와 대조. 여러 로트를 섞을 수 있으므로 '그중 하나와' 맞으면 통과(서버도 동일)
@@ -2280,11 +2394,14 @@
     var a = scanState.buf.ckpk, b = scanState.buf.inbox;
     if (a.gtin && b.gtin && a.gtin !== b.gtin) { flash('GTIN 불일치 — CK·PK와 인박스 라벨이 다릅니다'); return; }
     if (a.lot && b.lot && a.lot !== b.lot) { flash('LOT 불일치 — CK·PK와 인박스 라벨이 다릅니다'); return; }
-    curS.scanCkpk = a;
-    curS.scanInbox = b;
+
+    var labels = [
+     {kind:'ckpk',  gtin:a.gtin, lot:a.lot, date:a.date, expiry:a.expiry, qty:a.qty, raw:a.raw},
+     {kind:'inbox', gtin:b.gtin, lot:b.lot, date:b.date, expiry:b.expiry, qty:b.qty, raw:b.raw}
+    ];
     hideMask('scanMask');
-    renderCBody(); renderCAction();
-    flash('라벨 2회 스캔 완료 → 인박스 포장 가능');
+    post('/label_scan', {mp_id:curS.mpId, labels:JSON.stringify(labels)},
+     '라벨 2회 스캔 완료 → 아웃박스', reopen);
    };
 
    /* ══════════════════════════════════════════════════════════════════════
@@ -2298,7 +2415,8 @@
     startNoJob = !!noJob;
     selW = null; selE = null;
     document.getElementById('startTitle').textContent = noJob
-     ? '포장 작업 생성 (작지 없음)' : '작업 추가 · 새 작업자';
+     ? '포장 작업 생성 (작지 없음)'
+     : ((curO && curO.jobKind === 'ckstock') ? 'CK 생산 작업 추가' : '작업 추가 · 새 작업자');
 
     var pw = document.getElementById('startProdWrap');
     if (noJob) {
@@ -2315,7 +2433,7 @@
       : '<option value="">CK 반제품이 등록된 완제품이 없습니다</option>';
      document.getElementById('startProdNote').textContent =
       'PK ' + sel.length + '개 로트 · ' + qty + ' EA' + (lot0 ? ' · ' + lot0.name : '') +
-      ' — 완제품을 고르면 포장 작지가 자동 발행됩니다';
+      ' — 완제품을 고르면 포장 작지가 자동 발행되고 이 로트가 바로 담깁니다';
     } else {
      pw.style.display = 'none';
     }
@@ -2367,12 +2485,10 @@
      var prodId = document.getElementById('startProd').value;
      if (!prodId) { btn.disabled = false; flash('완제품을 선택하세요'); return; }
      var sel = Object.keys(waitSel).filter(function (k) { return waitSel[k]; });
-     var picked = sel.map(function (id) {
+     var pkLots = sel.map(function (id) {
       var l = waitOf(id);
-      return {matLotId:+id, lot:l.lot, udi:l.udi, name:l.name, code:l.code, matId:l.matId,
-       avail:l.avail, qty:Math.min(waitQty[id] || l.avail, l.avail)};
+      return {mat_lot_id:+id, qty:Math.min(waitQty[id] || l.avail, l.avail)};
      });
-     var pkLots = picked.map(function (x) { return {mat_lot_id:x.matLotId, qty:x.qty}; });
 
      apiPost(PACK_API + '/pack_start_nojob', {
       product_mat_id:prodId, pk_lots:JSON.stringify(pkLots),
@@ -2384,17 +2500,14 @@
       hideMask('startMask');
       waitSel = {}; waitQty = {};
       var d = (r && r.data) || {};
-      flash('포장 작업 생성 · ' + selW.name + ' / ' + selE.name + ' · ' + (d.units || 0) + ' EA');
-      // 만든 작지로 바로 진입하고, 고른 PK 를 ①단계 화면 상태로 넘겨준다
+      flash('포장 작업 생성 · ' + selW.name + ' / ' + selE.name + ' · PK ' + (d.units || 0) + ' EA 담김');
       refreshQueue0(function () {
        if (!d.jr_pk) return;
        openOrder(+d.jr_pk);
        loadSessions(d.jr_pk, function () {
         renderSessList();
         var i = curO.sessions.findIndex(function (x) { return String(x.mpId) === String(d.mp_id); });
-        if (i < 0) return;
-        curO.sessions[i].pkLots = picked;   // ①에서 「PK 담기 저장」을 누르면 확정된다
-        openSess(i);
+        if (i >= 0) openSess(i);
        });
       });
      }).catch(function (e) {
@@ -2410,8 +2523,16 @@
      btn.disabled = false;
      if (r && r.success === false) { flash(r.message || '작업을 시작하지 못했습니다'); return; }
      hideMask('startMask');
-     flash('작업 시작 · ' + selW.name + ' / ' + selE.name);
-     var mpId = (r && r.data && r.data.mp_id);
+     var d = (r && r.data) || {};
+     // ★ PK 자동배정 결과를 알려준다 — 못 잡았어도 세션은 열린다.
+     //   CK 자체재고 지시는 PK 품목이 없어 자동배정이 안 도는 게 정상이라 안내를 생략한다.
+     if (curO && curO.jobKind === 'ckstock')
+      flash('CK 생산 작업 시작 · ' + selW.name + ' / ' + selE.name);
+     else if (num(d.auto_pk_qty) > 0)
+      flash('작업 시작 · PK ' + d.auto_pk_cnt + '개 로트 ' + d.auto_pk_qty + ' EA 자동 선택');
+     else
+      flash(d.auto_pk_note || ('작업 시작 · ' + selW.name + ' / ' + selE.name));
+     var mpId = d.mp_id;
      loadSessions(curO.jrPk, function () {
       renderSessList();
       var i = curO.sessions.findIndex(function (x) { return String(x.mpId) === String(mpId); });
@@ -2688,14 +2809,18 @@
      curBtn = btn;
      END_EVENTS.forEach(function (ev) { btn.addEventListener(ev, stop); });
      holdTimer = setTimeout(function () {
-      repeatTimer = setInterval(function () { tick(x, y); }, 80);
+      repeatTimer = setInterval(function () {
+       tick(x, y);
+      }, 80);
       maxTimer = setTimeout(stop, 8000);
      }, 400);
-     window.addEventListener('pointerup', stop, {once:true, capture:true});
-     window.addEventListener('touchend', stop, {once:true, capture:true});
+     window.addEventListener('pointerup', stop, {once: true, capture: true});
+     window.addEventListener('touchend', stop, {once: true, capture: true});
     });
     window.addEventListener('blur', stop);
-    document.addEventListener('visibilitychange', function () { if (document.hidden) stop(); });
+    document.addEventListener('visibilitychange', function () {
+     if (document.hidden) stop();
+    });
    })();
   </script>
 </th:block>
