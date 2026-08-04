@@ -3,17 +3,17 @@
 <th:block layout:fragment="content">
   <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet"/>
   <style>
-
       :root{--bg:#E9EEF1;--surface:#FFF;--surface-2:#F4F7F9;--ink:#15222B;--ink-2:#5A6B76;--line:#D8E0E5;
           --teal:#0E7C86;--teal-d:#0A5C64;--teal-bg:#E2F1F2;--green:#1E9D58;--green-bg:#E4F4EA;
-          --amber:#C77A00;--amber-bg:#FBEFD8;--red:#C8483B;--red-bg:#F7E4E1;--r:18px;--tap:60px;
-          --shadow:0 1px 0 rgba(21,34,43,.04),0 8px 24px -16px rgba(21,34,43,.28)}
+          --amber:#C77A00;--amber-bg:#FBEFD8;--red:#C8483B;--red-bg:#F7E4E1;--purple:#6B3FA0;--purple-bg:#EEE7FA;
+          --r:18px;--tap:60px;--shadow:0 1px 0 rgba(21,34,43,.04),0 8px 24px -16px rgba(21,34,43,.28)}
       *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-      .ms-wash-root{font-family:"Pretendard","Noto Sans KR",-apple-system,sans-serif;color:var(--ink);font-size:17px;line-height:1.45;-webkit-font-smoothing:antialiased;flex:1 1 auto;min-height:0;height:var(--wash-h,100%);max-height:var(--wash-h,none);display:flex;flex-direction:column}
-      .ms-wash-root .app{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;background:var(--bg);border-radius:12px;overflow:hidden}
+      .ms-pack-root{font-family:"Pretendard","Noto Sans KR",-apple-system,sans-serif;color:var(--ink);font-size:17px;
+          line-height:1.45;-webkit-font-smoothing:antialiased;flex:1 1 auto;min-height:0;
+          height:var(--wash-h,100%);max-height:var(--wash-h,none);display:flex;flex-direction:column;position:relative}
+      .ms-pack-root .app{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;background:var(--bg);border-radius:12px;overflow:hidden}
       .screen{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden}.screen.hide{display:none}
 
-      /* 큐 */
       .wrap{padding:22px 20px 28px;max-width:1180px;margin:0 auto;width:100%;overflow:auto;-webkit-overflow-scrolling:touch;flex:1 1 auto;min-height:0}
       .qhead{display:flex;align-items:baseline;gap:12px;margin:2px 2px 18px}
       .qhead h1{font-size:26px;font-weight:800;letter-spacing:-.03em;margin:0}
@@ -25,24 +25,23 @@
       .searchbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 2px 18px;
           background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px;box-shadow:var(--shadow)}
       .searchbar .slab{font-weight:800;color:var(--ink-2);font-size:14px}
-      .searchbar .tilde{font-weight:800;color:var(--ink-2)}
       .dinput{height:48px;border:1px solid var(--line);border-radius:12px;padding:0 12px;font-size:16px;
-          font-weight:700;color:var(--ink);background:var(--surface-2);font-variant-numeric:tabular-nums;min-width:160px}
+          font-weight:700;color:var(--ink);background:var(--surface-2);font-variant-numeric:tabular-nums;min-width:150px}
       .sbtn{height:48px;padding:0 22px;border:none;border-radius:12px;background:var(--teal);color:#fff;
           font-weight:800;font-size:16px;cursor:pointer;margin-left:auto}
       .sbtn:active{background:var(--teal-d)}
       .qgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
-      .wo{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px 18px 16px;
+      .wo{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px;
           cursor:pointer;box-shadow:var(--shadow);transition:transform .12s ease;position:relative;overflow:hidden}
       .wo:active{transform:scale(.985)}
       .wo .edge{position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--line)}
       .wo[data-st="working"] .edge{background:var(--teal)}.wo[data-st="wait"] .edge{background:var(--amber)}.wo[data-st="done"] .edge{background:var(--green)}
-      .wo .row1{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+      .wo .row1{display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap}
       .wo .wono{font-weight:800;font-size:15px;color:var(--ink-2)}
       .chip{margin-left:auto;padding:5px 11px;border-radius:999px;font-size:13px;font-weight:800}
       .chip.working{background:var(--teal-bg);color:var(--teal-d)}.chip.wait{background:var(--amber-bg);color:var(--amber)}.chip.done{background:var(--green-bg);color:var(--green)}
       .wo .name{font-size:19px;font-weight:800;letter-spacing:-.02em;line-height:1.3;margin:2px 0 14px}
-      .wo .meta{display:flex;gap:18px;align-items:flex-end}
+      .wo .meta{display:flex;gap:18px;align-items:flex-end;flex-wrap:wrap}
       .wo .meta .blk{display:flex;flex-direction:column;gap:2px}
       .wo .meta .lab{font-size:12.5px;color:var(--ink-2);font-weight:700}
       .wo .meta .val{font-size:18px;font-weight:800}
@@ -50,9 +49,8 @@
       .wo .bar{height:8px;width:120px;background:var(--surface-2);border-radius:999px;overflow:hidden;margin-top:6px}
       .wo .bar>i{display:block;height:100%;background:var(--teal);border-radius:999px}
 
-      /* 공통 상단바(B,C) */
       .topbar2{flex:0 0 auto;background:var(--surface);border-bottom:1px solid var(--line);
-          padding:12px 18px;display:flex;align-items:center;gap:14px;box-shadow:var(--shadow);z-index:2}
+          padding:12px 18px;display:flex;align-items:center;gap:14px;box-shadow:var(--shadow);z-index:2;flex-wrap:wrap}
       .back{width:48px;height:48px;border-radius:14px;border:1px solid var(--line);background:var(--surface-2);
           display:grid;place-items:center;cursor:pointer;font-size:22px;flex:0 0 auto}
       .back:active{background:var(--line)}
@@ -60,7 +58,6 @@
       .htitle .t{font-size:18px;font-weight:800;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
       .htitle .s{font-size:13.5px;color:var(--ink-2);font-weight:700;margin-top:1px}
 
-      /* B. 세션 목록 */
       .col-stack{display:flex;flex-direction:column;flex:1 1 auto;min-height:0;height:100%}
       .bscroll{flex:1 1 auto;min-height:0;overflow:auto;-webkit-overflow-scrolling:touch;padding:18px}
       .bgrid{max-width:1000px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
@@ -72,166 +69,182 @@
       .ov.left .v{color:var(--teal-d)}
       .secline{display:flex;align-items:center;gap:10px;margin:6px 2px 0;color:var(--ink-2);font-weight:800;font-size:14px}
       .secline .ln{flex:1;height:1px;background:var(--line)}
-      .sess{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;
-          box-shadow:var(--shadow);cursor:pointer;display:flex;align-items:center;gap:16px;position:relative;overflow:hidden;
-          transition:transform .12s ease}
-      .sess:active{transform:scale(.99)}
-      .sess .edge{position:absolute;left:0;top:0;bottom:0;width:5px}
-      .sess[data-st="working"] .edge{background:var(--teal)}.sess[data-st="done"] .edge{background:var(--green)}
-      .sess .who{display:flex;flex-direction:column;gap:2px;min-width:120px}
-      .sess .who .nm{font-size:18px;font-weight:800}
-      .sess .who .eq{font-size:13px;color:var(--ink-2);font-weight:700}
-      .sess .time{font-size:13.5px;color:var(--ink-2);font-weight:700;font-variant-numeric:tabular-nums}
-      .sess .qty{margin-left:auto;text-align:right}
-      .sess .qty .v{font-size:24px;font-weight:800;font-variant-numeric:tabular-nums}
-      .sess .qty .l{font-size:12px;color:var(--ink-2);font-weight:700}
-      .sess .badge{padding:6px 12px;border-radius:999px;font-size:13px;font-weight:800}
-      .sess .badge.working{background:var(--teal-bg);color:var(--teal-d)}.sess .badge.done{background:var(--green-bg);color:var(--green)}
+
+      .unit{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;
+          box-shadow:var(--shadow);cursor:pointer;display:flex;align-items:center;gap:16px;position:relative;
+          overflow:hidden;transition:transform .12s ease;flex-wrap:wrap;margin-bottom:10px}
+      .unit:active{transform:scale(.99)}
+      .unit .edge{position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--amber)}
+      .unit.packed .edge{background:var(--green)}
+      .unit.sess .edge{background:var(--teal)}
+      .unit.sess.closed .edge{background:var(--green)}
+      .unit .who{display:flex;flex-direction:column;gap:3px;min-width:200px;flex:1}
+      .unit .lot{font-size:17px;font-weight:800;font-variant-numeric:tabular-nums;word-break:break-all}
+      .unit .sub{font-size:12.5px;color:var(--ink-2);font-weight:700}
+      .unit .badge{padding:6px 12px;border-radius:999px;font-size:13px;font-weight:800;flex:0 0 auto}
+      .unit .badge.wait{background:var(--amber-bg);color:var(--amber)}
+      .unit .badge.done{background:var(--green-bg);color:var(--green)}
+      .unit .badge.work{background:var(--teal-bg);color:var(--teal-d)}
+      .unit .go{font-size:24px;color:var(--ink-2);flex:0 0 auto;line-height:1}
+      /* 선택형(포장 대상 고르기) */
+      .unit.pick{padding:14px 16px}
+      .unit.pick .tick{width:34px;height:34px;border-radius:10px;border:2px solid var(--line);display:grid;place-items:center;
+          font-size:19px;font-weight:800;color:transparent;flex:0 0 auto;background:var(--surface-2)}
+      .unit.pick.sel{border-color:var(--teal);background:linear-gradient(180deg,var(--teal-bg),#FFF)}
+      .unit.pick.sel .tick{border-color:var(--teal);background:var(--teal);color:#fff}
+      .unit.readonly{cursor:default}
+      .rbadge{padding:4px 10px;border-radius:999px;font-size:12px;font-weight:800;background:var(--purple-bg);color:var(--purple)}
       .emptysess{text-align:center;color:var(--ink-2);font-weight:700;padding:30px;border:1.5px dashed var(--line);border-radius:var(--r)}
 
-      /* C. 세션 작업(부품) */
       .infopill{display:flex;gap:7px;align-items:center;background:var(--surface-2);border:1px solid var(--line);
-          border-radius:12px;padding:8px 12px;font-size:13px;font-weight:700;color:var(--ink-2);cursor:default}
-      .infopill.tap{cursor:pointer}.infopill.tap:active{background:var(--line)}
+          border-radius:12px;padding:8px 12px;font-size:13px;font-weight:700;color:var(--ink-2)}
       .infopill b{color:var(--ink);font-variant-numeric:tabular-nums}
+      .infopill.tap{cursor:pointer}.infopill.tap:active{background:var(--line)}
       .infopill.tap b{color:var(--teal-d);text-decoration:underline dotted}
       .sstate{padding:8px 14px;border-radius:999px;font-weight:800;font-size:14px}
-      .sstate.working{background:var(--teal-bg);color:var(--teal-d)}.sstate.done{background:var(--green-bg);color:var(--green)}
+      .sstate.wait{background:var(--amber-bg);color:var(--amber)}
+      .sstate.work{background:var(--teal-bg);color:var(--teal-d)}
+      .sstate.done{background:var(--green-bg);color:var(--green)}
+
       .part{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;
           display:flex;align-items:center;gap:14px;box-shadow:var(--shadow);flex-wrap:wrap}
-      .part.locked{opacity:.7}
+      .part.ok{border-color:var(--green);background:linear-gradient(180deg,#F2FBF5,#FFF)}
+      .part.need{border-color:var(--amber);background:linear-gradient(180deg,#FEF8EC,#FFF)}
       .part .id{display:flex;flex-direction:column;min-width:0;flex:1}
-      .part .pn{font-size:18px;font-weight:800;letter-spacing:-.02em}
-      .part .pc{font-size:13px;color:var(--ink-2);font-weight:700;font-variant-numeric:tabular-nums}
-      .stepper{display:flex;align-items:center;flex:0 0 auto}
-      .stepper button{width:50px;height:54px;border:1px solid var(--line);background:var(--surface-2);font-size:25px;font-weight:700;cursor:pointer;display:grid;place-items:center}
-      .stepper button:active{background:var(--line)}
-      .stepper button.minus{border-radius:14px 0 0 14px}.stepper button.plus{border-radius:0 14px 14px 0}
-      .stepper .qty{width:90px;height:54px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);
-          background:#FFFDF4;text-align:center;font-size:23px;font-weight:800;font-variant-numeric:tabular-nums;display:grid;place-items:center;cursor:pointer}
+      .part .pn{font-size:18px;font-weight:800;letter-spacing:-.02em;word-break:break-all}
+      .part .pc{font-size:13px;color:var(--ink-2);font-weight:700}
       .done-tag{padding:7px 14px;border-radius:999px;background:var(--green-bg);color:var(--green);font-weight:800;font-size:14px}
+      .req{padding:4px 9px;border-radius:999px;background:var(--red-bg);color:var(--red);font-size:12px;font-weight:800}
+
+      .mat{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px;
+          display:flex;align-items:center;gap:12px;box-shadow:var(--shadow);margin-bottom:10px;flex-wrap:wrap}
+      .mat.on{border-color:var(--green);background:linear-gradient(180deg,#F2FBF5,#FFF)}
+      .mat.short{border-color:var(--red);background:linear-gradient(180deg,#FDF3F1,#FFF)}
+      .mat .chk{width:34px;height:34px;border-radius:10px;border:2px solid var(--line);display:grid;place-items:center;
+          font-size:19px;font-weight:800;color:transparent;flex:0 0 auto;background:var(--surface-2)}
+      .mat.on .chk{border-color:var(--green);background:var(--green);color:#fff}
+      .mat .mid{flex:1;min-width:0}
+      .mat .mn{font-size:16px;font-weight:800;line-height:1.3}
+      .mat .mc{font-size:12.5px;color:var(--ink-2);font-weight:700;font-variant-numeric:tabular-nums}
+      .mat .mc .warn{color:var(--red)}
+      .mat .mstep{display:flex;align-items:center;flex:0 0 auto}
+      .mat .mstep button{width:44px;height:48px;border:1px solid var(--line);background:var(--surface-2);font-size:22px;font-weight:700;cursor:pointer}
+      .mat .mstep button:first-child{border-radius:12px 0 0 12px}
+      .mat .mstep button:last-child{border-radius:0 12px 12px 0}
+      .mat .mstep .n{width:58px;height:48px;display:grid;place-items:center;border-top:1px solid var(--line);
+          border-bottom:1px solid var(--line);font-weight:800;font-variant-numeric:tabular-nums;background:#FFFDF4;cursor:pointer}
 
       .actionbar{flex:0 0 auto;background:var(--surface);border-top:1px solid var(--line);
           padding:14px 18px calc(14px + env(safe-area-inset-bottom));display:flex;gap:12px;align-items:center;
-          box-shadow:0 -8px 24px -18px rgba(21,34,43,.4)}
+          box-shadow:0 -8px 24px -18px rgba(21,34,43,.4);flex-wrap:wrap}
       .actionbar .actsum{display:flex;flex-direction:column;margin-right:auto}
       .actionbar .actsum .l{font-size:12.5px;color:var(--ink-2);font-weight:700}
       .actionbar .actsum .v{font-size:21px;font-weight:800;font-variant-numeric:tabular-nums}
-      .btn{min-height:var(--tap);padding:0 24px;border-radius:16px;border:none;cursor:pointer;font-size:18px;font-weight:800;display:inline-flex;align-items:center;gap:8px}
+      .btn{min-height:var(--tap);padding:0 24px;border-radius:16px;border:none;cursor:pointer;font-size:18px;
+          font-weight:800;display:inline-flex;align-items:center;gap:8px}
       .btn.ghost{background:var(--surface-2);color:var(--ink-2);border:1px solid var(--line)}.btn.ghost:active{background:var(--line)}
       .btn.primary{background:var(--teal);color:#fff;padding:0 36px;box-shadow:0 8px 18px -8px rgba(14,124,134,.7)}.btn.primary:active{background:var(--teal-d)}
+      .btn.primary:disabled{background:var(--line);color:var(--ink-2);box-shadow:none;cursor:default}
       .btn.start{background:var(--teal);color:#fff;flex:1;justify-content:center;font-size:20px}
       .btn.danger{background:var(--red-bg);color:var(--red)}
+      .btn.sm{min-height:44px;padding:0 16px;font-size:15px;border-radius:12px}
 
-      /* 시트 */
-      .mask{position:fixed;inset:0;background:rgba(21,34,43,.42);display:none;z-index:40;align-items:flex-end}
-      .mask.show{display:flex;animation:fade .15s ease}@keyframes fade{from{opacity:0}to{opacity:1}}
-      .sheet{width:100%;background:var(--surface);border-radius:24px 24px 0 0;padding:20px 20px calc(40px + env(safe-area-inset-bottom));
-          box-shadow:0 -20px 40px -20px rgba(0,0,0,.4);animation:rise .2s cubic-bezier(.2,.7,.3,1);max-height:88dvh;overflow:auto}
-      @keyframes rise{from{transform:translateY(40px)}to{transform:translateY(0)}}
+      /* ★ .mask 는 fixed 가 아니라 root 기준 absolute (--wash-h 로 높이를 직접 계산하므로) */
+      .mask{position:absolute;inset:0;background:rgba(21,34,43,.42);display:none;z-index:40;align-items:flex-end}
+      .mask.show{display:flex}
+      .sheet{width:100%;background:var(--surface);border-radius:24px 24px 0 0;
+          padding:20px 20px calc(30px + env(safe-area-inset-bottom));
+          box-shadow:0 -20px 40px -20px rgba(0,0,0,.4);max-height:92%;overflow:auto}
       .sheet .sh{display:flex;align-items:center;margin-bottom:16px}
       .sheet .sh h3{font-size:20px;font-weight:800;margin:0;letter-spacing:-.02em}
       .sheet .sh .x{margin-left:auto;width:44px;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--surface-2);font-size:20px;cursor:pointer}
       .sheet .body{max-width:640px;margin:0 auto}
       .fieldlab{font-size:14px;font-weight:800;color:var(--ink-2);margin:14px 2px 8px}
       .opts{display:flex;flex-wrap:wrap;gap:10px}
-      .opt{min-height:54px;padding:0 18px;border-radius:14px;border:1.5px solid var(--line);background:var(--surface);font-weight:800;font-size:16px;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+      .opt{min-height:54px;padding:0 18px;border-radius:14px;border:1.5px solid var(--line);background:var(--surface);
+          font-weight:800;font-size:16px;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
       .opt:active{background:var(--surface-2)}.opt.sel{border-color:var(--teal);background:var(--teal-bg);color:var(--teal-d)}
       .opt .sub{font-size:12.5px;color:var(--ink-2);font-weight:700}
-      .sheet .ok{width:100%;margin-top:20px;background:var(--teal);color:#fff;min-height:var(--tap);border:none;border-radius:16px;font-size:19px;font-weight:800;cursor:pointer}
+      .optsep{flex:0 0 100%;font-size:13px;font-weight:800;color:var(--ink-2);margin:6px 2px -2px}
+      .sheet .ok{width:100%;margin-top:20px;background:var(--teal);color:#fff;min-height:var(--tap);border:none;
+          border-radius:16px;font-size:19px;font-weight:800;cursor:pointer}
       .sheet .ok:disabled{background:var(--line);color:var(--ink-2)}
-      .pad .disp{margin-left:auto;min-width:140px;text-align:right;font-size:30px;font-weight:800;font-variant-numeric:tabular-nums;background:var(--surface-2);border:1px solid var(--line);border-radius:14px;padding:8px 16px}
+      .txin{width:100%;height:56px;border:1px solid var(--line);border-radius:14px;padding:0 14px;font-size:18px;
+          font-weight:800;background:var(--surface-2);font-variant-numeric:tabular-nums}
+      .scanres{margin-top:14px;padding:14px;border-radius:14px;border:1px solid var(--line);background:var(--surface-2);font-size:14px;font-weight:700}
+      .scanres.ok{border-color:var(--green);background:var(--green-bg);color:var(--green)}
+      .scanres.ng{border-color:var(--red);background:var(--red-bg);color:var(--red)}
+      /* 카메라 스캔 */
+      .camwrap{display:none;position:relative;border-radius:16px;overflow:hidden;background:#0B1418;margin-bottom:14px}
+      .camwrap.on{display:block}
+      .camwrap video{display:block;width:100%;max-height:44vh;object-fit:cover;background:#0B1418}
+      .camwrap .camguide{position:absolute;left:8%;right:8%;top:50%;transform:translateY(-50%);
+          height:26%;border:2px solid rgba(255,255,255,.85);border-radius:12px;
+          box-shadow:0 0 0 9999px rgba(0,0,0,.28);pointer-events:none}
+      .camwrap .camstop{position:absolute;right:12px;top:12px;min-height:44px;padding:0 16px;border-radius:12px;
+          border:none;background:rgba(21,34,43,.72);color:#fff;font-weight:800;font-size:14px;cursor:pointer}
+      .camnote{font-size:13px;font-weight:700;color:var(--ink-2);margin:0 2px 4px;line-height:1.5}
+      .camnote.warn{color:var(--red)}
+      .pad .disp{margin-left:auto;min-width:140px;text-align:right;font-size:30px;font-weight:800;
+          font-variant-numeric:tabular-nums;background:var(--surface-2);border:1px solid var(--line);border-radius:14px;padding:8px 16px}
       .keys{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:520px;margin:6px auto 0}
-      .keys button{height:62px;border-radius:14px;border:1px solid var(--line);background:var(--surface);font-size:25px;font-weight:800;cursor:pointer;font-variant-numeric:tabular-nums}
-      .keys button:active{background:var(--surface-2)}.keys button.ok{background:var(--teal);color:#fff;border-color:var(--teal);width:auto;margin-top:0;min-height:0;height:62px;border-radius:14px}.keys button.clr{color:var(--red)}
+      .keys button{height:62px;border-radius:14px;border:1px solid var(--line);background:var(--surface);
+          font-size:25px;font-weight:800;cursor:pointer;font-variant-numeric:tabular-nums}
+      .keys button.ok{background:var(--teal);color:#fff;border-color:var(--teal);margin-top:0;min-height:0;height:62px;width:auto}
+      .keys button.clr{color:var(--red)}
       .dateedit{display:flex;align-items:center;justify-content:center;gap:14px;margin:4px 0 10px}
       .dateedit .dbtn{width:56px;height:52px;border-radius:14px;border:1px solid var(--line);background:var(--surface-2);font-size:22px;font-weight:700;cursor:pointer}
-      .dateedit .dbtn:active{background:var(--line)}
       .dateedit .dval{min-width:200px;text-align:center;font-size:22px;font-weight:800;font-variant-numeric:tabular-nums}
       .timeedit{display:flex;align-items:center;justify-content:center;gap:6px;margin:8px 0}
       .tcol{display:flex;flex-direction:column;align-items:center;gap:8px}
       .tcol button{width:84px;height:52px;border-radius:14px;border:1px solid var(--line);background:var(--surface-2);font-size:24px;font-weight:700;cursor:pointer}
       .tcol .tv{font-size:42px;font-weight:800;font-variant-numeric:tabular-nums;width:84px;text-align:center}
       .tsep{font-size:40px;font-weight:800;padding-bottom:4px}
-      @media (max-width:680px){.part .stat{order:3;width:100%;justify-content:space-between}.qgrid{grid-template-columns:1fr}.sess{flex-wrap:wrap}}
-      @media (prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important}}
-
-      /* ── 스캔 시트(단순화) ── */
-      .scancount{text-align:center;margin:16px 0 2px;font-weight:800;font-variant-numeric:tabular-nums}
-      .scancount #scanCount{font-size:38px;color:var(--teal-d)}
-      .scancount .cslash{font-size:22px;color:var(--ink-2);margin:0 4px}
-      .scancount #scanTotal{font-size:24px}
-      .scancount .csub{font-size:14px;color:var(--ink-2);margin-left:6px}
-      .scan-actions{display:flex;gap:10px;margin-top:8px;flex-wrap:wrap}
-      .scan-actions .btn{flex:1;justify-content:center;min-height:56px}
-      .scanlots{display:flex;flex-direction:column;gap:6px;max-height:200px;overflow:auto;margin:12px 0 2px}
-      .scanlots .lotrow{display:flex;align-items:center;gap:10px;padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
-      .scanlots .lotrow .k{width:26px;height:26px;border-radius:7px;background:var(--teal-bg);color:var(--teal-d);display:grid;place-items:center;font-size:12px;font-weight:800;flex:0 0 auto}
-      .scanlots .lotrow .lv{font-size:15px;font-weight:800;font-variant-numeric:tabular-nums;word-break:break-all}
-
-      /* 스캔 결과 표시용 보조 스타일 (스캔 데이터 원문/결과 테이블) */
-      .bc-sub{font-size:12px;color:var(--ink-2);font-weight:700;margin-top:2px}
-      .form-tbl{width:100%;border-collapse:collapse;font-size:13px}
-      .form-tbl th,.form-tbl td{border:1px solid var(--line);padding:8px 10px;text-align:left}
+      .form-tbl{width:100%;border-collapse:collapse;font-size:13.5px}
+      .form-tbl th,.form-tbl td{border:1px solid var(--line);padding:9px 10px;text-align:left}
       .form-tbl th{background:var(--surface-2);font-weight:800}
-
-      /* ── M-CELL 포장 자재 ── */
-      .mat{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px;
-          display:flex;align-items:center;gap:12px;box-shadow:var(--shadow);margin-bottom:10px;flex-wrap:wrap}
-      .mat.on{border-color:var(--green);background:linear-gradient(180deg,#F2FBF5,#FFF)}
-      .mat .chk{width:34px;height:34px;border-radius:10px;border:2px solid var(--line);
-          display:grid;place-items:center;font-size:19px;font-weight:800;color:transparent;flex:0 0 auto;cursor:pointer;background:var(--surface-2)}
-      .mat.on .chk{border-color:var(--green);background:var(--green);color:#fff}
-      .mat .mid{flex:1;min-width:0}
-      .mat .mn{font-size:16px;font-weight:800;letter-spacing:-.01em;line-height:1.3}
-      .mat .mc{font-size:12.5px;color:var(--ink-2);font-weight:700;font-variant-numeric:tabular-nums}
-      .mat .mstep{display:flex;align-items:center;flex:0 0 auto}
-      .mat .mstep button{width:44px;height:48px;border:1px solid var(--line);background:var(--surface-2);font-size:22px;font-weight:700;cursor:pointer}
-      .mat .mstep button:first-child{border-radius:12px 0 0 12px}
-      .mat .mstep button:last-child{border-radius:0 12px 12px 0}
-      .mat .mstep .n{width:58px;height:48px;display:grid;place-items:center;border-top:1px solid var(--line);border-bottom:1px solid var(--line);font-weight:800;font-variant-numeric:tabular-nums;background:#FFFDF4}
-      .mat .mstep.locked{opacity:.55;pointer-events:none}
-      .mat-tools{display:flex;gap:8px;margin:2px 2px 10px;flex-wrap:wrap}
-      .autonote{background:var(--teal-bg);color:var(--teal-d);border-radius:12px;padding:12px 14px;font-weight:800;font-size:13.5px;margin-bottom:10px}
-      .matqty{font-size:16px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--ink-2);flex:0 0 auto;min-width:56px;text-align:right}
-      .matqty.ok{color:var(--green)}
-      .mat-tools button{min-height:44px;padding:0 16px;border-radius:12px;border:1px solid var(--line);
-          background:var(--surface);color:var(--ink-2);font-weight:800;font-size:14px;cursor:pointer}
-      .mat-tools button:active{background:var(--surface-2)}
-      .common-tag{padding:3px 8px;border-radius:6px;background:var(--surface-2);color:var(--ink-2);font-size:11px;font-weight:800;margin-left:6px}
-      .fam-badge{padding:4px 10px;border-radius:8px;font-size:12px;font-weight:800;margin-left:6px}
-      .fam-badge.dom{background:#E2F1F2;color:#0A5C64}
-      .fam-badge.ovs{background:#EEE7FA;color:#6B3FA0}
-
-      /* ── 검사 합격 완제품 pool (검사 공정 전달) ── */
-      .passedgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px;margin-top:2px}
-      .passedrow{display:flex;align-items:center;gap:8px;padding:9px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);box-shadow:var(--shadow)}
-      .passedrow.pk{border-color:var(--green);background:linear-gradient(180deg,#F2FBF5,#FFF)}
-      .passedrow .plot{font-size:13.5px;font-weight:800;font-variant-numeric:tabular-nums;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-      .passedrow .pbadge{font-size:11.5px;font-weight:800;padding:3px 9px;border-radius:999px;background:var(--surface-2);color:var(--ink-2);flex:0 0 auto}
-      .passedrow.pk .pbadge{background:var(--green-bg);color:var(--green)}
-
+      .form-tbl td.num{font-variant-numeric:tabular-nums;word-break:break-all}
+      /* ★ 레이아웃 전역에 .num 이 알약(민트 배경 + 흰 글자)으로 정의돼 있다.
+         이 화면은 .num 을 '숫자 정렬' 용도로만 쓰므로 root 안에서만 되돌린다.
+         전역 파일을 고치면 그 클래스를 쓰는 다른 화면이 같이 바뀐다. */
+      .ms-pack-root .num{display:inline;justify-content:initial;text-align:inherit;
+          padding:0;background-color:transparent;border-radius:0;font-size:inherit;color:inherit}
+      /* 포장 완료 박스 상세 — 레이아웃 전역 CSS 가 table 셀을 건드려서 div 로 짠다 */
+      .dhead{display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+          background:var(--surface-2);border:1px solid var(--line);border-radius:16px;padding:14px 16px}
+      .dhead .dlot{font-size:20px;font-weight:800;font-variant-numeric:tabular-nums;
+          letter-spacing:-.02em;word-break:break-all;flex:1;min-width:0}
+      .drows{margin-top:12px;border:1px solid var(--line);border-radius:16px;overflow:hidden}
+      .drow{display:flex;align-items:baseline;gap:14px;padding:12px 16px;border-bottom:1px solid var(--line)}
+      .drow:last-child{border-bottom:none}
+      .drow>.k{flex:0 0 96px;font-size:13px;font-weight:800;color:var(--ink-2)}
+      .drow>.v{flex:1;min-width:0;font-size:16px;font-weight:800;word-break:break-all}
+      .drow>.v.num{font-variant-numeric:tabular-nums}
+      .drow>.v.muted{color:var(--ink-2);font-weight:700}
+      @media (max-width:680px){.qgrid{grid-template-columns:1fr}}
+      @media (prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important}}
   </style>
 
-  <div class="ms-wash-root">
+  <div class="ms-pack-root">
     <div class="app">
 
-      <!-- A. 큐 -->
+      <!-- A. 포장 작지 큐 -->
       <div class="screen" id="scA"><div class="wrap">
         <div class="qhead"><h1>2공장 포장 공정</h1><span class="cnt" id="qcnt"></span>
           <div class="qfilter"><button class="on" data-f="all">전체</button>
-            <button data-f="wait">대기</button><button data-f="working">작업중</button></div></div>
+            <button data-f="wait">대기</button><button data-f="working">작업중</button>
+            <button data-f="done">완료</button></div></div>
         <div class="searchbar">
           <span class="slab">작업지시일</span>
           <input type="date" id="dFrom" class="dinput"/>
-          <span class="tilde">~</span>
+          <span style="font-weight:800;color:var(--ink-2)">~</span>
           <input type="date" id="dTo" class="dinput"/>
           <button class="sbtn" id="btnSearch">조회</button>
         </div>
         <div class="qgrid" id="qgrid"></div>
       </div></div>
 
-      <!-- B. 세션 목록 -->
+      <!-- B. 작업(작업자·설비) 목록 -->
       <div class="screen hide" id="scB"><div class="col-stack">
         <div class="topbar2">
           <button class="back" data-back="A">‹</button>
@@ -239,78 +252,109 @@
         </div>
         <div class="bscroll"><div class="bgrid">
           <div class="ovbox" id="ovbox"></div>
-          <div id="passedBox"></div>
-          <div class="secline">작업 목록 <span class="ln"></span><span id="sessCnt"></span></div>
+          <div class="secline">작업 <span class="ln"></span><span id="sessCnt"></span></div>
           <div id="sessList"></div>
+          <div class="secline">포장 대기 (검사 합격) <span class="ln"></span><span id="readyCnt"></span></div>
+          <div id="readyList"></div>
+          <div class="secline">포장 완료 <span class="ln"></span><span id="packedCnt"></span></div>
+          <div id="packedList"></div>
         </div></div>
         <div class="actionbar">
-          <div class="actsum"><span class="l">한 작지를 여러 작업자가 나눠 작업</span></div>
-          <button class="btn start" id="btnNewSess">＋ 작업 추가</button>
+          <div class="actsum"><span class="l">작업 1건 = 작업자·설비 1조 · 박스 연속 포장</span></div>
+          <button class="btn start" id="btnAddWork">＋ 작업 추가 · 새 작업자</button>
         </div>
       </div></div>
 
-      <!-- C. 세션 작업 -->
+      <!-- C. 작업 (박스 연속 포장) -->
       <div class="screen hide" id="scC"><div class="col-stack">
         <div class="topbar2">
           <button class="back" data-back="B">‹</button>
           <div class="htitle"><div class="t" id="cName">—</div><div class="s" id="cSub">—</div></div>
-          <div style="display:flex;gap:8px;align-items:center" id="cHead"></div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap" id="cHead"></div>
         </div>
         <div class="bscroll"><div class="bgrid" id="cBody"></div></div>
         <div class="actionbar" id="cAction"></div>
       </div></div>
 
     </div>
+
+    <!-- 작업 추가 · 작업자/설비 시트 -->
+    <div class="mask" id="startMask"><div class="sheet"><div class="body">
+      <div class="sh"><h3 id="startTitle">작업 추가 · 새 작업자</h3><button class="x" data-close>✕</button></div>
+      <div class="fieldlab">작업자</div><div class="opts" id="workerOpts"></div>
+      <div class="fieldlab">설비 <span style="font-weight:700;color:var(--ink-2)">(선택)</span></div>
+      <div class="opts" id="equipOpts"></div>
+      <button class="ok" id="startOk" disabled>작업 시작</button>
+    </div></div></div>
+
+    <!-- 박스 라벨 스캔 시트 -->
+    <div class="mask" id="scanMask"><div class="sheet"><div class="body">
+      <div class="sh"><h3>박스 라벨 스캔</h3><button class="x" data-close>✕</button></div>
+      <div class="camwrap" id="camWrap">
+        <video id="camView" playsinline muted></video>
+        <div class="camguide"></div>
+        <button class="camstop" id="camStop">카메라 끄기</button>
+      </div>
+      <div id="camNote" class="camnote"></div>
+      <div class="fieldlab">박스 실물 라벨 (필수)</div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <input class="txin" id="scanKey" placeholder="스캔하거나 직접 입력" autocomplete="off" style="flex:1"/>
+        <button class="btn primary sm" id="camOpen" style="flex:0 0 auto;padding:0 18px;height:56px">📷 카메라</button>
+      </div>
+      <div class="fieldlab" style="margin-top:10px">GS1-128 전체를 스캔해도 (10) 로트만 추출합니다</div>
+      <div id="scanRes"></div>
+      <button class="ok" id="scanOk" disabled>이 라벨로 확정</button>
+    </div></div></div>
+
+    <!-- 포장 완료 박스 상세 시트 -->
+    <div class="mask" id="doneMask"><div class="sheet"><div class="body">
+      <div class="sh"><h3>포장 완료 박스</h3><button class="x" data-close>✕</button></div>
+      <div id="doneBody"></div>
+      <div style="display:flex;gap:10px;margin-top:20px">
+        <button class="btn ghost" style="flex:1;justify-content:center" data-close>닫기</button>
+        <button class="btn danger" style="flex:1;justify-content:center" id="doneCancel">포장 취소</button>
+      </div>
+    </div></div></div>
+
+    <!-- 시간 시트 -->
+    <div class="mask" id="timeMask"><div class="sheet"><div class="body">
+      <div class="sh"><h3 id="timeTitle">시작 일시</h3><button class="x" data-close>✕</button></div>
+      <div class="dateedit"><button class="dbtn" data-d="-1">◀</button><div class="dval" id="tDate">—</div><button class="dbtn" data-d="1">▶</button></div>
+      <div class="timeedit">
+        <div class="tcol"><button data-t="h+">▲</button><div class="tv" id="tH">09</div><button data-t="h-">▼</button></div>
+        <div class="tsep">:</div>
+        <div class="tcol"><button data-t="m+">▲</button><div class="tv" id="tM">00</div><button data-t="m-">▼</button></div>
+      </div>
+      <button class="ok" id="timeOk">저장</button>
+    </div></div></div>
+
+    <!-- 넘패드 -->
+    <div class="mask" id="padMask"><div class="sheet pad"><div class="body">
+      <div class="sh"><h3 id="padLab">수량</h3><span class="disp" id="padDisp" style="margin-left:auto">0</span></div>
+      <div class="keys"><button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
+        <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
+        <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
+        <button class="clr" data-k="C">C</button><button data-k="0">0</button><button class="ok" data-k="OK">확인</button></div>
+    </div></div></div>
+
+    <!-- 확인 시트 (네이티브 confirm 대신) -->
+    <div class="mask" id="confMask"><div class="sheet"><div class="body">
+      <div class="sh"><h3 id="confTitle">확인</h3><button class="x" data-close>✕</button></div>
+      <div id="confBody" style="font-weight:700;line-height:1.6"></div>
+      <div style="display:flex;gap:10px;margin-top:20px">
+        <button class="btn ghost" style="flex:1;justify-content:center" data-close>취소</button>
+        <button class="btn primary" style="flex:1;justify-content:center" id="confOk">확인</button>
+      </div>
+    </div></div></div>
   </div>
-
-  <!-- 시작 시트 -->
-  <div class="mask" id="startMask"><div class="sheet"><div class="body">
-    <div class="sh"><h3 id="startTitle">작업 추가 · 새 작업자</h3><button class="x" data-close>✕</button></div>
-    <div class="fieldlab">작업자</div><div class="opts" id="workerOpts"></div>
-    <div class="fieldlab">설비</div><div class="opts" id="equipOpts"></div>
-    <button class="ok" id="startOk" disabled>이 작업자로 시작</button>
-  </div></div></div>
-  <!-- 시간 시트 -->
-  <div class="mask" id="timeMask"><div class="sheet"><div class="body">
-    <div class="sh"><h3 id="timeTitle">시작 일시 수정</h3><button class="x" data-close>✕</button></div>
-    <div class="dateedit"><button class="dbtn" data-d="-1">◀</button><div class="dval" id="tDate">—</div><button class="dbtn" data-d="1">▶</button></div>
-    <div class="timeedit">
-      <div class="tcol"><button data-t="h+">▲</button><div class="tv" id="tH">09</div><button data-t="h-">▼</button></div>
-      <div class="tsep">:</div>
-      <div class="tcol"><button data-t="m+">▲</button><div class="tv" id="tM">12</div><button data-t="m-">▼</button></div>
-    </div>
-    <button class="ok" id="timeOk">저장</button>
-  </div></div></div>
-  <!-- 넘패드 -->
-  <div class="mask" id="padMask"><div class="sheet pad"><div class="body">
-    <div class="sh"><h3 id="padLab">수량</h3><span class="disp" id="padDisp" style="margin-left:auto">0</span></div>
-    <div class="keys"><button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
-      <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
-      <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
-      <button class="clr" data-k="C">C</button><button data-k="0">0</button><button class="ok" data-k="OK">확인</button></div>
-  </div></div></div>
-
-  <!-- 박스 라벨 스캔 시트(단순화) -->
-  <div class="mask" id="scanMask"><div class="sheet"><div class="body">
-    <div class="sh"><h3>박스 라벨 스캔</h3><button class="x" data-close>✕</button></div>
-    <div class="scancount"><span id="scanCount">0</span><span class="cslash">/</span><span id="scanTotal">0</span><span class="csub">박스</span></div>
-    <div class="scanlots" id="scanLots"></div>
-    <div class="scan-actions">
-      <button class="btn primary" id="scanCapture">📷 박스 스캔</button>
-      <button class="btn ghost" id="scanReset" style="display:none">다시 스캔</button>
-    </div>
-    <button class="ok" id="scanApply" disabled>지정 · 완료</button>
-  </div></div></div>
-
 </th:block>
 
 <th:block layout:fragment="scripts">
   <script th:inline="none">
-   /* ── 높이 자동 맞춤 ── */
+   /* ══ 높이 자동 맞춤 (세척·조립 화면과 동일) ══ */
    (function () {
-    const root = document.querySelector('.ms-wash-root');
+    const root = document.querySelector('.ms-pack-root');
     if (!root) return;
-
     function localBelow() {
      let below = 0, node = root;
      while (node && node !== document.body) {
@@ -332,7 +376,6 @@
      });
      return Math.max(below, fx);
     }
-
     function availBottom() {
      let bottom = window.innerHeight;
      try {
@@ -359,877 +402,968 @@
         if (r.height > 0 && r.height <= 160 && r.top > feTop && r.bottom > pWin.innerHeight - 40)
          fx = Math.max(fx, r.bottom - r.top);
        });
-       const pFooter = Math.max(flow, fx);
-       bottom = Math.min(bottom, (pWin.innerHeight - pFooter) - feTop);
+       bottom = Math.min(bottom, (pWin.innerHeight - Math.max(flow, fx)) - feTop);
       }
-     } catch (e) {
-     }
+     } catch (e) {}
      return bottom;
     }
-
     function fit() {
      const top = root.getBoundingClientRect().top;
-     const avail = availBottom() - top - localBelow();
-     root.style.setProperty('--wash-h', Math.max(320, Math.floor(avail)) + 'px');
+     root.style.setProperty('--wash-h', Math.max(320, Math.floor(availBottom() - top - localBelow())) + 'px');
     }
-
     window.addEventListener('resize', fit);
     window.addEventListener('orientationchange', fit);
-    try {
-     window.parent.addEventListener('resize', fit);
-    } catch (e) {
-    }
-    fit();
-    requestAnimationFrame(fit);
-    setTimeout(fit, 200);
-    setTimeout(fit, 600);
+    try { window.parent.addEventListener('resize', fit); } catch (e) {}
+    fit(); requestAnimationFrame(fit); setTimeout(fit, 200); setTimeout(fit, 600);
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
    })();
 
-   const WD = ['일', '월', '화', '수', '목', '금', '토'];
-   const WORKERS = ['정우철', '김민수', '이서연', '박지훈'];
-   const EQUIPS = [['디바이스 박스대', 'DV-01'], ['포장대 A', 'OP-01'], ['포장대 B', 'OP-02']];
-   const STLAB = {working: '작업중', wait: '대기', done: '완료'};
+   /* ══ 공통 ══ */
+   const CTX = Object.assign({spjangcd: 'ZZ', process_code: 'mc03', factory_id: 2},
+    (typeof window.PACK_CTX !== 'undefined' ? window.PACK_CTX : {}));
+   const API = '/api/production/mcell/pack';
+   const WD = ['일','월','화','수','목','금','토'];
 
+   // ★ AjaxUtil 은 window 프로퍼티가 아니다. typeof 로 확인한다.
+   //   메서드명을 조건에 걸지 않는다(getJson 같은 건 존재하지 않는다).
+   function hasAjax() { return (typeof AjaxUtil !== 'undefined' && AjaxUtil); }
+
+   function bootFail(msg) {
+    var g = document.getElementById('qgrid');
+    if (g) g.innerHTML = '<div class="emptysess">' + msg + '</div>';
+   }
+
+   // 빈 값은 아예 보내지 않는다 — CAST(:x AS date) 에 '' 이 들어가면 서버에서 터진다
+   function clean(o) {
+    var p = {};
+    Object.keys(o || {}).forEach(function (k) {
+     if (o[k] !== null && o[k] !== undefined && o[k] !== '') p[k] = o[k];
+    });
+    return p;
+   }
+
+   /* ★ AjaxUtil.getSyncData 는 동기 함수다 — 콜백을 받지 않고 결과를 그대로 반환한다.
+        (검사 화면과 동일) 콜백을 넘기면 아무 일도 일어나지 않아 요청 자체가 안 나간다. */
+   function get(url, param, cb) {
+    if (!hasAjax()) { bootFail('AjaxUtil 로드 실패 — 화면을 새로고침하세요.'); return; }
+    var res;
+    try {
+     res = AjaxUtil.getSyncData(url, clean(param)) || {};
+    } catch (e) {
+     flash('조회 오류 : ' + (e.message || e));
+     console.error('[pack]', url, e);
+     cb(null);
+     return;
+    }
+    if (res.success === false) { flash(res.message || '조회 실패'); cb(null); return; }
+    cb(res.data == null ? null : res.data);
+   }
+
+   /* 있으면 쓰고 없으면 조용히 넘어가는 조회.
+      /label_check 처럼 서버에 아직 없을 수 있는 보조 API 전용 — 토스트를 띄우지 않는다. */
+   function getSoft(url, param, cb) {
+    if (!hasAjax()) { cb(null); return; }
+    try {
+     var res = AjaxUtil.getSyncData(url, clean(param)) || {};
+     cb(res.success === false ? null : (res.data == null ? null : res.data));
+    } catch (e) { cb(null); }
+   }
+
+   // postAsyncData 는 콜백 방식이 맞다
+   function post(url, param, cb) {
+    if (!hasAjax()) { flash('AjaxUtil 로드 실패'); return; }
+    AjaxUtil.postAsyncData(url, clean(param), function (res) {
+     if (!res || res.success === false) { flash((res && res.message) || '처리 실패'); if (cb) cb(null, res); return; }
+     if (res.message) flash(res.message);
+     if (cb) cb(res.data || {}, res);
+    });
+   }
+
+   let tT;
+   function flash(m) {
+    var t = document.getElementById('packToast');
+    if (!t) {
+     t = document.createElement('div'); t.id = 'packToast';
+     t.style.cssText = 'position:fixed;left:50%;bottom:110px;transform:translateX(-50%);background:#15222B;color:#fff;' +
+      'padding:14px 22px;border-radius:14px;font-weight:700;z-index:60;max-width:80vw;text-align:center;' +
+      'box-shadow:0 12px 30px -10px rgba(0,0,0,.5);transition:opacity .3s';
+     document.body.appendChild(t);
+    }
+    t.textContent = m; t.style.opacity = '1';
+    clearTimeout(tT); tT = setTimeout(function () { t.style.opacity = '0'; }, 2200);
+   }
+
+   // uiConfirm 은 레이아웃 전역이 아니다 — 이 화면이 자기 것을 쓴다
+   let confCb = null;
+   function uiConfirm(title, body, cb) {
+    document.getElementById('confTitle').textContent = title;
+    document.getElementById('confBody').textContent = body;
+    confCb = cb; showMask('confMask');
+   }
+   document.getElementById('confOk').onclick = function () {
+    hideMask('confMask'); var c = confCb; confCb = null; if (c) c();
+   };
+
+   function showMask(id) { document.getElementById(id).classList.add('show'); }
+   function hideMask(id) { document.getElementById(id).classList.remove('show'); }
+   document.querySelectorAll('.mask').forEach(function (m) {
+    m.addEventListener('click', function (e) {
+     if (e.target === m || (e.target.closest && e.target.closest('[data-close]'))) m.classList.remove('show');
+    });
+   });
+
+   function fmtDate(d) {
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+   }
    function nowHM() {
     var d = new Date();
-    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0') + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+    return fmtDate(d) + ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
    }
-
    function pill(v) {
     if (!v) return '--:--';
-    if (v.indexOf(' ') >= 0) {
-     var a = v.split(' ');
-     return a[0].slice(5) + ' ' + a[1];
-    }
-    return v;
+    return (v.indexOf(' ') >= 0) ? (v.split(' ')[0].slice(5) + ' ' + v.split(' ')[1]) : v;
    }
+   function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+     return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];
+    });
+   }
+   function num(v) { return (v == null || v === '') ? 0 : Number(v); }
 
-   // GS1-128 파싱: (01)GTIN (10)LOT (11)제조일 (17)유효기간 (30)수량 → 객체
-   // 두 형식을 모두 처리: 괄호 표기((01)...) + 스캐너 원시 element string(FNC1=GS,0x1D)
-   function parseGs1(raw) {
-    raw = String(raw || '');
-    var out = {raw: raw, gtin: null, lot: null, date: null, expiry: null, qty: null};
+   /* GS1-128 → (10) 로트 추출. 괄호표기 / 원시 element string 둘 다.
+      스캐너가 전체 데이터를 던져도 서버엔 라벨 문자열만 보낸다. */
+   function pickLot(raw) {
+    raw = String(raw || '').trim();
+    if (!raw) return '';
     var m;
-    if (raw.indexOf('(') >= 0) {           // 괄호 표기(사람이 읽는 표기/수동입력)
-     if ((m = raw.match(/\(01\)(\d+)/))) out.gtin = m[1];
-     if ((m = raw.match(/\(10\)([^()\u001d]+)/))) out.lot = m[1];
-     if ((m = raw.match(/\(11\)(\d{6})/))) out.date = m[1];
-     if ((m = raw.match(/\(17\)(\d{6})/))) out.expiry = m[1];
-     if ((m = raw.match(/\(30\)(\d+)/))) out.qty = parseInt(m[1], 10);
-     if (!out.gtin && !out.lot) out.lot = raw.trim();
-     return out;
+    if (raw.indexOf('(') >= 0) {
+     if ((m = raw.match(/\(10\)([^()\u001d]+)/))) return m[1].trim();
+     return raw;
     }
-    // 원시 element string. FNC1은 GS(0x1D)로 들어오는 경우가 많음.
     var GS = '\u001d';
-    var s = raw.replace(/^\]C1/, '').replace(/^\u001d/, ''); // 심볼로지 식별자/선행 FNC1 제거
-    var FIXED = {'00': 18, '01': 14, '02': 14, '11': 6, '12': 6, '13': 6, '15': 6, '16': 6, '17': 6, '20': 2};
+    var s = raw.replace(/^\]C1/, '').replace(/^\u001d/, '');
+    var FIXED = {'00':18,'01':14,'02':14,'11':6,'12':6,'13':6,'15':6,'16':6,'17':6,'20':2};
     var i = 0;
-
-    function assign(ai, v) {
-     if (ai === '01') out.gtin = v;
-     else if (ai === '10') out.lot = v;
-     else if (ai === '11') out.date = v;
-     else if (ai === '17') out.expiry = v;
-     else if (ai === '30') out.qty = parseInt(v, 10);
-    }
-
     while (i < s.length) {
-     if (s[i] === GS) {
-      i++;
-      continue;
-     }
-     var ai = s.substr(i, 2);
-     i += 2;
+     if (s[i] === GS) { i++; continue; }
+     var ai = s.substr(i, 2); i += 2;
      var flen = FIXED[ai];
      if (flen != null) {
-      assign(ai, s.substr(i, flen));
+      if (ai === '10') return s.substr(i, flen);
       i += flen;
      } else {
-      var g = s.indexOf(GS, i);
-      var end = g < 0 ? s.length : g;
-      assign(ai, s.substring(i, end));
-      i = end;
+      var g = s.indexOf(GS, i), end = (g < 0 ? s.length : g);
+      var v = s.substring(i, end); i = end;
+      if (ai === '10') return v.trim();
      }
     }
-    if (!out.gtin && !out.lot && s) out.lot = s.trim();
-    return out;
+    return raw;
    }
 
-   // 파싱 객체 → GS1-128 문자열 재조합(표시용)
-   function gs1Line(d) {
-    if (!d) return '-';
-    var s = '';
-    if (d.gtin) s += '(01)' + d.gtin;
-    if (d.lot) s += '(10)' + d.lot;
-    if (d.qty != null) s += '(30)' + d.qty;
-    if (d.date) s += '(11)' + d.date;
-    return s || (d.raw || '-');
-   }
+   /* ══ 상태 ══
+      작업(세션)은 별도 테이블이 없다. v3 §5.1 과 같은 방식으로
+      (작업일자 · 작업자 · 설비) 로 mat_produce 를 묶어 파생시킨다.
+      아직 한 박스도 포장하지 않은 새 작업만 화면 메모리(LOCAL)에 들고 있다가
+      첫 박스가 붙는 순간 서버 파생 세션과 같은 키로 합류한다. */
+   let PROCESS_ID = null, WC_ID = null;
+   let ORDERS = [], curO = null, filter = 'all';
+   let READY = [], PACKED = [], MATS = [];
+   let SESSIONS = [], LOCAL = [], SESS = null;   // SESS = 지금 열려 있는 작업
+   let curUnit = null;      // 이번 박스에 담을 검사 합격 유닛
+   let curLabel = '';       // 이번 박스의 실물 라벨 (필수)
+   let curDone = null;      // 상세 시트에 띄운 포장 완료 건
+   let matQty = {};         // matId → 투입수량
+   let WORKERS = [], EQUIPS = [];
+   let pick = {actor_id: null, actor_name: null, equipment_id: null, equipment_name: null};
+   let pickMode = 'new';    // new = 작업 추가 / edit = 현재 작업의 작업자·설비 변경
+   let eqTouched = false;   // 작업자가 설비를 직접 골랐는가 (기본 설비 자동선택 억제)
 
-   // ════ M-CELL4(Rotor A) 포장 BOM ════
-   // ★국내용/해외용은 BOM에서 애초에 별도 품목(품번)으로 분리되어 있으며,
-   //   수주 시점에 국내/해외가 결정되어 작업지시(카드) 단위로 내려온다.
-   //   → 포장 화면에서는 국내/해외를 재선택하지 않고, 작업지시(order.region)에
-   //     맞는 완제품 BOM을 그대로 사용해 박스 단위로 하나씩 포장한다.
-   var MCELL_PACK = {
-    device: {code: "WIP-MC60066", name: "SMART-M-CELL4(재공품, 로터A타입)"},
-    dom: {
-     prod: "MRCN-61066",
-     gtin: "08801234561066",
-     label: "SMART-M-CELL4 (국내, 로터A타입)",
-     mats: [
-      {code: "M-IY00024", name: "엠셀 내수용 IN BOX 200*160*50", qty: 2},
-      {code: "M-IY00023", name: "엠셀 내수용 C/T BOX 615*515*350", qty: 1},
-      {code: "M-IY00025", name: "엠셀 내수용 TOP FOAM 55T*500*600", qty: 1},
-      {code: "M-IY00123", name: "BOTTOM FOAM1 (내수용)", qty: 1},
-      {code: "M-IY00124", name: "BOTTOM FOAM 2 (내수용)", qty: 1},
-      {code: "M-IY00127", name: "IN FOAM 2 (원형)", qty: 1, common: true},
-      {code: "M-IO00127", name: "본체 전원 케이블( 3m )", qty: 1, common: true},
-      {code: "M-IPD00027", name: "전원케이블 (1m 3구)", qty: 1, common: true},
-      {code: "M-IPD00026", name: "어댑터-19V SW60-19003160-W (19V 3.16A)", qty: 1, common: true}
-     ]
-    },
-    ovs: {
-     prod: "MRCN-61067",
-     gtin: "08801234561067",
-     label: "SMART-M-CELL4 (해외, 로터A타입)",
-     mats: [
-      {code: "M-IY10123", name: "수출용-PE-BOTTOM FOAM", qty: 2},
-      {code: "M-IY10025", name: "수출용-PE-TOP COVER", qty: 1},
-      {code: "M-IY10023", name: "수출용박스(유공) 685*575*450", qty: 1},
-      {code: "M-IY00026", name: "수출용-PE-MIDDLE FOAM", qty: 1},
-      {code: "M-IY00127", name: "IN FOAM 2 (원형)", qty: 1, common: true},
-      {code: "M-IO00127", name: "본체 전원 케이블( 3m )", qty: 1, common: true},
-      {code: "M-IPD00027", name: "전원케이블 (1m 3구)", qty: 1, common: true},
-      {code: "M-IPD00026", name: "어댑터-19V SW60-19003160-W (19V 3.16A)", qty: 1, common: true}
-     ]
-    }
-   };
+   const SC = {A: document.getElementById('scA'), B: document.getElementById('scB'), C: document.getElementById('scC')};
+   function show(k) { for (var x in SC) SC[x].classList.toggle('hide', x !== k); }
 
-   function regionBom(region) {
-    return region === 'ovs' ? MCELL_PACK.ovs : (region === 'dom' ? MCELL_PACK.dom : null);
-   }
-
-   function regionLabel(region) {
-    return region === 'ovs' ? '해외(수출용)' : '국내(내수용)';
-   }
-
-   function mkSess(worker, equip) {
-    // region은 작업지시(order)에 귀속되므로 세션에는 두지 않는다.
-    // scanBoxes: 박스별 스캔 라벨 배열(박스 개수만큼 스캔).
-    return {
-     worker: worker, equip: equip, start: nowHM(), end: null, st: 'working',
-     outbox: 0, mat: {}, labelLot: null, scanBoxes: []
-    };
-   }
-
-   // 시드용 목업 박스 라벨 배열 생성 — ★박스마다 다른 로트(baseLot-00i)
-   // (박스 라벨은 검사 공정에서 전달된 '검사 합격 완제품' pool의 실제 로트를 사용한다 → seedPassed)
-
-   // ★작업지시(카드)에 region(dom/해외 ovs)이 이미 포함되어 내려온다.
-   //   완제품 코드/GTIN도 해당 지역 BOM 기준으로 확정된 상태.
-   const ORDERS = [
-    {
-     id: 'OUT-2406-050',
-     odate: '2026-06-26',
-     st: 'wait',
-     region: 'dom',
-     name: 'M-CELL4 (국내, 로터A)',
-     code: MCELL_PACK.dom.prod,
-     gtin: MCELL_PACK.dom.gtin,
-     chasu: 1,
-     plan: 10,
-     sessions: []
-    },
-    {
-     id: 'OUT-2607-051',
-     odate: '2026-07-09',
-     st: 'wait',
-     region: 'ovs',
-     name: 'M-CELL4 (해외, 로터A)',
-     code: MCELL_PACK.ovs.prod,
-     gtin: MCELL_PACK.ovs.gtin,
-     chasu: 1,
-     plan: 8,
-     sessions: []
-    },
-    {
-     id: 'OUT-2607-052',
-     odate: '2026-07-09',
-     st: 'working',
-     region: 'dom',
-     name: 'M-CELL4 (국내, 로터A)',
-     code: MCELL_PACK.dom.prod,
-     gtin: MCELL_PACK.dom.gtin,
-     chasu: 1,
-     plan: 12,
-     sessions: [
-      {
-       worker: '정우철',
-       equip: '디바이스 박스대',
-       start: '2026-07-09 09:20',
-       end: null,
-       st: 'working',
-       outbox: 5,
-       mat: {
-        'M-IY00024': 10, 'M-IY00023': 5, 'M-IY00025': 5, 'M-IY00123': 5,
-        'M-IY00124': 0, 'M-IY00127': 0, 'M-IO00127': 0, 'M-IPD00027': 0, 'M-IPD00026': 0
-       },
-       labelLot: null
-      }
-     ]
-    },
-    {
-     id: 'OUT-2607-053',
-     odate: '2026-07-09',
-     st: 'done',
-     region: 'ovs',
-     name: 'M-CELL4 (해외, 로터A)',
-     code: MCELL_PACK.ovs.prod,
-     gtin: MCELL_PACK.ovs.gtin,
-     chasu: 1,
-     plan: 6,
-     sessions: [
-      {
-       worker: '이서연',
-       equip: '포장대 B',
-       start: '2026-07-09 08:40',
-       end: '2026-07-09 10:15',
-       st: 'done',
-       outbox: 6,
-       mat: {
-        'M-IY10123': 12, 'M-IY10025': 6, 'M-IY10023': 6, 'M-IY00026': 6,
-        'M-IY00127': 6, 'M-IO00127': 6, 'M-IPD00027': 6, 'M-IPD00026': 6
-       },
-       labelLot: null,
-       scanBoxes: []
-      }
-     ]
-    },
-   ];
-
-   // ── 검사 공정에서 전달된 '검사 합격 완제품' (1대 = 1로트 = 1박스) ──
-   //   ROTOR·BASKET 둘 다 합격한 유닛만 포장으로 넘어온다. 각 유닛은 검사 로트를 가지며,
-   //   포장 박스 라벨 스캔 시 이 pool의 실제 검사 로트를 순서대로 소진한다.
-   //   (국내 MCN- / 해외 MCX- · 검사 공정과 동일 로트 체계)
-   (function seedPassed() {
-    ORDERS.forEach(function (o) {
-     var pre = (o.region === 'ovs') ? 'MCX' : 'MCN';
-     var dcode = (o.odate || '2026-01-01').slice(2).replace(/-/g, '');   // YYMMDD
-     o.passed = [];
-     for (var i = 1; i <= o.plan; i++) {
-      o.passed.push({lot: pre + '-' + dcode + '-' + String(i).padStart(3, '0')});
-     }
-     // 완료 세션은 전달 로트로 이미 포장된 상태로 시드
-     (o.sessions || []).forEach(function (s) {
-      if (s.st === 'done' && (!s.scanBoxes || !s.scanBoxes.length)) {
-       s.scanBoxes = [];
-       for (var k = 0; k < (s.outbox || 0) && k < o.passed.length; k++) {
-        var lot = o.passed[k].lot;
-        s.scanBoxes.push({raw: '(01)' + o.gtin + '(10)' + lot + '(30)1(11)' + dcode, gtin: o.gtin, lot: lot, date: dcode, qty: 1});
-       }
-       s.labelLot = s.scanBoxes[0] ? s.scanBoxes[0].lot : null;
-      }
-     });
+   /* ══ A. 큐 ══ */
+   function loadContext(cb) {
+    get(API + '/context', {process_code: CTX.process_code, factory_id: CTX.factory_id}, function (d) {
+     if (!d || !d.process_id) { bootFail('포장 공정(mc03) 정보를 찾을 수 없습니다.'); return; }
+     PROCESS_ID = d.process_id;
+     WC_ID = d.workcenter_id;
+     // 포장 워크센터(56)에 설비가 둘 이상 붙어 있어 기본값을 서버가 지정한다.
+     // PACK_CTX 로 덮어쓸 수 있다. 없으면 '미지정' 으로 시작한다.
+     if (d.default_equipment_id != null && CTX.default_equipment_id == null)
+      CTX.default_equipment_id = d.default_equipment_id;
+     if (d.out_store_id != 4) flash('경고 : 포장 워크센터 산출창고가 제품창고(4)가 아닙니다 — ' + d.out_store_id);
+     cb();
     });
-   })();
-
-   // 이 작업지시에서 (모든 세션 통틀어) 이미 포장된 박스들의 검사 로트 집합
-   function orderPackedLots(o) {
-    var set = {};
-    (o.sessions || []).forEach(function (s) { (s.scanBoxes || []).forEach(function (b) { if (b.lot) set[b.lot] = 1; }); });
-    return set;
-   }
-   function orderPct(o) {
-    var packed = o.sessions.reduce(function (a, s) {
-     return a + (s.outbox || 0);
-    }, 0);
-    return o.plan ? Math.min(100, Math.round(packed / o.plan * 100)) : 0;
    }
 
-   let curO = null, curS = null, filter = 'all';
-   const qgrid = document.getElementById('qgrid');
-   const SC = {
-    A: document.getElementById('scA'),
-    B: document.getElementById('scB'),
-    C: document.getElementById('scC')
-   };
-
-   function show(k) {
-    for (var x in SC) SC[x].classList.toggle('hide', x !== k);
+   function loadQueue() {
+    if (PROCESS_ID == null) return;
+    get(API + '/wo_queue', {
+     process_id: PROCESS_ID, spjangcd: CTX.spjangcd,
+     date_from: document.getElementById('dFrom').value,
+     date_to: document.getElementById('dTo').value
+    }, function (d) { ORDERS = d || []; renderQueue(); });
    }
 
-   function orderDoneQty(o) {
-    return (o.sessions || []).reduce(function (a, s) {
-     return a + (s.outbox || 0);
-    }, 0);
-   }
-
-   function workingCount(o) {
-    return (o.sessions || []).filter(function (s) {
-     return s.st === 'working';
-    }).length;
-   }
-
-   function inRange(o) {
-    var f = document.getElementById('dFrom').value, t = document.getElementById('dTo').value;
-    if (f && o.odate < f) return false;
-    if (t && o.odate > t) return false;
-    return true;
+   /** 카드 키 — 작지가 있으면 작지, 없으면(수리·구형 유입) 완제품 품목이 카드 1장 */
+   function oKey(o) { return (o.job_res_id != null) ? ('jr' + o.job_res_id) : ('mat' + o.pack_mat_id); }
+   /** 하위 조회·등록에 실을 식별자. 작지 없는 카드는 품목으로 붙는다 */
+   function oParam(extra) {
+    var p = (curO.job_res_id != null) ? {job_res_id: curO.job_res_id} : {pack_mat_id: curO.pack_mat_id};
+    return Object.assign(p, extra || {});
    }
 
    function renderQueue() {
-    var list = ORDERS.filter(function (o) {
-     return (filter === 'all' || o.st === filter) && inRange(o);
-    });
+    var list = ORDERS.filter(function (o) { return filter === 'all' || o.state === filter; });
     document.getElementById('qcnt').textContent = list.length + '건';
-    qgrid.innerHTML = list.map(function (o) {
-     var pct = orderPct(o);
-     return '<div class="wo" data-st="' + o.st + '" data-id="' + o.id + '"><div class="edge"></div>' +
-      '<div class="row1"><span class="wono">' + o.id + '</span>' +
-      '<span style="font-size:13px;color:var(--ink-2);font-weight:700">' + o.odate + '</span>' +
-      '<span class="fam-badge ' + o.region + '">' + (o.region === 'ovs' ? '해외' : '국내') + '</span>' +
-      '<span class="chip ' + o.st + '">' + STLAB[o.st] + '</span></div>' +
-      '<div class="name">' + o.name + '</div>' +
-      '<div class="meta"><div class="blk"><span class="lab">검사합격</span><span class="val">' + o.plan + '</span></div>' +
-      '<div class="blk"><span class="lab">완료</span><span class="val">' + orderDoneQty(o) + '</span></div>' +
-      '<div class="blk"><span class="lab">작업</span><span class="val">' + workingCount(o) + '</span></div>' +
-      '<div class="prog"><span class="lab">' + (o.st === 'wait' ? '미시작' : '진행 ' + pct + '%') + '</span>' +
-      '<div class="bar"><i style="width:' + pct + '%"></i></div></div></div></div>';
-    }).join('');
+    var STLAB = {working: '작업중', wait: '대기', done: '완료'};
+    document.getElementById('qgrid').innerHTML = list.length ? list.map(function (o) {
+     var noJr = (o.job_res_id == null);
+     var plan = num(o.plan_qty), done = num(o.done_qty);
+     var pct = plan ? Math.min(100, Math.round(done / plan * 100)) : 0;
+     return '<div class="wo" data-st="' + o.state + '" data-k="' + esc(oKey(o)) + '"><div class="edge"></div>' +
+      '<div class="row1"><span class="wono">' + esc(noJr ? '작지 없음' : o.order_num) + '</span>' +
+      (noJr ? '' : '<span style="font-size:13px;color:var(--ink-2);font-weight:700">' + esc(o.plan_date) + '</span>') +
+      '<span class="chip ' + o.state + '">' + STLAB[o.state] + '</span></div>' +
+      '<div class="name">' + esc(o.mat_name) + '</div>' +
+      '<div class="meta">' +
+      (noJr ? '' : '<div class="blk"><span class="lab">지시</span><span class="val">' + plan + '</span></div>') +
+      '<div class="blk"><span class="lab">포장대기</span><span class="val">' + num(o.ready_qty) + '</span></div>' +
+      '<div class="blk"><span class="lab">완료</span><span class="val">' + done + '</span></div>' +
+      (noJr ? '' : '<div class="prog"><span class="lab">' + (done ? '진행 ' + pct + '%' : '미시작') + '</span>' +
+       '<div class="bar"><i style="width:' + pct + '%"></i></div></div>') +
+      '</div></div>';
+    }).join('') : '<div class="emptysess">해당 기간에 포장 작업지시가 없습니다.</div>';
    }
 
-   qgrid.addEventListener('click', function (e) {
+   document.getElementById('qgrid').addEventListener('click', function (e) {
     var c = e.target.closest('.wo');
-    if (c) openOrder(c.dataset.id);
+    if (c) openOrder(c.dataset.k);
    });
    document.querySelectorAll('.qfilter button').forEach(function (b) {
     b.addEventListener('click', function () {
-     document.querySelectorAll('.qfilter button').forEach(function (x) {
-      x.classList.remove('on');
-     });
-     b.classList.add('on');
-     filter = b.dataset.f;
-     renderQueue();
+     document.querySelectorAll('.qfilter button').forEach(function (x) { x.classList.remove('on'); });
+     b.classList.add('on'); filter = b.dataset.f; renderQueue();
     });
    });
-   document.getElementById('btnSearch').addEventListener('click', renderQueue);
+   document.getElementById('btnSearch').addEventListener('click', loadQueue);
    (function () {
-    var t = new Date(), f = new Date();
-    f.setDate(f.getDate() - 7);
-    var fmt = function (d) {
-     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-    };
-    document.getElementById('dFrom').value = fmt(f);
-    document.getElementById('dTo').value = fmt(t);
+    // 기본 조회기간 = 이번 달 1일 ~ 오늘
+    var t = new Date();
+    var f = new Date(t.getFullYear(), t.getMonth(), 1);
+    document.getElementById('dFrom').value = fmtDate(f);
+    document.getElementById('dTo').value = fmtDate(t);
    })();
-
    document.querySelectorAll('[data-back]').forEach(function (b) {
     b.addEventListener('click', function () {
-     var to = b.dataset.back;
-     if (to === 'A') {
-      renderQueue();
-      show('A');
-     } else {
-      renderSessList();
-      show('B');
-     }
+     if (b.dataset.back === 'A') { SESS = null; loadQueue(); show('A'); }
+     else { SESS = null; loadB(); show('B'); }
     });
    });
 
-   function openOrder(id) {
-    curO = ORDERS.filter(function (x) {
-     return x.id === id;
-    })[0];
-    document.getElementById('bName').textContent = curO.name;
-    document.getElementById('bSub').textContent = curO.id + ' · ' + regionLabel(curO.region) + ' · ' + curO.code + ' · 차수 ' + curO.chasu;
-    renderSessList();
-    show('B');
+   /* ══ B. 작업 목록 ══ */
+   function openOrder(key) {
+    curO = ORDERS.filter(function (x) { return oKey(x) === key; })[0];
+    if (!curO) return;
+    LOCAL = []; SESS = null;
+    document.getElementById('bName').textContent = curO.mat_name || '';
+    document.getElementById('bSub').textContent = (curO.job_res_id != null)
+     ? ((curO.order_num || '') + ' · ' + (curO.mat_code || '') + ' · 지시 ' + num(curO.plan_qty))
+     : (curO.mat_code || '');
+    loadB(); show('B');
    }
 
-   document.getElementById('btnNewSess').onclick = openStart;
+   /** 작업 키 — 서버 파생 건과 화면 로컬 건이 같은 문자열을 내야 한다.
+    packed_list 가 actor_id / equipment_id 를 내려주면 그것으로, 없으면 이름으로 묶는다. */
+   function sessKey(o) {
+    var d = (o.work_date || (o.start_time || '').split(' ')[0] || '');
+    var a = (o.actor_id != null && o.actor_id !== '') ? ('#' + o.actor_id) : (o.actor_name || '-');
+    var e = (o.equipment_id != null && o.equipment_id !== '') ? ('#' + o.equipment_id) : (o.equipment_name || '-');
+    return d + '|' + a + '|' + e;
+   }
 
-   function renderSessList() {
-    var o = curO;
-    var passed = o.passed || [];
-    var packedSet = orderPackedLots(o);
-    var packedN = passed.filter(function (p) { return packedSet[p.lot]; }).length;
+   function buildSessions() {
+    var map = {}; SESSIONS = [];
+    PACKED.forEach(function (p) {
+     var k = sessKey(p);
+     if (!map[k]) {
+      map[k] = {
+       key: k, actor_id: p.actor_id, actor_name: p.actor_name,
+       equipment_id: p.equipment_id, equipment_name: p.equipment_name,
+       work_date: (p.start_time || '').split(' ')[0], start_time: p.start_time, boxes: []
+      };
+      SESSIONS.push(map[k]);
+     }
+     var s = map[k];
+     s.boxes.push(p);
+     if (p.start_time && (!s.start_time || p.start_time < s.start_time)) s.start_time = p.start_time;
+    });
+    // 아직 박스가 없는 새 작업
+    LOCAL.forEach(function (s) {
+     if (map[s.key]) { map[s.key].local = true; return; }
+     s.boxes = []; map[s.key] = s; SESSIONS.push(s);
+    });
+    SESSIONS.sort(function (a, b) { return String(b.start_time || '') < String(a.start_time || '') ? -1 : 1; });
+   }
+
+   function loadB(cb) {
+    if (!curO) return;
+    get(API + '/ready_units', oParam(), function (d) {
+     READY = d || [];
+     get(API + '/packed_list', oParam(), function (d2) {
+      PACKED = (d2 || []).filter(function (x) { return x.lot_number; });
+      buildSessions();
+      if (SESS) SESS = SESSIONS.filter(function (s) { return s.key === SESS.key; })[0] || SESS;
+      renderB();
+      if (cb) cb();
+     });
+    });
+   }
+
+   function renderB() {
     document.getElementById('ovbox').innerHTML =
-     '<div class="ov"><div class="l">구분</div><div class="v" style="font-size:22px;' + (o.region === 'ovs' ? 'color:#6B3FA0' : 'color:var(--teal-d)') + '">' + (o.region === 'ovs' ? '해외' : '국내') + '</div></div>' +
-     '<div class="ov"><div class="l">검사 합격</div><div class="v">' + passed.length + '</div></div>' +
-     '<div class="ov"><div class="l">포장 완료</div><div class="v">' + packedN + '</div></div>' +
-     '<div class="ov left"><div class="l">미포장</div><div class="v">' + Math.max(0, passed.length - packedN) + '</div></div>';
+     (curO.job_res_id != null
+      ? '<div class="ov"><div class="l">지시</div><div class="v">' + num(curO.plan_qty) + '</div></div>'
+      : '') +
+     '<div class="ov left"><div class="l">포장 대기</div><div class="v">' + READY.length + '</div></div>' +
+     '<div class="ov"><div class="l">포장 완료</div><div class="v">' + PACKED.length + '</div></div>';
 
-    // 검사 공정에서 전달된 '검사 합격 완제품' pool + 포장 여부
-    document.getElementById('passedBox').innerHTML =
-     '<div class="secline">검사 합격 완제품 (검사 공정 전달) <span class="ln"></span><span>' + packedN + ' / ' + passed.length + ' 포장</span></div>' +
-     '<div class="passedgrid">' + passed.map(function (p) {
-      var pk = !!packedSet[p.lot];
-      return '<div class="passedrow ' + (pk ? 'pk' : '') + '"><span class="plot">' + p.lot + '</span><span class="pbadge">' + (pk ? '포장됨' : '미포장') + '</span></div>';
-     }).join('') + '</div>';
+    document.getElementById('sessCnt').textContent = SESSIONS.length + '건';
+    document.getElementById('sessList').innerHTML = SESSIONS.length ? SESSIONS.map(function (s) {
+     var n = s.boxes.length;
+     return '<div class="unit sess' + (n ? '' : ' closed') + '" data-k="' + esc(s.key) + '"><div class="edge"></div>' +
+      '<div class="who"><span class="lot">' + esc(s.actor_name || '작업자 미지정') + '</span>' +
+      '<span class="sub">' + esc(s.work_date || '') +
+      ' · 설비 ' + esc(s.equipment_name || '미지정') +
+      (s.start_time ? ' · 시작 ' + pill(s.start_time) : '') + '</span></div>' +
+      '<span class="badge ' + (n ? 'work' : 'wait') + '">포장 ' + n + '대</span></div>';
+    }).join('') : '<div class="emptysess">아직 작업이 없습니다. 아래 「작업 추가」로 작업자를 지정하세요.</div>';
 
-    document.getElementById('sessCnt').textContent = o.sessions.length + '건';
-    var box = document.getElementById('sessList');
-    if (!o.sessions.length) {
-     box.innerHTML = '<div class="emptysess">작업이 없습니다. ‘작업 추가’로 포장을 시작하세요.</div>';
-     return;
-    }
-    box.innerHTML = o.sessions.map(function (se, i) {
-     return '<div class="sess" data-st="' + se.st + '" data-i="' + i + '"><div class="edge"></div>' +
-      '<div class="who"><span class="nm">' + se.worker + '</span><span class="eq">' + se.equip + '</span></div>' +
-      '<div class="time">' + pill(se.start) + ' ~ ' + pill(se.end) + '</div>' +
-      '<div class="qty"><div class="l">박스</div><div class="v">' + (se.outbox || 0) + '</div></div>' +
-      '<span class="badge ' + se.st + '">' + STLAB[se.st] + '</span></div>';
-    }).join('');
+    document.getElementById('readyCnt').textContent = READY.length + '대';
+    document.getElementById('readyList').innerHTML = READY.length ? READY.map(function (u) {
+     return '<div class="unit readonly"><div class="edge"></div>' +
+      '<div class="who"><span class="lot">' + esc(u.lot_number) + '</span>' +
+      '<span class="sub">' + esc(u.unit_mat_code) +
+      (u.unit_no ? ' · #' + esc(u.unit_no) : ' · 조립이력 없음') +
+      (u.assy_order_num ? ' · ' + esc(u.assy_order_num) : '') +
+      (u.maker_lot_no ? ' · 라벨 ' + esc(u.maker_lot_no) : '') + '</span>' +
+      (u.src_lot ? '<span class="sub">원 로트 ' + esc(u.src_lot) + '</span>' : '') + '</div>' +
+      (u.repair_id ? '<span class="rbadge">수리 · ' + (u.repair_cat === 'spec' ? '사양변경' : '반품') + '</span>' : '') +
+      '<span class="badge wait">포장 대기</span></div>';
+    }).join('') : '<div class="emptysess">검사 합격 후 검사완료창고에 있는 유닛이 없습니다.</div>';
+
+    // 포장 완료 — 탭하면 상세 시트에서 「포장 취소」를 할 수 있다.
+    // C화면(작업 안)에만 두면 작업을 끝내고 나온 뒤에는 닿을 길이 없다.
+    document.getElementById('packedCnt').textContent = PACKED.length + '건';
+    document.getElementById('packedList').innerHTML = PACKED.length ? PACKED.map(function (p) {
+     return '<div class="unit packed" data-mp="' + p.mp_id + '"><div class="edge"></div>' +
+      '<div class="who"><span class="lot">' + esc(p.lot_number) + '</span>' +
+      '<span class="sub">라벨 ' + esc(p.maker_lot_no || '-') + ' · ' + esc(p.actor_name || '-') +
+      (p.equipment_name ? ' · ' + esc(p.equipment_name) : '') + '</span>' +
+      '<span class="sub">' + pill(p.start_time) + ' ~ ' + pill(p.end_time) + '</span></div>' +
+      '<span class="badge done">포장 완료</span><span class="go">›</span></div>';
+    }).join('') : '<div class="emptysess">아직 포장한 박스가 없습니다.</div>';
    }
 
-   document.getElementById('sessList').addEventListener('click', function (e) {
-    var s = e.target.closest('.sess');
-    if (s) openSess(+s.dataset.i);
+   document.getElementById('packedList').addEventListener('click', function (e) {
+    var c = e.target.closest('[data-mp]');
+    if (c) openDone(c.dataset.mp, PACKED);
    });
 
-   function openSess(i) {
-    curS = curO.sessions[i];
-    curS._idx = i;
-    document.getElementById('cName').textContent = curS.worker + ' · 포장(M-CELL 박스)';
-    document.getElementById('cSub').textContent = curO.id + ' · ' + curO.name + ' · 계획 ' + curO.plan;
-    renderCHead();
-    renderCBody();
-    renderCAction();
-    show('C');
+   document.getElementById('sessList').addEventListener('click', function (e) {
+    var c = e.target.closest('.unit');
+    if (!c) return;
+    var s = SESSIONS.filter(function (x) { return x.key === c.dataset.k; })[0];
+    if (s) openSess(s);
+   });
+
+   /* ══ 작업 추가 ══ */
+   document.getElementById('btnAddWork').onclick = function () {
+    pickMode = 'new'; eqTouched = false;
+    pick = {actor_id: null, actor_name: null, equipment_id: null, equipment_name: null};
+    openPicker();
+   };
+
+   function createSess() {
+    var s = {
+     actor_id: pick.actor_id, actor_name: pick.actor_name,
+     equipment_id: pick.equipment_id, equipment_name: pick.equipment_name,
+     work_date: fmtDate(new Date()), start_time: nowHM(), boxes: [], local: true
+    };
+    s.key = sessKey(s);
+    if (SESSIONS.filter(function (x) { return x.key === s.key; })[0]) {
+     flash('같은 작업자·설비의 작업이 이미 있습니다. 그 작업으로 들어갑니다.');
+     openSess(SESSIONS.filter(function (x) { return x.key === s.key; })[0]);
+     return;
+    }
+    LOCAL.push(s);
+    // 작업 추가 = 포장 시작. 작지를 working 으로 올린다(차수는 아직 없다).
+    post(API + '/work_start', {
+     job_res_id: curO.job_res_id, actor_id: s.actor_id, start_time: s.start_time
+    }, function () { loadQueue(); });
+    buildSessions(); renderB();
+    openSess(s);
    }
+
+   /* ══ C. 작업 (박스 연속 포장) ══ */
+   function openSess(s) {
+    SESS = s;
+    resetBox();
+    document.getElementById('cName').textContent = (s.actor_name || '작업자') + ' 작업';
+    document.getElementById('cSub').textContent =
+     (curO.mat_code || '') + ' · ' + (curO.mat_name || '');
+    if (MATS.length) { renderC(); show('C'); return; }
+    get(API + '/pack_materials', oParam(), function (d) {
+     MATS = d || [];
+     resetMat();
+     renderC(); show('C');
+    });
+   }
+
+   function resetMat() {
+    matQty = {};
+    MATS.forEach(function (m) { matQty[m.mat_id] = num(m.default_qty); });
+   }
+   function resetBox() {
+    curUnit = null; curLabel = ''; curDone = null;
+    resetMat();
+   }
+
+   function renderC() { renderCHead(); renderCBody(); renderCAction(); }
 
    function renderCHead() {
     document.getElementById('cHead').innerHTML =
-     '<span class="fam-badge ' + curO.region + '">' + (curO.region === 'ovs' ? '해외' : '국내') + '</span>' +
-     '<div class="infopill"><span>설비</span><b>' + curS.equip + '</b></div>' +
-     '<div class="infopill tap" data-time="start"><span>시작</span><b>' + pill(curS.start) + '</b></div>' +
-     '<div class="infopill tap" data-time="end"><span>종료</span><b>' + pill(curS.end) + '</b></div>' +
-     '<span class="sstate ' + curS.st + '">' + STLAB[curS.st] + '</span>';
+     '<div class="infopill tap" id="pickWorker"><span>작업자</span><b>' + esc(SESS.actor_name || '선택') + '</b></div>' +
+     '<div class="infopill tap" id="pickEquip"><span>설비</span><b>' + esc(SESS.equipment_name || '미지정') + '</b></div>' +
+     '<div class="infopill tap" data-time="sess"><span>시작</span><b>' + pill(SESS.start_time) + '</b></div>' +
+     '<span class="sstate ' + (SESS.boxes.length ? 'work' : 'wait') + '">포장 ' + SESS.boxes.length + '대</span>';
    }
 
-   function mcellMatCount(region) {
-    var rb = regionBom(region);
-    if (!rb) return {done: 0, total: 0};
-    var done = 0;
-    rb.mats.forEach(function (m) {
-     var need = (m.qty || 1) * (curS.outbox || 0);
-     if ((curS.mat[m.code] || 0) >= need && need > 0) done++;
-    });
-    return {done: done, total: rb.mats.length};
+   function matOk() {
+    for (var i = 0; i < MATS.length; i++) {
+     var m = MATS[i];
+     if (num(matQty[m.mat_id]) > num(m.stock)) return false;
+     if (m.store_id != null && num(m.store_id) !== 17 && num(matQty[m.mat_id]) > 0) return false;
+    }
+    return true;
    }
+   function packReady() { return !!(curUnit && curLabel && matOk()); }
 
    function renderCBody() {
-    var locked = curS.st !== 'working';
-    var rb = regionBom(curO.region);   // 지역은 작업지시에서 확정 → 재선택 없음
-    var scanned = (curS.scanBoxes || []).length;
     var html = '';
 
-    // ① 박스 포장 수량 (박스 단위로 하나씩 포장)
-    html += '<div class="secline">① 박스 포장 수량 <span class="ln"></span><span>' + rb.label + ' · ' + rb.prod + '</span></div>';
-    html += '<div class="part"><div class="id"><span class="pn">박스 포장수량</span><span class="pc">' + rb.label + '</span></div>' +
-     (locked ? '<span class="done-tag">' + curS.outbox + ' EA</span>'
-      : '<div class="stepper" data-mbox="1"><button class="minus">−</button><div class="qty" data-padbox="1">' + curS.outbox + '</div><button class="plus">+</button></div>') + '</div>';
-
-    // ② 박스 라벨 스캔 — 스캔 시 자재 자동 투입
-    var scanComplete = curS.outbox > 0 && scanned >= curS.outbox;
-    html += '<div class="secline">② 박스 라벨 스캔 <span class="ln"></span><span>' + scanned + ' / ' + (curS.outbox || 0) + ' · 스캔 시 자재 자동 투입</span></div>';
-    if (!(curS.outbox > 0)) {
-     html += '<div class="emptysess">박스 포장수량을 먼저 입력하세요.</div>';
-    } else if (!scanComplete) {
-     html += '<div class="part"><div class="id"><span class="pn">📷 박스 라벨 바코드 스캔</span><span class="pc">스캔한 박스 수만큼 포장 자재가 자동 투입됩니다 · ' + scanned + ' / ' + curS.outbox + '</span></div>' +
-      (locked ? '' : '<button class="btn primary" id="scanIn" style="min-height:54px">스캔</button>') + '</div>';
+    // ① 포장 대상 유닛
+    html += '<div class="secline">① 포장 대상 (검사 합격 유닛) <span class="ln"></span><span>1대 = 1박스 · ' + READY.length + '대 대기</span></div>';
+    if (!READY.length) {
+     html += '<div class="emptysess">검사완료창고에 포장할 유닛이 없습니다. 검사 화면에서 합격 처리하면 여기에 올라옵니다.</div>';
     } else {
-     html += '<table class="form-tbl"><tr><th>#</th><th>라벨 로트</th><th>스캔 데이터(GS1-128)</th></tr>';
-     (curS.scanBoxes || []).forEach(function (sb, k) {
-      html += '<tr><td>' + (k + 1) + '</td><td><b>' + (sb.lot || '-') + '</b></td><td style="font-variant-numeric:tabular-nums;word-break:break-all">' + gs1Line(sb) + '</td></tr>';
+     READY.forEach(function (u) {
+      var on = curUnit && String(curUnit.mat_lot_id) === String(u.mat_lot_id);
+      html += '<div class="unit pick' + (on ? ' sel' : '') + '" data-u="' + u.mat_lot_id + '"><div class="edge"></div>' +
+       '<div class="tick">' + (on ? '✓' : '') + '</div>' +
+       '<div class="who"><span class="lot">' + esc(u.lot_number) + '</span>' +
+       '<span class="sub">' + esc(u.unit_mat_code) +
+       (u.unit_no ? ' · #' + esc(u.unit_no) : ' · 조립이력 없음') +
+       (u.assy_order_num ? ' · ' + esc(u.assy_order_num) : '') + '</span>' +
+       (u.src_lot ? '<span class="sub">원 로트 ' + esc(u.src_lot) + '</span>' : '') + '</div>' +
+       (u.repair_id ? '<span class="rbadge">수리 · ' + (u.repair_cat === 'spec' ? '사양변경' : '반품') + '</span>' : '') + '</div>';
      });
-     html += '</table>' + (locked ? '' : '<div style="margin-top:6px"><button class="btn ghost" id="rescanIn">다시 스캔</button></div>');
     }
 
-    // ③ 포장 자재 (자동 투입 · 수량 수정 가능) — 스캔 시 BOM 필요수량 자동 채움, 이후 조정 가능
-    var mc = mcellMatCount(curO.region);
-    html += '<div class="secline">③ ' + (curO.region === 'ovs' ? '수출용' : '내수용') + ' 포장 자재 (자동 투입 · 수정 가능) <span class="ln"></span><span>' + mc.done + ' / ' + mc.total + '</span></div>';
-    /* if (scanned === 0) {
-      html += '<div class="autonote">📦 박스 라벨을 스캔하면 스캔한 박스 수만큼 BOM 필요수량이 자동 투입됩니다. 이후 ＋/− 또는 숫자를 눌러 수량을 수정할 수 있습니다.</div>';
-     }*/
-    rb.mats.forEach(function (m) {
-     var per = m.qty || 1;
-     var need = per * (curS.outbox || 0);
-     var cur = curS.mat[m.code] || 0;
-     var ok = need > 0 && cur >= need;
-     html += '<div class="mat ' + (ok ? 'on' : '') + '">' +
-      '<div class="chk">' + (ok ? '✓' : '') + '</div>' +
-      '<div class="mid"><div class="mn">' + m.name + (m.common ? '<span class="common-tag">공통</span>' : '') + '</div>' +
-      '<div class="mc">' + m.code + ' · BOM ' + per + ' /대 → 필요 <b>' + need + '</b></div></div>' +
-      (locked
-       ? '<span class="matqty' + (ok ? ' ok' : '') + '">' + cur + ' EA</span>'
-       : '<div class="mstep"><button data-mminus="' + m.code + '">−</button><div class="n" data-mpad="' + m.code + '">' + cur + '</div><button data-mplus="' + m.code + '">＋</button></div>') +
-      '</div>';
+    // ② 포장 자재 — 국내/해외는 작지 산출품목이 이미 가른다
+    var short = MATS.filter(function (m) { return num(matQty[m.mat_id]) > num(m.stock); }).length;
+    var isFb = MATS.length > 0 && MATS[0].fallback === 'Y';
+    html += '<div class="secline" style="margin-top:14px">② 포장 자재 <span class="ln"></span>' +
+     '<span>' + MATS.length + '종' + (isFb ? ' · 전체 자재' : '') + (short ? ' · 재고부족 ' + short : '') + '</span></div>';
+    html += '<div class="part' + (isFb ? ' need' : '') + '"><div class="id"><span class="pn">' + esc(curO.mat_name || '') + '</span>' +
+     '<span class="pc">' + esc(curO.mat_code || '') +
+     (isFb ? ' · 완제품 BOM에 포장 자재가 없어 생산창고 재고 전체를 띄웁니다. 담을 것만 수량을 올리세요.'
+      : ' · 이 완제품 BOM 기준 · 수량 수정 가능') + '</span></div></div>';
+    if (!MATS.length) {
+     html += '<div class="emptysess" style="margin-top:10px">생산창고(17)에 재고가 있는 자재가 없습니다. ' +
+      '자재 없이도 포장을 완료할 수 있습니다.</div>';
+    }
+    MATS.forEach(function (m) {
+     var q = num(matQty[m.mat_id]), stock = num(m.stock);
+     var over = q > stock, ok = q > 0 && !over;
+     // 서버가 판정한 소스창고를 그대로 드러낸다. 17 이 아니면 resolveSourceStore 가
+     // Factory_id / MaterialType 때문에 다른 창고로 흘렀다는 뜻이라 조용히 넘기지 않는다.
+     var st = (m.store_id == null) ? null : num(m.store_id);
+     var badStore = (st != null && st !== 17);
+     html += '<div class="mat ' + (over || badStore ? 'short' : (ok ? 'on' : '')) + '" style="margin-top:10px">' +
+      '<div class="chk">' + (ok && !badStore ? '✓' : '') + '</div>' +
+      '<div class="mid"><div class="mn">' + esc(m.mat_name) + '</div>' +
+      '<div class="mc">' + esc(m.mat_code) + ' · BOM ' + num(m.per) + ' /대 · ' +
+      esc(m.store_name || '생산창고') + ' 재고 ' +
+      '<b class="' + (over ? 'warn' : '') + '">' + stock + '</b>' +
+      (over ? ' <span class="warn">— 재고 부족</span>' : '') +
+      (badStore ? ' <span class="warn">— 소스창고가 생산창고(17)가 아닙니다 (' + st + ')</span>' : '') +
+      '</div></div>' +
+      '<div class="mstep"><button data-mminus="' + m.mat_id + '">−</button>' +
+      '<div class="n" data-mpad="' + m.mat_id + '">' + q + '</div>' +
+      '<button data-mplus="' + m.mat_id + '">＋</button></div></div>';
     });
+
+    // ③ 박스 라벨 스캔 (필수)
+    html += '<div class="secline" style="margin-top:14px">③ 박스 라벨 스캔 <span class="ln"></span>' +
+     (curLabel ? '<span>확정됨</span>' : '<span class="req">필수</span>') + '</div>';
+    html += '<div class="part ' + (curLabel ? 'ok' : 'need') + '">' +
+     '<div class="id"><span class="pn">' + (curLabel ? esc(curLabel) : '미스캔') + '</span>' +
+     '<span class="pc">' + (curLabel ? '완제품 로트의 외부 라벨(MakerLotNo)로 기록됩니다'
+      : '박스에 붙은 실물 라벨을 스캔해야 포장을 완료할 수 있습니다') + '</span></div>' +
+     '<button class="btn primary sm" id="btnScan" style="padding:0 20px">📷 ' + (curLabel ? '다시 스캔' : '스캔') + '</button></div>';
+
+    // 이 작업에서 포장한 박스
+    html += '<div class="secline" style="margin-top:14px">이 작업에서 포장한 박스 <span class="ln"></span>' +
+     '<span>' + SESS.boxes.length + '건</span></div>';
+    if (!SESS.boxes.length) {
+     html += '<div class="emptysess">아직 포장한 박스가 없습니다.</div>';
+    } else {
+     SESS.boxes.forEach(function (p) {
+      html += '<div class="unit packed" data-mp="' + p.mp_id + '"><div class="edge"></div>' +
+       '<div class="who"><span class="lot">' + esc(p.lot_number) + '</span>' +
+       '<span class="sub">라벨 ' + esc(p.maker_lot_no || '-') +
+       (p.chasu ? ' · ' + p.chasu + '차수' : '') + ' · ' + pill(p.start_time) + ' ~ ' + pill(p.end_time) + '</span>' +
+       '<span class="sub">눌러서 상세 · 포장 취소</span></div>' +
+       '<span class="badge done">포장 완료</span><span class="go">›</span></div>';
+     });
+    }
 
     document.getElementById('cBody').innerHTML = html;
    }
 
    function renderCAction() {
     var bar = document.getElementById('cAction');
-    var packed = curS.outbox;
-    if (curS.st === 'done') {
-     bar.innerHTML = '<div class="actsum"><span class="l">박스 포장</span><span class="v">' + packed + ' EA</span></div><button class="btn danger" id="cCancel">완료취소</button>';
-     document.getElementById('cCancel').onclick = function () {
-      curS.st = 'working';
-      curS.end = null;
-      renderCHead();
-      renderCBody();
-      renderCAction();
-      renderSessList();
-      flash('완료취소 (목업)');
-     };
-    } else {
-     var mc = mcellMatCount(curO.region);
-     var scanned = (curS.scanBoxes || []).length;
-     var ready = curS.outbox > 0 && scanned >= curS.outbox && mc.done === mc.total;
-     bar.innerHTML = '<div class="actsum"><span class="l">박스 포장</span><span class="v">' + packed + ' EA</span></div>' +
-      '<button class="btn ghost" id="cDelete">삭제</button><button class="btn primary" id="cFinish" ' + (ready ? '' : 'disabled style="opacity:.5"') + '>포장 완료</button>';
-     document.getElementById('cFinish').onclick = function () {
-      if (!ready) {
-       if (curS.outbox <= 0) flash('박스 포장수량을 입력하세요');
-       else flash('박스 ' + curS.outbox + '개를 스캔하면 자재가 자동 투입되고 완료할 수 있습니다 (현재 ' + scanned + ')');
-       return;
-      }
-      curS.st = 'done';
-      curS.end = nowHM();
-      renderCHead();
-      renderCBody();
-      renderCAction();
-      renderSessList();
-      flash('포장 완료 → ' + (curO.region === 'ovs' ? '수출용' : '내수용') + ' 포장 · 출하대기 (목업)');
-     };
-     document.getElementById('cDelete').onclick = function () {
-      curO.sessions.splice(curS._idx, 1);
-      renderSessList();
-      show('B');
-      flash('작업 삭제 (목업)');
-     };
-    }
+    var badStore = MATS.filter(function (m) {
+     return m.store_id != null && num(m.store_id) !== 17 && num(matQty[m.mat_id]) > 0;
+    }).length;
+    var need = !curUnit ? '유닛을 선택하세요' : (!curLabel ? '박스 라벨을 스캔하세요'
+     : (badStore ? '소스창고가 생산창고(17)가 아닌 자재가 있습니다'
+      : (!matOk() ? '재고보다 많은 자재가 있습니다' : '')));
+    bar.innerHTML =
+     '<div class="actsum"><span class="l">' + (need || '박스 1개 준비됨') + '</span>' +
+     '<span class="v">이 작업 ' + SESS.boxes.length + '대</span></div>' +
+     '<button class="btn ghost" id="cEnd">작업 종료</button>' +
+     '<button class="btn primary" id="cFinish"' + (packReady() ? '' : ' disabled') + '>포장 완료</button>';
+    document.getElementById('cEnd').onclick = function () {
+     var n = SESS.boxes.length;
+     var who = SESS.actor_name || '작업자';
+     uiConfirm('작업 종료',
+      n ? (who + ' 작업을 종료합니다. 포장 ' + n + '대는 그대로 남고, 남은 유닛은 다른 작업에서 이어서 포장할 수 있습니다.')
+       : (who + ' 작업을 종료합니다. 포장한 박스가 없어 이 작업은 기록되지 않습니다.'),
+      function () {
+       SESS = null;
+       // 한 박스도 안 했으면 작지를 원래대로 되돌린다.
+       // 화면 판단만 믿지 않는다 — 그 사이 다른 태블릿이 같은 작지에 박스를 넣었을 수 있다.
+       if (!n) post(API + '/work_end', {job_res_id: curO.job_res_id}, function () { loadB(); loadQueue(); show('B'); });
+       else { flash(who + ' 작업 종료 · 포장 ' + n + '대'); loadB(); loadQueue(); show('B'); }
+      });
+    };
+    document.getElementById('cFinish').onclick = doPack;
    }
 
+   /* 본문 클릭 — 유닛 선택 / 자재 스테퍼 / 스캔 / 완료건 상세 */
    document.getElementById('cBody').addEventListener('click', function (e) {
-    function step(sel, key, max) {
-     var st = e.target.closest('[data-' + sel + ']');
-     if (st && (e.target.classList.contains('plus') || e.target.classList.contains('minus'))) {
-      var d = e.target.classList.contains('plus') ? 1 : -1;
-      curS[key] = Math.max(0, (max ? Math.min(max, curS[key] + d) : curS[key] + d));
-      renderCBody();
-      renderCAction();
-      renderSessList();
-      return true;
-     }
-     return false;
+    var u = e.target.closest('[data-u]');
+    if (u) {
+     var lot = READY.filter(function (x) { return String(x.mat_lot_id) === u.dataset.u; })[0];
+     curUnit = (curUnit && String(curUnit.mat_lot_id) === u.dataset.u) ? null : lot;
+     renderCBody(); renderCAction(); return;
     }
-
-    if (step('mbox', 'outbox')) return;
-
-    // 라벨 스캔 (모달 열기)
-    if (e.target.id === 'scanIn' || e.target.id === 'rescanIn') {
-     openScan();
-     return;
-    }
-
-    // 박스 수량 넘패드
-    var pb = e.target.closest('[data-padbox]');
-    if (pb) {
-     openPadBox();
-     return;
-    }
-
-    // 자재 수량 수정 (스캔 자동 투입 후 ＋/−·숫자탭으로 조정 가능)
+    if (e.target.closest('#btnScan')) { openScan(); return; }
     var mp = e.target.closest('[data-mplus]');
-    if (mp) {
-     var c = mp.dataset.mplus;
-     curS.mat[c] = (curS.mat[c] || 0) + 1;
-     renderCBody();
-     renderCAction();
-     return;
-    }
+    if (mp) { var a = mp.dataset.mplus; matQty[a] = num(matQty[a]) + 1; renderCBody(); renderCAction(); return; }
     var mm = e.target.closest('[data-mminus]');
-    if (mm) {
-     var c2 = mm.dataset.mminus;
-     curS.mat[c2] = Math.max(0, (curS.mat[c2] || 0) - 1);
-     renderCBody();
-     renderCAction();
-     return;
-    }
-    var mpad = e.target.closest('[data-mpad]');
-    if (mpad) {
-     openPadMat(mpad.dataset.mpad);
-     return;
-    }
+    if (mm) { var b = mm.dataset.mminus; matQty[b] = Math.max(0, num(matQty[b]) - 1); renderCBody(); renderCAction(); return; }
+    var pd = e.target.closest('[data-mpad]');
+    if (pd) { openPadMat(pd.dataset.mpad); return; }
+    var dn = e.target.closest('[data-mp]');
+    if (dn) { openDone(dn.dataset.mp); return; }
    });
    document.getElementById('cHead').addEventListener('click', function (e) {
+    if (e.target.closest('#pickWorker')) { pickMode = 'edit'; pick = {
+     actor_id: SESS.actor_id, actor_name: SESS.actor_name,
+     equipment_id: SESS.equipment_id, equipment_name: SESS.equipment_name}; openPicker(); return; }
+    if (e.target.closest('#pickEquip')) { pickMode = 'edit'; pick = {
+     actor_id: SESS.actor_id, actor_name: SESS.actor_name,
+     equipment_id: SESS.equipment_id, equipment_name: SESS.equipment_name}; openPicker(); return; }
     var t = e.target.closest('[data-time]');
     if (t) openTime(t.dataset.time);
    });
 
-   /* ── 박스 라벨 스캔 (모달 · 단순화) ──
-      모달 안에서 "📷 박스 스캔"을 누를 때마다 박스 1개가 즉시 등록된다.
-      단계바/per-박스 확인/수동입력 없이 n/N 카운트만 표시하고,
-      박스 포장수량(N)만큼 채우면 "지정 · 완료"가 활성화된다.
-      각 스캔은 현재 작업지시(GTIN)에 맞는 GS1-128 전체 데이터를 저장한다. */
-
-   // 목업 샘플 로트/제조일 — 현재 작업지시·세션 기준 (★박스마다 다른 로트)
-   function sampleDate() {
-    return (((curS && curS.start) || '260101').slice(2, 10).replace(/-/g, '')) || '260101';
-   }
-   // 이 작업지시에서 (현재 세션 제외) 다른 세션이 이미 포장한 박스 수 → pool 소진 위치 계산
-   function packedBefore() {
-    var total = 0;
-    (curO.sessions || []).forEach(function (s) { if (s !== curS) total += (s.scanBoxes || []).length; });
-    return total;
-   }
-   // 검사 합격 완제품 pool에서 '다음에 포장할 검사 로트'를 반환(소진되면 null)
-   function nextPassedLot() {
-    var idx = packedBefore() + (curS.scanBoxes || []).length;
-    var p = (curO.passed || [])[idx];
-    return p ? p.lot : null;
-   }
-   // 스캔 라벨: 검사 공정에서 넘어온 실제 로트를 그대로 사용. (01)GTIN(10)검사로트(30)1(11)제조일
-   function sampleScan() {
-    var lot = nextPassedLot();
-    if (!lot) return null;
-    return '(01)' + (curO ? curO.gtin : '') + '(10)' + lot + '(30)1(11)' + sampleDate();
-   }
-
-   // 모달 UI 갱신(카운트/버튼/박스별 로트 목록)
-   function scanRefresh() {
-    var N = curS.outbox, boxes = (curS.scanBoxes || []), n = boxes.length, done = n >= N;
-    document.getElementById('scanCount').textContent = n;
-    document.getElementById('scanTotal').textContent = N;
-    var cap = document.getElementById('scanCapture');
-    cap.disabled = done;
-    cap.textContent = done ? '스캔 완료' : '📷 박스 스캔';
-    document.getElementById('scanReset').style.display = n > 0 ? '' : 'none';
-    document.getElementById('scanApply').disabled = !done;
-
-    // 박스마다 다른 로트 → 박스별로 목록 표시
-    document.getElementById('scanLots').innerHTML = boxes.map(function (b, i) {
-     return '<div class="lotrow"><span class="k">' + (i + 1) + '</span><span class="lv">' + (b.lot || '-') + '</span></div>';
-    }).join('');
+   /* ══ 포장 완료 ══ */
+   function doPack() {
+    if (!curUnit) { flash('포장할 유닛을 선택하세요'); return; }
+    if (!curLabel) { flash('박스 라벨을 스캔하세요'); openScan(); return; }
+    if (!matOk()) { flash('재고보다 많은 자재가 있습니다. 수량을 조정하세요.'); return; }
+    var bom = MATS.filter(function (m) { return num(matQty[m.mat_id]) > 0; })
+    .map(function (m) { return {matId: m.mat_id, qty: num(matQty[m.mat_id])}; });
+    var btn = document.getElementById('cFinish');
+    if (btn) btn.disabled = true;
+    post(API + '/pack_unit', oParam({
+     mat_lot_id: curUnit.mat_lot_id,
+     maker_lot_no: curLabel,
+     actor_id: SESS.actor_id,
+     equipment_id: SESS.equipment_id == null ? '' : SESS.equipment_id,
+     start_time: SESS.start_time || nowHM(),
+     end_time: nowHM(),
+     bom_json: JSON.stringify(bom),
+     spjangcd: CTX.spjangcd
+    }), function (d) {
+     if (d === null) { if (btn) btn.disabled = false; return; }
+     var lot = curUnit.lot_number;
+     resetBox();                       // 다음 박스로 이어간다 — 작업자·설비는 유지
+     loadB(function () {
+      // 첫 박스가 붙으면 로컬 작업이 서버 파생 작업과 합류한다
+      var s = SESSIONS.filter(function (x) { return x.key === SESS.key; })[0];
+      if (s) SESS = s;
+      renderC();
+      flash(lot + ' 포장 완료 — 다음 박스를 준비하세요');
+     });
+    });
    }
 
-   // 스캔한 박스 수만큼 포장 자재를 BOM 필요수량으로 자동 채움(수동 투입 대체)
-   function autoFillMats() {
-    var rb = regionBom(curO.region);
-    var boxes = (curS.scanBoxes || []).length;
-    var mat = {};
-    rb.mats.forEach(function (m) { mat[m.code] = (m.qty || 1) * boxes; });
-    curS.mat = mat;
+   /* ══ 박스 라벨 스캔 ══ */
+   let scanTimer = null, scanVal = '';
+
+   /* ── 카메라 스캔 ──
+      BarcodeDetector(크롬/안드로이드 WebView 내장)를 쓴다. 외부 라이브러리를 안 붙이는 이유는
+      공장 태블릿이 오프라인일 때 CDN 이 안 잡히면 화면이 통째로 멈추기 때문.
+      쓸 수 없는 환경이면 조용히 죽지 않고 사유를 문구로 남기고, 스캐너·수동입력으로 넘어간다.
+
+      ★ getUserMedia 는 보안 컨텍스트(HTTPS 또는 localhost)에서만 동작한다.
+        http:// 로 접속하면 권한 요청 자체가 안 뜬다. */
+   let camStream = null, camTimer = null, camDet = null, camLock = null;
+
+   /* 화면 꺼짐 방지 — 스캔 시트를 열어둔 채 손을 놓으면 태블릿이 잠긴다.
+      지원 안 하는 기기에서는 조용히 넘어간다. */
+   async function wakeOn() {
+    try {
+     if (!navigator.wakeLock || camLock) return;
+     camLock = await navigator.wakeLock.request('screen');
+     camLock.addEventListener('release', function () { camLock = null; });
+    } catch (e) {}
    }
+   function wakeOff() {
+    try { if (camLock) camLock.release(); } catch (e) {}
+    camLock = null;
+   }
+
+   function camReason() {
+    if (!window.isSecureContext) return 'HTTPS 접속이 아니라 카메라를 쓸 수 없습니다. 스캐너나 직접 입력을 사용하세요.';
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return '이 브라우저는 카메라를 지원하지 않습니다.';
+    if (typeof window.BarcodeDetector === 'undefined') return '이 브라우저는 바코드 인식을 지원하지 않습니다. 스캐너나 직접 입력을 사용하세요.';
+    return null;
+   }
+
+   function setCamNote(msg, warn) {
+    var n = document.getElementById('camNote');
+    n.className = 'camnote' + (warn ? ' warn' : '');
+    n.textContent = msg || '';
+   }
+
+   function stopCam() {
+    clearInterval(camTimer); camTimer = null;
+    if (camStream) { camStream.getTracks().forEach(function (t) { t.stop(); }); camStream = null; }
+    var v = document.getElementById('camView');
+    if (v) v.srcObject = null;
+    document.getElementById('camWrap').classList.remove('on');
+    wakeOff();
+   }
+   // 탭을 벗어나면 카메라·화면잠금을 놓는다. 안 놓으면 렌즈가 켜진 채 남는다.
+   document.addEventListener('visibilitychange', function () { if (document.hidden) stopCam(); });
+
+   async function startCam() {
+    var why = camReason();
+    if (why) { setCamNote(why, true); return; }
+    setCamNote('카메라를 켜는 중…');
+    try {
+     if (!camDet) {
+      var want = ['code_128','ean_13','code_39','itf','data_matrix','qr_code'];
+      var ok = want;
+      try {
+       var sup = await window.BarcodeDetector.getSupportedFormats();
+       ok = want.filter(function (f) { return sup.indexOf(f) >= 0; });
+      } catch (e) {}
+      if (!ok.length) { setCamNote('인식 가능한 바코드 형식이 없습니다.', true); return; }
+      camDet = new window.BarcodeDetector({formats: ok});
+     }
+     camStream = await navigator.mediaDevices.getUserMedia({
+      video: {facingMode: {ideal: 'environment'}, width: {ideal: 1280}, height: {ideal: 720}},
+      audio: false
+     });
+     // ★ 라벨을 가까이 대고 찍으므로 초점이 핵심이다. 고정초점이면 인식이 아예 안 된다.
+     //   지원 여부가 기기마다 달라 getCapabilities 로 확인한 뒤에만 건다.
+     try {
+      var track = camStream.getVideoTracks()[0];
+      var caps = track.getCapabilities ? track.getCapabilities() : {};
+      var adv = [];
+      if (caps.focusMode && caps.focusMode.indexOf('continuous') >= 0) adv.push({focusMode: 'continuous'});
+      if (adv.length) await track.applyConstraints({advanced: adv});
+     } catch (e) {}
+     var v = document.getElementById('camView');
+     v.srcObject = camStream;
+     await v.play();
+     wakeOn();
+     document.getElementById('camWrap').classList.add('on');
+     setCamNote('바코드를 가운데 사각형에 맞추세요.');
+     // 프레임마다 돌리면 태블릿이 뜨겁고 느려진다. 250ms 간격이면 충분히 즉각적이다.
+     camTimer = setInterval(camTick, 250);
+    } catch (e) {
+     stopCam();
+     setCamNote('카메라를 열 수 없습니다 — ' + (e && e.name === 'NotAllowedError'
+      ? '권한이 거부되었습니다. 브라우저 설정에서 카메라를 허용하세요.'
+      : (e.message || e)), true);
+    }
+   }
+
+   async function camTick() {
+    var v = document.getElementById('camView');
+    if (!camDet || !v || v.readyState < 2) return;
+    var found;
+    try { found = await camDet.detect(v); } catch (e) { return; }
+    if (!found || !found.length) return;
+    var raw = String(found[0].rawValue || '').trim();
+    if (!raw) return;
+    stopCam();
+    setCamNote('읽었습니다 — ' + raw);
+    var key = pickLot(raw);
+    document.getElementById('scanKey').value = key;
+    checkLabel(key);
+   }
+
+   document.getElementById('camOpen').onclick = function () { startCam(); };
+   document.getElementById('camStop').onclick = function () { stopCam(); setCamNote(''); };
+   // 시트를 닫을 때 카메라도 반드시 끈다 (안 끄면 렌즈가 계속 켜져 있다)
+   document.getElementById('scanMask').addEventListener('click', function (e) {
+    if (e.target === this || (e.target.closest && e.target.closest('[data-close]'))) stopCam();
+   });
 
    function openScan() {
-    if (!(curS.outbox > 0)) { flash('박스 포장수량을 먼저 입력하세요'); return; }
-    curS.scanBoxes = [];
-    curS.labelLot = null;
-    autoFillMats();
-    scanRefresh();
+    scanVal = '';
+    document.getElementById('scanKey').value = '';
+    document.getElementById('scanRes').innerHTML = '';
+    document.getElementById('scanOk').disabled = true;
+    setCamNote('');
     showMask('scanMask');
+    // 태블릿은 카메라가 기본 경로다. 열자마자 켜서 한 손으로 끝나게 한다.
+    if (!camReason()) startCam(); else setCamNote(camReason(), true);
+    setTimeout(function () { document.getElementById('scanKey').focus(); }, 120);
    }
+   document.getElementById('scanKey').addEventListener('input', function () {
+    clearTimeout(scanTimer);
+    var raw = this.value;
+    if (!raw.trim()) {
+     document.getElementById('scanRes').innerHTML = '';
+     document.getElementById('scanOk').disabled = true; scanVal = ''; return;
+    }
+    scanTimer = setTimeout(function () { checkLabel(pickLot(raw)); }, 250);
+   });
+   document.getElementById('scanKey').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); clearTimeout(scanTimer); checkLabel(pickLot(this.value)); }
+   });
 
-   // "📷 박스 스캔" — 누를 때마다 박스 1개 등록 + 자재 자동 투입
-   document.getElementById('scanCapture').onclick = function () {
-    var N = curS.outbox;
-    if (!curS.scanBoxes) curS.scanBoxes = [];
-    if (curS.scanBoxes.length >= N) return;
-    var raw = sampleScan();
-    if (!raw) { flash('검사 합격 완제품을 모두 포장했습니다 · 검사 공정 추가 전달 대기'); return; }
-    var d = parseGs1(raw);
-    var expect = curO ? curO.gtin : null;
-    if (expect && d.gtin && d.gtin !== expect) { flash('GTIN 불일치 — 이 작업지시(' + expect + ') 제품이 아닙니다'); return; }
-    if (!d.lot) { flash('로트(10) 없는 라벨입니다'); return; }
-    curS.scanBoxes.push(d);
-    if (!curS.labelLot) curS.labelLot = d.lot;
-    autoFillMats();   // 스캔 수량만큼 자재 자동 투입
-    var n = curS.scanBoxes.length;
-    flash(n >= N ? ('박스 ' + N + '개 스캔 · 자재 자동 투입 완료') : ('검사 로트 스캔 · ' + n + ' / ' + N + ' · 자재 자동 투입'));
-    scanRefresh();
-   };
-   // 다시 스캔(초기화)
-   document.getElementById('scanReset').onclick = function () {
-    curS.scanBoxes = [];
-    curS.labelLot = null;
-    autoFillMats();
-    scanRefresh();
-   };
-   // 지정 · 완료 — 박스 N개 모두 스캔됐을 때 저장(자재는 이미 자동 투입됨)
-   document.getElementById('scanApply').onclick = function () {
-    if ((curS.scanBoxes || []).length < curS.outbox) { flash('박스 ' + curS.outbox + '개를 모두 스캔하세요'); return; }
-    curS.labelLot = curS.scanBoxes[0].lot;
-    autoFillMats();
-    hideMask('scanMask');
-    renderCBody();
-    renderCAction();
-    renderSessList();
-    flash('박스 ' + curS.outbox + '개 스캔 · 자재 자동 투입 완료 · 저장');
-   };
-
-   var padVal = '', padMode = 'box', padMatCode = null;
-
-   function openPadBox() {
-    padMode = 'box';
-    padMatCode = null;
-    padVal = String(curS.outbox || 0);
-    document.getElementById('padLab').textContent = '박스 포장수량';
-    document.getElementById('padDisp').textContent = padVal;
-    showMask('padMask');
-   }
-
-   function openPadMat(code) {
-    padMode = 'mat';
-    padMatCode = code;
-    padVal = String(curS.mat[code] || 0);
-    var rb = regionBom(curO.region);
-    var mo = rb.mats.filter(function (x) {
-     return x.code === code;
+   function checkLabel(key) {
+    var box = document.getElementById('scanRes');
+    if (!key) return;
+    var dup = PACKED.filter(function (p) {
+     return String(p.maker_lot_no || '').toUpperCase() === key.toUpperCase();
     })[0];
-    document.getElementById('padLab').textContent = mo ? mo.name : '자재 수량';
+    if (dup) {
+     box.className = 'scanres ng';
+     box.textContent = '이미 사용된 라벨입니다 — ' + dup.lot_number + ' (' + (dup.actor_name || '') + ')';
+     document.getElementById('scanOk').disabled = true; scanVal = ''; return;
+    }
+    // 서버 중복검사가 있으면 쓰고, 없으면 화면 검사만으로 넘어간다
+    getSoft(API + '/label_check', oParam({key: key}), function (d) {
+     if (d && d.dup) {
+      box.className = 'scanres ng';
+      box.textContent = d.note || '이미 등록된 라벨입니다.';
+      document.getElementById('scanOk').disabled = true; scanVal = ''; return;
+     }
+     box.className = 'scanres ok';
+     box.textContent = key + ' · 사용 가능';
+     scanVal = key;
+     document.getElementById('scanOk').disabled = false;
+    });
+   }
+   document.getElementById('scanOk').onclick = function () {
+    if (!scanVal) return;
+    curLabel = scanVal;
+    stopCam();
+    hideMask('scanMask');
+    renderCBody(); renderCAction();
+   };
+
+   /* ══ 포장 완료 박스 상세 ══ */
+   function openDone(mpId, from) {
+    var src = from || SESS.boxes;
+    curDone = src.filter(function (x) { return String(x.mp_id) === String(mpId); })[0];
+    if (!curDone) return;
+    document.getElementById('doneBody').innerHTML =
+     '<div class="dhead"><span class="dlot">' + esc(curDone.lot_number) + '</span>' +
+     '<span class="badge done" style="padding:6px 12px;border-radius:999px;font-size:13px;font-weight:800;' +
+     'background:var(--green-bg);color:var(--green)">포장 완료</span></div>' +
+     '<div class="drows">' +
+     '<div class="drow"><span class="k">박스 라벨</span><span class="v num' +
+     (curDone.maker_lot_no ? '' : ' muted') + '">' + esc(curDone.maker_lot_no || '기록 없음') + '</span></div>' +
+     '<div class="drow"><span class="k">차수</span><span class="v num">' + esc(curDone.chasu || '-') + '</span></div>' +
+     '<div class="drow"><span class="k">작업자</span><span class="v">' + esc(curDone.actor_name || '-') +
+     (curDone.equipment_name ? ' <span class="v muted" style="font-size:14px">· ' + esc(curDone.equipment_name) + '</span>' : '') +
+     '</span></div>' +
+     '</div>' +
+     '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">' +
+     '<div class="infopill tap" data-time="start"><span>시작</span><b>' + pill(curDone.start_time) + '</b></div>' +
+     '<div class="infopill tap" data-time="end"><span>종료</span><b>' + pill(curDone.end_time) + '</b></div></div>' +
+     '<div class="emptysess" style="text-align:left;margin-top:14px;padding:16px">포장 취소를 누르면 완제품 로트가 ' +
+     '제거되고 유닛이 검사완료창고의 포장 대기로 돌아갑니다. 이미 출고된 로트는 취소할 수 없습니다.</div>';
+    showMask('doneMask');
+   }
+   document.getElementById('doneBody').addEventListener('click', function (e) {
+    var t = e.target.closest('[data-time]');
+    if (t) openTime(t.dataset.time);
+   });
+   document.getElementById('doneCancel').onclick = function () {
+    if (!curDone) return;
+    var d = curDone;
+    hideMask('doneMask');
+    uiConfirm('포장 취소', '완료 취소하시겠습니까?', function () {
+     post(API + '/pack_cancel', {mat_produce_id: d.mp_id}, function (r) {
+      if (r === null) return;
+      curDone = null;
+      loadB(function () {
+       loadQueue();
+       if (!SESS) return;                       // B화면에서 취소한 경우
+       var s = SESSIONS.filter(function (x) { return x.key === SESS.key; })[0];
+       if (s) SESS = s; else SESS.boxes = [];
+       renderC();
+      });
+     });
+    });
+   };
+
+   /* ══ 작업자 · 설비 시트 ══ */
+   function openPicker() {
+    document.getElementById('startTitle').textContent =
+     (pickMode === 'new') ? '작업 추가 · 새 작업자' : '작업자 · 설비 변경';
+    document.getElementById('startOk').textContent = (pickMode === 'new') ? '작업 시작' : '변경';
+    var need = [];
+    if (!WORKERS.length) need.push('w');
+    if (!EQUIPS.length) need.push('e');
+    if (!need.length) { paintPicker(); showMask('startMask'); return; }
+    get(API + '/workers', {}, function (d) {
+     if (d) WORKERS = d;
+     // 설비는 워크센터 + 설비그룹으로 서버가 좁혀 내려준다 (조립 화면과 동일)
+     get(API + '/equipments', {workcenter_id: WC_ID}, function (d2) {
+      if (d2) EQUIPS = d2;
+      paintPicker(); showMask('startMask');
+     });
+    });
+   }
+   function paintPicker() {
+    // 새 작업이고 작업자가 아직 설비를 건드리지 않았으면 기본 설비를 미리 골라 준다
+    if (pickMode === 'new' && !eqTouched && pick.equipment_id == null && CTX.default_equipment_id != null) {
+     var dq = EQUIPS.filter(function (q) {
+      return String(q.equipment_id) === String(CTX.default_equipment_id);
+     })[0];
+     if (dq) { pick.equipment_id = dq.equipment_id; pick.equipment_name = dq.equipment_name; }
+    }
+    document.getElementById('workerOpts').innerHTML = WORKERS.length ? WORKERS.map(function (w) {
+     return '<button class="opt' + (pick.actor_id === w.actor_id ? ' sel' : '') + '" data-w="' + w.actor_id +
+      '" data-nm="' + esc(w.actor_name) + '">' + esc(w.actor_name) + '</button>';
+    }).join('') : '<div class="emptysess">등록된 작업자가 없습니다.</div>';
+    document.getElementById('equipOpts').innerHTML =
+     '<button class="opt' + (pick.equipment_id == null ? ' sel' : '') + '" data-e="">미지정</button>' +
+     EQUIPS.map(function (q) {
+      return '<button class="opt' + (pick.equipment_id === q.equipment_id ? ' sel' : '') +
+       '" data-e="' + q.equipment_id + '" data-nm="' + esc(q.equipment_name) + '">' + esc(q.equipment_name) +
+       ' <span class="sub">' + esc(q.equipment_code || '') + '</span></button>';
+     }).join('') +
+     (EQUIPS.length ? '' : '<div class="optsep">등록된 포장 설비가 없습니다. 미지정으로 진행할 수 있습니다.</div>');
+    document.getElementById('startOk').disabled = !pick.actor_id;
+   }
+   document.getElementById('workerOpts').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-w]'); if (!b) return;
+    pick.actor_id = +b.dataset.w; pick.actor_name = b.dataset.nm;
+    paintPicker();
+   });
+   document.getElementById('equipOpts').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-e]'); if (!b) return;
+    eqTouched = true;
+    pick.equipment_id = b.dataset.e ? +b.dataset.e : null;
+    pick.equipment_name = b.dataset.e ? b.dataset.nm : null;
+    paintPicker();
+   });
+   document.getElementById('startOk').onclick = function () {
+    if (!pick.actor_id) { flash('작업자를 선택하세요'); return; }
+    hideMask('startMask');
+    if (pickMode === 'new') { createSess(); return; }
+    // 변경 — 이미 포장한 박스의 실적은 그대로 두고, 이후 박스부터 적용된다
+    if (SESS.boxes.length) {
+     var s = {
+      actor_id: pick.actor_id, actor_name: pick.actor_name,
+      equipment_id: pick.equipment_id, equipment_name: pick.equipment_name,
+      work_date: fmtDate(new Date()), start_time: nowHM(), boxes: [], local: true
+     };
+     s.key = sessKey(s);
+     var ex = SESSIONS.filter(function (x) { return x.key === s.key; })[0];
+     if (ex) { SESS = ex; }
+     else { LOCAL.push(s); buildSessions(); SESS = s; }
+     flash('작업자·설비가 바뀌어 새 작업으로 넘어갑니다 (이전 실적은 그대로).');
+    } else {
+     SESS.actor_id = pick.actor_id; SESS.actor_name = pick.actor_name;
+     SESS.equipment_id = pick.equipment_id; SESS.equipment_name = pick.equipment_name;
+     var old = SESS.key; SESS.key = sessKey(SESS);
+     LOCAL.forEach(function (x) { if (x.key === old) { x.key = SESS.key; } });
+     buildSessions();
+    }
+    renderC(); renderB();
+   };
+
+   /* ══ 넘패드 ══ */
+   let padVal = '', padMatId = null;
+   function openPadMat(matId) {
+    padMatId = matId; padVal = String(num(matQty[matId]));
+    var mo = MATS.filter(function (x) { return String(x.mat_id) === String(matId); })[0];
+    document.getElementById('padLab').textContent = mo ? mo.mat_name : '자재 수량';
     document.getElementById('padDisp').textContent = padVal;
     showMask('padMask');
    }
-
    document.querySelector('#padMask .keys').addEventListener('click', function (e) {
-    var k = e.target.dataset.k;
-    if (!k) return;
+    var k = e.target.dataset.k; if (!k) return;
     if (k === 'C') padVal = '';
     else if (k === 'OK') {
-     var n = parseInt(padVal || '0', 10);
-     if (padMode === 'box') curS.outbox = n;
-     else if (padMode === 'mat' && padMatCode) curS.mat[padMatCode] = n;
-     hideMask('padMask');
-     renderCBody();
-     renderCAction();
-     renderSessList();
-     return;
+     matQty[padMatId] = parseInt(padVal || '0', 10);
+     hideMask('padMask'); renderCBody(); renderCAction(); return;
     } else padVal = (padVal === '0' ? '' : padVal) + k;
     document.getElementById('padDisp').textContent = padVal || '0';
    });
 
-   /* ── 시작 시트 ── */
-   function showMask(id) {
-    document.getElementById(id).classList.add('show');
-   }
-
-   function hideMask(id) {
-    document.getElementById(id).classList.remove('show');
-   }
-
-   document.querySelectorAll('.mask').forEach(function (m) {
-    m.addEventListener('click', function (e) {
-     if (e.target === m || (e.target.closest && e.target.closest('[data-close]'))) {
-      m.classList.remove('show');
-     }
-    });
-   });
-
-   let selW = null, selE = null;
-
-   function openStart() {
-    selW = null;
-    selE = null;
-    document.getElementById('workerOpts').innerHTML = WORKERS.map(function (w) {
-     return '<button class="opt" data-w="' + w + '">' + w + '</button>';
-    }).join('');
-    document.getElementById('equipOpts').innerHTML = EQUIPS.map(function (e) {
-     return '<button class="opt" data-e="' + e[0] + '">' + e[0] + ' <span class="sub">' + e[1] + '</span></button>';
-    }).join('');
-    document.getElementById('startOk').disabled = true;
-    showMask('startMask');
-   }
-
-   document.getElementById('workerOpts').addEventListener('click', function (e) {
-    var b = e.target.closest('[data-w]');
-    if (!b) return;
-    document.querySelectorAll('#workerOpts .opt').forEach(function (x) {
-     x.classList.remove('sel');
-    });
-    b.classList.add('sel');
-    selW = b.dataset.w;
-    ckStart();
-   });
-   document.getElementById('equipOpts').addEventListener('click', function (e) {
-    var b = e.target.closest('[data-e]');
-    if (!b) return;
-    document.querySelectorAll('#equipOpts .opt').forEach(function (x) {
-     x.classList.remove('sel');
-    });
-    b.classList.add('sel');
-    selE = b.dataset.e;
-    ckStart();
-   });
-
-   function ckStart() {
-    document.getElementById('startOk').disabled = !(selW && selE);
-   }
-
-   document.getElementById('startOk').onclick = function () {
-    var se = mkSess(selW, selE);
-    curO.sessions.push(se);
-    if (curO.st === 'wait') curO.st = 'working';
-    hideMask('startMask');
-    renderSessList();
-    openSess(curO.sessions.length - 1);
-    flash('작업 시작 · ' + selW + ' / ' + selE);
-   };
-
-   /* 토스트 */
-   let tT;
-
-   function flash(m) {
-    var t = document.getElementById('toast');
-    if (!t) {
-     t = document.createElement('div');
-     t.id = 'toast';
-     t.style.cssText = 'position:fixed;left:50%;bottom:110px;transform:translateX(-50%);background:#15222B;color:#fff;padding:14px 22px;border-radius:14px;font-weight:700;z-index:60;box-shadow:0 12px 30px -10px rgba(0,0,0,.5);transition:opacity .3s';
-     document.body.appendChild(t);
-    }
-    t.textContent = m;
-    t.style.opacity = '1';
-    clearTimeout(tT);
-    tT = setTimeout(function () {
-     t.style.opacity = '0';
-    }, 1700);
-   }
-
-   /* 시간 수정 */
-   let timeWhich = 'start', editDate = new Date();
-
-   function fmtD(d) {
-    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0') + ' (' + WD[d.getDay()] + ')';
-   }
-
+   /* ══ 시간 시트 ══
+      sess  = 이 작업의 시작시각(화면 값. 다음 박스 실적에 실린다)
+      start / end = 이미 만들어진 차수의 시각 → 서버(/pack_time) */
+   let timeWhich = 'sess', editDate = new Date();
    function openTime(which) {
     timeWhich = which;
-    document.getElementById('timeTitle').textContent = (which === 'start' ? '시작' : '종료') + ' 일시 수정';
-    var saved = which === 'start' ? curS.start : curS.end;
+    document.getElementById('timeTitle').textContent =
+     (which === 'sess' ? '작업 시작' : (which === 'start' ? '시작' : '종료')) + ' 일시';
+    var saved = (which === 'sess') ? (SESS && SESS.start_time)
+     : (curDone ? (which === 'start' ? curDone.start_time : curDone.end_time) : null);
     if (saved && saved.indexOf(' ') >= 0) {
-     var a = saved.split(' ');
-     editDate = new Date(a[0] + 'T' + a[1]);
+     var a = saved.split(' '); editDate = new Date(a[0] + 'T' + a[1]);
     } else editDate = new Date();
-    document.getElementById('tDate').textContent = fmtD(editDate);
+    document.getElementById('tDate').textContent = fmtDate(editDate) + ' (' + WD[editDate.getDay()] + ')';
     document.getElementById('tH').textContent = String(editDate.getHours()).padStart(2, '0');
     document.getElementById('tM').textContent = String(editDate.getMinutes()).padStart(2, '0');
     showMask('timeMask');
    }
-
    document.querySelector('#timeMask .dateedit').addEventListener('click', function (e) {
-    var b = e.target.closest('[data-d]');
-    if (!b) return;
+    var b = e.target.closest('[data-d]'); if (!b) return;
     editDate.setDate(editDate.getDate() + (+b.dataset.d));
-    document.getElementById('tDate').textContent = fmtD(editDate);
+    document.getElementById('tDate').textContent = fmtDate(editDate) + ' (' + WD[editDate.getDay()] + ')';
    });
    document.querySelector('#timeMask .timeedit').addEventListener('click', function (e) {
-    var b = e.target.closest('[data-t]');
-    if (!b) return;
+    var b = e.target.closest('[data-t]'); if (!b) return;
     var H = document.getElementById('tH'), M = document.getElementById('tM');
     var h = +H.textContent, m = +M.textContent;
     if (b.dataset.t === 'h+') h = (h + 1) % 24;
@@ -1240,79 +1374,75 @@
     M.textContent = String(m).padStart(2, '0');
    });
    document.getElementById('timeOk').onclick = function () {
-    var ds = editDate.getFullYear() + '-' + String(editDate.getMonth() + 1).padStart(2, '0') + '-' + String(editDate.getDate()).padStart(2, '0');
-    var v = ds + ' ' + document.getElementById('tH').textContent + ':' + document.getElementById('tM').textContent;
-    if (timeWhich === 'start') curS.start = v; else curS.end = v;
+    var v = fmtDate(editDate) + ' ' + document.getElementById('tH').textContent + ':' + document.getElementById('tM').textContent;
     hideMask('timeMask');
-    renderCHead();
-    renderSessList();
-    flash((timeWhich === 'start' ? '시작' : '종료') + ' 저장 ' + pill(v));
+    if (timeWhich === 'sess') { SESS.start_time = v; renderCHead(); return; }
+    if (!curDone) return;
+    var d = curDone;
+    post(API + '/pack_time', {mat_produce_id: d.mp_id, which: timeWhich, value: v}, function (r) {
+     if (r === null) return;
+     if (timeWhich === 'start') d.start_time = v; else d.end_time = v;
+     openDone(d.mp_id);
+     loadB(function () {
+      var s = SESSIONS.filter(function (x) { return x.key === SESS.key; })[0];
+      if (s) SESS = s;
+      renderCBody();
+     });
+    });
    };
 
-   renderQueue();
+   /* ══ 부팅 ══
+      공용 스크립트가 늦게 올라올 수 있어 잠깐 기다린다.
+      끝내 못 찾으면 조용히 죽지 않고 화면에 문구를 남긴다. */
+   (function boot(tries) {
+    tries = tries || 0;
+    if (hasAjax() && AjaxUtil.getSyncData) { loadContext(loadQueue); return; }
+    if (tries > 100) { bootFail('AjaxUtil 을 불러오지 못했습니다. 페이지를 새로고침하세요.'); return; }
+    setTimeout(function () { boot(tries + 1); }, 50);
+   })();
   </script>
-  <!-- ===== 스텝퍼 눌러서 빠르게 증감 (press & hold auto-repeat) — 태블릿/PC 공통 ===== -->
+
+  <!-- 스테퍼 길게 누르기 (조립·수리 화면과 동일) -->
   <style>
-      .stepper button, .mstep button, .lotstep button, .dateedit button, .timeedit button {
-          touch-action: manipulation;
-          -webkit-user-select: none;
-          user-select: none;
-          -webkit-touch-callout: none;
+      .mstep button, .dateedit button, .timeedit button {
+          touch-action: manipulation; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
       }
   </style>
   <script>
    (function () {
-    var SEL = '.stepper button, .mstep button, .lotstep button, .dateedit button, .timeedit button';
-    var holdTimer = null, repeatTimer = null, maxTimer = null;
-    var curBtn = null;
+    var SEL = '.mstep button, .dateedit button, .timeedit button';
+    var holdTimer = null, repeatTimer = null, maxTimer = null, curBtn = null;
     var END_EVENTS = ['pointerup', 'pointercancel', 'lostpointercapture', 'touchend', 'touchcancel', 'mouseup'];
-
     function stop() {
-     clearTimeout(holdTimer);
-     clearInterval(repeatTimer);
-     clearTimeout(maxTimer);
+     clearTimeout(holdTimer); clearInterval(repeatTimer); clearTimeout(maxTimer);
      holdTimer = repeatTimer = maxTimer = null;
-     if (curBtn) {                                   // ★ 버튼에 직접 걸었던 리스너 정리
-      END_EVENTS.forEach(function (ev) { curBtn.removeEventListener(ev, stop); });
-      curBtn = null;
-     }
+     if (curBtn) { END_EVENTS.forEach(function (ev) { curBtn.removeEventListener(ev, stop); }); curBtn = null; }
     }
-
     function tick(x, y) {
      var el = document.elementFromPoint(x, y);
      var b = (el && el.closest) ? el.closest(SEL) : null;
      if (!b) { stop(); return; }
      b.click();
     }
-
     document.addEventListener('pointerdown', function (e) {
-     if (e.button != null && e.button > 0) return;   // 좌클릭/터치만
+     if (e.button != null && e.button > 0) return;
      var btn = e.target.closest ? e.target.closest(SEL) : null;
      if (!btn) return;
-
      var x = e.clientX, y = e.clientY;
      stop();
-
-     // ★ 떼는 이벤트를 '눌린 버튼'에 직접 건다.
-     //   재렌더로 버튼이 DOM에서 사라져도 그 노드로 이벤트가 가므로 확실히 멈춘다.
      curBtn = btn;
      END_EVENTS.forEach(function (ev) { btn.addEventListener(ev, stop); });
-
      holdTimer = setTimeout(function () {
-      repeatTimer = setInterval(function () { tick(x, y); }, 80); // 반복 속도(ms)
-      maxTimer = setTimeout(stop, 8000);                         // 안전장치: 최대 8초
-     }, 400); // 길게 누름 인식(ms)
-
-     // 손가락 안 뗐는데도 대비: 전역에도 백업으로 걸어둠 (날짜/시간 등 재렌더 없는 버튼용)
-     window.addEventListener('pointerup', stop, { once: true, capture: true });
-     window.addEventListener('touchend', stop, { once: true, capture: true });
+      repeatTimer = setInterval(function () { tick(x, y); }, 90);
+      maxTimer = setTimeout(stop, 8000);
+     }, 400);
+     window.addEventListener('pointerup', stop, {once: true, capture: true});
+     window.addEventListener('touchend', stop, {once: true, capture: true});
     });
-
     window.addEventListener('blur', stop);
     document.addEventListener('visibilitychange', function () { if (document.hidden) stop(); });
    })();
   </script>
-
 </th:block>
 
 </html>
