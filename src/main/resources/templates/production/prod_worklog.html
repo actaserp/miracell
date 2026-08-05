@@ -2,53 +2,147 @@
 <head>
     <style>
         .wl-topbar { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
-        .wl-fbadge{ display:inline-block; font-size:11px; font-weight:800; padding:3px 10px; border-radius:6px; background:#eaf0ff; color:#2f6fed; margin-left:8px; vertical-align:middle;}
+        .wl-chk { margin-left:auto; display:inline-flex; align-items:center; gap:6px;
+            font-size:12.5px; font-weight:700; color:#5b6675; cursor:pointer; user-select:none; }
+        .wl-chk input { width:15px; height:15px; cursor:pointer; }
+        .wl-fbadge{ display:inline-block; font-size:12px; font-weight:800; padding:3px 10px; border-radius:6px; background:#eaf0ff; color:#2f6fed; margin-left:8px; vertical-align:middle;}
         .wl-print { margin-left:auto; background:#3a4759; color:#fff; border:0; border-radius:8px; padding:9px 16px; font-weight:800; font-size:13px; cursor:pointer; }
         .wl-daybar { display:flex; align-items:center; gap:14px; background:#fff; border:1px solid #e2e6ee; border-radius:12px; padding:14px 18px; margin:14px 0; flex-wrap:wrap; }
-        .wl-daybar .d { font-size:20px; font-weight:800; } .wl-daybar .dow { color:#8a94a4; font-weight:700; margin-left:4px; }
+        .wl-daybar .dow { color:#8a94a4; font-weight:700; margin-left:4px; font-size:16px; }
         .wl-daybar .sum { margin-left:auto; display:flex; gap:8px; flex-wrap:wrap; }
-        .wl-tag { font-size:12px; font-weight:800; padding:4px 11px; border-radius:20px; }
-        .wl-tag.lot { background:#eef2f8; color:#3a4759; } .wl-tag.row { background:#e7f0ff; color:#2f6fed; margin-bottom: 0;} .wl-tag.qty { background:#e3f6ec; color:#0f9d58; } .wl-tag.def { background:#fdecec; color:#d64545; }
+        .wl-tag { display:inline-block; font-size:12.5px; font-weight:800; padding:5px 12px;
+            border-radius:20px; text-decoration:none !important; border:0;
+            line-height:1.4; white-space:nowrap; }
+        .wl-tag.lot { background:#eef2f8; color:#3a4759; } .wl-tag.row { background:#e7f0ff; color:#2f6fed; margin-bottom:0; }
+        .wl-tag.qty { background:#e3f6ec; color:#0f9d58; } .wl-tag.def { background:#fdecec; color:#d64545; }
         .wl-navbtn { border:1px solid #e2e6ee; background:#fbfcfe; width:40px; height:40px; border-radius:10px; font-size:18px; font-weight:800; cursor:pointer; color:#3a4759; }
         .wl-dateinput { border:1px solid #e2e6ee; background:#fbfcfe; height:42px; border-radius:10px; padding:0 12px; font-size:18px; font-weight:800; color:#1f2733; font-variant-numeric:tabular-nums; cursor:pointer; }
 
-        .wl-lot { background:#fff; border:1px solid #e2e6ee; border-radius:12px; margin-bottom:14px; overflow:hidden; }
-        .wl-lot-h { display:flex; align-items:center; gap:12px; padding:12px 16px; background:#f7f9fc; border-bottom:1px solid #eef1f6; flex-wrap:wrap; }
-        .wl-pline { display:inline-block; font-size:10px; font-weight:800; padding:2px 6px; border-radius:5px; }
-        .wl-pline.bsc { background:#eaf0ff; color:#2f6fed; } .wl-pline.bmsc{ background:#f0ecfb; color:#7b52d6; }
-        .wl-lotno { font-weight:800; font-size:15px; font-family:ui-monospace,monospace; }
-        .wl-lotitem { font-weight:700; } .wl-lotwo { color:#8a94a4; font-size:12px; font-family:ui-monospace,monospace; }
-        .wl-lot-sum { margin-left:auto; display:flex; gap:6px; flex-wrap:wrap; }
+        .wl-fsec { font-weight:800; font-size:15px; color:#3a4759; margin:18px 0 10px;
+            padding-bottom:6px; border-bottom:2px solid #e2e6ee; }
+        .wl-fsec .b { font-size:11px; font-weight:800; padding:3px 10px; border-radius:6px; margin-left:8px; }
+        .wl-fsec .b.f1 { background:#eaf0ff; color:#2f6fed; } .wl-fsec .b.f2 { background:#fbeee5; color:#c9620a; }
+
+        /* 공정 블록 */
+        .wl-proc-box { background:#fff; border:1px solid #e2e6ee; border-radius:12px; margin-bottom:14px; overflow:hidden; }
+        .wl-proc-h { display:flex; align-items:center; gap:12px; padding:12px 16px; background:#f7f9fc; border-bottom:1px solid #eef1f6; flex-wrap:wrap; }
+        .wl-proc-h .nm { font-weight:800; font-size:15px; }
+        .wl-proc-h .tag { font-size:11px; font-weight:800; padding:2px 7px; border-radius:5px; background:#fdf3e6; color:#c9820a; }
+        .wl-proc-h .sum { margin-left:auto; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+
         .wl-table { border-collapse:collapse; width:100%; }
-        .wl-table thead th { background:#2f3a4c; color:#fff; font-weight:600; font-size:11.5px; padding:9px 8px; white-space:nowrap; }
+        .wl-table thead th { background:#2f3a4c; color:#fff; font-weight:600; font-size:12px; padding:9px 8px; white-space:nowrap; }
         .wl-table thead th.left{ text-align:left; padding-left:14px; }
-        .wl-table tbody td { border-bottom:1px solid #eef1f6; padding:9px 8px; text-align:center; font-size:12.5px; }
+        .wl-table tbody td { border-bottom:1px solid #eef1f6; padding:10px 8px; text-align:center; font-size:13px; }
         .wl-table tbody td.left{ text-align:left; padding-left:14px; }
-        .wl-proc { display:inline-block; font-size:11px; font-weight:800; padding:2px 9px; border-radius:5px; background:#eef2f8; color:#3a4759; }
-        .wl-qty { font-weight:800; } .wl-defcell { color:#d64545; font-weight:700; }
-        .wl-note { color:#8a94a4; font-size:12px; margin-top:12px; }
-        .wl-empty { text-align:center; color:#8a94a4; padding:40px; font-size:13px; background:#fff; border:1px solid #e2e6ee; border-radius:12px; }
+        .wl-table tfoot td { background:#f4f6fa; font-weight:800; font-size:13px; padding:9px 8px; text-align:center; }
+        .wl-table tfoot td.left { text-align:right; padding-right:12px; color:#5b6675; }
+        .wl-code { color:#8a94a4; font-size:11.5px; font-family:ui-monospace,monospace; }
+        .wl-qty { font-weight:800; font-variant-numeric:tabular-nums; } .wl-defcell { color:#d64545; font-weight:700; }
+        .wl-run { color:#0f9d58; font-weight:700; }
+        .wl-none { color:#c2c9d4; }
+        .wl-note { color:#8a94a4; font-size:12.5px; margin-top:12px; line-height:1.7; }
+        .wl-empty { text-align:center; color:#8a94a4; padding:40px; font-size:13.5px; background:#fff; border:1px solid #e2e6ee; border-radius:12px; }
+        .wl-loading { text-align:center; color:#8a94a4; padding:40px; font-size:13.5px; }
+        /* ── 작업 기록 ── */
         .wl-btn { border:0; border-radius:8px; padding:9px 16px; font-weight:800; font-size:13px; cursor:pointer; }
         .wl-btn.add { background:#2f6fed; color:#fff; }
         .wl-btn.gray { background:#eef2f8; color:#3a4759; }
-        .wl-rowbtn { border:1px solid #e2e6ee; background:#fff; border-radius:6px; padding:3px 9px; font-size:11px; font-weight:700; cursor:pointer; color:#3a4759; margin:0 2px; }
+        .wl-rowbtn { border:1px solid #e2e6ee; background:#fff; border-radius:6px; padding:4px 10px;
+            font-size:11.5px; font-weight:700; cursor:pointer; color:#3a4759; margin:0 2px; }
         .wl-rowbtn.del { color:#d64545; border-color:#f3d6d6; }
-
-        .wl-dim { display:none; position:fixed; inset:0; background:rgba(20,26,36,.45); z-index:900; }
+        .wl-cat { display:inline-block; font-size:11px; font-weight:800; padding:3px 9px;
+            border-radius:5px; background:#eef1f6; color:#5b6675; }
+        .wl-cat.power     { background:#fdecec; color:#d64545; }
+        .wl-cat.material  { background:#fdf3e6; color:#c9820a; }
+        .wl-cat.equipment { background:#f0ecfb; color:#7b52d6; }
+        .wl-cat.manpower  { background:#e7f0ff; color:#2f6fed; }
+        .wl-cat.handover  { background:#e3f6ec; color:#0f9d58; }
+        .wl-cat.etc       { background:#eef1f6; color:#5b6675; }
+        /* 코드 마스터에 값이 추가되면 전용 색이 없다 — 회색으로 떨어진다 */
+        .wl-dim { position:fixed; inset:0; background:rgba(20,28,44,.45); display:none; z-index:1000; }
         .wl-dim.on { display:block; }
-        .wl-modal { position:fixed; z-index:901; top:50%; left:50%; transform:translate(-50%,-50%); width:440px; max-width:94vw; max-height:90vh; overflow:auto;
-            background:#fff; border-radius:14px; box-shadow:0 12px 40px rgba(0,0,0,.25); display:none; }
+        .wl-modal { position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); z-index:1001;
+            background:#fff; border-radius:12px; width:min(620px,94vw); max-height:88vh; overflow:auto;
+            box-shadow:0 20px 60px -20px rgba(10,20,40,.5); display:none; }
         .wl-modal.on { display:block; }
-        .wl-modal h3 { margin:0; padding:16px 20px; border-bottom:1px solid #eef1f6; font-size:15px; font-weight:800; }
+        .wl-modal h3 { margin:0; padding:16px 20px; border-bottom:1px solid #e2e6ee; font-size:16px; font-weight:800; }
         .wl-form { padding:16px 20px; display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-        .wl-form .f { display:flex; flex-direction:column; gap:5px; }
-        .wl-form .f.full { grid-column:1 / -1; }
-        .wl-form label { font-size:11.5px; font-weight:800; color:#8a94a4; }
-        .wl-form input, .wl-form select { height:38px; border:1px solid #e2e6ee; border-radius:8px; padding:0 10px; font-size:13px; background:#fbfcfe; }
+        .wl-form .f { display:flex; flex-direction:column; gap:5px; } .wl-form .f.full { grid-column:1/-1; }
+        .wl-form label { font-size:12px; font-weight:700; color:#5b6675; }
+        .wl-form input, .wl-form select, .wl-form textarea {
+            border:1px solid #e2e6ee; border-radius:8px; padding:0 11px; font-size:13.5px;
+            font-family:inherit; background:#fbfcfe; width:100%; box-sizing:border-box; height:40px; }
+        .wl-form textarea { resize:vertical; min-height:78px; padding:9px 11px; line-height:1.6; }
         .wl-modal-f { padding:12px 20px 18px; display:flex; gap:8px; justify-content:flex-end; }
+        .wl-lock { color:#8a94a4; font-size:12px; padding:2px 0 0; grid-column:1/-1; }
+
+        /* 결재란·머리글은 인쇄물에만 나온다 */
+        .wl-sign { display:none; }
+        .wl-runhead { display:none; }
+
         @media print {
-            .page-title-wrap, .section-top, .page-navi, .bookmark, .wl-print, .wl-navbtn, .wl-btn, .wl-rowbtn, .wl-dim, .wl-modal, .th-act { display:none !important; }
-            body { background:#fff; } .wl-lot, .wl-daybar { break-inside:avoid; }
+            .page-title-wrap, .section-top, .page-navi, .bookmark, .wl-print, .wl-navbtn,
+            .wl-dateinput, .wl-note, .wl-daybar .dow,
+            .wl-btn, .wl-rowbtn, .wl-dim, .wl-modal, .th-act, .wl-chk { display:none !important; }
+
+            /* ★ 여러 장으로 안 나뉘던 원인
+               레이아웃 컨테이너에 걸린 height/overflow 가 내용을 한 화면에 가둔다.
+               인쇄에서는 전부 풀어야 브라우저가 페이지를 나눈다.
+               (position:fixed 머리글도 분할을 막아 일반 블록으로 되돌렸다) */
+            html, body { height:auto !important; overflow:visible !important; background:#fff; }
+            .layout-contents, .section, .grid_box, #report {
+                height:auto !important; max-height:none !important;
+                overflow:visible !important; position:static !important;
+            }
+
+            .wl-runhead { display:block; font-size:11px; font-weight:700; color:#555;
+                border-bottom:1px solid #ccc; padding-bottom:4px; margin-bottom:8px; }
+
+            .wl-daybar { margin:0 0 10px; border-color:#999; break-inside:avoid; }
+            .wl-daybar::before { content:attr(data-title); font-size:19px; font-weight:800; }
+
+            /* 공정 블록은 쪼개질 수 있어야 한다. 블록을 통째로 avoid 하면
+               한 장에 안 들어가는 표가 다음 장으로 밀리며 앞이 비고 뒤가 잘린다. */
+            /* ★ 공정 블록이 새 페이지에서 시작할 때의 상단 여백
+               margin-top 은 페이지 맨 위에서 브라우저가 버린다. padding 은 남는다.
+               다만 padding 이 테두리 안쪽이라 빈 칸처럼 보이므로,
+               인쇄에서는 블록 테두리를 없애고 표 테두리만 남긴다. */
+            .wl-proc-box { break-inside:auto; border:0 !important; background:transparent;
+                padding-top:8mm; margin-bottom:4mm; }
+            .wl-proc-h   { break-inside:avoid; break-after:avoid;
+                border-bottom:0; padding:0 2px 5px; background:transparent !important; }
+
+            .wl-table { break-inside:auto; }
+            .wl-table thead { display:table-header-group; }   /* 페이지마다 헤더 반복 */
+            .wl-table tfoot { display:table-footer-group; }
+            .wl-table tr    { break-inside:avoid; }
+            /* ★ 「여백 없음」으로 인쇄하면 @page 여백이 통째로 무시된다.
+               thead 는 표가 넘어간 페이지마다 다시 그려지므로, 헤더 셀 위에
+               흰 여백을 얹으면 이어지는 장에서도 종이 끝에 붙지 않는다.
+               (빈 spacer 행은 colspan 때문에 컬럼 폭이 틀어져 쓰지 않는다) */
+            .wl-table thead th {
+                background:#e8ebf0 !important; color:#000 !important;
+                -webkit-print-color-adjust:exact; print-color-adjust:exact;
+                padding-top:8px;
+                /* 표 '중간'에서 페이지가 갈리면 이어지는 장의 헤더가 종이 끝에 붙는다.
+                   thead 는 매 페이지 다시 그려지므로 여기에도 여백을 얹어 둔다. */
+                border-top:8mm solid #fff;
+            }
+            .wl-table { border:1px solid #999; }
+            .wl-table tbody td, .wl-table tfoot td { font-size:11.5px; padding:6px; }
+            .wl-tag { border:1px solid #bbb; background:#fff !important; color:#000 !important; }
+
+            .wl-sign { display:table; width:260px; margin-left:auto; margin-bottom:8px;
+                border-collapse:collapse; break-inside:avoid; }
+            .wl-sign td { border:1px solid #999; height:46px; text-align:center; font-size:11px; }
+            .wl-sign td.h { height:20px; background:#f0f0f0; font-weight:700;
+                -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+
+            /* 페이지 상단 여백.
+               @page :first 로 첫 장만 다르게 주면 엔진에 따라 규칙 전체가 무시되므로
+               모든 장에 같은 값을 준다. */
+            @page { size:A4 portrait; margin:16mm 12mm 14mm; }
         }
     </style>
 </head>
@@ -56,53 +150,81 @@
 <th:block layout:fragment="content">
     <div class="layout-contents">
         <div class="page-title-wrap">
-            <div class="left"><h2>작업일보관리 <span class="wl-fbadge">1공장 · 키트(BSC/BmSC)</span></h2>
+            <div class="left"><h2>작업일보관리</h2>
                 <a title="북마크" class="bookmark toggle">내 메뉴</a></div>
             <ul class="page-navi"><li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
-                <li>생산 관리</li><li>생산일지</li><li>1공장</li></ul>
+                <li>생산 관리</li><li>작업일보관리</li></ul>
         </div>
 
         <section class="section">
             <div class="section-top"><div class="wl-topbar">
-                <div style="font-size:13px;color:#8a94a4;font-weight:700">날짜를 선택하면 그날 작업한 로트별로 표시됩니다.</div>
-                <button type="button" class="wl-btn add" id="btnAdd" style="margin-left:auto">+ 등록</button>
+                <div style="font-size:13px;color:#8a94a4;font-weight:700">하루 동안 두 공장에서 공정별로 어떤 작업을 했는지 보여줍니다.</div>
+                <label class="wl-chk"><input type="checkbox" id="chkEmpty"> 작업 없는 공정도 표시</label>
+                <button type="button" class="wl-btn add" id="btnAdd">+ 작업 기록 등록</button>
                 <button type="button" class="wl-print" id="btnPrint" style="margin-left:0">🖨 인쇄</button>
             </div></div>
 
+            <div class="wl-runhead" id="runHead"></div>
+
             <div id="report">
-                <div class="wl-daybar">
+                <table class="wl-sign"><tr><td class="h">담당</td><td class="h">검토</td><td class="h">승인</td></tr>
+                    <tr><td></td><td></td><td></td></tr></table>
+
+                <div class="wl-daybar" id="dayBar">
                     <button class="wl-navbtn" id="prevDay" title="전날">‹</button>
                     <input type="date" id="fDate" class="wl-dateinput">
                     <span class="dow" id="dDow"></span>
                     <button class="wl-navbtn" id="nextDay" title="다음날">›</button>
                     <div class="sum" id="daySum"></div>
                 </div>
-                <div id="lots"></div>
+                <div id="body"><div class="wl-loading">불러오는 중…</div></div>
             </div>
+
+            <p class="wl-note">공정별로 <span style="color:#5b6675;font-weight:700">그날 끝낸 작업</span>만 나옵니다.
+                왼쪽 묶음이 1공장(키트), 오른쪽 묶음이 2공장(M-CELL)입니다.<br>
+                <b style="color:#c9820a">작업 기록</b>은 실적 숫자로는 남지 않는 그날의 일을 적는 자리입니다.
+                실적의 등록·삭제는 각 공정 화면에서 하고, 여기서는 작업자·설비·시각만 고칠 수 있습니다.
+                인쇄하면 상단에 결재란이 함께 나옵니다.</p>
         </section>
 
-        <!-- 등록/수정 모달 -->
-        <div class="wl-dim" id="mDim"></div>
+        <!-- 작업 기록 등록/수정 -->
+        <div class="wl-dim" id="mDim" onclick="noteClose()"></div>
         <div class="wl-modal" id="mBox">
-            <h3 id="mTitle">작업 등록</h3>
+            <h3 id="mTitle">작업 기록 등록</h3>
+            <input type="hidden" id="mPk">
             <div class="wl-form">
-                <div class="f"><label>작업일자</label><input type="date" id="mDate"></div>
-                <div class="f"><label>시간</label><input type="time" id="mTime"></div>
-                <div class="f full"><label>로트번호</label><select id="mLot"></select></div>
-                <div class="f"><label>공정</label><select id="mProc"></select></div>
-                <div class="f"><label>작업자</label><input type="text" id="mWorker" placeholder="작업자명"></div>
-                <div class="f full"><label>품목명</label><input type="text" id="mItem" placeholder="품목명"></div>
-                <div class="f"><label>설비</label><input type="text" id="mEquip" placeholder="설비명"></div>
-                <div class="f"><label>양품 / 불량</label>
-                    <div style="display:flex;gap:6px">
-                        <input type="number" id="mQty" min="0" value="0" style="width:50%">
-                        <input type="number" id="mDef" min="0" value="0" style="width:50%">
-                    </div>
-                </div>
+                <div class="f"><label for="mDate">일자</label><input type="date" id="mDate"></div>
+                <div class="f"><label for="mCat">구분</label><select id="mCat"></select></div>
+                <div class="f"><label for="mFactory">공장</label><select id="mFactory">
+                    <option value="1">1공장 · 키트</option><option value="2">2공장 · M-CELL</option></select></div>
+                <div class="f full"><label for="mContent">내용</label>
+                    <textarea id="mContent" maxlength="500" placeholder="정전, 자재 입고 지연, 인력 부족, 인수인계 사항 등"></textarea></div>
+                <div class="f"><label for="mProc">공정 (선택)</label><select id="mProc"></select></div>
+                <div class="f"><label for="mEquip">설비 (선택)</label><select id="mEquip"></select></div>
+                <div class="f full"><label for="mActor">관련 작업자 (선택)</label><select id="mActor"></select></div>
+                <div class="wl-lock">불량·검사 불합격·설비 비가동은 각 화면에 이미 기록됩니다. 여기에는 그 밖의 사정을 적어 주세요.</div>
             </div>
             <div class="wl-modal-f">
-                <button type="button" class="wl-btn gray" id="mCancel">취소</button>
-                <button type="button" class="wl-btn add" id="mSave">저장</button>
+                <button type="button" class="wl-btn gray" onclick="noteClose()">취소</button>
+                <button type="button" class="wl-btn add" onclick="noteSave()">저장</button>
+            </div>
+        </div>
+
+        <!-- 실적 수정 (작업자·설비·시각만) -->
+        <div class="wl-dim" id="eDim" onclick="editClose()"></div>
+        <div class="wl-modal" id="eBox">
+            <h3 id="eTitle">실적 수정</h3>
+            <div class="wl-form">
+                <div class="f"><label for="eActor">작업자</label><select id="eActor"></select></div>
+                <div class="f"><label for="eEquip">설비</label><select id="eEquip"></select></div>
+                <div class="f"><label for="eStart">시작</label><input type="datetime-local" id="eStart"></div>
+                <div class="f"><label for="eEnd">종료</label><input type="datetime-local" id="eEnd"></div>
+                <div class="wl-lock">수량·품목·로트는 여기서 바꿀 수 없습니다. 재고가 함께 움직여야 하므로
+                    해당 공정 화면에서 취소 후 다시 등록해 주세요.</div>
+            </div>
+            <div class="wl-modal-f">
+                <button type="button" class="wl-btn gray" onclick="editClose()">취소</button>
+                <button type="button" class="wl-btn add" onclick="editSave()">저장</button>
             </div>
         </div>
     </div>
@@ -110,321 +232,684 @@
 
 <th:block layout:fragment="scripts">
     <script th:inline="javascript">
-        const LOTS = {
-            'BSC60-260710-01': {line: 'BSC', item: 'BSC+③ 60', wo: 'WO-2607-001'},
-            'BmSC60-260709-02': {line: 'BMSC', item: 'BmSC+③ 60', wo: 'WO-2607-002'},
-            'BSC120-260706-00': {line: 'BSC', item: 'BSC+③ 120', wo: 'WO-2606-018'},
-            'BSC30-260710-03': {line: 'BSC', item: 'BSC+③ 30', wo: 'WO-2607-003'},
+        /* =========================================================
+         * 작업일보관리 (통합) — 하루 × 공장 × 공정
+         *
+         * ★ 로트가 아니라 공정으로 묶는다.
+         *   로트로 묶으면 세척·멸균이 통째로 빠진다(작지·로트에 연결되지 않는 공정).
+         *   또 한 로트가 여러 날에 걸치면 일보가 아니라 이력이 되어버린다.
+         *   일보는 "그날 무엇을 얼마나 했나"를 보는 문서다.
+         *
+         * ★ 데이터는 작업실적현황과 같은 API 를 쓴다(기간을 하루로 좁혀서).
+         *   집계 규칙이 두 벌이 되면 같은 날 두 화면 숫자가 달라진다.
+         * ========================================================= */
+        const WL_SPJANGCD = (window.WS_CTX && window.WS_CTX.spjangcd) || 'ZZ';
+        const WL_API = '/api/production/work_status';
+        const DOW = ['일','월','화','수','목','금','토'];
+
+        /* ★ 작업 없는 공정을 표에 남길지.
+           남기면 "그날 이 공정을 점검했고 작업이 없었다"가 문서에 드러나고,
+           빼면 종이가 줄어든다. 현장마다 달라 선택으로 둔다.
+           기본은 끔 — 하루에 한두 공정만 도는 날이 많으면 빈 표가 지면을 다 먹는다. */
+        function showEmpty(){
+            const el = document.getElementById('chkEmpty');
+            return !!(el && el.checked);
+        }
+        const WL_FACTORY = null;   // 통합 — 두 공장 모두
+        const WL_API2 = '/api/production/mcell_status';
+        const M_USTATE = {
+            wait:'대기', assembling:'조립중', inspect_wait:'검사대기',
+            pass:'검사합격', reject:'불합격', repairing:'수리중', packed:'포장완료'
         };
-        const WORK = [
-            {
-                date: '2026-07-10',
-                time: '08:10',
-                lot: 'BSC60-260710-01',
-                proc: '세척',
-                item: '상부/하부 용기',
-                worker: '정우철',
-                equip: '세척기 A',
-                qty: 490,
-                def: 3
-            },
-            {
-                date: '2026-07-10',
-                time: '10:20',
-                lot: 'BSC60-260710-01',
-                proc: '조립',
-                item: 'BSC+③ 60(PK)',
-                worker: '한지민',
-                equip: '조립기 A',
-                qty: 0,
-                def: 0
-            },
-            {
-                date: '2026-07-10',
-                time: '09:00',
-                lot: 'BSC30-260710-03',
-                proc: '세척',
-                item: '상부/하부 용기',
-                worker: '박지훈',
-                equip: '세척기 B',
-                qty: 400,
-                def: 0
-            },
-            {
-                date: '2026-07-10',
-                time: '13:00',
-                lot: 'BmSC60-260709-02',
-                proc: '융착',
-                item: '골수용 필터백',
-                worker: '김민수',
-                equip: 'KM-MRM-M007',
-                qty: 300,
-                def: 0
-            },
-            {
-                date: '2026-07-10',
-                time: '15:20',
-                lot: 'BmSC60-260709-02',
-                proc: '멸균',
-                item: 'EO 멸균 배치',
-                worker: '박지훈',
-                equip: 'EO 챔버',
-                qty: 300,
-                def: 0
-            },
+        /** 전 검사유형의 마지막 회차가 합격이어야 합격 */
+        function m_wlVerdict(u){
+            if(Number(u.fail_cnt||0) > 0) return 'fail';
+            if(Number(u.open_cnt||0) > 0) return 'open';
+            return Number(u.pass_cnt||0) > 0 ? 'pass' : 'open';
+        }
 
-            {
-                date: '2026-07-09',
-                time: '08:00',
-                lot: 'BmSC60-260709-02',
-                proc: '세척',
-                item: '상부/하부 용기',
-                worker: '이서연',
-                equip: '세척기 A',
-                qty: 300,
-                def: 0
-            },
-            {
-                date: '2026-07-09',
-                time: '09:20',
-                lot: 'BmSC60-260709-02',
-                proc: '조립',
-                item: 'BmSC+③ 60(PK)',
-                worker: '한지민',
-                equip: '조립기 A',
-                qty: 298,
-                def: 2
-            },
-            {
-                date: '2026-07-09',
-                time: '11:30',
-                lot: 'BmSC60-260709-02',
-                proc: '블리스터',
-                item: 'PK 블리스터',
-                worker: '정우철',
-                equip: 'BL-01',
-                qty: 300,
-                def: 0
-            },
-
-            {
-                date: '2026-07-06',
-                time: '07:40',
-                lot: 'BSC120-260706-00',
-                proc: '세척',
-                item: '상부/하부 용기',
-                worker: '김민수',
-                equip: '세척기 B',
-                qty: 240,
-                def: 0
-            },
-            {
-                date: '2026-07-06',
-                time: '09:00',
-                lot: 'BSC120-260706-00',
-                proc: '조립',
-                item: 'BSC+③ 120(PK)',
-                worker: '한지민',
-                equip: '조립기 A',
-                qty: 238,
-                def: 2
-            },
-            {
-                date: '2026-07-06',
-                time: '11:00',
-                lot: 'BSC120-260706-00',
-                proc: '블리스터',
-                item: 'PK 블리스터',
-                worker: '정우철',
-                equip: 'BL-02',
-                qty: 240,
-                def: 0
-            },
+        /* 공정 순서는 흐름 순. Code 사전순이면 융착(bsc06)이 포장 뒤로 간다 */
+        const WL_FLOW = [
+            {code:'bsc01', name:'세척',     type:'wash'},
+            {code:'bsc02', name:'조립',     type:'prod'},
+            {code:'bsc03', name:'블리스터', type:'prod'},
+            {code:'bsc06', name:'융착',     type:'prod'},
+            {code:'bsc04', name:'멸균',     type:'steril'},
+            {code:'bsc05', name:'포장',     type:'prod'}
         ];
-        const DOW = ['일', '월', '화', '수', '목', '금', '토'];
-        const lineTag = l => l === 'BMSC' ? '<span class="wl-pline bmsc">BmSC</span>' : '<span class="wl-pline bsc">BSC</span>';
 
-        function fmt(d) {
-            return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+        function wlReady(){ return (typeof AjaxUtil !== 'undefined') && AjaxUtil && AjaxUtil.getSyncData; }
+        function wlData(res){
+            if(!res) return null;
+            if(res.success === false) return null;
+            return (res.data !== undefined) ? res.data : res;
         }
-
-        function shiftDay(n) {
-            var v = document.getElementById('fDate').value;
-            var d = v ? new Date(v + 'T00:00') : new Date();
-            d.setDate(d.getDate() + n);
+        function esc(s){
+            return (s==null?'':String(s)).replace(/[&<>"']/g, function(c){
+                return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+            });
+        }
+        function num(v){ return (v==null?0:Number(v)).toLocaleString(); }
+        /** 'yyyy-mm-dd hh:mm' → 'hh:mm' (일보는 하루치라 날짜가 불필요) */
+        function hm(s){
+            if(!s) return '-';
+            const m = String(s).match(/(\d{2}:\d{2})$/);
+            return m ? m[1] : s;
+        }
+        /** 조원이 여럿이면 명단을 그대로 쓴다 (조원 칸을 따로 두지 않는다) */
+        function wlWorker(r){
+            if(r.members && r.members.indexOf(',') >= 0) return r.members;
+            return r.worker || r.members || '-';
+        }
+        function fmt(d){
+            return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+        }
+        function shiftDay(n){
+            const v = document.getElementById('fDate').value;
+            const d = v ? new Date(v+'T00:00') : new Date();
+            d.setDate(d.getDate()+n);
             document.getElementById('fDate').value = fmt(d);
-            render();
+            wlLoad();
         }
 
-        function render() {
-            var date = document.getElementById('fDate').value;
-            var d = date ? new Date(date + 'T00:00') : new Date();
-            document.getElementById('dDow').textContent = date ? '(' + DOW[d.getDay()] + ')' : '';
+        // =====================================================
+        function wlLoad(){
+            const host = document.getElementById('body');
+            if(!wlReady()){ host.innerHTML = '<div class="wl-empty">AjaxUtil 로드 실패 — 새로고침해 주세요.</div>'; return; }
+            const date = document.getElementById('fDate').value;
+            if(!date){ host.innerHTML = '<div class="wl-empty">날짜를 선택해 주세요.</div>'; return; }
 
-            var rows = WORK.filter(function (w) {
-                return w.date === date;
-            });
-            var byLot = {};
-            rows.forEach(function (w) {
-                (byLot[w.lot] = byLot[w.lot] || []).push(w);
-            });
-            var lotIds = Object.keys(byLot);
+            const d = new Date(date+'T00:00');
+            document.getElementById('dDow').textContent = '('+DOW[d.getDay()]+')';
+            document.getElementById('dayBar').setAttribute('data-title', date+' ('+DOW[d.getDay()]+') 작업일보');
+            document.getElementById('runHead').textContent =
+                '작업일보관리 · 1·2공장 · '+date+' ('+DOW[d.getDay()]+')';
+            host.innerHTML = '<div class="wl-loading">불러오는 중…</div>';
 
-            var totQty = rows.reduce(function (a, w) {
-                return a + (w.qty || 0);
-            }, 0);
-            var totDef = rows.reduce(function (a, w) {
-                return a + (w.def || 0);
-            }, 0);
-            document.getElementById('daySum').innerHTML =
-                '<span class="wl-tag lot">로트 ' + lotIds.length + '</span>'
-                + '<span class="wl-tag row">작업 ' + rows.length + '건</span>'
-                + '<span class="wl-tag qty">양품 ' + totQty.toLocaleString() + '</span>'
-                + (totDef ? '<span class="wl-tag def">불량 ' + totDef + '</span>' : '');
-
-            var host = document.getElementById('lots');
-            if (!lotIds.length) {
-                host.innerHTML = '<div class="wl-empty">해당 날짜에 작업 이력이 없습니다.</div>';
-                return;
+            /* 기간을 하루로 좁혀 작업실적현황과 같은 API 를 쓴다 */
+            noteLoad(date);
+            let r = null;
+            try {
+                r = wlData(AjaxUtil.getSyncData(WL_API+'/f1_process',
+                    {date_from:date, date_to:date, spjangcd:WL_SPJANGCD}));
+            } catch(e) {
+                console.error('[worklog] f1_process', e);
             }
-            host.innerHTML = lotIds.map(function (lot) {
-                var m = LOTS[lot] || {line: 'BSC', item: '-', wo: '-'};
-                var evs = byLot[lot].slice().sort(function (a, b) {
-                    return a.time < b.time ? -1 : 1;
-                });
-                var lq = evs.reduce(function (a, w) {
-                    return a + (w.qty || 0);
-                }, 0), ld = evs.reduce(function (a, w) {
-                    return a + (w.def || 0);
-                }, 0);
-                return '<div class="wl-lot"><div class="wl-lot-h">'
-                    + lineTag(m.line) + '<span class="wl-lotno">' + lot + '</span>'
-                    + '<span class="wl-lotitem">' + m.item + '</span><span class="wl-lotwo">' + m.wo + '</span>'
-                    + '<div class="wl-lot-sum"><span class="wl-tag row">' + evs.length + '건</span>'
-                    + '<span class="wl-tag qty">양품 ' + lq.toLocaleString() + '</span>'
-                    + (ld ? '<span class="wl-tag def">불량 ' + ld + '</span>' : '') + '</div></div>'
-                    + '<table class="wl-table"><thead><tr><th>시간</th><th>공정</th><th class="left">품목명</th><th>작업자</th><th>설비</th><th>양품</th><th>불량</th><th class="th-act">관리</th></tr></thead><tbody>'
-                    + evs.map(function (w) {
-                        return '<tr><td>' + w.time + '</td><td><span class="wl-proc">' + w.proc + '</span></td>'
-                            + '<td class="left">' + w.item + '</td><td>' + w.worker + '</td><td>' + w.equip + '</td>'
-                            + '<td class="wl-qty">' + (w.qty ? w.qty.toLocaleString() : '<span style="color:#c2c9d4">—</span>') + '</td>'
-                            + '<td class="' + (w.def ? 'wl-defcell' : '') + '">' + (w.def || 0) + '</td>'
-                            + '<td class="th-act"><button type="button" class="wl-rowbtn" data-edit="' + w.id + '">수정</button>'
-                            + '<button type="button" class="wl-rowbtn del" data-del="' + w.id + '">삭제</button></td></tr>';
-                    }).join('')
-                    + '</tbody></table></div>';
-            }).join('');
+            if(!r){ host.innerHTML = '<div class="wl-empty">조회에 실패했습니다.</div>'; return; }
+
+            const rows   = r.rows   || [];
+            const wash   = r.wash   || [];
+            const steril = r.steril || [];
+            const defect = r.defect || [];
+
+            /* 2공장은 실적 단위가 달라(1대=1로트) 별도 API 를 쓴다 */
+            let r2 = {};
+            try {
+                r2 = wlData(AjaxUtil.getSyncData(WL_API2+'/process',
+                    {date_from:date, date_to:date, spjangcd:WL_SPJANGCD})) || {};
+            } catch(e) {
+                console.error('[worklog] mcell process', e);
+            }
+            const steps2 = r2.asm_steps || [];
+
+            wlSummary(rows, wash, steril, defect, r2);
+            wlRender(rows, wash, steril, defect, r2, steps2);
         }
 
-        /* ===== CRUD ===== */
-        const PROCS = ['세척', '조립', '융착', '검사', '블리스터', '내포장', '멸균', '외포장'];
-        var SEQ = 0;
-        WORK.forEach(function (w) {
-            w.id = ++SEQ;
-        });
-        var editId = null;
+        function wlSummary(rows, wash, steril, defect, r2){
+            /* 완제품 산출 = 포장 공정 중 '완제품' 만.
+               포장은 CK(반제품)와 키트 결합을 둘 다 만들어서, 합치면 CK 만큼 부풀어 오른다.
+               공정 합계를 더하지 않는 이유(용기→PK→키트 중복)와 같은 맥락. */
+            let fin = 0;
+            rows.forEach(function(x){
+                if(x.proc_code === 'bsc05' && x.is_product === 'Y') fin += Number(x.good_qty||0);
+            });
+            let dq = 0;
+            defect.forEach(function(m){ dq += Number(m.defect_qty||0); });
+            const cnt = rows.length + wash.length + steril.length;
 
-        (function initCombo() {
-            document.getElementById('mLot').innerHTML = Object.keys(LOTS).map(function (l) {
-                return '<option value="' + l + '">' + l + ' · ' + LOTS[l].item + '</option>';
-            }).join('');
-            document.getElementById('mProc').innerHTML = PROCS.map(function (p) {
-                return '<option value="' + p + '">' + p + '</option>';
-            }).join('');
-        })();
+            const a2 = (r2.asm_steps||[]).length, i2 = (r2.inspect||[]).length;
+            const p2 = (r2.pack||[]).length,        rp2 = (r2.repair||[]).length;
+            (r2.defect||[]).forEach(function(m){ dq += Number(m.defect_qty||0); });
 
-        function mOpen(id) {
-            editId = id || null;
-            var w = id ? WORK.find(function (x) {
-                return x.id === id;
-            }) : null;
-            document.getElementById('mTitle').textContent = w ? '작업 수정' : '작업 등록';
-            document.getElementById('mDate').value = w ? w.date : (document.getElementById('fDate').value || fmt(new Date()));
-            document.getElementById('mTime').value = w ? w.time : '';
-            document.getElementById('mLot').value = w ? w.lot : Object.keys(LOTS)[0];
-            document.getElementById('mProc').value = w ? w.proc : PROCS[0];
-            document.getElementById('mItem').value = w ? w.item : '';
-            document.getElementById('mWorker').value = w ? w.worker : '';
-            document.getElementById('mEquip').value = w ? w.equip : '';
-            document.getElementById('mQty').value = w ? w.qty : 0;
-            document.getElementById('mDef').value = w ? w.def : 0;
+            document.getElementById('daySum').innerHTML =
+                '<span class="wl-tag row">작업 '+num(cnt + a2 + i2 + p2 + rp2)+'건</span>'
+                + '<span class="wl-tag qty">1공장 완제품 '+num(fin)+'</span>'
+                + '<span class="wl-tag lot">2공장 포장 '+num(p2)+'대</span>'
+                + (dq ? '<span class="wl-tag def">부적합 '+num(dq)+'</span>' : '');
+        }
+
+        function wlRender(rows, wash, steril, defect, r2, steps2){
+            const by = {};
+            rows.forEach(function(x){ (by[x.proc_code] = by[x.proc_code] || []).push(x); });
+
+            let html = '';
+            WL_FLOW.forEach(function(f){
+                if(f.type === 'wash')        html += wlWash(f, wash);
+                else if(f.type === 'steril') html += wlSteril(f, steril);
+                else                         html += wlProd(f, by[f.code] || []);
+                delete by[f.code];
+            });
+            /* 흐름에 없는 공정도 버리지 않는다 */
+            Object.keys(by).forEach(function(k){
+                html += wlProd({code:k, name:(by[k][0].proc_name || '(공정 미지정)')}, by[k]);
+            });
+
+            html += wlDefect(defect);
+
+            /* ── 2공장 ── */
+            const h2 = m_wlAsm({name:'조립'}, steps2, r2.assembly || [])
+                + m_wlInsp({name:'검사'}, r2.inspect || [])
+                + m_wlRep({name:'수리'},  r2.repair  || [])
+                + m_wlPack({name:'포장'}, r2.pack    || [])
+                + wlDefect2(r2.defect || []);
+
+            /* 공장 구분 머리글은 그 공장에 표가 남았을 때만 — 빈 머리글만 뜨면 어색하다 */
+            html = (html ? '<div class="wl-fsec">1공장<span class="b f1">키트 BSC/BmSC</span></div>' + html : '')
+                + (h2   ? '<div class="wl-fsec">2공장<span class="b f2">M-CELL 디바이스</span></div>' + h2 : '');
+            if(!html) html = '<div class="wl-empty">해당 일자에 작업 실적이 없습니다.</div>';
+
+            html += noteBlock();
+            document.getElementById('body').innerHTML = html;
+        }
+
+        function wlBox(f, sum, thead, tbody, tfoot, tag, isEmpty){
+            /* 실적이 없고 「작업 없는 공정도 표시」가 꺼져 있으면 블록 자체를 만들지 않는다 */
+            if(isEmpty && !showEmpty()) return '';
+            return '<div class="wl-proc-box"><div class="wl-proc-h">'
+                + '<span class="nm">'+esc(f.name)+'</span>'
+                + (tag ? '<span class="tag">'+tag+'</span>' : '')
+                + '<div class="sum">'+sum+'</div></div>'
+                + '<table class="wl-table"><thead><tr>'+thead+'</tr></thead>'
+                + '<tbody>'+tbody+'</tbody>'
+                + (tfoot ? '<tfoot><tr>'+tfoot+'</tr></tfoot>' : '')
+                + '</table></div>';
+        }
+        function wlNoRow(cols){
+            return '<tr><td colspan="'+cols+'" style="color:#c2c9d4;padding:22px">작업 없음</td></tr>';
+        }
+
+        /** 생산형 — 조립·블리스터·융착·포장 */
+
+        /* 포장 단계 라벨 — 서버 pack_phase(= PackService.PHASE_SQL)를 그대로 읽는다.
+           포장 세션 하나가 PK 담기 → CK 생산 → 완제품 결합 → 카톤을 다 덮고,
+           완료 시점에야 실적이 두 줄(완제품 / CK)로 갈린다. */
+        const PACK_PHASE = { pk:'PK 담는 중', pack:'CK 작업중', label:'완제품 작업중',
+            outbox:'라벨 작업', done:'완료' };
+        function packPhaseText(x){ return PACK_PHASE[x.pack_phase] || '진행중'; }
+
+        function wlProd(f, list){
+            /* 포장은 CK(반제품)와 완제품이 섞인다. 소계를 하나로 내면
+               완제품 수량이 CK 만큼 부풀어 보이므로 나눠 적는다. */
+            /* ★ 진행중 차수의 GoodQty 는 실적이 아니다.
+               startProduction 이 시작할 때 입력한 수량을 GoodQty 에 미리 넣어둔다
+               ("시작 시 입력분(계획) 표시용. 확정은 완료에서") — 그래서 작업중인
+               차수까지 소계에 더하면 아직 안 나온 수량이 실적으로 잡힌다.
+               실데이터: 블리스터 차수 State=working / GoodQty=50 이 소계 50 으로 셌다.
+               ★ 종료시각(end_time)이 있는 것만 확정 실적으로 센다. */
+            let g = 0, sub = 0, run = 0;
+            list.forEach(function(x){
+                const q = Number(x.good_qty||0);
+                if(!x.end_time){ run += q; return; }
+                if(x.is_product === 'N') sub += q;
+                else                     g   += q;
+            });
+            /* ★ 완제품/반제품을 나누는 것은 **둘이 실제로 섞였을 때만**이다.
+               조립·블리스터·융착은 산출이 반제품 하나뿐이라 나누면
+               「완제품 0 / 반제품 50」처럼 뜻 없는 0 이 남아
+               "50 개 했는데 왜 0 이지" 로 읽힌다.
+               포장이라도 CK 만 돈 날은 나누지 않는다 — 공정 코드가 아니라
+               그날 산출이 실제로 섞였는지로 판단해야 정확하다. */
+            const split = (g > 0 && sub > 0);
+            const total = g + sub;
+            const sum = '<span class="wl-tag row">'+list.length+'건</span>'
+                + (split
+                    ? '<span class="wl-tag qty">완제품 '+num(g)+'</span>'
+                    + '<span class="wl-tag lot">반제품 '+num(sub)+'</span>'
+                    : (total ? '<span class="wl-tag qty">'+num(total)+'</span>' : ''))
+                + (run ? '<span class="wl-tag lot">작업중 '+num(run)+'</span>' : '');
+
+            const th = '<th>시간</th><th class="left">산출품목</th><th>로트번호</th>'
+                + '<th>작업지시</th><th>작업자</th><th>설비</th><th>수량</th><th class="th-act">관리</th>';
+            const tb = list.length ? list.slice().sort(function(a,b){
+                return (a.end_time||a.start_time||'') < (b.end_time||b.start_time||'') ? -1 : 1;
+            }).map(function(x){
+                const running = !x.end_time;
+                return '<tr><td>'+hm(x.start_time)+' ~ '+(running?'<span class="wl-run">작업중</span>':hm(x.end_time))+'</td>'
+                    /* ★ 포장 세션은 완료 전까지 산출이 확정되지 않는다.
+                       한 세션이 PK 담기 → CK 생산 → 완제품 결합 → 카톤을 다 덮고,
+                       packFinish 가 끝날 때 실적을 두 줄로 쪼갠다
+                         세션 차수 LastProcessYN='Y' 산출=완제품
+                         ckMp     LastProcessYN='N' 산출=CK
+                       그래서 진행중인 세션에 「완제품」 딱지를 붙이면
+                       CK 단계에 있는 작업자 눈에는 어긋나 보인다. */
+                    + '<td class="left">'
+                    +   ((running && x.proc_code === 'bsc05')
+                        ? '포장<br><span class="wl-none">'+packPhaseText(x)+'</span>'
+                        : esc(x.mat_name||'-')+'<br><span class="wl-code">'+esc(x.mat_code||'')+'</span>')
+                    + '</td>'
+                    + '<td><span class="wl-code">'+esc(x.lot_number||'-')+'</span></td>'
+                    + '<td><span class="wl-code">'+esc(x.wo||'-')+'</span></td>'
+                    + '<td>'+esc(wlWorker(x))+'</td><td>'+esc(x.equipment||'-')+'</td>'
+                    /* ★ order_qty 는 그 차수의 계획이 아니라 **작업지시 전체 수량**이다.
+                       앞 공정이 50 만 넘겼는데 「계획 150」으로 보여 오해를 부른다.
+                       진행중일 때는 시작할 때 입력한 몫(good_qty)을 「진행」으로 적는다. */
+                    + '<td class="wl-qty">'+(running ? '<span class="wl-none">진행 '+num(x.good_qty)+'</span>' : num(x.good_qty))+'</td>'
+                    + '<td class="th-act"><button type="button" class="wl-rowbtn" onclick="editOpen(\'produce\','
+                    +   x.pk+',\''+esc(x.mat_name||'')+'\',\''+esc(wlWorker(x))+'\',\''+esc(x.equipment||'')+'\','
+                    +   '\''+esc(x.start_time||'')+'\',\''+esc(x.end_time||'')+'\')">수정</button></td></tr>';
+            }).join('') : wlNoRow(8);
+            const tf = list.length
+                ? '<td class="left" colspan="6">소계'+(split?' (완제품 / 반제품)':'')+'</td>'
+                /* ★ 완료분과 작업중을 수량 칸에 나란히 둔다.
+                   소계만 0 으로 보이면 "50 하고 있는데 왜 0 이지" 가 되고,
+                   그렇다고 「작업중 N 제외」라고 해명을 붙이면 장황해진다. */
+                + '<td>'+(run
+                    ? '완료 '+(split ? num(g)+' / '+num(sub) : num(total))
+                    + ' <span class="wl-none">· 작업중 '+num(run)+'</span>'
+                    : (split ? num(g)+' / '+num(sub) : num(total)))
+                + '</td><td class="th-act"></td>' : '';
+            return wlBox(f, sum, th, tb, tf, null, !list.length);
+        }
+
+        /** 세척 — 이동 작업. 품목 단위 기록 */
+        function wlWash(f, list){
+            let q = 0, d = 0;
+            list.forEach(function(x){ q += Number(x.qty||0); d += Number(x.defect_qty||0); });
+            const sum = '<span class="wl-tag row">'+list.length+'건</span>'
+                + (list.length ? '<span class="wl-tag lot">수량 '+num(q)+'</span>' : '')
+                + (d ? '<span class="wl-tag def">불량 '+num(d)+'</span>' : '');
+
+            const th = '<th>시간</th><th class="left">품목</th><th>작업자</th>'
+                + '<th>설비</th><th>수량</th><th>불량</th><th>상태</th><th class="th-act">관리</th>';
+            const tb = list.length ? list.map(function(x){
+                const n = (x.state==='done')?'완료':(x.state==='working'?'작업중':'대기');
+                return '<tr><td>'+hm(x.start_time)+' ~ '+hm(x.end_time)+'</td>'
+                    + '<td class="left">'+esc(x.mat_name||'-')+'<br><span class="wl-code">'+esc(x.mat_code||'')+'</span></td>'
+                    + '<td>'+esc(x.worker||'-')+'</td><td>'+esc(x.equipment||'-')+'</td>'
+                    + '<td class="wl-qty">'+num(x.qty)+'</td>'
+                    + '<td'+(Number(x.defect_qty)>0?' class="wl-defcell"':'')+'>'+num(x.defect_qty)+'</td>'
+                    + '<td>'+n+'</td>'
+                    + '<td class="th-act"><button type="button" class="wl-rowbtn" onclick="editOpen(\'wash\','
+                    +   x.pk+',\''+esc(x.mat_name||'')+'\',\''+esc(x.worker||'')+'\',\''+esc(x.equipment||'')+'\','
+                    +   '\''+esc(x.start_time||'')+'\',\''+esc(x.end_time||'')+'\')">수정</button></td></tr>';
+            }).join('') : wlNoRow(8);
+            const tf = list.length ? '<td class="left" colspan="4">소계</td><td>'+num(q)+'</td><td>'+num(d)+'</td><td></td><td class="th-act"></td>' : '';
+            return wlBox(f, sum, th, tb, tf, null, !list.length);
+        }
+
+        /** 멸균 — EO 배치 */
+        function wlSteril(f, list){
+            let q = 0;
+            list.forEach(function(x){ q += Number(x.total_qty||0); });
+            const sum = '<span class="wl-tag row">'+list.length+'배치</span>'
+                + (list.length ? '<span class="wl-tag lot">수량 '+num(q)+'</span>' : '');
+
+            const th = '<th>시간</th><th class="left">배치번호</th><th>구분</th><th>담긴 로트</th>'
+                + '<th>작업자</th><th>설비</th><th>수량</th><th>BI 판정</th><th>상태</th>';
+            const tb = list.length ? list.map(function(x){
+                const bi = x.bi_result ? (x.bi_result==='pass'?'합격':'불합격') : '미판정';
+                const n  = (x.state==='done')?'완료':(x.state==='scrapped'?'파기':'진행중');
+                return '<tr><td>'+hm(x.start_time)+' ~ '+hm(x.end_time)+'</td>'
+                    + '<td class="left"><span class="wl-code">'+esc(x.batch_no||('#'+x.pk))+'</span></td>'
+                    + '<td>'+esc(x.item_type||'-')+'</td><td>'+num(x.lot_cnt)+'</td>'
+                    + '<td>'+esc(x.worker||'-')+'</td><td>'+esc(x.equipment||'-')+'</td>'
+                    + '<td class="wl-qty">'+num(x.total_qty)+'</td>'
+                    + '<td'+(x.bi_result==='fail'?' class="wl-defcell"':'')+'>'+bi+'</td>'
+                    + '<td>'+n+'</td></tr>';
+            }).join('') : wlNoRow(9);
+            const tf = list.length ? '<td class="left" colspan="6">소계</td><td>'+num(q)+'</td><td></td><td></td>' : '';
+            return wlBox(f, sum, th, tb, tf, null, !list.length);
+        }
+
+        /** 부적합 — 그날 등록된 것 (공정·품목별) */
+        function wlDefect(list){
+            if(!list.length) return '';
+            let q = 0;
+            list.forEach(function(x){ q += Number(x.defect_qty||0); });
+            const th = '<th>공정</th><th class="left">품목</th><th>유형</th><th>수량</th><th>건수</th>';
+            const tb = list.map(function(x){
+                return '<tr><td>'+esc(x.proc_name||'-')+'</td>'
+                    + '<td class="left">'+esc(x.mat_name||'-')+'<br><span class="wl-code">'+esc(x.mat_code||'')+'</span></td>'
+                    + '<td>'+esc(x.defect_type||'-')+'</td>'
+                    + '<td class="wl-defcell">'+num(x.defect_qty)+'</td><td>'+num(x.cnt)+'</td></tr>';
+            }).join('');
+            const tf = '<td class="left" colspan="3">소계</td><td>'+num(q)+'</td><td></td>';
+            return wlBox({code:'defect', name:'부적합'},
+                '<span class="wl-tag def">수량 '+num(q)+'</span>', th, tb, tf);
+        }
+
+        /* =========================================================
+         * 작업 기록 (worklog_note) + 실적 일부 수정
+         *
+         * ★ 여기서 실적을 새로 만들지 않는다.
+         *   실적 입력은 공정관리(세척·조립·검사·포장)와 POP 의 몫이다.
+         *   일보에서 또 만들면 BOM 차감·로트 입고를 건너뛴 실적이 생겨
+         *   공정 화면을 거친 것과 섞이고 재고의 진실이 깨진다.
+         *
+         * ★ 실적은 작업자·설비·시각만 고친다.
+         *   수량·품목·로트를 바꾸려면 차감을 되돌리고 다시 빼야 하는데
+         *   그건 삭제 후 재등록과 같다. 경로를 둘로 두면 롤백 로직이 두 벌이 되고
+         *   어긋나는 순간 재고가 틀어진다. (부적합 등록 화면과 같은 규칙)
+         * ========================================================= */
+        const NOTE_API = '/api/production/worklog';
+        /* ★ 구분값은 코드 마스터(sys_code.CodeType='worklog_cat')에 있다.
+           화면 배열로 들고 있으면 일보 화면 3개에 같은 배열이 복사되어
+           하나만 고쳤을 때 조용히 어긋난다. 표시명은 서버가 category_name 으로 내려준다. */
+
+        let NOTES = [], NOTE_COMBO = {processes:[], workers:[], equipments:[]};
+        let EDIT_TARGET = null;   // 실적 수정 대상 {kind, pk, …}
+
+        /* ★ 작업 기록 조회가 실패해도 일보 본문은 그려져야 한다.
+           동기 호출이라 여기서 예외가 나면 뒤 렌더가 통째로 멈춘다.
+           (테이블 미생성·엔드포인트 미배포 때 실제로 그랬다) */
+        let NOTE_ERR = null;
+        function noteLoad(date){
+            NOTE_ERR = null;
+            try {
+                const p = {date:date, spjangcd:WL_SPJANGCD};
+                if (typeof WL_FACTORY !== 'undefined' && WL_FACTORY) p.factory_id = WL_FACTORY;
+                NOTES = wlData(AjaxUtil.getSyncData(NOTE_API+'/notes', p)) || [];
+            } catch(e) {
+                NOTES = []; NOTE_ERR = '작업 기록을 불러오지 못했습니다.';
+                console.error('[worklog] note load', e);
+            }
+        }
+
+        function noteComboLoad(){
+            if(NOTE_COMBO.workers.length) return;
+            try {
+                const f = (typeof WL_FACTORY !== 'undefined' && WL_FACTORY) ? {factory_id:WL_FACTORY} : {};
+                NOTE_COMBO = wlData(AjaxUtil.getSyncData(NOTE_API+'/combo', f))
+                    || {processes:[], workers:[], equipments:[]};
+            } catch(e) {
+                NOTE_COMBO = {processes:[], workers:[], equipments:[]};
+                console.error('[worklog] combo load', e);
+            }
+        }
+
+        /** 작업 기록 블록 — 일보 맨 아래에 붙는다 */
+        function noteBlock(){
+            const th = '<th>구분</th><th class="left">내용</th><th>공정</th>'
+                + '<th>설비</th><th>관련 작업자</th><th>작성자</th><th class="th-act">관리</th>';
+            if(NOTE_ERR){
+                return '<div class="wl-proc-box"><div class="wl-proc-h"><span class="nm">작업 기록</span></div>'
+                    + '<table class="wl-table"><tbody><tr><td style="color:#d64545;padding:22px">'
+                    + esc(NOTE_ERR) + ' (worklog_note 테이블·API 배포 확인)</td></tr></tbody></table></div>';
+            }
+            const tb = NOTES.length ? NOTES.map(function(n){
+                    const fac = (typeof WL_FACTORY === 'undefined' || !WL_FACTORY)
+                        ? '<span class="wl-code">'+(Number(n.factory_id)===2?'2공장':'1공장')+'</span> ' : '';
+                    return '<tr><td><span class="wl-cat '+esc(n.category)+'">'
+                        +   esc(n.category_name || n.category || '-')+'</span></td>'
+                        + '<td class="left">'+fac+esc(n.content)+'</td>'
+                        + '<td>'+esc(n.process_name||'-')+'</td>'
+                        + '<td>'+esc(n.equipment_name||'-')+'</td>'
+                        + '<td>'+esc(n.actor_name||'-')+'</td>'
+                        + '<td>'+esc(n.creater_name||'-')+'</td>'
+                        + '<td class="th-act">'
+                        +   '<button type="button" class="wl-rowbtn" onclick="noteOpen('+n.pk+')">수정</button>'
+                        +   '<button type="button" class="wl-rowbtn del" onclick="noteDel('+n.pk+')">삭제</button>'
+                        + '</td></tr>';
+                }).join('')
+                : '<tr><td colspan="7" style="color:#c2c9d4;padding:22px">등록된 작업 기록이 없습니다.</td></tr>';
+
+            return '<div class="wl-proc-box"><div class="wl-proc-h">'
+                + '<span class="nm">작업 기록</span>'
+                + '<div class="sum"><span class="wl-tag row">'+NOTES.length+'건</span></div></div>'
+                + '<table class="wl-table"><thead><tr>'+th+'</tr></thead><tbody>'+tb+'</tbody></table></div>';
+        }
+
+        // ── 작업 기록 모달 ──
+        function noteOpen(pk){
+            noteComboLoad();
+            const n = pk ? NOTES.find(function(x){ return x.pk===pk; }) : null;
+            document.getElementById('mTitle').textContent = n ? '작업 기록 수정' : '작업 기록 등록';
+            document.getElementById('mPk').value = n ? n.pk : '';
+
+            const opt = function(list, sel, blankLabel){
+                return '<option value="">'+blankLabel+'</option>'
+                    + list.map(function(x){
+                        return '<option value="'+x.pk+'"'+(String(x.pk)===String(sel)?' selected':'')+'>'
+                            + esc(x.name)+'</option>';
+                    }).join('');
+            };
+            document.getElementById('mDate').value = document.getElementById('fDate').value;
+            AjaxUtil.fillSelectOptions($('#mCat'), 'system_code', false,
+                (n ? n.category : ''), 'worklog_cat');
+            document.getElementById('mProc').innerHTML  = opt(NOTE_COMBO.processes,  n?n.process_id:'',   '선택 안 함');
+            document.getElementById('mEquip').innerHTML = opt(NOTE_COMBO.equipments, n?n.equipment_id:'', '선택 안 함');
+            document.getElementById('mActor').innerHTML = opt(NOTE_COMBO.workers,    n?n.actor_id:'',     '선택 안 함');
+            document.getElementById('mContent').value = n ? n.content : '';
+
+            const fac = document.getElementById('mFactory');
+            if(fac) fac.value = n ? String(n.factory_id) : '1';
+
             document.getElementById('mDim').classList.add('on');
             document.getElementById('mBox').classList.add('on');
+            document.getElementById('mContent').focus();
         }
-
-        function mClose() {
-            editId = null;
+        function noteClose(){
             document.getElementById('mDim').classList.remove('on');
             document.getElementById('mBox').classList.remove('on');
         }
-
-        function mSave() {
-            var v = function (id) {
-                return document.getElementById(id).value.trim();
+        function noteSave(){
+            const content = document.getElementById('mContent').value.trim();
+            if(!content){ Alert.alert('내용을 입력해 주세요.'); return; }
+            const pk  = document.getElementById('mPk').value;
+            const fac = document.getElementById('mFactory');
+            const p = {
+                date: document.getElementById('mDate').value,
+                factory_id: fac ? fac.value : (typeof WL_FACTORY !== 'undefined' ? WL_FACTORY : 1),
+                category: document.getElementById('mCat').value,
+                content: content,
+                process_id: document.getElementById('mProc').value,
+                equipment_id: document.getElementById('mEquip').value,
+                actor_id: document.getElementById('mActor').value,
+                spjangcd: WL_SPJANGCD
             };
-            if (!v('mDate') || !v('mTime')) {
-                alert('작업일자와 시간을 입력하세요.');
-                return;
-            }
-            if (!v('mItem')) {
-                alert('품목명을 입력하세요.');
-                return;
-            }
-            var row = {
-                date: v('mDate'), time: v('mTime'), lot: v('mLot'), proc: v('mProc'),
-                item: v('mItem'), worker: v('mWorker') || '-', equip: v('mEquip') || '-',
-                qty: parseInt(v('mQty') || '0', 10), def: parseInt(v('mDef') || '0', 10)
-            };
-            if (editId) {
-                var t = WORK.find(function (x) {
-                    return x.id === editId;
-                });
-                Object.assign(t, row);
-            } else {
-                row.id = ++SEQ;
-                WORK.push(row);
-                document.getElementById('fDate').value = row.date;
-            }
-            mClose();
-            render();
+            if(pk) p.pk = pk;
+            const res = AjaxUtil.postAsyncData(NOTE_API+'/note_save', p, function(res){
+                if(res && res.success === false){ Alert.alert(res.message || '저장에 실패했습니다.'); return; }
+                noteClose(); wlLoad();
+            });
+        }
+        function noteDel(pk){
+            if(!confirm('이 작업 기록을 삭제할까요?')) return;
+            AjaxUtil.postAsyncData(NOTE_API+'/note_delete', {pk:pk}, function(res){
+                if(res && res.success === false){ Alert.alert(res.message || '삭제에 실패했습니다.'); return; }
+                wlLoad();
+            });
         }
 
-        document.getElementById('btnAdd').addEventListener('click', function () {
-            mOpen(null);
-        });
-        document.getElementById('mCancel').addEventListener('click', mClose);
-        document.getElementById('mDim').addEventListener('click', mClose);
-        document.getElementById('mSave').addEventListener('click', mSave);
-        document.addEventListener('keydown', function (e) {
-            if (e.key === 'Escape') mClose();
-        });
-        document.getElementById('lots').addEventListener('click', function (e) {
-            var b = e.target.closest('button');
-            if (!b) return;
-            if (b.dataset.edit) mOpen(parseInt(b.dataset.edit, 10));
-            else if (b.dataset.del) {
-                if (!confirm('이 작업 이력을 삭제할까요?')) return;
-                var i = WORK.findIndex(function (x) {
-                    return x.id === parseInt(b.dataset.del, 10);
-                });
-                if (i > -1) WORK.splice(i, 1);
-                render();
-            }
-        });
+        // ── 실적 수정 모달 ──
+        /**
+         * kind : produce(차수) | wash(세척) | unit(M-CELL 유닛)
+         * 수량·품목·로트는 잠긴다. 화면에도 그렇게 안내한다.
+         */
+        function editOpen(kind, pk, label, worker, equip, st, et){
+            noteComboLoad();
+            EDIT_TARGET = {kind:kind, pk:pk};
+            document.getElementById('eTitle').textContent = '실적 수정 · ' + label;
+            const opt = function(list, selName){
+                return '<option value="">변경 안 함</option>'
+                    + list.map(function(x){
+                        return '<option value="'+x.pk+'"'+(x.name===selName?' selected':'')+'>'+esc(x.name)+'</option>';
+                    }).join('');
+            };
+            document.getElementById('eActor').innerHTML = opt(NOTE_COMBO.workers, worker);
+            document.getElementById('eEquip').innerHTML = opt(NOTE_COMBO.equipments, equip);
+            document.getElementById('eStart').value = toLocal(st);
+            document.getElementById('eEnd').value   = toLocal(et);
+            document.getElementById('eDim').classList.add('on');
+            document.getElementById('eBox').classList.add('on');
+        }
+        function editClose(){
+            document.getElementById('eDim').classList.remove('on');
+            document.getElementById('eBox').classList.remove('on');
+            EDIT_TARGET = null;
+        }
+        function editSave(){
+            if(!EDIT_TARGET) return;
+            const p = {
+                kind: EDIT_TARGET.kind, pk: EDIT_TARGET.pk,
+                actor_id: document.getElementById('eActor').value,
+                equipment_id: document.getElementById('eEquip').value,
+                start_time: document.getElementById('eStart').value.replace('T',' '),
+                end_time: document.getElementById('eEnd').value.replace('T',' ')
+            };
+            AjaxUtil.postAsyncData(NOTE_API+'/result_update', p, function(res){
+                if(res && res.success === false){ Alert.alert(res.message || '수정에 실패했습니다.'); return; }
+                editClose(); wlLoad();
+            });
+        }
+        /** 'yyyy-mm-dd hh:mm' → datetime-local 값 */
+        function toLocal(s){
+            if(!s) return '';
+            const m = String(s).match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2})/);
+            return m ? (m[1]+'T'+m[2]) : '';
+        }
 
-        document.getElementById('fDate').addEventListener('change', render);
-        document.getElementById('prevDay').addEventListener('click', function () {
-            shiftDay(-1);
-        });
-        document.getElementById('nextDay').addEventListener('click', function () {
-            shiftDay(1);
-        });
-        document.getElementById('btnPrint').addEventListener('click', function () {
-            window.print();
-        });
-        document.addEventListener('DOMContentLoaded', function () {
-            document.getElementById('fDate').value = '2026-07-10';
-            render();
+        /** 2공장 부적합 — 표 모양은 같고 제목만 다르다 */
+        function wlDefect2(list){
+            if(!list.length) return '';
+            let q = 0;
+            list.forEach(function(x){ q += Number(x.defect_qty||0); });
+            const th = '<th>공정</th><th class="left">품목</th><th>유형</th><th>수량</th><th>건수</th>';
+            const tb = list.map(function(x){
+                return '<tr><td>'+esc(x.proc_name||'-')+'</td>'
+                    + '<td class="left">'+esc(x.mat_name||'-')+'<br><span class="wl-code">'+esc(x.mat_code||'')+'</span></td>'
+                    + '<td>'+esc(x.defect_type||'-')+'</td>'
+                    + '<td class="wl-defcell">'+num(x.defect_qty)+'</td><td>'+num(x.cnt)+'</td></tr>';
+            }).join('');
+            const tf = '<td class="left" colspan="3">소계</td><td>'+num(q)+'</td><td></td>';
+            return wlBox({name:'부적합'}, '<span class="wl-tag def">수량 '+num(q)+'</span>', th, tb, tf);
+        }
+
+        function m_wlAsm(f, steps, units){
+            const doneStep = steps.filter(function(x){ return x.end_time; }).length;
+            const doneUnit = steps.filter(function(x){
+                return x.end_time && Number(x.depth) === 0;
+            }).length;
+            const sum = '<span class="wl-tag row">'+steps.length+'단계</span>'
+                + (doneUnit ? '<span class="wl-tag qty">완성 '+doneUnit+'대</span>' : '')
+                + (units.length ? '<span class="wl-tag lot">진행 '+units.length+'대</span>' : '');
+
+            const th = '<th>시간</th><th class="left">모듈(부품)</th><th>단계</th>'
+                + '<th class="left">완제품</th><th>로트번호</th><th>호기</th>'
+                + '<th>방식</th><th>작업자</th><th>설비</th><th>상태</th>';
+
+            /* 유닛(로트)이 바뀌면 구분이 보이도록 로트를 반복 표기한다 */
+            const tb = steps.length ? steps.map(function(x){
+                const running = !x.end_time;
+                const top = Number(x.depth) === 0;
+                return '<tr><td>'+hm(x.start_time)+' ~ '+(running?'<span class="wl-run">작업중</span>':hm(x.end_time))+'</td>'
+                    + '<td class="left">'+(top?'<b>':'')+esc(x.mat_name||'-')+(top?'</b>':'')
+                    +   (x.parent_name ? '<br><span class="wl-code">→ '+esc(x.parent_name)+'</span>' : '')+'</td>'
+                    + '<td>'+(top ? '<b>완성</b>' : 'L'+esc(x.depth))+'</td>'
+                    + '<td class="left">'+esc(x.unit_mat_name||'-')+'</td>'
+                    + '<td><span class="wl-code">'+esc(x.lot_number||'-')+'</span></td>'
+                    + '<td>#'+esc(x.unit_no||'-')+'</td>'
+                    + '<td>'+(x.source==='stock'?'재고 투입':'조립')+'</td>'
+                    + '<td>'+esc(x.worker||'-')+'</td><td>'+esc(x.equipment||'-')+'</td>'
+                    + '<td>'+(running?'작업중':'완료')
+                    +   (x.rework_yn==='Y'?' <span class="wl-code">재조립</span>':'')
+                    +   (x.is_repair==='Y'?' <span class="wl-code">수리품</span>':'')+'</td></tr>';
+            }).join('') : wlNoRow(10);
+            const tf = steps.length
+                ? '<td class="left" colspan="9">완료 단계 / 완성 대수</td><td>'+doneStep+' / '+doneUnit+'</td>' : '';
+            return wlBox(f, sum, th, tb, tf, null, !steps.length);
+        }
+
+        /** 검사 — 한 줄 = 한 대 (검사유형·회차는 합쳐서) */
+
+        function m_wlInsp(f, list){
+            const pass = list.filter(function(u){ return m_wlVerdict(u) === 'pass'; }).length;
+            const fl   = list.filter(function(u){ return m_wlVerdict(u) === 'fail'; }).length;
+            const sum = '<span class="wl-tag row">'+list.length+'대</span>'
+                + (pass ? '<span class="wl-tag qty">합격 '+pass+'</span>' : '')
+                + (fl ? '<span class="wl-tag def">불합격 '+fl+'</span>' : '');
+            const th = '<th>시간</th><th class="left">품목</th><th>로트번호</th>'
+                + '<th class="left">검사 유형</th><th>회차</th><th>검사자</th><th>판정</th>';
+            const tb = list.length ? list.map(function(u){
+                const v = m_wlVerdict(u);
+                const n = (v==='pass')?'합격':(v==='fail'?'불합격':'진행중');
+                const retry = Number(u.try_cnt||0) > Number(u.form_cnt||0);
+                return '<tr><td>'+hm(u.start_time)+' ~ '+hm(u.end_time)+'</td>'
+                    + '<td class="left">'+esc(u.mat_name||'-')+'</td>'
+                    + '<td><span class="wl-code">'+esc(u.lot_number||'-')+'</span></td>'
+                    + '<td class="left">'+esc(u.form_names||'-')+'</td>'
+                    + '<td>'+num(u.try_cnt)+(retry?'<span class="wl-code"> (재검사)</span>':'')+'</td>'
+                    + '<td>'+esc(u.worker||'-')+'</td>'
+                    + '<td'+(v==='fail'?' class="wl-defcell"':'')+'>'+n
+                    + (u.reject_reason?'<br><span class="wl-code">'+esc(u.reject_reason)+'</span>':'')+'</td></tr>';
+            }).join('') : wlNoRow(7);
+            const tf = list.length ? '<td class="left" colspan="6">합격 대수</td><td>'+pass+'</td>' : '';
+            return wlBox(f, sum, th, tb, tf, null, !list.length);
+        }
+
+        /** 수리 — 한 줄 = 한 대 */
+
+        function m_wlRep(f, list){
+            const done = list.filter(function(u){ return u.end_time; }).length;
+            const sum = '<span class="wl-tag row">'+list.length+'대</span>'
+                + (done ? '<span class="wl-tag qty">완료 '+done+'</span>' : '');
+            const th = '<th>시간</th><th class="left">품목</th><th>로트번호</th><th>원 로트</th>'
+                + '<th>구분</th><th class="left">사유</th><th>작업자</th><th>자재</th><th>상태</th><th class="th-act">관리</th>';
+            const tb = list.length ? list.map(function(u){
+                const running = !u.end_time;
+                const cat = (u.repair_cat==='return')?'반품':(u.repair_cat==='spec'?'사양변경':'-');
+                return '<tr><td>'+hm(u.start_time)+' ~ '+(running?'<span class="wl-run">작업중</span>':hm(u.end_time))+'</td>'
+                    + '<td class="left">'+esc(u.mat_name||'-')+'</td>'
+                    + '<td><span class="wl-code">'+esc(u.lot_number||'-')+'</span></td>'
+                    + '<td><span class="wl-code">'+esc(u.src_lot||'-')+'</span></td>'
+                    + '<td>'+cat+'</td>'
+                    + '<td class="left">'+esc(u.repair_reason||'-')+'</td>'
+                    + '<td>'+esc(u.worker||'-')+'</td>'
+                    + '<td>＋'+num(u.mat_in_cnt)+' / －'+num(u.mat_out_cnt)+'</td>'
+                    + '<td>'+esc(M_USTATE[u.unit_state]||u.unit_state||'-')+'</td>'
+                    + '<td class="th-act"><button type="button" class="wl-rowbtn" onclick="editOpen(\'unit\','
+                    +   u.pk+',\''+esc(u.lot_number||'')+'\',\''+esc(u.worker||'')+'\',\''+esc(u.equipment||'')+'\','
+                    +   '\''+esc(u.start_time||'')+'\',\''+esc(u.end_time||'')+'\')">수정</button></td></tr>';
+            }).join('') : wlNoRow(10);
+            const tf = list.length ? '<td class="left" colspan="8">완료 대수</td><td>'+done+'</td><td class="th-act"></td>' : '';
+            return wlBox(f, sum, th, tb, tf, null, !list.length);
+        }
+
+        /** 포장 — 한 줄 = 박스 1개(= 한 대) */
+        function m_wlPack(f, list){
+            const sum = '<span class="wl-tag row">'+list.length+'대</span>';
+            const th = '<th>시간</th><th class="left">완제품</th><th>완제품 로트</th>'
+                + '<th>박스 라벨</th><th>호기</th><th>작업지시</th><th>작업자</th><th>설비</th>';
+            const tb = list.length ? list.map(function(u){
+                const running = !u.end_time;
+                return '<tr><td>'+hm(u.start_time)+' ~ '+(running?'<span class="wl-run">작업중</span>':hm(u.end_time))+'</td>'
+                    + '<td class="left">'+esc(u.mat_name||'-')
+                    +   (u.is_repair==='Y'?' <span class="wl-code">수리품</span>':'')+'</td>'
+                    + '<td><span class="wl-code">'+esc(u.lot_number||'-')+'</span></td>'
+                    + '<td><span class="wl-code">'+esc(u.maker_lot_no||'-')+'</span></td>'
+                    + '<td>#'+esc(u.unit_no||'-')+'</td>'
+                    + '<td><span class="wl-code">'+esc(u.wo||'-')+'</span></td>'
+                    + '<td>'+esc(u.worker||'-')+'</td><td>'+esc(u.equipment||'-')+'</td></tr>';
+            }).join('') : wlNoRow(8);
+            const tf = list.length ? '<td class="left" colspan="7">포장 대수</td><td>'+list.length+'</td>' : '';
+            return wlBox(f, sum, th, tb, tf, null, !list.length);
+        }
+
+        /** 부적합 — 그날 등록된 것 */
+
+
+        // =====================================================
+        document.addEventListener('DOMContentLoaded', function(){
+            document.getElementById('fDate').value = fmt(new Date());
+            document.getElementById('fDate').addEventListener('change', wlLoad);
+            document.getElementById('prevDay').addEventListener('click', function(){ shiftDay(-1); });
+            document.getElementById('nextDay').addEventListener('click', function(){ shiftDay(1); });
+            document.getElementById('chkEmpty').addEventListener('change', wlLoad);
+            document.getElementById('btnAdd').addEventListener('click', function(){ noteOpen(null); });
+            document.getElementById('btnPrint').addEventListener('click', function(){ window.print(); });
+            document.addEventListener('keydown', function(e){ if(e.key==='Escape'){ noteClose(); editClose(); } });
+            wlLoad();
         });
     </script>
 </th:block>

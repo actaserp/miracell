@@ -2,6 +2,9 @@
 <head>
     <style>
         .wl-topbar { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+        .wl-chk { margin-left:auto; display:inline-flex; align-items:center; gap:6px;
+            font-size:12.5px; font-weight:700; color:#5b6675; cursor:pointer; user-select:none; }
+        .wl-chk input { width:15px; height:15px; cursor:pointer; }
         .wl-fbadge{ display:inline-block; font-size:12px; font-weight:800; padding:3px 10px; border-radius:6px; background:#eaf0ff; color:#2f6fed; margin-left:8px; vertical-align:middle;}
         .wl-print { margin-left:auto; background:#3a4759; color:#fff; border:0; border-radius:8px; padding:9px 16px; font-weight:800; font-size:13px; cursor:pointer; }
         .wl-daybar { display:flex; align-items:center; gap:14px; background:#fff; border:1px solid #e2e6ee; border-radius:12px; padding:14px 18px; margin:14px 0; flex-wrap:wrap; }
@@ -36,13 +39,47 @@
         .wl-note { color:#8a94a4; font-size:12.5px; margin-top:12px; line-height:1.7; }
         .wl-empty { text-align:center; color:#8a94a4; padding:40px; font-size:13.5px; background:#fff; border:1px solid #e2e6ee; border-radius:12px; }
         .wl-loading { text-align:center; color:#8a94a4; padding:40px; font-size:13.5px; }
+        /* ── 작업 기록 ── */
+        .wl-btn { border:0; border-radius:8px; padding:9px 16px; font-weight:800; font-size:13px; cursor:pointer; }
+        .wl-btn.add { background:#2f6fed; color:#fff; }
+        .wl-btn.gray { background:#eef2f8; color:#3a4759; }
+        .wl-rowbtn { border:1px solid #e2e6ee; background:#fff; border-radius:6px; padding:4px 10px;
+            font-size:11.5px; font-weight:700; cursor:pointer; color:#3a4759; margin:0 2px; }
+        .wl-rowbtn.del { color:#d64545; border-color:#f3d6d6; }
+        .wl-cat { display:inline-block; font-size:11px; font-weight:800; padding:3px 9px;
+            border-radius:5px; background:#eef1f6; color:#5b6675; }
+        .wl-cat.power     { background:#fdecec; color:#d64545; }
+        .wl-cat.material  { background:#fdf3e6; color:#c9820a; }
+        .wl-cat.equipment { background:#f0ecfb; color:#7b52d6; }
+        .wl-cat.manpower  { background:#e7f0ff; color:#2f6fed; }
+        .wl-cat.handover  { background:#e3f6ec; color:#0f9d58; }
+        .wl-cat.etc       { background:#eef1f6; color:#5b6675; }
+        /* 코드 마스터에 값이 추가되면 전용 색이 없다 — 회색으로 떨어진다 */
+        .wl-dim { position:fixed; inset:0; background:rgba(20,28,44,.45); display:none; z-index:1000; }
+        .wl-dim.on { display:block; }
+        .wl-modal { position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); z-index:1001;
+            background:#fff; border-radius:12px; width:min(620px,94vw); max-height:88vh; overflow:auto;
+            box-shadow:0 20px 60px -20px rgba(10,20,40,.5); display:none; }
+        .wl-modal.on { display:block; }
+        .wl-modal h3 { margin:0; padding:16px 20px; border-bottom:1px solid #e2e6ee; font-size:16px; font-weight:800; }
+        .wl-form { padding:16px 20px; display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+        .wl-form .f { display:flex; flex-direction:column; gap:5px; } .wl-form .f.full { grid-column:1/-1; }
+        .wl-form label { font-size:12px; font-weight:700; color:#5b6675; }
+        .wl-form input, .wl-form select, .wl-form textarea {
+            border:1px solid #e2e6ee; border-radius:8px; padding:0 11px; font-size:13.5px;
+            font-family:inherit; background:#fbfcfe; width:100%; box-sizing:border-box; height:40px; }
+        .wl-form textarea { resize:vertical; min-height:78px; padding:9px 11px; line-height:1.6; }
+        .wl-modal-f { padding:12px 20px 18px; display:flex; gap:8px; justify-content:flex-end; }
+        .wl-lock { color:#8a94a4; font-size:12px; padding:2px 0 0; grid-column:1/-1; }
+
         /* 결재란·머리글은 인쇄물에만 나온다 */
         .wl-sign { display:none; }
         .wl-runhead { display:none; }
 
         @media print {
             .page-title-wrap, .section-top, .page-navi, .bookmark, .wl-print, .wl-navbtn,
-            .wl-dateinput, .wl-note, .wl-daybar .dow { display:none !important; }
+            .wl-dateinput, .wl-note, .wl-daybar .dow,
+            .wl-btn, .wl-rowbtn, .wl-dim, .wl-modal, .th-act, .wl-chk { display:none !important; }
 
             /* ★ 여러 장으로 안 나뉘던 원인
                레이아웃 컨테이너에 걸린 height/overflow 가 내용을 한 화면에 가둔다.
@@ -62,8 +99,14 @@
 
             /* 공정 블록은 쪼개질 수 있어야 한다. 블록을 통째로 avoid 하면
                한 장에 안 들어가는 표가 다음 장으로 밀리며 앞이 비고 뒤가 잘린다. */
-            .wl-proc-box { break-inside:auto; margin-bottom:10px; border-color:#999; }
-            .wl-proc-h   { break-inside:avoid; break-after:avoid; }
+            /* ★ 공정 블록이 새 페이지에서 시작할 때의 상단 여백
+               margin-top 은 페이지 맨 위에서 브라우저가 버린다. padding 은 남는다.
+               다만 padding 이 테두리 안쪽이라 빈 칸처럼 보이므로,
+               인쇄에서는 블록 테두리를 없애고 표 테두리만 남긴다. */
+            .wl-proc-box { break-inside:auto; border:0 !important; background:transparent;
+                padding-top:8mm; margin-bottom:4mm; }
+            .wl-proc-h   { break-inside:avoid; break-after:avoid;
+                border-bottom:0; padding:0 2px 5px; background:transparent !important; }
 
             .wl-table { break-inside:auto; }
             .wl-table thead { display:table-header-group; }   /* 페이지마다 헤더 반복 */
@@ -76,11 +119,12 @@
             .wl-table thead th {
                 background:#e8ebf0 !important; color:#000 !important;
                 -webkit-print-color-adjust:exact; print-color-adjust:exact;
-                padding-top:9px;
-                border-top:8mm solid #fff;      /* 이 두께가 곧 페이지 상단 여백 */
+                padding-top:8px;
+                /* 표 '중간'에서 페이지가 갈리면 이어지는 장의 헤더가 종이 끝에 붙는다.
+                   thead 는 매 페이지 다시 그려지므로 여기에도 여백을 얹어 둔다. */
+                border-top:8mm solid #fff;
             }
-            /* 표 밖에서 페이지가 갈릴 때를 대비해 블록에도 약간의 여유 */
-            .wl-proc-box { padding-top:2mm; }
+            .wl-table { border:1px solid #999; }
             .wl-table tbody td, .wl-table tfoot td { font-size:11.5px; padding:6px; }
             .wl-tag { border:1px solid #bbb; background:#fff !important; color:#000 !important; }
 
@@ -110,7 +154,9 @@
         <section class="section">
             <div class="section-top"><div class="wl-topbar">
                 <div style="font-size:13px;color:#8a94a4;font-weight:700">하루 동안 공정별로 어떤 작업을 했는지 보여줍니다.</div>
-                <button type="button" class="wl-print" id="btnPrint">🖨 인쇄</button>
+                <label class="wl-chk"><input type="checkbox" id="chkEmpty"> 작업 없는 공정도 표시</label>
+                <button type="button" class="wl-btn add" id="btnAdd">+ 작업 기록 등록</button>
+                <button type="button" class="wl-print" id="btnPrint" style="margin-left:0">🖨 인쇄</button>
             </div></div>
 
             <div class="wl-runhead" id="runHead"></div>
@@ -131,8 +177,48 @@
 
             <p class="wl-note">공정별로 <span style="color:#5b6675;font-weight:700">그날 끝낸 작업</span>만 나옵니다.
                 한 작업이 이틀에 걸쳤으면 끝낸 날에 잡히고, 아직 진행 중이면 수량 대신 「작업중」으로 표시됩니다.<br>
+                <b style="color:#c9820a">세척·멸균</b>은 생산이 아니라 각각 자리 이동·배치 작업이라 수량을 양품 합계에 넣지 않습니다.
                 인쇄하면 상단에 결재란이 함께 나옵니다.</p>
         </section>
+
+        <!-- 작업 기록 등록/수정 -->
+        <div class="wl-dim" id="mDim" onclick="noteClose()"></div>
+        <div class="wl-modal" id="mBox">
+            <h3 id="mTitle">작업 기록 등록</h3>
+            <input type="hidden" id="mPk">
+            <div class="wl-form">
+                <div class="f"><label for="mDate">일자</label><input type="date" id="mDate"></div>
+                <div class="f"><label for="mCat">구분</label><select id="mCat"></select></div>
+                <div class="f full"><label for="mContent">내용</label>
+                    <textarea id="mContent" maxlength="500" placeholder="정전, 자재 입고 지연, 인력 부족, 인수인계 사항 등"></textarea></div>
+                <div class="f"><label for="mProc">공정 (선택)</label><select id="mProc"></select></div>
+                <div class="f"><label for="mEquip">설비 (선택)</label><select id="mEquip"></select></div>
+                <div class="f full"><label for="mActor">관련 작업자 (선택)</label><select id="mActor"></select></div>
+                <div class="wl-lock">불량·검사 불합격·설비 비가동은 각 화면에 이미 기록됩니다. 여기에는 그 밖의 사정을 적어 주세요.</div>
+            </div>
+            <div class="wl-modal-f">
+                <button type="button" class="wl-btn gray" onclick="noteClose()">취소</button>
+                <button type="button" class="wl-btn add" onclick="noteSave()">저장</button>
+            </div>
+        </div>
+
+        <!-- 실적 수정 (작업자·설비·시각만) -->
+        <div class="wl-dim" id="eDim" onclick="editClose()"></div>
+        <div class="wl-modal" id="eBox">
+            <h3 id="eTitle">실적 수정</h3>
+            <div class="wl-form">
+                <div class="f"><label for="eActor">작업자</label><select id="eActor"></select></div>
+                <div class="f"><label for="eEquip">설비</label><select id="eEquip"></select></div>
+                <div class="f"><label for="eStart">시작</label><input type="datetime-local" id="eStart"></div>
+                <div class="f"><label for="eEnd">종료</label><input type="datetime-local" id="eEnd"></div>
+                <div class="wl-lock">수량·품목·로트는 여기서 바꿀 수 없습니다. 재고가 함께 움직여야 하므로
+                    해당 공정 화면에서 취소 후 다시 등록해 주세요.</div>
+            </div>
+            <div class="wl-modal-f">
+                <button type="button" class="wl-btn gray" onclick="editClose()">취소</button>
+                <button type="button" class="wl-btn add" onclick="editSave()">저장</button>
+            </div>
+        </div>
     </div>
 </th:block>
 
@@ -152,6 +238,16 @@
         const WL_SPJANGCD = (window.WS_CTX && window.WS_CTX.spjangcd) || 'ZZ';
         const WL_API = '/api/production/work_status';
         const DOW = ['일','월','화','수','목','금','토'];
+
+        /* ★ 작업 없는 공정을 표에 남길지.
+           남기면 "그날 이 공정을 점검했고 작업이 없었다"가 문서에 드러나고,
+           빼면 종이가 줄어든다. 현장마다 달라 선택으로 둔다.
+           기본은 끔 — 하루에 한두 공정만 도는 날이 많으면 빈 표가 지면을 다 먹는다. */
+        function showEmpty(){
+            const el = document.getElementById('chkEmpty');
+            return !!(el && el.checked);
+        }
+        const WL_FACTORY = 1;
 
         /* 공정 순서는 흐름 순. Code 사전순이면 융착(bsc06)이 포장 뒤로 간다 */
         const WL_FLOW = [
@@ -212,8 +308,14 @@
             host.innerHTML = '<div class="wl-loading">불러오는 중…</div>';
 
             /* 기간을 하루로 좁혀 작업실적현황과 같은 API 를 쓴다 */
-            const r = wlData(AjaxUtil.getSyncData(WL_API+'/f1_process',
-                {date_from:date, date_to:date, spjangcd:WL_SPJANGCD}));
+            noteLoad(date);
+            let r = null;
+            try {
+                r = wlData(AjaxUtil.getSyncData(WL_API+'/f1_process',
+                    {date_from:date, date_to:date, spjangcd:WL_SPJANGCD}));
+            } catch(e) {
+                console.error('[worklog] f1_process', e);
+            }
             if(!r){ host.innerHTML = '<div class="wl-empty">조회에 실패했습니다.</div>'; return; }
 
             const rows   = r.rows   || [];
@@ -226,9 +328,13 @@
         }
 
         function wlSummary(rows, wash, steril, defect){
-            /* 완제품 산출 = 포장 공정만. 공정 합계를 더하면 용기→PK→키트를 중복해 센다 */
+            /* 완제품 산출 = 포장 공정 중 '완제품' 만.
+               포장은 CK(반제품)와 키트 결합을 둘 다 만들어서, 합치면 CK 만큼 부풀어 오른다.
+               공정 합계를 더하지 않는 이유(용기→PK→키트 중복)와 같은 맥락. */
             let fin = 0;
-            rows.forEach(function(x){ if(x.proc_code === 'bsc05') fin += Number(x.good_qty||0); });
+            rows.forEach(function(x){
+                if(x.proc_code === 'bsc05' && x.is_product === 'Y') fin += Number(x.good_qty||0);
+            });
             let dq = 0;
             defect.forEach(function(m){ dq += Number(m.defect_qty||0); });
             const cnt = rows.length + wash.length + steril.length;
@@ -256,10 +362,16 @@
             });
 
             html += wlDefect(defect);
+            /* 공정 블록이 하나도 안 남으면 백지가 인쇄된다.
+               "일보를 안 썼다" 와 구분되게 한 줄은 남긴다 */
+            if(!html) html = '<div class="wl-empty">해당 일자에 작업 실적이 없습니다.</div>';
+            html += noteBlock();
             document.getElementById('body').innerHTML = html;
         }
 
-        function wlBox(f, sum, thead, tbody, tfoot, tag){
+        function wlBox(f, sum, thead, tbody, tfoot, tag, isEmpty){
+            /* 실적이 없고 「작업 없는 공정도 표시」가 꺼져 있으면 블록 자체를 만들지 않는다 */
+            if(isEmpty && !showEmpty()) return '';
             return '<div class="wl-proc-box"><div class="wl-proc-h">'
                 + '<span class="nm">'+esc(f.name)+'</span>'
                 + (tag ? '<span class="tag">'+tag+'</span>' : '')
@@ -274,27 +386,86 @@
         }
 
         /** 생산형 — 조립·블리스터·융착·포장 */
+
+        /* 포장 단계 라벨 — 서버 pack_phase(= PackService.PHASE_SQL)를 그대로 읽는다.
+           포장 세션 하나가 PK 담기 → CK 생산 → 완제품 결합 → 카톤을 다 덮고,
+           완료 시점에야 실적이 두 줄(완제품 / CK)로 갈린다. */
+        const PACK_PHASE = { pk:'PK 담는 중', pack:'CK 작업중', label:'완제품 작업중',
+            outbox:'라벨 작업', done:'완료' };
+        function packPhaseText(x){ return PACK_PHASE[x.pack_phase] || '진행중'; }
+
         function wlProd(f, list){
-            let g = 0;
-            list.forEach(function(x){ g += Number(x.good_qty||0); });
+            /* 포장은 CK(반제품)와 완제품이 섞인다. 소계를 하나로 내면
+               완제품 수량이 CK 만큼 부풀어 보이므로 나눠 적는다. */
+            /* ★ 진행중 차수의 GoodQty 는 실적이 아니다.
+               startProduction 이 시작할 때 입력한 수량을 GoodQty 에 미리 넣어둔다
+               ("시작 시 입력분(계획) 표시용. 확정은 완료에서") — 그래서 작업중인
+               차수까지 소계에 더하면 아직 안 나온 수량이 실적으로 잡힌다.
+               실데이터: 블리스터 차수 State=working / GoodQty=50 이 소계 50 으로 셌다.
+               ★ 종료시각(end_time)이 있는 것만 확정 실적으로 센다. */
+            let g = 0, sub = 0, run = 0;
+            list.forEach(function(x){
+                const q = Number(x.good_qty||0);
+                if(!x.end_time){ run += q; return; }
+                if(x.is_product === 'N') sub += q;
+                else                     g   += q;
+            });
+            /* ★ 완제품/반제품을 나누는 것은 **둘이 실제로 섞였을 때만**이다.
+               조립·블리스터·융착은 산출이 반제품 하나뿐이라 나누면
+               「완제품 0 / 반제품 50」처럼 뜻 없는 0 이 남아
+               "50 개 했는데 왜 0 이지" 로 읽힌다.
+               포장이라도 CK 만 돈 날은 나누지 않는다 — 공정 코드가 아니라
+               그날 산출이 실제로 섞였는지로 판단해야 정확하다. */
+            const split = (g > 0 && sub > 0);
+            const total = g + sub;
             const sum = '<span class="wl-tag row">'+list.length+'건</span>'
-                + (list.length ? '<span class="wl-tag qty">수량 '+num(g)+'</span>' : '');
+                + (split
+                    ? '<span class="wl-tag qty">완제품 '+num(g)+'</span>'
+                    + '<span class="wl-tag lot">반제품 '+num(sub)+'</span>'
+                    : (total ? '<span class="wl-tag qty">'+num(total)+'</span>' : ''))
+                + (run ? '<span class="wl-tag lot">작업중 '+num(run)+'</span>' : '');
 
             const th = '<th>시간</th><th class="left">산출품목</th><th>로트번호</th>'
-                + '<th>작업지시</th><th>작업자</th><th>설비</th><th>수량</th>';
+                + '<th>작업지시</th><th>작업자</th><th>설비</th><th>수량</th><th class="th-act">관리</th>';
             const tb = list.length ? list.slice().sort(function(a,b){
                 return (a.end_time||a.start_time||'') < (b.end_time||b.start_time||'') ? -1 : 1;
             }).map(function(x){
                 const running = !x.end_time;
                 return '<tr><td>'+hm(x.start_time)+' ~ '+(running?'<span class="wl-run">작업중</span>':hm(x.end_time))+'</td>'
-                    + '<td class="left">'+esc(x.mat_name||'-')+'<br><span class="wl-code">'+esc(x.mat_code||'')+'</span></td>'
+                    /* ★ 포장 세션은 완료 전까지 산출이 확정되지 않는다.
+                       한 세션이 PK 담기 → CK 생산 → 완제품 결합 → 카톤을 다 덮고,
+                       packFinish 가 끝날 때 실적을 두 줄로 쪼갠다
+                         세션 차수 LastProcessYN='Y' 산출=완제품
+                         ckMp     LastProcessYN='N' 산출=CK
+                       그래서 진행중인 세션에 「완제품」 딱지를 붙이면
+                       CK 단계에 있는 작업자 눈에는 어긋나 보인다. */
+                    + '<td class="left">'
+                    +   ((running && x.proc_code === 'bsc05')
+                        ? '포장<br><span class="wl-none">'+packPhaseText(x)+'</span>'
+                        : esc(x.mat_name||'-')+'<br><span class="wl-code">'+esc(x.mat_code||'')+'</span>')
+                    + '</td>'
                     + '<td><span class="wl-code">'+esc(x.lot_number||'-')+'</span></td>'
                     + '<td><span class="wl-code">'+esc(x.wo||'-')+'</span></td>'
                     + '<td>'+esc(wlWorker(x))+'</td><td>'+esc(x.equipment||'-')+'</td>'
-                    + '<td class="wl-qty">'+(running ? '<span class="wl-none">계획 '+num(x.order_qty)+'</span>' : num(x.good_qty))+'</td></tr>';
-            }).join('') : wlNoRow(7);
-            const tf = list.length ? '<td class="left" colspan="6">소계</td><td>'+num(g)+'</td>' : '';
-            return wlBox(f, sum, th, tb, tf);
+                    /* ★ order_qty 는 그 차수의 계획이 아니라 **작업지시 전체 수량**이다.
+                       앞 공정이 50 만 넘겼는데 「계획 150」으로 보여 오해를 부른다.
+                       진행중일 때는 시작할 때 입력한 몫(good_qty)을 「진행」으로 적는다. */
+                    + '<td class="wl-qty">'+(running ? '<span class="wl-none">진행 '+num(x.good_qty)+'</span>' : num(x.good_qty))+'</td>'
+                    + '<td class="th-act"><button type="button" class="wl-rowbtn" onclick="editOpen(\'produce\','
+                    +   x.pk+',\''+esc(x.mat_name||'')+'\',\''+esc(wlWorker(x))+'\',\''+esc(x.equipment||'')+'\','
+                    +   '\''+esc(x.start_time||'')+'\',\''+esc(x.end_time||'')+'\')">수정</button></td></tr>';
+            }).join('') : wlNoRow(8);
+            const tf = list.length
+                ? '<td class="left" colspan="6">소계'+(split?' (완제품 / 반제품)':'')+'</td>'
+                /* ★ 완료분과 작업중을 수량 칸에 나란히 둔다.
+                   소계만 0 으로 보이면 "50 하고 있는데 왜 0 이지" 가 되고,
+                   그렇다고 「작업중 N 제외」라고 해명을 붙이면 장황해진다. */
+                + '<td>'+(run
+                    ? '완료 '+(split ? num(g)+' / '+num(sub) : num(total))
+                    + ' <span class="wl-none">· 작업중 '+num(run)+'</span>'
+                    : (split ? num(g)+' / '+num(sub) : num(total)))
+                + '</td><td class="th-act"></td>' : '';
+            return wlBox(f, sum, th, tb, tf, null, !list.length);
         }
 
         /** 세척 — 이동 작업. 품목 단위 기록 */
@@ -306,7 +477,7 @@
                 + (d ? '<span class="wl-tag def">불량 '+num(d)+'</span>' : '');
 
             const th = '<th>시간</th><th class="left">품목</th><th>작업자</th>'
-                + '<th>설비</th><th>수량</th><th>불량</th><th>상태</th>';
+                + '<th>설비</th><th>수량</th><th>불량</th><th>상태</th><th class="th-act">관리</th>';
             const tb = list.length ? list.map(function(x){
                 const n = (x.state==='done')?'완료':(x.state==='working'?'작업중':'대기');
                 return '<tr><td>'+hm(x.start_time)+' ~ '+hm(x.end_time)+'</td>'
@@ -314,10 +485,13 @@
                     + '<td>'+esc(x.worker||'-')+'</td><td>'+esc(x.equipment||'-')+'</td>'
                     + '<td class="wl-qty">'+num(x.qty)+'</td>'
                     + '<td'+(Number(x.defect_qty)>0?' class="wl-defcell"':'')+'>'+num(x.defect_qty)+'</td>'
-                    + '<td>'+n+'</td></tr>';
-            }).join('') : wlNoRow(7);
-            const tf = list.length ? '<td class="left" colspan="4">소계</td><td>'+num(q)+'</td><td>'+num(d)+'</td><td></td>' : '';
-            return wlBox(f, sum, th, tb, tf);
+                    + '<td>'+n+'</td>'
+                    + '<td class="th-act"><button type="button" class="wl-rowbtn" onclick="editOpen(\'wash\','
+                    +   x.pk+',\''+esc(x.mat_name||'')+'\',\''+esc(x.worker||'')+'\',\''+esc(x.equipment||'')+'\','
+                    +   '\''+esc(x.start_time||'')+'\',\''+esc(x.end_time||'')+'\')">수정</button></td></tr>';
+            }).join('') : wlNoRow(8);
+            const tf = list.length ? '<td class="left" colspan="4">소계</td><td>'+num(q)+'</td><td>'+num(d)+'</td><td></td><td class="th-act"></td>' : '';
+            return wlBox(f, sum, th, tb, tf, null, !list.length);
         }
 
         /** 멸균 — EO 배치 */
@@ -341,7 +515,7 @@
                     + '<td>'+n+'</td></tr>';
             }).join('') : wlNoRow(9);
             const tf = list.length ? '<td class="left" colspan="6">소계</td><td>'+num(q)+'</td><td></td><td></td>' : '';
-            return wlBox(f, sum, th, tb, tf);
+            return wlBox(f, sum, th, tb, tf, null, !list.length);
         }
 
         /** 부적합 — 그날 등록된 것 (공정·품목별) */
@@ -361,13 +535,207 @@
                 '<span class="wl-tag def">수량 '+num(q)+'</span>', th, tb, tf);
         }
 
+        /* =========================================================
+         * 작업 기록 (worklog_note) + 실적 일부 수정
+         *
+         * ★ 여기서 실적을 새로 만들지 않는다.
+         *   실적 입력은 공정관리(세척·조립·검사·포장)와 POP 의 몫이다.
+         *   일보에서 또 만들면 BOM 차감·로트 입고를 건너뛴 실적이 생겨
+         *   공정 화면을 거친 것과 섞이고 재고의 진실이 깨진다.
+         *
+         * ★ 실적은 작업자·설비·시각만 고친다.
+         *   수량·품목·로트를 바꾸려면 차감을 되돌리고 다시 빼야 하는데
+         *   그건 삭제 후 재등록과 같다. 경로를 둘로 두면 롤백 로직이 두 벌이 되고
+         *   어긋나는 순간 재고가 틀어진다. (부적합 등록 화면과 같은 규칙)
+         * ========================================================= */
+        const NOTE_API = '/api/production/worklog';
+        /* ★ 구분값은 코드 마스터(sys_code.CodeType='worklog_cat')에 있다.
+           화면 배열로 들고 있으면 일보 화면 3개에 같은 배열이 복사되어
+           하나만 고쳤을 때 조용히 어긋난다. 표시명은 서버가 category_name 으로 내려준다. */
+
+        let NOTES = [], NOTE_COMBO = {processes:[], workers:[], equipments:[]};
+        let EDIT_TARGET = null;   // 실적 수정 대상 {kind, pk, …}
+
+        /* ★ 작업 기록 조회가 실패해도 일보 본문은 그려져야 한다.
+           동기 호출이라 여기서 예외가 나면 뒤 렌더가 통째로 멈춘다.
+           (테이블 미생성·엔드포인트 미배포 때 실제로 그랬다) */
+        let NOTE_ERR = null;
+        function noteLoad(date){
+            NOTE_ERR = null;
+            try {
+                const p = {date:date, spjangcd:WL_SPJANGCD};
+                if (typeof WL_FACTORY !== 'undefined' && WL_FACTORY) p.factory_id = WL_FACTORY;
+                NOTES = wlData(AjaxUtil.getSyncData(NOTE_API+'/notes', p)) || [];
+            } catch(e) {
+                NOTES = []; NOTE_ERR = '작업 기록을 불러오지 못했습니다.';
+                console.error('[worklog] note load', e);
+            }
+        }
+
+        function noteComboLoad(){
+            if(NOTE_COMBO.workers.length) return;
+            try {
+                const f = (typeof WL_FACTORY !== 'undefined' && WL_FACTORY) ? {factory_id:WL_FACTORY} : {};
+                NOTE_COMBO = wlData(AjaxUtil.getSyncData(NOTE_API+'/combo', f))
+                    || {processes:[], workers:[], equipments:[]};
+            } catch(e) {
+                NOTE_COMBO = {processes:[], workers:[], equipments:[]};
+                console.error('[worklog] combo load', e);
+            }
+        }
+
+        /** 작업 기록 블록 — 일보 맨 아래에 붙는다 */
+        function noteBlock(){
+            const th = '<th>구분</th><th class="left">내용</th><th>공정</th>'
+                + '<th>설비</th><th>관련 작업자</th><th>작성자</th><th class="th-act">관리</th>';
+            if(NOTE_ERR){
+                return '<div class="wl-proc-box"><div class="wl-proc-h"><span class="nm">작업 기록</span></div>'
+                    + '<table class="wl-table"><tbody><tr><td style="color:#d64545;padding:22px">'
+                    + esc(NOTE_ERR) + ' (worklog_note 테이블·API 배포 확인)</td></tr></tbody></table></div>';
+            }
+            const tb = NOTES.length ? NOTES.map(function(n){
+                    const fac = (typeof WL_FACTORY === 'undefined' || !WL_FACTORY)
+                        ? '<span class="wl-code">'+(Number(n.factory_id)===2?'2공장':'1공장')+'</span> ' : '';
+                    return '<tr><td><span class="wl-cat '+esc(n.category)+'">'
+                        +   esc(n.category_name || n.category || '-')+'</span></td>'
+                        + '<td class="left">'+fac+esc(n.content)+'</td>'
+                        + '<td>'+esc(n.process_name||'-')+'</td>'
+                        + '<td>'+esc(n.equipment_name||'-')+'</td>'
+                        + '<td>'+esc(n.actor_name||'-')+'</td>'
+                        + '<td>'+esc(n.creater_name||'-')+'</td>'
+                        + '<td class="th-act">'
+                        +   '<button type="button" class="wl-rowbtn" onclick="noteOpen('+n.pk+')">수정</button>'
+                        +   '<button type="button" class="wl-rowbtn del" onclick="noteDel('+n.pk+')">삭제</button>'
+                        + '</td></tr>';
+                }).join('')
+                : '<tr><td colspan="7" style="color:#c2c9d4;padding:22px">등록된 작업 기록이 없습니다.</td></tr>';
+
+            return '<div class="wl-proc-box"><div class="wl-proc-h">'
+                + '<span class="nm">작업 기록</span>'
+                + '<div class="sum"><span class="wl-tag row">'+NOTES.length+'건</span></div></div>'
+                + '<table class="wl-table"><thead><tr>'+th+'</tr></thead><tbody>'+tb+'</tbody></table></div>';
+        }
+
+        // ── 작업 기록 모달 ──
+        function noteOpen(pk){
+            noteComboLoad();
+            const n = pk ? NOTES.find(function(x){ return x.pk===pk; }) : null;
+            document.getElementById('mTitle').textContent = n ? '작업 기록 수정' : '작업 기록 등록';
+            document.getElementById('mPk').value = n ? n.pk : '';
+
+            const opt = function(list, sel, blankLabel){
+                return '<option value="">'+blankLabel+'</option>'
+                    + list.map(function(x){
+                        return '<option value="'+x.pk+'"'+(String(x.pk)===String(sel)?' selected':'')+'>'
+                            + esc(x.name)+'</option>';
+                    }).join('');
+            };
+            document.getElementById('mDate').value = document.getElementById('fDate').value;
+            AjaxUtil.fillSelectOptions($('#mCat'), 'system_code', false,
+                (n ? n.category : ''), 'worklog_cat');
+            document.getElementById('mProc').innerHTML  = opt(NOTE_COMBO.processes,  n?n.process_id:'',   '선택 안 함');
+            document.getElementById('mEquip').innerHTML = opt(NOTE_COMBO.equipments, n?n.equipment_id:'', '선택 안 함');
+            document.getElementById('mActor').innerHTML = opt(NOTE_COMBO.workers,    n?n.actor_id:'',     '선택 안 함');
+            document.getElementById('mContent').value = n ? n.content : '';
+
+            const fac = document.getElementById('mFactory');
+            if(fac) fac.value = n ? String(n.factory_id) : '1';
+
+            document.getElementById('mDim').classList.add('on');
+            document.getElementById('mBox').classList.add('on');
+            document.getElementById('mContent').focus();
+        }
+        function noteClose(){
+            document.getElementById('mDim').classList.remove('on');
+            document.getElementById('mBox').classList.remove('on');
+        }
+        function noteSave(){
+            const content = document.getElementById('mContent').value.trim();
+            if(!content){ Alert.alert('내용을 입력해 주세요.'); return; }
+            const pk  = document.getElementById('mPk').value;
+            const fac = document.getElementById('mFactory');
+            const p = {
+                date: document.getElementById('mDate').value,
+                factory_id: fac ? fac.value : (typeof WL_FACTORY !== 'undefined' ? WL_FACTORY : 1),
+                category: document.getElementById('mCat').value,
+                content: content,
+                process_id: document.getElementById('mProc').value,
+                equipment_id: document.getElementById('mEquip').value,
+                actor_id: document.getElementById('mActor').value,
+                spjangcd: WL_SPJANGCD
+            };
+            if(pk) p.pk = pk;
+            const res = AjaxUtil.postAsyncData(NOTE_API+'/note_save', p, function(res){
+                if(res && res.success === false){ Alert.alert(res.message || '저장에 실패했습니다.'); return; }
+                noteClose(); wlLoad();
+            });
+        }
+        function noteDel(pk){
+            if(!confirm('이 작업 기록을 삭제할까요?')) return;
+            AjaxUtil.postAsyncData(NOTE_API+'/note_delete', {pk:pk}, function(res){
+                if(res && res.success === false){ Alert.alert(res.message || '삭제에 실패했습니다.'); return; }
+                wlLoad();
+            });
+        }
+
+        // ── 실적 수정 모달 ──
+        /**
+         * kind : produce(차수) | wash(세척) | unit(M-CELL 유닛)
+         * 수량·품목·로트는 잠긴다. 화면에도 그렇게 안내한다.
+         */
+        function editOpen(kind, pk, label, worker, equip, st, et){
+            noteComboLoad();
+            EDIT_TARGET = {kind:kind, pk:pk};
+            document.getElementById('eTitle').textContent = '실적 수정 · ' + label;
+            const opt = function(list, selName){
+                return '<option value="">변경 안 함</option>'
+                    + list.map(function(x){
+                        return '<option value="'+x.pk+'"'+(x.name===selName?' selected':'')+'>'+esc(x.name)+'</option>';
+                    }).join('');
+            };
+            document.getElementById('eActor').innerHTML = opt(NOTE_COMBO.workers, worker);
+            document.getElementById('eEquip').innerHTML = opt(NOTE_COMBO.equipments, equip);
+            document.getElementById('eStart').value = toLocal(st);
+            document.getElementById('eEnd').value   = toLocal(et);
+            document.getElementById('eDim').classList.add('on');
+            document.getElementById('eBox').classList.add('on');
+        }
+        function editClose(){
+            document.getElementById('eDim').classList.remove('on');
+            document.getElementById('eBox').classList.remove('on');
+            EDIT_TARGET = null;
+        }
+        function editSave(){
+            if(!EDIT_TARGET) return;
+            const p = {
+                kind: EDIT_TARGET.kind, pk: EDIT_TARGET.pk,
+                actor_id: document.getElementById('eActor').value,
+                equipment_id: document.getElementById('eEquip').value,
+                start_time: document.getElementById('eStart').value.replace('T',' '),
+                end_time: document.getElementById('eEnd').value.replace('T',' ')
+            };
+            AjaxUtil.postAsyncData(NOTE_API+'/result_update', p, function(res){
+                if(res && res.success === false){ Alert.alert(res.message || '수정에 실패했습니다.'); return; }
+                editClose(); wlLoad();
+            });
+        }
+        /** 'yyyy-mm-dd hh:mm' → datetime-local 값 */
+        function toLocal(s){
+            if(!s) return '';
+            const m = String(s).match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2})/);
+            return m ? (m[1]+'T'+m[2]) : '';
+        }
+
         // =====================================================
         document.addEventListener('DOMContentLoaded', function(){
             document.getElementById('fDate').value = fmt(new Date());
             document.getElementById('fDate').addEventListener('change', wlLoad);
             document.getElementById('prevDay').addEventListener('click', function(){ shiftDay(-1); });
             document.getElementById('nextDay').addEventListener('click', function(){ shiftDay(1); });
+            document.getElementById('chkEmpty').addEventListener('change', wlLoad);
+            document.getElementById('btnAdd').addEventListener('click', function(){ noteOpen(null); });
             document.getElementById('btnPrint').addEventListener('click', function(){ window.print(); });
+            document.addEventListener('keydown', function(e){ if(e.key==='Escape'){ noteClose(); editClose(); } });
             wlLoad();
         });
     </script>

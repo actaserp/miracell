@@ -158,7 +158,7 @@
                         불합격 후 다시 받으면 회차가 늘어나며 카드에 「재검사 N회」로 표시됩니다.</p>
                     <p><b>수리</b>는 반품·사양변경으로 들어온 것을 고치는 자리입니다.
                         원래 로트번호와 접수 사유가 카드에 함께 나옵니다.</p>
-                    <p><b>포장</b>은 아직 준비 중인 공정이라 당분간 비어 있습니다.</p>
+                    <p><b>포장</b>은 박스 하나가 한 대입니다. 카드를 누르면 그 박스에 들어간 자재와 박스 라벨을 볼 수 있습니다.</p>
                     <p>기계 한 대가 지금 어디까지 왔는지는 <b>생산진행현황</b> 화면에서 봅니다.</p>
                 </div>
             </div>
@@ -196,65 +196,82 @@
         const WS_API = '/api/production/mcell_status';
 
         const WS_FLOW = [
-            {key:'assembly', code:'mc01', name:'조립'},
-            {key:'inspect',  code:'mc02', name:'검사'},
-            {key:'repair',   code:'mc04', name:'수리'},
-            {key:'pack',     code:'mc03', name:'포장'}
+            {key: 'assembly', code: 'mc01', name: '조립'},
+            {key: 'inspect', code: 'mc02', name: '검사'},
+            {key: 'repair', code: 'mc04', name: '수리'},
+            {key: 'pack', code: 'mc03', name: '포장'}
         ];
         const WS_USTATE = {
-            wait:'대기', assembling:'조립중', inspect_wait:'검사대기',
-            pass:'검사합격', reject:'불합격', repairing:'수리중', packed:'포장완료'
+            wait: '대기', assembling: '조립중', inspect_wait: '검사대기',
+            pass: '검사합격', reject: '불합격', repairing: '수리중', packed: '포장완료'
         };
 
-        let WS = {assembly:[], inspect:[], repair:[], pack:[], defect:[]};
+        let WS = {assembly: [], inspect: [], repair: [], pack: [], defect: []};
         let WS_ONLY = null;
         let WS_TRIES = [];   // 모달에서 연 검사 회차 목록
         let WS_STEPS = {};   // 유닛별 그 기간에 끝낸 모듈 스텝
 
-        function wsReady(){ return (typeof AjaxUtil !== 'undefined') && AjaxUtil && AjaxUtil.getSyncData; }
-        function wsData(res){
-            if(!res) return null;
-            if(res.success === false) return null;
+        function wsReady() {
+            return (typeof AjaxUtil !== 'undefined') && AjaxUtil && AjaxUtil.getSyncData;
+        }
+
+        function wsData(res) {
+            if (!res) return null;
+            if (res.success === false) return null;
             return (res.data !== undefined) ? res.data : res;
         }
-        function esc(s){
-            return (s==null?'':String(s)).replace(/[&<>"']/g, function(c){
-                return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+
+        function esc(s) {
+            return (s == null ? '' : String(s)).replace(/[&<>"']/g, function (c) {
+                return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c];
             });
         }
-        function num(v){ return (v==null?0:Number(v)).toLocaleString(); }
-        function fail(msg){
+
+        function num(v) {
+            return (v == null ? 0 : Number(v)).toLocaleString();
+        }
+
+        function fail(msg) {
             document.getElementById('body').innerHTML =
-                '<div class="ws-empty" style="grid-column:1/-1;padding:44px">'+msg+'</div>';
+                '<div class="ws-empty" style="grid-column:1/-1;padding:44px">' + msg + '</div>';
         }
 
         // =====================================================
         // 조회
         // =====================================================
-        function wsLoad(){
-            if(!wsReady()){ fail('AjaxUtil 로드 실패 — 화면을 새로고침해 주세요.'); return; }
+        function wsLoad() {
+            if (!wsReady()) {
+                fail('AjaxUtil 로드 실패 — 화면을 새로고침해 주세요.');
+                return;
+            }
             const df = document.getElementById('date_from').value;
             const dt = document.getElementById('date_to').value;
-            if(!df || !dt){ fail('작업일 기간을 선택해 주세요.'); return; }
+            if (!df || !dt) {
+                fail('작업일 기간을 선택해 주세요.');
+                return;
+            }
 
             const procKey = document.getElementById('cboProc').value;
             const actorPk = document.getElementById('cboActor').value;
             document.getElementById('body').innerHTML =
                 '<div class="ws-loading" style="grid-column:1/-1">불러오는 중…</div>';
 
-            const d = wsData(AjaxUtil.getSyncData(WS_API+'/process',
-                {date_from:df, date_to:dt, actor_pk:actorPk, spjangcd:WS_SPJANGCD}));
-            if(!d){ fail('조회에 실패했습니다.'); return; }
+            const d = wsData(AjaxUtil.getSyncData(WS_API + '/process',
+                {date_from: df, date_to: dt, actor_pk: actorPk, spjangcd: WS_SPJANGCD}));
+            if (!d) {
+                fail('조회에 실패했습니다.');
+                return;
+            }
 
             /* 그날 끝낸 모듈 스텝 — 카드에 "무엇을 만들었는지"를 적기 위해 */
             WS_STEPS = {};
-            (d.asm_steps || []).forEach(function(x){
+            (d.asm_steps || []).forEach(function (x) {
                 (WS_STEPS[x.unit_pk] = WS_STEPS[x.unit_pk] || []).push(x);
             });
             WS = {
                 assembly: d.assembly || [], inspect: d.inspect || [],
-                repair:   d.repair   || [], pack:    d.pack    || [],
-                defect:   d.defect   || []
+                repair: d.repair || [], pack: d.pack || [],
+                defect: d.defect || []
             };
             WS_ONLY = procKey || null;
 
@@ -263,14 +280,15 @@
             wsRender();
         }
 
-        function wsFillActors(list, keep){
+        function wsFillActors(list, keep) {
             const cbo = document.getElementById('cboActor');
             const cur = keep || cbo.value;
             cbo.innerHTML = '<option value="">전체</option>';
-            list.forEach(function(a){
+            list.forEach(function (a) {
                 const o = document.createElement('option');
-                o.value = a.pk; o.textContent = a.name;
-                if(String(a.pk) === String(cur)) o.selected = true;
+                o.value = a.pk;
+                o.textContent = a.name;
+                if (String(a.pk) === String(cur)) o.selected = true;
                 cbo.appendChild(o);
             });
         }
@@ -281,82 +299,96 @@
         //   ★ 대수를 공정끼리 더하지 않는다 — 한 대가 조립·검사·포장을 다 거쳐서
         //     더하면 같은 기계를 세 번 센다.
         // =====================================================
-        function wsRenderKPI(){
-            const asmDone = WS.assembly.filter(function(u){ return u.end_time; }).length;
+        function wsRenderKPI() {
+            const asmDone = WS.assembly.filter(function (u) {
+                return u.end_time;
+            }).length;
             document.getElementById('kUnits').textContent = num(asmDone);
             document.getElementById('kFinal').textContent = num(WS.pack.length);
 
             /* 합격률은 대수 기준 — 회차로 세면 재검사한 대가 여러 번 계산된다 */
-            const judged = WS.inspect.filter(function(u){ return wsVerdict(u) !== 'open'; });
-            const pass   = judged.filter(function(u){ return wsVerdict(u) === 'pass'; }).length;
+            const judged = WS.inspect.filter(function (u) {
+                return wsVerdict(u) !== 'open';
+            });
+            const pass = judged.filter(function (u) {
+                return wsVerdict(u) === 'pass';
+            }).length;
             document.getElementById('kPass').textContent =
-                judged.length ? (Math.round(pass/judged.length*1000)/10)+'%' : '—';
+                judged.length ? (Math.round(pass / judged.length * 1000) / 10) + '%' : '—';
 
             let dq = 0;
-            WS.defect.forEach(function(m){ dq += Number(m.defect_qty||0); });
+            WS.defect.forEach(function (m) {
+                dq += Number(m.defect_qty || 0);
+            });
             document.getElementById('kDefect').textContent = num(dq);
         }
 
         // =====================================================
         // 렌더
         // =====================================================
-        function wsDefectOf(code){
-            let q=0, c=0;
-            WS.defect.forEach(function(m){
-                if(m.proc_code !== code) return;
-                q += Number(m.defect_qty||0); c += Number(m.cnt||0);
+        function wsDefectOf(code) {
+            let q = 0, c = 0;
+            WS.defect.forEach(function (m) {
+                if (m.proc_code !== code) return;
+                q += Number(m.defect_qty || 0);
+                c += Number(m.cnt || 0);
             });
-            return {qty:q, cnt:c};
-        }
-        function wsCol(f, badges, body, tag){
-            const d = wsDefectOf(f.code);
-            const dchip = d.qty > 0
-                ? '<span class="ws-mini d tapd" onclick="wsOpenDefect(\'' + f.code + '\')">부적합 '+num(d.qty)+'</span>'
-                : '';
-            return '<div class="ws-col"><div class="ws-col-h">'
-                + '<div class="name">'+esc(f.name)+(tag?'<span class="tag">'+tag+'</span>':'')+'</div>'
-                + '<div class="cnt">'+badges+dchip+'</div></div>'
-                + '<div class="ws-col-body">'+body+'</div></div>';
-        }
-        /** 날짜가 바뀌면 구분선 */
-        function wsDay(cur, last){
-            return (cur !== last) ? '<div class="ws-day">'+esc(cur)+'</div>' : '';
+            return {qty: q, cnt: c};
         }
 
-        function wsRender(){
+        function wsCol(f, badges, body, tag) {
+            const d = wsDefectOf(f.code);
+            const dchip = d.qty > 0
+                ? '<span class="ws-mini d tapd" onclick="wsOpenDefect(\'' + f.code + '\')">부적합 ' + num(d.qty) + '</span>'
+                : '';
+            return '<div class="ws-col"><div class="ws-col-h">'
+                + '<div class="name">' + esc(f.name) + (tag ? '<span class="tag">' + tag + '</span>' : '') + '</div>'
+                + '<div class="cnt">' + badges + dchip + '</div></div>'
+                + '<div class="ws-col-body">' + body + '</div></div>';
+        }
+
+        /** 날짜가 바뀌면 구분선 */
+        function wsDay(cur, last) {
+            return (cur !== last) ? '<div class="ws-day">' + esc(cur) + '</div>' : '';
+        }
+
+        function wsRender() {
             let html = '';
-            WS_FLOW.forEach(function(f){
-                if(WS_ONLY && WS_ONLY !== f.key) return;
-                if(f.key === 'assembly')     html += wsColAssembly(f);
-                else if(f.key === 'inspect') html += wsColInspect(f);
-                else if(f.key === 'repair')  html += wsColRepair(f);
-                else                         html += wsColPack(f);
+            WS_FLOW.forEach(function (f) {
+                if (WS_ONLY && WS_ONLY !== f.key) return;
+                if (f.key === 'assembly') html += wsColAssembly(f);
+                else if (f.key === 'inspect') html += wsColInspect(f);
+                else if (f.key === 'repair') html += wsColRepair(f);
+                else html += wsColPack(f);
             });
             document.getElementById('body').innerHTML =
                 html || '<div class="ws-empty" style="grid-column:1/-1">해당 기간에 작업 실적이 없습니다.</div>';
         }
 
         /** 조립 — 카드 1장 = 유닛 1대 */
-        function wsColAssembly(f){
+        function wsColAssembly(f) {
             const rows = WS.assembly;
-            const done = rows.filter(function(u){ return u.end_time; }).length;
-            const badges = '<span class="ws-mini n">'+rows.length+'대</span>'
-                + '<span class="ws-mini g">완료 '+done+'</span>';
+            const done = rows.filter(function (u) {
+                return u.end_time;
+            }).length;
+            const badges = '<span class="ws-mini n">' + rows.length + '대</span>'
+                + '<span class="ws-mini g">완료 ' + done + '</span>';
 
             let last = null, body = '';
-            rows.forEach(function(u){
-                body += wsDay(u.prod_date, last); last = u.prod_date;
+            rows.forEach(function (u) {
+                body += wsDay(u.prod_date, last);
+                last = u.prod_date;
                 const running = !u.end_time;
-                const stTotal = Number(u.step_total||0), stDone = Number(u.step_done||0);
-                body += '<div class="ws-card'+(running?' run':' done')+'" onclick="wsOpenUnit('+u.pk+',\'assembly\')">'
-                    + '<div class="c-mat">'+esc(u.mat_name||'-')+'</div>'
-                    + '<div class="c-code">'+esc(u.lot_number||'-')+'</div>'
+                const stTotal = Number(u.step_total || 0), stDone = Number(u.step_done || 0);
+                body += '<div class="ws-card' + (running ? ' run' : ' done') + '" onclick="wsOpenUnit(' + u.pk + ',\'assembly\')">'
+                    + '<div class="c-mat">' + esc(u.mat_name || '-') + '</div>'
+                    + '<div class="c-code">' + esc(u.lot_number || '-') + '</div>'
                     + '<div class="c-qty">'
-                    +   (running ? '<span class="q-plan">'+stDone+' / '+stTotal+' 단계</span>' : '1<span class="c-lot">대</span>')
-                    +   '</div>'
-                    + '<div class="c-meta">'+esc(u.worker||'-')+(u.equipment?' · '+esc(u.equipment):'')+'</div>'
-                    + '<div class="c-meta">'+esc(u.start_short||'-')+' ~ '
-                    +   (running ? '<span class="run-t">작업중</span>' : esc(u.end_short||'-'))+'</div>'
+                    + (running ? '<span class="q-plan">' + stDone + ' / ' + stTotal + ' 단계</span>' : '1<span class="c-lot">대</span>')
+                    + '</div>'
+                    + '<div class="c-meta">' + esc(u.worker || '-') + (u.equipment ? ' · ' + esc(u.equipment) : '') + '</div>'
+                    + '<div class="c-meta">' + esc(u.start_short || '-') + ' ~ '
+                    + (running ? '<span class="run-t">작업중</span>' : esc(u.end_short || '-')) + '</div>'
                     + (Number(u.rework_cnt) ? '<div class="c-foot"><span class="ws-chip wait">재조립</span></div>' : '')
                     + '</div>';
             });
@@ -370,140 +402,155 @@
          * 카드가 서너 장으로 흩어져 대수가 안 보인다. 유닛으로 접고
          * 양식별 회차는 눌러서 본다.
          */
-        function wsColInspect(f){
+        function wsColInspect(f) {
             const rows = WS.inspect;
-            const pass = rows.filter(function(u){ return wsVerdict(u) === 'pass'; }).length;
-            const fl   = rows.filter(function(u){ return wsVerdict(u) === 'fail'; }).length;
-            const badges = '<span class="ws-mini n">'+rows.length+'대</span>'
-                + '<span class="ws-mini g">합격 '+pass+'</span>'
-                + (fl?'<span class="ws-mini x">불합격 '+fl+'</span>':'');
+            const pass = rows.filter(function (u) {
+                return wsVerdict(u) === 'pass';
+            }).length;
+            const fl = rows.filter(function (u) {
+                return wsVerdict(u) === 'fail';
+            }).length;
+            const badges = '<span class="ws-mini n">' + rows.length + '대</span>'
+                + '<span class="ws-mini g">합격 ' + pass + '</span>'
+                + (fl ? '<span class="ws-mini x">불합격 ' + fl + '</span>' : '');
 
             let last = null, body = '';
-            rows.forEach(function(u){
-                body += wsDay(u.prod_date, last); last = u.prod_date;
-                const v   = wsVerdict(u);
-                const cls = (v==='pass') ? 'done' : (v==='fail' ? 'scrapped' : 'run');
-                const nm  = (v==='pass') ? '합격' : (v==='fail' ? '불합격' : '진행중');
-                const retry = Number(u.try_cnt||0) > Number(u.form_cnt||0);
-                body += '<div class="ws-card '+cls+'" onclick="wsOpenInspect('+u.pk+')">'
-                    + '<div class="c-mat">'+esc(u.mat_name||'-')+'</div>'
-                    + '<div class="c-code">'+esc(u.lot_number||'-')+'</div>'
-                    + '<div class="c-form">'+esc(u.form_names||'-')+'</div>'
-                    + '<div class="c-qty">1<span class="c-lot">대 · 검사 '+num(u.form_cnt)+'종</span></div>'
-                    + '<div class="c-meta">'+esc(u.worker||'-')
-                    +   (u.is_repair==='Y' ? '<span class="c-md">수리품</span>' : '')+'</div>'
-                    + '<div class="c-meta">'+esc(u.end_short||'-')+'</div>'
-                    + '<div class="c-foot"><span class="ws-chip '+cls+'"><span class="dot"></span>'+nm+'</span>'
-                    +   (retry ? '<span class="ws-mini n">재검사 '+num(u.try_cnt)+'회</span>' : '')+'</div>'
-                    + (u.reject_reason ? '<div class="c-reason">'+esc(u.reject_reason)+'</div>' : '')
+            rows.forEach(function (u) {
+                body += wsDay(u.prod_date, last);
+                last = u.prod_date;
+                const v = wsVerdict(u);
+                const cls = (v === 'pass') ? 'done' : (v === 'fail' ? 'scrapped' : 'run');
+                const nm = (v === 'pass') ? '합격' : (v === 'fail' ? '불합격' : '진행중');
+                const retry = Number(u.try_cnt || 0) > Number(u.form_cnt || 0);
+                body += '<div class="ws-card ' + cls + '" onclick="wsOpenInspect(' + u.pk + ')">'
+                    + '<div class="c-mat">' + esc(u.mat_name || '-') + '</div>'
+                    + '<div class="c-code">' + esc(u.lot_number || '-') + '</div>'
+                    + '<div class="c-form">' + esc(u.form_names || '-') + '</div>'
+                    + '<div class="c-qty">1<span class="c-lot">대 · 검사 ' + num(u.form_cnt) + '종</span></div>'
+                    + '<div class="c-meta">' + esc(u.worker || '-')
+                    + (u.is_repair === 'Y' ? '<span class="c-md">수리품</span>' : '') + '</div>'
+                    + '<div class="c-meta">' + esc(u.end_short || '-') + '</div>'
+                    + '<div class="c-foot"><span class="ws-chip ' + cls + '"><span class="dot"></span>' + nm + '</span>'
+                    + (retry ? '<span class="ws-mini n">재검사 ' + num(u.try_cnt) + '회</span>' : '') + '</div>'
+                    + (u.reject_reason ? '<div class="c-reason">' + esc(u.reject_reason) + '</div>' : '')
                     + '</div>';
             });
             return wsCol(f, badges, body || '<div class="ws-empty">작업 없음</div>', '대수');
         }
+
         /** 전 양식 합격이어야 합격. 하나라도 불합격이면 불합격 (검사 화면과 같은 규칙) */
-        function wsVerdict(u){
-            if(Number(u.fail_cnt||0) > 0) return 'fail';
-            if(Number(u.open_cnt||0) > 0) return 'open';
-            return Number(u.pass_cnt||0) > 0 ? 'pass' : 'open';
+        function wsVerdict(u) {
+            if (Number(u.fail_cnt || 0) > 0) return 'fail';
+            if (Number(u.open_cnt || 0) > 0) return 'open';
+            return Number(u.pass_cnt || 0) > 0 ? 'pass' : 'open';
         }
 
         /** 수리 — 카드 1장 = 수리 유닛 1대 */
-        function wsColRepair(f){
+        function wsColRepair(f) {
             const rows = WS.repair;
-            const done = rows.filter(function(u){ return u.end_time; }).length;
-            const badges = '<span class="ws-mini n">'+rows.length+'대</span>'
-                + '<span class="ws-mini g">완료 '+done+'</span>';
+            const done = rows.filter(function (u) {
+                return u.end_time;
+            }).length;
+            const badges = '<span class="ws-mini n">' + rows.length + '대</span>'
+                + '<span class="ws-mini g">완료 ' + done + '</span>';
 
             let last = null, body = '';
-            rows.forEach(function(u){
-                body += wsDay(u.prod_date, last); last = u.prod_date;
+            rows.forEach(function (u) {
+                body += wsDay(u.prod_date, last);
+                last = u.prod_date;
                 const running = !u.end_time;
                 const cat = (u.repair_cat === 'return') ? '반품'
                     : (u.repair_cat === 'spec' ? '사양변경' : '');
-                body += '<div class="ws-card'+(running?' run':' done')+'" onclick="wsOpenUnit('+u.pk+',\'repair\')">'
-                    + '<div class="c-mat">'+esc(u.mat_name||'-')+'</div>'
-                    + '<div class="c-code">'+esc(u.lot_number||'-')+'</div>'
-                    + (u.src_lot ? '<div class="c-code">원 '+esc(u.src_lot)+'</div>' : '')
+                body += '<div class="ws-card' + (running ? ' run' : ' done') + '" onclick="wsOpenUnit(' + u.pk + ',\'repair\')">'
+                    + '<div class="c-mat">' + esc(u.mat_name || '-') + '</div>'
+                    + '<div class="c-code">' + esc(u.lot_number || '-') + '</div>'
+                    + (u.src_lot ? '<div class="c-code">원 ' + esc(u.src_lot) + '</div>' : '')
                     + '<div class="c-qty">'
-                    +   (running ? '<span class="q-plan">수리중</span>' : '1<span class="c-lot">대</span>')+'</div>'
-                    + '<div class="c-meta">'+esc(u.worker||'-')+(u.equipment?' · '+esc(u.equipment):'')+'</div>'
-                    + '<div class="c-meta">'+esc(u.start_short||'-')+' ~ '
-                    +   (running ? '<span class="run-t">작업중</span>' : esc(u.end_short||'-'))+'</div>'
-                    + '<div class="c-foot">'+(cat?'<span class="ws-chip wait">'+cat+'</span>':'')
-                    +   (Number(u.mat_in_cnt)||Number(u.mat_out_cnt)
-                        ? '<span class="ws-mini n">자재 +'+num(u.mat_in_cnt)+' / -'+num(u.mat_out_cnt)+'</span>' : '')
+                    + (running ? '<span class="q-plan">수리중</span>' : '1<span class="c-lot">대</span>') + '</div>'
+                    + '<div class="c-meta">' + esc(u.worker || '-') + (u.equipment ? ' · ' + esc(u.equipment) : '') + '</div>'
+                    + '<div class="c-meta">' + esc(u.start_short || '-') + ' ~ '
+                    + (running ? '<span class="run-t">작업중</span>' : esc(u.end_short || '-')) + '</div>'
+                    + '<div class="c-foot">' + (cat ? '<span class="ws-chip wait">' + cat + '</span>' : '')
+                    + (Number(u.mat_in_cnt) || Number(u.mat_out_cnt)
+                        ? '<span class="ws-mini n">자재 +' + num(u.mat_in_cnt) + ' / -' + num(u.mat_out_cnt) + '</span>' : '')
                     + '</div>'
-                    + (u.repair_reason ? '<div class="c-reason">'+esc(u.repair_reason)+'</div>' : '')
+                    + (u.repair_reason ? '<div class="c-reason">' + esc(u.repair_reason) + '</div>' : '')
                     + '</div>';
             });
             return wsCol(f, badges, body || '<div class="ws-empty">작업 없음</div>', '대수');
         }
 
-        /** 포장 — 공정 미구현이라 당분간 비어 있다 */
-        function wsColPack(f){
+        /** 포장 — 카드 1장 = 박스 1개(= 유닛 1대) */
+        function wsColPack(f) {
             const rows = WS.pack;
-            const badges = '<span class="ws-mini n">'+rows.length+'대</span>';
+            const badges = '<span class="ws-mini n">' + rows.length + '대</span>'
+                + (rows.length ? '<span class="ws-mini g">완료 ' + rows.length + '</span>' : '');
 
             let last = null, body = '';
-            rows.forEach(function(u){
-                body += wsDay(u.prod_date, last); last = u.prod_date;
-                body += '<div class="ws-card done">'
-                    + '<div class="c-mat">'+esc(u.mat_name||'-')+'</div>'
-                    + '<div class="c-code">'+esc(u.lot_number||'-')+'</div>'
-                    + (u.maker_lot_no ? '<div class="c-code">라벨 '+esc(u.maker_lot_no)+'</div>' : '')
+            rows.forEach(function (u) {
+                body += wsDay(u.prod_date, last);
+                last = u.prod_date;
+                const running = !u.end_time;
+                body += '<div class="ws-card' + (running ? ' run' : ' done') + '" onclick="wsOpenPack(' + u.pk + ')">'
+                    + '<div class="c-mat">' + esc(u.mat_name || '-') + '</div>'
+                    + '<div class="c-code">' + esc(u.lot_number || '-') + '</div>'
+                    + (u.maker_lot_no ? '<div class="c-form">박스 ' + esc(u.maker_lot_no) + '</div>' : '')
                     + '<div class="c-qty">1<span class="c-lot">대</span></div>'
-                    + '<div class="c-meta">'+esc(u.worker||'-')+'</div>'
-                    + '<div class="c-meta">'+esc(u.end_short||'-')+'</div>'
+                    + '<div class="c-meta">' + esc(u.worker || '-') + (u.equipment ? ' · ' + esc(u.equipment) : '') + '</div>'
+                    + '<div class="c-meta">' + esc(u.start_short || '-') + ' ~ '
+                    + (running ? '<span class="run-t">작업중</span>' : esc(u.end_short || '-')) + '</div>'
+                    + (u.is_repair === 'Y' ? '<div class="c-foot"><span class="ws-chip wait">수리품</span></div>' : '')
                     + '</div>';
             });
-            return wsCol(f, badges,
-                body || '<div class="ws-empty">포장 공정은 아직 준비 중입니다</div>', '대수');
+            return wsCol(f, badges, body || '<div class="ws-empty">작업 없음</div>', '대수');
         }
 
         // =====================================================
         // 모달
         // =====================================================
-        function wsOpenUnit(unitPk, kind){
+        function wsOpenUnit(unitPk, kind) {
             const list = (kind === 'repair') ? WS.repair : WS.assembly;
-            const u = list.find(function(x){ return x.pk === unitPk; });
-            if(!u) return;
+            const u = list.find(function (x) {
+                return x.pk === unitPk;
+            });
+            if (!u) return;
 
             document.getElementById('mTitle').innerHTML =
-                (kind==='repair' ? '수리' : '조립')+' 상세 <small>'+esc(u.lot_number||'')+' · '+esc(u.mat_name||'')+'</small>';
+                (kind === 'repair' ? '수리' : '조립') + ' 상세 <small>' + esc(u.lot_number || '') + ' · ' + esc(u.mat_name || '') + '</small>';
             document.getElementById('mBody').innerHTML = '<div class="ws-loading">불러오는 중…</div>';
             document.getElementById('ov').classList.add('on');
 
-            const d = wsData(AjaxUtil.getSyncData(WS_API+'/unit_detail', {unit_pk:unitPk})) || {};
+            const d = wsData(AjaxUtil.getSyncData(WS_API + '/unit_detail', {unit_pk: unitPk})) || {};
 
             let html = '<div class="ws-kv">'
-                + '<div><div class="k">품목</div><div class="v">'+esc(u.mat_name||'-')+'</div></div>'
-                + '<div><div class="k">로트번호</div><div class="v">'+esc(u.lot_number||'-')+'</div></div>'
-                + '<div><div class="k">호기</div><div class="v">#'+esc(u.unit_no||'-')+'</div></div>'
-                + '<div><div class="k">상태</div><div class="v">'+esc(WS_USTATE[u.unit_state]||u.unit_state||'-')+'</div></div>'
-                + '<div><div class="k">작업자</div><div class="v">'+esc(u.worker||'-')+'</div></div>'
-                + '<div><div class="k">설비</div><div class="v">'+esc(u.equipment||'-')+'</div></div>'
-                + '<div><div class="k">작업시각</div><div class="v">'+esc(u.start_time||'-')+'<br>~ '+esc(u.end_time||'작업중')+'</div></div>'
-                + (u.src_lot ? '<div><div class="k">원 로트</div><div class="v">'+esc(u.src_lot)+'</div></div>' : '')
+                + '<div><div class="k">품목</div><div class="v">' + esc(u.mat_name || '-') + '</div></div>'
+                + '<div><div class="k">로트번호</div><div class="v">' + esc(u.lot_number || '-') + '</div></div>'
+                + '<div><div class="k">호기</div><div class="v">#' + esc(u.unit_no || '-') + '</div></div>'
+                + '<div><div class="k">상태</div><div class="v">' + esc(WS_USTATE[u.unit_state] || u.unit_state || '-') + '</div></div>'
+                + '<div><div class="k">작업자</div><div class="v">' + esc(u.worker || '-') + '</div></div>'
+                + '<div><div class="k">설비</div><div class="v">' + esc(u.equipment || '-') + '</div></div>'
+                + '<div><div class="k">작업시각</div><div class="v">' + esc(u.start_time || '-') + '<br>~ ' + esc(u.end_time || '작업중') + '</div></div>'
+                + (u.src_lot ? '<div><div class="k">원 로트</div><div class="v">' + esc(u.src_lot) + '</div></div>' : '')
                 + '</div>';
 
-            if(u.reject_reason)
-                html += '<div class="ws-banner">불합격 사유 · '+esc(u.reject_reason)+'</div>';
+            if (u.reject_reason)
+                html += '<div class="ws-banner">불합격 사유 · ' + esc(u.reject_reason) + '</div>';
 
             /* 수리는 자재 가감, 조립은 BOM 스텝 */
-            if(kind === 'repair'){
+            if (kind === 'repair') {
                 const mats = d.mats || [];
                 html += '<div class="ws-sub-h">자재 가감</div>';
                 html += mats.length
                     ? '<table class="ws-sess"><thead><tr><th>구분</th><th class="left">자재</th>'
                     + '<th>수량</th><th>로트</th><th>반영</th></tr></thead><tbody>'
-                    + mats.map(function(x){
+                    + mats.map(function (x) {
                         const plus = (x.dir === '+');
-                        return '<tr><td class="w" style="color:'+(plus?'#0f9d58':'#d64545')+'">'
-                            + (plus?'＋ 투입':'－ 회수')+'</td>'
-                            + '<td class="left">'+esc(x.mat_name||'-')+'</td>'
-                            + '<td class="w">'+num(x.qty)+' '+esc(x.unit||'')+'</td>'
-                            + '<td><span class="ws-code">'+esc(x.lot_number||x.src_lot||'-')+'</span></td>'
-                            + '<td>'+(x.state==='applied'?'<span class="ws-chip done">반영됨</span>':'<span class="ws-chip wait">예정</span>')+'</td></tr>';
+                        return '<tr><td class="w" style="color:' + (plus ? '#0f9d58' : '#d64545') + '">'
+                            + (plus ? '＋ 투입' : '－ 회수') + '</td>'
+                            + '<td class="left">' + esc(x.mat_name || '-') + '</td>'
+                            + '<td class="w">' + num(x.qty) + ' ' + esc(x.unit || '') + '</td>'
+                            + '<td><span class="ws-code">' + esc(x.lot_number || x.src_lot || '-') + '</span></td>'
+                            + '<td>' + (x.state === 'applied' ? '<span class="ws-chip done">반영됨</span>' : '<span class="ws-chip wait">예정</span>') + '</td></tr>';
                     }).join('') + '</tbody></table>'
                     : '<div class="ws-sess-empty">자재 가감 내역이 없습니다.</div>';
             } else {
@@ -512,15 +559,15 @@
                 html += steps.length
                     ? '<table class="ws-sess"><thead><tr><th>단계</th><th class="left">부품</th>'
                     + '<th>방식</th><th>시작</th><th>종료</th><th>상태</th></tr></thead><tbody>'
-                    + steps.map(function(x){
-                        const c = (x.state==='done')?'done':(x.state==='working'?'run':'wait');
-                        const n = (x.state==='done')?'완료':(x.state==='working'?'작업중':'대기');
-                        return '<tr><td class="w">L'+esc(x.depth)+'</td>'
-                            + '<td class="left">'+esc(x.mat_name||'-')+' <span class="ws-code">'+esc(x.mat_code||'')+'</span></td>'
-                            + '<td>'+(x.source==='stock'?'재고 투입':'조립')+'</td>'
-                            + '<td>'+esc(x.start_short||'-')+'</td><td>'+esc(x.end_short||'-')+'</td>'
-                            + '<td><span class="ws-chip '+c+'"><span class="dot"></span>'+n+'</span>'
-                            + (x.rework_yn==='Y'?'<span class="c-md">재조립</span>':'')+'</td></tr>';
+                    + steps.map(function (x) {
+                        const c = (x.state === 'done') ? 'done' : (x.state === 'working' ? 'run' : 'wait');
+                        const n = (x.state === 'done') ? '완료' : (x.state === 'working' ? '작업중' : '대기');
+                        return '<tr><td class="w">L' + esc(x.depth) + '</td>'
+                            + '<td class="left">' + esc(x.mat_name || '-') + ' <span class="ws-code">' + esc(x.mat_code || '') + '</span></td>'
+                            + '<td>' + (x.source === 'stock' ? '재고 투입' : '조립') + '</td>'
+                            + '<td>' + esc(x.start_short || '-') + '</td><td>' + esc(x.end_short || '-') + '</td>'
+                            + '<td><span class="ws-chip ' + c + '"><span class="dot"></span>' + n + '</span>'
+                            + (x.rework_yn === 'Y' ? '<span class="c-md">재조립</span>' : '') + '</td></tr>';
                     }).join('') + '</tbody></table>'
                     : '<div class="ws-sess-empty">단계 정보가 없습니다.</div>';
             }
@@ -530,79 +577,83 @@
             html += cons.length
                 ? '<table class="ws-sess"><thead><tr><th class="left">자재</th><th>로트</th>'
                 + '<th>단위</th><th>수량</th></tr></thead><tbody>'
-                + cons.map(function(c){
-                    return '<tr><td class="left w">'+esc(c.mat_name||'-')+' <span class="ws-code">'+esc(c.mat_code||'')+'</span></td>'
-                        + '<td><span class="ws-code">'+esc(c.lot_number||'-')+'</span></td>'
-                        + '<td>'+esc(c.unit||'-')+'</td><td class="w">'+num(c.qty)+'</td></tr>';
+                + cons.map(function (c) {
+                    return '<tr><td class="left w">' + esc(c.mat_name || '-') + ' <span class="ws-code">' + esc(c.mat_code || '') + '</span></td>'
+                        + '<td><span class="ws-code">' + esc(c.lot_number || '-') + '</span></td>'
+                        + '<td>' + esc(c.unit || '-') + '</td><td class="w">' + num(c.qty) + '</td></tr>';
                 }).join('') + '</tbody></table>'
                 : '<div class="ws-sess-empty">투입 내역이 없습니다.</div>';
 
             const insp = d.inspects || [];
-            if(insp.length){
+            if (insp.length) {
                 html += '<div class="ws-sub-h">검사 이력</div>'
-                    +  '<table class="ws-sess"><thead><tr><th>회차</th><th class="left">양식</th>'
-                    +  '<th>결과</th><th>일시</th><th class="left">사유</th></tr></thead><tbody>'
-                    + insp.map(function(x){
-                        const c = (x.verdict==='pass')?'done':(x.verdict==='fail'?'scrapped':'wait');
-                        const n = (x.verdict==='pass')?'합격':(x.verdict==='fail'?'불합격':'진행중');
-                        return '<tr><td class="w">'+esc(x.try_no)+'</td><td class="left">'+esc(x.form_name||'-')+'</td>'
-                            + '<td><span class="ws-chip '+c+'"><span class="dot"></span>'+n+'</span></td>'
-                            + '<td>'+esc(x.created||'-')+'</td>'
-                            + '<td class="left">'+esc(x.fail_reason||'-')+'</td></tr>';
+                    + '<table class="ws-sess"><thead><tr><th>회차</th><th class="left">양식</th>'
+                    + '<th>결과</th><th>일시</th><th class="left">사유</th></tr></thead><tbody>'
+                    + insp.map(function (x) {
+                        const c = (x.verdict === 'pass') ? 'done' : (x.verdict === 'fail' ? 'scrapped' : 'wait');
+                        const n = (x.verdict === 'pass') ? '합격' : (x.verdict === 'fail' ? '불합격' : '진행중');
+                        return '<tr><td class="w">' + esc(x.try_no) + '</td><td class="left">' + esc(x.form_name || '-') + '</td>'
+                            + '<td><span class="ws-chip ' + c + '"><span class="dot"></span>' + n + '</span></td>'
+                            + '<td>' + esc(x.created || '-') + '</td>'
+                            + '<td class="left">' + esc(x.fail_reason || '-') + '</td></tr>';
                     }).join('') + '</tbody></table>';
             }
 
             document.getElementById('mBody').innerHTML = html;
         }
 
-        function wsOpenInspect(unitPk){
-            const u = WS.inspect.find(function(x){ return x.pk === unitPk; });
-            if(!u) return;
+        function wsOpenInspect(unitPk) {
+            const u = WS.inspect.find(function (x) {
+                return x.pk === unitPk;
+            });
+            if (!u) return;
             document.getElementById('mTitle').innerHTML =
-                '검사 상세 <small>'+esc(u.lot_number||'')+' · '+esc(u.mat_name||'')+'</small>';
+                '검사 상세 <small>' + esc(u.lot_number || '') + ' · ' + esc(u.mat_name || '') + '</small>';
             document.getElementById('mBody').innerHTML = '<div class="ws-loading">불러오는 중…</div>';
             document.getElementById('ov').classList.add('on');
 
-            const d = wsData(AjaxUtil.getSyncData(WS_API+'/unit_inspect', {unit_pk:unitPk})) || {};
+            const d = wsData(AjaxUtil.getSyncData(WS_API + '/unit_inspect', {unit_pk: unitPk})) || {};
             const forms = d.forms || [], tries = d.tries || [];
             WS_TRIES = tries;
 
             let html = '<div class="ws-kv">'
-                + '<div><div class="k">품목</div><div class="v">'+esc(u.mat_name||'-')+'</div></div>'
-                + '<div><div class="k">로트번호</div><div class="v">'+esc(u.lot_number||'-')+'</div></div>'
-                + '<div><div class="k">호기</div><div class="v">#'+esc(u.unit_no||'-')+'</div></div>'
-                + '<div><div class="k">상태</div><div class="v">'+esc(WS_USTATE[u.unit_state]||u.unit_state||'-')+'</div></div>'
-                + (u.src_lot ? '<div><div class="k">원 로트</div><div class="v">'+esc(u.src_lot)+'</div></div>' : '')
+                + '<div><div class="k">품목</div><div class="v">' + esc(u.mat_name || '-') + '</div></div>'
+                + '<div><div class="k">로트번호</div><div class="v">' + esc(u.lot_number || '-') + '</div></div>'
+                + '<div><div class="k">호기</div><div class="v">#' + esc(u.unit_no || '-') + '</div></div>'
+                + '<div><div class="k">상태</div><div class="v">' + esc(WS_USTATE[u.unit_state] || u.unit_state || '-') + '</div></div>'
+                + (u.src_lot ? '<div><div class="k">원 로트</div><div class="v">' + esc(u.src_lot) + '</div></div>' : '')
                 + '</div>';
-            if(u.reject_reason)
-                html += '<div class="ws-banner">불합격 사유 · '+esc(u.reject_reason)+'</div>';
+            if (u.reject_reason)
+                html += '<div class="ws-banner">불합격 사유 · ' + esc(u.reject_reason) + '</div>';
 
             /* 양식(ROTOR / BASKET …) 하나가 블록 하나. 그 안에 회차가 들어간다 */
             html += '<div class="ws-sub-h">검사 유형</div>';
-            html += forms.length ? forms.map(function(fm){
+            html += forms.length ? forms.map(function (fm) {
                 /* 최종 판정은 마지막 회차. 이전 불합격 회차는 이력으로만 남는다 */
                 const v = (fm.last_verdict === 'pass') ? 'pass'
                     : (fm.last_verdict === 'fail' ? 'fail' : 'open');
-                const cls = (v==='pass')?'done':(v==='fail'?'scrapped':'run');
-                const nm  = (v==='pass')?'합격':(v==='fail'?'불합격':'진행중');
-                const its = tries.filter(function(t){ return String(t.form_pk) === String(fm.form_pk); });
+                const cls = (v === 'pass') ? 'done' : (v === 'fail' ? 'scrapped' : 'run');
+                const nm = (v === 'pass') ? '합격' : (v === 'fail' ? '불합격' : '진행중');
+                const its = tries.filter(function (t) {
+                    return String(t.form_pk) === String(fm.form_pk);
+                });
                 return '<div class="ws-fgrp">'
-                    + '<div class="ws-fgrp-h"><span class="fn">'+esc(fm.form_name||'-')+'</span>'
-                    +   '<span class="ws-code">'+num(fm.item_cnt)+'항목</span>'
-                    +   '<span class="rt"><span class="ws-mini n">'+num(fm.try_cnt)+'회차</span>'
-                    +   '<span class="ws-chip '+cls+'"><span class="dot"></span>'+nm+'</span></span></div>'
+                    + '<div class="ws-fgrp-h"><span class="fn">' + esc(fm.form_name || '-') + '</span>'
+                    + '<span class="ws-code">' + num(fm.item_cnt) + '항목</span>'
+                    + '<span class="rt"><span class="ws-mini n">' + num(fm.try_cnt) + '회차</span>'
+                    + '<span class="ws-chip ' + cls + '"><span class="dot"></span>' + nm + '</span></span></div>'
                     + '<table class="ws-sess"><thead><tr><th>회차</th><th>결과</th><th>검사자</th>'
-                    +   '<th>일시</th><th class="left">사유</th><th></th></tr></thead><tbody>'
-                    + its.map(function(t){
-                        const c = (t.verdict==='pass')?'done':(t.verdict==='fail'?'scrapped':'wait');
-                        const n = (t.verdict==='pass')?'합격':(t.verdict==='fail'?'불합격':'진행중');
-                        return '<tr><td class="w">'+esc(t.try_no)+'회</td>'
-                            + '<td><span class="ws-chip '+c+'"><span class="dot"></span>'+n+'</span></td>'
-                            + '<td>'+esc(t.worker||'-')+'</td>'
-                            + '<td>'+esc(t.created||'-')+'</td>'
-                            + '<td class="left">'+esc(t.fail_reason||'-')+'</td>'
+                    + '<th>일시</th><th class="left">사유</th><th></th></tr></thead><tbody>'
+                    + its.map(function (t) {
+                        const c = (t.verdict === 'pass') ? 'done' : (t.verdict === 'fail' ? 'scrapped' : 'wait');
+                        const n = (t.verdict === 'pass') ? '합격' : (t.verdict === 'fail' ? '불합격' : '진행중');
+                        return '<tr><td class="w">' + esc(t.try_no) + '회</td>'
+                            + '<td><span class="ws-chip ' + c + '"><span class="dot"></span>' + n + '</span></td>'
+                            + '<td>' + esc(t.worker || '-') + '</td>'
+                            + '<td>' + esc(t.created || '-') + '</td>'
+                            + '<td class="left">' + esc(t.fail_reason || '-') + '</td>'
                             + '<td><button type="button" class="ws-mini r tapd" '
-                            +   'onclick="wsOpenItems('+t.pk+')">항목 ›</button></td></tr>';
+                            + 'onclick="wsOpenItems(' + t.pk + ')">항목 ›</button></td></tr>';
                     }).join('')
                     + '</tbody></table></div>';
             }).join('') : '<div class="ws-sess-empty">검사 이력이 없습니다.</div>';
@@ -611,72 +662,123 @@
         }
 
         /** 회차 하나의 항목별 결과 */
-        function wsOpenItems(resultPk){
-            const t = (WS_TRIES || []).find(function(x){ return x.pk === resultPk; });
+        function wsOpenItems(resultPk) {
+            const t = (WS_TRIES || []).find(function (x) {
+                return x.pk === resultPk;
+            });
             document.getElementById('mTitle').innerHTML = '검사 항목 <small>'
-                + esc(t ? (t.form_name||'') : '') + (t ? ' · '+esc(t.try_no)+'회차' : '') + '</small>';
+                + esc(t ? (t.form_name || '') : '') + (t ? ' · ' + esc(t.try_no) + '회차' : '') + '</small>';
             document.getElementById('mBody').innerHTML = '<div class="ws-loading">불러오는 중…</div>';
 
-            const items = wsData(AjaxUtil.getSyncData(WS_API+'/inspect_items', {result_pk:resultPk})) || [];
+            const items = wsData(AjaxUtil.getSyncData(WS_API + '/inspect_items', {result_pk: resultPk})) || [];
             let html = '';
-            if(t && t.fail_reason)
-                html += '<div class="ws-banner">불합격 사유 · '+esc(t.fail_reason)+'</div>';
+            if (t && t.fail_reason)
+                html += '<div class="ws-banner">불합격 사유 · ' + esc(t.fail_reason) + '</div>';
             html += items.length
                 ? '<table class="ws-sess"><thead><tr><th class="left">항목</th><th>회차</th>'
                 + '<th>규격</th><th>측정값</th><th>검사자</th><th>결과</th></tr></thead><tbody>'
-                + items.map(function(x){
-                    const okc = (x.result==='pass') ? 'done' : (x.result==='fail' ? 'scrapped' : 'wait');
-                    const okn = (x.result==='pass') ? '합격' : (x.result==='fail' ? '불합격' : '-');
-                    return '<tr><td class="left w">'+esc(x.item_name||'-')+'</td>'
-                        + '<td>'+(Number(x.repeat_count)>1 ? esc(x.repeat_no)+' / '+esc(x.repeat_count) : '-')+'</td>'
-                        + '<td>'+esc(x.spec_label||'-')+(x.spec_tool?' <span class="ws-code">'+esc(x.spec_tool)+'</span>':'')+'</td>'
-                        + '<td class="w">'+esc(x.value||'-')+'</td>'
-                        + '<td>'+esc(x.worker||'-')+'</td>'
-                        + '<td><span class="ws-chip '+okc+'">'+okn+'</span></td></tr>';
+                + items.map(function (x) {
+                    const okc = (x.result === 'pass') ? 'done' : (x.result === 'fail' ? 'scrapped' : 'wait');
+                    const okn = (x.result === 'pass') ? '합격' : (x.result === 'fail' ? '불합격' : '-');
+                    return '<tr><td class="left w">' + esc(x.item_name || '-') + '</td>'
+                        + '<td>' + (Number(x.repeat_count) > 1 ? esc(x.repeat_no) + ' / ' + esc(x.repeat_count) : '-') + '</td>'
+                        + '<td>' + esc(x.spec_label || '-') + (x.spec_tool ? ' <span class="ws-code">' + esc(x.spec_tool) + '</span>' : '') + '</td>'
+                        + '<td class="w">' + esc(x.value || '-') + '</td>'
+                        + '<td>' + esc(x.worker || '-') + '</td>'
+                        + '<td><span class="ws-chip ' + okc + '">' + okn + '</span></td></tr>';
                 }).join('') + '</tbody></table>'
                 : '<div class="ws-sess-empty">항목 결과가 없습니다.</div>';
             document.getElementById('mBody').innerHTML = html;
         }
 
-        function wsOpenDefect(procCode){
+        /** 포장 상세 — 그 박스에 들어간 자재 */
+        function wsOpenPack(mpPk) {
+            const u = WS.pack.find(function (x) {
+                return x.pk === mpPk;
+            });
+            if (!u) return;
+            document.getElementById('mTitle').innerHTML =
+                '포장 상세 <small>' + esc(u.lot_number || '') + ' · ' + esc(u.mat_name || '') + '</small>';
+            document.getElementById('mBody').innerHTML = '<div class="ws-loading">불러오는 중…</div>';
+            document.getElementById('ov').classList.add('on');
+
+            const cons = wsData(AjaxUtil.getSyncData(WS_API + '/pack_detail', {mp_pk: mpPk})) || [];
+
+            let html = '<div class="ws-kv">'
+                + '<div><div class="k">완제품</div><div class="v">' + esc(u.mat_name || '-') + '</div></div>'
+                + '<div><div class="k">완제품 로트</div><div class="v">' + esc(u.lot_number || '-') + '</div></div>'
+                + '<div><div class="k">박스 라벨</div><div class="v">' + esc(u.maker_lot_no || '-') + '</div></div>'
+                + '<div><div class="k">호기</div><div class="v">#' + esc(u.unit_no || '-') + '</div></div>'
+                + '<div><div class="k">작업지시</div><div class="v">' + esc(u.wo || '-') + '</div></div>'
+                + '<div><div class="k">작업자</div><div class="v">' + esc(u.worker || '-') + '</div></div>'
+                + '<div><div class="k">설비</div><div class="v">' + esc(u.equipment || '-') + '</div></div>'
+                + '<div><div class="k">작업시각</div><div class="v">' + esc(u.start_time || '-') + '<br>~ ' + esc(u.end_time || '작업중') + '</div></div>'
+                + (u.src_lot ? '<div><div class="k">원 로트</div><div class="v">' + esc(u.src_lot) + '</div></div>' : '')
+                + '</div>';
+
+            html += '<div class="ws-sub-h">투입 자재</div>';
+            html += cons.length
+                ? '<table class="ws-sess"><thead><tr><th class="left">자재</th><th>투입 로트</th>'
+                + '<th>외부라벨</th><th>단위</th><th>수량</th></tr></thead><tbody>'
+                + cons.map(function (c) {
+                    /* 유닛 본체는 포장자재와 성격이 달라 눈에 띄게 둔다 */
+                    const isUnit = (c.mat_type === 'semi' || c.mat_type === 'product');
+                    return '<tr><td class="left w">' + esc(c.mat_name || '-')
+                        + (isUnit ? '<span class="c-md">본체</span>' : '')
+                        + ' <span class="ws-code">' + esc(c.mat_code || '') + '</span></td>'
+                        + '<td><span class="ws-code">' + esc(c.lot_number || '-') + '</span></td>'
+                        + '<td><span class="ws-code">' + esc(c.maker_lot_no || '-') + '</span></td>'
+                        + '<td>' + esc(c.unit || '-') + '</td><td class="w">' + num(c.qty) + '</td></tr>';
+                }).join('') + '</tbody></table>'
+                : '<div class="ws-sess-empty">투입 내역이 없습니다.</div>';
+
+            document.getElementById('mBody').innerHTML = html;
+        }
+
+        function wsOpenDefect(procCode) {
             const list = procCode
-                ? WS.defect.filter(function(m){ return m.proc_code === procCode; })
+                ? WS.defect.filter(function (m) {
+                    return m.proc_code === procCode;
+                })
                 : WS.defect;
             const pn = list.length ? (list[0].proc_name || '') : '';
             document.getElementById('mTitle').innerHTML = '부적합 <small>'
-                + (procCode ? esc(pn)+' · ' : '') + '품목 단위</small>';
+                + (procCode ? esc(pn) + ' · ' : '') + '품목 단위</small>';
             document.getElementById('mBody').innerHTML = list.length
                 ? '<table class="ws-sess"><thead><tr><th class="left">품목</th><th>공정</th><th>유형</th>'
                 + '<th>수량</th><th>건수</th><th>작지미지정</th><th>최종일자</th></tr></thead><tbody>'
-                + list.map(function(m){
-                    return '<tr><td class="left w">'+esc(m.mat_name||'-')+' <span class="ws-code">'+esc(m.mat_code||'')+'</span></td>'
-                        + '<td>'+esc(m.proc_name||'-')+'</td><td>'+esc(m.defect_type||'-')+'</td>'
-                        + '<td class="def">'+num(m.defect_qty)+'</td><td>'+num(m.cnt)+'</td>'
-                        + '<td>'+(Number(m.unlinked_cnt)?'<span class="def">'+num(m.unlinked_cnt)+'</span>':'0')+'</td>'
-                        + '<td>'+esc(m.last_date||'-')+'</td></tr>';
+                + list.map(function (m) {
+                    return '<tr><td class="left w">' + esc(m.mat_name || '-') + ' <span class="ws-code">' + esc(m.mat_code || '') + '</span></td>'
+                        + '<td>' + esc(m.proc_name || '-') + '</td><td>' + esc(m.defect_type || '-') + '</td>'
+                        + '<td class="def">' + num(m.defect_qty) + '</td><td>' + num(m.cnt) + '</td>'
+                        + '<td>' + (Number(m.unlinked_cnt) ? '<span class="def">' + num(m.unlinked_cnt) + '</span>' : '0') + '</td>'
+                        + '<td>' + esc(m.last_date || '-') + '</td></tr>';
                 }).join('') + '</tbody></table>'
                 + '<p class="ws-note">기계 본체 불량은 여기 없습니다 — 검사 결과가 진실이라 검사 칸에서 봅니다(이중 계상 방지).</p>'
                 : '<div class="ws-sess-empty">해당 기간 부적합 기록이 없습니다.</div>';
             document.getElementById('ov').classList.add('on');
         }
 
-        function wsClose(){ document.getElementById('ov').classList.remove('on'); }
+        function wsClose() {
+            document.getElementById('ov').classList.remove('on');
+        }
 
         // =====================================================
-        document.addEventListener('DOMContentLoaded', function(){
+        document.addEventListener('DOMContentLoaded', function () {
             const t = new Date(), f = new Date();
             f.setDate(f.getDate() - 7);
-            const fmt = function(d){
-                return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+            const fmt = function (d) {
+                return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
             };
             document.getElementById('date_from').value = fmt(f);
-            document.getElementById('date_to').value   = fmt(t);
+            document.getElementById('date_to').value = fmt(t);
 
             /* 공정 콤보는 고정 4개 — DB 조회가 필요 없다 */
             const cbo = document.getElementById('cboProc');
-            WS_FLOW.forEach(function(x){
+            WS_FLOW.forEach(function (x) {
                 const o = document.createElement('option');
-                o.value = x.key; o.textContent = x.name;
+                o.value = x.key;
+                o.textContent = x.name;
                 cbo.appendChild(o);
             });
 

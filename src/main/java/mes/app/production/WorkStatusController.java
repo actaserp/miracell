@@ -163,15 +163,17 @@ public class WorkStatusController {
 
     /** 셀 클릭 → 그 공정 작지의 차수(세션) + 연결된 부적합 */
     @GetMapping("/f1_session")
-    public AjaxResult f1Session(@RequestParam("jr_pk") Integer jrPk) {
+    public AjaxResult f1Session(@RequestParam("jr_pk") Integer jrPk,
+                                @RequestParam(value = "kind", required = false) String kind) {
         Map<String, Object> data = new HashMap<>();
-        data.put("sessions", this.workStatusService.getF1Sessions(jrPk));
+        data.put("sessions", this.workStatusService.getF1Sessions(jrPk, kind));
         data.put("defects", this.workStatusService.getF1SessionDefects(jrPk));
 
         AjaxResult result = new AjaxResult();
         result.data = data;
         return result;
     }
+
 
     /** 부적합 — 품목 집계(카드·모달) + 작지 미연결 목록 */
     @GetMapping("/defect")

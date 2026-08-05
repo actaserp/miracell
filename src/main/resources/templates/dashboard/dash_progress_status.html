@@ -1,28 +1,51 @@
 <html layout:decorate="~{layout_page}">
 <head>
     <style>
-        .pg-topbar { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
         .pg-btn { border:0; border-radius:8px; padding:9px 16px; font-weight:800; font-size:13px; cursor:pointer; }
         .pg-btn.pri { background:#2f6fed; color:#fff; } .pg-btn.gray { background:#eef2f8; color:#3a4759; }
-        .pg-filter { display:flex; align-items:flex-end; gap:10px; flex-wrap:wrap; background:#fff; border:1px solid #e2e6ee; border-radius:12px; padding:14px 18px; margin:14px 0; }
+        .pg-filter { display:flex; align-items:flex-end; gap:10px; flex-wrap:wrap; background:#fff; border:1px solid #e2e6ee; border-radius:12px; padding:10px 16px; margin:10px 0; }
         .pg-f { display:flex; flex-direction:column; gap:5px; }
         .pg-f label { font-size:11px; font-weight:800; color:#8a94a4; }
         .pg-f input, .pg-f select { height:38px; border:1px solid #e2e6ee; border-radius:8px; padding:0 10px; font-size:13px; background:#fbfcfe; }
         .pg-f .dash { align-self:center; color:#8a94a4; padding-bottom:9px; }
 
-        .pg-kpis { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; margin-bottom:14px; }
-        .pg-kpi { background:#fff; border:1px solid #e2e6ee; border-radius:11px; padding:13px 16px; cursor:pointer; }
+        /* 공장 탭 */
+        .pg-tabs { display:inline-flex; background:#eef2f8; border-radius:9px; padding:3px; }
+        .pg-tab { border:0; background:transparent; padding:8px 18px; border-radius:7px; font-size:12.5px; font-weight:800; color:#5b6675; cursor:pointer; }
+        .pg-tab.on { background:#fff; color:#2f6fed; box-shadow:0 1px 3px rgba(20,26,36,.10); }
+
+        .pg-kpis { display:grid; grid-template-columns:repeat(6,1fr); gap:8px; margin-bottom:10px; }
+        .pg-kpi.wash { border-style:dashed; border-color:#cdd6e4; background:#fbfcfe; }
+        .pg-kpi.wash .n { color:#0f8a4d; }
+        .pg-kpi.wash .l::after { content:'별도'; margin-left:6px; font-size:9.5px; font-weight:800;
+            color:#8a94a4; background:#eef2f8; padding:1px 6px; border-radius:4px; vertical-align:1px; }
+        .pg-kpi { background:#fff; border:1px solid #e2e6ee; border-radius:11px; padding:9px 14px; cursor:pointer; }
         .pg-kpi:hover { border-color:#c8d3e6; }
         .pg-kpi.on { border-color:#2f6fed; box-shadow:0 0 0 2px rgba(47,111,237,.12); }
-        .pg-kpi .n { font-size:24px; font-weight:800; font-variant-numeric:tabular-nums; }
+        .pg-kpi .n { font-size:21px; font-weight:800; font-variant-numeric:tabular-nums; }
         .pg-kpi .l { color:#5b6675; font-size:11.5px; font-weight:700; margin-top:2px; }
-        .pg-kpi.late .n { color:#d64545; } .pg-kpi.run .n { color:#0f9d58; } .pg-kpi.due .n { color:#c9620a; } .pg-kpi.done .n { color:#2f6fed; }
+        .pg-kpi .s { color:#a4adbb; font-size:10.5px; font-weight:700; margin-top:1px; }
+        .pg-kpi.late .n { color:#d64545; } .pg-kpi.run .n { color:#0f9d58; } .pg-kpi.done .n { color:#2f6fed; }
 
-        .pg-panel { background:#fff; border:1px solid #e2e6ee; border-radius:12px; overflow:hidden; }
+        .pg-panel { background:#fff; border:1px solid #e2e6ee; border-radius:12px; overflow:hidden; margin-bottom:12px; }
         .pg-phead { display:flex; align-items:center; gap:10px; padding:12px 16px; border-bottom:1px solid #e2e6ee; font-size:12.5px; font-weight:800; color:#3a4759; }
         .pg-phead .sub { margin-left:auto; font-weight:600; font-size:11px; color:#8a94a4; }
         .pg-scroll { overflow-x:auto; }
-        .pg-table { border-collapse:collapse; width:100%; min-width:1080px; }
+        /* ★ 표가 화면 높이를 채운다. 안 하면 목록이 몇 줄만 보이고
+           아래 패널이 접혀 올라와 모니터링으로 못 쓴다. */
+        .pg-panel.grow { display:flex; flex-direction:column; }
+        .pg-panel.grow .pg-scroll { overflow:auto; max-height:calc(100vh - 330px); min-height:260px; }
+        .pg-panel.grow .pg-table thead th { position:sticky; top:0; z-index:2; }
+        /* 필터·KPI 를 접으면 그만큼 목록이 길어진다 */
+        .pg-panel.grow.wide .pg-scroll { max-height:calc(100vh - 180px); }
+
+        .pg-toolbar { display:flex; align-items:center; gap:10px; margin:0 0 8px; }
+        .pg-toggle { border:1px solid #e2e6ee; background:#fff; border-radius:8px;
+            padding:6px 12px; font-size:12px; font-weight:800; color:#5b6675; cursor:pointer;
+            display:inline-flex; align-items:center; gap:6px; }
+        .pg-toggle:hover { border-color:#c8d3e6; color:#2f6fed; }
+        .pg-toolbar .summary { font-size:11.5px; color:#8a94a4; font-weight:700; }
+        .pg-table { border-collapse:collapse; width:100%; min-width:1240px; }
         .pg-table thead th { background:#2f3a4c; color:#fff; font-weight:600; font-size:11.5px; padding:10px 8px; white-space:nowrap; }
         .pg-table thead th.left { text-align:left; padding-left:14px; }
         .pg-table tbody td { border-bottom:1px solid #eef1f6; padding:10px 8px; text-align:center; font-size:12.5px; vertical-align:middle; }
@@ -30,12 +53,22 @@
         .pg-table tbody tr { cursor:pointer; } .pg-table tbody tr:hover { background:#f7f9fc; }
         .pg-table tbody tr.late { background:#fffafa; } .pg-table tbody tr.late:hover { background:#fdf3f3; }
 
+        .pg-fac { display:inline-block; font-size:10px; font-weight:800; padding:2px 7px; border-radius:5px; }
+        .pg-proc { display:inline-block; font-size:11px; font-weight:800; padding:2px 9px;
+            border-radius:5px; background:#eef2f8; color:#3a4759; }
+        .pg-fac.f1 { background:#e7f0ff; color:#2f6fed; } .pg-fac.f2 { background:#e9f6ee; color:#0f8a4d; }
+
         .pg-wo { font-weight:800; font-family:ui-monospace,monospace; font-size:12px; }
+        .pg-sub { color:#8a94a4; font-size:10.5px; }
         .pg-pline { display:inline-block; font-size:10px; font-weight:800; padding:2px 6px; border-radius:5px; margin-right:5px; }
+        .pg-sep { display:inline-block; font-size:10px; font-weight:800; padding:2px 6px;
+            border-radius:5px; background:#f4f0e6; color:#96731c; margin-right:5px; }
         .pg-pline.bsc { background:#eaf0ff; color:#2f6fed; } .pg-pline.bmsc{ background:#f0ecfb; color:#7b52d6; }
+        .pg-pline.dom { background:#eef2f8; color:#5b6675; } .pg-pline.exp { background:#fff2e4; color:#b4560a; }
         .pg-kit { font-weight:700; } .pg-code { color:#8a94a4; font-size:10px; font-family:ui-monospace,monospace; }
         .pg-num { font-variant-numeric:tabular-nums; font-weight:700; }
         .pg-num .rem { color:#8a94a4; font-weight:600; font-size:11px; }
+        .pg-unit { font-size:10.5px; color:#8a94a4; font-weight:600; }
 
         .pg-prog { display:flex; align-items:center; gap:7px; justify-content:center; }
         .pg-bar { width:76px; height:7px; border-radius:4px; background:#eef1f6; overflow:hidden; }
@@ -43,276 +76,1226 @@
         .pg-bar.late > i { background:#d64545; }
         .pg-pct { font-size:11.5px; font-weight:800; color:#5b6675; min-width:34px; text-align:right; font-variant-numeric:tabular-nums; }
 
-        /* 공정 스텝퍼 */
-        .pg-steps { display:inline-flex; align-items:center; }
-        .pg-step { display:flex; align-items:center; }
-        .pg-dot { width:16px; height:16px; border-radius:50%; border:2px solid #dfe4ec; background:#fff; font-size:8px; display:flex; align-items:center; justify-content:center; color:#fff; }
+        .pg-ck { font-size:10px; color:#8a94a4; font-weight:700; margin-top:2px; }
+        .pg-noexp { display:inline-block; font-size:10.5px; font-weight:800; padding:2px 8px; border-radius:5px; background:#f4f0e6; color:#96731c; }
+        .pg-rep { display:inline-block; font-size:10px; font-weight:800; padding:2px 7px; border-radius:5px; background:#f3ecfb; color:#7b52d6; margin-left:5px; }
+
+        /* ★ 원과 글자를 같은 칸(column)에 넣어야 어긋나지 않는다.
+           예전엔 원 줄과 글자 줄을 따로 그려서 「블리스터」처럼 긴 이름이
+           칸 폭을 밀어내 뒤쪽이 전부 틀어졌다. */
+        .pg-steps { display:inline-flex; align-items:flex-start; }
+        .pg-step { position:relative; display:flex; flex-direction:column;
+            align-items:center; width:56px; }
+        .pg-step.hasline::before { content:''; position:absolute; top:7px; left:-28px;
+            width:56px; height:2px; background:#e6eaf1; }
+        .pg-step.hasline.pdone::before { background:#2f6fed; }
+        .pg-dot { position:relative; z-index:1; width:16px; height:16px; border-radius:50%;
+            border:2px solid #dfe4ec; background:#fff; font-size:8px; display:flex;
+            align-items:center; justify-content:center; color:#fff; }
         .pg-dot.done { background:#2f6fed; border-color:#2f6fed; }
+        /* 파랑은 완료가 쓴다. 옆에 두면 헷갈려 주황 계열로 뺀다 */
+        .pg-dot.part { background:#f0a93c; border-color:#e09420; }
         .pg-dot.run  { background:#0f9d58; border-color:#0f9d58; box-shadow:0 0 0 3px rgba(15,157,88,.18); }
-        .pg-line { width:14px; height:2px; background:#e6eaf1; } .pg-line.done { background:#2f6fed; }
+        .pg-sname { font-size:9.5px; color:#8a94a4; margin-top:4px; white-space:nowrap; font-weight:700; }
+        .pg-step.on .pg-sname { color:#0f9d58; font-weight:800; }
 
         .pg-st { display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:800; padding:3px 10px; border-radius:20px; white-space:nowrap; }
         .pg-st .dot { width:6px; height:6px; border-radius:50%; background:currentColor; }
         .pg-st.wait { background:#eef1f6; color:#8a94a4; } .pg-st.run { background:#e3f6ec; color:#0f9d58; }
+        .pg-st.part { background:#fdf3e6; color:#b4720a; }
         .pg-st.late { background:#fdecec; color:#d64545; } .pg-st.done { background:#e7f0ff; color:#2f6fed; }
         .pg-dday { font-weight:800; font-variant-numeric:tabular-nums; }
         .pg-dday.warn { color:#c9620a; } .pg-dday.over { color:#d64545; }
 
-        .pg-overlay { position:fixed; inset:0; background:rgba(20,28,44,.45); display:none; align-items:center; justify-content:center; z-index:1000; }
-        .pg-overlay.on { display:flex; }
-        .pg-modal { background:#fff; border-radius:12px; width:min(720px,92vw); max-height:86vh; overflow:auto; box-shadow:0 20px 60px -20px rgba(10,20,40,.5); }
-        .pg-modal-h { display:flex; align-items:center; justify-content:space-between; padding:15px 18px; border-bottom:1px solid #e2e6ee; }
-        .pg-modal-h .t { font-weight:800; font-size:15px; } .pg-modal-h .t small { color:#8a94a4; font-weight:600; font-size:12px; margin-left:8px; }
-        .pg-x { border:0; background:#eef1f6; width:30px; height:30px; border-radius:8px; cursor:pointer; font-size:16px; color:#5b6675; }
-        .pg-modal-b { padding:16px 18px 20px; }
-        .pg-minfo { display:flex; gap:22px; flex-wrap:wrap; margin-bottom:14px; }
-        .pg-minfo .b .l { font-size:11px; color:#8a94a4; font-weight:700; } .pg-minfo .b .v { font-size:15px; font-weight:800; margin-top:2px; }
-        .pg-sess { border-collapse:collapse; width:100%; }
-        .pg-sess th { background:#f4f6fa; color:#5b6675; font-size:11.5px; font-weight:700; padding:8px; border-bottom:1px solid #e2e6ee; }
-        .pg-sess td { padding:9px 8px; border-bottom:1px solid #eef1f6; font-size:12.5px; text-align:center; }
-        .pg-sess td.left { text-align:left; }
-        .pg-note { color:#8a94a4; font-size:12px; margin-top:12px; line-height:1.6; }
-        .pg-empty { text-align:center; color:#8a94a4; padding:40px; font-size:13px; }
+        .pg-empty { text-align:center; color:#8a94a4; padding:36px; font-size:13px; }
+        .pg-note { color:#8a94a4; font-size:12px; margin-top:10px; line-height:1.7; }
+        .pg-note b { color:#d64545; }
+        .pg-note code { background:#f4f6fa; padding:1px 5px; border-radius:4px; font-size:11px; }
 
-        @media (max-width:1200px){ .pg-kpis{ grid-template-columns:repeat(3,1fr);} }
-        @media print { .page-title-wrap,.section-top,.page-navi,.bookmark,.pg-filter,.pg-btn { display:none !important; } body{background:#fff;} }
+        .pg-sidegrid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+        .pg-chips { display:flex; flex-wrap:wrap; gap:8px; padding:14px 16px; }
+        .pg-chip { border:1px solid #e2e6ee; border-radius:9px; padding:8px 12px; font-size:12px; background:#fbfcfe; }
+        .pg-chip .nm { font-weight:700; color:#3a4759; }
+        .pg-chip .q { font-weight:800; color:#2f6fed; margin-left:6px; font-variant-numeric:tabular-nums; }
+        .pg-chip .cd { display:block; font-size:10px; color:#8a94a4; font-family:ui-monospace,monospace; }
+
+        .pg-overlay { display:none; position:absolute; inset:0; background:rgba(20,26,36,.45); z-index:60; align-items:center; justify-content:center; }
+        .pg-overlay.on { display:flex; }
+        .pg-modal { background:#fff; border-radius:14px; width:min(1000px,94%); max-height:86%; display:flex; flex-direction:column; overflow:hidden; }
+        .pg-modal-h { display:flex; align-items:center; gap:10px; padding:14px 18px; border-bottom:1px solid #e2e6ee; }
+        .pg-modal-h .t { font-size:14px; font-weight:800; color:#232c3a; }
+        .pg-x { margin-left:auto; border:0; background:#eef2f8; border-radius:8px; width:30px; height:30px; font-size:16px; cursor:pointer; color:#5b6675; }
+        .pg-modal-b { padding:16px 18px; overflow:auto; }
+        .pg-mtable { border-collapse:collapse; width:100%; margin-bottom:14px; }
+        .pg-mtable th { background:#f4f6fa; color:#5b6675; font-size:11px; font-weight:800; padding:8px; border-bottom:1px solid #e2e6ee; }
+        .pg-mtable td { padding:8px; text-align:center; font-size:12px; border-bottom:1px solid #f0f2f7; }
+        .pg-mtable td.left { text-align:left; }
+        .pg-mtable tr.jr, .pg-mtable tr.un { cursor:pointer; }
+        .pg-mtable tr.pick { background:#eaf0ff; }
+        .pg-mtitle { font-size:12px; font-weight:800; color:#3a4759; margin:4px 0 8px; }
     </style>
 </head>
 
 <th:block layout:fragment="content">
     <div class="layout-contents">
+
         <div class="page-title-wrap">
-            <div class="left"><h2>생산진행현황</h2><a title="북마크" class="bookmark toggle">내 메뉴</a></div>
-            <ul class="page-navi"><li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
-                <li>생산 관리</li><li>생산진행현황</li></ul>
+            <div class="left">
+                <h2>생산진행현황</h2>
+                <a title="북마크" class="bookmark toggle">내 메뉴</a>
+            </div>
+            <ul class="page-navi">
+                <li><img src="/images/icon/ico-nav-home.svg" alt="홈아이콘"></li>
+                <li>모니터링</li>
+                <li>생산진행현황</li>
+            </ul>
         </div>
 
         <section class="section">
-            <div class="section-top"><div class="pg-topbar">
-                <div style="font-size:13px;color:#8a94a4;font-weight:700">작업지시(지시수량·납기) 대비 <b>얼마나 진행됐고 납기를 맞출 수 있는지</b>를 봅니다.</div>
-            </div></div>
 
-            <div class="pg-filter">
-                <div class="pg-f"><label>납기 기간</label><input type="date" id="fFrom"></div>
-                <span class="dash">~</span>
-                <div class="pg-f"><label>&nbsp;</label><input type="date" id="fTo"></div>
-                <div class="pg-f"><label>제품군</label><select id="fLine">
-                    <option value="">전체</option><option value="BSC">BSC</option><option value="BMSC">BmSC</option></select></div>
-                <div class="pg-f"><label>상태</label><select id="fSt">
-                    <option value="">전체</option><option value="wait">대기</option><option value="run">진행중</option>
-                    <option value="late">지연</option><option value="done">완료</option></select></div>
-                <div class="pg-f"><label>&nbsp;</label><button type="button" class="pg-btn pri" id="btnSearch">조회</button></div>
-                <div class="pg-f"><label>&nbsp;</label><button type="button" class="pg-btn gray" id="btnReset">초기화</button></div>
+            <div id="topBox">
+                <div class="pg-filter">
+                    <div class="pg-f"><label>공장</label>
+                        <div class="pg-tabs" id="facTabs">
+                            <button type="button" class="pg-tab on" data-f="">전체</button>
+                            <button type="button" class="pg-tab" data-f="1">1공장 (키트)</button>
+                            <button type="button" class="pg-tab" data-f="2">2공장 (M-CELL)</button>
+                        </div>
+                    </div>
+                    <div class="pg-f"><label>작업지시 기간</label><input type="date" id="fFrom"></div>
+                    <span class="dash">~</span>
+                    <div class="pg-f"><label>&nbsp;</label><input type="date" id="fTo"></div>
+                    <div class="pg-f"><label>제품 구분</label>
+                        <select id="fLine">
+                            <option value="">전체</option>
+                            <option value="BSC">BSC (1공장)</option>
+                            <option value="BMSC">BmSC (1공장)</option>
+                            <option value="국내">국내 (2공장)</option>
+                            <option value="해외">해외 (2공장)</option>
+                        </select>
+                    </div>
+                    <div class="pg-f"><label>상태</label>
+                        <select id="fSt">
+                            <option value="open" selected>미완료</option>
+                            <option value="">전체</option><option value="wait">미착수</option>
+                            <option value="run">진행중</option><option value="late">지연</option>
+                            <option value="done">완료</option>
+                        </select>
+                    </div>
+                    <div class="pg-f"><label>&nbsp;</label><button type="button" class="pg-btn pri" id="btnSearch">조회</button></div>
+                    <div class="pg-f"><label>&nbsp;</label><button type="button" class="pg-btn gray" id="btnReset">초기화</button></div>
+                </div>
+
+                <div class="pg-kpis" id="kpis"></div>
+            </div><!-- /topBox -->
+
+            <div class="pg-toolbar">
+                <button type="button" class="pg-toggle" id="btnFold">
+                    <span id="foldCaret">▴</span> <span id="foldText">필터 접기</span>
+                </button>
+                <span class="summary" id="foldSummary"></span>
             </div>
 
-            <div class="pg-kpis" id="kpis"></div>
-
-            <div class="pg-panel">
-                <div class="pg-phead">작업지시별 진행 <span class="sub" id="cnt">행을 누르면 공정별 진척 상세</span></div>
+            <div class="pg-panel grow" id="mainPanel">
+                <div class="pg-phead">작업지시별 진행
+                    <span class="sub" id="cnt">행을 누르면 공정별 진척 상세</span>
+                </div>
                 <div class="pg-scroll">
-                    <table class="pg-table"><thead><tr>
-                        <th class="left">작업지시</th><th class="left">제품</th>
-                        <th>지시수량</th><th>완료수량</th><th>달성률</th>
-                        <th class="left">공정 진행</th><th>현재공정</th>
-                        <th>착수일</th><th>납기</th><th>D-day</th><th>상태</th>
-                    </tr></thead><tbody id="rows"></tbody></table>
+                    <table class="pg-table">
+                        <thead><tr>
+                            <th>공장</th>
+                            <th class="left">작업지시</th><th class="left">제품</th><th class="left">거래처</th>
+                            <th>지시</th><th>완료</th><th>달성률</th>
+                            <th class="left">공정 진행</th><th>현재공정</th>
+                            <th>납기</th><th>D-day</th><th>상태</th>
+                        </tr></thead>
+                        <tbody id="rows"></tbody>
+                    </table>
                 </div>
             </div>
-            <p class="pg-note">※ 완료수량 = 내포장(완제) 기준 누적 산출. 달성률 = 완료수량 ÷ 지시수량.
-                <b style="color:#d64545">지연</b> = 미완료 상태에서 납기가 지났거나, 남은 일수 대비 잔량 소화가 불가능한 지시.</p>
+
+
         </section>
 
-        <div class="pg-overlay" id="ov" onclick="if(event.target===this)pgClose()">
+        <div class="pg-overlay" id="ov">
             <div class="pg-modal">
-                <div class="pg-modal-h"><div class="t" id="mTitle"></div><button type="button" class="pg-x" onclick="pgClose()">×</button></div>
+                <div class="pg-modal-h">
+                    <div class="t" id="mTitle"></div>
+                    <button type="button" class="pg-x" id="mClose">×</button>
+                </div>
                 <div class="pg-modal-b" id="mBody"></div>
             </div>
         </div>
+
     </div>
 </th:block>
 
 <th:block layout:fragment="scripts">
     <script th:inline="javascript">
-        const TODAY = '2026-07-11';   /* 샘플 기준일 */
-        const PROCS  = [{k:'wash',n:'세척'},{k:'assy',n:'조립'},{k:'blister',n:'블리스터'},{k:'welding',n:'융착'},{k:'ipack',n:'내포장'},{k:'steril',n:'멸균'},{k:'opack',n:'외포장'}];
-        const APPLIES = { BSC:['wash','assy','blister','ipack','steril','opack'], BMSC:['wash','assy','blister','welding','ipack','steril','opack'] };
-        const PLABEL = { BSC:'BSC', BMSC:'BmSC' };
-        const PN = {}; PROCS.forEach(p => PN[p.k] = p.n);
+        /* =====================================================================
+           생산진행현황 (1공장 + 2공장 통합)
 
-        /* 작업지시 = 계획(지시수량·착수·납기) + 공정별 누적 산출 */
-        const ORDERS = [
-            {wo:'WO-2607-001', line:'BSC',  kit:'BSC+③ 60',  code:'BSC60-3-00',  qty:500, start:'2026-07-10', due:'2026-07-17',
-                out:{wash:490, assy:120, blister:0, ipack:0, steril:0, opack:0}},
-            {wo:'WO-2607-002', line:'BMSC', kit:'BmSC+③ 60', code:'BmSC60-3-00', qty:300, start:'2026-07-09', due:'2026-07-14',
-                out:{wash:300, assy:298, blister:300, welding:300, ipack:300, steril:300, opack:0}},
-            {wo:'WO-2607-003', line:'BSC',  kit:'BSC+③ 30',  code:'BSC30-3-01',  qty:400, start:'2026-07-10', due:'2026-07-13',
-                out:{wash:400, assy:0, blister:0, ipack:0, steril:0, opack:0}},
-            {wo:'WO-2606-018', line:'BSC',  kit:'BSC+③ 120', code:'BSC120-3-00', qty:240, start:'2026-07-06', due:'2026-07-10',
-                out:{wash:240, assy:238, blister:240, ipack:240, steril:240, opack:240}},
-            {wo:'WO-2606-021', line:'BSC',  kit:'BSC+③ 60',  code:'BSC60-3-00',  qty:600, start:'2026-07-07', due:'2026-07-09',
-                out:{wash:600, assy:600, blister:600, ipack:420, steril:0, opack:0}},
-            {wo:'WO-2607-005', line:'BMSC', kit:'BmSC+③ 120',code:'BmSC120-3-00',qty:200, start:null,         due:'2026-07-20',
-                out:{}},
-        ];
-        /* 공정별 실적 상세(모달) */
-        const SESS = {
-            'WO-2607-001|wash':  [{d:'07-10', w:'정우철', e:'세척기 A', s:'08:10', f:'09:30', g:490, x:3}],
-            'WO-2607-001|assy':  [{d:'07-10', w:'한지민', e:'조립기 A', s:'10:20', f:null,    g:120, x:0}],
-            'WO-2607-002|welding':[{d:'07-10', w:'김민수', e:'KM-MRM-M007', s:'13:00', f:'15:00', g:300, x:3}],
-            'WO-2607-002|steril':[{d:'07-10', w:'박지훈', e:'EO 챔버', s:'15:20', f:'20:00', g:300, x:0}],
-            'WO-2606-021|ipack': [{d:'07-08', w:'이서연', e:'내포장대', s:'09:00', f:'17:00', g:420, x:5}],
-            'WO-2606-018|opack': [{d:'07-10', w:'김민수', e:'박스 포장대', s:'13:10', f:'16:00', g:240, x:0}],
-        };
-        const CAPA_PER_DAY = 250;   /* 지연 예측용 일 생산능력(샘플) */
-        var kpiPick = '';
+           축   : 작업지시. 날짜 = 작지 지시일(대상 선정), 실적은 기간과 무관하게 누적.
+                  ★ 작업실적현황과 날짜의 의미가 다르다.
+                    실적현황 = 실적일(끝난 날) / 여기 = 지시일
+                    섞으면 지난달 끝낸 조립이 이번달 조회에서 「대기」로 보인다.
 
-        function days(a, b){ return Math.round((new Date(b+'T00:00') - new Date(a+'T00:00')) / 86400000); }
-        function last(o){ return APPLIES[o.line][APPLIES[o.line].length-1]; }
-        function doneQty(o){ return o.out[last(o)] || 0; }               /* 최종공정 통과 = 완료 */
-        function pct(o){ return Math.min(100, Math.round(doneQty(o)/o.qty*100)); }
-        function curProc(o){
-            var ap = APPLIES[o.line];
-            for (var i=0; i<ap.length; i++) if ((o.out[ap[i]]||0) < o.qty) return ap[i];
-            return null;
-        }
-        function stepState(o, k){
-            var v = o.out[k]||0;
-            if (v >= o.qty) return 'done';
-            if (v > 0) return 'run';
-            return 'wait';
-        }
-        function status(o){
-            if (doneQty(o) >= o.qty) return 'done';
-            var dd = days(TODAY, o.due);
-            var rem = o.qty - doneQty(o);
-            if (dd < 0) return 'late';                       /* 납기 경과 */
-            if (rem > dd * CAPA_PER_DAY) return 'late';      /* 남은 일수로 잔량 소화 불가 */
-            if (!o.start) return 'wait';
-            return 'run';
-        }
-        const SLABEL = {wait:'대기', run:'진행중', late:'지연', done:'완료'};
+           ★ 두 공장은 진척의 단위가 다르다 — 한 표에 넣되 계산을 공유하지 않는다.
+               1공장  수량. 완료 = 포장(bsc05) 자식 중 완제품 산출의 GoodQty
+                      · 부모 GoodQty 를 쓰면 안 된다. 롤업이 CK 생산량을 올려받는다
+                        (실데이터 2491: 부모 GoodQty=2 = CK 자식 2494 의 산출)
+                      · bsc05 전체를 쓰면 안 된다. CK 생산과 키트 결합이 같은 공정 코드다
+               2공장  대수. 완료 = packed 유닛 수 (1대 = 1로트 = 1시리얼)
+                      · mat_produce 를 세면 5대가 30건이 된다 — 유닛으로만 센다
 
-        function filt(){
-            var f = document.getElementById('fFrom').value, t = document.getElementById('fTo').value,
-                ln = document.getElementById('fLine').value, st = document.getElementById('fSt').value || kpiPick;
-            return ORDERS.filter(function(o){
-                if (f && o.due < f) return false;
-                if (t && o.due > t) return false;
-                if (ln && o.line !== ln) return false;
-                if (st && status(o) !== st) return false;
-                return true;
-            });
-        }
+           지연 : 납기 경과만. 「잔량 ÷ 일 생산능력」 예측은 넣지 않는다 —
+                  표준시간(UPH) 마스터가 없어 상수를 박으면 근거 없는 경보가 된다.
+        ===================================================================== */
 
-        function renderKpi(){
-            var all = ORDERS, c = {wait:0, run:0, late:0, done:0};
-            all.forEach(function(o){ c[status(o)]++; });
-            var live = all.filter(o=>status(o)!=='done');
-            var avg = live.length ? Math.round(live.reduce((s,o)=>s+pct(o),0)/live.length) : 0;
-            var cards = [
-                {k:'',     cls:'',     n:all.length, l:'전체 작업지시'},
-                {k:'run',  cls:'run',  n:c.run,      l:'진행중'},
-                {k:'late', cls:'late', n:c.late,     l:'지연'},
-                {k:'wait', cls:'',     n:c.wait,     l:'미착수'},
-                {k:'done', cls:'done', n:c.done,     l:'완료'},
-            ];
-            document.getElementById('kpis').innerHTML = cards.map(function(x){
-                return '<div class="pg-kpi '+x.cls+' '+(kpiPick===x.k?'on':'')+'" data-k="'+x.k+'">'
-                    + '<div class="n">'+x.n+'</div><div class="l">'+x.l+'</div></div>';
-            }).join('') ;
-            document.getElementById('cnt').textContent = '평균 달성률(미완료 기준) ' + avg + '% · 행을 누르면 공정별 진척 상세';
-        }
+        var PG = (function () {
 
-        function steps(o){
-            var ap = APPLIES[o.line];
-            return '<span class="pg-steps">' + ap.map(function(k, i){
-                var s = stepState(o, k);
-                var line = i ? '<span class="pg-line '+(stepState(o, ap[i-1])==='done'?'done':'')+'"></span>' : '';
-                return line + '<span class="pg-step"><span class="pg-dot '+s+'" title="'+PN[k]+' · '+(o.out[k]||0)+'/'+o.qty+'">'+(s==='done'?'✓':'')+'</span></span>';
-            }).join('') + '</span>';
-        }
+            var API = '/api/production/work_status';
+            var SPJ = (window.PG_CTX && window.PG_CTX.spjangcd) || 'ZZ';
 
-        function render(){
-            renderKpi();
-            var rows = filt().sort(function(a,b){
-                var rank = {late:0, run:1, wait:2, done:3};
-                var d = rank[status(a)] - rank[status(b)];
-                return d !== 0 ? d : (a.due < b.due ? -1 : 1);
-            });
-            document.getElementById('rows').innerHTML = rows.length ? rows.map(function(o){
-                var st = status(o), p = pct(o), cp = curProc(o), dd = days(TODAY, o.due);
-                var ddCls = dd < 0 ? 'over' : (dd <= 1 ? 'warn' : '');
-                var ddTxt = st==='done' ? '<span style="color:#c2c9d4">—</span>'
-                    : (dd < 0 ? 'D+'+Math.abs(dd) : (dd===0 ? 'D-DAY' : 'D-'+dd));
-                return '<tr class="'+(st==='late'?'late':'')+'" data-wo="'+o.wo+'">'
-                    + '<td class="left"><span class="pg-wo">'+o.wo+'</span></td>'
-                    + '<td class="left"><span class="pg-pline '+o.line.toLowerCase()+'">'+PLABEL[o.line]+'</span>'
-                    + '<span class="pg-kit">'+o.kit+'</span><br><span class="pg-code">'+o.code+'</span></td>'
-                    + '<td class="pg-num">'+o.qty.toLocaleString()+'</td>'
-                    + '<td class="pg-num">'+doneQty(o).toLocaleString()+'<br><span class="rem">잔량 '+(o.qty-doneQty(o)).toLocaleString()+'</span></td>'
-                    + '<td><div class="pg-prog"><div class="pg-bar '+(st==='late'?'late':'')+'"><i style="width:'+p+'%"></i></div>'
-                    + '<span class="pg-pct">'+p+'%</span></div></td>'
-                    + '<td class="left">'+steps(o)+'</td>'
-                    + '<td>'+(cp ? '<b>'+PN[cp]+'</b><br><span class="pg-code">'+(o.out[cp]||0)+'/'+o.qty+'</span>' : '<span style="color:#c2c9d4">—</span>')+'</td>'
-                    + '<td>'+(o.start || '<span style="color:#c2c9d4">미착수</span>')+'</td>'
-                    + '<td>'+o.due+'</td>'
-                    + '<td><span class="pg-dday '+ddCls+'">'+ddTxt+'</span></td>'
-                    + '<td><span class="pg-st '+st+'"><span class="dot"></span>'+SLABEL[st]+'</span></td></tr>';
-            }).join('') : '<tr><td colspan="11"><div class="pg-empty">조회 조건에 해당하는 작업지시가 없습니다.</div></td></tr>';
-        }
+            /* 표시 순서는 Code 사전순이 아니다 —
+               bsc04 멸균 / bsc05 포장 / bsc06 융착이라 정렬하면 융착이 포장 뒤로 간다. */
+            var FLOW = {
+                BSC : ['assy', 'blister', 'steril', 'pack'],
+                BMSC: ['assy', 'blister', 'welding', 'steril', 'pack'],
+                MCELL: ['assy', 'insp', 'pack']
+            };
+            var PN = {
+                assy:'조립', blister:'블리스터', welding:'융착', steril:'멸균', pack:'포장',
+                wash:'세척', insp:'검사', repair:'수리'
+            };
+            /* PackService.PHASE_SQL 과 같은 단계 코드 */
+            var PACK_PHASE = { pk:'PK 담는 중', pack:'CK 작업중', label:'완제품 작업중',
+                outbox:'라벨 작업', done:'완료' };
+            var SLABEL = { wait:'미착수', run:'진행중', late:'지연', done:'완료', part:'진행중' };
+            var F1_LINES = { 'BSC':1, 'BMSC':1 };
+            var F2_LINES = { '국내':1, '해외':1 };
 
-        function pgOpen(wo){
-            var o = ORDERS.find(x=>x.wo===wo); if(!o) return;
-            var st = status(o), dd = days(TODAY, o.due);
-            document.getElementById('mTitle').innerHTML = o.wo + ' <small>' + o.kit + ' · 지시 ' + o.qty.toLocaleString() + '</small>';
-            var info = '<div class="pg-minfo">'
-                + '<div class="b"><div class="l">상태</div><div class="v"><span class="pg-st '+st+'"><span class="dot"></span>'+SLABEL[st]+'</span></div></div>'
-                + '<div class="b"><div class="l">달성률</div><div class="v">'+pct(o)+'%</div></div>'
-                + '<div class="b"><div class="l">잔량</div><div class="v">'+(o.qty-doneQty(o)).toLocaleString()+'</div></div>'
-                + '<div class="b"><div class="l">착수 / 납기</div><div class="v">'+(o.start||'미착수')+' → '+o.due+'</div></div>'
-                + '<div class="b"><div class="l">남은 일수</div><div class="v">'+(dd<0?'납기 '+Math.abs(dd)+'일 경과':dd+'일')+'</div></div>'
-                + '</div>';
-            var rows = APPLIES[o.line].map(function(k){
-                var v = o.out[k]||0, s = stepState(o,k), sess = SESS[o.wo+'|'+k] || [];
-                var p = Math.round(v/o.qty*100);
-                return '<tr><td class="left"><b>'+PN[k]+'</b></td>'
-                    + '<td><span class="pg-st '+(s==='done'?'done':(s==='run'?'run':'wait'))+'"><span class="dot"></span>'
-                    + (s==='done'?'완료':(s==='run'?'진행중':'대기'))+'</span></td>'
-                    + '<td class="pg-num">'+v.toLocaleString()+' / '+o.qty.toLocaleString()+'</td>'
-                    + '<td><div class="pg-prog"><div class="pg-bar"><i style="width:'+p+'%"></i></div><span class="pg-pct">'+p+'%</span></div></td>'
-                    + '<td class="left" style="color:#5b6675;font-size:11.5px">'
-                    + (sess.length ? sess.map(x=>x.d+' '+x.w+' · '+x.e+' · '+x.s+'~'+(x.f||'작업중')
-                            +' · 양품 '+x.g+(x.x?' <span style="color:#d64545">불량 '+x.x+'</span>':'')).join('<br>')
-                        : '<span style="color:#c2c9d4">실적 없음</span>')+'</td></tr>';
-            }).join('');
-            document.getElementById('mBody').innerHTML = info
-                + '<table class="pg-sess"><thead><tr><th style="text-align:left">공정</th><th>상태</th><th>산출/지시</th><th>진척</th><th style="text-align:left">실적</th></tr></thead>'
-                + '<tbody>'+rows+'</tbody></table>';
-            document.getElementById('ov').classList.add('on');
-        }
-        function pgClose(){ document.getElementById('ov').classList.remove('on'); }
+            var raw = { orders:[], steps:[], orphans:[], steril:[], f2orders:[], f2units:[],
+                wash:{ materials:[], rows:[], from:'', to:'' } };
+            var all = [], view = [];
+            var kpiPick = '', facPick = '';
 
-        document.getElementById('rows').addEventListener('click', function(e){
-            var tr = e.target.closest('[data-wo]'); if(tr) pgOpen(tr.dataset.wo);
-        });
-        document.getElementById('kpis').addEventListener('click', function(e){
-            var c = e.target.closest('[data-k]'); if(!c) return;
-            kpiPick = (kpiPick === c.dataset.k) ? '' : c.dataset.k;
-            document.getElementById('fSt').value = '';
-            render();
-        });
-        document.getElementById('btnSearch').addEventListener('click', function(){ kpiPick=''; render(); });
-        document.getElementById('btnReset').addEventListener('click', function(){
-            document.getElementById('fLine').value=''; document.getElementById('fSt').value='';
-            kpiPick=''; setRange(); render();
-        });
-        document.addEventListener('keydown', function(e){ if(e.key==='Escape') pgClose(); });
+            // -----------------------------------------------------------------
+            // 유틸
+            // -----------------------------------------------------------------
+            function nz(v) { return (v === null || v === undefined) ? 0 : Number(v) || 0; }
+            function esc(s) {
+                if (s === null || s === undefined) return '';
+                return String(s).replace(/[&<>"]/g, function (c) {
+                    return ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' })[c];
+                });
+            }
+            function pad(n) { return String(n).padStart(2, '0'); }
+            function fmtD(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+            function today() { return fmtD(new Date()); }
+            function days(a, b) {
+                if (!a || !b) return null;
+                return Math.round((new Date(b + 'T00:00') - new Date(a + 'T00:00')) / 86400000);
+            }
+            function num(v) { return nz(v).toLocaleString(); }
 
-        function setRange(){
-            document.getElementById('fFrom').value = '2026-07-01';
-            document.getElementById('fTo').value   = '2026-07-31';
-        }
-        document.addEventListener('DOMContentLoaded', function(){ setRange(); render(); });
+            /* ★ AjaxUtil 은 window 프로퍼티가 아니다. 공용 스크립트가 let/const/class 로
+               선언해 전역 렉시컬 환경에만 올라간다. window.AjaxUtil 은 영원히 undefined.
+               메서드도 getSyncData / postAsyncData 다 (getJson 같은 건 없다). */
+            function ready() { return (typeof AjaxUtil !== 'undefined') && AjaxUtil.getSyncData; }
+
+            function get(url, param) {
+                var res = AjaxUtil.getSyncData(url, param);
+                if (!res) return null;
+                if (res.success === false) throw new Error(res.message || '조회 실패');
+                return res.data;
+            }
+
+            // =================================================================
+            // 1공장 모델
+            // =================================================================
+
+            /* 멸균은 자식 작지가 아니라 로트 계보로 붙는다(getSterilSteps).
+               parent_pk 가 null 인 배치는 계보를 못 탄 것 — 버리지 않는다. */
+            function sterilOf(pk) {
+                var rows = [], i;
+                for (i = 0; i < raw.steril.length; i++) {
+                    if (nz(raw.steril[i].parent_pk) === pk) rows.push(raw.steril[i]);
+                }
+                return rows;
+            }
+            function stepsOf(pk) {
+                var rows = [], i;
+                for (i = 0; i < raw.steps.length; i++) {
+                    if (nz(raw.steps[i].parent_pk) === pk) rows.push(raw.steps[i]);
+                }
+                return rows;
+            }
+
+            /* ★ 작지의 GoodQty 를 믿으면 안 된다 — 롤업(recalcJobRes)이 못 올린 작지가 있다.
+               실데이터 2436(BSC30-FG0000): 포장을 했는데 State='ordered' · GoodQty 공란이라
+               완료수량이 0 으로 잡히고 「전개 미완」처럼 보였다.
+               서버가 차수 합계(mp_good)를 함께 내려주므로 둘 중 큰 값을 실적으로 쓴다. */
+            function goodOf(c) {
+                if (!c) return 0;
+                return Math.max(nz(c.good_qty), nz(c.mp_good));
+            }
+            function defectOf(c) {
+                if (!c) return 0;
+                return Math.max(nz(c.defect_qty), nz(c.mp_defect));
+            }
+
+            /* ★ State 만으로는 대기/작업중이 안 갈린다 — patchJobResState 가 못 올린 작지가
+               실제로 있다. 서버가 함께 내려준 produce_cnt(차수 유무)를 같이 본다. */
+            function cellState(cell) {
+                if (!cell) return 'none';
+                if (cell.kind === 'steril') {
+                    /* ★ 다른 공정과 같은 잣대(양품 >= 지시량)로 판정한다.
+                       예전엔 「배치가 하나라도 BI 합격이면 완료」였다 —
+                       150 개짜리 작지에서 50 개만 멸균해도 칸이 완료로 보였다.
+                       멸균에는 지시량이 없으므로 부모 작지의 지시수량을 분모로 쓴다.
+                       결국 그 작지가 요구하는 수량만큼 멸균돼야 다음 공정이 돈다.
+
+                       ★ BI 합격분만 센다. 불합격이면 그 배치는 전량 소진이라 없던 것이 되고,
+                         판정 전 수량을 미리 세면 나중에 진행률이 거꾸로 내려간다.
+                         판정 전 수량은 pending 으로 따로 담아 회색으로 병기한다. */
+                    if (!cell.rows.length) return 'none';
+                    if (cell.order_qty > 0 && cell.good_qty >= cell.order_qty) return 'done';
+                    /* ★ 「작업중」은 아직 안 끝난 배치가 있을 때다.
+                       BI 합격까지 난 배치만 있고 지시량을 못 채웠으면 「진행」이다.
+                       (예전엔 good>0 이면 무조건 작업중으로 보였다) */
+                    if (cell.running > 0 || cell.pending > 0) return 'run';
+                    return cell.good_qty > 0 ? 'part' : 'wait';
+                }
+                if (cell.kind === 'unit') return cell.st;
+                if (cell.kind === 'kit') {
+                    if (nz(cell.order_qty) > 0 && nz(cell.good_qty) >= nz(cell.order_qty)) return 'done';
+                    if (nz(cell.produce_cnt) > 0) return 'run';      // produce_cnt = fg_open
+                    if (nz(cell.good_qty) > 0) return 'part';
+                    return 'wait';
+                }
+                if (cell.kind === 'packcell') {
+                    /* 완료 = 결합이 지시량을 채운 것. CK 만으로는 완료가 아니다
+                       (CK 는 반제품이라 완제품 수량에 넣지 않는다).
+                       다만 CK 가 돌고 있으면 그 칸은 분명히 「진행중」이다. */
+                    if (cell.order_qty > 0 && cell.good_qty >= cell.order_qty) return 'done';
+                    if (cell.fgState === 'done') return 'done';
+                    if (cell.fgState === 'run' || cell.ckRun === 'run') return 'run';
+                    if (cell.good_qty > 0 || cell.ckGood > 0) return 'part';
+                    return 'wait';
+                }
+                var order = nz(cell.order_qty), good = goodOf(cell);
+                if (cell.state === 'finished') return 'done';
+                if (order > 0 && good >= order) return 'done';
+                /* ★ 「작업중」과 「진행」은 다르다.
+                   open_cnt(미완료 차수)가 있어야 지금 사람이 붙어 있는 것이고,
+                   실적만 있고 세션이 닫혔으면 그냥 진행된 상태다.
+                   예전엔 양품>0 이면 전부 「진행중」이라 50/450 에서 세션이 끝났는데도
+                   작업중처럼 보였다. */
+                if (nz(cell.open_cnt) > 0) return 'run';
+                /* ★ CK 차수(ckMp)는 완료 시점에 생긴다 — 작업 중에는 차수가 없다.
+                   그래서 차수만 보면 CK 진행을 알 수 없고, 포장 단계로 봐야 한다.
+                     pack   PK 담김        → CK 작업 중
+                     label  CK 나옴        → 완제품 작업 중 (CK 는 그 회차 끝) */
+                if (cell.proc_key === 'pack' && cell.sub_key !== 'pack'
+                    && cell.pack_phase === 'pack') return 'run';
+                if (good > 0) return 'part';
+                /* ★ 작지 State 는 판정에 쓰지 않는다.
+                   포장 세션이 열리면 CK 자식 작지의 State 가 working 으로 올라가는데,
+                   그 세션은 완제품 차수라 CK 와 무관하다. State 로는 둘을 못 가른다.
+                   실제 진행 여부는 그 작지에 달린 **자기 품목 차수**(open_cnt)로만 본다. */
+                return 'wait';
+            }
+
+            function buildF1(o) {
+                var pk = nz(o.pk);
+                var line = (o.line === 'BMSC') ? 'BMSC' : 'BSC';
+                var flow = FLOW[line];
+                var chi = stepsOf(pk), ste = sterilOf(pk);
+
+                var cells = {}, i, s, key;
+                for (i = 0; i < chi.length; i++) {
+                    s = chi[i]; key = s.proc_key;
+                    if (key === 'wash') continue;                 // 세척은 스텝퍼에서 뺀다
+                    if (key === 'pack') {
+                        /* bsc05 자식은 대개 CK 생산 하나다. 결합 자식이 있는 구조면 그쪽이 대표. */
+                        if (s.sub_key === 'pack') { cells.pack = s; cells.packFg = s; }
+                        else cells.packCk = s;
+                        continue;
+                    }
+                    cells[key] = s;
+                }
+                if (ste.length) {
+                    /* BI 합격분 = 멸균 완료 수량 / 판정 전 = pending / 불합격은 버린다 */
+                    var sgood = 0, spend = 0, srun = 0, si;
+                    for (si = 0; si < ste.length; si++) {
+                        var b = ste[si], q = nz(b.qty);
+                        /* 아직 안 닫힌 배치 = 지금 멸균이 돌고 있다 */
+                        if (b.state !== 'done' && b.state !== 'scrapped') srun++;
+                        if (b.bi_result === 'pass')      sgood += q;
+                        else if (b.bi_result === 'fail') continue;
+                        else                             spend += q;
+                    }
+                    /* ★ 멸균의 분모는 완제품 지시량이 아니라 **멸균 대상 품목의 지시량**이다.
+                       멸균에 들어가는 건 PK 다. 완제품 150 지시라도 PK 는 450 이므로
+                       부모 지시량을 쓰면 「150 중 50」처럼 분모가 3배 작게 나온다.
+                       배치에 담긴 품목과 같은 자식 작지를 찾아 그 지시량을 쓴다. */
+                    var storder = 0, sk = {}, sj, sc;
+                    for (sj = 0; sj < ste.length; sj++) {
+                        if (ste[sj].mat_code) sk[ste[sj].mat_code] = 1;
+                    }
+                    for (sj = 0; sj < chi.length; sj++) {
+                        sc = chi[sj];
+                        if (sc.mat_code && sk[sc.mat_code]) storder += nz(sc.order_qty);
+                    }
+                    if (!storder) storder = nz(o.order_qty);   // 매칭 실패 시 폴백
+
+                    cells.steril = { kind:'steril', rows:ste, good_qty:sgood, running:srun,
+                        pending:spend, order_qty:storder };
+                }
+
+                var order = nz(o.order_qty);
+
+                /* ★ 키트 결합은 **부모 작지 자신**이다 — 자식으로 깔리지 않는다.
+                   실데이터(20260804-0002 / BSC60-FG0002):
+                     부모  BSC60-FG0002 (완제품)      ← 결합 실적이 여기 붙는다
+                       ├ bsc02 BSC60-VES00 용기
+                       ├ bsc03 BSC60-PK00  PK
+                       └ bsc05 BSC60-CK02  CK        ← bsc05 자식은 CK 생산뿐
+                   (WorkIndex 3 이 비는 것은 멸균 — 배치라 작지를 안 만든다)
+
+                   그래서 완료수량은 부모 작지의 GoodQty(= 자기 차수 합)를 쓴다.
+                   예전처럼 「bsc05 자식 중 완제품」을 찾으면 영원히 없어서 전부 「전개 미완」이 된다.
+
+                   결합 자식이 따로 깔린 구조(구 데이터)도 있어 그때는 그쪽을 우선한다. */
+                var expanded = true;
+                /* ★ own_good = 그 작지 품목과 같은 산출의 차수 합(서버 패치).
+                   포장은 한 작지에 차수가 둘 달려(세션=완제품 / ckMp=CK) 그냥 더하면
+                   50 완료가 100 으로 찍힌다. 서버가 안 주면 기존 GoodQty 로 떨어진다. */
+                var parentGood = (o.own_good !== undefined && o.own_good !== null)
+                    ? nz(o.own_good) : nz(o.good_qty);
+                var doneQty = cells.packFg ? goodOf(cells.packFg) : parentGood;
+
+                /* 포장 칸은 「결합」을 가리킨다. 자식이 없으면 부모 실적으로 칸을 만든다. */
+                if (!cells.packFg) {
+                    /* ★ produce_cnt 에 미완료 차수 수(own_open)를 넣는다.
+                       결합은 부모 작지에서 도는데, 세션을 열어도 부모 State 가
+                       'ordered' 에 머무는 경로가 있어 그것만 보면 「대기」로 보인다.
+                       실제로는 완제품 작업중이다. */
+                    cells.packFg = { kind:'kit', good_qty:parentGood, order_qty:order,
+                        mat_code:o.mat_code, mat_name:o.mat_name,
+                        state:o.state, produce_cnt:nz(o.own_open), pk:pk };
+                }
+                /* ★ 스텝퍼의 포장 칸은 결합만 보면 안 된다.
+                   포장 공정은 CK 생산 → 키트 결합 두 단계라 CK 가 돌고 있는데도
+                   결합이 0 이면 칸이 「대기」로 남아 현장과 어긋난다.
+                   칸 상태는 둘 중 진행이 있는 쪽을 따르고, 완료는 결합 기준으로 판정한다. */
+                /* ★ 결합 실적은 CK 자식 작지에 「완제품 산출 차수」로 붙는다.
+                   (실데이터: 작지 4=BSC60-CK02 에 차수 6=완제품 working / 차수 7=CK finished)
+                   부모 작지에는 차수가 없어서 부모 기준으로 보면 영원히 「대기」다.
+                   서버가 fg_good / fg_open 으로 갈라 내려주므로 그걸 우선 쓴다. */
+                /* ★ sub_key 에 기대지 않는다. 서버가 sub_key 를 안 채우거나 값이 달라지면
+                   packCk 가 비어 fg_* 를 못 읽고 결합이 영원히 「대기」로 남는다.
+                   포장 공정 자식 전체를 훑어 완제품 산출(fg_*)을 모은다. */
+                var fgFromCk = null, fgG = 0, fgO = 0, hasFg = false, fgPk = null, fi;
+                for (fi = 0; fi < chi.length; fi++) {
+                    var cc = chi[fi];
+                    if (cc.proc_key !== 'pack') continue;
+                    if (cc.fg_good === undefined && cc.fg_open === undefined) continue;
+                    hasFg = true;
+                    fgG += nz(cc.fg_good);
+                    fgO += nz(cc.fg_open);
+                    /* ★ 차수 조회는 **그 차수가 달린 작지**로 해야 한다.
+                       결합 차수는 부모가 아니라 CK 자식 작지에 붙어 있어서,
+                       부모 pk 로 물으면 「차수 실적이 없습니다」가 뜬다. */
+                    if (fgPk === null && (nz(cc.fg_good) > 0 || nz(cc.fg_open) > 0)) fgPk = nz(cc.pk);
+                }
+                if (hasFg) fgFromCk = { good: fgG, open: fgO, pk: fgPk };
+                if (fgFromCk && (fgFromCk.good > 0 || fgFromCk.open > 0)) {
+                    cells.packFg = { kind:'kit', good_qty:fgFromCk.good, order_qty:order,
+                        mat_code:o.mat_code, mat_name:o.mat_name,
+                        state:o.state, produce_cnt:fgFromCk.open,
+                        pk:(fgFromCk.pk || pk) };
+                    doneQty = fgFromCk.good;
+                }
+
+                cells.pack = {
+                    kind: 'packcell',
+                    good_qty: goodOf(cells.packFg),
+                    order_qty: order,
+                    ckGood: cells.packCk ? goodOf(cells.packCk) : 0,
+                    ckRun : cells.packCk ? cellState(cells.packCk) : 'wait',
+                    fgState: cellState(cells.packFg)
+                };
+                /* CK 는 완제품이 아니라 완료수량에 넣지 않는다(넣으면 완제품이 부풀어 오른다).
+                   다만 진행 자체는 보여야 한다 — 실데이터 2442·2494 처럼 CK 만 돈 작지가 있다. */
+                var ckQty = cells.packCk ? goodOf(cells.packCk) : null;
+
+                return finish({
+                    fac:1, o:o, pk:pk, line:line, lineLabel:(line === 'BMSC' ? 'BmSC' : 'BSC'),
+                    lineCls:(line === 'BMSC' ? 'bmsc' : 'bsc'),
+                    flow:flow, cells:cells, order:order, doneQty:doneQty, expanded:expanded,
+                    unitWord:''
+                });
+            }
+
+            // =================================================================
+            // 2공장 모델 — 유닛(1대=1로트) 축
+            // =================================================================
+
+            var RANK = { assy:0, repair:0, insp:1, pack:2 };
+
+            function buildF2(o) {
+                var pk = nz(o.pk), i, u;
+                var units = [];
+                for (i = 0; i < raw.f2units.length; i++) {
+                    if (nz(raw.f2units[i].jr_pk) === pk) units.push(raw.f2units[i]);
+                }
+
+                var order = nz(o.order_qty);
+                var packed = 0, repairCnt = 0, cnt = { assy:0, insp:0, pack:0, repair:0 };
+                for (i = 0; i < units.length; i++) {
+                    u = units[i];
+                    if (u.unit_state === 'packed') packed++;
+                    if (u.is_repair === 'Y') repairCnt++;
+                    if (cnt[u.proc_key] !== undefined) cnt[u.proc_key]++;
+                }
+
+                /* 칸 상태 — 한 유닛은 한 칸에만 있다(서버가 현재 State 로 proc_key 를 계산).
+                   이력대로 뿌리면 조립→검사→수리→검사를 돈 유닛 때문에
+                   칸 합계가 수주 대수보다 커진다. */
+                var flow = FLOW.MCELL, cells = {}, k, j;
+                for (j = 0; j < flow.length; j++) {
+                    k = flow[j];
+                    var here = 0, past = 0;
+                    for (i = 0; i < units.length; i++) {
+                        u = units[i];
+                        var r = RANK[u.proc_key];
+                        if (r === undefined) r = 0;
+                        if (r === RANK[k]) here++;
+                        else if (r > RANK[k]) past++;
+                    }
+                    var st;
+                    if (k === 'pack') st = (units.length && packed >= units.length) ? 'done' : (here ? 'run' : 'wait');
+                    else if (units.length && past + (k === 'assy' ? 0 : 0) >= units.length) st = 'done';
+                    else if (here) st = 'run';
+                    else st = 'wait';
+                    /* 조립·검사는 「그 칸을 지나간 유닛이 전부」면 완료 */
+                    if (k !== 'pack' && units.length && past >= units.length) st = 'done';
+                    if (!units.length) st = 'none';
+                    cells[k] = { kind:'unit', st:st, here:here, past:past, label:PN[k] };
+                }
+
+                return finish({
+                    fac:2, o:o, pk:pk, line:(o.model === '해외' ? '해외' : '국내'),
+                    lineLabel:(o.model || '국내'), lineCls:(o.model === '해외' ? 'exp' : 'dom'),
+                    flow:flow, cells:cells, order:order, doneQty:packed, expanded:true,
+                    units:units, repairCnt:repairCnt, unitWord:'대'
+                });
+            }
+
+            /* 별도 생산 지시 — 키트 아래로 전개되지 않고 **단독 발행된 반제품 작지**.
+               (실데이터: 2512 bsc05 BMSC120-CK01 / 2437 bsc02 BSC30-VES00)
+
+               ★ 오류가 아니다. CK·용기를 따로 만드는 정상 업무이고 부모가 없는 것이 맞다.
+               ★ 같은 표에 넣되 **보여줄 수 있는 것만** 보여준다 —
+                 공정은 자기 한 칸, 완료는 그 공정의 양품, 납기·거래처는 없으니 '—'.
+                 키트 지시와 섞이지 않게 「별도」 배지를 단다. */
+            function buildSep(r) {
+                var key = r.proc_key || 'assy';
+                var cells = {};
+                cells[key] = r;
+
+                var order = nz(r.order_qty);
+                return finish({
+                    fac:1, sep:true, o:{
+                        pk:r.pk, wo:r.wo, state:r.state, mat_code:r.mat_code, mat_name:r.mat_name,
+                        prod_date:r.prod_date, due_date:null, company_name:null
+                    },
+                    pk:nz(r.pk), line:'SEP', lineLabel:'반제품', lineCls:'dom',
+                    flow:[key], cells:cells,
+                    order:order,
+                    /* 지시수량이 0 인 작지가 있다(2437). 그때는 달성률을 내지 않는다 —
+                       분모가 없는데 100% 라고 칠하면 없는 숫자를 만들어낸다. */
+                    doneQty:nz(r.good_qty), expanded:(order > 0), unitWord:''
+                });
+            }
+
+            // =================================================================
+            // 공통 마무리 — 달성률 · 현재공정 · 납기 · 상태
+            // =================================================================
+            function finish(m) {
+                var i;
+                m.pct = (m.expanded && m.order > 0)
+                    ? Math.min(100, Math.round(m.doneQty / m.order * 100)) : null;
+
+                /* ★ 실제 진행이 표시 순서대로 가지 않는다 — 융착·멸균이 먼저 돌 수 있다.
+                   「첫 미완료 칸」을 현재공정이라고 하면 실제로 돌고 있는 공정을 놓친다.
+                   지금 돌고 있는 칸(run)을 전부 세우고, 없을 때만 다음 대기 칸을 가리킨다. */
+                var running = [];
+                for (i = 0; i < m.flow.length; i++) {
+                    if (cellState(m.cells[m.flow[i]]) === 'run') running.push(m.flow[i]);
+                }
+                m.running = running;
+                m.cur = null;
+                if (running.length) m.cur = running[0];
+                else {
+                    for (i = 0; i < m.flow.length; i++) {
+                        if (cellState(m.cells[m.flow[i]]) !== 'done') { m.cur = m.flow[i]; break; }
+                    }
+                }
+
+                m.anyMove = false;
+                for (i = 0; i < m.flow.length; i++) {
+                    var st = cellState(m.cells[m.flow[i]]);
+                    /* part(실적은 있으나 세션 닫힘)도 착수한 것이다 — 미착수로 두면 안 된다 */
+                    if (st === 'run' || st === 'done' || st === 'part') { m.anyMove = true; break; }
+                }
+
+                m.due = m.o.due_date || null;
+                m.dd  = m.due ? days(today(), m.due) : null;
+
+                if (m.o.state === 'finished' || (m.expanded && m.order > 0 && m.doneQty >= m.order)) m.status = 'done';
+                else if (m.dd !== null && m.dd < 0) m.status = 'late';    // ★ 납기 경과만
+                else if (!m.anyMove) m.status = 'wait';
+                else m.status = 'run';
+
+                return m;
+            }
+
+            // =================================================================
+            // 렌더
+            // =================================================================
+
+            /* 세척 총량. 작지에 안 붙으므로 건수가 아니라 수량으로 센다 */
+            function washQty() {
+                var q = 0, i;
+                for (i = 0; i < raw.wash.materials.length; i++) q += nz(raw.wash.materials[i].qty);
+                return q;
+            }
+
+            var viewCnt = 0, folded = false;
+
+            /* 접으면 필터 UI 가 사라지므로 무슨 조건으로 보고 있는지를 한 줄로 남긴다.
+               안 남기면 「왜 이것만 나오지」로 헤맨다. */
+            function foldSummary() {
+                var t = [];
+                t.push(facPick ? (facPick + '공장') : '전체 공장');
+                var ln = $('#fLine').val(); if (ln) t.push(ln);
+                var st = kpiPick || $('#fSt').val();
+                t.push(st === 'open' ? '미완료' : (st ? (SLABEL[st] || st) : '전체 상태'));
+                var f = $('#fFrom').val(), to = $('#fTo').val();
+                if (f || to) t.push((f || '') + ' ~ ' + (to || ''));
+                return t.join(' · ') + ' — ' + viewCnt + '건';
+            }
+
+            function renderKpi(list) {
+                var c = { wait:0, run:0, late:0, done:0 }, f1 = 0, f2 = 0, i;
+                for (i = 0; i < list.length; i++) {
+                    c[list[i].status]++;
+                    if (list[i].fac === 1) f1++; else f2++;
+                }
+                var cards = [
+                    { k:'',     cls:'',     n:list.length, l:'전체 작업지시', s:'1공장 ' + f1 + ' · 2공장 ' + f2 },
+                    { k:'run',  cls:'run',  n:c.run,       l:'진행중',  s:'' },
+                    { k:'late', cls:'late', n:c.late,      l:'지연',    s:'납기 경과' },
+                    { k:'wait', cls:'',     n:c.wait,      l:'미착수',  s:'' },
+                    { k:'done', cls:'done', n:c.done,      l:'완료',    s:'' },
+                    /* 세척은 작업지시가 아니다 — 상태 필터가 아니라 목록을 여는 카드다.
+                       같은 줄에 두되 점선 테두리와 「별도」 꼬리표로 성격을 구분한다. */
+                    { k:'wash', cls:'wash', n:washQty(),    l:'세척',
+                        s:raw.wash.rows.length + '건 · 눌러서 목록' }
+                ];
+                var html = '', j;
+                for (j = 0; j < cards.length; j++) {
+                    var x = cards[j];
+                    html += '<div class="pg-kpi ' + x.cls + ' ' + (kpiPick === x.k ? 'on' : '') + '" data-k="' + x.k + '">'
+                        + '<div class="n">' + x.n + '</div><div class="l">' + x.l + '</div>'
+                        + (x.s ? '<div class="s">' + x.s + '</div>' : '') + '</div>';
+                }
+                $('#kpis').html(html);
+
+                /* 달성률 평균은 전개된 것만 센다 — 전개 미완을 0 으로 넣으면 평균이 눌린다 */
+                var sum = 0, cnt = 0;
+                for (i = 0; i < list.length; i++) {
+                    if (list[i].status !== 'done' && list[i].pct !== null) { sum += list[i].pct; cnt++; }
+                }
+                $('#cnt').text(viewCnt + '건 표시 · 미완료 평균 달성률 '
+                    + (cnt ? Math.round(sum / cnt) : 0) + '%'
+                    + ' · 행을 누르면 공정별 진척 상세');
+            }
+
+            function stepper(m) {
+                var html = '<span class="pg-steps">', i;
+                for (i = 0; i < m.flow.length; i++) {
+                    var k = m.flow[i], cell = m.cells[k], st = cellState(cell);
+                    /* ★ 'none'(전개 없음)도 시각적으로는 대기와 같게 둔다.
+                       점선·실선을 섞으면 「왜 어떤 건 흐리지」로 읽힌다. 차이는 툴팁으로만. */
+                    var vis = (st === 'none') ? 'wait' : st;
+                    if (vis === 'part') vis = 'part';
+                    var prevDone = i ? (cellState(m.cells[m.flow[i - 1]]) === 'done') : false;
+
+                    var tip = PN[k];
+                    if (!cell) tip += ' · 전개 없음';
+                    else if (cell.kind === 'steril') {
+                        tip += ' · ' + num(cell.good_qty) + '/' + num(cell.order_qty)
+                            + ' · 배치 ' + cell.rows.length + '건'
+                            + (cell.pending ? ' · 판정중 ' + num(cell.pending) : '');
+                    }
+                    else if (cell.kind === 'unit') tip += ' · 현재 ' + cell.here + '대 · 통과 ' + cell.past + '대';
+                    else if (k === 'pack' && cell && cell.kind === 'packcell') {
+                        /* 포장은 CK 생산과 키트 결합 둘 다다. 대표 하나만 적으면
+                           「CK 는 돌았는데 아무 데도 안 보인다」가 된다. */
+                        tip = '포장';
+                        if (m.cells.packCk && m.cells.packCk.pack_phase) {
+                            tip += ' · ' + (PACK_PHASE[m.cells.packCk.pack_phase] || '');
+                        }
+                        if (m.cells.packCk) tip += ' · CK 생산 ' + num(goodOf(m.cells.packCk))
+                            + '/' + num(m.cells.packCk.order_qty);
+                        tip += m.cells.packFg
+                            ? ' · 키트 결합 ' + num(goodOf(m.cells.packFg)) + '/' + num(m.cells.packFg.order_qty)
+                            : ' · 키트 결합 전개 없음';
+                    }
+                    else tip += ' · ' + num(goodOf(cell)) + '/' + num(cell.order_qty);
+
+                    html += '<span class="pg-step' + (i ? ' hasline' : '')
+                        + (prevDone ? ' pdone' : '') + (st === 'run' ? ' on' : '')
+                        + '" title="' + esc(tip) + '">'
+                        + '<span class="pg-dot ' + vis + '">' + (st === 'done' ? '✓' : '') + '</span>'
+                        + '<span class="pg-sname">' + PN[k] + '</span></span>';
+                }
+                return html + '</span>';
+            }
+
+            /* 동시에 여러 공정이 돌 수 있다. 하나만 적으면 나머지가 안 보인다. */
+            function curText(m) {
+                if (m.running && m.running.length > 1) {
+                    var t = [], i;
+                    for (i = 0; i < m.running.length; i++) t.push(PN[m.running[i]]);
+                    return '<span style="font-weight:700">' + t.join(' · ') + '</span>';
+                }
+                return m.cur ? PN[m.cur] : '<span class="pg-sub">—</span>';
+            }
+
+            function render() {
+                var rank = { late:0, run:1, wait:2, done:3 };
+                var rows = view.slice().sort(function (a, b) {
+                    var d = rank[a.status] - rank[b.status];
+                    if (d !== 0) return d;
+                    if (!a.due && !b.due) return a.fac - b.fac;
+                    if (!a.due) return 1;
+                    if (!b.due) return -1;
+                    return a.due < b.due ? -1 : 1;
+                });
+
+                if (!rows.length) {
+                    $('#rows').html('<tr><td colspan="12" class="pg-empty">조건에 해당하는 작업지시가 없습니다.</td></tr>');
+                    return;
+                }
+
+                var html = '', i;
+                for (i = 0; i < rows.length; i++) {
+                    var m = rows[i], o = m.o;
+                    var ddCls = (m.dd === null) ? '' : (m.dd < 0 ? 'over' : (m.dd <= 1 ? 'warn' : ''));
+                    var ddTxt = (m.dd === null) ? '—'
+                        : (m.dd < 0 ? 'D+' + Math.abs(m.dd) : (m.dd === 0 ? 'D-DAY' : 'D-' + m.dd));
+
+                    var doneCell = m.expanded
+                        ? '<span class="pg-num">' + num(m.doneQty) + (m.unitWord ? '<span class="pg-unit"> ' + m.unitWord + '</span>' : '')
+                        + '<span class="rem"> / 잔량 ' + num(Math.max(0, m.order - m.doneQty)) + '</span></span>'
+                        : (m.sep
+                            ? '<span class="pg-num">' + num(m.doneQty) + '</span>'
+                            : '<span class="pg-noexp" title="키트 결합 자식 작지가 전개되지 않았습니다">전개 미완</span>');
+                    if (m.ckQty) doneCell += '<div class="pg-ck">CK ' + num(m.ckQty) + '</div>';
+
+                    var pctCell = (m.pct === null) ? '<span class="pg-sub">—</span>'
+                        : '<div class="pg-prog"><div class="pg-bar ' + (m.status === 'late' ? 'late' : '') + '">'
+                        + '<i style="width:' + m.pct + '%"></i></div>'
+                        + '<span class="pg-pct">' + m.pct + '%</span></div>';
+
+                    html += '<tr class="' + (m.status === 'late' ? 'late' : '') + '" data-pk="' + m.pk + '" data-fac="' + m.fac + '">'
+                        +   '<td><span class="pg-fac f' + m.fac + '">' + m.fac + '공장</span></td>'
+                        +   '<td class="left"><div class="pg-wo">' + esc(o.wo) + '</div>'
+                        +     '<div class="pg-sub">' + esc(o.order_date || o.prod_date || '') + ' 지시</div></td>'
+                        +   '<td class="left">'
+                        +     (m.sep ? '<span class="pg-sep">별도</span>' : '')
+                        +     '<span class="pg-pline ' + m.lineCls + '">' + esc(m.lineLabel) + '</span>'
+                        +     '<span class="pg-kit">' + esc(o.mat_name || '') + '</span>'
+                        +     (m.repairCnt ? '<span class="pg-rep">수리 ' + m.repairCnt + '</span>' : '')
+                        +     '<div class="pg-code">' + esc(o.mat_code || '') + '</div></td>'
+                        +   '<td class="left">' + (o.company_name ? esc(o.company_name)
+                            : '<span class="pg-sub">수주 없음</span>') + '</td>'
+                        +   '<td class="pg-num">' + num(m.order) + (m.unitWord ? '<span class="pg-unit"> ' + m.unitWord + '</span>' : '') + '</td>'
+                        +   '<td>' + doneCell + '</td>'
+                        +   '<td>' + pctCell + '</td>'
+                        +   '<td class="left">' + stepper(m) + '</td>'
+                        +   '<td>' + curText(m) + '</td>'
+                        +   '<td>' + (m.due ? esc(m.due) : '<span class="pg-sub">—</span>') + '</td>'
+                        +   '<td class="pg-dday ' + ddCls + '">' + ddTxt + '</td>'
+                        +   '<td><span class="pg-st ' + m.status + '"><span class="dot"></span>'
+                        +     SLABEL[m.status] + '</span></td>'
+                        + '</tr>';
+                }
+                $('#rows').html(html);
+            }
+
+            /* 세척은 실적일 기준이라 작지 축(지시일)과 기간의 의미가 다르다.
+               ★ 여기서 DOM 을 건드리지 않고 raw 에만 담는다 —
+                 KPI 카드가 세척 수량을 쓰므로 renderKpi 보다 먼저 채워져야 한다. */
+            function loadWash(from, to) {
+                raw.wash = { materials:[], rows:[], from:from, to:to, err:false };
+                try {
+                    var data = get(API + '/f1_wash', { date_from:from, date_to:to, spjangcd:SPJ });
+                    raw.wash.materials = (data && data.materials) || [];
+                    raw.wash.rows      = (data && data.rows) || [];
+                } catch (e) {
+                    /* ★ 보조 데이터가 예외를 던지면 그 뒤 렌더가 통째로 멈춘다.
+                       본문은 그려지게 여기서 삼킨다. */
+                    raw.wash.err = true;
+                }
+            }
+
+            // =================================================================
+            // 모달
+            // =================================================================
+
+            function openModal(pk, fac) {
+                var m = null, i;
+                for (i = 0; i < view.length; i++) {
+                    if (view[i].pk === pk && view[i].fac === fac) { m = view[i]; break; }
+                }
+                if (!m) return;
+                $('#mTitle').text(m.fac + '공장 · ' + m.o.wo + ' · ' + (m.o.mat_name || ''));
+                $('#mBody').html(m.fac === 1 ? modalF1(m) : modalF2(m));
+                $('#ov').addClass('on');
+            }
+
+            function modalF1(m) {
+                var html = '<div class="pg-mtitle">공정별 진척</div>'
+                    + '<table class="pg-mtable"><thead><tr>'
+                    + '<th>공정</th><th>산출품목</th><th>지시</th><th>양품</th><th>불량</th><th>차수</th><th>상태</th>'
+                    + '</tr></thead><tbody>', i;
+                for (i = 0; i < m.flow.length; i++) {
+                    var k = m.flow[i], cell = m.cells[k];
+                    /* 별도 생산 지시는 자기 공정 한 칸이다 —
+                       pack 이어도 CK/결합 자식 개념이 없으므로 packRows 로 보내면 안 된다 */
+                    if (m.sep) { html += jrRow(PN[k] + ' (별도)', cell, cellState(cell)); continue; }
+                    if (k === 'pack')   { html += packRows(m); continue; }
+                    if (k === 'steril') { html += sterilRows(cell); continue; }
+                    if (!cell) {
+                        html += '<tr><td>' + PN[k] + '</td><td colspan="6" class="left">'
+                            + '<span class="pg-sub">자식 작지 전개 없음</span></td></tr>';
+                        continue;
+                    }
+                    html += jrRow(PN[k], cell, cellState(cell));
+                }
+                return html + '</tbody></table><div id="sessBox"></div>';
+            }
+
+            /* done 완료 / run 작업중(사람이 붙어 있음) / part 진행(실적은 있으나 세션 닫힘) / wait 대기 */
+            function stLabel(st) {
+                return st === 'done' ? '완료'
+                    : st === 'run'  ? '작업중'
+                        : st === 'part' ? '일부 완료'
+                            : '대기';
+            }
+
+            function jrRow(label, c, st, kind) {
+                return '<tr class="jr" data-jr="' + nz(c.pk) + '" data-kind="' + (kind || 'own') + '">'
+                    + '<td>' + esc(label) + '</td>'
+                    + '<td class="left">' + esc(c.mat_name || '') + '<br><span class="pg-code">' + esc(c.mat_code || '') + '</span></td>'
+                    + '<td>' + num(c.order_qty) + '</td>'
+                    + '<td><b>' + num(goodOf(c)) + '</b></td>'
+                    + '<td>' + num(defectOf(c)) + '</td>'
+                    + '<td>' + num(c.produce_cnt) + '</td>'
+                    + '<td><span class="pg-st ' + (st === 'none' ? 'wait' : st) + '">'
+                    +   stLabel(st) + '</span></td></tr>';
+            }
+
+            /* 포장은 자식이 둘 — CK 생산과 키트 결합. 나눠 보여준다.
+               한 칸으로 합치면 완제품 수량이 CK 만큼 부풀어 오른다. */
+            /* 포장은 두 갈래다 — CK 생산(자식 작지)과 키트 결합.
+               결합은 구조에 따라 자식일 수도(구 데이터), 부모 작지 자신일 수도 있다(현재).
+               ★ 한 갈래당 한 줄만. 예전엔 kind 분기를 따로 더해 결합이 두 줄로 나왔다. */
+            function packRows(m) {
+                var html = '';
+                /* ★ 포장 세션은 하나다. 그 하나가 PK 담기 → CK 생산 → 완제품 결합을 다 덮고,
+                   완료 시점에야 실적이 CK / 완제품 두 줄로 갈린다.
+                   따라서 **작업 중에는 어느 행을 눌러도 같은 세션**이 나와야 한다.
+                   kind 로 산출품목을 거르면 진행중 세션(산출=완제품)이 CK 행에서 사라진다. */
+                if (m.cells.packCk) {
+                    html += jrRow('포장 (CK 생산)', m.cells.packCk, cellState(m.cells.packCk), 'all');
+                }
+                var fg = m.cells.packFg;
+                if (fg && fg.kind === 'kit') {
+                    /* 부모 작지가 결합 산출이다. 자식 행이 없으므로 부모 실적으로 만든다. */
+                    var st = cellState(fg);
+                    html += '<tr class="jr" data-jr="' + nz(fg.pk) + '" data-kind="all">'
+                        +  '<td>포장 (키트 결합)</td>'
+                        +  '<td class="left">' + esc(fg.mat_name || '') + '<br><span class="pg-code">'
+                        +    esc(fg.mat_code || '') + '</span></td>'
+                        +  '<td>' + num(fg.order_qty) + '</td>'
+                        +  '<td><b>' + num(fg.good_qty) + '</b></td>'
+                        +  '<td>—</td><td>—</td>'
+                        +  '<td><span class="pg-st ' + (st === 'none' ? 'wait' : st) + '">'
+                        +    (st === 'done' ? '완료' : (st === 'run' ? '진행중' : '대기')) + '</span></td></tr>';
+                } else if (fg) {
+                    html += jrRow('포장 (키트 결합)', fg, cellState(fg));
+                }
+                if (!m.cells.packCk && !fg) {
+                    html += '<tr><td>포장</td><td colspan="6" class="left">'
+                        + '<span class="pg-sub">자식 작지 전개 없음</span></td></tr>';
+                }
+                return html;
+            }
+
+            function sterilRows(cell) {
+                if (!cell) return '<tr><td>멸균</td><td colspan="6" class="left"><span class="pg-sub">매칭된 배치 없음</span></td></tr>';
+
+                /* 요약 한 줄 — 다른 공정과 같은 칸 구성(지시 / 양품)으로 맞춘다.
+                   그래야 「멸균만 왜 완료지」 같은 오독이 없다. */
+                var st = cellState(cell);
+                var html = '<tr><td>멸균</td>'
+                    + '<td class="left"><span class="pg-sub">배치 ' + cell.rows.length + '건'
+                    +   (cell.pending ? ' · 판정중 ' + num(cell.pending) : '') + '</span></td>'
+                    + '<td>' + num(cell.order_qty) + '</td>'
+                    + '<td><b>' + num(cell.good_qty) + '</b></td>'
+                    + '<td>—</td><td>—</td>'
+                    + '<td><span class="pg-st ' + (st === 'none' ? 'wait' : st) + '">'
+                    +   stLabel(st) + '</span></td></tr>';
+
+                var i;
+                for (i = 0; i < cell.rows.length; i++) {
+                    var b = cell.rows[i];
+                    /* BiResult 와 State 는 별개 축이다. 합치면
+                       「판정은 났는데 배치는 안 닫힘」이 화면에서 사라진다. */
+                    html += '<tr><td></td>'
+                        +  '<td class="left" style="padding-left:22px">' + esc(b.mat_name || '')
+                        +    '<br><span class="pg-code">' + esc(b.lot_number || '') + '</span></td>'
+                        +  '<td>—</td>'
+                        +  '<td>' + num(b.qty) + '</td>'
+                        +  '<td>—</td><td>—</td>'
+                        +  '<td><span class="pg-st ' + (b.bi_result === 'pass' ? 'done' : (b.bi_result === 'fail' ? 'late' : 'run')) + '">'
+                        +    (b.bi_result === 'pass' ? 'BI 합격' : (b.bi_result === 'fail' ? 'BI 불합격' : '판정중'))
+                        +  '</span></td></tr>';
+                }
+                return html;
+            }
+
+            /* 2공장은 유닛 1대가 한 행. 회차로 뿌리면 3회차까지 간 한 대가
+               3줄로 흩어져 대수가 안 보인다(검사 이력은 유닛 클릭 시 아래에). */
+            function modalF2(m) {
+                var html = '<div class="pg-mtitle">유닛 진행 (' + m.units.length + '대 · 포장완료 ' + m.doneQty + '대)</div>'
+                    + '<table class="pg-mtable"><thead><tr>'
+                    + '<th>호기</th><th>로트</th><th>현재</th><th>작업자</th><th>설비</th><th>시작</th><th>비고</th>'
+                    + '</tr></thead><tbody>', i;
+                if (!m.units.length) {
+                    html += '<tr><td colspan="7"><span class="pg-sub">생성된 유닛이 없습니다.</span></td></tr>';
+                }
+                for (i = 0; i < m.units.length; i++) {
+                    var u = m.units[i];
+                    var stCls = (u.unit_state === 'packed') ? 'done'
+                        : (u.unit_state === 'reject' ? 'late'
+                            : (u.cell_state === 'run' ? 'run' : 'wait'));
+                    html += '<tr class="un" data-unit="' + nz(u.pk) + '">'
+                        +  '<td>#' + esc(u.unit_no || '') + '</td>'
+                        +  '<td class="left"><span class="pg-code">' + esc(u.lot_number || '') + '</span>'
+                        +    (u.src_lot ? '<br><span class="pg-sub">원 로트 ' + esc(u.src_lot) + '</span>' : '') + '</td>'
+                        +  '<td><span class="pg-st ' + stCls + '">' + esc(PN[u.proc_key] || u.proc_key) + '</span></td>'
+                        +  '<td>' + esc(u.worker || '') + '</td><td>' + esc(u.equipment || '') + '</td>'
+                        +  '<td>' + esc(u.start_time || '') + '</td>'
+                        +  '<td class="left">'
+                        +    (u.is_repair === 'Y' ? '<span class="pg-rep">수리 · ' + (u.repair_cat === 'return' ? '반품' : '사양변경') + '</span>' : '')
+                        +    (u.reject_reason ? '<span class="pg-sub">' + esc(u.reject_reason) + '</span>' : '')
+                        +  '</td></tr>';
+                }
+                return html + '</tbody></table><div id="sessBox"></div>';
+            }
+
+            /* 세척 목록 모달. 카드 = 수량, 모달 = 품목 집계 + 상세.
+               작업지시가 없어 표 본문에 넣을 자리가 없다(wash_work 에 JobResponse_id 없음). */
+            function openWash() {
+                if (raw.wash.err) {
+                    $('#mTitle').text('세척');
+                    $('#mBody').html('<div class="pg-empty">세척 조회에 실패했습니다.</div>');
+                    $('#ov').addClass('on');
+                    return;
+                }
+                $('#mTitle').text('세척 · ' + raw.wash.from + ' ~ ' + raw.wash.to + ' (실적일 기준)');
+
+                var html = '<div class="pg-mtitle">품목별 집계</div>'
+                    + '<table class="pg-mtable"><thead><tr>'
+                    + '<th class="left">품목</th><th>수량</th><th>불량</th><th>건수</th>'
+                    + '<th>대기</th><th>진행</th><th>완료</th></tr></thead><tbody>', i;
+                if (!raw.wash.materials.length) {
+                    html += '<tr><td colspan="7"><span class="pg-sub">해당 기간 세척 실적이 없습니다.</span></td></tr>';
+                }
+                for (i = 0; i < raw.wash.materials.length; i++) {
+                    var m = raw.wash.materials[i];
+                    html += '<tr><td class="left">' + esc(m.mat_name || '') + '<br><span class="pg-code">'
+                        +    esc(m.mat_code || '') + '</span></td>'
+                        +  '<td><b>' + num(m.qty) + '</b></td><td>' + num(m.defect_qty) + '</td>'
+                        +  '<td>' + num(m.work_cnt) + '</td><td>' + num(m.wait_cnt) + '</td>'
+                        +  '<td>' + num(m.run_cnt) + '</td><td>' + num(m.done_cnt) + '</td></tr>';
+                }
+                html += '</tbody></table>';
+
+                if (raw.wash.rows.length) {
+                    html += '<div class="pg-mtitle">세척 내역 (' + raw.wash.rows.length + '건)</div>'
+                        +  '<table class="pg-mtable"><thead><tr>'
+                        +  '<th>일자</th><th class="left">품목</th><th>수량</th><th>불량</th>'
+                        +  '<th>작업자</th><th>설비</th><th>시작</th><th>종료</th><th>상태</th>'
+                        +  '</tr></thead><tbody>';
+                    for (i = 0; i < raw.wash.rows.length; i++) {
+                        var r = raw.wash.rows[i];
+                        var cls = (r.state === 'done') ? 'done' : (r.state === 'working' ? 'run' : 'wait');
+                        var txt = (r.state === 'done') ? '완료' : (r.state === 'working' ? '진행중' : '대기');
+                        html += '<tr><td>' + esc(r.wash_date || '') + '</td>'
+                            +  '<td class="left">' + esc(r.mat_name || '') + '<br><span class="pg-code">'
+                            +    esc(r.mat_code || '') + '</span></td>'
+                            +  '<td><b>' + num(r.qty) + '</b>'
+                            +    (r.unit ? '<span class="pg-unit"> ' + esc(r.unit) + '</span>' : '') + '</td>'
+                            +  '<td>' + num(r.defect_qty) + '</td>'
+                            +  '<td>' + esc(r.worker || '') + '</td><td>' + esc(r.equipment || '') + '</td>'
+                            +  '<td>' + esc(r.start_short || '') + '</td><td>' + esc(r.end_short || '') + '</td>'
+                            +  '<td><span class="pg-st ' + cls + '">' + txt + '</span></td></tr>';
+                    }
+                    html += '</tbody></table>';
+                }
+                $('#mBody').html(html);
+                $('#ov').addClass('on');
+            }
+
+            /* ★ members 에 대표 작업자가 이미 들어 있다.
+               둘을 겹쳐 찍으면 「김철수 / 김철수, 정우철」처럼 이름이 두 번 나온다.
+               여럿이면 명단만, 혼자면 이름만 쓴다. */
+            function sessWorker(s) {
+                if (s.members && s.members.indexOf(',') >= 0) return s.members;
+                return s.worker || s.members || '-';
+            }
+
+            function loadSessions(jrPk, $tr, kind) {
+                $('#mBody').find('tr.pick').removeClass('pick');
+                $tr.addClass('pick');
+                try {
+                    var data = get(API + '/f1_session', { jr_pk: jrPk, kind: kind || 'own' });
+                    var ss = (data && data.sessions) || [], dd = (data && data.defects) || [];
+                    var html = '<div class="pg-mtitle">차수 실적</div>', i, j;
+                    if (!ss.length) {
+                        html += '<div class="pg-empty" style="padding:18px">차수 실적이 없습니다.</div>';
+                    } else {
+                        html += '<table class="pg-mtable"><thead><tr>'
+                            +  '<th>차수</th><th>일자</th><th class="left">산출품목</th><th>작업자</th><th>설비</th>'
+                            +  '<th>시작</th><th>종료</th><th>양품</th><th>불량</th></tr></thead><tbody>';
+                        for (i = 0; i < ss.length; i++) {
+                            var s = ss[i];
+                            html += '<tr class="' + (s.end_time ? '' : 'pg-run') + '">'
+                                +  '<td>' + esc(s.chasu || '') + '</td><td>' + esc(s.prod_date || '') + '</td>'
+                                +  '<td class="left">' + esc(s.out_name || '') + '</td>'
+                                +  '<td>' + esc(sessWorker(s)) + '</td>'
+                                +  '<td>' + esc(s.equipment || '') + '</td>'
+                                +  '<td>' + esc(s.start_time || '') + '</td>'
+                                +  '<td>' + (s.end_time ? esc(s.end_time)
+                                    : '<span class="pg-st run">작업중</span>') + '</td>'
+                                +  '<td><b>' + num(s.good_qty) + '</b></td><td>' + num(s.defect_qty) + '</td></tr>';
+                        }
+                        html += '</tbody></table>';
+                    }
+                    if (dd.length) {
+                        html += '<div class="pg-mtitle">부적합</div><table class="pg-mtable"><thead><tr>'
+                            +  '<th>일자</th><th>유형</th><th>자재</th><th>수량</th><th>작업자</th></tr></thead><tbody>';
+                        for (j = 0; j < dd.length; j++) {
+                            var d = dd[j];
+                            html += '<tr><td>' + esc(d.defect_date || '') + '</td><td>' + esc(d.defect_type || '') + '</td>'
+                                +  '<td class="left">' + esc(d.mat_name || '') + '</td>'
+                                +  '<td>' + num(d.defect_qty) + '</td><td>' + esc(d.worker || '') + '</td></tr>';
+                        }
+                        html += '</tbody></table>';
+                    }
+                    $('#sessBox').html(html);
+                } catch (e) {
+                    $('#sessBox').html('<div class="pg-empty" style="padding:18px">차수 조회에 실패했습니다.</div>');
+                }
+            }
+
+            /* 검사 판정은 「양식별 마지막 회차」다.
+               불합격 회차가 하나라도 있으면 불합격으로 치면 재검사로 통과한 대가
+               영원히 불합격으로 남는다. 여기서는 회차를 그대로 이력으로 보여준다. */
+            function loadInspects(unitPk, $tr) {
+                $('#mBody').find('tr.pick').removeClass('pick');
+                $tr.addClass('pick');
+                try {
+                    var rows = get(API + '/f2_inspects', { unit_pk: unitPk }) || [];
+                    var html = '<div class="pg-mtitle">검사 회차 (최신순)</div>';
+                    if (!rows.length) {
+                        html += '<div class="pg-empty" style="padding:18px">검사 이력이 없습니다.</div>';
+                    } else {
+                        html += '<table class="pg-mtable"><thead><tr>'
+                            +  '<th>회차</th><th>양식</th><th>판정</th><th>불합격 사유</th><th>일시</th>'
+                            +  '</tr></thead><tbody>';
+                        var i;
+                        for (i = 0; i < rows.length; i++) {
+                            var r = rows[i];
+                            var cls = (r.verdict === 'pass') ? 'done' : (r.verdict === 'fail' ? 'late' : 'wait');
+                            var txt = (r.verdict === 'pass') ? '합격' : (r.verdict === 'fail' ? '불합격' : '진행중');
+                            html += '<tr><td>' + esc(r.try_no || '') + '</td><td class="left">' + esc(r.form_name || '') + '</td>'
+                                +  '<td><span class="pg-st ' + cls + '">' + txt + '</span></td>'
+                                +  '<td class="left">' + esc(r.fail_reason || '') + '</td>'
+                                +  '<td>' + esc(r.created || '') + '</td></tr>';
+                        }
+                        html += '</tbody></table>';
+                    }
+                    $('#sessBox').html(html);
+                } catch (e) {
+                    $('#sessBox').html('<div class="pg-empty" style="padding:18px">검사 이력 조회에 실패했습니다.</div>');
+                }
+            }
+
+            // =================================================================
+            // 조회
+            // =================================================================
+
+            function search() {
+                var from = $('#fFrom').val(), to = $('#fTo').val();
+                /* ★ f1_list 는 날짜가 선택값이지만 f2_list 는 필수다(BETWEEN).
+                   비었으면 2공장 쪽만 기본 구간을 준다 — 전체 기간을 훑을 방법이 없다. */
+                var d = new Date(), t2 = fmtD(d);
+                d.setDate(d.getDate() - 90);
+                var f2from = from || fmtD(d), f2to = to || t2;
+
+                var line = $('#fLine').val() || '';
+                var f1line = F1_LINES[line] ? line : '';
+                var f2model = F2_LINES[line] ? line : '';
+                var lineIsF1 = !!F1_LINES[line], lineIsF2 = !!F2_LINES[line];
+
+                all = [];
+                raw.orders = []; raw.steps = []; raw.orphans = [];
+                raw.steril = []; raw.f2orders = []; raw.f2units = [];
+
+                // ── 1공장 ──
+                if (facPick !== '2' && !lineIsF2) {
+                    try {
+                        var d1 = get(API + '/f1_list', {
+                            date_from: from || '', date_to: to || '',
+                            line: f1line, spjangcd: SPJ
+                        });
+                        if (d1) {
+                            raw.orders  = d1.orders  || [];
+                            raw.steps   = d1.steps   || [];
+                            raw.orphans = d1.orphans || [];
+                            raw.steril  = d1.steril  || [];
+                            for (var i = 0; i < raw.orders.length; i++) all.push(buildF1(raw.orders[i]));
+                            /* 별도 생산 지시도 같은 표에 세운다 */
+                            for (var o = 0; o < raw.orphans.length; o++) all.push(buildSep(raw.orphans[o]));
+                        }
+                    } catch (e) {
+                        Alert.alert('1공장 조회 중 오류가 발생했습니다.\n' + e.message);
+                    }
+                }
+
+                // ── 2공장 ──
+                if (facPick !== '1' && !lineIsF1) {
+                    try {
+                        var d2 = get(API + '/f2_list', {
+                            date_from: f2from, date_to: f2to,
+                            model: f2model, spjangcd: SPJ
+                        });
+                        if (d2) {
+                            raw.f2orders = d2.orders || [];
+                            raw.f2units  = d2.units  || [];
+                            for (var j = 0; j < raw.f2orders.length; j++) all.push(buildF2(raw.f2orders[j]));
+                        }
+                    } catch (e2) {
+                        Alert.alert('2공장 조회 중 오류가 발생했습니다.\n' + e2.message);
+                    }
+                }
+
+                /* ★ 세척을 먼저 불러야 한다 — KPI 카드가 세척 수량을 쓴다 */
+                loadWash(from || fmtD(new Date(new Date().getTime() - 30 * 86400000)), to || t2);
+
+                /* ★ KPI 는 상태 필터 전 전체를 센다 — 필터를 걸고 세면 고른 카드만 숫자가
+                   남고 나머지가 0 이 되어 다른 상태로 옮겨갈 수가 없다. */
+                renderKpi(all);
+
+                /* 'open' = 미완료 전체. 모니터링의 기본값 —
+                   지금 남아 있는 것이 궁금한 화면이라 완료된 지시가 목록을 밀어내면 안 된다. */
+                var pick = kpiPick || $('#fSt').val();
+                view = [];
+                for (var k = 0; k < all.length; k++) {
+                    if (pick === 'open') { if (all[k].status === 'done') continue; }
+                    else if (pick && all[k].status !== pick) continue;
+                    view.push(all[k]);
+                }
+
+                viewCnt = view.length;
+                renderKpi(all);
+                render();
+                $('#foldSummary').text(folded ? foldSummary() : '');
+            }
+
+            // =================================================================
+
+            function init() {
+                if (!ready()) {
+                    $('#rows').html('<tr><td colspan="12" class="pg-empty">'
+                        + '공용 스크립트(AjaxUtil)를 불러오지 못했습니다. 새로고침 후에도 같으면 관리자에게 문의하세요.'
+                        + '</td></tr>');
+                    return;
+                }
+
+                $('#facTabs').on('click', '.pg-tab', function () {
+                    $('#facTabs').find('.pg-tab').removeClass('on');
+                    $(this).addClass('on');
+                    facPick = String($(this).data('f') || '');
+                    search();
+                });
+
+                $('#btnSearch').on('click', search);
+                $('#btnReset').on('click', function () {
+                    $('#fFrom').val(''); $('#fTo').val('');
+                    $('#fLine').val(''); $('#fSt').val('');
+                    kpiPick = '';
+                    search();
+                });
+                $('#fSt').on('change', function () { kpiPick = ''; search(); });
+
+                $('#kpis').on('click', '.pg-kpi', function () {
+                    var k = $(this).data('k') || '';
+                    /* 세척 카드는 상태가 아니다 — 필터가 아니라 목록을 연다 */
+                    if (k === 'wash') { openWash(); return; }
+                    kpiPick = (kpiPick === k) ? '' : k;
+                    $('#fSt').val('');
+                    search();
+                });
+
+                $('#rows').on('click', 'tr', function () {
+                    var pk = $(this).data('pk');
+                    if (pk) openModal(Number(pk), Number($(this).data('fac')));
+                });
+
+                $('#btnFold').on('click', function () {
+                    folded = !folded;
+                    $('#topBox').css('display', folded ? 'none' : 'block');
+                    $('#mainPanel').toggleClass('wide', folded);
+                    $('#foldCaret').text(folded ? '▾' : '▴');
+                    $('#foldText').text(folded ? '필터 펼치기' : '필터 접기');
+                    $('#foldSummary').text(folded ? foldSummary() : '');
+                });
+
+                $('#mClose').on('click', function () { $('#ov').removeClass('on'); });
+                $('#ov').on('click', function (e) { if (e.target === this) $('#ov').removeClass('on'); });
+                $('#mBody').on('click', 'tr.jr', function () {
+                    loadSessions($(this).data('jr'), $(this), $(this).data('kind') || 'own');
+                });
+                $('#mBody').on('click', 'tr.un', function () { loadInspects($(this).data('unit'), $(this)); });
+
+                search();
+            }
+
+            return { init: init };
+        })();
+
+        $(document).ready(function () { PG.init(); });
     </script>
 </th:block>
 </html>

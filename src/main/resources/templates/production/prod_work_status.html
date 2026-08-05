@@ -1,159 +1,189 @@
 <html layout:decorate="~{layout_page}">
 <head>
     <style>
-        .ws-chip { display:inline-flex; align-items:center; gap:4px; border-radius:20px; padding:4px 10px; font-size:11px; font-weight:700; white-space:nowrap; }
+        .ws-chip { display:inline-flex; align-items:center; gap:4px; border-radius:20px; padding:4px 10px; font-size:11.5px; font-weight:700; white-space:nowrap; }
         .ws-chip .dot { width:6px; height:6px; border-radius:50%; background:currentColor; display:inline-block; }
-        .ws-chip.wait { background:#eef1f6; color:#8a94a4; } .ws-chip.run { background:#e3f6ec; color:#0f9d58; } .ws-chip.done { background:#e7f0ff; color:#2f6fed; }
-        .ws-na { color:#c2c9d4; font-weight:700; }
-        .ws-clk { cursor:pointer; display:inline-block; padding:2px 5px; border-radius:6px; } .ws-clk:hover { background:#eef2f8; }
-        .ws-pline { display:inline-block; font-size:10px; font-weight:800; padding:2px 6px; border-radius:5px; margin-right:5px; vertical-align:middle; }
-        .ws-pline.bsc { background:#eaf0ff; color:#2f6fed; } .ws-pline.bmsc{ background:#f0ecfb; color:#7b52d6; }
-        .ws-pline.dom { background:#eaf7f0; color:#0a8f52; } .ws-pline.exp{ background:#f0ecfb; color:#7b52d6; }
+        .ws-chip.wait { background:#eef1f6; color:#8a94a4; } .ws-chip.run { background:#e3f6ec; color:#0f9d58; }
+        .ws-chip.done { background:#e7f0ff; color:#2f6fed; } .ws-chip.pass { background:#e7f0ff; color:#2f6fed; }
+        .ws-chip.fail, .ws-chip.scrapped { background:#fdecec; color:#d64545; }
+        .ws-code { color:#8a94a4; font-size:11px; font-family:ui-monospace,monospace; }
+        .ws-defcell { color:#d64545; font-weight:700; }
+        .run-t { color:#0f9d58; font-weight:700; }
 
         .ws-strip { display:flex; gap:10px; margin:14px 0; flex-wrap:wrap; }
         .ws-kpi { background:#fff; border:1px solid #e2e6ee; border-radius:10px; padding:11px 16px; min-width:120px; flex:1; }
-        .ws-kpi .n { font-size:22px; font-weight:800; } .ws-kpi .l { color:#5b6675; font-size:12px; font-weight:600; margin-top:1px; }
+        .ws-kpi .n { font-size:24px; font-weight:800; } .ws-kpi .l { color:#5b6675; font-size:12.5px; font-weight:600; margin-top:1px; }
         .ws-kpi.f1 .n{ color:#2f6fed; } .ws-kpi.f2 .n{ color:#c9620a; }
+        .ws-kpi.def .n { color:#d64545; }
+        .ws-kpi.tap { cursor:pointer; transition:box-shadow .12s, transform .12s; }
+        .ws-kpi.tap:hover { box-shadow:0 3px 12px -4px rgba(20,30,50,.25); transform:translateY(-1px); }
+        .ws-more { color:#8a94a4; font-weight:700; font-size:11.5px; margin-left:3px; }
 
         .ws-split { display:flex; gap:14px; align-items:flex-start; }
-        .ws-panel { flex:1; min-width:0; background:#fff; border:1px solid #e2e6ee; border-radius:12px; overflow:hidden; }
+        .ws-panel {  min-width:0; background:#fff; border:1px solid #e2e6ee; border-radius:12px; overflow:hidden; }
         .ws-phead { display:flex; align-items:center; gap:10px; padding:12px 14px; border-bottom:1px solid #e2e6ee; }
-        .ws-phead .pt { font-weight:800; font-size:14px; }
-        .ws-phead .pt .tag{ font-size:10.5px; font-weight:800; padding:2px 8px; border-radius:6px; margin-left:7px; }
+        .ws-phead .pt { font-weight:800; font-size:14.5px; }
+        .ws-phead .pt .tag{ font-size:11px; font-weight:800; padding:2px 8px; border-radius:6px; margin-left:7px; }
         .ws-phead .pt .tag.f1{ background:#eaf0ff; color:#2f6fed;} .ws-phead .pt .tag.f2{ background:#fbeee5; color:#c9620a;}
         .ws-phead .cnt { display:flex; gap:5px; margin-left:auto; flex-wrap:wrap; }
-        .ws-mini { font-size:10px; font-weight:700; padding:2px 7px; border-radius:5px; }
-        .ws-mini.wait { background:#eef1f6; color:#8a94a4; } .ws-mini.run { background:#e3f6ec; color:#0f9d58; } .ws-mini.done { background:#e7f0ff; color:#2f6fed; }
-        .ws-pscroll { overflow-x:auto; }
-        .ws-table { border-collapse:collapse; width:100%; min-width:520px; background:#fff; }
-        .ws-table thead th { background:#2f3a4c; color:#fff; font-weight:600; font-size:11.5px; padding:10px 6px; text-align:center; white-space:nowrap; }
-        .ws-table thead th.left { text-align:left; padding-left:12px; }
-        .ws-table thead th.proc { border-left:1px solid rgba(255,255,255,.12); }
-        .ws-table tbody td { border-bottom:1px solid #eef1f6; padding:9px 6px; text-align:center; vertical-align:middle; font-size:12px; }
-        .ws-table tbody td.left { text-align:left; padding-left:12px; }
-        .ws-table tbody tr:hover { background:#f7f9fc; }
-        .ws-wo { font-weight:800; font-size:12px; } .ws-kit { font-weight:700; } .ws-code { color:#8a94a4; font-size:10px; font-family:ui-monospace,monospace; }
-        .ws-prog { display:flex; align-items:center; gap:6px; justify-content:center; }
-        .ws-bar { width:52px; height:6px; border-radius:4px; background:#eef1f6; overflow:hidden; }
-        .ws-bar > i { display:block; height:100%; background:linear-gradient(90deg,#0f9d58,#2f6fed); }
-        .ws-pct { font-size:11px; font-weight:800; color:#5b6675; min-width:28px; text-align:right; }
-        .ws-nchip { font-size:10.5px; font-weight:800; padding:2px 7px; border-radius:20px; white-space:nowrap; }
-        .ws-nchip.done { background:#e7f0ff; color:#2f6fed; } .ws-nchip.run { background:#e3f6ec; color:#0f9d58; } .ws-nchip.wait { background:#eef1f6; color:#8a94a4; }
-        .ws-cnt3 { display:inline-flex; gap:4px; cursor:pointer; padding:2px 5px; border-radius:6px; flex-wrap:wrap; justify-content:center; } .ws-cnt3:hover { background:#eef2f8; }
+
+        .ws-mini { font-size:11px; font-weight:700; padding:3px 8px; border-radius:5px; }
+        .ws-mini.n { background:#eef1f6; color:#5b6675; } .ws-mini.g { background:#e3f6ec; color:#0f9d58; }
+        .ws-mini.x, .ws-mini.d { background:#fdecec; color:#d64545; } .ws-mini.r { background:#e7f0ff; color:#2f6fed; }
+        .ws-mini.tapd { cursor:pointer; } .ws-mini.tapd:hover { filter:brightness(.94); }
+
+        .ws-board { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; padding:10px; }
+        /* ★ 칼럼 높이를 여기서 고정해야 본문이 스크롤된다.
+           max-height 를 자식(.ws-col-body)에만 걸면, 부모가 flex column 이라
+           자식이 내용만큼 늘어나 스크롤바가 안 생긴다. */
+        .ws-col { background:#fff; border:1px solid #e2e6ee; border-radius:10px;
+            display:flex; flex-direction:column; overflow:hidden; }
+        .ws-col-h { padding:9px 11px; border-bottom:1px solid #e2e6ee; flex:0 0 auto; }
+        .ws-col-h .name { font-weight:800; font-size:13px; }
+        .ws-col-h .c { display:flex; gap:4px; margin-top:6px; flex-wrap:wrap; }
+        .ws-col-body { padding:8px; display:flex; flex-direction:column; gap:7px;
+            /* ★ 높이를 칼럼이 아니라 **본문**에 준다.
+               칼럼에 주면 헤더 줄 수에 따라 본문이 줄고, 그리드가
+               줄바꿈될 때(좁은 화면) 행마다 높이가 달라 보인다.
+               본문에 주면 헤더가 한 줄이든 두 줄이든 본문은 항상 같다. */
+            height:280px; box-sizing:border-box;
+            overflow-y:auto; overflow-x:hidden;
+            overscroll-behavior:auto; -webkit-overflow-scrolling:touch; }
+        .ws-col-body::-webkit-scrollbar { width:6px; }
+        .ws-col-body::-webkit-scrollbar-thumb { background:#d3d9e4; border-radius:3px; }
+        .ws-day { font-size:11px; font-weight:800; color:#8a94a4; padding:4px 2px 1px; }
+
+        .ws-card { border:1px solid #e2e6ee; border-left-width:3px; border-left-color:#d3d9e4;
+            border-radius:7px; padding:9px 10px; background:#fff; cursor:pointer; transition:background .12s; }
+        .ws-card:hover { background:#f7f9fc; }
+        .ws-card.run { border-left-color:#0f9d58; } .ws-card.done { border-left-color:#2f6fed; }
+        .ws-card.wait { border-left-color:#8a94a4; } .ws-card.scrapped { border-left-color:#d64545; }
+        .ws-card .c-mat { font-weight:700; font-size:12.5px; line-height:1.35; }
+        .ws-card .c-code { color:#8a94a4; font-size:10.5px; font-family:ui-monospace,monospace; margin-top:1px; }
+        .ws-card .c-form { font-size:11px; color:#2f6fed; font-weight:700; margin-top:2px; }
+        .ws-card .c-qty { font-weight:800; font-size:15px; color:#0f9d58; margin-top:4px; font-variant-numeric:tabular-nums; }
+        .ws-card .c-qty .c-lot { font-size:10.5px; font-weight:700; color:#8a94a4; margin-left:5px; }
+        .ws-card .c-qty .q-plan { color:#8a94a4; font-size:13px; font-weight:700; }
+        .ws-card .c-meta { font-size:11px; color:#5b6675; margin-top:3px; }
+        .ws-card .c-foot { margin-top:6px; display:flex; gap:4px; flex-wrap:wrap; }
+        .ws-card .c-reason { font-size:10.5px; color:#d64545; margin-top:4px; line-height:1.4; }
+        .c-md { display:inline-block; font-size:9.5px; font-weight:800; padding:1px 5px; border-radius:4px;
+            background:#fdf3e6; color:#c9820a; margin-left:5px; vertical-align:middle; }
+        .ws-empty { color:#c2c9d4; font-size:11.5px; text-align:center; padding:20px 4px; }
+        .ws-loading { color:#8a94a4; text-align:center; padding:30px; font-size:13px; }
 
         .ws-overlay { position:fixed; inset:0; background:rgba(20,28,44,.45); display:none; align-items:center; justify-content:center; z-index:1000; }
         .ws-overlay.on { display:flex; }
-        .ws-modal { background:#fff; border-radius:12px; width:min(680px,92vw); max-height:86vh; overflow:auto; box-shadow:0 20px 60px -20px rgba(10,20,40,.5); }
+        .ws-modal { background:#fff; border-radius:12px; width:min(820px,92vw); max-height:86vh; overflow:auto; box-shadow:0 20px 60px -20px rgba(10,20,40,.5); }
         .ws-modal-h { display:flex; align-items:center; justify-content:space-between; padding:15px 18px; border-bottom:1px solid #e2e6ee; }
-        .ws-modal-h .t { font-weight:800; font-size:15px; } .ws-modal-h .t small { color:#8a94a4; font-weight:600; font-size:12px; margin-left:8px; }
+        .ws-modal-h .t { font-weight:800; font-size:16px; } .ws-modal-h .t small { color:#8a94a4; font-weight:600; font-size:12.5px; margin-left:8px; }
         .ws-x { border:0; background:#eef1f6; width:30px; height:30px; border-radius:8px; cursor:pointer; font-size:16px; color:#5b6675; }
         .ws-modal-b { padding:14px 18px 20px; }
         .ws-sess { border-collapse:collapse; width:100%; }
-        .ws-sess th { background:#f4f6fa; color:#5b6675; font-size:11.5px; font-weight:700; padding:8px; border-bottom:1px solid #e2e6ee; }
-        .ws-sess td { padding:9px 8px; border-bottom:1px solid #eef1f6; font-size:12.5px; text-align:center; }
-        .ws-sess td.w { font-weight:700; } .ws-sess .run-t { color:#0f9d58; font-weight:700; } .ws-sess .def { color:#d64545; font-weight:700; }
-        .ws-sess-empty { color:#8a94a4; text-align:center; padding:20px; font-size:12.5px; }
-        .ws-note { color:#8a94a4; font-size:12px; margin-top:12px; line-height:1.6; }
+        .ws-sess th { background:#f4f6fa; color:#5b6675; font-size:12px; font-weight:700; padding:8px; border-bottom:1px solid #e2e6ee; }
+        .ws-sess td { padding:9px 8px; border-bottom:1px solid #eef1f6; font-size:13px; text-align:center; }
+        .ws-sess td.w { font-weight:700; } .ws-sess td.left { text-align:left; } .ws-sess .def { color:#d64545; font-weight:700; }
+        .ws-sess-empty { color:#8a94a4; text-align:center; padding:20px; font-size:13px; }
+        .ws-sub-h { font-weight:800; font-size:13.5px; margin:18px 0 8px; color:#3a4759; }
+        .ws-kv { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-bottom:6px; }
+        .ws-kv > div { background:#f7f9fc; border-radius:8px; padding:9px 12px; }
+        .ws-kv .k { color:#8a94a4; font-size:11.5px; font-weight:700; } .ws-kv .v { font-weight:700; font-size:13.5px; margin-top:2px; }
+        .ws-banner { background:#fdecec; border:1px solid #f5c9c9; color:#b03636; border-radius:9px;
+            padding:10px 14px; font-size:12.5px; font-weight:600; margin:12px 0; }
+        .ws-fgrp { border:1px solid #e6eaf1; border-radius:9px; overflow:hidden; margin-bottom:12px; }
+        .ws-fgrp-h { display:flex; align-items:center; gap:8px; padding:10px 13px; background:#f4f6fa;
+            border-bottom:1px solid #e6eaf1; flex-wrap:wrap; }
+        .ws-fgrp-h .fn { font-weight:800; font-size:13.5px; }
+        .ws-fgrp-h .rt { margin-left:auto; display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+        button.ws-mini { border:0; cursor:pointer; font-family:inherit; }
 
-        @media (max-width:1000px){ .ws-split { flex-direction:column; } .ws-panel{ width:100%; } }
+        .ws-note { color:#8a94a4; font-size:12.5px; margin-top:12px; line-height:1.7; }
+        .ws-note b { color:#c9820a; } .ws-note .k { color:#5b6675; font-weight:700; }
+        .ws-help { display:block; margin:16px 0 4px; }
+        .ws-help-btn { border:1px solid #e2e6ee; background:#fbfcfe; color:#5b6675; font-size:12.5px;
+            font-weight:700; padding:5px 12px; border-radius:7px; cursor:pointer; }
+        .ws-help-btn:hover { background:#f2f6fb; }
+        .ws-help-b { display:none; margin-top:8px; padding:12px 14px; background:#fbfcfe;
+            border:1px solid #eef1f6; border-radius:9px; }
+        .ws-help.on .ws-help-b { display:block; }
+        .ws-help-b p { color:#5b6675; font-size:13px; line-height:1.75; margin:0 0 6px; }
+        .ws-help-b p:last-child { margin-bottom:0; } .ws-help-b b { color:#3a4759; }
 
-        .ws-topbar { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
-        .ws-toggle { display:inline-flex; background:#e8ecf3; border-radius:9px; padding:3px; }
-        .ws-toggle button { border:0; background:transparent; padding:7px 15px; border-radius:7px; font-size:13px; font-weight:700; color:#5b6675; cursor:pointer; }
-        .ws-toggle button.on { background:#fff; color:#1f2733; box-shadow:0 1px 3px rgba(20,30,50,.12); }
-        .ws-board { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
-        .ws-col { background:#fbfcfe; border:1px solid #e2e6ee; border-radius:9px; display:flex; flex-direction:column; min-height:220px; }
-        .ws-col-h { padding:8px 9px; border-bottom:1px solid #e2e6ee; }
-        .ws-col-h .name { font-weight:800; font-size:12px; }
-        .ws-col-h .c { display:flex; gap:4px; margin-top:6px; flex-wrap:wrap; }
-        .ws-col-body { padding:7px; display:flex; flex-direction:column; gap:6px; overflow:auto; }
-        .ws-card { border:1px solid #e2e6ee; border-left-width:3px; border-radius:7px; padding:8px 9px; background:#fff; cursor:pointer; }
-        .ws-card:hover { background:#f7f9fc; } .ws-card.run { border-left-color:#0f9d58; } .ws-card.wait { border-left-color:#8a94a4; }
-        .ws-card .c-wo { font-weight:800; font-size:11px; } .ws-card .c-kit { font-size:10.5px; font-weight:600; margin-top:2px; } .ws-card .c-foot { margin-top:6px; display:flex; gap:4px; flex-wrap:wrap; }
-        .ws-empty { color:#c2c9d4; font-size:11px; text-align:center; padding:18px 4px; }
-        @media (max-width:1300px){ .ws-board { grid-template-columns:repeat(2,1fr); } }
+        @media (max-width:1400px){ .ws-board { grid-template-columns:repeat(2,1fr); } }
+        @media (max-width:1000px){ .ws-split { flex-direction:column; } .ws-panel{ width:100%; }
+            .ws-board { grid-template-columns:repeat(3,1fr); } }
+        @media (max-width:700px){ .ws-board { grid-template-columns:repeat(2,1fr); } }
     </style>
 </head>
 
 <th:block layout:fragment="content">
     <div class="layout-contents">
         <div class="page-title-wrap">
-            <div class="left"><h2>작업실적현황 · 통합</h2><a title="북마크" class="bookmark toggle">내 메뉴</a></div>
+            <div class="left"><h2>작업실적현황</h2>
+                <a title="북마크" class="bookmark toggle">내 메뉴</a></div>
             <ul class="page-navi">
                 <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
-                <li>생산 관리</li><li>작업실적현황</li><li>통합</li>
+                <li>생산 관리</li><li>작업실적현황</li>
             </ul>
         </div>
 
         <section class="section">
             <div class="section-top">
-                <div class="ws-topbar">
-                    <div class="search-wrap">
-                        <dl><dt>작업지시일<span class="eq">*</span></dt>
-                            <dd><ul class="date-box">
-                                <li><input type="date" id="date_from" name="date_from"><label for="date_from" class="hide">시작일</label></li>
-                                <li><input type="date" id="date_to" name="date_to"><label for="date_to" class="hide">종료일</label></li>
-                            </ul></dd></dl>
-                        <dl><dt>&nbsp;</dt><dd><li>
-                            <a class="btn btn-delete" title="검색" id="btnMainSearch"><img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">검색</a>
-                        </li></dd></dl>
-                    </div>
-                    <div class="ws-toggle">
-                        <button type="button" id="tA" class="on" onclick="wsSetView('A')">작업지시 기준</button>
-                        <button type="button" id="tB" onclick="wsSetView('B')">공정별 기준</button>
-                    </div>
+                <div class="search-wrap">
+                    <dl><dt>작업일<span class="eq">*</span></dt>
+                        <dd><ul class="date-box">
+                            <li><input type="date" id="date_from"><label for="date_from" class="hide">시작일</label></li>
+                            <li><input type="date" id="date_to"><label for="date_to" class="hide">종료일</label></li>
+                        </ul></dd></dl>
+                    <dl><dt>&nbsp;</dt><dd><li>
+                        <a class="btn btn-delete" id="btnMainSearch"><img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">검색</a>
+                    </li></dd></dl>
                 </div>
             </div>
 
             <div class="ws-strip">
-                <div class="ws-kpi f1"><div class="n" id="k1Orders">0</div><div class="l">1공장 작업지시(키트)</div></div>
-                <div class="ws-kpi f1"><div class="n" id="k1Run">0</div><div class="l">1공장 작업중 공정</div></div>
-                <div class="ws-kpi f2"><div class="n" id="k2Orders">0</div><div class="l">2공장 수주(M-CELL)</div></div>
-                <div class="ws-kpi f2"><div class="n" id="k2Run">0</div><div class="l">2공장 진행중(대)</div></div>
+                <div class="ws-kpi f1"><div class="n" id="k1Fin">0</div><div class="l">1공장 완제품 산출</div></div>
+                <div class="ws-kpi f1"><div class="n" id="k1Rows">0</div><div class="l">1공장 작업 건수</div></div>
+                <div class="ws-kpi f2"><div class="n" id="k2Fin">0</div><div class="l">2공장 포장 완료 (대)</div></div>
+                <div class="ws-kpi f2"><div class="n" id="k2Rows">0</div><div class="l">2공장 작업 건수</div></div>
+                <div class="ws-kpi def tap" onclick="wsOpenDefect(null,null)">
+                    <div class="n" id="kDefect">0</div><div class="l">부적합 <span class="ws-more">품목 ›</span></div></div>
             </div>
 
-            <div id="viewA"><div class="ws-split">
-                <!-- 좌: 1공장 -->
+            <div class="ws-split">
                 <div class="ws-panel">
                     <div class="ws-phead"><div class="pt">1공장<span class="tag f1">키트 BSC/BmSC</span></div>
                         <div class="cnt" id="c1"></div></div>
-                    <div class="ws-pscroll"><table class="ws-table"><thead><tr>
-                        <th class="left">작업지시</th><th class="left">제품</th>
-                        <th class="proc">세척</th><th class="proc">조립</th><th class="proc">블리스터</th>
-                        <th class="proc">융착</th><th class="proc">멸균</th><th class="proc">포장</th><th>진행률</th>
-                    </tr></thead><tbody id="rows1"></tbody></table></div>
+                    <div class="ws-board" id="board1"><div class="ws-loading" style="grid-column:1/-1">불러오는 중…</div></div>
                 </div>
-                <!-- 우: 2공장 -->
                 <div class="ws-panel">
                     <div class="ws-phead"><div class="pt">2공장<span class="tag f2">M-CELL 디바이스</span></div>
                         <div class="cnt" id="c2"></div></div>
-                    <div class="ws-pscroll"><table class="ws-table"><thead><tr>
-                        <th class="left">수주</th><th class="left">모델</th>
-                        <th class="proc">조립</th><th class="proc">검사</th><th class="proc">수리</th><th class="proc">포장</th><th>진행률</th>
-                    </tr></thead><tbody id="rows2"></tbody></table></div>
+                    <div class="ws-board" id="board2"><div class="ws-loading" style="grid-column:1/-1">불러오는 중…</div></div>
                 </div>
-            </div>
-                <p class="ws-note">좌 = 1공장(키트, 1행=작업지시·칸=공정 상태) · 우 = 2공장(M-CELL, 1행=수주·칸=단계별 대수). 셀을 누르면 상세(키트 세션 / M-CELL 유닛)가 뜹니다. 공장별 상세 관리는 각 공장 페이지에서.</p>
             </div>
 
-            <div id="viewB" style="display:none;"><div class="ws-split">
-                <div class="ws-panel">
-                    <div class="ws-phead"><div class="pt">1공장<span class="tag f1">키트 · 공정별</span></div><div class="cnt" id="c1b"></div></div>
-                    <div class="ws-pscroll" style="padding:10px"><div class="ws-board" id="board1"></div></div>
+            <div class="ws-help">
+                <button type="button" class="ws-help-btn" onclick="this.parentElement.classList.toggle('on')">읽는 법 ▾</button>
+                <div class="ws-help-b">
+                    <p>세로 줄 하나가 <b>공정</b>이고, 그 안의 카드 하나가 <b>작업 한 건</b>입니다.
+                        고른 기간에 실제로 한 작업만 보이며, 없으면 「작업 없음」으로 표시됩니다.</p>
+                    <p>날짜는 <b>작업을 끝낸 날</b>로 잡습니다. 아직 하는 중이면 수량 대신 <b>계획 수량</b>이 회색으로 보이고,
+                        끝나면 실제 만든 수량으로 바뀝니다.</p>
+                    <p>카드를 누르면 <b>어떤 자재가 얼마나 들어갔는지</b> 볼 수 있고, 공정 이름 아래 빨간
+                        <b>부적합</b> 숫자를 누르면 품목별 상세가 나옵니다.</p>
+                    <p><b>1공장</b>은 만든 개수로, <b>2공장</b>은 대수로 셉니다(한 대가 로트 하나).
+                        맨 위 산출 수량은 공정마다 만드는 것이 달라 전부 더하면 같은 물건을 여러 번 세게 되므로 마지막 공정만 셉니다.</p>
+                    <p>주문(작업지시)이 어디까지 진행됐는지는 <b>생산진행현황</b> 화면에서 봅니다.
+                        공장별 상세는 각 공장 작업실적현황에서 볼 수 있습니다.</p>
                 </div>
-                <div class="ws-panel">
-                    <div class="ws-phead"><div class="pt">2공장<span class="tag f2">M-CELL · 공정별</span></div><div class="cnt" id="c2b"></div></div>
-                    <div class="ws-pscroll" style="padding:10px"><div class="ws-board" id="board2"></div></div>
-                </div>
-            </div>
-                <p class="ws-note">칼럼 = 공정. 1공장은 걸린 <span class="k">키트</span>, 2공장은 <span class="k">수주별 유닛 수</span> 카드로. 누르면 상세가 뜹니다.</p>
             </div>
         </section>
 
-        <div class="ws-overlay" id="wsOverlay" onclick="if(event.target===this)wsClose()">
+        <div class="ws-overlay" id="ov" onclick="if(event.target===this)wsClose()">
             <div class="ws-modal">
-                <div class="ws-modal-h"><div class="t" id="wsModalTitle"></div><button type="button" class="ws-x" onclick="wsClose()">×</button></div>
-                <div class="ws-modal-b" id="wsModalBody"></div>
+                <div class="ws-modal-h"><div class="t" id="mTitle"></div><button type="button" class="ws-x" onclick="wsClose()">×</button></div>
+                <div class="ws-modal-b" id="mBody"></div>
             </div>
         </div>
     </div>
@@ -161,160 +191,767 @@
 
 <th:block layout:fragment="scripts">
     <script th:inline="javascript">
-        const SLABEL = { done:'완료', run:'작업중', wait:'대기' };
+        /* =========================================================
+         * 작업실적현황 (통합) — 좌 1공장 / 우 2공장, 공정별
+         *
+         * ★ 이 화면은 「그 기간에 얼마나 했나」만 본다.
+         *   작업지시가 어디까지 왔는지(진행 상태)는 생산진행현황의 몫이다.
+         *   두 축을 한 화면에 넣으면 날짜의 의미가 둘이 되어
+         *   지난달 끝낸 공정이 이번달 조회에서 「대기」로 보이는 문제가 생긴다.
+         *
+         * ★ 공장별 API 를 따로 부른다.
+         *   실적의 단위가 다르기 때문이다 —
+         *   1공장은 차수(mat_produce), 2공장은 유닛(mcell_unit).
+         *   한 엔드포인트에 factory_id 로 분기하면 응답 모양이 갈려 화면이 if 범벅이 된다.
+         *
+         * ★ AjaxUtil 은 window 프로퍼티가 아니다. typeof 로 확인한다.
+         *   메서드는 getSyncData / postAsyncData (getJson 같은 건 없다).
+         * ========================================================= */
+        const WS_SPJANGCD = (window.WS_CTX && window.WS_CTX.spjangcd) || 'ZZ';
+        const API1 = '/api/production/work_status';
+        const API2 = '/api/production/mcell_status';
 
-        /* ===== 1공장 (키트) ===== */
-        const K_PROCS = [ {k:'wash',n:'세척'},{k:'assy',n:'조립'},{k:'blister',n:'블리스터'},{k:'welding',n:'융착'},{k:'steril',n:'멸균'},{k:'pack',n:'포장'} ];
-        const K_APPLIES = { BSC:['wash','assy','blister','steril','pack'], BMSC:['wash','assy','blister','welding','steril','pack'] };
-        const K_PLABEL = { BSC:'BSC', BMSC:'BmSC' };
-        function kClickable(kk, s){ return kk!=='steril' && (s==='run'||s==='done'); }
-        const K_DATA = [
-            {wo:'WO-2607-001', line:'BSC',  kit:'BSC+③ 60',  code:'BSC60-3-00',  qty:500, st:{wash:'done',assy:'run', blister:'wait',steril:'wait',pack:'wait'}},
-            {wo:'WO-2607-002', line:'BMSC', kit:'BmSC+③ 60', code:'BmSC60-3-00', qty:300, st:{wash:'done',assy:'done',blister:'done',welding:'run',steril:'wait',pack:'wait'}},
-            {wo:'WO-2607-003', line:'BSC',  kit:'BSC+③ 30',  code:'BSC30-3-01',  qty:400, st:{wash:'run', assy:'wait',blister:'wait',steril:'wait',pack:'wait'}},
-            {wo:'WO-2606-018', line:'BSC',  kit:'BSC+③ 120', code:'BSC120-3-00', qty:240, st:{wash:'done',assy:'done',blister:'done',steril:'done',pack:'run'}},
+        /* 공정 순서는 흐름 순. Code 사전순이면 융착(bsc06)이 포장 뒤로 간다 */
+        const F1_FLOW = [
+            {code:'bsc01', name:'세척',     type:'wash'},
+            {code:'bsc02', name:'조립',     type:'prod'},
+            {code:'bsc03', name:'블리스터', type:'prod'},
+            {code:'bsc06', name:'융착',     type:'prod'},
+            {code:'bsc04', name:'멸균',     type:'steril'},
+            {code:'bsc05', name:'포장',     type:'prod'}
         ];
-        const K_SESS = {
-            'WO-2607-001|wash':[{w:'정우철',e:'세척기 A',s:'08:10',f:'09:30',g:490,d:10}],
-            'WO-2607-001|assy':[{w:'한지민',e:'조립기 A',s:'10:20',f:null,g:0,d:0}],
-            'WO-2607-002|welding':[{w:'김민수',e:'융착기 KM-MRM-M007',s:'13:00',f:null,g:0,d:0}],
-            'WO-2606-018|pack':[{w:'김민수',e:'박스 포장대',s:'13:10',f:null,g:0,d:0}],
+        const F2_FLOW = [
+            {key:'assembly', code:'mc01', name:'조립'},
+            {key:'inspect',  code:'mc02', name:'검사'},
+            {key:'repair',   code:'mc04', name:'수리'},
+            {key:'pack',     code:'mc03', name:'포장'}
+        ];
+        const F1_FINAL = 'bsc05';
+        const WS_USTATE = {
+            wait:'대기', assembling:'조립중', inspect_wait:'검사대기',
+            pass:'검사합격', reject:'불합격', repairing:'수리중', packed:'포장완료'
         };
-        function kCell(kk, r){
-            if(!K_APPLIES[r.line].includes(kk)) return '<span class="ws-na">—</span>';
-            const s=r.st[kk], chip='<span class="ws-chip '+s+'"><span class="dot"></span>'+SLABEL[s]+'</span>';
-            return kClickable(kk,s) ? '<span class="ws-clk" onclick="kOpen(\''+r.wo+'\',\''+kk+'\')">'+chip+'</span>' : chip;
+
+        let F1 = {rows:[], wash:[], steril:[], defect:[]};
+        let F2 = {assembly:[], inspect:[], repair:[], pack:[], defect:[], steps:{}};
+        let WS_TRIES = [];
+
+        function wsReady(){ return (typeof AjaxUtil !== 'undefined') && AjaxUtil && AjaxUtil.getSyncData; }
+        function wsData(res){
+            if(!res) return null;
+            if(res.success === false) return null;
+            return (res.data !== undefined) ? res.data : res;
         }
-        function kProg(r){ const ap=K_APPLIES[r.line], d=ap.filter(k=>r.st[k]==='done').length, run=ap.some(k=>r.st[k]==='run')?0.5:0; return Math.round((d+run)/ap.length*100); }
-        function kRender(){
-            document.getElementById('rows1').innerHTML = K_DATA.map(function(r){
-                const p=kProg(r);
-                return '<tr><td class="left"><span class="ws-wo">'+r.wo+'</span></td>'
-                    + '<td class="left"><span class="ws-pline '+r.line.toLowerCase()+'">'+K_PLABEL[r.line]+'</span><span class="ws-kit">'+r.kit+'</span><br><span class="ws-code">'+r.code+'</span></td>'
-                    + K_PROCS.map(function(pr){ return '<td>'+kCell(pr.k, r)+'</td>'; }).join('')
-                    + '<td><div class="ws-prog"><div class="ws-bar"><i style="width:'+p+'%"></i></div><span class="ws-pct">'+p+'%</span></div></td></tr>';
-            }).join('');
-            let run=0,done=0,wait=0;
-            K_DATA.forEach(function(r){ K_APPLIES[r.line].forEach(function(k){ const s=r.st[k]; if(s==='run')run++;else if(s==='done')done++;else wait++; }); });
-            document.getElementById('c1').innerHTML = '<span class="ws-mini wait">대기 '+wait+'</span><span class="ws-mini run">작업중 '+run+'</span><span class="ws-mini done">완료 '+done+'</span>';
-            document.getElementById('k1Orders').textContent = K_DATA.length;
-            document.getElementById('k1Run').textContent = run;
+        function esc(s){
+            return (s==null?'':String(s)).replace(/[&<>"']/g, function(c){
+                return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+            });
         }
-        function kOpen(wo, pk){
-            const r=K_DATA.find(x=>x.wo===wo), proc=K_PROCS.find(p=>p.k===pk), sess=K_SESS[wo+'|'+pk]||[];
-            document.getElementById('wsModalTitle').innerHTML = proc.n+' 세션 <small>'+wo+' · '+(r?r.kit:'')+'</small>';
-            let html = sess.length ? ('<table class="ws-sess"><thead><tr><th>작업자</th><th>설비</th><th>시작</th><th>종료</th><th>양품</th><th>불량</th></tr></thead><tbody>'
-                + sess.map(function(x){ const run=!x.f; return '<tr><td class="w">'+x.w+'</td><td>'+x.e+'</td><td>'+x.s+'</td><td>'+(run?'<span class="run-t">작업중</span>':x.f)+'</td><td>'+(run?'<span class="ws-na">—</span>':x.g.toLocaleString())+'</td><td>'+(run?'<span class="ws-na">—</span>':(x.d>0?'<span class="def">'+x.d+'</span>':'0'))+'</td></tr>'; }).join('')
-                + '</tbody></table>') : '<div class="ws-sess-empty">세션 정보가 없습니다.</div>';
-            document.getElementById('wsModalBody').innerHTML = html;
-            document.getElementById('wsOverlay').classList.add('on');
+        function num(v){ return (v==null?0:Number(v)).toLocaleString(); }
+        function fail(id, msg){
+            document.getElementById(id).innerHTML =
+                '<div class="ws-empty" style="grid-column:1/-1;padding:34px">'+msg+'</div>';
+        }
+        function wsDay(cur, last){ return (cur !== last) ? '<div class="ws-day">'+esc(cur)+'</div>' : ''; }
+        /** 조원이 여럿이면 명단을 그대로 쓴다 */
+        function wsWorker(r){
+            if(r.members && r.members.indexOf(',') >= 0) return r.members;
+            return r.worker || r.members || '-';
+        }
+        /** 전 검사유형의 마지막 회차가 합격이어야 합격 */
+        function wsVerdict(u){
+            if(Number(u.fail_cnt||0) > 0) return 'fail';
+            if(Number(u.open_cnt||0) > 0) return 'open';
+            return Number(u.pass_cnt||0) > 0 ? 'pass' : 'open';
         }
 
-        /* ===== 2공장 (M-CELL) ===== */
-        const M_PROCS = [ {k:'assy',n:'조립'},{k:'insp',n:'검사'},{k:'repair',n:'수리'},{k:'pack',n:'포장'} ];
-        const M_DATA = [
-            {wo:'MC-2407-011', model:'국내', code:'MRCN-21022', qty:10, proc:{
-                    assy:[{lot:'MCN-260709-009',st:'run',w:'이서연',e:'조립대 A'},{lot:'MCN-260709-010',st:'wait',w:'-',e:'-'}],
-                    insp:[{lot:'MCN-260709-005',st:'run',w:'정우철',e:'검사대 1'},{lot:'MCN-260709-006',st:'wait',w:'-',e:'-'}],
-                    repair:[],
-                    pack:[{lot:'MCN-260709-001',st:'done',w:'김민수',e:'포장대'},{lot:'MCN-260709-002',st:'done',w:'김민수',e:'포장대'},{lot:'MCN-260709-003',st:'run',w:'김민수',e:'포장대'}]
-                }},
-            {wo:'MC-2407-012', model:'해외', code:'MRCN-21023', qty:3, proc:{
-                    assy:[{lot:'MCX-260709-003',st:'wait',w:'-',e:'-'}],
-                    insp:[{lot:'MCX-260709-001',st:'run',w:'박지훈',e:'검사대 2'}],
-                    repair:[{lot:'MCX-260620-001-R01',st:'run',w:'한재범',e:'수리대'}],
-                    pack:[{lot:'MCX-260709-002',st:'done',w:'이서연',e:'포장대'}]
-                }}
-        ];
-        function cnt(list, st){ return (list||[]).filter(function(u){ return u.st===st; }).length; }
-        function mCell(units, wo, pk){
-            if(!units || !units.length) return '<span class="ws-na">—</span>';
-            const d=cnt(units,'done'), r=cnt(units,'run'), w=cnt(units,'wait'); let c='';
-            if(d) c+='<span class="ws-nchip done">완료 '+d+'</span>';
-            if(r) c+='<span class="ws-nchip run">작업중 '+r+'</span>';
-            if(w) c+='<span class="ws-nchip wait">대기 '+w+'</span>';
-            return '<span class="ws-cnt3" onclick="mOpen(\''+wo+'\',\''+pk+'\')">'+c+'</span>';
-        }
-        function mProg(r){ return Math.round(cnt(r.proc.pack,'done')/r.qty*100); }
-        function mRender(){
-            document.getElementById('rows2').innerHTML = M_DATA.map(function(r){
-                const p=mProg(r);
-                return '<tr><td class="left"><span class="ws-wo">'+r.wo+'</span></td>'
-                    + '<td class="left"><span class="ws-pline '+(r.model==='해외'?'exp':'dom')+'">'+r.model+'</span><span class="ws-code">'+r.code+'</span></td>'
-                    + M_PROCS.map(function(pr){ return '<td>'+mCell(r.proc[pr.k], r.wo, pr.k)+'</td>'; }).join('')
-                    + '<td><div class="ws-prog"><div class="ws-bar"><i style="width:'+p+'%"></i></div><span class="ws-pct">'+p+'%</span></div></td></tr>';
-            }).join('');
-            let run=0,done=0,wait=0,units=0;
-            M_DATA.forEach(function(r){ units+=r.qty; M_PROCS.forEach(function(pr){ (r.proc[pr.k]||[]).forEach(function(u){ if(u.st==='run')run++;else if(u.st==='done')done++;else wait++; }); }); });
-            document.getElementById('c2').innerHTML = '<span class="ws-mini wait">대기 '+wait+'</span><span class="ws-mini run">작업중 '+run+'</span><span class="ws-mini done">완료 '+done+'</span>';
-            document.getElementById('k2Orders').textContent = M_DATA.length;
-            document.getElementById('k2Run').textContent = run;
-        }
-        function mOpen(wo, pk){
-            const r=M_DATA.find(x=>x.wo===wo), proc=M_PROCS.find(p=>p.k===pk), units=(r&&r.proc[pk])||[];
-            document.getElementById('wsModalTitle').innerHTML = proc.n+' 유닛 <small>'+wo+' · '+r.model+' · '+units.length+'대</small>';
-            let html = units.length ? ('<table class="ws-sess"><thead><tr><th>로트</th><th>상태</th><th>담당</th><th>설비/검사대</th></tr></thead><tbody>'
-                + units.map(function(u){ return '<tr><td class="w">'+u.lot+'</td><td><span class="ws-chip '+u.st+'"><span class="dot"></span>'+SLABEL[u.st]+'</span></td><td>'+(u.w||'-')+'</td><td>'+(u.e||'-')+'</td></tr>'; }).join('')
-                + '</tbody></table>') : '<div class="ws-sess-empty">해당 공정에 걸린 유닛이 없습니다.</div>';
-            document.getElementById('wsModalBody').innerHTML = html;
-            document.getElementById('wsOverlay').classList.add('on');
+        // =====================================================
+        // 조회
+        // =====================================================
+        function wsLoad(){
+            if(!wsReady()){ fail('board1','AjaxUtil 로드 실패'); fail('board2','AjaxUtil 로드 실패'); return; }
+            const df = document.getElementById('date_from').value;
+            const dt = document.getElementById('date_to').value;
+            if(!df || !dt){ fail('board1','작업일 기간을 선택해 주세요.'); fail('board2',''); return; }
+
+            const p = {date_from:df, date_to:dt, spjangcd:WS_SPJANGCD};
+            const d1 = wsData(AjaxUtil.getSyncData(API1+'/f1_process', p));
+            const d2 = wsData(AjaxUtil.getSyncData(API2+'/process',   p));
+
+            F1 = d1 ? {rows:d1.rows||[], wash:d1.wash||[], steril:d1.steril||[], defect:d1.defect||[]}
+                : {rows:[], wash:[], steril:[], defect:[]};
+
+            F2 = {assembly:(d2&&d2.assembly)||[], inspect:(d2&&d2.inspect)||[],
+                repair:(d2&&d2.repair)||[],     pack:(d2&&d2.pack)||[],
+                defect:(d2&&d2.defect)||[],     steps:{}};
+            /* 그 기간에 끝낸 모듈 스텝 — 조립 카드에 무엇을 만들었는지 적기 위해 */
+            ((d2&&d2.asm_steps)||[]).forEach(function(x){
+                (F2.steps[x.unit_pk] = F2.steps[x.unit_pk] || []).push(x);
+            });
+
+            wsRenderKPI();
+            if(!d1) fail('board1','조회에 실패했습니다.'); else wsRender1();
+            if(!d2) fail('board2','조회에 실패했습니다.'); else wsRender2();
         }
 
-        function wsClose(){ document.getElementById('wsOverlay').classList.remove('on'); }
+        function wsRenderKPI(){
+            /* ★ 포장 공정은 CK(반제품)와 키트 결합(완제품)을 둘 다 만든다.
+               is_product='Y' 인 것만 세지 않으면 완제품 수량에 CK 가 얹힌다. */
+            let fin1 = 0;
+            F1.rows.forEach(function(r){
+                if(r.proc_code === F1_FINAL && r.is_product === 'Y') fin1 += Number(r.good_qty||0);
+            });
+            const cnt1 = F1.rows.length + washSessionCnt(F1.wash) + F1.steril.length;
+            const cnt2 = F2.assembly.length + F2.inspect.length + F2.repair.length + F2.pack.length;
 
-        /* 공정별 보드 */
-        function board1Render(){
-            document.getElementById('board1').innerHTML = K_PROCS.map(function(pr){
-                const items = K_DATA.filter(function(r){ return K_APPLIES[r.line].includes(pr.k); }).map(function(r){ return {r:r, st:r.st[pr.k]}; });
-                const wait=items.filter(x=>x.st==='wait'), run=items.filter(x=>x.st==='run'), done=items.filter(x=>x.st==='done');
-                const active=run.concat(wait);
-                const body = active.length ? active.map(function(x){
-                    const running=x.st==='run', click=running?' onclick="kOpen(\''+x.r.wo+'\',\''+pr.k+'\')"':'';
-                    return '<div class="ws-card '+(running?'run':'wait')+'"'+click+'><div class="c-wo">'+x.r.wo+'</div>'
-                        + '<div class="c-kit"><span class="ws-pline '+x.r.line.toLowerCase()+'">'+K_PLABEL[x.r.line]+'</span>'+x.r.kit+'</div>'
-                        + '<div class="c-foot"><span class="ws-chip '+(running?'run':'wait')+'"><span class="dot"></span>'+(running?'작업중':'대기')+'</span></div></div>';
-                }).join('') : '<div class="ws-empty">걸린 작업 없음</div>';
-                return '<div class="ws-col"><div class="ws-col-h"><div class="name">'+pr.n+'</div><div class="c">'
-                    + '<span class="ws-mini wait">대기 '+wait.length+'</span><span class="ws-mini run">중 '+run.length+'</span><span class="ws-mini done">완료 '+done.length+'</span></div></div>'
-                    + '<div class="ws-col-body">'+body+'</div></div>';
-            }).join('');
-        }
-        function board2Render(){
-            document.getElementById('board2').innerHTML = M_PROCS.map(function(pr){
-                let tw=0,tr=0,td=0;
-                const cards = M_DATA.map(function(r){
-                    const units=r.proc[pr.k]||[]; if(!units.length) return '';
-                    const d=cnt(units,'done'), rn=cnt(units,'run'), w=cnt(units,'wait'); tw+=w;tr+=rn;td+=d;
-                    let foot='';
-                    if(d) foot+='<span class="ws-nchip done">완료 '+d+'</span>';
-                    if(rn) foot+='<span class="ws-nchip run">작업중 '+rn+'</span>';
-                    if(w) foot+='<span class="ws-nchip wait">대기 '+w+'</span>';
-                    return '<div class="ws-card '+(rn?'run':'wait')+'" onclick="mOpen(\''+r.wo+'\',\''+pr.k+'\')"><div class="c-wo">'+r.wo+'</div>'
-                        + '<div class="c-kit"><span class="ws-pline '+(r.model==='해외'?'exp':'dom')+'">'+r.model+'</span>'+units.length+'대</div>'
-                        + '<div class="c-foot">'+foot+'</div></div>';
-                }).join('');
-                return '<div class="ws-col"><div class="ws-col-h"><div class="name">'+pr.n+'</div><div class="c">'
-                    + '<span class="ws-mini wait">대기 '+tw+'</span><span class="ws-mini run">중 '+tr+'</span><span class="ws-mini done">완료 '+td+'</span></div></div>'
-                    + '<div class="ws-col-body">'+(cards.trim()?cards:'<div class="ws-empty">걸린 유닛 없음</div>')+'</div></div>';
-            }).join('');
-            document.getElementById('c1b').innerHTML = document.getElementById('c1').innerHTML;
-            document.getElementById('c2b').innerHTML = document.getElementById('c2').innerHTML;
+            document.getElementById('k1Fin').textContent  = num(fin1);
+            document.getElementById('k1Rows').textContent = num(cnt1);
+            document.getElementById('k2Fin').textContent  = num(F2.pack.length);
+            document.getElementById('k2Rows').textContent = num(cnt2);
+
+            let dq = 0;
+            F1.defect.concat(F2.defect).forEach(function(m){ dq += Number(m.defect_qty||0); });
+            document.getElementById('kDefect').textContent = num(dq);
+
+            document.getElementById('c1').innerHTML =
+                '<span class="ws-mini n">'+num(cnt1)+'건</span>'
+                + '<span class="ws-mini g">완제품 '+num(fin1)+'</span>';
+            document.getElementById('c2').innerHTML =
+                '<span class="ws-mini n">'+num(cnt2)+'건</span>'
+                + '<span class="ws-mini g">포장 '+num(F2.pack.length)+'대</span>';
         }
 
-        function renderAll(){ kRender(); mRender(); board1Render(); board2Render(); }
-        function wsSetView(v){
-            document.getElementById('viewA').style.display = (v==='A') ? '' : 'none';
-            document.getElementById('viewB').style.display = (v==='B') ? '' : 'none';
-            document.getElementById('tA').classList.toggle('on', v==='A');
-            document.getElementById('tB').classList.toggle('on', v==='B');
+        // =====================================================
+        // 공통 칼럼 껍데기
+        // =====================================================
+        function wsCol(f, badges, body, defList, tag){
+            let q=0, c=0;
+            (defList||[]).forEach(function(m){
+                if(m.proc_code !== f.code) return;
+                q += Number(m.defect_qty||0); c += Number(m.cnt||0);
+            });
+            const dchip = q > 0
+                ? '<span class="ws-mini d tapd" onclick="wsOpenDefect(\'' + f.code + '\',\'' + (f.fac||'') + '\')">부적합 '+num(q)+'</span>'
+                : '';
+            return '<div class="ws-col"><div class="ws-col-h">'
+                + '<div class="name">'+esc(f.name)+(tag?'<span class="c-md">'+tag+'</span>':'')+'</div>'
+                + '<div class="c">'+badges+dchip+'</div></div>'
+                + '<div class="ws-col-body">'+body+'</div></div>';
         }
-        document.addEventListener('DOMContentLoaded', function(){
-            (function(){ var t=new Date(), f=new Date(); f.setDate(f.getDate()-7);
-                var fmt=function(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
-                document.getElementById('date_from').value=fmt(f); document.getElementById('date_to').value=fmt(t); })();
-            renderAll();
-            document.getElementById('btnMainSearch').addEventListener('click', function(){ /* TODO: AJAX 재조회 */ renderAll(); });
-            document.addEventListener('keydown', function(e){ if(e.key==='Escape') wsClose(); });
+
+        // =====================================================
+        // 1공장 — 카드 1장 = 차수 1건
+        // =====================================================
+        function wsRender1(){
+            const by = {};
+            F1.rows.forEach(function(r){ (by[r.proc_code] = by[r.proc_code] || []).push(r); });
+            let html = '';
+            F1_FLOW.forEach(function(f){
+                const ff = {code:f.code, name:f.name, fac:'1'};
+                if(f.type === 'wash')        html += wsColWash(ff);
+                else if(f.type === 'steril') html += wsColSteril(ff);
+                else                         html += wsColProd(ff, by[f.code] || []);
+                delete by[f.code];
+            });
+            Object.keys(by).forEach(function(k){
+                html += wsColProd({code:k, name:(by[k][0].proc_name||'(공정 미지정)'), fac:'1'}, by[k]);
+            });
+            document.getElementById('board1').innerHTML =
+                html || '<div class="ws-empty" style="grid-column:1/-1">실적 없음</div>';
+        }
+
+
+        /* 포장 단계 라벨. 서버 pack_phase(= PackService.PHASE_SQL)를 그대로 읽는다.
+           포장 세션 하나가 PK 담기 → CK 생산 → 완제품 결합 → 카톤을 다 덮고,
+           완료(packFinish) 시점에야 실적이 두 줄(완제품 / CK)로 갈린다.
+           그전까지 「완제품」 딱지를 붙이면 CK 단계 작업자 눈에 어긋난다. */
+        const PACK_PHASE = { pk:'PK 담는 중', pack:'CK 작업중', label:'완제품 작업중',
+            outbox:'라벨 작업', done:'완료' };
+        function packPhaseText(r){
+            return PACK_PHASE[r.pack_phase] || '진행중';
+        }
+
+        function wsColProd(f, rows){
+            /* 포장 칼럼은 CK(반제품)와 완제품이 섞인다. 합쳐 적으면 완제품이 부풀어 보인다 */
+            let g = 0, sub = 0;
+            rows.forEach(function(r){
+                if(r.is_product === 'N') sub += Number(r.good_qty||0);
+                else                     g   += Number(r.good_qty||0);
+            });
+            const badges = '<span class="ws-mini n">'+rows.length+'건</span>'
+                + (g   ? '<span class="ws-mini g">'+num(g)+'</span>' : '')
+                + (sub ? '<span class="ws-mini n">반제품 '+num(sub)+'</span>' : '');
+            let last = null, body = '';
+            rows.forEach(function(r){
+                body += wsDay(r.prod_date, last); last = r.prod_date;
+                const running = !r.end_time;
+                /* ★ 포장 세션은 완료 전까지 산출이 확정되지 않는다.
+                   한 세션이 PK 담기 → CK 생산 → 완제품 결합 → 카톤을 다 덮고,
+                   packFinish 가 끝날 때 실적을 두 줄(세션=완제품 / ckMp=CK)로 쪼갠다. */
+                const packRun = running && r.proc_code === 'bsc05';
+                body += '<div class="ws-card'+(running?' run':' done')+'" onclick="wsOpenRow('+r.pk+')">'
+                    + '<div class="c-mat">'+(packRun ? '포장' : esc(r.mat_name||'-'))+'</div>'
+                    + '<div class="c-code">'+(packRun ? packPhaseText(r) : esc(r.mat_code||''))+'</div>'
+                    + '<div class="c-qty">'
+                    /* ★ order_qty 는 그 차수 몫이 아니라 작업지시 전체 수량이다.
+                       앞 공정이 50 만 넘겼는데 「계획 150」으로 보여 오해를 부른다. */
+                    +   (running ? '<span class="q-plan">진행 '+num(r.good_qty)+'</span>' : num(r.good_qty))+'</div>'
+                    + '<div class="c-meta">'+esc(wsWorker(r))+(r.equipment?' · '+esc(r.equipment):'')+'</div>'
+                    + '<div class="c-meta">'+esc(r.start_short||'-')+' ~ '
+                    +   (running ? '<span class="run-t">작업중</span>' : esc(r.end_short||'-'))+'</div>'
+                    + '</div>';
+            });
+            return wsCol(f, badges, body || '<div class="ws-empty">작업 없음</div>', F1.defect);
+        }
+
+        /** 세척 — 날짜 + 작업자로 묶는다. 품목마다 카드를 내면 칼럼이 금방 길어진다 */
+
+        /**
+         * 세척 세션 수.
+         *
+         * ★ wash_work(세션) 1건에 wash_work_item(품목) 여러 개가 달린다.
+         *   품목 행을 세면 「오늘 세척 11건」인데 실제로는 8세션인 상황이 된다
+         *   (실데이터: 세션 8 / 품목 11).
+         *   칼럼 배지는 날짜·작업자로 묶어 세션 수를 내고 있는데 상단 요약만
+         *   품목 수를 세고 있어 둘이 어긋났다. 같은 기준으로 맞춘다.
+         *
+         * ★ getWashList 가 wash_work.id 를 안 내려주므로 날짜+작업자로 묶는다.
+         *   같은 사람이 같은 날 두 번 돌리면 1건으로 접힌다 — 칼럼 그룹핑과
+         *   같은 한계라 최소한 화면 안에서는 숫자가 일관된다.
+         */
+        function washSessionCnt(list){
+            const k = {};
+            (list||[]).forEach(function(w){
+                /* ★ 대괄호 바로 뒤에 여는 괄호가 오면 안 된다.
+                   Thymeleaf 가 그 조합을 인라인 표현식으로 읽어
+                   템플릿 파싱이 통째로 깨진다(화면 자체가 안 뜬다).
+                   그래서 키를 반드시 변수로 빼서 쓴다. */
+                var key = (w.wash_date || '') + '|' + (w.worker || '-');
+                k[key] = 1;
+            });
+            return Object.keys(k).length;
+        }
+
+        function wsColWash(f){
+            const grp = {};
+            F1.wash.forEach(function(w){
+                const k = (w.wash_date||'')+'|'+(w.worker||'-');
+                if(!grp[k]) grp[k] = {date:w.wash_date, worker:w.worker, rows:[], qty:0};
+                grp[k].rows.push(w); grp[k].qty += Number(w.qty||0);
+            });
+            WS_WASH_GRP = grp;
+            const keys = Object.keys(grp).sort().reverse();
+            let q = 0;
+            F1.wash.forEach(function(w){ q += Number(w.qty||0); });
+            /* 「건」이 세션인지 품목인지 모호해 단위를 갈라 적는다. */
+            const badges = '<span class="ws-mini n">'+keys.length+'회</span>'
+                + '<span class="ws-mini n">'+F1.wash.length+'품목</span>'
+                + '<span class="ws-mini g">'+num(q)+'</span>';
+
+            let last = null, body = '';
+            keys.forEach(function(k){
+                const gp = grp[k];
+                body += wsDay(gp.date, last); last = gp.date;
+                const anyRun  = gp.rows.some(function(w){ return w.state === 'working'; });
+                const allDone = gp.rows.every(function(w){ return w.state === 'done'; });
+                const c = anyRun ? 'run' : (allDone ? 'done' : 'wait');
+                const n = anyRun ? '작업중' : (allDone ? '완료' : '대기');
+                body += '<div class="ws-card '+c+'" onclick="wsOpenWash(\'' + k.replace(/'/g,"\\'") + '\')">'
+                    + '<div class="c-mat">'+esc(gp.worker||'-')+'</div>'
+                    + '<div class="c-code">품목 '+gp.rows.length+'종</div>'
+                    + '<div class="c-qty">'+num(gp.qty)+'</div>'
+                    + '<div class="c-foot"><span class="ws-chip '+c+'"><span class="dot"></span>'+n+'</span></div>'
+                    + '</div>';
+            });
+            return wsCol(f, badges, body || '<div class="ws-empty">작업 없음</div>', F1.defect);
+        }
+
+        /** 멸균 — 카드 1장 = EO 배치 1건 */
+        function wsColSteril(f){
+            let q = 0;
+            F1.steril.forEach(function(b){ q += Number(b.total_qty||0); });
+            const badges = '<span class="ws-mini n">'+F1.steril.length+'배치</span>'
+                + '<span class="ws-mini g">'+num(q)+'</span>';
+            let last = null, body = '';
+            F1.steril.forEach(function(b){
+                body += wsDay(b.steril_date, last); last = b.steril_date;
+                /* BiResult 와 State 는 별개 축이라 칩 두 개.
+                   합치면 "판정은 났는데 배치는 안 닫힘"이 사라진다 */
+                const bi = b.bi_result
+                    ? '<span class="ws-chip '+(b.bi_result==='pass'?'pass':'fail')+'">BI '+(b.bi_result==='pass'?'합격':'불합격')+'</span>'
+                    : '<span class="ws-chip wait">BI 미판정</span>';
+                const c = (b.state==='done')?'done':(b.state==='scrapped'?'scrapped':'run');
+                const n = (b.state==='done')?'완료':(b.state==='scrapped'?'파기':'진행중');
+                body += '<div class="ws-card '+c+'" onclick="wsOpenBatch('+b.pk+')">'
+                    + '<div class="c-mat">'+esc(b.batch_no||('#'+b.pk))+'</div>'
+                    + '<div class="c-code">'+esc(b.item_type||'')+'</div>'
+                    + '<div class="c-qty">'+num(b.total_qty)+'<span class="c-lot">'+num(b.lot_cnt)+'로트</span></div>'
+                    + '<div class="c-meta">'+esc(b.worker||'-')+'</div>'
+                    + '<div class="c-foot">'+bi+'<span class="ws-chip '+c+'"><span class="dot"></span>'+n+'</span></div>'
+                    + '</div>';
+            });
+            return wsCol(f, badges, body || '<div class="ws-empty">배치 없음</div>', F1.defect);
+        }
+        let WS_WASH_GRP = {};
+
+        // =====================================================
+        // 2공장 — 카드 1장 = 유닛 1대 (검사는 유닛 1대 = 검사 묶음)
+        // =====================================================
+        function wsRender2(){
+            let html = '';
+            F2_FLOW.forEach(function(f){
+                const ff = {code:f.code, name:f.name, fac:'2'};
+                if(f.key === 'assembly')     html += wsColAsm(ff);
+                else if(f.key === 'inspect') html += wsColInsp(ff);
+                else if(f.key === 'repair')  html += wsColRep(ff);
+                else                         html += wsColPack(ff);
+            });
+            document.getElementById('board2').innerHTML =
+                html || '<div class="ws-empty" style="grid-column:1/-1">실적 없음</div>';
+        }
+
+        /** 그 기간에 끝낸 모듈 이름 (최대 2개) */
+        function wsStepLine(unitPk){
+            const list = (F2.steps[unitPk] || []).filter(function(x){ return x.end_time; });
+            if(!list.length) return '';
+            const names = list.map(function(x){ return x.mat_name || '-'; });
+            const head = names.slice(0,2).map(esc).join(', ');
+            const more = names.length > 2 ? ' <span class="ws-code">+'+(names.length-2)+'</span>' : '';
+            return '<div class="c-form">'+head+more+'</div>';
+        }
+
+        function wsColAsm(f){
+            const rows = F2.assembly;
+            const done = rows.filter(function(u){ return u.end_time; }).length;
+            const badges = '<span class="ws-mini n">'+rows.length+'대</span>'
+                + '<span class="ws-mini g">완료 '+done+'</span>';
+            let last = null, body = '';
+            rows.forEach(function(u){
+                body += wsDay(u.prod_date, last); last = u.prod_date;
+                const running = !u.end_time;
+                body += '<div class="ws-card'+(running?' run':' done')+'" onclick="wsOpenUnit('+u.pk+',\'assembly\')">'
+                    + '<div class="c-mat">'+esc(u.mat_name||'-')+'</div>'
+                    + '<div class="c-code">'+esc(u.lot_number||'-')+'</div>'
+                    + wsStepLine(u.pk)
+                    + '<div class="c-qty">'
+                    +   (running ? '<span class="q-plan">'+num(u.step_done)+' / '+num(u.step_total)+' 단계</span>'
+                        : '1<span class="c-lot">대</span>')+'</div>'
+                    + '<div class="c-meta">'+esc(u.worker||'-')+'</div>'
+                    + '<div class="c-meta">'+esc(u.start_short||'-')+' ~ '
+                    +   (running ? '<span class="run-t">작업중</span>' : esc(u.end_short||'-'))+'</div>'
+                    + (Number(u.rework_cnt) ? '<div class="c-foot"><span class="ws-chip wait">재조립</span></div>' : '')
+                    + '</div>';
+            });
+            return wsCol(f, badges, body || '<div class="ws-empty">작업 없음</div>', F2.defect);
+        }
+
+        function wsColInsp(f){
+            const rows = F2.inspect;
+            const pass = rows.filter(function(u){ return wsVerdict(u)==='pass'; }).length;
+            const fl   = rows.filter(function(u){ return wsVerdict(u)==='fail'; }).length;
+            const badges = '<span class="ws-mini n">'+rows.length+'대</span>'
+                + '<span class="ws-mini g">합격 '+pass+'</span>'
+                + (fl?'<span class="ws-mini x">불합격 '+fl+'</span>':'');
+            let last = null, body = '';
+            rows.forEach(function(u){
+                body += wsDay(u.prod_date, last); last = u.prod_date;
+                const v = wsVerdict(u);
+                const cls = (v==='pass')?'done':(v==='fail'?'scrapped':'run');
+                const nm  = (v==='pass')?'합격':(v==='fail'?'불합격':'진행중');
+                const retry = Number(u.try_cnt||0) > Number(u.form_cnt||0);
+                body += '<div class="ws-card '+cls+'" onclick="wsOpenInspect('+u.pk+')">'
+                    + '<div class="c-mat">'+esc(u.mat_name||'-')+'</div>'
+                    + '<div class="c-code">'+esc(u.lot_number||'-')+'</div>'
+                    + '<div class="c-form">'+esc(u.form_names||'-')+'</div>'
+                    + '<div class="c-qty">1<span class="c-lot">대 · 검사 '+num(u.form_cnt)+'종</span></div>'
+                    + '<div class="c-meta">'+esc(u.worker||'-')
+                    +   (u.is_repair==='Y'?'<span class="c-md">수리품</span>':'')+'</div>'
+                    + '<div class="c-foot"><span class="ws-chip '+cls+'"><span class="dot"></span>'+nm+'</span>'
+                    +   (retry?'<span class="ws-mini n">총 '+num(u.try_cnt)+'회</span>':'')+'</div>'
+                    + (u.reject_reason?'<div class="c-reason">'+esc(u.reject_reason)+'</div>':'')
+                    + '</div>';
+            });
+            return wsCol(f, badges, body || '<div class="ws-empty">작업 없음</div>', F2.defect);
+        }
+
+        function wsColRep(f){
+            const rows = F2.repair;
+            const done = rows.filter(function(u){ return u.end_time; }).length;
+            const badges = '<span class="ws-mini n">'+rows.length+'대</span>'
+                + '<span class="ws-mini g">완료 '+done+'</span>';
+            let last = null, body = '';
+            rows.forEach(function(u){
+                body += wsDay(u.prod_date, last); last = u.prod_date;
+                const running = !u.end_time;
+                const cat = (u.repair_cat==='return')?'반품':(u.repair_cat==='spec'?'사양변경':'');
+                body += '<div class="ws-card'+(running?' run':' done')+'" onclick="wsOpenUnit('+u.pk+',\'repair\')">'
+                    + '<div class="c-mat">'+esc(u.mat_name||'-')+'</div>'
+                    + '<div class="c-code">'+esc(u.lot_number||'-')+'</div>'
+                    + (u.src_lot?'<div class="c-code">원 '+esc(u.src_lot)+'</div>':'')
+                    + '<div class="c-qty">'+(running?'<span class="q-plan">수리중</span>':'1<span class="c-lot">대</span>')+'</div>'
+                    + '<div class="c-meta">'+esc(u.worker||'-')+'</div>'
+                    + '<div class="c-foot">'+(cat?'<span class="ws-chip wait">'+cat+'</span>':'')
+                    +   ((Number(u.mat_in_cnt)||Number(u.mat_out_cnt))
+                        ? '<span class="ws-mini n">＋'+num(u.mat_in_cnt)+' / －'+num(u.mat_out_cnt)+'</span>' : '')
+                    + '</div>'
+                    + (u.repair_reason?'<div class="c-reason">'+esc(u.repair_reason)+'</div>':'')
+                    + '</div>';
+            });
+            return wsCol(f, badges, body || '<div class="ws-empty">작업 없음</div>', F2.defect);
+        }
+
+        /** 포장 — 카드 1장 = 박스 1개(= 유닛 1대) */
+        function wsColPack(f){
+            const rows = F2.pack;
+            const badges = '<span class="ws-mini n">'+rows.length+'대</span>'
+                + (rows.length ? '<span class="ws-mini g">완료 '+rows.length+'</span>' : '');
+            let last = null, body = '';
+            rows.forEach(function(u){
+                body += wsDay(u.prod_date, last); last = u.prod_date;
+                const running = !u.end_time;
+                body += '<div class="ws-card'+(running?' run':' done')+'" onclick="wsOpenPack('+u.pk+')">'
+                    + '<div class="c-mat">'+esc(u.mat_name||'-')+'</div>'
+                    + '<div class="c-code">'+esc(u.lot_number||'-')+'</div>'
+                    + (u.maker_lot_no?'<div class="c-form">박스 '+esc(u.maker_lot_no)+'</div>':'')
+                    + '<div class="c-qty">1<span class="c-lot">대</span></div>'
+                    + '<div class="c-meta">'+esc(u.worker||'-')+(u.equipment?' · '+esc(u.equipment):'')+'</div>'
+                    + '<div class="c-meta">'+esc(u.start_short||'-')+' ~ '
+                    +   (running ? '<span class="run-t">작업중</span>' : esc(u.end_short||'-'))+'</div>'
+                    + (u.is_repair==='Y' ? '<div class="c-foot"><span class="ws-chip wait">수리품</span></div>' : '')
+                    + '</div>';
+            });
+            return wsCol(f, badges, body || '<div class="ws-empty">작업 없음</div>', F2.defect);
+        }
+
+        /** 포장 상세 — 그 박스에 들어간 자재 */
+        function wsOpenPack(mpPk){
+            const u = F2.pack.find(function(x){ return x.pk === mpPk; });
+            if(!u) return;
+            document.getElementById('mTitle').innerHTML =
+                '포장 상세 <small>'+esc(u.lot_number||'')+' · '+esc(u.mat_name||'')+'</small>';
+            document.getElementById('mBody').innerHTML = '<div class="ws-loading">불러오는 중…</div>';
+            document.getElementById('ov').classList.add('on');
+
+            const cons = wsData(AjaxUtil.getSyncData(API2+'/pack_detail', {mp_pk:mpPk})) || [];
+            let html = '<div class="ws-kv">'
+                + '<div><div class="k">완제품</div><div class="v">'+esc(u.mat_name||'-')+'</div></div>'
+                + '<div><div class="k">완제품 로트</div><div class="v">'+esc(u.lot_number||'-')+'</div></div>'
+                + '<div><div class="k">박스 라벨</div><div class="v">'+esc(u.maker_lot_no||'-')+'</div></div>'
+                + '<div><div class="k">호기</div><div class="v">#'+esc(u.unit_no||'-')+'</div></div>'
+                + '<div><div class="k">작업지시</div><div class="v">'+esc(u.wo||'-')+'</div></div>'
+                + '<div><div class="k">작업자</div><div class="v">'+esc(u.worker||'-')+'</div></div>'
+                + '<div><div class="k">설비</div><div class="v">'+esc(u.equipment||'-')+'</div></div>'
+                + '<div><div class="k">작업시각</div><div class="v">'+esc(u.start_time||'-')+'<br>~ '+esc(u.end_time||'작업중')+'</div></div>'
+                + '</div>';
+            html += '<div class="ws-sub-h">투입 자재</div>';
+            html += cons.length
+                ? '<table class="ws-sess"><thead><tr><th class="left">자재</th><th>투입 로트</th>'
+                + '<th>외부라벨</th><th>단위</th><th>수량</th></tr></thead><tbody>'
+                + cons.map(function(c){
+                    const isUnit = (c.mat_type === 'semi' || c.mat_type === 'product');
+                    return '<tr><td class="left w">'+esc(c.mat_name||'-')
+                        +   (isUnit ? '<span class="c-md">본체</span>' : '')
+                        +   ' <span class="ws-code">'+esc(c.mat_code||'')+'</span></td>'
+                        + '<td><span class="ws-code">'+esc(c.lot_number||'-')+'</span></td>'
+                        + '<td><span class="ws-code">'+esc(c.maker_lot_no||'-')+'</span></td>'
+                        + '<td>'+esc(c.unit||'-')+'</td><td class="w">'+num(c.qty)+'</td></tr>';
+                }).join('') + '</tbody></table>'
+                : '<div class="ws-sess-empty">투입 내역이 없습니다.</div>';
+            document.getElementById('mBody').innerHTML = html;
+        }
+
+        // =====================================================
+        // 모달 — 1공장
+        // =====================================================
+        function wsOpenRow(mpPk){
+            const r = F1.rows.find(function(x){ return x.pk===mpPk; });
+            if(!r) return;
+            document.getElementById('mTitle').innerHTML =
+                esc(r.proc_name||'')+' 차수 상세 <small>'+esc(r.prod_date)+' · '+esc(r.wo||'')+'</small>';
+
+            let html = '<div class="ws-kv">'
+                + '<div><div class="k">산출품목</div><div class="v">'+esc(r.mat_name||'-')+'</div></div>'
+                + '<div><div class="k">품목코드</div><div class="v">'+esc(r.mat_code||'-')+'</div></div>'
+                + '<div><div class="k">로트번호</div><div class="v">'+esc(r.lot_number||'-')+'</div></div>'
+                + '<div><div class="k">워크센터</div><div class="v">'+esc(r.workcenter||'-')+'</div></div>'
+                + '<div><div class="k">작업자</div><div class="v">'+esc(wsWorker(r))+'</div></div>'
+                + '<div><div class="k">설비</div><div class="v">'+esc(r.equipment||'-')+'</div></div>'
+                + '<div><div class="k">작업시각</div><div class="v">'+esc(r.start_time||'-')+'<br>~ '+esc(r.end_time||'작업중')+'</div></div>'
+                + '<div><div class="k">계획</div><div class="v">'+num(r.order_qty)+'</div></div>'
+                + '<div><div class="k">양품</div><div class="v">'
+                +   (r.end_time ? num(r.good_qty) : '<span class="run-t">작업중</span>')+'</div></div>'
+                + '</div>';
+
+            const cons = wsData(AjaxUtil.getSyncData(
+                '/api/production/prod_result_list/consumed_list', {mp_pk:mpPk})) || [];
+            html += '<div class="ws-sub-h">투입 자재</div>';
+            html += cons.length
+                ? '<table class="ws-sess"><thead><tr><th class="left">자재</th><th>단위</th>'
+                + '<th>소비</th><th>BOM</th></tr></thead><tbody>'
+                + cons.map(function(c){
+                    return '<tr><td class="left w">'+esc(c.mat_name||'-')+'</td><td>'+esc(c.unit||'-')+'</td>'
+                        + '<td class="w">'+num(c.consumed)+'</td><td>'+num(c.bom_consumed)+'</td></tr>';
+                }).join('') + '</tbody></table>'
+                : '<div class="ws-sess-empty">투입 내역이 없습니다.</div>';
+
+            document.getElementById('mBody').innerHTML = html;
+            document.getElementById('ov').classList.add('on');
+        }
+
+        function wsOpenWash(key){
+            const gp = WS_WASH_GRP[key];
+            if(!gp) return;
+            document.getElementById('mTitle').innerHTML =
+                '세척 <small>'+esc(gp.date)+' · '+esc(gp.worker||'-')+'</small>';
+            document.getElementById('mBody').innerHTML =
+                '<table class="ws-sess"><thead><tr><th class="left">품목</th><th>수량</th>'
+                + '<th>설비</th><th>시작</th><th>종료</th><th>상태</th></tr></thead><tbody>'
+                + gp.rows.map(function(w){
+                    const c = (w.state==='done')?'done':(w.state==='working'?'run':'wait');
+                    const n = (w.state==='done')?'완료':(w.state==='working'?'작업중':'대기');
+                    return '<tr><td class="left w">'+esc(w.mat_name||'-')+' <span class="ws-code">'+esc(w.mat_code||'')+'</span></td>'
+                        + '<td class="w">'+num(w.qty)+'</td><td>'+esc(w.equipment||'-')+'</td>'
+                        + '<td>'+esc(w.start_short||'-')+'</td><td>'+esc(w.end_short||'-')+'</td>'
+                        + '<td><span class="ws-chip '+c+'"><span class="dot"></span>'+n+'</span></td></tr>';
+                }).join('') + '</tbody></table>';
+            document.getElementById('ov').classList.add('on');
+        }
+
+        function wsOpenBatch(pk){
+            const b = F1.steril.find(function(x){ return x.pk===pk; });
+            document.getElementById('mTitle').innerHTML =
+                '멸균 배치 <small>'+esc(b?(b.batch_no||('#'+pk)):'')+'</small>';
+            document.getElementById('mBody').innerHTML = '<div class="ws-loading">불러오는 중…</div>';
+            document.getElementById('ov').classList.add('on');
+
+            const items = wsData(AjaxUtil.getSyncData(API1+'/f1_steril_items', {batch_pk:pk})) || [];
+            document.getElementById('mBody').innerHTML = items.length
+                ? '<table class="ws-sess"><thead><tr><th>로트번호</th><th class="left">품목</th>'
+                + '<th>수량</th><th>외부라벨</th></tr></thead><tbody>'
+                + items.map(function(i){
+                    return '<tr><td class="w">'+esc(i.lot_number||'-')+'</td>'
+                        + '<td class="left">'+esc(i.mat_name)+' <span class="ws-code">'+esc(i.mat_code)+'</span></td>'
+                        + '<td>'+num(i.qty)+'</td><td>'+esc(i.maker_lot_no||'-')+'</td></tr>';
+                }).join('') + '</tbody></table>'
+                : '<div class="ws-sess-empty">담긴 로트가 없습니다.</div>';
+        }
+
+        // =====================================================
+        // 모달 — 2공장
+        // =====================================================
+        function wsOpenUnit(unitPk, kind){
+            const list = (kind === 'repair') ? F2.repair : F2.assembly;
+            const u = list.find(function(x){ return x.pk === unitPk; });
+            if(!u) return;
+            document.getElementById('mTitle').innerHTML =
+                (kind==='repair'?'수리':'조립')+' 상세 <small>'+esc(u.lot_number||'')+' · '+esc(u.mat_name||'')+'</small>';
+            document.getElementById('mBody').innerHTML = '<div class="ws-loading">불러오는 중…</div>';
+            document.getElementById('ov').classList.add('on');
+
+            const d = wsData(AjaxUtil.getSyncData(API2+'/unit_detail', {unit_pk:unitPk})) || {};
+
+            let html = '<div class="ws-kv">'
+                + '<div><div class="k">품목</div><div class="v">'+esc(u.mat_name||'-')+'</div></div>'
+                + '<div><div class="k">로트번호</div><div class="v">'+esc(u.lot_number||'-')+'</div></div>'
+                + '<div><div class="k">호기</div><div class="v">#'+esc(u.unit_no||'-')+'</div></div>'
+                + '<div><div class="k">상태</div><div class="v">'+esc(WS_USTATE[u.unit_state]||u.unit_state||'-')+'</div></div>'
+                + '<div><div class="k">작업자</div><div class="v">'+esc(u.worker||'-')+'</div></div>'
+                + '<div><div class="k">설비</div><div class="v">'+esc(u.equipment||'-')+'</div></div>'
+                + '<div><div class="k">작업시각</div><div class="v">'+esc(u.start_time||'-')+'<br>~ '+esc(u.end_time||'작업중')+'</div></div>'
+                + (u.src_lot?'<div><div class="k">원 로트</div><div class="v">'+esc(u.src_lot)+'</div></div>':'')
+                + '</div>';
+            if(u.reject_reason) html += '<div class="ws-banner">불합격 사유 · '+esc(u.reject_reason)+'</div>';
+
+            if(kind === 'repair'){
+                const mats = d.mats || [];
+                html += '<div class="ws-sub-h">자재 가감</div>';
+                html += mats.length
+                    ? '<table class="ws-sess"><thead><tr><th>구분</th><th class="left">자재</th>'
+                    + '<th>수량</th><th>로트</th><th>반영</th></tr></thead><tbody>'
+                    + mats.map(function(x){
+                        const plus = (x.dir === '+');
+                        return '<tr><td class="w" style="color:'+(plus?'#0f9d58':'#d64545')+'">'
+                            + (plus?'＋ 투입':'－ 회수')+'</td>'
+                            + '<td class="left">'+esc(x.mat_name||'-')+'</td>'
+                            + '<td class="w">'+num(x.qty)+' '+esc(x.unit||'')+'</td>'
+                            + '<td><span class="ws-code">'+esc(x.lot_number||x.src_lot||'-')+'</span></td>'
+                            + '<td>'+(x.state==='applied'?'<span class="ws-chip done">반영됨</span>':'<span class="ws-chip wait">예정</span>')+'</td></tr>';
+                    }).join('') + '</tbody></table>'
+                    : '<div class="ws-sess-empty">자재 가감 내역이 없습니다.</div>';
+            } else {
+                const steps = d.steps || [];
+                html += '<div class="ws-sub-h">조립 단계</div>';
+                html += steps.length
+                    ? '<table class="ws-sess"><thead><tr><th>단계</th><th class="left">부품</th>'
+                    + '<th>방식</th><th>작업자</th><th>시작</th><th>종료</th><th>상태</th></tr></thead><tbody>'
+                    + steps.map(function(x){
+                        const c = (x.state==='done')?'done':(x.state==='working'?'run':'wait');
+                        const n = (x.state==='done')?'완료':(x.state==='working'?'작업중':'대기');
+                        return '<tr><td class="w">L'+esc(x.depth)+'</td>'
+                            + '<td class="left">'+esc(x.mat_name||'-')+' <span class="ws-code">'+esc(x.mat_code||'')+'</span></td>'
+                            + '<td>'+(x.source==='stock'?'재고 투입':'조립')+'</td>'
+                            + '<td>'+esc(x.worker||'-')+'</td>'
+                            + '<td>'+esc(x.start_short||'-')+'</td><td>'+esc(x.end_short||'-')+'</td>'
+                            + '<td><span class="ws-chip '+c+'"><span class="dot"></span>'+n+'</span>'
+                            + (x.rework_yn==='Y'?'<span class="c-md">재조립</span>':'')+'</td></tr>';
+                    }).join('') + '</tbody></table>'
+                    : '<div class="ws-sess-empty">단계 정보가 없습니다.</div>';
+            }
+
+            const cons = d.consumed || [];
+            html += '<div class="ws-sub-h">투입 자재</div>';
+            html += cons.length
+                ? '<table class="ws-sess"><thead><tr><th class="left">자재</th><th>투입 로트</th>'
+                + '<th>외부라벨</th><th>단위</th><th>수량</th></tr></thead><tbody>'
+                + cons.map(function(c){
+                    return '<tr><td class="left w">'+esc(c.mat_name||'-')+' <span class="ws-code">'+esc(c.mat_code||'')+'</span></td>'
+                        + '<td><span class="ws-code">'+esc(c.lot_number||'-')+'</span></td>'
+                        + '<td><span class="ws-code">'+esc(c.maker_lot_no||'-')+'</span></td>'
+                        + '<td>'+esc(c.unit||'-')+'</td><td class="w">'+num(c.qty)+'</td></tr>';
+                }).join('') + '</tbody></table>'
+                : '<div class="ws-sess-empty">투입 내역이 없습니다.</div>';
+
+            const insp = d.inspects || [];
+            if(insp.length){
+                html += '<div class="ws-sub-h">검사 이력</div>'
+                    +  '<table class="ws-sess"><thead><tr><th>회차</th><th class="left">양식</th>'
+                    +  '<th>결과</th><th>일시</th><th class="left">사유</th></tr></thead><tbody>'
+                    + insp.map(function(x){
+                        const c = (x.verdict==='pass')?'done':(x.verdict==='fail'?'scrapped':'wait');
+                        const n = (x.verdict==='pass')?'합격':(x.verdict==='fail'?'불합격':'진행중');
+                        return '<tr><td class="w">'+esc(x.try_no)+'</td><td class="left">'+esc(x.form_name||'-')+'</td>'
+                            + '<td><span class="ws-chip '+c+'"><span class="dot"></span>'+n+'</span></td>'
+                            + '<td>'+esc(x.created||'-')+'</td>'
+                            + '<td class="left">'+esc(x.fail_reason||'-')+'</td></tr>';
+                    }).join('') + '</tbody></table>';
+            }
+            document.getElementById('mBody').innerHTML = html;
+        }
+
+        function wsOpenInspect(unitPk){
+            const u = F2.inspect.find(function(x){ return x.pk === unitPk; });
+            if(!u) return;
+            document.getElementById('mTitle').innerHTML =
+                '검사 상세 <small>'+esc(u.lot_number||'')+' · '+esc(u.mat_name||'')+'</small>';
+            document.getElementById('mBody').innerHTML = '<div class="ws-loading">불러오는 중…</div>';
+            document.getElementById('ov').classList.add('on');
+
+            const d = wsData(AjaxUtil.getSyncData(API2+'/unit_inspect', {unit_pk:unitPk})) || {};
+            const forms = d.forms || [], tries = d.tries || [];
+            WS_TRIES = tries;
+
+            let html = '<div class="ws-kv">'
+                + '<div><div class="k">품목</div><div class="v">'+esc(u.mat_name||'-')+'</div></div>'
+                + '<div><div class="k">로트번호</div><div class="v">'+esc(u.lot_number||'-')+'</div></div>'
+                + '<div><div class="k">호기</div><div class="v">#'+esc(u.unit_no||'-')+'</div></div>'
+                + '<div><div class="k">상태</div><div class="v">'+esc(WS_USTATE[u.unit_state]||u.unit_state||'-')+'</div></div>'
+                + '</div>';
+            if(u.reject_reason) html += '<div class="ws-banner">불합격 사유 · '+esc(u.reject_reason)+'</div>';
+
+            html += '<div class="ws-sub-h">검사 유형</div>';
+            html += forms.length ? forms.map(function(fm){
+                /* 최종 판정은 마지막 회차. 이전 불합격은 이력으로만 남는다 */
+                const v = (fm.last_verdict==='pass')?'pass':(fm.last_verdict==='fail'?'fail':'open');
+                const cls = (v==='pass')?'done':(v==='fail'?'scrapped':'run');
+                const nm  = (v==='pass')?'합격':(v==='fail'?'불합격':'진행중');
+                const its = tries.filter(function(t){ return String(t.form_pk) === String(fm.form_pk); });
+                return '<div class="ws-fgrp"><div class="ws-fgrp-h"><span class="fn">'+esc(fm.form_name||'-')+'</span>'
+                    + '<span class="ws-code">'+num(fm.item_cnt)+'항목</span>'
+                    + '<span class="rt"><span class="ws-mini n">'+num(fm.try_cnt)+'회차</span>'
+                    + (Number(fm.fail_cnt||0) && v==='pass'
+                        ? '<span class="ws-mini x">불합격 '+num(fm.fail_cnt)+'회 후 통과</span>' : '')
+                    + '<span class="ws-chip '+cls+'"><span class="dot"></span>'+nm+'</span></span></div>'
+                    + '<table class="ws-sess"><thead><tr><th>회차</th><th>결과</th><th>검사자</th>'
+                    +   '<th>일시</th><th class="left">사유</th><th></th></tr></thead><tbody>'
+                    + its.map(function(t){
+                        const c = (t.verdict==='pass')?'done':(t.verdict==='fail'?'scrapped':'wait');
+                        const n = (t.verdict==='pass')?'합격':(t.verdict==='fail'?'불합격':'진행중');
+                        return '<tr><td class="w">'+esc(t.try_no)+'회</td>'
+                            + '<td><span class="ws-chip '+c+'"><span class="dot"></span>'+n+'</span></td>'
+                            + '<td>'+esc(t.worker||'-')+'</td><td>'+esc(t.created||'-')+'</td>'
+                            + '<td class="left">'+esc(t.fail_reason||'-')+'</td>'
+                            + '<td><button type="button" class="ws-mini r tapd" onclick="wsOpenItems('+t.pk+')">항목 ›</button></td></tr>';
+                    }).join('')
+                    + '</tbody></table></div>';
+            }).join('') : '<div class="ws-sess-empty">검사 이력이 없습니다.</div>';
+
+            document.getElementById('mBody').innerHTML = html;
+        }
+
+        function wsOpenItems(resultPk){
+            const t = (WS_TRIES||[]).find(function(x){ return x.pk === resultPk; });
+            document.getElementById('mTitle').innerHTML = '검사 항목 <small>'
+                + esc(t?(t.form_name||''):'') + (t?' · '+esc(t.try_no)+'회차':'') + '</small>';
+            document.getElementById('mBody').innerHTML = '<div class="ws-loading">불러오는 중…</div>';
+
+            const items = wsData(AjaxUtil.getSyncData(API2+'/inspect_items', {result_pk:resultPk})) || [];
+            let html = '';
+            if(t && t.fail_reason) html += '<div class="ws-banner">불합격 사유 · '+esc(t.fail_reason)+'</div>';
+            html += items.length
+                ? '<table class="ws-sess"><thead><tr><th class="left">항목</th><th>회차</th>'
+                + '<th class="left">기준</th><th>측정값</th><th>검사자</th><th>결과</th></tr></thead><tbody>'
+                + items.map(function(x){
+                    const okc = (x.result==='pass')?'done':(x.result==='fail'?'scrapped':'wait');
+                    const okn = (x.result==='pass')?'합격':(x.result==='fail'?'불합격':'-');
+                    let spec = x.spec_label || x.criteria || '';
+                    if(x.judge_type === 'num' && (x.lower_limit != null || x.upper_limit != null)){
+                        const lo = (x.lower_limit != null) ? num(x.lower_limit) : '';
+                        const hi = (x.upper_limit != null) ? num(x.upper_limit) : '';
+                        spec += (spec?' · ':'') + lo + ' ~ ' + hi + (x.item_unit ? ' '+esc(x.item_unit) : '');
+                    }
+                    const tool = x.spec_tool || x.method;
+                    const val = (x.value != null && x.value !== '')
+                        ? esc(x.value) + (x.item_unit ? ' <span class="ws-code">'+esc(x.item_unit)+'</span>' : '') : '-';
+                    return '<tr><td class="left w">'+esc(x.item_name||'-')+'</td>'
+                        + '<td>'+(Number(x.repeat_count)>1 ? esc(x.repeat_no)+' / '+esc(x.repeat_count) : '-')+'</td>'
+                        + '<td class="left">'+(spec?esc(spec):'-')
+                        +   (tool?'<br><span class="ws-code">'+esc(tool)+'</span>':'')+'</td>'
+                        + '<td class="w">'+val+'</td><td>'+esc(x.worker||'-')+'</td>'
+                        + '<td><span class="ws-chip '+okc+'">'+okn+'</span></td></tr>';
+                }).join('') + '</tbody></table>'
+                : '<div class="ws-sess-empty">항목 결과가 없습니다.</div>';
+            document.getElementById('mBody').innerHTML = html;
+        }
+
+        // =====================================================
+        function wsOpenDefect(procCode, fac){
+            let list = F1.defect.concat(F2.defect);
+            if(procCode) list = list.filter(function(m){ return m.proc_code === procCode; });
+            const pn = list.length ? (list[0].proc_name||'') : '';
+            document.getElementById('mTitle').innerHTML = '부적합 <small>'
+                + (procCode ? esc(pn)+' · ' : '') + '품목 단위</small>';
+            document.getElementById('mBody').innerHTML = list.length
+                ? '<table class="ws-sess"><thead><tr><th class="left">품목</th><th>공정</th><th>유형</th>'
+                + '<th>수량</th><th>건수</th><th>작지미지정</th><th>최종일자</th></tr></thead><tbody>'
+                + list.map(function(m){
+                    return '<tr><td class="left w">'+esc(m.mat_name||'-')+' <span class="ws-code">'+esc(m.mat_code||'')+'</span></td>'
+                        + '<td>'+esc(m.proc_name||'-')+'</td><td>'+esc(m.defect_type||'-')+'</td>'
+                        + '<td class="def">'+num(m.defect_qty)+'</td><td>'+num(m.cnt)+'</td>'
+                        + '<td>'+(Number(m.unlinked_cnt)?'<span class="def">'+num(m.unlinked_cnt)+'</span>':'0')+'</td>'
+                        + '<td>'+esc(m.last_date||'-')+'</td></tr>';
+                }).join('') + '</tbody></table>'
+                + '<p class="ws-note">「작지미지정」은 작업지시를 고르지 않고 등록한 건입니다. 빠뜨리지 않도록 합계에 함께 넣었습니다.</p>'
+                : '<div class="ws-sess-empty">해당 기간 부적합 기록이 없습니다.</div>';
+            document.getElementById('ov').classList.add('on');
+        }
+
+        function wsClose(){ document.getElementById('ov').classList.remove('on'); }
+
+        // =====================================================
+        document.addEventListener('DOMContentLoaded', function() {
+            const t = new Date(), f = new Date();
+            f.setDate(f.getDate() - 7);
+            const fmt = function (d) {
+                return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+            };
+            document.getElementById('date_from').value = fmt(f);
+            document.getElementById('date_to').value = fmt(t);
+
+            document.getElementById('btnMainSearch').addEventListener('click', wsLoad);
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape') wsClose();
+            });
+            wsLoad();
         });
     </script>
 </th:block>

@@ -111,6 +111,27 @@ public class WorkStatusService {
     // 1공장 — A뷰 / B뷰 공용 (부모 작지 + 공정별 자식)
     // =================================================================
 
+    // =====================================================================
+// WorkStatusService.java — getF1Orders() 교체
+//
+// 변경점: 납기·거래처를 수주에서 가져온다.
+//
+//   job_res."SourceDataPk"  →  suju.id            (SourceTableName='suju' 일 때만)
+//     suju."SujuHead_id"    →  suju_head."DeliveryDate"   납기
+//                              suju_head."Company_id" → company."Name"  거래처
+//
+// ★ 실데이터로 검증한 경로다. 작지품목 = 수주라인품목, 수주수량 = 지시수량이
+//   전부 일치했다(2497/2491/2475/2438/2432). suju_head 를 직접 물면 id 가 우연히
+//   겹쳐 조인은 성립하지만 엉뚱한 헤더가 붙는다 — 반드시 suju 를 거친다.
+//
+// ★ LEFT JOIN 이어야 한다. 수주 없이 자동생성된 작지(SourceTableName 이 'suju' 가
+//   아닌 것)가 있고, INNER 로 묶으면 그 행들이 통째로 사라진다.
+//   납기 없는 작지는 화면에서 D-day 를 '—' 로 두고 지연 판정에서 제외한다.
+//
+// ★ ON 절에 SourceTableName 조건을 넣는다. WHERE 에 넣으면 LEFT JOIN 이
+//   INNER 처럼 동작해 수주 없는 작지가 사라진다(고전적인 함정).
+// =====================================================================
+
     /**
      * 키트 작업지시 목록. 한 행 = 부모 작지(Parent_id IS NULL, 공정 없음).
      *
@@ -124,31 +145,43 @@ public class WorkStatusService {
         p.addValue("state", (blank(state) || "all".equals(state)) ? null : state);
 
         String sql = """
-                SELECT jr.id                       AS pk
-                     , jr."WorkOrderNumber"        AS wo
-                     , jr."State"                  AS state
-                     , fn_code_name('job_state', jr."State") AS state_name
-                     , COALESCE(jr."OrderQty", 0)  AS order_qty
-                     , COALESCE(jr."GoodQty", 0)   AS good_qty
-                     , COALESCE(jr."DefectQty", 0) AS defect_qty
-                     , to_char(jr."ProductionDate", 'yyyy-mm-dd') AS prod_date
-                     , m.id                        AS mat_pk
-                     , m."Code"                    AS mat_code
-                     , m."Name"                    AS mat_name
-                     , CASE WHEN UPPER(COALESCE(m."Code",'')) LIKE 'BMSC%'
-                            THEN 'BMSC' ELSE 'BSC' END AS line
-                  FROM job_res jr
-                  LEFT JOIN material    m  ON m.id  = jr."Material_id"
-                  LEFT JOIN work_center wc ON wc.id = jr."WorkCenter_id"
-                  LEFT JOIN process     p  ON p.id  = wc."Process_id"
-                 WHERE p.id IS NULL
-                   -- ★ 공장은 품목이 들고 있다. 안 거르면 M-CELL(2공장)이 섞인다
-                   AND COALESCE(m."Factory_id", 1) = 1
-                   AND (CAST(:line AS varchar) IS NULL
-                        OR CASE WHEN UPPER(COALESCE(m."Code",'')) LIKE 'BMSC%'
-                                THEN 'BMSC' ELSE 'BSC' END = CAST(:line AS varchar))
-                """ + parentWhere("jr")
-                + " ORDER BY jr.\"ProductionDate\" DESC, jr.\"WorkOrderNumber\" ASC ";
+            SELECT jr.id                       AS pk
+                 , jr."WorkOrderNumber"        AS wo
+                 , jr."State"                  AS state
+                 , fn_code_name('job_state', jr."State") AS state_name
+                 , COALESCE(jr."OrderQty", 0)  AS order_qty
+                 , COALESCE(jr."GoodQty", 0)   AS good_qty
+                 , COALESCE(jr."DefectQty", 0) AS defect_qty
+                 , to_char(jr."ProductionDate", 'yyyy-mm-dd') AS prod_date
+                 , to_char(jr."ProductionPlanDate", 'yyyy-mm-dd') AS plan_date
+                 , m.id                        AS mat_pk
+                 , m."Code"                    AS mat_code
+                 , m."Name"                    AS mat_name
+                 , CASE WHEN UPPER(COALESCE(m."Code",'')) LIKE 'BMSC%'
+                        THEN 'BMSC' ELSE 'BSC' END AS line
+                 -- ── 수주(납기·거래처) ─────────────────────────────
+                 , sj.id                       AS suju_pk
+                 , sh.id                       AS suju_head_pk
+                 , to_char(sh."DeliveryDate", 'yyyy-mm-dd') AS due_date
+                 , to_char(sh."JumunDate",    'yyyy-mm-dd') AS order_date
+                 , co."Name"                   AS company_name
+                 , COALESCE(sj."SujuQty", 0)   AS suju_qty
+              FROM job_res jr
+              LEFT JOIN material    m  ON m.id  = jr."Material_id"
+              LEFT JOIN work_center wc ON wc.id = jr."WorkCenter_id"
+              LEFT JOIN process     p  ON p.id  = wc."Process_id"
+              LEFT JOIN suju        sj ON sj.id = jr."SourceDataPk"
+                                      AND jr."SourceTableName" = 'suju'
+              LEFT JOIN suju_head   sh ON sh.id = sj."SujuHead_id"
+              LEFT JOIN company     co ON co.id = sh."Company_id"
+             WHERE p.id IS NULL
+               -- ★ 공장은 품목이 들고 있다. 안 거르면 M-CELL(2공장)이 섞인다
+               AND COALESCE(m."Factory_id", 1) = 1
+               AND (CAST(:line AS varchar) IS NULL
+                    OR CASE WHEN UPPER(COALESCE(m."Code",'')) LIKE 'BMSC%'
+                            THEN 'BMSC' ELSE 'BSC' END = CAST(:line AS varchar))
+            """ + parentWhere("jr")
+                + " ORDER BY sh.\"DeliveryDate\" ASC NULLS LAST, jr.\"WorkOrderNumber\" ASC ";
 
         return nz(this.sqlRunner.getRows(sql, p));
     }
@@ -170,33 +203,84 @@ public class WorkStatusService {
                      , c."WorkIndex"               AS work_idx
                      , p."Code"                    AS proc_code
                      , p."Name"                    AS proc_name
-                     , {PROC_KEY}                   AS proc_key
-                     , {SUB_KEY}                    AS sub_key
+                     , {PROC_KEY}                  AS proc_key
+                     , {SUB_KEY}                   AS sub_key
                      , c."State"                   AS state
                      , COALESCE(c."OrderQty", 0)   AS order_qty
                      , COALESCE(c."GoodQty", 0)    AS good_qty
                      , COALESCE(c."DefectQty", 0)  AS defect_qty
                      , cm."Code"                   AS mat_code
                      , cm."Name"                   AS mat_name
-                     , mps.produce_cnt
+                     , COALESCE(mps.produce_cnt, 0) AS produce_cnt
                      , COALESCE(mps.mp_good, 0)    AS mp_good
                      , COALESCE(mps.mp_defect, 0)  AS mp_defect
                      , COALESCE(mps.open_cnt, 0)   AS open_cnt
+                     , COALESCE(mps.fg_good, 0)    AS fg_good
+                     , COALESCE(mps.fg_open, 0)    AS fg_open
+                     , pk_ph.phase                 AS pack_phase
                   FROM job_res c
                   JOIN job_res pr ON pr.id = c."Parent_id"
                   LEFT JOIN material    cm  ON cm.id  = c."Material_id"
                   LEFT JOIN mat_grp     cmg ON cmg.id = cm."MaterialGroup_id"
                   LEFT JOIN work_center wc  ON wc.id  = c."WorkCenter_id"
                   LEFT JOIN process     p   ON p.id   = wc."Process_id"
+
+                  -- 차수 집계. 자기 품목 산출과 완제품 산출을 갈라 낸다
                   LEFT JOIN LATERAL (
-                        SELECT COUNT(*)                                     AS produce_cnt
-                             , SUM(COALESCE(mp."GoodQty",0))                AS mp_good
-                             , SUM(COALESCE(mp."DefectQty",0))              AS mp_defect
-                             , COUNT(*) FILTER (WHERE mp."State" <> 'finished') AS open_cnt
+                        SELECT COUNT(*) FILTER (WHERE mp."Material_id" IS NULL
+                                                   OR mp."Material_id" = c."Material_id")
+                                                                                    AS produce_cnt
+                             , SUM(COALESCE(mp."GoodQty",0))
+                                 FILTER (WHERE mp."Material_id" IS NULL
+                                            OR mp."Material_id" = c."Material_id")  AS mp_good
+                             , SUM(COALESCE(mp."DefectQty",0))
+                                 FILTER (WHERE mp."Material_id" IS NULL
+                                            OR mp."Material_id" = c."Material_id")  AS mp_defect
+                             , COUNT(*) FILTER (WHERE mp."State" <> 'finished'
+                                                  AND (mp."Material_id" IS NULL
+                                                    OR mp."Material_id" = c."Material_id"))
+                                                                                    AS open_cnt
+                             -- 키트 결합 실적. 확정(finished)된 것만 —
+                             -- startProduction 이 시작 입력분을 GoodQty 에 미리 넣는다
+                             , SUM(COALESCE(mp."GoodQty",0))
+                                 FILTER (WHERE (COALESCE(fmg."MaterialType",'') = 'product'
+                                             OR fm."Code" LIKE '%FG%')
+                                           AND mp."State" = 'finished')             AS fg_good
+                             , COUNT(*) FILTER (WHERE (COALESCE(fmg."MaterialType",'') = 'product'
+                                                    OR fm."Code" LIKE '%FG%')
+                                                  AND mp."State" <> 'finished')     AS fg_open
                           FROM mat_produce mp
+                          LEFT JOIN material fm  ON fm.id  = mp."Material_id"
+                          LEFT JOIN mat_grp  fmg ON fmg.id = fm."MaterialGroup_id"
                          WHERE mp."JobResponse_id" = c.id
                            AND COALESCE(mp._status,'a') = 'a'
                   ) mps ON true
+
+                  -- 포장 단계. 진행중 세션 기준 (PackService.PHASE_SQL 과 동일)
+                  LEFT JOIN LATERAL (
+                        SELECT CASE
+                                 WHEN EXISTS (SELECT 1 FROM pack_label pl
+                                               WHERE pl."MatProduce_id" = mp2.id
+                                                 AND pl."LabelKind" IN ('ckpk','inbox'))
+                                      THEN 'outbox'
+                                 WHEN EXISTS (SELECT 1 FROM pack_alloc pa
+                                               WHERE pa."MatProduce_id" = mp2.id
+                                                 AND COALESCE(pa."CkState",'plan') = 'produced')
+                                      THEN 'label'
+                                 WHEN EXISTS (SELECT 1 FROM pack_alloc_item pai
+                                               WHERE pai."MatProduce_id" = mp2.id
+                                                 AND COALESCE(pai._status,'a') = 'a'
+                                                 AND COALESCE(pai."ItemKind",'ck') = 'pk')
+                                      THEN 'pack'
+                                 ELSE 'pk' END AS phase
+                          FROM mat_produce mp2
+                         WHERE mp2."JobResponse_id" = c.id
+                           AND COALESCE(mp2._status,'a') = 'a'
+                           AND mp2."State" <> 'finished'
+                         ORDER BY mp2.id DESC
+                         LIMIT 1
+                  ) pk_ph ON true
+
                  WHERE COALESCE(c._status, 'a') = 'a'
                 """.replace("{PROC_KEY}", PROC_KEY_CASE).replace("{SUB_KEY}", SUB_KEY_CASE)
                 + parentWhere("pr")
@@ -296,6 +380,12 @@ public class WorkStatusService {
                      , COALESCE(om."Code", m."Code")  AS mat_code
                      , COALESCE(om."Name", m."Name")  AS mat_name
                      , COALESCE(ou."Name", u."Name")  AS unit
+                     -- ★ 포장 공정은 CK(반제품)와 키트 결합(완제품)을 둘 다 만든다.
+                     --   둘을 더하면 완제품 수량이 CK 만큼 부풀어 오른다.
+                     --   합계에 넣을 것만 골라내기 위한 플래그.
+                     , CASE WHEN COALESCE(omg."MaterialType", mg."MaterialType", '') = 'product'
+                              OR COALESCE(om."Code", m."Code") LIKE '%FG%'
+                            THEN 'Y' ELSE 'N' END      AS is_product
                      , COALESCE(jr."OrderQty", 0)     AS order_qty
                      , mp."LotIndex"                AS chasu
                      , mp."LotNumber"               AS lot_number
@@ -319,12 +409,27 @@ public class WorkStatusService {
                           JOIN person mem ON mem.id = mm."Person_id"
                          WHERE mm."MatProduce_id" = mp.id
                            AND COALESCE(mm._status,'a') = 'a')  AS members
+                   , CASE WHEN COALESCE(p."Code",'') <> 'bsc05' THEN NULL
+                       WHEN mp."State" = 'finished' THEN 'done'
+                       WHEN EXISTS (SELECT 1 FROM pack_label pl
+                                     WHERE pl."MatProduce_id" = mp.id
+                                       AND pl."LabelKind" IN ('ckpk','inbox')) THEN 'outbox'
+                       WHEN EXISTS (SELECT 1 FROM pack_alloc pa
+                                     WHERE pa."MatProduce_id" = mp.id
+                                       AND COALESCE(pa."CkState",'plan') = 'produced') THEN 'label'
+                       WHEN EXISTS (SELECT 1 FROM pack_alloc_item pai
+                                     WHERE pai."MatProduce_id" = mp.id
+                                       AND COALESCE(pai._status,'a') = 'a'
+                                       AND COALESCE(pai."ItemKind",'ck') = 'pk') THEN 'pack'
+                       ELSE 'pk' END          AS pack_phase
                   FROM mat_produce mp
                   JOIN job_res jr ON jr.id = mp."JobResponse_id"
                   LEFT JOIN material    m  ON m.id  = jr."Material_id"
                   LEFT JOIN unit        u  ON u.id  = m."Unit_id"
-                  LEFT JOIN material    om ON om.id = mp."Material_id"
-                  LEFT JOIN unit        ou ON ou.id = om."Unit_id"
+                  LEFT JOIN mat_grp     mg  ON mg.id  = m."MaterialGroup_id"
+                  LEFT JOIN material    om  ON om.id  = mp."Material_id"
+                  LEFT JOIN mat_grp     omg ON omg.id = om."MaterialGroup_id"
+                  LEFT JOIN unit        ou  ON ou.id  = om."Unit_id"
                   LEFT JOIN work_center wc ON wc.id = mp."WorkCenter_id"
                   LEFT JOIN process     p  ON p.id  = wc."Process_id"
                   LEFT JOIN person      pe ON pe.id = mp."Actor_id"
@@ -391,35 +496,51 @@ public class WorkStatusService {
      * 한 공정 작지의 차수(세션) 목록.
      * 조원은 mat_produce_member 를 string_agg 로 한 칸에 넣는다.
      */
-    public List<Map<String, Object>> getF1Sessions(Integer jrPk) {
-        MapSqlParameterSource p = new MapSqlParameterSource().addValue("jr_pk", jrPk);
+    public List<Map<String, Object>> getF1Sessions(Integer jrPk, String kind) {
+        MapSqlParameterSource p = new MapSqlParameterSource()
+                .addValue("jr_pk", jrPk)
+                .addValue("kind", (kind == null || kind.isBlank()) ? "own" : kind.trim());
 
         String sql = """
-                SELECT mp.id                        AS pk
-                     , mp."LotIndex"                AS chasu
-                     , mp."LotNumber"               AS lot_number
-                     , mp."State"                   AS state
-                     , COALESCE(mp."GoodQty", 0)    AS good_qty
-                     , COALESCE(mp."DefectQty", 0)  AS defect_qty
-                     , to_char(mp."StartTime", 'hh24:mi') AS start_time
-                     , to_char(mp."EndTime",   'hh24:mi') AS end_time
-                     , to_char(mp."ProductionDate", 'yyyy-mm-dd') AS prod_date
-                     , pe."Name"                    AS worker
-                     , e."Name"                     AS equipment
-                     , sh."Name"                    AS shift_name
-                     , (SELECT string_agg(mem."Name", ', ' ORDER BY mem."Name")
-                          FROM mat_produce_member mm
-                          JOIN person mem ON mem.id = mm."Person_id"
-                         WHERE mm."MatProduce_id" = mp.id
-                           AND COALESCE(mm._status,'a') = 'a')  AS members
-                  FROM mat_produce mp
-                  LEFT JOIN person pe ON pe.id = mp."Actor_id"
-                  LEFT JOIN equ    e  ON e.id  = mp."Equipment_id"
-                  LEFT JOIN shift  sh ON sh."Code" = mp."ShiftCode"
-                 WHERE mp."JobResponse_id" = :jr_pk
-                   AND COALESCE(mp._status, 'a') = 'a'
-                 ORDER BY mp."LotIndex", mp.id
-                """;
+            SELECT mp.id                        AS pk
+                 , mp."LotIndex"                AS chasu
+                 , mp."LotNumber"               AS lot_number
+                 , mp."State"                   AS state
+                 , COALESCE(mp."GoodQty", 0)    AS good_qty
+                 , COALESCE(mp."DefectQty", 0)  AS defect_qty
+                 , to_char(mp."StartTime", 'hh24:mi') AS start_time
+                 , to_char(mp."EndTime",   'hh24:mi') AS end_time
+                 , to_char(mp."ProductionDate", 'yyyy-mm-dd') AS prod_date
+                 , om."Code"                    AS out_code
+                 , om."Name"                    AS out_name
+                 , pe."Name"                    AS worker
+                 , e."Name"                     AS equipment
+                 , (SELECT string_agg(mem."Name", ', ' ORDER BY mem."Name")
+                      FROM mat_produce_member mm
+                      JOIN person mem ON mem.id = mm."Person_id"
+                     WHERE mm."MatProduce_id" = mp.id
+                       AND COALESCE(mm._status,'a') = 'a')  AS members
+              FROM mat_produce mp
+              JOIN job_res jr ON jr.id = mp."JobResponse_id"
+              LEFT JOIN material om  ON om.id  = mp."Material_id"
+              LEFT JOIN mat_grp  omg ON omg.id = om."MaterialGroup_id"
+              LEFT JOIN person pe ON pe.id = mp."Actor_id"
+              LEFT JOIN equ    e  ON e.id  = mp."Equipment_id"
+             WHERE mp."JobResponse_id" = :jr_pk
+               AND COALESCE(mp._status, 'a') = 'a'
+               -- ★ 포장은 한 작지에 차수가 둘 달린다(작지 품목 산출 / 완제품 산출).
+               --   어느 쪽을 볼지 호출 쪽이 정한다.
+               AND (
+                     CAST(:kind AS varchar) = 'all'
+                  OR (CAST(:kind AS varchar) = 'fg'
+                      AND (COALESCE(omg."MaterialType",'') = 'product'
+                        OR om."Code" LIKE '%FG%'))
+                  OR (CAST(:kind AS varchar) NOT IN ('all','fg')
+                      AND (mp."Material_id" IS NULL
+                        OR mp."Material_id" = jr."Material_id"))
+                   )
+             ORDER BY mp."LotIndex", mp.id
+            """;
 
         return nz(this.sqlRunner.getRows(sql, p));
     }
@@ -774,6 +895,26 @@ public class WorkStatusService {
     // 2공장 — M-CELL
     // =================================================================
 
+    // =====================================================================
+// WorkStatusService.java — getF2Orders() 교체
+//
+// 1공장 getF1Orders 와 같은 경로로 납기·거래처를 붙인다.
+//   job_res."SourceDataPk" → suju.id → suju_head."DeliveryDate" / "Company_id"
+//
+// ★ 이걸 안 하면 통합 화면에서 2공장 행만 납기·D-day 가 전부 '—' 로 뜨고
+//   지연 판정에서 통째로 빠진다(항상 「진행중」).
+//
+// ★ 2공장 작지도 SourceTableName='suju' 로 들어오는지는 확인이 필요하다.
+//   전부 null 이면 이 조인은 무해하게 아무것도 안 붙이고, 화면은 기존처럼
+//   '—' 로 표시한다(LEFT JOIN 이라 행이 사라지지는 않는다).
+//
+//   확인 SQL:
+//     SELECT COALESCE("SourceTableName",'(없음)'), COUNT(*)
+//       FROM job_res jr JOIN material m ON m.id = jr."Material_id"
+//      WHERE jr."Parent_id" IS NULL AND COALESCE(m."Factory_id",1) = 2
+//      GROUP BY 1;
+// =====================================================================
+
     /**
      * 수주(작업지시) 목록. 유닛 작지만 — 하위 모듈 작지는 제외.
      *
@@ -787,33 +928,42 @@ public class WorkStatusService {
         p.addValue("model", (model == null || model.isBlank()) ? null : model);
 
         String sql = """
-                SELECT jr.id                        AS pk
-                     , jr."WorkOrderNumber"         AS wo
-                     , jr."State"                   AS state
-                     , fn_code_name('job_state', jr."State") AS state_name
-                     , COALESCE(jr."OrderQty", 0)   AS order_qty
-                     , to_char(jr."ProductionDate", 'yyyy-mm-dd') AS prod_date
-                     , m.id                         AS mat_pk
-                     , m."Code"                     AS mat_code
-                     , m."Name"                     AS mat_name
-                     , CASE WHEN COALESCE(m."Name",'') LIKE '%해외%'
-                             OR COALESCE(m."Name",'') LIKE '%수출%'
-                            THEN '해외' ELSE '국내' END AS model
-                     , (SELECT COUNT(*) FROM mcell_unit mu
-                         WHERE mu."JobResponse_id" = jr.id)        AS unit_cnt
-                  FROM job_res jr
-                  LEFT JOIN material m ON m.id = jr."Material_id"
-                 WHERE jr."ProductionDate" BETWEEN :date_from AND :date_to
-                   AND jr.spjangcd = :spjangcd
-                   AND jr."Parent_id" IS NULL
-                   AND COALESCE(jr._status, 'a') = 'a'
-                   AND COALESCE(m."Factory_id", 1) = 2
-                   AND (CAST(:model AS varchar) IS NULL
-                        OR CASE WHEN COALESCE(m."Name",'') LIKE '%해외%'
-                                     OR COALESCE(m."Name",'') LIKE '%수출%'
-                                THEN '해외' ELSE '국내' END = CAST(:model AS varchar))
-                 ORDER BY jr."ProductionDate" DESC, jr."WorkOrderNumber" ASC
-                """;
+            SELECT jr.id                        AS pk
+                 , jr."WorkOrderNumber"         AS wo
+                 , jr."State"                   AS state
+                 , fn_code_name('job_state', jr."State") AS state_name
+                 , COALESCE(jr."OrderQty", 0)   AS order_qty
+                 , to_char(jr."ProductionDate", 'yyyy-mm-dd') AS prod_date
+                 , m.id                         AS mat_pk
+                 , m."Code"                     AS mat_code
+                 , m."Name"                     AS mat_name
+                 , CASE WHEN COALESCE(m."Name",'') LIKE '%해외%'
+                         OR COALESCE(m."Name",'') LIKE '%수출%'
+                        THEN '해외' ELSE '국내' END AS model
+                 , (SELECT COUNT(*) FROM mcell_unit mu
+                     WHERE mu."JobResponse_id" = jr.id)        AS unit_cnt
+                 -- ── 수주(납기·거래처) ─────────────────────────────
+                 , sj.id                        AS suju_pk
+                 , to_char(sh."DeliveryDate", 'yyyy-mm-dd') AS due_date
+                 , to_char(sh."JumunDate",    'yyyy-mm-dd') AS order_date
+                 , co."Name"                    AS company_name
+              FROM job_res jr
+              LEFT JOIN material  m  ON m.id = jr."Material_id"
+              LEFT JOIN suju      sj ON sj.id = jr."SourceDataPk"
+                                    AND jr."SourceTableName" = 'suju'
+              LEFT JOIN suju_head sh ON sh.id = sj."SujuHead_id"
+              LEFT JOIN company   co ON co.id = sh."Company_id"
+             WHERE jr."ProductionDate" BETWEEN :date_from AND :date_to
+               AND jr.spjangcd = :spjangcd
+               AND jr."Parent_id" IS NULL
+               AND COALESCE(jr._status, 'a') = 'a'
+               AND COALESCE(m."Factory_id", 1) = 2
+               AND (CAST(:model AS varchar) IS NULL
+                    OR CASE WHEN COALESCE(m."Name",'') LIKE '%해외%'
+                                 OR COALESCE(m."Name",'') LIKE '%수출%'
+                            THEN '해외' ELSE '국내' END = CAST(:model AS varchar))
+             ORDER BY sh."DeliveryDate" ASC NULLS LAST, jr."WorkOrderNumber" ASC
+            """;
 
         return nz(this.sqlRunner.getRows(sql, p));
     }

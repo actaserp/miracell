@@ -25,7 +25,7 @@ import mes.domain.services.SqlRunner;
  *   mc01 조립  mcell_unit + mcell_unit_step + mat_produce
  *   mc02 검사  insp_result (mat_produce 없음 — 검사는 생산이 아니다)
  *   mc04 수리  mcell_unit(McellRepair_id) + mat_produce
- *   mc03 포장  mcell_unit."State"='packed'  ※ 공정 미구현이라 현재 0건
+ *   mc03 포장  mat_produce 중 산출품목이 완제품(MRCN-*)인 차수 + mat_lot(박스 라벨)
  */
 @Service
 public class McellWorkStatusService {
@@ -102,7 +102,7 @@ public class McellWorkStatusService {
                      -- 스텝 작업자가 있으면 그쪽이 진실. 없으면 유닛 담당자
                      , COALESCE(tm.step_workers, pe."Name") AS worker
                      , COALESCE(tm.step_equips,  e."Name")  AS equipment
-                     , to_char(COALESCE(tm.et, tm.st, mu."StartTime"), 'yyyy-mm-dd') AS prod_date
+                     , to_char(COALESCE(tm.et, tm.st, mu."StartTime", mu."_created"), 'yyyy-mm-dd') AS prod_date
                      , to_char(COALESCE(tm.st, mu."StartTime"), 'yyyy-mm-dd hh24:mi') AS start_time
                      , to_char(tm.et, 'yyyy-mm-dd hh24:mi')  AS end_time
                      , to_char(COALESCE(tm.st, mu."StartTime"), 'mm-dd hh24:mi') AS start_short
@@ -122,14 +122,14 @@ public class McellWorkStatusService {
                   LEFT JOIN equ      e  ON e.id  = mu."Equipment_id"
                 %s
                  WHERE mu."McellRepair_id" IS NULL
-                   AND COALESCE(tm.et, tm.st, mu."StartTime") BETWEEN :date_from AND :date_to
+                   AND COALESCE(tm.et, tm.st, mu."StartTime", mu."_created") BETWEEN :date_from AND :date_to
                    -- 유닛 담당자뿐 아니라 스텝을 실제로 한 사람으로도 걸린다
                    AND (CAST(:actor_pk AS integer) IS NULL
                         OR mu."Actor_id" = CAST(:actor_pk AS integer)
                         OR EXISTS (SELECT 1 FROM mcell_unit_step us2
                                     WHERE us2."McellUnit_id" = mu.id
                                       AND us2."Actor_id" = CAST(:actor_pk AS integer)))
-                 ORDER BY COALESCE(tm.et, tm.st, mu."StartTime") DESC, mu."UnitNo"
+                 ORDER BY COALESCE(tm.et, tm.st, mu."StartTime", mu."_created") DESC, mu."UnitNo"
                 """.formatted(UNIT_TIME);
 
         return nz(this.sqlRunner.getRows(sql, p));
@@ -145,6 +145,9 @@ public class McellWorkStatusService {
      *   → "그날 끝낸 모듈"을 한 줄씩 적는다. 최상위(Depth=0)가 끝난 날이 곧 완성일.
      *
      * 기준일은 스텝 실적(mat_produce)의 종료일.
+     *
+     * ★ ProductionDate 는 쓰지 않는다 — 작지의 지시일을 그대로 물고 들어온다.
+     *   7/28 작지로 8/4 에 조립해도 값은 7/28 이라 오늘 조회에서 빠진다.
      */
     public List<Map<String, Object>> getAssemblySteps(String dateFrom, String dateTo,
                                                       Integer actorPk, String spjangcd) {
@@ -170,7 +173,7 @@ public class McellWorkStatusService {
                      , pe."Name"                      AS worker
                      , e."Name"                       AS equipment
                      , COALESCE(mp."GoodQty", 0)      AS good_qty
-                     , to_char(COALESCE(mp."EndTime", mp."StartTime"), 'yyyy-mm-dd') AS prod_date
+                     , to_char(COALESCE(mp."EndTime", mp."StartTime", mp."_created"), 'yyyy-mm-dd') AS prod_date
                      , to_char(mp."StartTime", 'yyyy-mm-dd hh24:mi') AS start_time
                      , to_char(mp."EndTime",   'yyyy-mm-dd hh24:mi') AS end_time
                      , to_char(mp."StartTime", 'mm-dd hh24:mi')      AS start_short
@@ -184,11 +187,11 @@ public class McellWorkStatusService {
                   LEFT JOIN material m  ON m.id  = jr."Material_id"
                   LEFT JOIN person   pe ON pe.id = COALESCE(us."Actor_id", mu."Actor_id")
                   LEFT JOIN equ      e  ON e.id  = COALESCE(us."Equipment_id", mu."Equipment_id")
-                 WHERE COALESCE(mp."EndTime", mp."StartTime") BETWEEN :date_from AND :date_to
+                 WHERE COALESCE(mp."EndTime", mp."StartTime", mp."_created") BETWEEN :date_from AND :date_to
                    AND COALESCE(mp._status,'a') = 'a'
                    AND (CAST(:actor_pk AS integer) IS NULL
                         OR COALESCE(us."Actor_id", mu."Actor_id") = CAST(:actor_pk AS integer))
-                 ORDER BY COALESCE(mp."EndTime", mp."StartTime"), mu."UnitNo", us."Depth" DESC
+                 ORDER BY COALESCE(mp."EndTime", mp."StartTime", mp."_created"), mu."UnitNo", us."Depth" DESC
                 """;
 
         return nz(this.sqlRunner.getRows(sql, p));
@@ -341,7 +344,7 @@ public class McellWorkStatusService {
                      , m."Name"                       AS mat_name
                      , pe."Name"                      AS worker
                      , e."Name"                       AS equipment
-                     , to_char(COALESCE(tm.et, tm.st, mu."StartTime"), 'yyyy-mm-dd') AS prod_date
+                     , to_char(COALESCE(tm.et, tm.st, mu."StartTime", mu."_created"), 'yyyy-mm-dd') AS prod_date
                      , to_char(COALESCE(tm.st, mu."StartTime"), 'yyyy-mm-dd hh24:mi') AS start_time
                      , to_char(tm.et, 'yyyy-mm-dd hh24:mi')  AS end_time
                      , to_char(COALESCE(tm.st, mu."StartTime"), 'mm-dd hh24:mi') AS start_short
@@ -361,52 +364,126 @@ public class McellWorkStatusService {
                           FROM mat_produce mp
                          WHERE mp.id = mu."MatProduce_id"
                   ) tm ON true
-                 WHERE COALESCE(tm.et, tm.st, mu."StartTime") BETWEEN :date_from AND :date_to
+                 WHERE COALESCE(tm.et, tm.st, mu."StartTime", mu."_created") BETWEEN :date_from AND :date_to
                    AND (CAST(:actor_pk AS integer) IS NULL
                         OR mu."Actor_id" = CAST(:actor_pk AS integer))
-                 ORDER BY COALESCE(tm.et, tm.st, mu."StartTime") DESC, mu."UnitNo"
+                 ORDER BY COALESCE(tm.et, tm.st, mu."StartTime", mu."_created") DESC, mu."UnitNo"
                 """;
 
         return nz(this.sqlRunner.getRows(sql, p));
     }
 
     // =================================================================
-    // mc03 포장 — 카드 1장 = 포장 완료 유닛
+    // mc03 포장 — 카드 1장 = 박스 1개
     // =================================================================
 
     /**
-     * 포장 완료 유닛.
+     * 포장 완료 — 카드 1장 = 박스 1개(= 유닛 1대).
      *
-     * ★ 포장 공정(mc03)이 아직 구현 전이라 'packed' 유닛이 생기지 않는다.
-     *   버그가 아니라 공정이 없는 것. 화면에서 그렇게 안내한다.
+     * ★ mcell_unit."State"='packed' 가 아니라 mat_produce 를 센다.
+     *   포장은 박스 하나가 mat_produce 1건(GoodQty=1)으로 남고,
+     *   작업자·설비·시각·완제품 로트가 전부 거기 있다.
+     *   유닛 상태만 보면 "언제 누가 포장했는지"를 알 수 없고,
+     *   포장 취소로 packed → pass 로 되돌아간 건도 구분이 안 된다.
+     *
+     * ★ 박스 라벨(MakerLotNo)은 완제품 로트(mat_lot)에 붙는다.
+     *   SourceTableName='mat_produce' + SourceDataPk 로 그 차수의 산출 로트를 찾는다.
+     *
+     * ★ 유닛은 로트번호로 되짚는다.
+     *   완제품 로트가 유닛 로트번호를 승계하므로 같은 번호로 찾을 수 있다.
+     *   수리가 keep 모드면 같은 번호의 유닛이 둘일 수 있어 packed 인 쪽을 먼저 고른다.
+     *   (McellPackService.getPackedList 와 같은 규칙)
      */
     public List<Map<String, Object>> getPackUnits(String dateFrom, String dateTo,
                                                   Integer actorPk, String spjangcd) {
         MapSqlParameterSource p = period(dateFrom, dateTo, actorPk, spjangcd);
 
         String sql = """
-                SELECT mu.id                          AS pk
-                     , mu."UnitNo"                    AS unit_no
-                     , mu."LotNumber"                 AS lot_number
-                     , mu."State"                     AS unit_state
+                SELECT mp.id                          AS pk
+                     , mp."LotIndex"                  AS chasu
+                     , mp."LotNumber"                 AS lot_number
+                     , COALESCE(mp."GoodQty", 0)      AS good_qty
+                     , ml."MakerLotNo"                AS maker_lot_no
+                     , jr.id                          AS jr_pk
                      , jr."WorkOrderNumber"           AS wo
                      , m."Code"                       AS mat_code
                      , m."Name"                       AS mat_name
-                     , ml."MakerLotNo"                AS maker_lot_no
+                     , mu.id                          AS unit_pk
+                     , mu."UnitNo"                    AS unit_no
+                     , mu."State"                     AS unit_state
+                     , mu.is_repair                   AS is_repair
+                     , mu."SrcLotNumber"              AS src_lot
                      , pe."Name"                      AS worker
-                     , to_char(mu."_modified", 'yyyy-mm-dd')       AS prod_date
-                     , to_char(mu."_modified", 'yyyy-mm-dd hh24:mi') AS end_time
-                     , to_char(mu."_modified", 'mm-dd hh24:mi')      AS end_short
-                  FROM mcell_unit mu
-                  JOIN job_res jr ON jr.id = mu."JobResponse_id"
-                  LEFT JOIN material m  ON m.id  = jr."Material_id"
-                  LEFT JOIN person   pe ON pe.id = mu."Actor_id"
-                  LEFT JOIN mat_lot  ml ON ml."LotNumber" = mu."LotNumber"
-                 WHERE mu."State" = 'packed'
-                   AND COALESCE(mu."_modified", mu."_created") BETWEEN :date_from AND :date_to
+                     , e."Name"                       AS equipment
+                     , to_char(COALESCE(mp."EndTime", mp."StartTime", mp."_created"), 'yyyy-mm-dd') AS prod_date
+                     , to_char(mp."StartTime", 'yyyy-mm-dd hh24:mi') AS start_time
+                     , to_char(mp."EndTime",   'yyyy-mm-dd hh24:mi') AS end_time
+                     , to_char(mp."StartTime", 'mm-dd hh24:mi')      AS start_short
+                     , to_char(mp."EndTime",   'mm-dd hh24:mi')      AS end_short
+                  FROM mat_produce mp
+                  JOIN job_res jr ON jr.id = mp."JobResponse_id"
+                  LEFT JOIN material    m   ON m.id   = COALESCE(mp."Material_id", jr."Material_id")
+                  LEFT JOIN mat_grp     pmg ON pmg.id = m."MaterialGroup_id"
+                  LEFT JOIN person      pe  ON pe.id  = mp."Actor_id"
+                  LEFT JOIN equ         e   ON e.id   = mp."Equipment_id"
+                  -- 박스 라벨은 그 차수가 만든 완제품 로트에 붙는다
+                  LEFT JOIN mat_lot ml ON ml."SourceTableName" = 'mat_produce'
+                                      AND ml."SourceDataPk"    = mp.id
+                  LEFT JOIN LATERAL (
+                        SELECT x.id, x."UnitNo", x."State", x."SrcLotNumber"
+                             , CASE WHEN x."McellRepair_id" IS NOT NULL THEN 'Y' ELSE 'N' END AS is_repair
+                          FROM mcell_unit x
+                         WHERE x."LotNumber" = mp."LotNumber"
+                           AND COALESCE(x."_status",'a') = 'a'
+                         ORDER BY (CASE WHEN x."State" = 'packed' THEN 0 ELSE 1 END), x.id DESC
+                         LIMIT 1
+                  ) mu ON true
+                 -- ★ 포장은 「산출 품목이 완제품인 차수」로 가린다.
+                 --   공정 코드도 창고도 못 쓴다. packUnit 이 req.workCenterId=56 을 넘기지만
+                 --   startProduction 이 작지의 워크센터를 쓰는 탓에 실제 저장값은 52(조립)이고,
+                 --   산출 로트도 그 워크센터의 산출창고(17)로 들어간다.
+                 --   실데이터 확인 : mat_produce 2090 = 품목 MRCN-21022, wc 52, 창고 17.
+                 --   조립·수리는 WIP-* 재공품을 만들고 포장만 MRCN-* 완제품을 만든다 —
+                 --   품목이 유일하게 믿을 수 있는 축이다.
+                 WHERE COALESCE(pmg."MaterialType",'') = 'product'
+                   -- ★ 2공장 것만. 품목군만 보면 1공장 키트 완제품(BSC*-FG*)도 같이 잡힌다.
+                   AND COALESCE(m."Factory_id", 1) = 2
+                   -- ★ M-CELL 포장은 반드시 유닛 1대를 소비한다.
+                   --   유닛이 안 붙는 차수는 이 공정의 실적이 아니다(2차 방어).
+                   AND mu.id IS NOT NULL
+                   AND COALESCE(mp._status, 'a') = 'a'
+                   AND COALESCE(mp."EndTime", mp."StartTime", mp."_created")
+                       BETWEEN :date_from AND :date_to
                    AND (CAST(:actor_pk AS integer) IS NULL
-                        OR mu."Actor_id" = CAST(:actor_pk AS integer))
-                 ORDER BY mu."_modified" DESC, mu."UnitNo"
+                        OR mp."Actor_id" = CAST(:actor_pk AS integer))
+                 ORDER BY COALESCE(mp."EndTime", mp."StartTime", mp."_created") DESC, mp."LotIndex" DESC
+                """;
+
+        return nz(this.sqlRunner.getRows(sql, p));
+    }
+
+    /** 포장 차수의 투입 자재 (포장자재 + 유닛 로트) */
+    public List<Map<String, Object>> getPackConsumed(Integer mpPk) {
+        MapSqlParameterSource p = new MapSqlParameterSource().addValue("mp_pk", mpPk);
+
+        String sql = """
+                SELECT m."Code"                       AS mat_code
+                     , m."Name"                       AS mat_name
+                     , u."Name"                       AS unit
+                     , ml."LotNumber"                 AS lot_number
+                     , ml."MakerLotNo"                AS maker_lot_no
+                     , SUM(COALESCE(lc."OutputQty", 0)) AS qty
+                     , MAX(COALESCE(mtg."MaterialType",'')) AS mat_type
+                  FROM mat_lot_cons lc
+                  LEFT JOIN mat_lot  ml  ON ml.id  = lc."MaterialLot_id"
+                  LEFT JOIN material m   ON m.id   = ml."Material_id"
+                  LEFT JOIN mat_grp  mtg ON mtg.id = m."MaterialGroup_id"
+                  LEFT JOIN unit     u   ON u.id   = m."Unit_id"
+                 WHERE lc."SourceTableName" = 'mat_produce'
+                   AND lc."SourceDataPk"    = :mp_pk
+                   AND COALESCE(lc._status,'a') = 'a'
+                 GROUP BY m."Code", m."Name", u."Name", ml."LotNumber", ml."MakerLotNo"
+                 ORDER BY m."Code"
                 """;
 
         return nz(this.sqlRunner.getRows(sql, p));
@@ -614,7 +691,7 @@ public class McellWorkStatusService {
                   FROM mcell_unit_step us
                   JOIN person pe ON pe.id = us."Actor_id"
                   JOIN mat_produce mp ON mp.id = us."MatProduce_id"
-                 WHERE COALESCE(mp."EndTime", mp."StartTime") BETWEEN :date_from AND :date_to
+                 WHERE COALESCE(mp."EndTime", mp."StartTime", mp."_created") BETWEEN :date_from AND :date_to
                  UNION
                 SELECT DISTINCT pe.id AS pk, pe."Name" AS name
                   FROM insp_result r

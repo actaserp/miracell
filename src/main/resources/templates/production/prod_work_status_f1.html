@@ -25,17 +25,34 @@
 
         /* 보드 — 칼럼 = 공정, 카드 = 실적 1건 */
         .ws-board { display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:12px; align-items:start; }
-        .ws-col { background:#fff; border:1px solid #e2e6ee; border-radius:10px; display:flex; flex-direction:column; min-height:260px; }
-        .ws-col-h { padding:10px 11px; border-bottom:1px solid #e2e6ee; }
+        /* ★ 칼럼 높이를 여기서 고정해야 본문이 스크롤된다.
+           max-height 를 자식(.ws-col-body)에만 걸면, 부모가 flex column 이라
+           자식이 내용만큼 늘어나 버려 스크롤바가 안 생긴다.
+           부모에 max-height + overflow:hidden, 자식에 flex:1 + min-height:0 이 짝이다. */
+        .ws-col { background:#fff; border:1px solid #e2e6ee; border-radius:10px;
+            display:flex; flex-direction:column; overflow:hidden; }
+        .ws-col-h { padding:9px 11px; border-bottom:1px solid #e2e6ee; flex:0 0 auto; }
         .ws-col-h .name { font-weight:800; font-size:15px; display:flex; align-items:center; gap:6px; }
         .ws-col-h .name .tag { font-size:11px; font-weight:800; padding:1px 5px; border-radius:4px; background:#fdf3e6; color:#c9820a; }
-        .ws-col-h .cnt { display:flex; gap:4px; margin-top:7px; flex-wrap:wrap; }
+        .ws-col-h .cnt { display:flex; gap:4px; margin-top:6px; flex-wrap:wrap; }
         .ws-mini { font-size:11.5px; font-weight:700; padding:3px 8px; border-radius:5px; }
         .ws-mini.n { background:#eef1f6; color:#5b6675; } .ws-mini.g { background:#e3f6ec; color:#0f9d58; }
         .ws-mini.x { background:#fdecec; color:#d64545; } .ws-mini.r { background:#e7f0ff; color:#2f6fed; }
         .ws-mini.d { background:#fdecec; color:#d64545; }
         .ws-mini.tapd { cursor:pointer; } .ws-mini.tapd:hover { filter:brightness(.94); }
-        .ws-col-body { padding:8px; display:flex; flex-direction:column; gap:7px; overflow-y:auto; max-height:clamp(340px, 52vh, 560px); }
+        /* ★ 스크롤이 안 걸리면 대개 둘 중 하나다.
+             ① 부모(.ws-col)에 높이 제한이 없어 자식이 내용만큼 늘어난다
+             ② flex 자식의 기본 min-height:auto 때문에 내용보다 작아지지 못한다
+           그래서 부모 max-height + overflow:hidden, 자식 flex:1 + min-height:0 이 짝이다.
+           여기에 자식 자체 max-height 도 함께 둬서 어느 한쪽이 안 먹어도 스크롤되게 한다. */
+        .ws-col-body { padding:8px; display:flex; flex-direction:column; gap:7px;
+            /* ★ 높이를 칼럼이 아니라 **본문**에 준다.
+               칼럼에 주면 헤더 줄 수에 따라 본문이 줄고, 그리드가
+               줄바꿈될 때(좁은 화면) 행마다 높이가 달라 보인다.
+               본문에 주면 헤더가 한 줄이든 두 줄이든 본문은 항상 같다. */
+            height:300px; box-sizing:border-box;
+            overflow-y:auto; overflow-x:hidden;
+            overscroll-behavior:auto; -webkit-overflow-scrolling:touch; }
         .ws-col-body::-webkit-scrollbar { width:6px; }
         .ws-col-body::-webkit-scrollbar-thumb { background:#d3d9e4; border-radius:3px; }
         .ws-day { font-size:12px; font-weight:800; color:#8a94a4; padding:7px 2px 2px; }
@@ -135,23 +152,7 @@
 
             <div class="grid_box"><div class="ws-board" id="body"><div class="ws-loading">불러오는 중…</div></div></div>
 
-            <div class="ws-help">
-                <button type="button" class="ws-help-btn" onclick="this.parentElement.classList.toggle('on')">읽는 법 ▾</button>
-                <div class="ws-help-b">
-                    <p>세로 줄 하나가 <b>공정</b>이고, 그 안의 카드 하나가 <b>작업 한 건</b>입니다.
-                        고른 기간에 실제로 한 작업만 보이며, 없으면 「작업 없음」으로 표시됩니다.</p>
-                    <p>날짜는 <b>작업을 끝낸 날</b>로 잡습니다. 이틀에 걸쳐 한 작업은 끝낸 날짜에 나옵니다.
-                        아직 하는 중이면 수량 대신 <b>계획 수량</b>이 회색으로 보이고, 끝나면 실제 만든 수량으로 바뀝니다.</p>
-                    <p>카드를 누르면 그 작업에 <b>어떤 자재가 얼마나 들어갔는지</b> 볼 수 있습니다.
-                        공정 이름 아래 빨간 <b>부적합</b> 숫자를 누르면 품목별로 무엇이 얼마나 불량이었는지 나옵니다.</p>
-                    <p>맨 위 <b>완제품 산출</b>은 포장까지 끝난 제품 수량입니다.
-                        공정마다 만드는 물건이 달라(용기 → PK → 완제품) 전부 더하면 같은 물건을 여러 번 세게 되므로 마지막 공정만 셉니다.
-                        공정별 수량은 각 공정 이름 아래에 있습니다.</p>
-                    <p><b>세척</b>은 같은 날 같은 사람이 한 작업을 한 장으로 묶었습니다. 눌러서 품목별로 볼 수 있습니다.
-                        <b>멸균</b>은 한 번에 여러 로트를 넣는 배치 작업이라 배치 단위로 보입니다.</p>
-                    <p>주문(작업지시)이 어디까지 진행됐는지는 <b>생산진행현황</b> 화면에서 봅니다.</p>
-                </div>
-            </div>
+
         </section>
 
         <div class="ws-overlay" id="ov" onclick="if(event.target===this)wsClose()">
@@ -295,16 +296,18 @@
               같은 물건을 세 번 센다. 완제품 산출(마지막 공정)만 센다.
               공정별 양품은 칼럼 헤더에 이미 있다. */
         function wsRenderKPI(){
+            /* ★ 포장 공정은 CK(반제품)와 키트 결합(완제품)을 둘 다 만든다.
+               is_product='Y' 인 것만 세지 않으면 완제품 수량에 CK 가 얹힌다. */
             let fin = 0, run = 0;
             WS_ROWS.forEach(function(r){
-                if(r.proc_code === WS_FINAL) fin += Number(r.good_qty||0);
+                if(r.proc_code === WS_FINAL && r.is_product === 'Y') fin += Number(r.good_qty||0);
                 if(!r.end_time) run++;
             });
             WS_WASH.forEach(function(w){ if(w.state === 'working') run++; });
             WS_STERIL.forEach(function(b){ if(b.state === 'working') run++; });
 
             document.getElementById('kRows').textContent  =
-                num(WS_ROWS.length + WS_WASH.length + WS_STERIL.length);
+                num(WS_ROWS.length + washSessionCnt(WS_WASH) + WS_STERIL.length);
             document.getElementById('kFinal').textContent = num(fin);
             document.getElementById('kRun').textContent   = num(run);
 
@@ -377,12 +380,30 @@
                 + '<div class="ws-col-body">'+body+'</div></div>';
         }
 
+
+        /* 포장 단계 라벨. 서버 pack_phase(= PackService.PHASE_SQL)를 그대로 읽는다.
+           포장 세션 하나가 PK 담기 → CK 생산 → 완제품 결합 → 카톤을 다 덮고,
+           완료(packFinish) 시점에야 실적이 두 줄(완제품 / CK)로 갈린다.
+           그전까지 「완제품」 딱지를 붙이면 CK 단계 작업자 눈에 어긋난다. */
+        const PACK_PHASE = { pk:'PK 담는 중', pack:'CK 작업중', label:'완제품 작업중',
+            outbox:'라벨 작업', done:'완료' };
+        function packPhaseText(r){
+            return PACK_PHASE[r.pack_phase] || '진행중';
+        }
+
         /** 생산형 — 카드 1장 = 차수 1건 */
         function wsColProd(f, rows){
-            let g=0;
-            rows.forEach(function(r){ g += Number(r.good_qty||0); });
+            /* 포장 칼럼은 CK(반제품)와 완제품이 섞인다. 합쳐 적으면 완제품이 부풀어 보이므로
+               완제품만 초록으로 세고, 반제품은 회색으로 따로 적는다. */
+            let g=0, sub=0;
+            rows.forEach(function(r){
+                if(r.is_product === 'N') sub += Number(r.good_qty||0);
+                else                     g   += Number(r.good_qty||0);
+            });
             const badges = '<span class="ws-mini n">'+rows.length+'건</span>'
-                + '<span class="ws-mini g">양품 '+num(g)+'</span>';
+                + (g   ? '<span class="ws-mini g">완제품 '+num(g)+'</span>' : '')
+                + (sub ? '<span class="ws-mini n">반제품 '+num(sub)+'</span>' : '')
+                + (!g && !sub ? '<span class="ws-mini g">0</span>' : '');
 
             let last = null, body = '';
             rows.forEach(function(r){
@@ -391,9 +412,15 @@
                     last = r.prod_date;
                 }
                 const running = !r.end_time;
+                /* ★ 포장 세션은 완료 전까지 산출이 확정되지 않는다.
+                   한 세션이 PK 담기 → CK 생산 → 완제품 결합 → 카톤을 다 덮고,
+                   packFinish 가 끝날 때 실적을 두 줄(세션=완제품 / ckMp=CK)로 쪼갠다.
+                   진행중인 세션에 「완제품」 이름을 박으면 CK 단계에 있는
+                   작업자 눈에는 어긋나 보인다. */
+                const packRun = running && r.proc_code === 'bsc05';
                 body += '<div class="ws-card'+(running?' run':'')+'" onclick="wsOpenRow('+r.pk+')">'
-                    + '<div class="c-mat">'+esc(r.mat_name||'-')+'</div>'
-                    + '<div class="c-code">'+esc(r.mat_code||'')+'</div>'
+                    + '<div class="c-mat">'+(packRun ? '포장' : esc(r.mat_name||'-'))+'</div>'
+                    + '<div class="c-code">'+(packRun ? packPhaseText(r) : esc(r.mat_code||''))+'</div>'
                     + '<div class="c-qty">'+num(r.good_qty)+'</div>'
                     + '<div class="c-meta">'+esc(wsWorker(r))
                     +   (r.equipment ? ' · '+esc(r.equipment) : '')+'</div>'
@@ -412,6 +439,33 @@
          * 칼럼이 순식간에 길어진다. 작업 단위(= 그날 그 사람이 돌린 세척)로 접고
          * 품목 목록은 클릭해서 본다.
          */
+
+        /**
+         * 세척 세션 수.
+         *
+         * ★ wash_work(세션) 1건에 wash_work_item(품목) 여러 개가 달린다.
+         *   품목 행을 세면 「오늘 세척 11건」인데 실제로는 8세션인 상황이 된다
+         *   (실데이터: 세션 8 / 품목 11).
+         *   칼럼 배지는 날짜·작업자로 묶어 세션 수를 내고 있는데 상단 요약만
+         *   품목 수를 세고 있어 둘이 어긋났다. 같은 기준으로 맞춘다.
+         *
+         * ★ getWashList 가 wash_work.id 를 안 내려주므로 날짜+작업자로 묶는다.
+         *   같은 사람이 같은 날 두 번 돌리면 1건으로 접힌다 — 칼럼 그룹핑과
+         *   같은 한계라 최소한 화면 안에서는 숫자가 일관된다.
+         */
+        function washSessionCnt(list){
+            const k = {};
+            (list||[]).forEach(function(w){
+                /* ★ 대괄호 바로 뒤에 여는 괄호가 오면 안 된다.
+                   Thymeleaf 가 그 조합을 인라인 표현식으로 읽어
+                   템플릿 파싱이 통째로 깨진다(화면 자체가 안 뜬다).
+                   그래서 키를 반드시 변수로 빼서 쓴다. */
+                var key = (w.wash_date || '') + '|' + (w.worker || '-');
+                k[key] = 1;
+            });
+            return Object.keys(k).length;
+        }
+
         function wsColWash(f){
             const grp = {};
             WS_WASH.forEach(function(w){
@@ -426,7 +480,10 @@
 
             let q=0;
             WS_WASH.forEach(function(w){ q += Number(w.qty||0); });
-            const badges = '<span class="ws-mini n">'+keys.length+'건</span>'
+            /* 「건」이 세션인지 품목인지 모호해 단위를 갈라 적는다.
+               세척은 생산이 아니라 이동이라 실적의 본질은 수량이다. */
+            const badges = '<span class="ws-mini n">'+keys.length+'회</span>'
+                + '<span class="ws-mini n">'+WS_WASH.length+'품목</span>'
                 + '<span class="ws-mini g">수량 '+num(q)+'</span>';
 
             let last = null, body = '';
@@ -583,21 +640,19 @@
         function wsClose(){ document.getElementById('ov').classList.remove('on'); }
 
         // =====================================================
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function(){
             const t = new Date(), f = new Date();
             f.setDate(f.getDate() - 7);
-            const fmt = function (d) {
-                return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+            const fmt = function(d){
+                return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
             };
             document.getElementById('date_from').value = fmt(f);
-            document.getElementById('date_to').value = fmt(t);
+            document.getElementById('date_to').value   = fmt(t);
 
             document.getElementById('btnSearch').addEventListener('click', wsLoad);
-            document.addEventListener('keydown', function (e) {
-                if (e.key === 'Escape') wsClose();
-            });
+            document.addEventListener('keydown', function(e){ if(e.key==='Escape') wsClose(); });
 
-            if (wsReady()) wsFillCombo();
+            if(wsReady()) wsFillCombo();
             wsLoad();
         });
     </script>

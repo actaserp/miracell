@@ -35,7 +35,7 @@ public class McellWorkStatusController {
      *   assembly 조립  mcell_unit
      *   inspect  검사  insp_result → 유닛 단위로 접음 (양식·회차는 상세에서)
      *   repair   수리  mcell_unit(McellRepair_id)
-     *   pack     포장  mcell_unit.State='packed'  ※ 공정 미구현
+     *   pack     포장  mat_produce (박스 1개 = 1대)
      */
     @GetMapping("/process")
     public AjaxResult process(
@@ -70,6 +70,14 @@ public class McellWorkStatusController {
 
         AjaxResult result = new AjaxResult();
         result.data = data;
+        return result;
+    }
+
+    /** 포장 차수 상세 — 그 박스에 들어간 자재 */
+    @GetMapping("/pack_detail")
+    public AjaxResult packDetail(@RequestParam("mp_pk") Integer mpPk) {
+        AjaxResult result = new AjaxResult();
+        result.data = this.svc.getPackConsumed(mpPk);
         return result;
     }
 
