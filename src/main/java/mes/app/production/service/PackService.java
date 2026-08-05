@@ -21,7 +21,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 /**
- * 포장(bsc05) 서비스 — v3.2
+ * 포장(bsc05) 서비스 — v3.3
  *
  * ═══ v2 → v3 에서 바뀐 것 ═══
  *   1) PK 는 세션을 만드는 순간 서버가 자동으로 잡아 DB 에 저장한다(화면 메모리 폐기)
@@ -56,6 +56,38 @@ import java.util.*;
  *      로그·비고·오류 문구에서는 ckTag/ckPrefix 가 이 표식을 지운다
  *      ("CK 생산(-)" 이 아니라 "CK 생산").
  *
+ * ═══ v3.2 → v3.3 (BOM 배수 반영) ★★★ ═══
+ *  11) ★★ PK·CK 를 완제품 1개당 1개로 세던 것을 BOM 배수로 바로잡았다.
+ *      완제품(FG) BOM 직하위는 PK / CK / IN BOX / OUT BOX 4행인데,
+ *      배수를 읽는 곳이 getBoxSpec(박스류) 하나뿐이었다 —
+ *      m."Code" LIKE 'M-HS%' 로 걸러서 PK·CK 행이 애초에 들어오지 않았다.
+ *      그래서 「인박스 1개당 PK 3 · CK 3」인 품목도 1:1 로 소비·산출됐다.
+ *
+ *      증상 (완제품 50개 지시, pk_per=3 기준):
+ *        · 자동배정이 PK 를 150 이 아니라 50 만 잡음
+ *        · 담은 PK 150 을 그대로 완제품 수량으로 써서 GoodQty 가 3배
+ *        · 그 값이 recalcJobRes → 작지·헤더 작지까지 3배로 전파
+ *        · IN BOX / OUT BOX 도 부풀린 units 기준으로 과소비
+ *        · 반대로 CK 배분이 1/3 이라 CK 구성자재 8~12종은 1/3 만 차감
+ *
+ *      고친 자리 (배수는 getKitSpec 하나에서 나온다):
+ *        · getKitSpec()          신규 — 완제품 BOM 에서 pk_per / ck_per 산출
+ *        · unitsFromPk()         신규 — PK 합계 ÷ pk_per, 안 떨어지면 null
+ *        · autoAssignPkLots()    잡을 PK = 작지 잔여(완제품) × pk_per
+ *        · remainOrderQty()      진행 세션의 PK 합계를 ÷ pk_per 해서 완제품 단위로
+ *        · packFinish()          units = 담은 PK ÷ pk_per / 배분 검증 = units × ck_per
+ *        · savePkLots()          반환 units 를 완제품 환산 (pk_qty 는 원본 그대로)
+ *        · packStartNoJob()      계획수량 = PK 합계 ÷ pk_per
+ *        · getSessionDetail()    pk_per·ck_per 를 화면에 내려주고 units_planned 환산
+ *
+ *      ★ CK 구성자재(getCkBom 의 qty_per)는 손대지 않았다 —
+ *        그건 「CK 1개당」 기준이라, 배분 수량(=완제품 × ck_per)이 바로잡히면
+ *        qty_per × allocQty 가 저절로 맞는다. 여기에 ck_per 를 또 곱하면 3배가 된다.
+ *      ★ pk_per 와 ck_per 는 따로 읽는다. 현재 마스터는 두 값이 같지만
+ *        (1·2·3·4 네 종류) PK 6 / CK 3 같은 BOM 이 등록돼도 그대로 동작해야 한다.
+ *      ★ getBoxSpec 에도 StartDate/EndDate 조건을 넣어 getKitSpec·getCkBom 과
+ *        같은 BOM 을 보게 맞췄다. 셋이 다른 BOM 을 보면 배수가 어긋난다.
+ *
  * ═══ 공정 흐름 (v3) ═══
  *   ① PK 담기      작지 BOM 의 블리스터(bsc03) 산출 품목을 멸균창고에서 FIFO 자동 배정.
  *                  재고는 안 움직인다. 화면에서 로트·수량 변경 가능
@@ -63,6 +95,13 @@ import java.util.*;
  *                  국가별로 「새로 생산」 또는 「자체재고 투입」 중 택일
  *   ③ 라벨 스캔    CK·PK 라벨 + 인박스 라벨 2회. 완제품 로트에 MakerLotNo 로 붙는다
  *   ④ 아웃박스     OUT BOX 소비 + 세션 완료. 새 로트 없음
+ *
+ * ═══ 수량 단위 (v3.3) ═══
+ *   완제품(units) 기준으로 말하는 값 : job_res."OrderQty" / mat_produce."GoodQty"
+ *                                    / pack_alloc."Qty" ÷ ck_per / remainOrderQty()
+ *   PK 낱개 기준으로 말하는 값       : pack_alloc_item(ItemKind='pk')."Qty" / pkTotal()
+ *   CK 낱개 기준으로 말하는 값       : pack_alloc."Qty"
+ *   ★ 두 단위를 섞으면 실적이 배수만큼 어긋난다. 새 코드를 넣을 때 어느 쪽인지 먼저 정할 것.
  *
  * ═══ 단계 파생 (getPhase / PHASE_SQL) ═══
  *   mat_produce."State"='finished'          → done
@@ -518,7 +557,7 @@ public class PackService {
 	}
 
 	// =========================================================================
-	// CK BOM / 박스 규격
+	// CK BOM / 박스 규격 / 키트 배수
 	// =========================================================================
 
 	/**
@@ -527,6 +566,10 @@ public class PackService {
 	 * ★ 완제품 BOM 이 아니라 CK 반제품 BOM 을 본다.
 	 *   완제품(FG) BOM 직하위는 PK / CK / IN BOX / OUT BOX 4행뿐이고,
 	 *   실제 포장에서 투입하는 주사기·니들·스티커 12종은 CK 반제품 BOM 에 있다.
+	 *
+	 * ★ qty_per 는 「CK 1개당」 이다 — 완제품 1개당이 아니다.
+	 *   그래서 호출부는 qty_per × 배분수량(=완제품 × ck_per) 으로 계산해야 한다.
+	 *   여기에 ck_per 를 또 곱하면 배수만큼 과소비된다(v3.3 에서 확인).
 	 */
 	public List<Map<String, Object>> getCkBom(Integer ckMaterialId, Integer jrPk, String spjangcd) {
 		if (ckMaterialId == null && jrPk != null) ckMaterialId = resolveCkMaterial(jrPk);
@@ -591,7 +634,13 @@ public class PackService {
             """, p);
 	}
 
-	/** 완제품 BOM 에서 박스류 입수량 — IN BOX 1.0→1개당1, OUT BOX 0.25→카톤 4입 */
+	/**
+	 * 완제품 BOM 에서 박스류 입수량 — IN BOX 1.0→1개당1, OUT BOX 0.25→카톤 4입.
+	 *
+	 * ★ v3.3 : StartDate/EndDate 조건을 넣어 getKitSpec·getCkBom 과 같은 BOM 을 보게 맞췄다.
+	 *   셋이 다른 BOM 을 집으면 「units 는 A BOM, IN BOX 는 B BOM」이 되어
+	 *   배수 오류보다 훨씬 찾기 어려운 어긋남이 생긴다.
+	 */
 	public Map<String, Object> getBoxSpec(Integer productMatId, String spjangcd) {
 		MapSqlParameterSource p = new MapSqlParameterSource();
 		p.addValue("matId", productMatId);
@@ -603,6 +652,8 @@ public class PackService {
                   FROM bom bo
                  WHERE bo."Material_id" = :matId
                    AND COALESCE(bo._status,'a') <> 'd'
+                   AND (bo."StartDate" IS NULL OR bo."StartDate" <= now())
+                   AND (bo."EndDate"   IS NULL OR bo."EndDate"   >= now())
                    AND (CAST(:spjangcd AS varchar) IS NULL OR bo.spjangcd = CAST(:spjangcd AS varchar))
                  ORDER BY bo."StartDate" DESC NULLS LAST, bo.id DESC LIMIT 1
             )
@@ -634,6 +685,86 @@ public class PackService {
 			}
 		}
 		return out;
+	}
+
+	/**
+	 * 완제품 1개당 PK · CK 소요 배수. ★v3.3 신규
+	 *
+	 * ★ getBoxSpec 은 m."Code" LIKE 'M-HS%' 로 박스류만 걸러내므로 PK·CK 가 안 잡힌다.
+	 *   그래서 v3.2 까지는 배수 3 이 시스템 어디에도 존재하지 않았고, PK·CK 가 1:1 로 돌았다.
+	 *
+	 * ★ 판별은 코드 접두가 아니라 산출 공정으로 한다 —
+	 *   PK = 블리스터(bsc03) 산출 / CK = 포장(bsc05) 산출.
+	 *   같은 BOM 에 PK 가 여러 행이면(차수 분리) 합산한다.
+	 *   ※ 다만 resolvePkMaterial 은 첫 행만 집으므로, PK 가 복수 품목이면
+	 *     자동배정이 반쪽이 된다. 현재 마스터는 전부 단일 행이라 문제 없다.
+	 *
+	 * ★ pk_per 와 ck_per 는 반드시 따로 읽는다. 지금은 두 값이 같지만
+	 *   (마스터 전수 확인 결과 1·2·3·4 네 종류, 모두 pk=ck)
+	 *   PK 6 / CK 3 같은 BOM 이 들어와도 그대로 동작해야 한다.
+	 *
+	 * @return pk_per / ck_per (기본 1) + pk_found / ck_found (BOM 에 실제로 있었으면 1)
+	 *         ★ found 를 함께 주는 이유 : BOM 누락을 조용히 1:1 로 흘려보내면
+	 *           v3.2 와 똑같은 증상이 재발하고 원인 추적이 어렵다.
+	 */
+	public Map<String, Float> getKitSpec(Integer productMatId, String spjangcd) {
+		Map<String, Float> out = new HashMap<>();
+		out.put("pk_per", 1f);
+		out.put("ck_per", 1f);
+		out.put("pk_found", 0f);
+		out.put("ck_found", 0f);
+		if (productMatId == null) return out;
+
+		MapSqlParameterSource p = new MapSqlParameterSource();
+		p.addValue("matId", productMatId);
+		p.addValue("spjangcd", isBlank(spjangcd) ? null : spjangcd);
+
+		List<Map<String, Object>> rows = this.sqlRunner.getRows("""
+            WITH b AS (
+                SELECT bo.id, NULLIF(bo."OutputAmount",0) AS out_amt
+                  FROM bom bo
+                 WHERE bo."Material_id" = :matId
+                   AND COALESCE(bo._status,'a') <> 'd'
+                   AND (bo."StartDate" IS NULL OR bo."StartDate" <= now())
+                   AND (bo."EndDate"   IS NULL OR bo."EndDate"   >= now())
+                   AND (CAST(:spjangcd AS varchar) IS NULL OR bo.spjangcd = CAST(:spjangcd AS varchar))
+                 ORDER BY bo."StartDate" DESC NULLS LAST, bo.id DESC LIMIT 1
+            )
+            SELECT CASE pr."Code" WHEN 'bsc03' THEN 'pk' ELSE 'ck' END AS kind
+                 , SUM(bc."Amount" / COALESCE(b.out_amt,1))            AS qty_per
+              FROM bom_comp bc
+              JOIN b ON b.id = bc."BOM_id"
+              JOIN material cm    ON cm.id = bc."Material_id"
+              JOIN work_center wc ON wc.id = cm."WorkCenter_id"
+              JOIN process pr     ON pr.id = wc."Process_id"
+             WHERE COALESCE(bc._status,'a') <> 'd'
+               AND pr."Code" IN ('bsc03','bsc05')
+             GROUP BY 1
+            """, p);
+
+		for (Map<String, Object> r : rows) {
+			float per = toFloat(r.get("qty_per"));
+			String kind = str(r.get("kind"));
+			if (per > 0) {
+				out.put(kind + "_per", per);
+				out.put(kind + "_found", 1f);
+			}
+		}
+		return out;
+	}
+
+	/**
+	 * PK 합계 → 완제품 수량. ★v3.3 신규
+	 *
+	 * ★ 나눠떨어지지 않으면 null 을 돌려 호출자가 거부하게 한다.
+	 *   PK 29개(배수 3)로 완제품 9.67개를 내면 로트·재고가 전부 어긋난다.
+	 *   ①(담기) 단계에서는 막지 않는다 — 나눠 담다가 채우는 게 정상이다.
+	 *   거부는 ②(packFinish) 와 무작지 시작(packStartNoJob)에서만 한다.
+	 */
+	private static Float unitsFromPk(float pkSum, float pkPer) {
+		if (pkPer <= 0) return null;
+		float u = pkSum / pkPer;
+		return (Math.abs(u - Math.rint(u)) > EPS) ? null : (float) Math.rint(u);
 	}
 
 	/** 이 포장 작지의 CK 반제품 = 자식 작지의 Material_id (포장 워크센터 산출품) */
@@ -699,7 +830,7 @@ public class PackService {
                         THEN 'Y' ELSE 'N' END   AS no_job_yn
                  , CASE WHEN jr."Parent_id" IS NULL AND smg."MaterialType" = 'semi'
                         THEN 'ckstock' ELSE 'kit' END AS job_kind
-                 -- 담아둔 PK (①에서 자동/수동으로 저장된다)
+                 -- 담아둔 PK (①에서 자동/수동으로 저장된다) ★PK 낱개 단위
                  , COALESCE(pk.pk_qty,0)        AS pk_qty
                  , COALESCE(pk.pk_cnt,0)        AS pk_cnt
               FROM mat_produce mp
@@ -731,6 +862,8 @@ public class PackService {
 	 *
 	 *   ★ v3 : 화면 메모리가 없다. 여기서 내려주는 값이 곧 화면 상태다.
 	 *   ★ 카톤은 저장하지 않는다. 완제품수량 ÷ 입수 로 만들어 내려준다.
+	 *   ★ v3.3 : session.pk_per / ck_per 를 함께 내려준다.
+	 *     화면의 pkTotal()·allocRemain()·ckNeedTotal() 이 서버와 같은 배수를 써야 한다.
 	 */
 	public Map<String, Object> getSessionDetail(Integer mpId, String spjangcd) {
 		MapSqlParameterSource p = new MapSqlParameterSource().addValue("mpId", mpId);
@@ -763,9 +896,19 @@ public class PackService {
 		Integer productMatId = (session == null) ? null : toInt(session.get("product_mat_id"));
 		float cap = (productMatId == null) ? 4f : toFloat(getBoxSpec(productMatId, spjangcd).get("outbox_cap"));
 		if (cap <= 0) cap = 4f;
+
+		// ★ v3.3 : PK·CK 배수. 아래 order_remain / units_planned 와 화면이 함께 쓴다
+		Map<String, Float> kit = getKitSpec(productMatId, spjangcd);
+		float pkPer = kit.get("pk_per");
+		if (pkPer <= 0) pkPer = 1f;
+
 		if (session != null) {
 			session.put("outbox_cap", cap);
 			session.put("gtin", getExpectedGtin(productMatId, spjangcd));
+			session.put("pk_per",   pkPer);              // ★ 완제품 1개당 PK
+			session.put("ck_per",   kit.get("ck_per"));  // ★ 완제품 1개당 CK
+			session.put("pk_found", kit.get("pk_found"));
+			session.put("ck_found", kit.get("ck_found"));
 		}
 		data.put("session", session);
 
@@ -831,12 +974,13 @@ public class PackService {
 		data.put("ck_material_id", ckMatIdForUi);
 
 		// 작지 잔여 (이 세션 제외) — 화면이 PK 수량 상한 안내에 쓴다
-		data.put("order_remain", jrPk == null ? 0f : remainOrderQty(jrPk, mpId));
+		//   ★ 완제품 단위다. 화면에서 PK 개수로 보여주려면 × pk_per 할 것
+		data.put("order_remain", jrPk == null ? 0f : remainOrderQty(jrPk, mpId, pkPer));
 
 		// 카톤 — 저장하지 않고 계산해서 내려준다 (pack_carton 없음)
-		// 수량은 담은 PK 합계. ② 전에는 GoodQty 가 아직 0 이다
+		//   ② 전에는 GoodQty 가 0 이라 담은 PK 로 대신 센다 → ★반드시 ÷ pk_per
 		float units = (session == null) ? 0f : toFloat(session.get("units"));
-		if (units <= 0) units = pkTotal(mpId);
+		if (units <= 0) units = pkTotal(mpId) / pkPer;
 		data.put("units_planned", units);
 		data.put("cartons", buildCartons(units, cap));
 		return data;
@@ -898,7 +1042,7 @@ public class PackService {
 		Map<String, Object> data = new HashMap<>();
 		data.put("mp_id", mp.getId());
 		data.put("lot_number", mp.getLotNumber());
-		data.putAll(auto);      // auto_pk_qty / auto_pk_cnt / auto_pk_note
+		data.putAll(auto);      // auto_pk_qty / auto_pk_cnt / auto_pk_note / auto_pk_per
 		result.data = data;
 		return result;
 	}
@@ -907,13 +1051,17 @@ public class PackService {
 	 * ★ PK 자동배정.
 	 *
 	 *   대상 품목 = 산출품(완제품) BOM 직하위 중 블리스터(bsc03) 산출물 → resolvePkMaterial
-	 *   수량      = 작지 잔여(지시량 − 다른 세션이 이미 잡았거나 산출한 양)
+	 *   수량      = 작지 잔여(완제품) × pk_per      ← ★v3.3
 	 *   로트      = 멸균창고(18) FIFO. 다른 세션 예약분은 빼고 본다
 	 *
 	 *   ★ 재고를 움직이지 않는다. pack_alloc_item(ItemKind='pk') 행만 만든다.
 	 *     그 행의 존재가 곧 예약이고, 다른 세션의 avail 계산에서 빠진다.
 	 *   ★ 못 잡아도 실패로 만들지 않는다 — 세션은 열리고 화면에서 직접 담으면 된다.
 	 *     (멸균이 아직 안 끝났거나 작지가 이미 다 채워진 경우, CK 자체재고 지시인 경우)
+	 *
+	 *   ★★ v3.3 : 배수를 remainOrderQty 보다 먼저 구해야 한다.
+	 *      remainOrderQty 가 진행 세션의 PK 합계를 완제품으로 환산할 때 같은 값을 쓴다.
+	 *      순서를 바꾸면 잔여가 배수만큼 빨리 소진돼 두 번째 세션이 PK 를 못 잡는다.
 	 */
 	private Map<String, Object> autoAssignPkLots(MaterialProduce mp, JobRes jr,
 																							 User user, String spjangcd) {
@@ -927,11 +1075,19 @@ public class PackService {
 			return out;
 		}
 
-		float need = remainOrderQty(jr.getId(), mp.getId());
-		if (need <= EPS) {
+		// ★ 배수를 먼저 구한다 — remainOrderQty 가 PK 를 완제품으로 환산할 때 쓴다
+		float pkPer = getKitSpec(mp.getMaterialId(), spjangcd).get("pk_per");
+		if (pkPer <= 0) pkPer = 1f;
+		out.put("auto_pk_per", pkPer);
+
+		float remainUnits = remainOrderQty(jr.getId(), mp.getId(), pkPer);
+		if (remainUnits <= EPS) {
 			out.put("auto_pk_note", "작지 지시량이 이미 채워져 있습니다. 필요하면 직접 담아주세요.");
 			return out;
 		}
+
+		// 완제품 잔여 → 잡아야 할 PK 낱개
+		float need = remainUnits * pkPer;
 
 		List<Map<String, Object>> lots =
 			getSterilizedLots("pk", pkMatId, null, spjangcd, mp.getId(), false);
@@ -955,22 +1111,31 @@ public class PackService {
 		if (cnt == 0)
 			out.put("auto_pk_note", "멸균창고에 사용 가능한 PK 로트가 없습니다. 멸균 BI 판정을 먼저 완료하세요.");
 		else if (need > EPS)
-			out.put("auto_pk_note", "멸균 재고가 부족해 " + fmt(assigned) + " 만 잡았습니다. (부족 " + fmt(need) + ")");
+			out.put("auto_pk_note", "멸균 재고가 부족해 PK " + fmt(assigned) + " 만 잡았습니다. (부족 "
+																+ fmt(need) + " · 완제품 1개당 PK " + fmt(pkPer) + ")");
 		return out;
 	}
 
 	/**
-	 * 작지 잔여 = 지시량 − 산출품 세션들이 이미 잡은 양.
+	 * 작지 잔여 = 지시량 − 산출품 세션들이 이미 잡은 양. ★완제품 단위로 돌려준다
 	 *
 	 *   완료 세션은 GoodQty, 진행 세션은 담아둔 PK 합계로 센다.
 	 *   ★ 진행 세션의 PK 를 세지 않으면 두 번째 세션이 지시량 전체를 또 자동배정한다.
 	 *   ★ 국가별 CK 산출 차수(LastProcessYN='N')는 세지 않는다 — 세면 잔여가 0 이 되어
 	 *     두 번째 세션이 PK 를 못 잡는다.
+	 *
+	 *   ★★ v3.3 : pk.q 는 PK 낱개 합계라 pkPer 로 나눠야 OrderQty(완제품)와 단위가 맞는다.
+	 *      안 나누면 작지 50개짜리에서 첫 세션이 PK 60(=완제품 20)을 담았을 때
+	 *      used=60 이 되어 잔여가 0 으로 잘리고, 두 번째 세션이 PK 를 한 개도 못 잡았다.
+	 *      GREATEST 왼쪽의 GoodQty 는 packFinish 가 완제품 단위로 넣으므로 그대로 둔다.
+	 *
+	 * @param pkPer 완제품 1개당 PK 개수 (getKitSpec 의 pk_per)
 	 */
-	private float remainOrderQty(Integer jrId, Integer exceptMpId) {
+	private float remainOrderQty(Integer jrId, Integer exceptMpId, float pkPer) {
 		MapSqlParameterSource p = new MapSqlParameterSource();
 		p.addValue("jrId", jrId);
 		p.addValue("exMp", exceptMpId);
+		p.addValue("pkPer", pkPer <= 0 ? 1f : pkPer);
 		Map<String, Object> r = this.sqlRunner.getRow("""
             SELECT COALESCE(jr."OrderQty",0) AS order_qty
                  , COALESCE(u.used,0)        AS used
@@ -978,7 +1143,8 @@ public class PackService {
               LEFT JOIN LATERAL (
                   SELECT SUM(CASE WHEN mp."State" = 'finished'
                                   THEN COALESCE(mp."GoodQty",0)
-                                  ELSE GREATEST(COALESCE(mp."GoodQty",0), COALESCE(pk.q,0)) END) AS used
+                                  ELSE GREATEST(COALESCE(mp."GoodQty",0),
+                                                COALESCE(pk.q,0) / CAST(:pkPer AS float8)) END) AS used
                     FROM mat_produce mp
                     LEFT JOIN job_res hdr ON hdr.id = jr."Parent_id"
                     LEFT JOIN LATERAL (
@@ -1017,6 +1183,9 @@ public class PackService {
 	 *     세척·조립·블리스터·융착 작지까지 만든다. 포장만 하려는 건에 유령 작지가 남는다.
 	 *
 	 *   ★ v3 : 고른 PK 로트를 여기서 바로 DB 에 저장한다(화면 메모리 없음).
+	 *   ★ v3.3 : 작지 지시량(OrderQty)은 완제품 단위다 → 고른 PK 합계 ÷ pk_per.
+	 *     여기서는 나눠떨어지지 않으면 거부한다 — 작지를 발행하는 자리라
+	 *     어중간한 지시량이 남으면 나중에 잔여 계산이 계속 어긋난다.
 	 */
 	public AjaxResult packStartNoJob(Integer productMatId, Float orderQty,
 																	 List<Map<String, Object>> pkLots,
@@ -1062,7 +1231,16 @@ public class PackService {
 		}
 		if (resolved.isEmpty()) return fail(result, "포장할 PK 로트를 선택해주세요.");
 
-		float planQty = (orderQty != null && orderQty > 0) ? orderQty : pkSum;
+		// ★ v3.3 : PK 낱개 합계 → 완제품 수량
+		Map<String, Float> kit = getKitSpec(productMatId, spjangcd);
+		float pkPer = kit.get("pk_per");
+		if (pkPer <= 0) pkPer = 1f;
+		Float pkUnits = unitsFromPk(pkSum, pkPer);
+		if (pkUnits == null)
+			return fail(result, "PK 수량(" + fmt(pkSum) + ")이 완제품 1개당 " + fmt(pkPer)
+														+ "개로 나눠떨어지지 않습니다. 담은 수량을 조정해주세요.");
+
+		float planQty = (orderQty != null && orderQty > 0) ? orderQty : pkUnits;
 		if (planQty <= 0) return fail(result, "포장 수량이 0 입니다.");
 
 		Timestamp now = DateUtil.getNowTimeStamp();
@@ -1123,7 +1301,9 @@ public class PackService {
 		data.put("jr_pk",      child.getId());
 		data.put("header_id",  hdr.getId());
 		data.put("lot_number", mp.getLotNumber());
-		data.put("units",      pkSum);
+		data.put("units",      pkUnits);   // ★ 완제품 단위
+		data.put("pk_qty",     pkSum);     // ★ 담은 PK 낱개
+		data.put("pk_per",     pkPer);
 		result.data = data;
 		return result;
 	}
@@ -1241,7 +1421,12 @@ public class PackService {
 	 *   ★ 자동배정 결과를 사람이 고치는 경로다. 로트를 전부 빼면 단계가 ①로 돌아간다.
 	 *   ★ 국가 배분이 아직 없을 수 있으므로 pack_alloc_item 을 세션(MatProduce_id)에 직접 맨다.
 	 *
-	 * @param pkLots [{mat_lot_id, qty}]
+	 *   ★ v3.3 : 여기서는 배수로 나눠떨어지지 않아도 막지 않는다 —
+	 *     여러 로트를 나눠 담다가 채우는 게 정상이다.
+	 *     대신 divisible=false 를 내려 화면이 ② 버튼을 잠그게 한다.
+	 *     실제 거부는 packFinish 에서 한다.
+	 *
+	 * @param pkLots [{mat_lot_id, qty}]  ★qty 는 PK 낱개
 	 */
 	public AjaxResult savePkLots(Integer mpId, List<Map<String, Object>> pkLots,
 															 User user, String spjangcd) {
@@ -1257,7 +1442,7 @@ public class PackService {
 			return fail(result, "인박스·CK 반영 이후에는 PK 를 바꿀 수 없습니다. 먼저 포장을 취소해주세요.");
 
 		// ── 검증 (같은 품목만) ──
-		float units = 0f;
+		float pkSum = 0f;
 		Integer pkMatId = null;
 		List<Map<String, Object>> resolved = new ArrayList<>();
 		for (Map<String, Object> pl : (pkLots == null ? Collections.<Map<String,Object>>emptyList() : pkLots)) {
@@ -1280,7 +1465,7 @@ public class PackService {
 			Map<String, Object> row = new HashMap<>(lot);
 			row.put("_qty", qty);
 			resolved.add(row);
-			units += qty;
+			pkSum += qty;
 		}
 
 		// ── 교체 저장 ──
@@ -1294,16 +1479,27 @@ public class PackService {
 			insertAllocItem(null, mpId, toInt(lot.get("mat_id")), toFloat(lot.get("_qty")),
 				toInt(lot.get("mat_lot_id")), "N", "pk", spjangcd, user);
 
+		// ★ 완제품 환산 — 화면 표시·검증용
+		float pkPer = getKitSpec(mp.getMaterialId(), spjangcd).get("pk_per");
+		if (pkPer <= 0) pkPer = 1f;
+		Float u = unitsFromPk(pkSum, pkPer);
+
 		Map<String, Object> data = new HashMap<>();
-		data.put("units", units);
-		data.put("lot_cnt", resolved.size());
-		data.put("phase", resolved.isEmpty() ? "pk" : "pack");
+		data.put("pk_qty",    pkSum);                          // 담은 PK 낱개
+		data.put("units",     u == null ? pkSum / pkPer : u);  // 완제품 환산
+		data.put("pk_per",    pkPer);
+		data.put("divisible", u != null);                      // false 면 ② 진행 불가
+		data.put("lot_cnt",   resolved.size());
+		data.put("phase",     resolved.isEmpty() ? "pk" : "pack");
 		result.data = data;
 		return result;
 	}
 
 	/**
 	 * 이 세션이 자동으로 담아야 할 PK 품목 — 산출품 BOM 직하위 중 블리스터(bsc03) 산출.
+	 *
+	 * ★ _order 첫 행 하나만 집는다. PK 가 차수별로 여러 품목이면 나머지를 놓친다.
+	 *   (현재 마스터는 완제품마다 PK 단일 행이라 문제 없음 — 바뀌면 여기부터 고칠 것)
 	 */
 	public Integer resolvePkMaterial(Integer mpId) {
 		MapSqlParameterSource p = new MapSqlParameterSource().addValue("mpId", mpId);
@@ -1333,6 +1529,7 @@ public class PackService {
 	 *   ★ 화면이 값을 바꿀 때마다 부른다. 재고는 전혀 움직이지 않는다.
 	 *     그래서 새로고침·다른 태블릿 진입에도 입력이 그대로 남는다.
 	 *   ★ 이미 생산된(produced) 배분은 건드리지 않는다 — writeAllocations 가 plan 만 교체한다.
+	 *   ★ 여기서는 합계 검증을 하지 않는다(입력 중이므로). 검증은 packFinish 에서.
 	 */
 	public AjaxResult saveAllocations(Integer mpId, List<Map<String, Object>> allocations,
 																		User user, String spjangcd) {
@@ -1350,7 +1547,7 @@ public class PackService {
 		writeAllocations(mpId, allocations, spjangcd, user);
 
 		Map<String, Object> data = new HashMap<>();
-		data.put("alloc_qty", sumAlloc(allocations));
+		data.put("alloc_qty", sumAlloc(allocations));   // ★ CK 낱개 합계
 		result.data = data;
 		return result;
 	}
@@ -1365,13 +1562,21 @@ public class PackService {
 	 *   소비 : 담아둔 PK(멸균창고) + IN BOX(생산·자재·검사완료) + CK(국가별)
 	 *   산출 : 완제품 로트 1건 → 제품창고(4)
 	 *
+	 *   ★★ v3.3 수량 규칙 (완제품 50 · pk_per 3 · ck_per 3 예시)
+	 *        담은 PK      150  (pack_alloc_item ItemKind='pk' 합계)
+	 *        units         50  = 150 ÷ pk_per      ← mat_produce."GoodQty"
+	 *        CK 배분      150  = units × ck_per    ← pack_alloc."Qty" 합계
+	 *        IN BOX        50  = qty_per × units
+	 *        OUT BOX       13  = ceil(units ÷ 4)
+	 *        CK 구성자재  각150 = getCkBom.qty_per × 배분수량(150)   ★ck_per 재곱 금지
+	 *
 	 *   국가 1건당 CK 두 갈래 (화면이 mode 로 지정):
 	 *     produce — CK 반제품을 새로 생산(구성자재 소비) 후 그 로트를 소비
 	 *     stock   — 이미 생산창고(17)에 있는 CK 자체재고 로트를 그대로 소비
 	 *
 	 *   ★ ckstock 세션이면 CK 생산까지만 하고 재고로 남긴 뒤 세션을 닫는다.
-	 *     이때 mode 는 항상 'produce' 다 — CK 를 만드는 자리에서 CK 재고를 투입하는 것은
-	 *     성립하지 않는다(화면에서도 조달 방식 선택을 숨긴다).
+	 *     이때 units 는 배분 합계 그대로다 — CK 자체가 산출물이라 환산이 없다.
+	 *     mode 는 항상 'produce' 다(CK 를 만드는 자리에서 CK 재고 투입은 성립하지 않음).
 	 *   ★ 라벨은 여기서 받지 않는다 — 완제품이 나온 뒤 ③에서 스캔한다.
 	 *
 	 * @param allocations [{country, country_id, country_name, qty, ck_lot, mode,
@@ -1405,6 +1610,15 @@ public class PackService {
 		Integer ckMatId = ckStock ? mp.getMaterialId() : resolveCkMaterial(jr.getId());
 		if (ckMatId == null) return fail(result, "CK 반제품 품목을 확인할 수 없습니다.");
 
+		// ★ v3.3 : 완제품 1개당 PK·CK 배수. 아래 units 산출과 배분 검증의 기준이다
+		Map<String, Float> kit = getKitSpec(mp.getMaterialId(), spjangcd);
+		float pkPer = kit.get("pk_per");
+		float ckPer = kit.get("ck_per");
+		if (pkPer <= 0) pkPer = 1f;
+		if (ckPer <= 0) ckPer = 1f;
+		if (!ckStock && kit.get("pk_found") < 1f)
+			return fail(result, "완제품 BOM 에 PK 구성이 없습니다. BOM 을 확인해주세요.");
+
 		Timestamp now = DateUtil.getNowTimeStamp();
 		Timestamp startTs = isBlank(startTimeStr) ? mp.getStartTime()
 													: Timestamp.valueOf(LocalDateTime.parse(startTimeStr, DTM));
@@ -1416,6 +1630,7 @@ public class PackService {
 		List<Map<String, Object>> pkResolved = new ArrayList<>();
 		float units;
 		if (ckStock) {
+			// CK 자체재고 : 배분 합계가 곧 산출 CK 수량 (환산 없음)
 			units = sumAlloc(allocations);
 		} else {
 			List<Map<String, Object>> pkRows = this.sqlRunner.getRows("""
@@ -1427,7 +1642,7 @@ public class PackService {
                 """, new MapSqlParameterSource().addValue("mpId", mpId));
 			if (pkRows == null || pkRows.isEmpty()) return fail(result, "담긴 PK 로트가 없습니다.");
 
-			float sum = 0f;
+			float pkSum = 0f;
 			for (Map<String, Object> pr : pkRows) {
 				Integer lotId = toInt(pr.get("mat_lot_id"));
 				float qty     = toFloat(pr.get("qty"));
@@ -1441,18 +1656,28 @@ public class PackService {
 				Map<String, Object> row = new HashMap<>(lot);
 				row.put("_qty", qty);
 				pkResolved.add(row);
-				sum += qty;
+				pkSum += qty;
 			}
-			units = sum;
+
+			// ★★ 담은 PK 낱개 → 완제품 수량. 안 떨어지면 거부한다
+			//    (PK 29개 / 배수 3 → 완제품 9.67 개는 로트·재고를 통째로 어긋나게 한다)
+			Float u = unitsFromPk(pkSum, pkPer);
+			if (u == null)
+				return fail(result, "담긴 PK 수량(" + fmt(pkSum) + ")이 완제품 1개당 " + fmt(pkPer)
+															+ "개로 나눠떨어지지 않습니다. PK 로트를 다시 담아주세요.");
+			units = u;
 		}
 		if (units <= 0) return fail(result, "수량이 0 입니다.");
 
+		// ── CK 배분 합계 검증 ── ★완제품 × ck_per 와 같아야 한다
 		float allocSum = sumAlloc(allocations);
-		if (!ckStock && Math.abs(allocSum - units) > EPS)
-			return fail(result, "국가별 배분 합계(" + fmt(allocSum) + ")가 포장 수량("
-														+ fmt(units) + ")과 다릅니다.");
+		float ckNeed   = units * ckPer;
+		if (!ckStock && Math.abs(allocSum - ckNeed) > EPS)
+			return fail(result, "CK 배분 합계(" + fmt(allocSum) + ")가 필요 수량("
+														+ fmt(ckNeed) + " = 완제품 " + fmt(units) + " × " + fmt(ckPer)
+														+ ")과 다릅니다.");
 
-		// ── IN BOX 검증 (kit 세션만) ──
+		// ── IN BOX 검증 (kit 세션만) ── qty_per 는 완제품 1개당이라 units 를 곱한다
 		Map<String, Object> boxSpec = getBoxSpec(mp.getMaterialId(), spjangcd);
 		@SuppressWarnings("unchecked")
 		Map<String, Object> inbox = (Map<String, Object>) boxSpec.get("inbox");
@@ -1467,6 +1692,8 @@ public class PackService {
 		}
 
 		// ── CK produce 모드 자재 사전 검증 (한꺼번에) ──
+		//   items 의 qty 는 화면이 getCkBom.qty_per × 배분수량 으로 이미 계산해 보낸다.
+		//   ★ 여기서 ck_per 를 또 곱하면 안 된다 — 배분수량에 이미 배수가 들어 있다.
 		Map<Integer, Float> need = new LinkedHashMap<>();
 		for (Map<String, Object> a : allocations) {
 			if (!ckStock && "stock".equals(str(a.get("mode")))) continue;
@@ -1493,7 +1720,7 @@ public class PackService {
 		// ── 배분 + CK 투입자재 확정 저장 ──
 		writeAllocations(mpId, allocations, spjangcd, user);
 
-		// ── 소비 : PK ──
+		// ── 소비 : PK ── ★낱개 그대로 차감한다(환산 금지)
 		for (Map<String, Object> lot : pkResolved) {
 			float qty = toFloat(lot.get("_qty"));
 			consumeFixedLot(toInt(lot.get("mat_lot_id")), qty, toFloat(lot.get("avail")),
@@ -1530,7 +1757,7 @@ public class PackService {
 			Integer allocId = toInt(ar.get("alloc_id"));
 			String country  = str(ar.get("country"));
 			String ctag     = ckTag(country);      // "(KR)" 또는 "" (국가 미지정)
-			float ckQty     = toFloat(ar.get("qty"));
+			float ckQty     = toFloat(ar.get("qty"));   // ★ CK 낱개
 			if (ckQty <= 0 || "produced".equals(str(ar.get("ck_state")))) continue;
 
 			Map<String, Object> src = byCountry.get(country);
@@ -1687,6 +1914,7 @@ public class PackService {
 
 		// ── kit 세션 : 완제품 로트 산출 ★완제 시점 ──
 		//   MakerLotNo(외부 UDI)는 아직 없다 — ③ 라벨 스캔에서 채운다
+		//   ★ units 는 완제품 단위다(PK 낱개 아님). 여기가 어긋나면 작지 실적까지 전파된다.
 		Integer outStoreId = (mp.getStoreHouseId() != null) ? mp.getStoreHouseId() : STORE_PRODUCT;
 		receiveLot(mp.getMaterialId(), mp.getLotNumber(), null, units, outStoreId,
 			"mat_produce", mp.getId(), "포장 완제품 입고", user, spjangcd);
@@ -1714,6 +1942,8 @@ public class PackService {
 		data.put("phase", "label");
 		data.put("lot_number", mp.getLotNumber());
 		data.put("units", units);
+		data.put("pk_per", pkPer);
+		data.put("ck_per", ckPer);
 		data.put("outbox_cap", cap);
 		data.put("carton_cnt", cartonCnt);
 		data.put("carton_lot", cartonLot);
@@ -1890,6 +2120,7 @@ public class PackService {
 		return r != null && "semi".equals(str(r.get("t")));
 	}
 
+	/** 배분 합계 — ★CK 낱개 단위 (kit 세션에서는 완제품 × ck_per 와 같아야 한다) */
 	private static float sumAlloc(List<Map<String, Object>> allocations) {
 		float s = 0f;
 		if (allocations != null)
@@ -2106,6 +2337,7 @@ public class PackService {
 	 *
 	 *   ★ 카톤 수는 화면이 보낸 값을 믿지 않고 서버가 완제품수량 ÷ 입수 로 계산한다.
 	 *     저장할 테이블(pack_carton)이 없고, 두 값에서 항상 같은 답이 나오기 때문이다.
+	 *   ★ GoodQty 는 ②에서 이미 완제품 단위로 들어갔으므로 여기선 환산이 없다.
 	 */
 	public AjaxResult outboxFinish(Integer mpId, String endTimeStr, User user, String spjangcd) {
 		AjaxResult result = new AjaxResult();
@@ -2125,7 +2357,7 @@ public class PackService {
 												: Timestamp.valueOf(LocalDateTime.parse(endTimeStr, DTM));
 
 		Map<String, Object> boxSpec = getBoxSpec(mp.getMaterialId(), spjangcd);
-		float units = mp.getGoodQty() == null ? 0f : mp.getGoodQty();
+		float units = mp.getGoodQty() == null ? 0f : mp.getGoodQty();   // ★ 완제품 단위
 		float cap   = toFloat(boxSpec.get("outbox_cap"));
 		float cartonCnt = cartonCount(units, cap);
 
@@ -2378,7 +2610,12 @@ public class PackService {
 		return r == null ? "pk" : str(r.get("phase"));
 	}
 
-	/** 이 세션이 담은 PK 합계 = 포장 수량 = 완제품 수량 */
+	/**
+	 * 이 세션이 담은 PK 합계. ★PK 낱개 단위다 — 완제품 수량이 아니다.
+	 *
+	 * ★ v3.2 까지는 이 값이 그대로 완제품 수량이었다(배수 1 가정).
+	 *   호출부는 반드시 ÷ pk_per 해서 쓸 것.
+	 */
 	private float pkTotal(Integer mpId) {
 		Map<String, Object> r = this.sqlRunner.getRow("""
             SELECT COALESCE(SUM(pai."Qty"),0) AS q
@@ -2914,6 +3151,11 @@ public class PackService {
 	 *
 	 * ★ 국가별 CK 산출 차수(LastProcessYN='N')는 세지 않는다.
 	 *   ckstock 작지에서는 세션 차수와 품목이 같아, 빼지 않으면 GoodQty 가 2배가 된다.
+	 *
+	 * ★ v3.3 : mp."GoodQty" 가 완제품 단위이므로 여기 집계도 완제품 단위다.
+	 *   OrderQty 와 단위가 같아 (good+defect) >= orderQty 비교가 성립한다.
+	 *   v3.2 까지는 GoodQty 에 PK 낱개가 들어가 배수 품목의 작지가
+	 *   지시량의 1/배수 만 채워도 'finished' 로 닫혔다.
 	 */
 	private void recalcJobRes(JobRes jr, User user) {
 		if (jr == null) return;
