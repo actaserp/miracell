@@ -50,6 +50,18 @@
             height: 100%;
         }
 
+        .eq-sum { display:grid; grid-template-columns:repeat(auto-fill, minmax(210px,1fr)); gap:10px; margin:12px 0; }
+        .eq-card { background:#fff; border:1px solid #e2e6ee; border-radius:10px; padding:12px 14px; }
+        .eq-card .nm { font-size:12px; font-weight:800; color:#3a4759; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .eq-card .rt { font-size:22px; font-weight:800; margin-top:4px; font-variant-numeric:tabular-nums; color:#2f6fed; }
+        .eq-card .rt small { font-size:12px; color:#8a94a4; margin-left:2px; }
+        .eq-card .sub { font-size:11px; color:#8a94a4; margin-top:3px; }
+        .eq-card .open { display:inline-block; margin-top:5px; font-size:10.5px; font-weight:800;
+            padding:2px 7px; border-radius:5px; background:#fff7ed; color:#b4560a; }
+        .eq-warn { background:#fff7ed; border:1px solid #f6dfc2; color:#b4560a; border-radius:8px;
+            padding:9px 13px; font-size:12.5px; font-weight:700; margin-bottom:10px; }
+        .row-open { background-color:#fff7ed !important; }
+
         .row-red {
             background-color: #EDEFF5 !important;
             color: black;
@@ -61,7 +73,7 @@
     <div class="layout-contents">
         <div class="page-title-wrap">
             <div class="left">
-                <h2>가동/비가동 현황</h2>
+                <h2>설비 가동현황</h2>
                 <a title="북마크" class="bookmark toggle">
                     내 메뉴
                 </a>
@@ -69,12 +81,12 @@
             <ul class="page-navi">
                 <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
                 <li>설비 관리</li>
-                <li>가동/비가동 현황</li>
+                <li>설비 가동현황</li>
             </ul>
         </div>
 
-            <section class="section">
-                <form id="searchForm" autocomplete="off">
+        <section class="section">
+            <form id="searchForm" autocomplete="off">
                 <div class="section-top">
                     <div class="search-wrap">
 
@@ -114,10 +126,10 @@
                     </div>
                     <div class="button-wrap">
                         <ul>
-                            <!--<li>
-                                <a class="btn btn-excell" title="신규" id="btnAdd">
-                                    <img th:src="@{/images/icon/ico-plus.svg}" alt="신규 아이콘">
-                                    신규
+                            <li>
+                                <a class="btn btn-edit" title="시각 수정" id="btnEdit">
+                                    <img th:src="@{/images/icon/ico-edit.svg}" alt="수정 아이콘">
+                                    시각 수정
                                 </a>
                             </li>
                             <li>
@@ -126,26 +138,23 @@
                                     삭제
                                 </a>
                             </li>
-                            <li>
-                                <a class="btn btn-edit" title="저장" id="btnEdit">
-                                    <img th:src="@{/images/icon/ico-edit.svg}" alt="저장 아이콘">
-                                    수정
-                                </a>
-                            </li>-->
                         </ul>
                     </div>
                 </div>
-                </form>
+            </form>
 
-                <div class="grid_box" id="divList">
-                    <div id="theGrid" style="height: 330px;"></div>
-                </div>
+            <div id="eqSummary" class="eq-sum"></div>
+            <div id="eqWarn"></div>
 
-                <!--        <div class="grid_box">-->
+            <div class="grid_box" id="divList">
+                <div id="theGrid" style="height: 330px;"></div>
+            </div>
 
-                <!--            <div class="h-640" data-ax5grid="sujuGrid" ></div>-->
-                <!--        </div>-->
-            </section>
+            <!--        <div class="grid_box">-->
+
+            <!--            <div class="h-640" data-ax5grid="sujuGrid" ></div>-->
+            <!--        </div>-->
+        </section>
 
 
         <section class="">
@@ -213,7 +222,6 @@
                                 <label for="end_date">비가동유형</label>
                             </th>
                             <td>
-                               <select id="StopCause_id" name="StopCause_id" ></select>
                             </td>-->
 
 
@@ -251,91 +259,6 @@
     </script>
 
 
-    <script type="text/x-tmpl" id="addDataPopup2">
-        <div class="content_wrap popup" id="div_excel_upload2">
-        <form id="equipmentStopForm2">
-            <div class="table-wrap">
-                <table class="write-table">
-
-                    <tbody>
-                        <tr>
-                            <th style="text-align: center">
-                                <label>시작일</label>
-                            </th>
-                            <td>
-                                <input type="date" id="start_date2" name="start_date2">
-                            </td>
-                            <th style="text-align: center">
-                                <label>시작시간</label>
-                            </th>
-                            <td>
-                                <input type="text" id="StartTime2" name="StartTime2">
-                            </td>
-                        </tr>
-
-                        <tr>
-                            <th style="text-align: center">
-                                <label>종료일</label>
-                            </th>
-                            <td>
-                                <input type="date" id="end_date2" name="end_date2">
-                            </td>
-                            <th style="text-align: center">
-                                <label>종료시간</label>
-                            </th>
-                            <td>
-                                <input type="text" id="EndTime2" name="EndTime2">
-                            </td>
-                        </tr>
-
-                        <tr>
-                            <th style="text-align: center">
-                                <label>설비</label>
-                            </th>
-                            <td>
-                               <select id="Equipment_id2" name="Equipment_id2" ></select>
-                            </td>
-
-                            <th style="text-align: center">
-                                <label>비가동유형</label>
-                            </th>
-                            <td>
-                               <select id="StopCause_id2" name="StopCause_id2" ></select>
-                            </td>
-
-
-
-                            <th style="text-align: center">
-                                <label>상태</label>
-                            </th>
-                            <td>
-                                <select id="RunState2" name="RunState2"></select>
-                            </td>
-                        </tr>
-
-                        <tr>
-                            <th style="text-align: center">
-                                <label>비고</label>
-                            </th>
-                            <td colspan="3">
-                                <textarea id="Description2" name="Description2"></textarea>
-                            </td>
-                        </tr>
-
-                    </tbody>
-                </table>
-            </div>
-
-            <div class="popup-button">
-
-                    <button type="button" class="btn-popup y_write_auth" id="btnSave2">저장</button>
-                    <button type="button" class="btn-popup" id="modal-close-button2">닫기</button>
-
-            </div>
-            </form>
-
-        </div>
-    </script>
 </th:block>
 
 <th:block layout:fragment="scripts">
@@ -364,9 +287,9 @@
                     series: [
                         {
                             data: [
-                                { x: '설비1(샘플)', y: [ null, null ] },
-                                { x: '설비2(샘플)', y:  [null, null ] },
-                                { x: '설비3(샘플)', y: [ null, null ]},
+                                {x: '설비1(샘플)', y: [null, null]},
+                                {x: '설비2(샘플)', y: [null, null]},
+                                {x: '설비3(샘플)', y: [null, null]},
                             ]
                         }
                     ],
@@ -432,20 +355,16 @@
                     showMarquee: true,
                     isReadOnly: true,
                     columns: [
-                        {binding: 'id', header: '설비', width: '*', align : 'center', visible: false},
-                        {binding: 'Equipment_id', header: '설비아이디', width: '*', align : 'center', visible: false},
-                        {binding: 'Name', header: '설비', width: '*', align : 'center', allowMerging: true},
-                        {binding: 'RunState', header: '상태', width: '*', align: 'center'},
+                        {binding: 'id', header: 'id', width: '*', align: 'center', visible: false},
+                        {binding: 'Equipment_id', header: '설비아이디', width: '*', align: 'center', visible: false},
+                        {binding: 'Name', header: '설비', width: '*', align: 'center', allowMerging: true},
+                        {binding: 'state_label', header: '상태', width: 90, align: 'center'},
                         {binding: 'start_date', header: '시작일자', width: '*', align: 'center'},
-                        {binding: 'StartTime', header: '시작시간', width: '*', align: 'center'},
+                        {binding: 'StartTime', header: '시작시간', width: 90, align: 'center'},
                         {binding: 'end_date', header: '종료일자', width: '*', align: 'center'},
-                        {binding: 'EndTime', header: '종료시간', width: '*', align: 'center'},
-                        {binding: 'Runtime', header: '가동시간(분)', width: '*', align: 'center'},
-                        {binding: 'GapTime', header: '비가동시간(분)', width: '*', align: 'center'},
-                        {binding: 'StopCauseName', header: '비가동유형', width: '*', align: 'left'},
-                        {binding: 'Description', header: '비고', width: '*', align: 'center'},
-                        //{ binding: 'code', header: '거래처코드', width: 120, align: 'center' },
-
+                        {binding: 'EndTime', header: '종료시간', width: 90, align: 'center'},
+                        {binding: 'runtime_min', header: '가동시간(분)', width: 110, align: 'center'},
+                        {binding: 'Description', header: '비고', width: '*', align: 'left'},
                     ],
                     itemsSource: this.viewData,
                     formatItem: function (s, e) {
@@ -552,279 +471,213 @@
                     }
                 });*/
 
-                $(document).on('click', '.btn-code-action, .btn-code-action-white', function (e) {
-                    const $button = $(this);
-                    const $container = $button.closest('.wijmo-cltcd-div');
-                    const rowIndex = $container.data('row');
-
-                    const grid = wijmo.Control.getControl('#theGrid');
-                    const item = grid.rows[rowIndex].dataItem;
-
-                    if ($button.hasClass('btn-code-action-white')) {
-                        //console.log('zz', _this.grid.selectedItems);
-
-                        _this.runDataForm(_this.grid.selectedItems);
-                        //_this.editDataBind();
-                    } else {
-                        _this.stopDataForm(_this.grid.selectedItems);
-                        //alert('비가동 추가 버튼 클릭');
-                    }
-                });
-
-
             }
 
             searchMainData() {
-                let _this = this;                                                //조회조건 변경 필요
+                let _this = this;
                 let startDate = $('#date_from').val();
                 let endDate = $('#date_to').val();
+
+                if (!startDate || !endDate) {
+                    Alert.alert('', '조회 기간을 선택하세요.');
+                    return;
+                }
+
                 let param = {
-                    //'action': 'read',
                     'date_from': startDate,
                     'date_to': endDate,
+                };
+
+                let resp = null;
+                try {
+                    resp = AjaxUtil.getSyncData(_this.baseUrl + '/read', param);
+                } catch (err) {
+                    console.error('[equ_run] read', err);
+                }
+                if (!resp || !resp.data) {
+                    $('#eqWarn').html('<div class="eq-warn">조회에 실패했습니다.</div>');
+                    return;
                 }
 
-                let result = AjaxUtil.getSyncData(_this.baseUrl + '/read', param);
+                let rows = resp.data.rows || [];
+                let summary = resp.data.summary || [];
 
-                if (result.data) {
-                    _this.viewData.sourceCollection = result.data;
-                    _this.grid.invalidate();
-                    // xaxis 변경
-                    this.chart.updateOptions({
-                        xaxis: {
-                            min: Date.parse(startDate + ' 00:00:00'),
-                            max: Date.parse(endDate + ' 23:59:59')
-                        }
-                    });
+                // 상태 라벨 — DB 값은 run / complete 다.
+                // 이전에는 서버가 전부 'run' 으로 덮어써서 이 칼럼이 무의미했다.
+                rows.forEach(function (r) {
+                    r.state_label = (r.is_open === 'Y') ? '진행중' : '완료';
+                });
 
-                    if (result.data.length != 0) {
-                        // 차트 데이터 생성    default data 는 차트 형식 잡아주는데 사용
-                        let series = [
-                            {
-                                data: []
-                            }
-                        ];
+                _this.viewData.sourceCollection = rows;
+                _this.grid.invalidate();
 
-                        console.log('data', result.data);
+                _this.renderSummary(summary);
 
-                        result.data.forEach(function (e, idx) {
-                            var color = '#008FFB';
-
-                            if (e.RunState == 'R' || e.RunState == 'run') {
-                                color = '#008FFB';
-                            } else if (e.RunState == 'X' || e.RunState == 'stop') {
-                                color = '#8C8C8C';
-                            }
-
-                            series[0].data.push(
-                                {
-                                    x: e.Name,
-                                    y: [
-                                        Date.parse(e.StartDate),
-                                        e.EndDate ? Date.parse(e.EndDate) : Date.now()
-                                    ],
-                                    fillColor: color
-                                }
-                            );
-                        });
-
-                        this.chart.updateSeries(series);
-                    } else {
-                        var series = [
-                            {
-                                data: [
-                                    {x: '설비1(샘플)', y: [null, null]},
-                                    {x: '설비2(샘플)', y: [null, null]},
-                                    {x: '설비3(샘플)', y: [null, null]},
-                                ]
-                            }
-                        ];
-
-                        this.chart.updateSeries(series);
+                this.chart.updateOptions({
+                    xaxis: {
+                        min: Date.parse(startDate + ' 00:00:00'),
+                        max: Date.parse(endDate + ' 23:59:59')
                     }
+                });
+
+                if (rows.length) {
+                    let series = [{data: []}];
+                    rows.forEach(function (e) {
+                        // 열린 구간은 주황. now() 까지 그리되 합계에는 안 들어간다
+                        let color = (e.is_open === 'Y') ? '#e8833a' : '#008FFB';
+                        series[0].data.push({
+                            x: e.Name,
+                            y: [
+                                Date.parse(e.StartDate),
+                                e.EndDate ? Date.parse(e.EndDate) : Date.now()
+                            ],
+                            fillColor: color
+                        });
+                    });
+                    this.chart.updateSeries(series);
+                } else {
+                    this.chart.updateSeries([{
+                        data: [
+                            {x: '설비1(샘플)', y: [null, null]},
+                            {x: '설비2(샘플)', y: [null, null]},
+                            {x: '설비3(샘플)', y: [null, null]},
+                        ]
+                    }]);
                 }
             }
 
-            stopDataForm(dataRow){
+            /**
+             * 설비별 가동률 요약.
+             *
+             * ★ 가동시간은 구간 합집합(union)이다. 단순 합이 아니다.
+             *   세척 세션 1건이 품목 10종이면 equ_run 10건이 전부 겹쳐서 생기고,
+             *   단순 합으로 세면 2분짜리 작업이 15분으로 보고된다.
+             *
+             * ★ 미종료 구간은 합계에서 뺀다. now() 까지 쳐서 넣으면
+             *   유령 한 건이 그 설비 가동률을 100% 로 만든다.
+             *   대신 배지로 몇 건인지 알려서 사람이 고칠 수 있게 한다.
+             */
+            renderSummary(summary) {
+                let esc = function (v) {
+                    return String(v === null || v === undefined ? '' : v)
+                        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                };
 
-                let _this = this;
-                let content = tmpl('addDataPopup2', {});
-                let $content = $(content);
-                let form = $('#equipmentStopForm2');
+                if (!summary.length) {
+                    $('#eqSummary').html('');
+                    $('#eqWarn').html('<div class="eq-warn">조회 기간에 설비 가동 기록이 없습니다.</div>');
+                    return;
+                }
 
-                modalContainer = new PopupDraggable('비가동시간 추가');
-                modalContainer.open({width: 980, height: 490, $content});
-                popup = new equipmentStopPopup();
+                let openTotal = 0;
+                let html = summary.map(function (m) {
+                    let open = Number(m.open_cnt || 0);
+                    openTotal += open;
+                    let badge = open
+                        ? '<div class="open">미종료 ' + open + '건 · 합계 제외</div>'
+                        : '';
+                    return '<div class="eq-card">'
+                        + '<div class="nm">' + esc(m.Name) + '</div>'
+                        + '<div class="rt">' + Number(m.run_rate || 0).toFixed(1) + '<small>%</small></div>'
+                        + '<div class="sub">' + Number(m.run_hour || 0).toFixed(2) + '시간'
+                        + ' · 구간 ' + Number(m.row_cnt || 0) + '건'
+                        + (Number(m.merged_cnt || 0) && Number(m.merged_cnt) !== Number(m.row_cnt)
+                            ? ' (겹침 병합 ' + Number(m.merged_cnt) + ')' : '')
+                        + '</div>' + badge + '</div>';
+                }).join('');
+
+                $('#eqSummary').html(html);
+
+                $('#eqWarn').html(openTotal
+                    ? '<div class="eq-warn">⚠ 종료되지 않은 구간이 ' + openTotal + '건 있습니다 — '
+                    + '주황색 행입니다. 작업이 진행중이면 정상이고, 취소된 작업이면 삭제해 주세요. '
+                    + '가동시간·가동률에는 포함되지 않습니다.</div>'
+                    : '');
             }
 
-            runDataForm(dataRow){
-                console.log('datarow', dataRow);
-
+            /**
+             * 시각 수정.
+             *
+             * ★ 신규 등록은 열지 않는다. equ_run 은 생산 시작·완료가 만든다.
+             *   화면에서 새로 만들면 입력 경로가 둘이 되고, 어느 것이 실제 가동인지
+             *   가릴 방법이 없어진다(출처 컬럼이 없다).
+             *   설비도 바꾸지 않는다 — 다른 기계에서 났다는 주장은 실적 쪽에서 고칠 일이다.
+             */
+            editDataBind() {
                 let _this = this;
+                let sel = this.grid.selectedItems;
+                let row = (sel && sel.length > 0) ? sel[0] : null;
+
+                if (!row || !row.id) {
+                    Alert.alert('', '수정할 가동 구간을 선택하세요.');
+                    return;
+                }
+
                 let content = tmpl('addDataPopup', {});
                 let $content = $(content);
                 let form = $('#equipmentStopForm');
 
-                modalContainer = new PopupDraggable('가동시간 추가');
-                modalContainer.open({width: 980, height: 490, $content});
+                modalContainer = new PopupDraggable('가동 시각 수정 — ' + (row.Name || ''));
+                modalContainer.open({width: 720, height: 430, $content});
                 popup = new equipmentStopPopup();
 
-                let $runState = $content.find('#RunState');
+                $content.find('#id').val(row.id);
+
+                // 설비는 표시만. 바꿀 수 없다
                 let $equipment = $content.find('#Equipment_id');
-                let $stopCause = $content.find('#StopCause_id');
+                AjaxUtil.fillSelectOptions($equipment, 'equipment', false, row.Equipment_id);
+                $equipment.val(row.Equipment_id);
+                $equipment.prop('disabled', true);
 
-                AjaxUtil.fillSelectOptions($runState, 'system_code', 'choose', '', 'equip_run_state');
-                AjaxUtil.fillSelectOptions($equipment, 'equipment', 'choose', '');
-
-                $runState.change(function () {
-                    let state = $runState.val();
-
-                    if (state == 'R') {
-                        $stopCause.val('');
-                        $stopCause.prop('disabled', true);
-                    } else if (state == 'X') {
-                        $stopCause.prop('disabled', false);
-                    }
-                });
-
-                $equipment.change(function () {
-                    let equip_pk = $equipment.val();
-                    AjaxUtil.fillSelectOptions($stopCause, 'stop_cause', 'choose', '', 'equipment', equip_pk);
-                });
-
-                $equipment.val(dataRow[0].Equipment_id).trigger('change');
-
-                $('#srchStartDtPopup').ax5DatePicker({direction: 'top'});
-                $('#srchEndDtPopup').ax5DatePicker({direction: 'top'});
-
-                $content.find('#start_date').val(dataRow[0].start_date);
-                $content.find('#end_date').val(dataRow[0].end_date);
+                $content.find('#start_date').val(row.start_date);
+                $content.find('#end_date').val(row.end_date || '');
 
                 $content.find('#StartTime').timepicker({
-                    show2400: true,
-                    timeFormat: 'H:i',
-                }).val(dataRow[0].StartTime);
+                    show2400: true, timeFormat: 'H:i'
+                }).val(row.StartTime);
 
                 $content.find('#EndTime').timepicker({
-                    show2400: true,
-                    timeFormat: 'H:i'
-                }).val(dataRow[0].EndTime);
+                    show2400: true, timeFormat: 'H:i'
+                }).val(row.EndTime || '');
+
+                $content.find('#Description').val(row.Description || '');
 
                 $content.find('#btnSave').on('click', function () {
                     popup.saveData(form, modalContainer.modal);
                 });
-
-            }
-
-            editDataBind() {
-                console.log('grid', this.grid.selectedItems);
-
-                let id = this.grid.selectedItems.length > 0 ? this.grid.selectedItems[0].id : null;
-                if (id) {
-                    page.addDataBind(id, false);
-                } else {
-                    Alert.alert('', '가동 내역을 선택하세요.');
-                }
             }
 
             delDataBind() {
                 let _this = this;
-                let id = this.grid.selectedItems.length > 0 ? this.grid.selectedItems[0].id : null;
+                let sel = this.grid.selectedItems;
+                let row = (sel && sel.length > 0) ? sel[0] : null;
 
-                if (id) {
-                    let data = {};
-                    data['id'] = id
-
-                    let fnSuccess = function (res) {
-                        if (!res.success) {
-                            Alert.alert('', res.message);
-                        } else {
-                            Notify.success('삭제되었습니다');
-                            page.searchMainData();
-                        }
-                    };
-
-                    Alert.confirm('', '해당내역을 삭제하시겠습니까?',
-                        function () {
-                            AjaxUtil.postAsyncData(_this.baseUrl + '/delData', data, fnSuccess);
-                        },
-                        function () {
-                        }
-                    )
-
-
-                } else {
-
+                if (!row || !row.id) {
+                    Alert.alert('', '삭제할 가동 구간을 선택하세요.');
+                    return;
                 }
 
-            }
-
-            addDataBind(id, chkDisabled) {
-
-                let _this = this;
-                let content = tmpl('addDataPopup', {});
-                let $content = $(content);
-                let form = $('#equipmentStopForm');
-
-                modalContainer = new PopupDraggable('비가동 유형');
-                modalContainer.open({width: 980, height: 490, $content});
-                popup = new equipmentStopPopup();
-
-                let $runState = $content.find('#RunState');
-                let $equipment = $content.find('#Equipment_id');
-                let $stopCause = $content.find('#StopCause_id');
-
-                AjaxUtil.fillSelectOptions($runState, 'system_code', 'choose', '', 'equip_run_state');
-                AjaxUtil.fillSelectOptions($equipment, 'equipment', 'choose', '');
-
-                $runState.change(function () {
-                    let state = $runState.val();
-
-                    if (state == 'R') {
-                        $stopCause.val('');
-                        $stopCause.prop('disabled', true);
-                    } else if (state == 'X') {
-                        $stopCause.prop('disabled', false);
+                let fnSuccess = function (res) {
+                    if (!res.success) {
+                        Alert.alert('', res.message);
+                    } else {
+                        Notify.success('삭제되었습니다');
+                        page.searchMainData();
                     }
-                });
+                };
 
-                $equipment.change(function () {
-                    let equip_pk = $equipment.val();
-                    AjaxUtil.fillSelectOptions($stopCause, 'stop_cause', 'choose', '', 'equipment', equip_pk);
-                });
+                // 정상 구간을 지우면 그만큼 가동시간이 사라진다. 한 번 더 묻는다
+                let msg = (row.is_open === 'Y')
+                    ? '종료되지 않은 구간입니다. 취소된 작업이면 삭제해도 됩니다. 삭제할까요?'
+                    : '이 구간을 삭제하면 그만큼 가동시간이 줄어듭니다. 삭제할까요?';
 
-                if (chkDisabled) {
-                    $content.find('input, select, textarea, #btnSave').prop('disabled', chkDisabled);
-                    $content.find('.input-group-addon').hide();
-                }
-                if (!chkDisabled) {
-                    $content.find('input, select, textarea').prop('disabled', chkDisabled);
-                }
-
-                $('#srchStartDtPopup').ax5DatePicker({direction: 'top'});
-                $('#srchEndDtPopup').ax5DatePicker({direction: 'top'});
-
-                $content.find('#start_date').val(CommonUtil.getYYYYMMDD());
-                $content.find('#end_date').val(CommonUtil.getYYYYMMDD());
-
-                $content.find('#StartTime').timepicker({
-                    show2400: true,
-                    timeFormat: 'H:i',
-                }).val('09:00');
-
-                $content.find('#EndTime').timepicker({
-                    show2400: true,
-                    timeFormat: 'H:i'
-                }).val('18:00');
-
-                $content.find('#btnSave').on('click', function () {
-                    popup.saveData(form, modalContainer.modal);
-                });
-
-                if (id) {
-                    $content.find('#id').val(id);
-                    popup.fillData(id);
-                }
+                Alert.confirm('', msg,
+                    function () {
+                        AjaxUtil.postAsyncData(_this.baseUrl + '/delData', {id: row.id}, fnSuccess);
+                    },
+                    function () {
+                    }
+                );
             }
         }
 
@@ -840,65 +693,31 @@
 
             }
 
-            fillData(id) {
-                let _this = this;
-
-                let param = {
-                    //'action': 'readData',
-                    'runType': 'run',
-                    'id': id
-                }
-
-                let resp = AjaxUtil.getSyncData(_this.baseUrl + '/readData', param);
-                let result = resp.data;
-
-                if (result) {
-                    $("#start_date").val(result[0].start_date);
-                    $("#end_date").val(result[0].end_date);
-                    $('#Equipment_id').val(result[0].Equipment_id);
-                    $('#Equipment_id').trigger('change');
-                    $('#StartTime').val(result[0].StartTime);
-                    $('#EndTime').val(result[0].EndTime);
-                    $('#Description').val(result[0].Description);
-                    $('#StopCause_id').val(result[0].StopCause_id);
-                    $('#RunState').val(result[0].RunState);
-
-                    if (result[0].RunState == 'R') {
-                        $('#StopCause_id').val('');
-                        $('#StopCause_id').prop('disabled', true);
-                    }
-                }
-            }
-
             saveData(form, modal) {
                 let _this = this;
                 let data = FormUtil.extractForm($('#equipmentStopForm'));
 
-                // valid chcek
-                if (!data.start_date || !data.end_date || !data.StartTime || !data.EndTime) {
-                    Alert.alert('', '일자와 시간을 입력해주세요.');
+                if (!data.id) {
+                    Alert.alert('', '대상을 찾을 수 없습니다. 목록을 새로고침해 주세요.');
                     return;
-                } else if (!data.Equipment_id) {
-                    Alert.alert('', '설비를 선택해주세요.');
+                }
+                if (!data.start_date || !data.StartTime) {
+                    Alert.alert('', '시작 일자와 시간을 입력해주세요.');
                     return;
-                } /*else if (!data.RunState) {
-                    Alert.alert('', '상태를 선택해주세요.');
-                    return;
-                }*/
+                }
 
-                // 비가동 유형 필수 선택?
-                //if (data.RunState == 'X') {
-                //    if (!data.StopCause_id) {
-                //        Alert.alert('', '비가동유형을 선택해주세요.');
-                //        return;
-                //    }
-                //}
-
-                let startDateTime = Date.parse(data.start_date + ' ' + data.StartTime);
-                let endDateTime = Date.parse(data.end_date + ' ' + data.EndTime);
-
-                if (startDateTime > endDateTime) {
-                    Alert.alert('', '시작/종료일을 확인해주세요.');
+                // 종료를 비우면 「아직 진행중」으로 되돌린다.
+                // 잘못 닫힌 구간을 되살릴 수 있어야 하므로 허용한다.
+                let hasEnd = !!(data.end_date && data.EndTime);
+                if (hasEnd) {
+                    let s1 = Date.parse(data.start_date + ' ' + data.StartTime);
+                    let e1 = Date.parse(data.end_date + ' ' + data.EndTime);
+                    if (s1 >= e1) {
+                        Alert.alert('', '종료가 시작보다 빠르거나 같습니다.');
+                        return;
+                    }
+                } else if (data.end_date || data.EndTime) {
+                    Alert.alert('', '종료 일자와 시간을 함께 입력하거나, 둘 다 비워 진행중으로 두세요.');
                     return;
                 }
 
@@ -906,7 +725,8 @@
                     if (!res.success) {
                         Alert.alert('', res.message);
                     } else {
-                        Notify.success('저장되었습니다');
+                        // 겹침은 차단하지 않는다. 있으면 메시지로만 알린다
+                        Notify.success(res.message || '저장되었습니다');
                         page.searchMainData();
                         modal.close();
                     }
@@ -933,11 +753,6 @@
             $('#btnSearch').click(function (e) {
                 page.searchMainData();
             });
-
-            //추가
-            $('#btnAdd').click(function (e) {
-                page.addDataBind();
-            })
 
             // 변경
             $('#btnEdit').click(function (e) {
