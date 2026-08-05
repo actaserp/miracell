@@ -41,6 +41,122 @@
             font-size: 13px; /* 원하는 크기로 */
         }
 
+        /* 스캐너 입고 푸터 : 좌 요약 / 우 버튼 */
+        .popup-button.scan-footer {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: flex-end;
+        }
+
+        .popup-button.scan-footer .scan-summary {
+            margin-right: auto;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .popup-button.scan-footer .scan-summary span {
+            color: #03428E;
+        }
+
+        /* ===== 태블릿 모드 =====
+           판정은 JS(TabletUtil.isTablet)에서 하고 body.tablet-mode 로 내려온다.
+           미디어쿼리를 같이 걸면 기준이 두 곳이 되어 어긋난다. */
+
+        /* 모달 컨테이너: 인라인 px 고정 무력화
+           [class*="modal"] 같은 넓은 선택자는 중첩 팝업까지 물어
+           품목/구매처 조회 팝업의 레이아웃을 깨뜨린다. 쓰지 않는다. */
+        body.tablet-mode .modal,
+        body.tablet-mode .popup-draggable {
+            width: 96vw !important;
+            max-width: 96vw !important;
+            height: auto !important;
+            max-height: 92vh !important;
+            left: 2vw !important;
+            top: 4vh !important;
+            transform: none !important;
+        }
+
+        /* ★ 모달 높이를 92vh 로 자르면서 스크롤을 안 주면
+           하단 버튼(선택/닫기)이 잘려 사라진다.
+           .content_wrap.popup 만 걸었더니 popup 클래스가 없는
+           공통 조회 팝업에서 버튼이 통째로 없어졌다. */
+        body.tablet-mode .content_wrap,
+        body.tablet-mode .modal > .modal-body,
+        body.tablet-mode .popup-draggable > .modal-body {
+            max-height: calc(92vh - 60px);
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        /* 조회 팝업 내부 그리드는 높이를 줄여 버튼 자리를 남긴다 */
+        body.tablet-mode .modal .wj-flexgrid,
+        body.tablet-mode .popup-draggable .wj-flexgrid {
+            max-height: 46vh;
+        }
+
+        /* 터치 타겟 44px */
+        body.tablet-mode .btn,
+        body.tablet-mode .btn-popup,
+        body.tablet-mode .btn-delete {
+            min-height: 44px;
+            min-width: 44px;
+            padding: 0 16px;
+            font-size: 15px;
+            line-height: 44px;
+        }
+
+        body.tablet-mode input,
+        body.tablet-mode select,
+        body.tablet-mode textarea {
+            min-height: 44px;
+            font-size: 16px;   /* iOS 자동 확대 방지 — 16px 미만이면 줌인됨 */
+        }
+
+        /* 팝업 하단 버튼바 고정 */
+        /* 스티키 푸터는 뒤따르는 형제를 덮는다.
+           버튼바 뒤에 내용이 오는 팝업이 없도록 마크업을 맞춰 둘 것. */
+        body.tablet-mode .popup-button {
+            position: sticky;
+            bottom: 0;
+            background: #fff;
+            padding: 10px 0;
+            border-top: 1px solid #E5E7EC;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+        }
+
+        /* 스캔 그리드 : 스크롤 대신 높이를 줄여 한 화면에 담는다 */
+        body.tablet-mode #scan-result-grid {
+            min-height: 180px;
+        }
+
+        /* wijmo 행 높이 — 손가락으로 집을 수 있게 */
+        body.tablet-mode .wj-flexgrid .wj-cell {
+            min-height: 42px;
+            padding-top: 10px;
+            padding-bottom: 10px;
+            font-size: 14px;
+        }
+        body.tablet-mode .wj-flexgrid {
+            touch-action: pan-x pan-y;
+        }
+
+        /* 스캔 입력창 강조 */
+        body.tablet-mode #scanBarcode {
+            height: 52px !important;
+            font-size: 18px !important;
+        }
+
+        /* 검색영역 줄바꿈 */
+        body.tablet-mode .search-flex-row { flex-wrap: wrap; }
+        body.tablet-mode .search-wrap { flex-wrap: wrap; gap: 8px; }
+
     </style>
     <style id="print_css">
         @media print {
@@ -192,6 +308,8 @@
         .wj-colheaders .wj-cell {
             text-align: center !important;
         }
+
+
     </style>
 
 </head>
@@ -262,7 +380,7 @@
                                 </dd>
                             </dl>
 
-                            <dl>
+                            <!--<dl>
                                 <dt>
                                     <label for="cboMatGroup">
                                         품목그룹
@@ -274,7 +392,7 @@
                                         </select>
                                     </div>
                                 </dd>
-                            </dl>
+                            </dl>-->
                             <dl>
                                 <dt>
                                     <label for="txtMatName">
@@ -1184,12 +1302,9 @@
                 <div id="scan-result-grid" style="height: 360px;"></div>
             </div>
 
-            <div class="section-top" style="margin-top:6px; justify-content:flex-end;">
-                <span style="font-weight:600;">총 <span id="scanRowCount" style="color:#03428E;">0</span>건 ·
-                    합계수량 <span id="scanTotalQty" style="color:#03428E;">0</span></span>
-            </div>
-
-            <div class="popup-button">
+            <div class="popup-button scan-footer">
+                <span class="scan-summary">총 <span id="scanRowCount">0</span>건 ·
+                    합계수량 <span id="scanTotalQty">0</span></span>
                 <button type="button" class="btn-popup y_write_auth" id="btnScanSave"><span data-labelCd="입고저장">입고저장</span></button>
                 <button type="button" class="btn-popup" id="btnScanRowDelete"><span data-labelCd="선택삭제">선택삭제</span></button>
                 <button type="button" class="btn-popup" id="modal-close-button"><span data-labelCd="닫기">닫기</span></button>
@@ -1207,6 +1322,60 @@
     <th:block th:replace="/common/popup_company :: popup_company"></th:block>
 
     <script type="text/javascript">
+        // ===== 태블릿 유틸 =====
+        const TabletUtil = {
+            BREAKPOINT: 1280,   // 1138x712 실기기 포함. 1024 로 두면 PC 로 잡힌다
+
+            // 폭 + 포인터 방식 둘 다 본다.
+            // 폭만 보면 1138 태블릿을 놓치고, 포인터만 보면 터치스크린 PC 가 걸린다.
+            isTouch() {
+                return (window.matchMedia && window.matchMedia('(pointer: coarse)').matches)
+                    || ('ontouchstart' in window)
+                    || navigator.maxTouchPoints > 0;
+            },
+
+            isTablet() {
+                return window.innerWidth <= this.BREAKPOINT && this.isTouch();
+            },
+
+            // 모달 크기: 태블릿이면 뷰포트에 맞춰 축소
+            size(w, h) {
+                // 태블릿이 아니어도 뷰포트를 넘으면 줄인다.
+                // 발주입고(1300px)는 1138 폭 PC 판정에서도 잘렸다.
+                const ratio = this.isTablet() ? 0.96 : 0.98;
+                return {
+                    width: Math.min(w, Math.floor(window.innerWidth * ratio)),
+                    height: Math.min(h, Math.floor(window.innerHeight * (this.isTablet() ? 0.92 : 0.95)))
+                };
+            },
+
+            applyBodyClass() {
+                document.body.classList.toggle('tablet-mode', this.isTablet());
+            },
+
+            // 더블클릭 → 태블릿에서는 더블탭으로도 동작
+            bindDoubleTap(el, handler) {
+                let lastT = 0, lastX = 0, lastY = 0;
+                el.addEventListener('touchend', function (e) {
+                    const t = Date.now();
+                    const tc = e.changedTouches[0];
+                    if (t - lastT < 350 &&
+                        Math.abs(tc.clientX - lastX) < 30 &&
+                        Math.abs(tc.clientY - lastY) < 30) {
+                        e.preventDefault();
+                        handler(tc);   // clientX/Y 가진 객체를 넘김
+                        lastT = 0;
+                    } else {
+                        lastT = t;
+                        lastX = tc.clientX;
+                        lastY = tc.clientY;
+                    }
+                }, {passive: false});
+            }
+        };
+
+        window.addEventListener('resize', () => TabletUtil.applyBodyClass());
+
         class materialStorehouse {
             constructor() {
                 this.url = '/api/inventory/material_inout';
@@ -1291,6 +1460,14 @@
                     }
                 });
 
+                // 태블릿: 더블탭으로도 상세 열기
+                TabletUtil.bindDoubleTap(this.grid.hostElement, function (pt) {
+                    let ht = _this.grid.hitTest(pt.clientX, pt.clientY);
+                    if (ht.cellType === wijmo.grid.CellType.Cell) {
+                        let item = _this.grid.rows[ht.row].dataItem;
+                        if (item) _this.modify([item]);
+                    }
+                });
 
                 // 로트입고 버튼 클릭
                 document.getElementById('btnLotInput').addEventListener('click', () => {
@@ -1358,14 +1535,14 @@
                 let form = $content.find('#materialInoutForm');
 
                 let modalContainer = null;
-                if(!data){
+                if (!data) {
                     modalContainer = new PopupDraggable('미발주 입고');
-                } else{
+                } else {
                     modalContainer = new PopupDraggable('수정');
                 }
 
 
-                modalContainer.open({width: 1000, height: 440, $content});
+                modalContainer.open(Object.assign(TabletUtil.size(1000, 440), {$content}));
                 popup = new materialInoutPopup();
                 //AjaxUtil.fillSelectOptions($content.find('#StoreHouse_id'), 'store_house', 'choose', 3);    // 3:자재창고
                 AjaxUtil.fillSelectOptions($content.find('#StoreHouse_id'), 'store_house', 'choose', '');    // 3:자재창고
@@ -1591,8 +1768,7 @@
                 });
 
 
-
-                modalContainer.open({width: 1100, height: 570, $content});
+                modalContainer.open(Object.assign(TabletUtil.size(1100, 570), {$content}));
                 popup = new materialInoutPopup();
                 //AjaxUtil.fillSelectOptions($content.find('#StoreHouse_id'), 'store_house', 'choose', 3);    // 3:자재창고
                 AjaxUtil.fillSelectOptions($content.find('#StoreHouse_id'), 'store_house', 'choose', '');    // 3:자재창고
@@ -1772,16 +1948,30 @@
                     },
                     columns: [
                         {binding: 'CompanyName', header: '구매처', width: 100, align: 'left', isReadOnly: true},
-                        {binding: 'Company_id', visible:false},
+                        {binding: 'Company_id', visible: false},
                         {binding: 'JumunDate', header: '발주일', width: 110, align: 'center', isReadOnly: true},
                         {binding: 'JumunNumber', header: '발주번호', width: 130, align: 'center', isReadOnly: true},
                         {binding: 'product_code', header: '제품코드', width: 90, align: 'left', isReadOnly: true},
                         {binding: 'product_name', header: '제품명', width: 150, align: 'left', isReadOnly: true},
                         {binding: 'unit', header: '단위', width: 80, align: 'center', isReadOnly: true},
-                        {binding: 'SujuQty', header: '발주 수량', width: 80, align: 'right', format: 'n0', isReadOnly: true},
+                        {
+                            binding: 'SujuQty',
+                            header: '발주 수량',
+                            width: 80,
+                            align: 'right',
+                            format: 'n0',
+                            isReadOnly: true
+                        },
                         {binding: 'SujuQty2', header: '입고 수량', width: 90, align: 'right', isReadOnly: true},
                         {binding: 'ReturnQty', header: '반품된 수량', width: 90, align: 'right', isReadOnly: true},
-                        {binding: 'StoreHouse_id', header: '반품 창고', width: 90, align: 'center',dataMap: storeHouseMap, isReadOnly: false},
+                        {
+                            binding: 'StoreHouse_id',
+                            header: '반품 창고',
+                            width: 90,
+                            align: 'center',
+                            dataMap: storeHouseMap,
+                            isReadOnly: false
+                        },
                         {
                             binding: 'returnQty',
                             header: '반품 수량',
@@ -1960,7 +2150,7 @@
                 let content = tmpl('addBaljuInputPopup', {});
                 let $content = $(content);
                 let modalContainer = new PopupDraggable('발주 입고');
-                modalContainer.open({width: 1300, height: 580, $content});
+                modalContainer.open(Object.assign(TabletUtil.size(1300, 580), {$content}));
 
                 this.storeHouseOptions = AjaxUtil.getSelectDataWithNull('store_house', 'choose');
 
@@ -1992,18 +2182,33 @@
                     },
                     columns: [
                         {binding: 'CompanyName', header: '구매처', width: 100, align: 'left', isReadOnly: true},
-                        {binding: 'Company_id', visible:false, isReadOnly: true},
+                        {binding: 'Company_id', visible: false, isReadOnly: true},
                         {binding: 'JumunDate', header: '발주일', width: 110, align: 'center', isReadOnly: true},
                         {binding: 'JumunNumber', header: '발주번호', width: 140, align: 'center', isReadOnly: true},
                         {binding: 'product_code', header: '제품코드', width: 80, align: 'left', isReadOnly: true},
                         {binding: 'product_name', header: '제품명', width: 150, align: 'left', isReadOnly: true},
                         {binding: 'unit', header: '단위', width: 70, align: 'center', isReadOnly: true},
                         {binding: 'standard', header: '규격', width: 90, align: 'center', isReadOnly: true},
-                        {binding: 'SujuQty', header: '발주 수량', width: 80, align: 'right', format: 'n0', isReadOnly: true},
+                        {
+                            binding: 'SujuQty',
+                            header: '발주 수량',
+                            width: 80,
+                            align: 'right',
+                            format: 'n0',
+                            isReadOnly: true
+                        },
                         {binding: 'SujuQty2', header: '기입고 수량', width: 90, align: 'right', isReadOnly: true},
                         {binding: 'DueDate', header: '납기예정일', width: 100, align: 'center', isReadOnly: true},
-                        {binding: 'StoreHouse_id', header: '납품 창고', width: 110, align: 'center',dataMap: storeHouseMap, isReadOnly: false},
-                        {binding: 'inputQty', header: '입고 수량', width: 100, align: 'right', isReadOnly: false,
+                        {
+                            binding: 'StoreHouse_id',
+                            header: '납품 창고',
+                            width: 110,
+                            align: 'center',
+                            dataMap: storeHouseMap,
+                            isReadOnly: false
+                        },
+                        {
+                            binding: 'inputQty', header: '입고 수량', width: 100, align: 'right', isReadOnly: false,
                             editor: new wijmo.input.InputNumber(document.createElement('div'), {
                                 format: 'n0', // 정수 형식
                                 min: 0,       // 최소값 설정
@@ -2174,7 +2379,7 @@
                         }
                     };
 
-                    AjaxUtil.postJsonData(url, { baljuPkList }, fnSuccess);
+                    AjaxUtil.postJsonData(url, {baljuPkList}, fnSuccess);
                 });
 
             }
@@ -2186,7 +2391,7 @@
                 //let form = $('#mat_multi_input_form');
                 modalContainer = new PopupDraggable('품목 다중입고 등록');
 
-                modalContainer.open({width: 490, height: 620, $content});
+                modalContainer.open(Object.assign(TabletUtil.size(490, 620), {$content}));
                 popup = new matMultiInPopup($content);
             }
 
@@ -2213,7 +2418,7 @@
                 let content = tmpl('lotInputPopup', {});
                 let $content = $(content);
                 let modalContainer = new PopupDraggable('로트입고등록');
-                modalContainer.open({width: 1000, height: 600, $content});
+                modalContainer.open(Object.assign(TabletUtil.size(1000, 600), {$content}));
 
                 this.matLotGrid = new wijmo.grid.FlexGrid('#mat-lot-grid', {
                     autoGenerateColumns: false,
@@ -2272,8 +2477,11 @@
                 $InputQty.val(item.InputQty);
                 $ValidDays.val(item.ValidDays);
                 if (item.ValidDays) {
-                    let valDate = CommonUtil.getYYYYMMDD(item.ValidDays);
-                    $EffectiveDate.val(valDate);
+                    // 품목에 기본유효일(일수)이 있으면 오늘 + ValidDays
+                    $EffectiveDate.val(CommonUtil.getYYYYMMDD(item.ValidDays));
+                } else {
+                    // 없으면 오늘 날짜
+                    $EffectiveDate.val(CommonUtil.getYYYYMMDD());
                 }
 
                 let fnLoadLotList = function (mio_pk) {
@@ -2416,7 +2624,7 @@
             showInputTestPopup() {
                 let _this = this;
                 let items = _this.grid.selectedItems;
-                console.log('items',items);
+                console.log('items', items);
                 if (items.length === 0) {
                     Alert.alert('입고검사', '선택된 입고 데이터가 없습니다. ', function () {
                     });
@@ -2430,7 +2638,7 @@
                 let content = tmpl('inputTestPopup', {});
                 let $content = $(content);
                 let modalContainer = new PopupDraggable('입고검사');
-                modalContainer.open({width: 1000, height: 670, $content});
+                modalContainer.open(Object.assign(TabletUtil.size(1000, 670), {$content}));
 
                 this.matTestGrid = new wijmo.grid.FlexGrid('#mat-input-test-grid', {
                     autoGenerateColumns: false,
@@ -2581,7 +2789,7 @@
                         return;
                     }
 
-                    if(!$judgGroup.val()){
+                    if (!$judgGroup.val()) {
                         Alert.alert('검사저장', '종합 판정을 선택하세요.', function () {
                         });
                         return;
@@ -2619,7 +2827,7 @@
                 let content = tmpl('barcode_tmpl', {});
                 let $content = $(content);
                 let modalContainer = new PopupDraggable('바코드 출력');
-                modalContainer.open({width: 470, height: 700, $content});
+                modalContainer.open(Object.assign(TabletUtil.size(470, 700), {$content}));
                 let $barcodeDiv = $content.find('#barcodeDiv');
 
                 $.each(barcodeItems, function (idx, item) {
@@ -2675,7 +2883,7 @@
                 let content = tmpl('scan_input_tmpl', {});
                 let $content = $(content);
                 let modalContainer = new PopupDraggable('스캐너 입고');
-                modalContainer.open({width: 1100, height: 640, $content});
+                modalContainer.open(Object.assign(TabletUtil.size(1100, 640), {$content}));
 
                 // 입고창고 옵션 채우기
                 AjaxUtil.fillSelectOptions($content.find('#scanStoreHouse'), 'store_house', 'choose', '3'); //자재 창고가 기본
@@ -2699,21 +2907,49 @@
                         }
                     },
                     columns: [
-                        {binding: 'JumunNumber',  header: '발주번호', width: 130, align: 'center', isReadOnly: true},
-                        {binding: 'materialCode', header: '품목코드', width: 90,  align: 'center', isReadOnly: true},
-                        {binding: 'materialName', header: '품목명',   width: 180, align: 'left',   isReadOnly: true},
-                        {binding: 'unit',         header: '단위',     width: 55,  align: 'center', isReadOnly: true},
-                        {binding: 'baljuQty',     header: '발주수량', width: 80,  align: 'right', format: 'n0', isReadOnly: true},
-                        {binding: 'receivedQty',  header: '기입고',   width: 75,  align: 'right', format: 'n0', isReadOnly: true},
-                        {binding: 'remainQty',    header: '미입고',   width: 75,  align: 'right', format: 'n0', isReadOnly: true},
-                        {binding: 'lotNumber',    header: '로트번호(빈칸=자동)', width: 150, align: 'center', isReadOnly: false},
-                        {binding: 'effectiveDate',header: '유효기간(YYYY-MM-DD)', width: 140, align: 'center', isReadOnly: false},
-                        {binding: 'inputQty',     header: '입고수량', width: 90,  align: 'right', isReadOnly: false,
+                        {binding: 'JumunNumber', header: '발주번호', width: 130, align: 'center', isReadOnly: true},
+                        {binding: 'materialCode', header: '품목코드', width: 90, align: 'center', isReadOnly: true},
+                        {binding: 'materialName', header: '품목명', width: 180, align: 'left', isReadOnly: true},
+                        {binding: 'unit', header: '단위', width: 55, align: 'center', isReadOnly: true},
+                        {
+                            binding: 'baljuQty',
+                            header: '발주수량',
+                            width: 80,
+                            align: 'right',
+                            format: 'n0',
+                            isReadOnly: true
+                        },
+                        {
+                            binding: 'receivedQty',
+                            header: '기입고',
+                            width: 75,
+                            align: 'right',
+                            format: 'n0',
+                            isReadOnly: true
+                        },
+                        {
+                            binding: 'remainQty',
+                            header: '미입고',
+                            width: 75,
+                            align: 'right',
+                            format: 'n0',
+                            isReadOnly: true
+                        },
+                        {binding: 'lotNumber', header: '로트번호(빈칸=자동)', width: 150, align: 'center', isReadOnly: false},
+                        {
+                            binding: 'effectiveDate',
+                            header: '유효기간(YYYY-MM-DD)',
+                            width: 140,
+                            align: 'center',
+                            isReadOnly: false
+                        },
+                        {
+                            binding: 'inputQty', header: '입고수량', width: 90, align: 'right', isReadOnly: false,
                             editor: new wijmo.input.InputNumber(document.createElement('div'), {
                                 format: 'n0', min: 0, step: 1
                             })
                         },
-                        {binding: 'statusText',   header: '상태', width: 90, align: 'center', isReadOnly: true}
+                        {binding: 'statusText', header: '상태', width: 90, align: 'center', isReadOnly: true}
                     ],
                     itemsSource: new wijmo.collections.CollectionView([]),
                     itemFormatter: (panel, row, col, cell) => {
@@ -2732,6 +2968,18 @@
                 });
                 new FlexGridContextMenu(this.scanResultGrid);
                 this.scanResultGrid.downloadFileName = '스캐너 입고 내역';
+
+                // 그리드 높이 360px 고정이면 태블릿에서 콘텐츠가 뷰포트를 넘겨
+                // 스크롤이 생기고 최상단 구매처 행이 잘린다. 남는 높이에 맞춘다.
+                const fitScanGrid = function () {
+                    if (!TabletUtil.isTablet()) return;
+                    // 타이틀바 + 상단 폼 + 스캔줄 + 푸터 = 약 360px
+                    const h = Math.max(180, Math.floor(window.innerHeight * 0.92) - 360);
+                    $content.find('#scan-result-grid').css('height', h + 'px');
+                    if (_this.scanResultGrid) _this.scanResultGrid.invalidate(true);
+                };
+                fitScanGrid();
+                $(window).on('resize.scanpop orientationchange.scanpop', fitScanGrid);
 
                 // 구매처 검색
                 $content.find('#btnScanCompanySearch').click(function () {
@@ -2754,9 +3002,14 @@
                 // 헤더 유효기간 → 값이 비어있는 행에만 일괄 적용 (바코드값 채워진 행은 보존)
                 $content.find('#btnApplyExp').on('click', function () {
                     const v = $content.find('#scanHeaderExp').val();
-                    if (!v) { Alert.alert('', '기본 유효기간을 먼저 입력하세요.'); return; }
+                    if (!v) {
+                        Alert.alert('', '기본 유효기간을 먼저 입력하세요.');
+                        return;
+                    }
                     const cv = _this.scanResultGrid.itemsSource;
-                    cv.items.forEach(it => { if (!it.effectiveDate) it.effectiveDate = v; });
+                    cv.items.forEach(it => {
+                        if (!it.effectiveDate) it.effectiveDate = v;
+                    });
                     cv.refresh();
                     $content.find('#scanBarcode').focus();
                 });
@@ -2766,10 +3019,41 @@
                     _this.updateScanSummary($content);
                 });
 
-                $content.find('#scanBarcode')
-                .attr('lang', 'en')
+                const $scan = $content.find('#scanBarcode');
+
+                $scan.attr('lang', 'en')
+                .attr('autocapitalize', 'off')
+                .attr('autocorrect', 'off')
+                .attr('spellcheck', 'false')
                 .css('ime-mode', 'disabled')
-                .on('compositionstart', function (e) { e.preventDefault(); });
+                .on('compositionstart', function (e) {
+                    e.preventDefault();
+                });
+
+                // ── 태블릿 전용 : DS2278(HID 키보드) 입력은 받되 소프트 키보드는 숨긴다 ──
+                if (TabletUtil.isTablet()) {
+                    // readonly 는 스캐너 입력까지 막히므로 쓰지 않는다.
+                    // inputmode=none → 화면 키보드만 숨김, 물리 키 입력은 정상 수신
+                    $scan.attr('inputmode', 'none');
+
+                    // 수동 입력이 필요할 때를 위한 토글 버튼
+                    $content.find('#btnScanClear').before(
+                        '<button type="button" class="btn" id="btnToggleKeypad">키패드</button>'
+                    );
+                    $content.on('click', '#btnToggleKeypad', function () {
+                        const on = $scan.attr('inputmode') === 'none';
+                        $scan.attr('inputmode', on ? 'text' : 'none').blur().focus();
+                        $(this).text(on ? '키패드 끄기' : '키패드');
+                    });
+
+                    // 빈 곳 터치로 포커스가 풀려 스캔이 유실되는 것 방지
+                    $content.on('touchend', function (e) {
+                        if ($(e.target).closest('input, select, textarea, button, a, .wj-cell').length) return;
+                        setTimeout(function () {
+                            $scan.focus();
+                        }, 0);
+                    });
+                }
 
                 $content.find('#scanBarcode').on('keydown', function (e) {
                     if (e.key !== 'Enter' && e.keyCode !== 13) return;
@@ -2784,18 +3068,27 @@
                     const items = _this.scanResultGrid.itemsSource.items;
                     const storeHouseId = $content.find('#scanStoreHouse').val();
 
-                    if (!items || items.length === 0) { Alert.alert('', '스캔된 발주 품목이 없습니다.'); return; }
-                    if (!storeHouseId)                { Alert.alert('', '입고창고를 선택하세요.'); return; }
+                    if (!items || items.length === 0) {
+                        Alert.alert('', '스캔된 발주 품목이 없습니다.');
+                        return;
+                    }
+                    if (!storeHouseId) {
+                        Alert.alert('', '입고창고를 선택하세요.');
+                        return;
+                    }
 
                     for (const it of items) {
                         if (!(Number(it.inputQty) > 0)) {
-                            Alert.alert('', `입고수량이 0 이하인 항목이 있습니다. (${it.materialName})`); return;
+                            Alert.alert('', `입고수량이 0 이하인 항목이 있습니다. (${it.materialName})`);
+                            return;
                         }
                         if (Number(it.inputQty) > Number(it.remainQty)) {
-                            Alert.alert('', `미입고수량(${it.remainQty})을 초과했습니다. (${it.materialName})`); return;
+                            Alert.alert('', `미입고수량(${it.remainQty})을 초과했습니다. (${it.materialName})`);
+                            return;
                         }
                         if (!it.effectiveDate || !/^\d{4}-\d{2}-\d{2}$/.test(it.effectiveDate)) {
-                            Alert.alert('', `유효기간을 YYYY-MM-DD로 입력하세요. (${it.materialName})`); return;
+                            Alert.alert('', `유효기간을 YYYY-MM-DD로 입력하세요. (${it.materialName})`);
+                            return;
                         }
                     }
 
@@ -2803,14 +3096,14 @@
                         store_house_id: storeHouseId,                      // 라인에 창고 없을 때 fallback
                         spjangcd: sessionStorage.getItem('spjangcd') || '',
                         lines: items.map(it => ({
-                            bh_id:         it.bh_id,
-                            balju_id:      it.balju_id,                     // 발주 라인 PK (입고수량 누적용)
-                            Material_id:   it.Material_id,
+                            bh_id: it.bh_id,
+                            balju_id: it.balju_id,                     // 발주 라인 PK (입고수량 누적용)
+                            Material_id: it.Material_id,
                             StoreHouse_id: it.StoreHouse_id || storeHouseId,
-                            InputQty:      Number(it.inputQty),
-                            LotNumber:     it.lotNumber || '',             // 빈칸이면 서버 자동채번
+                            InputQty: Number(it.inputQty),
+                            LotNumber: it.lotNumber || '',             // 빈칸이면 서버 자동채번
                             EffectiveDate: it.effectiveDate,
-                            Description:   ''
+                            Description: ''
                         }))
                     };
 
@@ -2844,8 +3137,9 @@
                     $content.find('#scanBarcode').focus();
                 });
 
-                // 닫기 시 그리드 참조 정리
+                // 닫기 시 그리드 참조 · 리사이즈 핸들러 정리
                 $content.find('#modal-close-button').on('click', function () {
+                    $(window).off('resize.scanpop orientationchange.scanpop');
                     _this.scanResultGrid = null;
                 });
 
@@ -2897,7 +3191,10 @@
                     barcode: raw,
                     spjangcd: sessionStorage.getItem('spjangcd') || ''
                 }, function (res) {
-                    if (!res.success) { Alert.alert('', res.message || '발주를 찾을 수 없습니다.'); return; }
+                    if (!res.success) {
+                        Alert.alert('', res.message || '발주를 찾을 수 없습니다.');
+                        return;
+                    }
                     const d = res.data;
 
                     if (!d.lines || d.lines.length === 0) {
@@ -2922,21 +3219,21 @@
                     const remain = Number(line.remainQty) || 0;
                     if (remain <= 0) return;
                     cv.sourceCollection.push({
-                        bh_id:         d.bh_id,
-                        JumunNumber:   d.baljuNo || d.JumunNumber,
-                        balju_id:      line.balju_id,
-                        Material_id:   line.Material_id,
-                        materialCode:  line.product_code,
-                        materialName:  line.product_name,
-                        unit:          line.unit,
+                        bh_id: d.bh_id,
+                        JumunNumber: d.baljuNo || d.JumunNumber,
+                        balju_id: line.balju_id,
+                        Material_id: line.Material_id,
+                        materialCode: line.product_code,
+                        materialName: line.product_name,
+                        unit: line.unit,
                         StoreHouse_id: line.StoreHouse_id,   // 발주 지정 납품창고(없으면 저장 시 헤더 창고)
-                        baljuQty:      line.baljuQty,
-                        receivedQty:   line.receivedQty,
-                        remainQty:     remain,
-                        lotNumber:     '',
+                        baljuQty: line.baljuQty,
+                        receivedQty: line.receivedQty,
+                        remainQty: remain,
+                        lotNumber: '',
                         effectiveDate: headerExp,            // 기본 유효기간 상속
-                        inputQty:      remain,               // ★ 미입고 전량 프리필 → 부분입고 시 수정
-                        statusText:    '대기'
+                        inputQty: remain,               // ★ 미입고 전량 프리필 → 부분입고 시 수정
+                        statusText: '대기'
                     });
                 });
                 cv.refresh();
@@ -2987,15 +3284,18 @@
                 let s = (raw || '').trim();
                 let aimHint = '';
                 const m = s.match(/^\](.[0-9A-Za-z])/);
-                if (m) { aimHint = m[1]; s = s.substring(3); }
+                if (m) {
+                    aimHint = m[1];
+                    s = s.substring(3);
+                }
                 const base = {
                     standard: 'UNKNOWN', di: '', gtin14: '', lot: '', serial: '',
                     mfgDate: '', expDate: '', expConf: 'none', gsMissing: false, raw
                 };
                 const std = this.detectBarcodeStandard(s, aimHint);
-                if (std === 'EAN13')   return Object.assign(base, this.parseEan13(s));
-                if (std === 'GS1')     return Object.assign(base, this.parseGs1(s));
-                if (std === 'HIBC')    return Object.assign(base, this.parseHibc(s));
+                if (std === 'EAN13') return Object.assign(base, this.parseEan13(s));
+                if (std === 'GS1') return Object.assign(base, this.parseGs1(s));
+                if (std === 'HIBC') return Object.assign(base, this.parseHibc(s));
                 if (std === 'ISBT128') return Object.assign(base, this.parseIsbt128(s));
                 return base;
             }
@@ -3003,19 +3303,24 @@
 // ── EAN-13 (GTIN만, 유효기간 없음) ─────────────────────────
             parseEan13(s) {
                 const gtin14 = '0' + s;
-                return { standard: 'EAN13', di: gtin14, gtin14, expConf: 'none' };
+                return {standard: 'EAN13', di: gtin14, gtin14, expConf: 'none'};
             }
 
 // ── GS1-128 / GS1 DataMatrix ───────────────────────────────
             parseGs1(s) {
                 const GS = String.fromCharCode(29);
-                const fixedLen = { '01': 14, '11': 6, '17': 6, '15': 6, '13': 6 };
+                const fixedLen = {'01': 14, '11': 6, '17': 6, '15': 6, '13': 6};
                 const varAi = new Set(['10', '21', '240', '241', '30', '37']);
-                const r = { standard: 'GS1_128', gtin14: '', lot: '', serial: '',
-                    mfgDate: '', expDate: '', expConf: 'none', gsMissing: false };
+                const r = {
+                    standard: 'GS1_128', gtin14: '', lot: '', serial: '',
+                    mfgDate: '', expDate: '', expConf: 'none', gsMissing: false
+                };
                 let i = 0, sawVarWithoutGs = false, rawExp = '';
                 while (i < s.length) {
-                    if (s[i] === GS) { i++; continue; }
+                    if (s[i] === GS) {
+                        i++;
+                        continue;
+                    }
                     const ai = s.substr(i, 2);
                     if (fixedLen[ai] !== undefined) {
                         const len = fixedLen[ai];
@@ -3026,27 +3331,40 @@
                         else if (ai === '17') rawExp = val;
                     } else if (varAi.has(ai)) {
                         let j = s.indexOf(GS, i + 2);
-                        if (j === -1) { j = s.length; sawVarWithoutGs = true; }
+                        if (j === -1) {
+                            j = s.length;
+                            sawVarWithoutGs = true;
+                        }
                         const val = s.substring(i + 2, j);
                         i = j;
                         if (ai === '10') r.lot = val;
                         else if (ai === '21') r.serial = val;
-                    } else { break; }
+                    } else {
+                        break;
+                    }
                 }
                 r.di = r.gtin14;
                 r.gsMissing = sawVarWithoutGs;
-                if (rawExp) { r.expDate = this.gs1Date(rawExp).iso; r.expConf = r.expDate ? 'high' : 'none'; }
+                if (rawExp) {
+                    r.expDate = this.gs1Date(rawExp).iso;
+                    r.expConf = r.expDate ? 'high' : 'none';
+                }
                 return r;
             }
 
 // ── HIBC (HIBCC) ───────────────────────────────────────────
             parseHibc(s) {
-                const r = { standard: 'HIBC', di: '', lot: '', serial: '',
-                    mfgDate: '', expDate: '', expConf: 'none' };
+                const r = {
+                    standard: 'HIBC', di: '', lot: '', serial: '',
+                    mfgDate: '', expDate: '', expConf: 'none'
+                };
                 const slash = s.indexOf('/');
-                let primary   = slash === -1 ? s : s.substring(0, slash);
+                let primary = slash === -1 ? s : s.substring(0, slash);
                 let secondary = slash === -1 ? '' : s.substring(slash + 1);
-                if (primary && /^\+\$/.test(primary) && !secondary) { secondary = primary; primary = ''; }
+                if (primary && /^\+\$/.test(primary) && !secondary) {
+                    secondary = primary;
+                    primary = '';
+                }
                 r.di = primary.replace(/^\+/, '');
                 if (!secondary) return r;
                 let sec = secondary.replace(/^\+/, '');
@@ -3054,10 +3372,16 @@
                 // 데이터식별자형 (14D=사용기한 YYYYMMDD, 16D=제조일, S=일련번호)
                 if (/^(14D|16D|S)/.test(sec)) {
                     sec.split('/').forEach(seg => {
-                        if (seg.startsWith('14D'))      { r.expDate = this.ymd8(seg.substr(3, 8)); r.expConf = r.expDate ? 'high' : 'none'; }
-                        else if (seg.startsWith('16D')) { r.mfgDate = this.ymd8(seg.substr(3, 8)); }
-                        else if (seg.startsWith('S'))   { r.serial = seg.substr(1); }
-                        else if (seg && !r.lot)         { r.lot = seg; }
+                        if (seg.startsWith('14D')) {
+                            r.expDate = this.ymd8(seg.substr(3, 8));
+                            r.expConf = r.expDate ? 'high' : 'none';
+                        } else if (seg.startsWith('16D')) {
+                            r.mfgDate = this.ymd8(seg.substr(3, 8));
+                        } else if (seg.startsWith('S')) {
+                            r.serial = seg.substr(1);
+                        } else if (seg && !r.lot) {
+                            r.lot = seg;
+                        }
                     });
                     return r;
                 }
@@ -3065,7 +3389,8 @@
                 // 표준 $ 문법
                 let hasSerial = false, body = '';
                 if (sec.startsWith('$$+')) {
-                    hasSerial = true; const n = sec[3];
+                    hasSerial = true;
+                    const n = sec[3];
                     const skip = /\d/.test(n) ? 4 : 3;
                     body = this._hibcConsumeExp(sec.substring(skip), this._hibcExpFmt(n), r);
                 } else if (sec.startsWith('$$')) {
@@ -3073,50 +3398,71 @@
                     const skip = /\d/.test(n) ? 3 : 2;
                     body = this._hibcConsumeExp(sec.substring(skip), this._hibcExpFmt(n), r);
                 } else if (sec.startsWith('$+')) {
-                    hasSerial = true; body = sec.substring(2);
+                    hasSerial = true;
+                    body = sec.substring(2);
                 } else if (sec.startsWith('$')) {
                     body = sec.substring(1);
                 } else if (/^\d/.test(sec)) {
                     const iso = this.julian('20' + sec.substr(0, 2), sec.substr(2, 3));
-                    if (iso) { r.expDate = iso; r.expConf = 'high'; }
+                    if (iso) {
+                        r.expDate = iso;
+                        r.expConf = 'high';
+                    }
                     return r;
-                } else { r.lot = sec; return r; }
+                } else {
+                    r.lot = sec;
+                    return r;
+                }
 
                 const data = body.length >= 2 ? body.slice(0, -2) : body; // 링크+검증문자 2자리 제거
                 if (hasSerial) r.serial = data; else if (data) r.lot = data;
                 return r;
             }
+
             _hibcExpFmt(n) {
                 switch (n) {
-                    case '2': return 'MMDDYY';
-                    case '3': return 'YYMMDD';
-                    case '4': return 'YYMMDDHH';
-                    case '5': return 'YYJJJ';
-                    case '6': return 'YYJJJHH';
-                    case '7': return null;      // 사용기한 없음
-                    default:  return 'MMYY';    // 숫자 아님 → 기본
+                    case '2':
+                        return 'MMDDYY';
+                    case '3':
+                        return 'YYMMDD';
+                    case '4':
+                        return 'YYMMDDHH';
+                    case '5':
+                        return 'YYJJJ';
+                    case '6':
+                        return 'YYJJJHH';
+                    case '7':
+                        return null;      // 사용기한 없음
+                    default:
+                        return 'MMYY';    // 숫자 아님 → 기본
                 }
             }
+
             _hibcConsumeExp(str, fmt, r) {
                 if (fmt === null) return str;
-                const lenMap = { MMYY: 4, MMDDYY: 6, YYMMDD: 6, YYMMDDHH: 8, YYJJJ: 5, YYJJJHH: 7 };
+                const lenMap = {MMYY: 4, MMDDYY: 6, YYMMDD: 6, YYMMDDHH: 8, YYJJJ: 5, YYJJJHH: 7};
                 const len = lenMap[fmt];
                 const v = str.substr(0, len);
                 let iso = '';
-                if (fmt === 'MMYY')          iso = this.lastDay('20' + v.substr(2, 2), v.substr(0, 2));
-                else if (fmt === 'MMDDYY')   iso = this.ymd('20' + v.substr(4, 2), v.substr(0, 2), v.substr(2, 2));
-                else if (fmt === 'YYMMDD')   iso = this.ymd('20' + v.substr(0, 2), v.substr(2, 2), v.substr(4, 2));
+                if (fmt === 'MMYY') iso = this.lastDay('20' + v.substr(2, 2), v.substr(0, 2));
+                else if (fmt === 'MMDDYY') iso = this.ymd('20' + v.substr(4, 2), v.substr(0, 2), v.substr(2, 2));
+                else if (fmt === 'YYMMDD') iso = this.ymd('20' + v.substr(0, 2), v.substr(2, 2), v.substr(4, 2));
                 else if (fmt === 'YYMMDDHH') iso = this.ymd('20' + v.substr(0, 2), v.substr(2, 2), v.substr(4, 2));
-                else if (fmt === 'YYJJJ')    iso = this.julian('20' + v.substr(0, 2), v.substr(2, 3));
-                else if (fmt === 'YYJJJHH')  iso = this.julian('20' + v.substr(0, 2), v.substr(2, 3));
-                if (iso) { r.expDate = iso; r.expConf = 'high'; }
+                else if (fmt === 'YYJJJ') iso = this.julian('20' + v.substr(0, 2), v.substr(2, 3));
+                else if (fmt === 'YYJJJHH') iso = this.julian('20' + v.substr(0, 2), v.substr(2, 3));
+                if (iso) {
+                    r.expDate = iso;
+                    r.expConf = 'high';
+                }
                 return str.substring(len);
             }
 
 // ── ISBT 128 (ICCBBA) ──────────────────────────────────────
             parseIsbt128(s) {
-                const r = { standard: 'ISBT128', di: '', lot: '', serial: '',
-                    mfgDate: '', expDate: '', expConf: 'none' };
+                const r = {
+                    standard: 'ISBT128', di: '', lot: '', serial: '',
+                    mfgDate: '', expDate: '', expConf: 'none'
+                };
                 const DI = [
                     ['=/', 16, 'di'], ['=,', 6, 'serial'], ['=>', 6, 'exp'],
                     ['=}', 6, 'mfg'], ['&,1', 18, 'lot'],
@@ -3125,7 +3471,10 @@
                 let i = 0;
                 while (i < s.length) {
                     const seg = DI.find(d => s.startsWith(d[0], i));
-                    if (!seg) { i++; continue; }
+                    if (!seg) {
+                        i++;
+                        continue;
+                    }
                     const [tag, size, field] = seg;
                     const val = s.substr(i + tag.length, size);
                     i += tag.length + size;
@@ -3140,6 +3489,7 @@
                 }
                 return r;
             }
+
             _isbtDate(v) { // 가이드라인 [YYYJJJ] 6자리(율리우스) — 실물 라벨로 검증 전 best-effort
                 if (!/^\d{6}$/.test(v)) return '';
                 return this.julian('2' + v.substr(0, 3), v.substr(3, 3));
@@ -3147,22 +3497,26 @@
 
 // ── 날짜 유틸 ──────────────────────────────────────────────
             gs1Date(yymmdd) { // AI(17)/(11) YYMMDD, DD='00' → 말일
-                if (!/^\d{6}$/.test(yymmdd)) return { iso: '' };
+                if (!/^\d{6}$/.test(yymmdd)) return {iso: ''};
                 const y = '20' + yymmdd.substr(0, 2), mm = yymmdd.substr(2, 2), dd = yymmdd.substr(4, 2);
-                return { iso: dd === '00' ? this.lastDay(y, mm) : this.ymd(y, mm, dd) };
+                return {iso: dd === '00' ? this.lastDay(y, mm) : this.ymd(y, mm, dd)};
             }
+
             ymd8(v) {
                 if (!/^\d{8}$/.test(v)) return '';
                 return this.ymd(v.substr(0, 4), v.substr(4, 2), v.substr(6, 2));
             }
+
             ymd(y, m, d) {
                 const dt = new Date(Date.UTC(+y, +m - 1, +d));
                 return isNaN(dt.getTime()) ? '' : dt.toISOString().slice(0, 10);
             }
+
             lastDay(y, m) {
                 const dt = new Date(Date.UTC(+y, +m, 0));
                 return isNaN(dt.getTime()) ? '' : dt.toISOString().slice(0, 10);
             }
+
             julian(year, jjj) {
                 const d = parseInt(jjj, 10);
                 if (!(d >= 1 && d <= 366)) return '';
@@ -3525,7 +3879,7 @@
                 let content = tmpl('matMovePopup', defaultData);
                 let $content = $(content);
                 this.modalContainer = new PopupDraggable('품목 창고이동');
-                this.modalContainer.open({width: 1000, height: 580, $content});
+                this.modalContainer.open(Object.assign(TabletUtil.size(1000, 580), {$content}));
 
                 this.$cboFrom = $content.find('#cboFrom');
                 this.$cboTo = $content.find('#cboTo');
@@ -3586,9 +3940,11 @@
         let modalContainer = null;
 
         $(document).ready(function (e) {
+            TabletUtil.applyBodyClass();   // 태블릿 여부에 따라 body 클래스 부여
+
             page = new materialStorehouse();
 
-            const now  = new Date();
+            const now = new Date();
             const jan1 = new Date(now.getFullYear(), 0, 1);           // 올해 1월 1일
             const nextMonthLast = new Date(now.getFullYear(), now.getMonth() + 2, 0); // 다음달 마지막날
 

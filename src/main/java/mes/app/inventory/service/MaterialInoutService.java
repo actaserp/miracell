@@ -744,4 +744,85 @@ public class MaterialInoutService {
 
 		return this.sqlRunner.getRows(sql, dicParam);
 	}
+
+	/**
+	 * GS1 / EAN — GTIN-14 로 품목 역조회.
+	 *
+	 * EAN-13 은 프론트(parseEan13)에서 앞에 '0' 을 붙여 GTIN-14 로 정규화해 넘어온다.
+	 * 그래도 마스터에 13자리로 등록돼 있을 수 있어 양쪽을 다 본다.
+	 */
+	public Map<String, Object> findMaterialByGtin(String gtin14, String spjangcd) {
+		MapSqlParameterSource p = new MapSqlParameterSource();
+		p.addValue("gtin14", gtin14);
+		p.addValue("gtin13", (gtin14 != null && gtin14.length() == 14 && gtin14.startsWith("0"))
+													 ? gtin14.substring(1) : gtin14);
+		p.addValue("spjangcd", (spjangcd == null || spjangcd.isBlank()) ? null : spjangcd);
+
+		return this.sqlRunner.getRow("""
+            SELECT m.id                 AS material_id
+                 , m."Code"             AS material_code
+                 , m."Name"             AS material_name
+                 , m."ValidDays"        AS valid_days
+                 , COALESCE(m."LotUseYN",'N') AS lot_use_yn
+                 , mb."GTIN"            AS gtin
+                 , mb."PackLevel"       AS pack_level
+                 , mb."PackQty"         AS pack_qty
+                 , mb."Company_id"      AS company_id
+              FROM material_barcode mb
+              JOIN material m ON m.id = mb."Material_id"
+             WHERE mb."GTIN" IN (CAST(:gtin14 AS varchar), CAST(:gtin13 AS varchar))
+               AND COALESCE(mb._status,'a') = 'a'
+               AND (CAST(:spjangcd AS varchar) IS NULL OR mb.spjangcd = CAST(:spjangcd AS varchar))
+             LIMIT 1
+            """, p);
+	}
+
+	/** HIBC / ISBT — UDI-DI 문자열로 품목 역조회 */
+	public Map<String, Object> findMaterialByUdiDi(String udiDi, String spjangcd) {
+		MapSqlParameterSource p = new MapSqlParameterSource();
+		p.addValue("udiDi", udiDi);
+		p.addValue("spjangcd", (spjangcd == null || spjangcd.isBlank()) ? null : spjangcd);
+
+		return this.sqlRunner.getRow("""
+            SELECT m.id                 AS material_id
+                 , m."Code"             AS material_code
+                 , m."Name"             AS material_name
+                 , m."ValidDays"        AS valid_days
+                 , COALESCE(m."LotUseYN",'N') AS lot_use_yn
+                 , mb."UdiDi"           AS udi_di
+                 , mb."BarcodeType"     AS barcode_type
+                 , mb."PackLevel"       AS pack_level
+                 , mb."PackQty"         AS pack_qty
+                 , mb."Company_id"      AS company_id
+              FROM material_barcode mb
+              JOIN material m ON m.id = mb."Material_id"
+             WHERE mb."UdiDi" = :udiDi
+               AND COALESCE(mb._status,'a') = 'a'
+               AND (CAST(:spjangcd AS varchar) IS NULL OR mb.spjangcd = CAST(:spjangcd AS varchar))
+             LIMIT 1
+            """, p);
+	}
+
+	/** 미등록 바코드 자동 학습용 — 스캔한 GTIN 을 품목에 매핑 등록 */
+	public int registerBarcode(Integer materialId, String barcodeType, String gtin, String udiDi,
+														 Integer companyId, String spjangcd, Integer userId) {
+		MapSqlParameterSource p = new MapSqlParameterSource();
+		p.addValue("materialId", materialId);
+		p.addValue("type", (barcodeType == null || barcodeType.isBlank()) ? "GS1" : barcodeType);
+		p.addValue("gtin", (gtin == null || gtin.isBlank()) ? null : gtin);
+		p.addValue("udiDi", (udiDi == null || udiDi.isBlank()) ? null : udiDi);
+		p.addValue("companyId", companyId);
+		p.addValue("spjangcd", (spjangcd == null || spjangcd.isBlank()) ? "ZZ" : spjangcd);
+		p.addValue("userId", userId);
+
+		return this.sqlRunner.execute("""
+            INSERT INTO material_barcode
+                   ("Material_id","BarcodeType","GTIN","UdiDi","PackLevel","PackQty",
+                    "Company_id","PrimaryYN",_status,_created,_creater_id,spjangcd)
+            VALUES (:materialId, :type, CAST(:gtin AS varchar), CAST(:udiDi AS varchar),
+                    'each', 1, CAST(:companyId AS integer), 'N',
+                    'a', now(), CAST(:userId AS integer), CAST(:spjangcd AS varchar))
+            """, p);
+	}
+
 }

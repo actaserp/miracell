@@ -1207,6 +1207,19 @@ public class MaterialInoutController {
 		return result;
 	}
 
+	/**
+	 * 스캔 바코드 → 품목 역조회.
+	 *
+	 * 우선순위
+	 *   1) GS1 / EAN   — GTIN-14 (material_barcode."GTIN")
+	 *   2) HIBC / ISBT — UDI-DI  (material_barcode."UdiDi")
+	 *   3) 내부 바코드 — 자사 발행 로트번호 (mat_lot."LotNumber")
+	 *
+	 * 반환 shape 은 세 경로가 동일해야 한다. 화면이 어느 경로로 매칭됐는지 모르고 쓰기 때문.
+	 *   material_id / material_code / material_name / valid_days / pack_qty / effective_date
+	 *
+	 * data == null → 미등록 바코드. 화면에서 빨간색 처리.
+	 */
 	@GetMapping("/scan_lookup")
 	public AjaxResult scanLookup(
 		@RequestParam(value="gtin14", required=false) String gtin14,
@@ -1218,22 +1231,22 @@ public class MaterialInoutController {
 		AjaxResult result = new AjaxResult();
 		Map<String,Object> data = null;
 
-		// 1) GS1/EAN : GTIN-14 로 품목 매칭   ← ★ 스키마 필요 (아래 질문)
-		// if (gtin14 != null && !gtin14.isEmpty())
-		//     data = materialInoutService.findMaterialByGtin(gtin14, spjangcd);
+		// 1) GS1 / EAN — GTIN-14 로 품목 매칭
+		if (gtin14 != null && !gtin14.isEmpty())
+			data = materialInoutService.findMaterialByGtin(gtin14, spjangcd);
 
-		// 2) HIBC/ISBT : UDI-DI 문자열로 품목 매칭  ← ★ 스키마 필요
-		// if (data == null && di != null && !di.isEmpty())
-		//     data = materialInoutService.findMaterialByUdiDi(di, spjangcd);
+		// 2) HIBC / ISBT — UDI-DI 문자열로 품목 매칭
+		if (data == null && di != null && !di.isEmpty())
+			data = materialInoutService.findMaterialByUdiDi(di, spjangcd);
 
-		// 3) 내부 바코드 : 기존 로트번호로 품목/유효기한 역추적 (지금 구현 가능)
+		// 3) 내부 바코드 — 자사가 발행한 로트번호로 역추적
 		if (data == null && lot != null && !lot.isEmpty()) {
 			MaterialLot ml = matLotRepository.getByLotNumber(lot);
 			if (ml != null) {
 				Material m = materialRepository.getMaterialById(ml.getMaterialId());
 				data = new HashMap<>();
 				data.put("material_id",   ml.getMaterialId());
-				data.put("material_code", m.getCode());          // getter 이름 확인
+				data.put("material_code", m.getCode());
 				data.put("material_name", m.getName());
 				data.put("gtin", gtin14 != null ? gtin14 : "");
 				data.put("effective_date",
@@ -1243,7 +1256,14 @@ public class MaterialInoutController {
 			}
 		}
 
-		result.data = data;   // null 이면 프론트에서 '미등록 GTIN'(빨강) 처리
+		// 세 경로의 shape 통일 — 화면이 qty × pack_qty 로 환산한다
+		if (data != null) {
+			data.putIfAbsent("pack_qty", 1);
+			data.putIfAbsent("effective_date", "");
+		}
+
+		result.data = data;
+		result.success = true;   // 조회 자체는 성공. 미등록 여부는 data == null 로 판단
 		return result;
 	}
 
