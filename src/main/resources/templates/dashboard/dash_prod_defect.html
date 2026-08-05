@@ -17,18 +17,31 @@
         .dm-kpi .v { font-size:26px; font-weight:800; margin-top:6px; font-variant-numeric:tabular-nums; }
         .dm-kpi .s { font-size:11.5px; color:#8a94a4; margin-top:3px; }
         .dm-kpi.red .v { color:#d64545; } .dm-kpi.green .v { color:#0f9d58; }
+        .dm-kpi.na .v { color:#c2c9d4; }
         .dm-kpi .v small { font-size:14px; font-weight:800; color:#8a94a4; margin-left:2px; }
 
         .dm-grid { display:grid; grid-template-columns:1.35fr 1fr; gap:12px; margin-bottom:12px; }
-        .dm-card { background:#fff; border:1px solid #e2e6ee; border-radius:12px; overflow:hidden; }
+        /* ★ flex:0 0 auto 가 핵심.
+              상위 레이아웃(.section)이 flex 면 직접 자식 카드가 flex-shrink 로 눌리고,
+              overflow:hidden 이 삐져나온 내용을 잘라내 「카드가 비어 보이는」 증상이 난다.
+              overflow 를 지우는 건 증상만 가린다 — 그건 표 헤더의 둥근 모서리를 위해 필요하다.
+              (인수인계 6-1 의 .ws-panel{flex:1} 과 같은 계열) */
+        .dm-card { background:#fff; border:1px solid #e2e6ee; border-radius:12px; overflow:hidden;
+            flex:0 0 auto; align-self:stretch; }
+        /* 전폭 카드는 그리드 밖에 있어 높이를 잡아줄 부모가 없다. 블록 래퍼로 감싼다 */
+        .dm-row { display:block; margin-bottom:12px; }
         .dm-card-h { padding:11px 16px; background:#f7f9fc; border-bottom:1px solid #eef1f6; font-size:12.5px; font-weight:800; color:#3a4759; display:flex; align-items:center; gap:8px; }
         .dm-card-h .sub { margin-left:auto; font-weight:600; font-size:11px; color:#8a94a4; }
         .dm-card-b { padding:16px 18px; }
 
         /* 일자별 추이 (막대 + 불량률선) */
-        .dm-trend { display:flex; align-items:flex-end; gap:10px; height:170px; }
-        .dm-tcol { flex:1; display:flex; flex-direction:column; align-items:center; gap:5px; height:100%; justify-content:flex-end; cursor:pointer; }
-        .dm-tcol .rate { font-size:10.5px; font-weight:800; color:#d64545; }
+        .dm-trend { display:flex; align-items:flex-end; gap:10px; height:200px; }
+        .dm-tcol { flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; height:100%; justify-content:flex-end; cursor:pointer; }
+        .dm-tcol .cnt { font-size:13px; font-weight:800; color:#d64545; font-variant-numeric:tabular-nums; }
+        .dm-tcol .cnt.zero { color:#d3d8e0; font-size:11px; }
+        .dm-tcol .rate { font-size:10px; font-weight:700; color:#c98b8b; }
+        .dm-tcol .g { font-size:10px; color:#a7b0be; font-weight:700; font-variant-numeric:tabular-nums; }
+        .dm-tcol.empty .dm-bar { opacity:.45; }
         .dm-bar { width:70%; max-width:34px; background:#e7f0ff; border-radius:5px 5px 0 0; position:relative; display:flex; flex-direction:column; justify-content:flex-end; min-height:3px; }
         .dm-bar .def { width:100%; background:#d64545; border-radius:5px 5px 0 0; min-height:2px; }
         .dm-tcol .x { font-size:10.5px; color:#8a94a4; font-weight:700; white-space:nowrap; }
@@ -38,13 +51,28 @@
 
         /* 가로 바(공정별/유형별/작업자별) */
         .dm-hb { display:flex; align-items:center; gap:10px; margin-bottom:9px; font-size:12px; }
-        .dm-hb .nm { flex:0 0 82px; font-weight:700; color:#3a4759; }
+        .dm-hb .nm { flex:0 0 150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:700; color:#3a4759; }
         .dm-hb .tr { flex:1; background:#f1f4f9; border-radius:5px; height:16px; overflow:hidden; }
         .dm-hb .fl { height:100%; border-radius:5px; background:#d64545; }
         .dm-hb .fl.blue { background:#2f6fed; }
-        .dm-hb .vv { flex:0 0 78px; text-align:right; font-weight:800; font-variant-numeric:tabular-nums; }
+        .dm-hb .vv { flex:0 0 96px; text-align:right; font-weight:800; font-variant-numeric:tabular-nums; }
         .dm-hb .vv em { font-style:normal; color:#8a94a4; font-weight:600; font-size:11px; margin-left:3px; }
         .dm-hb.warn .nm { color:#d64545; }
+        .dm-hb.na .vv { color:#c2c9d4; }
+
+        /* 도넛 — 「전체를 나눠 가지는」 구성비 전용.
+           공정별 불량률처럼 분모가 서로 다른 독립 비율에는 쓰지 않는다.
+           합이 100%인 것처럼 보여 오독을 만든다. */
+        .dm-donut { display:flex; align-items:center; gap:22px; }
+        .dm-donut svg { flex:0 0 152px; }
+        .dm-donut .hole { font-size:22px; font-weight:800; fill:#3a4759; }
+        .dm-donut .hole-s { font-size:10px; font-weight:700; fill:#8a94a4; }
+        .dm-lg { flex:1; min-width:0; }
+        .dm-lg .it { display:flex; align-items:center; gap:8px; font-size:12px; padding:4px 0; }
+        .dm-lg .it i { flex:0 0 10px; height:10px; border-radius:3px; }
+        .dm-lg .it .n { flex:1; font-weight:700; color:#3a4759; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .dm-lg .it .q { font-weight:800; font-variant-numeric:tabular-nums; }
+        .dm-lg .it .p { flex:0 0 46px; text-align:right; color:#8a94a4; font-weight:700; font-variant-numeric:tabular-nums; }
 
         .dm-table { border-collapse:collapse; width:100%; }
         .dm-table thead th { background:#2f3a4c; color:#fff; font-weight:600; font-size:11.5px; padding:9px 8px; white-space:nowrap; }
@@ -54,10 +82,14 @@
         .dm-table tbody tr:hover { background:#f7f9fc; }
         .dm-proc { display:inline-block; font-size:11px; font-weight:800; padding:2px 9px; border-radius:5px; background:#eef2f8; color:#3a4759; }
         .dm-type { display:inline-block; font-size:11px; font-weight:800; padding:2px 9px; border-radius:5px; background:#fdecec; color:#d64545; }
+        .dm-nojob { display:inline-block; font-size:10.5px; font-weight:800; padding:2px 7px; border-radius:5px; background:#fff7ed; color:#b4560a; }
         .dm-qty { font-weight:800; color:#d64545; }
         .dm-empty { text-align:center; color:#8a94a4; padding:36px; font-size:13px; }
-        .dm-note { color:#8a94a4; font-size:12px; margin-top:12px; }
         .dm-alert { display:flex; align-items:center; gap:8px; background:#fff7ed; border:1px solid #f6dfc2; color:#b4560a; border-radius:10px; padding:10px 14px; font-size:12.5px; font-weight:700; margin-bottom:12px; }
+        .dm-pick { display:flex; align-items:center; gap:10px; background:#2f6fed; color:#fff; border-radius:10px; padding:10px 14px; font-size:13px; font-weight:800; margin-bottom:12px; }
+        .dm-pick .x { margin-left:auto; background:rgba(255,255,255,.2); border:0; color:#fff; font-weight:800; font-size:12px; padding:6px 12px; border-radius:7px; cursor:pointer; }
+        .dm-scope { display:inline-block; font-size:11px; font-weight:800; padding:2px 8px; border-radius:5px; background:#2f6fed; color:#fff; margin-left:6px; }
+        .dm-alert.info { background:#f2f6ff; border-color:#d7e3fb; color:#2f6fed; }
 
         @media (max-width:1100px){ .dm-kpis{grid-template-columns:repeat(2,1fr);} .dm-grid{grid-template-columns:1fr;} }
         @media print { .page-title-wrap,.section-top,.page-navi,.bookmark,.dm-filter,.dm-btn { display:none !important; } body{background:#fff;} .dm-card{break-inside:avoid;} }
@@ -75,7 +107,7 @@
 
         <section class="section">
             <div class="section-top"><div class="dm-topbar">
-                <div style="font-size:13px;color:#8a94a4;font-weight:700">부적합 등록 데이터를 기간·공정·품목별로 집계합니다.</div>
+                <div style="font-size:13px;color:#8a94a4;font-weight:700">부적합 등록 화면에 등록된 내용을 기간·공정·품목별로 모아 보여줍니다. 이 화면에서는 등록·수정을 하지 않습니다.</div>
             </div></div>
 
             <div class="dm-filter">
@@ -94,251 +126,671 @@
 
             <div class="dm-grid">
                 <div class="dm-card">
-                    <div class="dm-card-h">일자별 불량 추이 <span class="sub">막대 클릭 시 해당일만 필터</span></div>
+                    <div class="dm-card-h">일자별 불량 <span class="sub">조회 기간의 모든 날을 표시 · 불량 없는 날은 0</span></div>
                     <div class="dm-card-b">
                         <div class="dm-trend" id="trend"></div>
                         <div class="dm-legend">
-                            <span><i style="background:#e7f0ff"></i>생산수량</span>
-                            <span><i style="background:#d64545"></i>불량수량</span>
-                            <span style="color:#d64545"><i style="background:#fff"></i>%= 불량률</span>
+                            <span style="color:#d64545"><i style="background:#d64545"></i>막대 위 큰 숫자 = <b>그날 불량 개수</b></span>
+                            <span><i style="background:#e7f0ff"></i>막대 아래 작은 숫자 = 그날 생산 개수</span>
+                            <span>막대를 누르면 아래 상세가 그날 것만 남습니다</span>
                         </div>
                     </div>
                 </div>
                 <div class="dm-card">
-                    <div class="dm-card-h">공정별 불량률 <span class="sub">목표 1.0% 초과 시 강조</span></div>
+                    <div class="dm-card-h">공정별 불량률 <span id="scopeProc"></span><span class="sub">목표 1.0% 초과 시 빨강 · 「—」는 비율 계산 불가</span></div>
                     <div class="dm-card-b" id="byProc"></div>
                 </div>
             </div>
 
             <div class="dm-grid">
                 <div class="dm-card">
-                    <div class="dm-card-h">불량 유형 TOP <span class="sub">누적 비중</span></div>
-                    <div class="dm-card-b" id="byType"></div>
+                    <div class="dm-card-h">품목별 불량 <span id="scopeMat"></span><span class="sub">어느 부품에서 많이 나오나</span></div>
+                    <div class="dm-card-b" id="byMat"></div>
                 </div>
                 <div class="dm-card">
-                    <div class="dm-card-h">작업자별 불량 건수</div>
+                    <div class="dm-card-h">불량 유형 <span id="scopeType"></span><span class="sub">상위 5종 + 기타</span></div>
+                    <div class="dm-card-b" id="byType"></div>
+                </div>
+            </div>
+
+            <div class="dm-row">
+                <div class="dm-card">
+                    <div class="dm-card-h">작업자별 불량 <span id="scopeWorker"></span><span class="sub">등록한 사람 기준 · 책임 소재가 아니라 발견 지점입니다</span></div>
                     <div class="dm-card-b" id="byWorker"></div>
                 </div>
             </div>
 
-            <div class="dm-card">
-                <div class="dm-card-h">불량 상세 <span class="sub" id="detailCnt"></span></div>
-                <div id="detail"></div>
+            <div class="dm-row">
+                <div class="dm-card">
+                    <div class="dm-card-h">불량 상세 <span class="sub" id="detailCnt"></span></div>
+                    <div id="detail"></div>
+                </div>
             </div>
-            <div class="dm-note">※ 불량률 = 불량수량 ÷ (양품+불량) × 100. 생산수량은 생산일지(작업일보) 실적 기준.</div>
+
         </section>
     </div>
 </th:block>
 
 <th:block layout:fragment="scripts">
     <script th:inline="javascript">
-        /* ===== 기준 데이터 (부적합 등록 화면과 동일 구조) ===== */
-        const PROCS = [
-            {k:'wash',   n:'세척',     types:['이물잔류','세척불량','파손','오염','기타']},
-            {k:'assy',   n:'조립',     types:['조립불량','부품누락','파손','치수불량','기타']},
-            {k:'blister',n:'블리스터', types:['실링불량','기포혼입','파손','이물','기타']},
-            {k:'welding',n:'융착',     types:['융착불량','누설','변형','기타']},
-            {k:'steril', n:'멸균',     types:['BI 불량','지시계 미변색','포장손상','기타']},
-            {k:'pack',   n:'포장',     types:['라벨오류','수량부족','박스손상','기타']},
-        ];
-        const PN = {}; PROCS.forEach(p => PN[p.k] = p.n);
+        /* =====================================================================
+         * 생산불량현황
+         *
+         * ★ Thymeleaf 함정 — 대괄호 뒤에 여는 괄호가 오면 인라인 표현식으로 읽혀
+         *   템플릿 파싱이 통째로 깨진다. 주석 안이라도 마찬가지다.
+         *   JS 문법 검사로는 안 잡힌다. 맵 키는 반드시 변수로 뺄 것.
+         *
+         * ★ AjaxUtil 은 window 프로퍼티가 아니다 — typeof 로 확인한다.
+         *   메서드는 getSyncData / postAsyncData (getJson 같은 건 없다).
+         * ===================================================================== */
+        const DF_API      = '/api/production/defect_dash';
+        const DF_FACTORY  = 1;
+        const DF_SPJANGCD = [[${session.spjangcd}]] || 'ZZ';
+        const DF_TARGET   = 1.0;   /* 목표 불량률 % */
 
-        /* 부적합 등록 데이터 */
-        const DEFECTS = [
-            {id:1,  date:'2026-07-06', proc:'wash',    item:'상부 용기',       type:'이물잔류',  qty:2, worker:'김민수', lot:'BSC120-260706-00', note:''},
-            {id:2,  date:'2026-07-06', proc:'assy',    item:'BSC+③ 120',      type:'부품누락',  qty:2, worker:'한지민', lot:'BSC120-260706-00', note:'오링 누락'},
-            {id:3,  date:'2026-07-07', proc:'blister', item:'블리스터 파우치', type:'실링불량',  qty:4, worker:'정우철', lot:'BSC120-260706-00', note:''},
-            {id:4,  date:'2026-07-08', proc:'wash',    item:'하부 용기',       type:'세척불량',  qty:3, worker:'이서연', lot:'BSC60-260710-01',  note:''},
-            {id:5,  date:'2026-07-09', proc:'assy',    item:'BmSC+③ 60',      type:'조립불량',  qty:2, worker:'한지민', lot:'BmSC60-260709-02', note:'상하부 유격'},
-            {id:6,  date:'2026-07-09', proc:'welding', item:'골수용 필터백',   type:'누설',      qty:3, worker:'김민수', lot:'BmSC60-260709-02', note:'융착부 미세 누설'},
-            {id:7,  date:'2026-07-10', proc:'wash',    item:'상부 용기',       type:'이물잔류',  qty:3, worker:'정우철', lot:'BSC60-260710-01',  note:'세척 후 이물 잔류'},
-            {id:8,  date:'2026-07-10', proc:'blister', item:'블리스터 파우치', type:'실링불량',  qty:6, worker:'정우철', lot:'BSC60-260710-01',  note:'실링 온도 편차'},
-            {id:9,  date:'2026-07-10', proc:'assy',    item:'BSC+③ 60',       type:'부품누락',  qty:2, worker:'한지민', lot:'BSC60-260710-01',  note:''},
-            {id:10, date:'2026-07-11', proc:'steril',  item:'BmSC+③ 60',      type:'BI 불량',   qty:1, worker:'박지훈', lot:'BmSC60-260709-02', note:'BI 색변화 미흡 → 배치 재멸균'},
-            {id:11, date:'2026-07-11', proc:'pack',    item:'BSC+③ 30',       type:'라벨오류',  qty:2, worker:'김민수', lot:'BSC30-260710-03',  note:'LOT 표기 오류'},
-            {id:12, date:'2026-07-11', proc:'blister', item:'블리스터 파우치', type:'기포혼입',  qty:3, worker:'정우철', lot:'BSC30-260710-03',  note:''},
-        ];
-        /* 생산 실적(불량률 분모) — 일자·공정별 양품 */
-        const OUTPUT = [
-            {date:'2026-07-06', proc:'wash', qty:240}, {date:'2026-07-06', proc:'assy', qty:238},
-            {date:'2026-07-07', proc:'blister', qty:240},
-            {date:'2026-07-08', proc:'wash', qty:300},
-            {date:'2026-07-09', proc:'assy', qty:298}, {date:'2026-07-09', proc:'welding', qty:300},
-            {date:'2026-07-10', proc:'wash', qty:890}, {date:'2026-07-10', proc:'assy', qty:488}, {date:'2026-07-10', proc:'blister', qty:300},
-            {date:'2026-07-11', proc:'steril', qty:300}, {date:'2026-07-11', proc:'pack', qty:240}, {date:'2026-07-11', proc:'blister', qty:400},
-        ];
-        const TARGET_RATE = 1.0;   /* 목표 불량률 % */
-        var pickDate = null;       /* 막대 클릭 필터 */
+        var dfPickDate = null;     /* 막대 클릭 필터 */
+        var dfData     = null;     /* 마지막 조회 결과 */
 
-        /* ===== 유틸 ===== */
-        function fmt(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
-        function rate(def, good){ var tot = def+good; return tot ? (def/tot*100) : 0; }
+        function dfBody(r){
+            if(!r) return null;
+            return (r.data !== undefined) ? r.data : r;
+        }
+        function dfGet(url, params){
+            if(typeof AjaxUtil === 'undefined' || !AjaxUtil.getSyncData){
+                console.error('[defect_dash] AjaxUtil 미로드');
+                return null;
+            }
+            try { return dfBody(AjaxUtil.getSyncData(url, params)); }
+            catch(e){ console.error('[defect_dash]', url, e); return null; }
+        }
+        function num(v){ return Number(v || 0); }
         function r1(n){ return (Math.round(n*10)/10).toFixed(1); }
-        function uniq(a){ return a.filter(function(v,i){ return a.indexOf(v)===i; }); }
+        function rate(def, good){ var tot = def + good; return tot ? (def/tot*100) : 0; }
+        function esc(s){
+            return String(s === null || s === undefined ? '' : s)
+                .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+        function ymd(d){
+            return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0')
+                + '-' + String(d.getDate()).padStart(2,'0');
+        }
 
-        (function initCombo(){
-            document.getElementById('fProc').innerHTML = '<option value="">전체</option>'
-                + PROCS.map(function(p){ return '<option value="'+p.k+'">'+p.n+'</option>'; }).join('');
-            document.getElementById('fItem').innerHTML = '<option value="">전체</option>'
-                + uniq(DEFECTS.map(function(d){ return d.item; })).map(function(i){ return '<option>'+i+'</option>'; }).join('');
-        })();
+        /* 조회 기간의 모든 날짜. 너무 길면(31일 초과) 막대가 뭉개지므로 포기하고
+         * 데이터가 있는 날만 그리게 빈 배열을 돌려준다. */
+        function dfDateRange(){
+            var from = document.getElementById('fFrom').value;
+            var to   = document.getElementById('fTo').value;
+            if(!from || !to) return [];
+            var out = [];
+            var cur = new Date(from + 'T00:00:00');
+            var end = new Date(to + 'T00:00:00');
+            while(cur <= end){
+                out.push(ymd(cur));
+                cur.setDate(cur.getDate() + 1);
+                if(out.length > 31) return [];
+            }
+            return out;
+        }
 
-        function cond(){
+        function dfCond(){
             return {
-                from: document.getElementById('fFrom').value,
-                to:   document.getElementById('fTo').value,
-                proc: document.getElementById('fProc').value,
-                item: document.getElementById('fItem').value
+                date_from  : document.getElementById('fFrom').value,
+                date_to    : document.getElementById('fTo').value,
+                factory_id : DF_FACTORY,
+                process_id : document.getElementById('fProc').value || null,
+                material_id: document.getElementById('fItem').value || null,
+                spjangcd   : DF_SPJANGCD
             };
         }
-        function filtDef(){
-            var c = cond();
-            return DEFECTS.filter(function(d){
-                if(c.from && d.date < c.from) return false;
-                if(c.to   && d.date > c.to)   return false;
-                if(c.proc && d.proc !== c.proc) return false;
-                if(c.item && d.item !== c.item) return false;
-                if(pickDate && d.date !== pickDate) return false;
-                return true;
+
+        /* ===== 콤보 =====
+         * 공정은 그 공장 전체를 내린다 — 부적합이 있는 공정만 내리면
+         * 「0건인 공정」과 「필터에 없는 공정」이 구분되지 않는다.
+         * 품목은 반대로 그 기간에 실제로 등록된 것만 (전체를 띄우면 대부분 빈 결과). */
+        function dfLoadCombo(){
+            var c = dfCond();
+            var r = dfGet(DF_API + '/combo', {
+                date_from: c.date_from, date_to: c.date_to, factory_id: DF_FACTORY
+            });
+            var procs = (r && r.procs) ? r.procs : [];
+            var items = (r && r.items) ? r.items : [];
+
+            var keepProc = document.getElementById('fProc').value;
+            var keepItem = document.getElementById('fItem').value;
+
+            document.getElementById('fProc').innerHTML = '<option value="">전체</option>'
+                + procs.map(function(p){
+                    return '<option value="' + p.pk + '">' + esc(p.name) + '</option>';
+                }).join('');
+            document.getElementById('fItem').innerHTML = '<option value="">전체</option>'
+                + items.map(function(m){
+                    return '<option value="' + m.pk + '">' + esc(m.name) + '</option>';
+                }).join('');
+
+            if(keepProc) document.getElementById('fProc').value = keepProc;
+            if(keepItem) document.getElementById('fItem').value = keepItem;
+        }
+
+        /* ===== 조회 ===== */
+        function dfLoad(){
+            var c = dfCond();
+            if(!c.date_from || !c.date_to){
+                Alert.alert('기간을 선택하세요.');
+                return;
+            }
+            if(c.date_from > c.date_to){
+                Alert.alert('시작일이 종료일보다 뒤입니다.');
+                return;
+            }
+            var r = dfGet(DF_API + '/list', c);
+            if(!r){
+                document.getElementById('detail').innerHTML =
+                    '<div class="dm-empty">조회에 실패했습니다. 콘솔을 확인하세요.</div>';
+                return;
+            }
+            dfData = r;
+            dfRender();
+        }
+
+        /* =====================================================================
+         * 막대 클릭 = 그날 하루만 보기
+         *
+         * 서버를 다시 부르지 않고 같은 스냅샷 안에서 좁힌다 — 다시 부르면
+         * 그 사이 갱신으로 KPI 와 상세의 합계가 어긋날 수 있다.
+         *
+         * ★ 상세만 좁히면 안 된다. 위쪽 KPI·공정별·유형별이 기간 전체로 남으면
+         *   한 화면이 두 기간을 동시에 말하게 되고, 보는 사람은 그걸 알 방법이 없다.
+         *   전부 좁히거나 전부 놔두거나 둘 중 하나여야 한다.
+         *
+         * 공정별·유형별·작업자별은 상세(detail)에서 다시 만든다.
+         * 상세 1행 = 부적합 등록 1건이라 그게 원본이고, 서버 집계는 그 합일 뿐이다.
+         * ===================================================================== */
+
+        /** 상세 행들을 키 하나로 묶어 [{name, defect_qty, defect_cnt}] 로 만든다 */
+        function dfGroup(rows, keyField){
+            var map = {};
+            var order = [];
+            rows.forEach(function(d){
+                var key = String(d[keyField] || '미지정');
+                if(!map[key]){
+                    map[key] = { name:key, defect_qty:0, defect_cnt:0 };
+                    order.push(key);
+                }
+                map[key].defect_qty += num(d.defect_qty);
+                map[key].defect_cnt += 1;
+            });
+            return order.map(function(k){ return map[k]; })
+                .sort(function(a,b){ return b.defect_qty - a.defect_qty; });
+        }
+
+        /** 품목 코드는 상세에 없다. 서버 집계에서 이름으로 찾아 붙인다(없으면 생략) */
+        function dfMergeCode(rows, serverRows){
+            var codeMap = {};
+            serverRows.forEach(function(m){
+                var key = String(m.name);
+                codeMap[key] = m.code;
+            });
+            return rows.map(function(r){
+                var key = String(r.name);
+                r.code = codeMap[key] || '';
+                return r;
             });
         }
-        function filtOut(){
-            var c = cond();
-            return OUTPUT.filter(function(o){
-                if(c.from && o.date < c.from) return false;
-                if(c.to   && o.date > c.to)   return false;
-                if(c.proc && o.proc !== c.proc) return false;
-                if(pickDate && o.date !== pickDate) return false;
-                return true;   /* 품목 필터는 실적 데이터에 품목축이 없어 미적용(주의) */
+
+        /** 그날의 공정별 — 불량은 상세에서, 분모는 daily_output(날짜×공정)에서 */
+        function dfProcOfDay(rows, dt){
+            var outMap = {};
+            (dfData.daily_output || []).forEach(function(o){
+                if(o.dt !== dt) return;
+                var key = String(o.proc_id);
+                outMap[key] = (outMap[key] || 0) + num(o.good_qty);
+            });
+
+            /* 기간 전체 집계에서 공정 메타(has_output)를 빌려온다 */
+            var metaMap = {};
+            (dfData.by_process || []).forEach(function(p){
+                var key = String(p.pk);
+                metaMap[key] = p;
+            });
+
+            var map = {};
+            var order = [];
+            rows.forEach(function(d){
+                var key = String(d.proc_id || 0);
+                if(!map[key]){
+                    map[key] = { pk:d.proc_id, name:d.proc_name, defect_qty:0, defect_cnt:0 };
+                    order.push(key);
+                }
+                map[key].defect_qty += num(d.defect_qty);
+                map[key].defect_cnt += 1;
+            });
+
+            /* 불량은 없는데 그날 생산은 한 공정도 보여준다 — 「불량 0」이 정보다 */
+            Object.keys(outMap).forEach(function(key){
+                if(map[key]) return;
+                var meta = metaMap[key];
+                map[key] = { pk:Number(key), name:(meta ? meta.name : '기타'), defect_qty:0, defect_cnt:0 };
+                order.push(key);
+            });
+
+            return order.map(function(key){
+                var row  = map[key];
+                var meta = metaMap[key];
+                var good = outMap[key];
+                row.good_qty  = good || 0;
+                /* 그날 그 공정에 생산 실적이 있어야만 비율을 낼 수 있다 */
+                row.has_output = (good === undefined)
+                    ? 'N'
+                    : ((meta && meta.has_output === 'N') ? 'N' : 'Y');
+                return row;
             });
         }
-        function sum(a, f){ return a.reduce(function(s,x){ return s+f(x); }, 0); }
+
+        function dfRender(){
+            if(!dfData) return;
+            var rateValid = (dfData.rate_valid !== false);
+
+            var daily  = dfData.daily_defect || [];
+            var output = dfData.daily_output || [];
+            var detail = dfData.detail       || [];
+
+            /* 추이 막대는 항상 기간 전체를 그린다 — 그래야 다른 날을 누를 수 있다 */
+            dfRenderTrend(daily, output, rateValid);
+
+            var vDaily, vOutput, vDetail, vProc;
+
+            if(dfPickDate){
+                vDetail = detail.filter(function(d){ return d.defect_date === dfPickDate; });
+                vDaily  = daily.filter(function(d){ return d.dt === dfPickDate; });
+                vOutput = output.filter(function(o){ return o.dt === dfPickDate; });
+                vProc   = dfProcOfDay(vDetail, dfPickDate);
+            } else {
+                vDetail = detail;
+                vDaily  = daily;
+                vOutput = output;
+                vProc   = dfData.by_process || [];
+            }
+
+            /* ★ 유형·품목·작업자는 기간 전체든 하루든 항상 상세에서 만든다.
+             *
+             *   전에는 전체 기간일 때만 서버 집계(by_type/by_material/by_worker)를 쓰고
+             *   하루를 고르면 상세에서 다시 만들었다. 같은 패널이 상황에 따라 다른
+             *   소스를 보게 되어, 서버 응답에 키 하나가 없으면 「전체 기간에서만 빈 칸」
+             *   같은 설명하기 어려운 증상이 난다. 실제로 품목 패널에서 그 일이 났다.
+             *
+             *   상세 1행 = 부적합 등록 1건이 원본이고 서버 집계는 그 합일 뿐이므로
+             *   한쪽으로 통일한다. 코드는 서버 집계에서 빌려온다(상세에 없는 값). */
+            var vType   = dfGroup(vDetail, 'type_name');
+            var vMat    = dfMergeCode(dfGroup(vDetail, 'mat_name'), dfData.by_material || []);
+            var vWorker = dfGroup(vDetail, 'worker_name');
+
+            dfRenderKpi(vDaily, vOutput, vType, rateValid);
+            dfRenderByProc(vProc, rateValid);
+            dfDonut('byType', vType, '개');
+            dfRenderBars('byMat',    vMat,    false, '개');
+            dfRenderBars('byWorker', vWorker, true,  '개');
+            dfRenderDetail(vDetail);
+            dfRenderAlert(vDaily, vOutput, vType, rateValid);
+
+            var tag = dfScopeTag();
+            document.getElementById('scopeProc').innerHTML   = tag;
+            document.getElementById('scopeType').innerHTML   = tag;
+            document.getElementById('scopeMat').innerHTML    = tag;
+            document.getElementById('scopeWorker').innerHTML = tag;
+        }
+
+        /* 선택된 날짜를 화면 곳곳에 붙일 꼬리표 */
+        function dfScopeTag(){
+            return dfPickDate ? ' <span class="dm-scope">' + dfPickDate + ' 하루</span>' : '';
+        }
 
         /* ===== KPI ===== */
-        function renderKpi(D, O){
-            var def = sum(D, d=>d.qty), good = sum(O, o=>o.qty);
-            var rt = rate(def, good);
-            var worst = {};
-            D.forEach(function(d){ worst[d.type] = (worst[d.type]||0)+d.qty; });
-            var top = Object.keys(worst).sort(function(a,b){ return worst[b]-worst[a]; })[0];
-            document.getElementById('kpis').innerHTML =
-                '<div class="dm-kpi"><div class="l">생산수량 (양품)</div><div class="v">'+good.toLocaleString()+'</div><div class="s">불량률 분모</div></div>'
-                + '<div class="dm-kpi red"><div class="l">불량수량</div><div class="v">'+def.toLocaleString()+'</div><div class="s">'+D.length+'건 등록</div></div>'
-                + '<div class="dm-kpi '+(rt>TARGET_RATE?'red':'green')+'"><div class="l">불량률</div><div class="v">'+r1(rt)+'<small>%</small></div>'
-                + '<div class="s">목표 '+r1(TARGET_RATE)+'% · '+(rt>TARGET_RATE?'초과':'달성')+'</div></div>'
-                + '<div class="dm-kpi"><div class="l">최다 불량 유형</div><div class="v" style="font-size:19px">'+(top||'—')+'</div>'
-                + '<div class="s">'+(top?worst[top]+'개 ('+r1(worst[top]/def*100)+'%)':'해당 없음')+'</div></div>';
+        function dfRenderKpi(daily, output, types, rateValid){
+            var def  = daily.reduce(function(s,x){ return s + num(x.defect_qty); }, 0);
+            var cnt  = daily.reduce(function(s,x){ return s + num(x.defect_cnt); }, 0);
+            var good = output.reduce(function(s,x){ return s + num(x.good_qty); }, 0);
 
-            document.getElementById('alertBox').innerHTML = rt>TARGET_RATE
-                ? '<div class="dm-alert">⚠ 불량률 '+r1(rt)+'% — 목표('+r1(TARGET_RATE)+'%) 초과. 최다 유형: <b>'+(top||'-')+'</b></div>' : '';
+            var top = types.length ? types[0] : null;
+
+            var rateCell;
+            if(rateValid){
+                var rt = rate(def, good);
+                rateCell = '<div class="dm-kpi ' + (rt > DF_TARGET ? 'red' : 'green') + '">'
+                    + '<div class="l">불량률</div><div class="v">' + r1(rt) + '<small>%</small></div>'
+                    + '<div class="s">목표 ' + r1(DF_TARGET) + '% · ' + (rt > DF_TARGET ? '초과' : '달성') + '</div></div>';
+            } else {
+                rateCell = '<div class="dm-kpi na"><div class="l">불량률</div><div class="v">—</div>'
+                    + '<div class="s">품목 선택 중 — 비율은 낼 수 없음</div></div>';
+            }
+
+            var goodCell = rateValid
+                ? '<div class="dm-kpi"><div class="l">생산수량 (작업완료분)</div><div class="v">'
+                + good.toLocaleString() + '</div><div class="s">불량률 계산 기준</div></div>'
+                : '<div class="dm-kpi na"><div class="l">생산수량 (작업완료분)</div><div class="v">—</div>'
+                + '<div class="s">품목 선택 중</div></div>';
+
+            document.getElementById('kpis').innerHTML = goodCell
+                + '<div class="dm-kpi red"><div class="l">불량수량</div><div class="v">'
+                + def.toLocaleString() + '</div><div class="s">' + cnt + '건 등록</div></div>'
+                + rateCell
+                + '<div class="dm-kpi"><div class="l">최다 불량 유형</div>'
+                + '<div class="v" style="font-size:19px">' + (top ? esc(top.name) : '—') + '</div>'
+                + '<div class="s">' + (top && def
+                    ? num(top.defect_qty) + '개 (' + r1(num(top.defect_qty)/def*100) + '%)'
+                    : '해당 없음') + '</div></div>';
         }
 
-        /* ===== 일자별 추이 ===== */
-        function renderTrend(){
-            var c = cond();
-            var dates = uniq(DEFECTS.map(d=>d.date).concat(OUTPUT.map(o=>o.date)))
-                .filter(function(dt){ return (!c.from||dt>=c.from) && (!c.to||dt<=c.to); }).sort();
-            var rows = dates.map(function(dt){
-                var g = sum(OUTPUT.filter(o=>o.date===dt && (!c.proc||o.proc===c.proc)), o=>o.qty);
-                var f = sum(DEFECTS.filter(d=>d.date===dt && (!c.proc||d.proc===c.proc) && (!c.item||d.item===c.item)), d=>d.qty);
-                return {dt:dt, good:g, def:f, rate:rate(f,g)};
+        /* ===== 경고 / 안내 ===== */
+        function dfRenderAlert(daily, output, types, rateValid){
+            var html = '';
+
+            /* ★ 하루만 보고 있다는 사실을 화면 맨 위에 크게 알린다.
+             *   막대 하나가 파랗게 변한 것만으로는 아무도 눈치채지 못하고,
+             *   그 상태로 숫자를 읽으면 기간 전체 실적으로 오해한다. */
+            if(dfPickDate){
+                var dcnt = daily.reduce(function(s,x){ return s + num(x.defect_cnt); }, 0);
+                html += '<div class="dm-pick">📅 ' + dfPickDate + ' 하루만 보고 있습니다'
+                    + ' — 아래 모든 항목이 이 날짜 기준입니다 (' + dcnt + '건)'
+                    + '<button type="button" class="x" id="btnPickClear">전체 기간으로 돌아가기</button></div>';
+            }
+            if(rateValid){
+                var def  = daily.reduce(function(s,x){ return s + num(x.defect_qty); }, 0);
+                var good = output.reduce(function(s,x){ return s + num(x.good_qty); }, 0);
+                var rt   = rate(def, good);
+                if(rt > DF_TARGET){
+                    html += '<div class="dm-alert">⚠ 불량률 ' + r1(rt) + '% — 목표 ' + r1(DF_TARGET)
+                        + '% 를 넘었습니다. 가장 많은 유형: <b>' + (types.length ? esc(types[0].name) : '-') + '</b></div>';
+                }
+            }
+            /* 작지 미연결 — 데이터 품질 지표. 특정 공정만 계속 비면
+             * 그 공정의 작지 후보 조회 범위를 손봐야 한다는 신호다. */
+            var un = dfPickDate ? [] : (dfData.unlinked || []);
+            if(un.length){
+                var txt = un.map(function(u){
+                    return esc(u.proc_name) + ' ' + num(u.unlinked_cnt) + '/' + num(u.total_cnt);
+                }).join(' · ');
+                html += '<div class="dm-alert info">ℹ 작업지시를 고르지 않고 등록된 부적합이 있습니다 — ' + txt
+                    + ' <span style="font-weight:600">— 등록은 정상이며 집계에도 포함됩니다</span></div>';
+            }
+            document.getElementById('alertBox').innerHTML = html;
+        }
+
+        /* ===== 일자별 추이 =====
+         *
+         * ★ 데이터가 있는 날만 그리지 않는다.
+         *   불량이 없던 날이 빠지면 「그날은 조회가 안 된 건지 불량이 0인 건지」
+         *   구분되지 않는다. 조회 기간의 모든 날을 세우고 0 인 날은 빈 자리로 둔다.
+         *
+         * ★ 막대는 「몇 개인지」를 읽는 도구가 아니다. 개수는 숫자로 직접 적는다.
+         *   불량이 3개인 화면에서 막대 높이 차이는 아무 정보도 주지 않는다.
+         */
+        function dfRenderTrend(daily, output, rateValid){
+            /* ★ 맵 키를 대괄호 안에서 조립하지 않는다 (Thymeleaf 인라인 표현식 충돌) */
+            var outMap = {};
+            output.forEach(function(o){
+                var key = o.dt;
+                outMap[key] = num(o.good_qty);
             });
-            var max = Math.max.apply(null, rows.map(r=>r.good+r.def).concat([1]));
+            var defMap = {};
+            var cntMap = {};
+            daily.forEach(function(d){
+                var key = d.dt;
+                defMap[key] = num(d.defect_qty);
+                cntMap[key] = num(d.defect_cnt);
+            });
+
+            var dates = dfDateRange();
+            if(!dates.length){
+                dates = Object.keys(defMap).concat(Object.keys(outMap))
+                    .filter(function(v,i,a){ return a.indexOf(v) === i; }).sort();
+            }
+
+            var rows = dates.map(function(dt){
+                var g = outMap[dt] || 0;
+                var f = defMap[dt] || 0;
+                return { dt:dt, good:g, def:f, cnt:cntMap[dt] || 0, rate:rate(f,g) };
+            });
+
+            var totals = rows.map(function(r){ return r.good + r.def; }).concat([1]);
+            var max = Math.max.apply(null, totals);
+
             document.getElementById('trend').innerHTML = rows.length ? rows.map(function(r){
-                var h = Math.max(3, (r.good+r.def)/max*120);
-                var dh = (r.good+r.def) ? Math.max(2, r.def/(r.good+r.def)*h) : 0;
-                return '<div class="dm-tcol '+(pickDate===r.dt?'on':'')+'" data-dt="'+r.dt+'" title="'+r.dt+' · 양품 '+r.good+' / 불량 '+r.def+'">'
-                    + '<span class="rate">'+r1(r.rate)+'%</span>'
-                    + '<div class="dm-bar" style="height:'+h+'px"><div class="def" style="height:'+dh+'px"></div></div>'
-                    + '<span class="x">'+r.dt.slice(5)+'</span></div>';
+                var tot = r.good + r.def;
+                var h  = Math.max(3, tot / max * 110);
+                var dh = tot ? Math.max(4, r.def / tot * h) : 0;
+
+                /* 위 줄 = 불량 개수(이 화면의 주인공). 아래 작은 줄 = 불량률 */
+                var top = r.def
+                    ? '<span class="cnt">' + r.def + '개</span>'
+                    : '<span class="cnt zero">0</span>';
+                var sub = (rateValid && tot) ? '<span class="rate">' + r1(r.rate) + '%</span>' : '';
+
+                var tip = r.dt + ' · 불량 ' + r.def + '개(' + r.cnt + '건)'
+                    + (r.good ? ' · 생산 ' + r.good + '개' : ' · 생산 실적 없음');
+
+                return '<div class="dm-tcol ' + (dfPickDate === r.dt ? 'on' : '')
+                    + (r.def ? '' : ' empty') + '" data-dt="' + r.dt + '" title="' + tip + '">'
+                    + top + sub
+                    + '<div class="dm-bar" style="height:' + h + 'px"><div class="def" style="height:' + dh + 'px"></div></div>'
+                    + '<span class="x">' + r.dt.slice(5) + '</span>'
+                    + '<span class="g">' + (r.good ? r.good.toLocaleString() : '·') + '</span></div>';
             }).join('') : '<div class="dm-empty" style="margin:auto">데이터 없음</div>';
         }
 
+        /* ===== 공정별 불량률 =====
+         * has_output='N' 은 세척·멸균처럼 mat_produce 가 없는 공정이다.
+         * 0% 로 찍으면 「불량이 없는 공정」으로 읽히므로 반드시 「—」로 구분한다. */
+        function dfRenderByProc(rows, rateValid){
+            var view = rows.map(function(p){
+                var f  = num(p.defect_qty);
+                var g  = num(p.good_qty);
+                var ok = rateValid && p.has_output === 'Y';
+                var rt = ok ? rate(f, g) : 0;
+                return {
+                    n     : p.name,
+                    v     : ok ? rt : 0,
+                    warn  : ok && rt > DF_TARGET,
+                    na    : !ok,
+                    label : (ok ? r1(rt) + '%' : '—') + ' <em>' + f + '개</em>'
+                };
+            }).filter(function(r){ return r.v > 0 || r.na; })
+                .sort(function(a,b){ return b.v - a.v; });
+
+            dfBars('byProc', view, false);
+        }
+
+        /* ===== 도넛 =====
+         * 라이브러리 없이 SVG 원 하나에 stroke-dasharray 로 조각을 낸다.
+         * 조각이 너무 잘게 쪼개지면 읽을 수 없으므로 상위 5개 + 「기타」로 묶는다.
+         */
+        const DF_COLORS = ['#d64545','#e8833a','#e0b93c','#2f6fed','#7a6ff0','#9aa4b2'];
+
+        function dfDonut(host, rows, unit){
+            var el = document.getElementById(host);
+            var tot = rows.reduce(function(s,x){ return s + num(x.defect_qty); }, 0);
+
+            if(!rows.length || !tot){
+                el.innerHTML = '<div class="dm-empty">데이터 없음</div>';
+                return;
+            }
+
+            /* 상위 5개 + 기타 */
+            var top = rows.slice(0, 5).map(function(x){
+                return { name:x.name, v:num(x.defect_qty), cnt:num(x.defect_cnt) };
+            });
+            var restV = rows.slice(5).reduce(function(s,x){ return s + num(x.defect_qty); }, 0);
+            var restC = rows.slice(5).reduce(function(s,x){ return s + num(x.defect_cnt); }, 0);
+            if(restV) top.push({ name:'기타 ' + (rows.length - 5) + '종', v:restV, cnt:restC });
+
+            var R = 52, C = 2 * Math.PI * R;
+            var acc = 0;
+            var arcs = top.map(function(x, i){
+                var frac = x.v / tot;
+                var len  = frac * C;
+                var seg  = '<circle cx="76" cy="76" r="' + R + '" fill="none"'
+                    + ' stroke="' + DF_COLORS[i % DF_COLORS.length] + '" stroke-width="22"'
+                    + ' stroke-dasharray="' + len + ' ' + (C - len) + '"'
+                    + ' stroke-dashoffset="' + (-acc) + '"'
+                    + ' transform="rotate(-90 76 76)"><title>'
+                    + esc(x.name) + ' ' + x.v + unit + '</title></circle>';
+                acc += len;
+                return seg;
+            }).join('');
+
+            var legend = top.map(function(x, i){
+                return '<div class="it"><i style="background:' + DF_COLORS[i % DF_COLORS.length] + '"></i>'
+                    + '<span class="n">' + esc(x.name) + '</span>'
+                    + '<span class="q">' + x.v + unit + '</span>'
+                    + '<span class="p">' + r1(x.v / tot * 100) + '%</span></div>';
+            }).join('');
+
+            el.innerHTML = '<div class="dm-donut">'
+                + '<svg viewBox="0 0 152 152" width="152" height="152">'
+                + '<circle cx="76" cy="76" r="' + R + '" fill="none" stroke="#f1f4f9" stroke-width="22"></circle>'
+                + arcs
+                + '<text class="hole" x="76" y="74" text-anchor="middle">' + tot + '</text>'
+                + '<text class="hole-s" x="76" y="90" text-anchor="middle">전체 ' + unit + '</text>'
+                + '</svg>'
+                + '<div class="dm-lg">' + legend + '</div></div>';
+        }
+
         /* ===== 가로 바 공통 ===== */
-        function hbars(host, rows, opt){
-            var max = Math.max.apply(null, rows.map(r=>r.v).concat([0.0001]));
+        function dfBars(host, rows, blue){
+            var vals = rows.map(function(r){ return r.v; }).concat([0.0001]);
+            var max = Math.max.apply(null, vals);
             document.getElementById(host).innerHTML = rows.length ? rows.map(function(r){
-                return '<div class="dm-hb '+(r.warn?'warn':'')+'"><span class="nm">'+r.n+'</span>'
-                    + '<span class="tr"><span class="fl '+(opt&&opt.blue?'blue':'')+'" style="width:'+(r.v/max*100)+'%"></span></span>'
-                    + '<span class="vv">'+r.label+'</span></div>';
+                var cls = 'dm-hb' + (r.warn ? ' warn' : '') + (r.na ? ' na' : '');
+                var nm = r.raw ? r.n : esc(r.n);
+                return '<div class="' + cls + '"><span class="nm">' + nm + '</span>'
+                    + '<span class="tr"><span class="fl ' + (blue ? 'blue' : '') + '" style="width:'
+                    + (r.v / max * 100) + '%"></span></span>'
+                    + '<span class="vv">' + r.label + '</span></div>';
             }).join('') : '<div class="dm-empty">데이터 없음</div>';
         }
 
-        function renderByProc(D, O){
-            var rows = PROCS.map(function(p){
-                var f = sum(D.filter(d=>d.proc===p.k), d=>d.qty);
-                var g = sum(O.filter(o=>o.proc===p.k), o=>o.qty);
-                var rt = rate(f,g);
-                return {n:p.n, v:rt, warn:rt>TARGET_RATE, label:r1(rt)+'% <em>'+f+'개</em>'};
-            }).filter(r=>r.v>0).sort((a,b)=>b.v-a.v);
-            hbars('byProc', rows);
-        }
-
-        function renderByType(D){
-            var m = {}; D.forEach(d=>{ m[d.type] = (m[d.type]||0)+d.qty; });
-            var tot = sum(D, d=>d.qty), acc = 0;
-            var rows = Object.keys(m).sort((a,b)=>m[b]-m[a]).slice(0,7).map(function(t){
-                acc += m[t];
-                return {n:t, v:m[t], label:m[t]+'개 <em>누적 '+r1(acc/tot*100)+'%</em>'};
+        /* 유형별 / 작업자별 — 서버가 이미 수량 내림차순으로 내려준다 */
+        function dfRenderBars(host, rows, blue, unit){
+            var tot = rows.reduce(function(s,x){ return s + num(x.defect_qty); }, 0);
+            var acc = 0;
+            var view = rows.slice(0, 8).map(function(x){
+                acc += num(x.defect_qty);
+                var extra = (host === 'byType')
+                    ? '누적 ' + (tot ? r1(acc/tot*100) : '0.0') + '%'
+                    : num(x.defect_cnt) + '건';
+                /* 품목은 이름이 비슷한 자재가 많아 코드를 함께 보여준다 */
+                var nm = (host === 'byMat' && x.code)
+                    ? esc(x.name) + ' <em style="font-weight:600;color:#a7b0be">' + esc(x.code) + '</em>'
+                    : esc(x.name);
+                return {
+                    n     : nm,
+                    raw   : true,
+                    v     : num(x.defect_qty),
+                    label : num(x.defect_qty) + unit + ' <em>' + extra + '</em>'
+                };
             });
-            hbars('byType', rows);
+            dfBars(host, view, blue);
         }
 
-        function renderByWorker(D){
-            var m = {}; D.forEach(d=>{ m[d.worker] = (m[d.worker]||0)+d.qty; });
-            var rows = Object.keys(m).sort((a,b)=>m[b]-m[a]).map(function(w){
-                return {n:w, v:m[w], label:m[w]+'개 <em>'+D.filter(d=>d.worker===w).length+'건</em>'};
-            });
-            hbars('byWorker', rows, {blue:true});
-        }
+        /* ===== 상세 ===== */
+        function dfRenderDetail(rows){
+            document.getElementById('detailCnt').textContent = rows.length + '건'
+                + (dfPickDate ? ' · ' + dfPickDate + ' 하루 (막대를 다시 누르면 해제)' : ' · 조회 기간 전체');
 
-        function renderDetail(D){
-            document.getElementById('detailCnt').textContent = D.length + '건' + (pickDate ? ' · '+pickDate+' 필터 중 (막대 다시 클릭 시 해제)' : '');
-            document.getElementById('detail').innerHTML = D.length
-                ? '<table class="dm-table"><thead><tr><th>일자</th><th>공정</th><th class="left">품목명</th><th>로트번호</th>'
-                + '<th>불량유형</th><th>수량</th><th>작업자</th><th class="left">비고</th></tr></thead><tbody>'
-                + D.slice().sort((a,b)=> a.date<b.date?1:-1).map(function(d){
-                    return '<tr><td>'+d.date+'</td><td><span class="dm-proc">'+PN[d.proc]+'</span></td>'
-                        + '<td class="left">'+d.item+'</td>'
-                        + '<td style="font-family:ui-monospace,monospace;font-size:11.5px">'+d.lot+'</td>'
-                        + '<td><span class="dm-type">'+d.type+'</span></td>'
-                        + '<td class="dm-qty">'+d.qty+'</td><td>'+d.worker+'</td>'
-                        + '<td class="left" style="color:#5b6675">'+(d.note||'<span style="color:#c2c9d4">—</span>')+'</td></tr>';
-                }).join('') + '</tbody></table>'
-                : '<div class="dm-empty">조회 조건에 해당하는 불량 이력이 없습니다.</div>';
-        }
+            if(!rows.length){
+                document.getElementById('detail').innerHTML =
+                    '<div class="dm-empty">조회 조건에 해당하는 불량 이력이 없습니다.</div>';
+                return;
+            }
 
-        function render(){
-            var D = filtDef(), O = filtOut();
-            renderKpi(D, O); renderTrend(); renderByProc(D, O);
-            renderByType(D); renderByWorker(D); renderDetail(D);
+            document.getElementById('detail').innerHTML =
+                '<table class="dm-table"><thead><tr><th>일자</th><th>공정</th><th class="left">품목명</th>'
+                + '<th class="left">차감 로트</th><th>작업지시</th><th>불량유형</th><th>수량</th>'
+                + '<th>작업자</th><th class="left">비고</th></tr></thead><tbody>'
+                + rows.map(function(d){
+                    var job = d.work_order
+                        ? esc(d.work_order)
+                        : '<span class="dm-nojob">지시 미지정</span>';
+                    return '<tr><td>' + esc(d.defect_date) + '</td>'
+                        + '<td><span class="dm-proc">' + esc(d.proc_name) + '</span></td>'
+                        + '<td class="left">' + esc(d.mat_name) + '</td>'
+                        + '<td class="left" style="font-family:ui-monospace,monospace;font-size:11.5px">'
+                        + (d.lot_numbers ? esc(d.lot_numbers) : '<span style="color:#c2c9d4">—</span>') + '</td>'
+                        + '<td style="font-size:11.5px">' + job + '</td>'
+                        + '<td><span class="dm-type">' + esc(d.type_name) + '</span></td>'
+                        + '<td class="dm-qty">' + num(d.defect_qty) + '</td>'
+                        + '<td>' + esc(d.worker_name) + '</td>'
+                        + '<td class="left" style="color:#5b6675">'
+                        + (d.description ? esc(d.description) : '<span style="color:#c2c9d4">—</span>')
+                        + '</td></tr>';
+                }).join('') + '</tbody></table>';
         }
 
         /* ===== 이벤트 ===== */
-        document.getElementById('btnSearch').addEventListener('click', function(){ pickDate=null; render(); });
-        document.getElementById('btnReset').addEventListener('click', function(){
-            document.getElementById('fProc').value=''; document.getElementById('fItem').value='';
-            pickDate=null; setDefaultRange(); render();
-        });
-        document.getElementById('trend').addEventListener('click', function(e){
-            var c = e.target.closest('[data-dt]'); if(!c) return;
-            pickDate = (pickDate === c.dataset.dt) ? null : c.dataset.dt;
-            render();
-        });
-        document.getElementById('btnExcel').addEventListener('click', function(){
-            var D = filtDef();
-            var csv = '일자,공정,품목명,로트번호,불량유형,수량,작업자,비고\n'
-                + D.map(d=>[d.date, PN[d.proc], d.item, d.lot, d.type, d.qty, d.worker, (d.note||'').replace(/,/g,' ')].join(',')).join('\n');
-            var a = document.createElement('a');
-            a.href = URL.createObjectURL(new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8'}));
-            a.download = '생산불량현황.csv'; a.click(); URL.revokeObjectURL(a.href);
+        document.getElementById('btnSearch').addEventListener('click', function(){
+            dfPickDate = null;
+            dfLoadCombo();
+            dfLoad();
         });
 
-        function setDefaultRange(){
-            document.getElementById('fFrom').value = '2026-07-06';
-            document.getElementById('fTo').value   = '2026-07-11';
+        document.getElementById('btnReset').addEventListener('click', function(){
+            document.getElementById('fProc').value = '';
+            document.getElementById('fItem').value = '';
+            dfPickDate = null;
+            dfDefaultRange();
+            dfLoadCombo();
+            dfLoad();
+        });
+
+        document.getElementById('alertBox').addEventListener('click', function(e){
+            if(e.target && e.target.id === 'btnPickClear'){
+                dfPickDate = null;
+                dfRender();
+            }
+        });
+
+        document.getElementById('trend').addEventListener('click', function(e){
+            var c = e.target.closest('[data-dt]');
+            if(!c) return;
+            dfPickDate = (dfPickDate === c.dataset.dt) ? null : c.dataset.dt;
+            dfRender();
+        });
+
+        document.getElementById('btnExcel').addEventListener('click', function(){
+            if(!dfData || !(dfData.detail || []).length){
+                Alert.alert('내려받을 데이터가 없습니다.');
+                return;
+            }
+            var rows = dfPickDate
+                ? dfData.detail.filter(function(d){ return d.defect_date === dfPickDate; })
+                : dfData.detail;
+            var cell = function(v){ return String(v === null || v === undefined ? '' : v).replace(/[,\r\n]/g, ' '); };
+            var csv = '일자,공정,품목명,차감로트,작업지시,불량유형,수량,작업자,비고\n'
+                + rows.map(function(d){
+                    return [d.defect_date, d.proc_name, d.mat_name, d.lot_numbers,
+                        d.work_order || '미지정', d.type_name, d.defect_qty,
+                        d.worker_name, d.description].map(cell).join(',');
+                }).join('\n');
+            var a = document.createElement('a');
+            a.href = URL.createObjectURL(new Blob(['\ufeff' + csv], {type:'text/csv;charset=utf-8'}));
+            a.download = '생산불량현황.csv';
+            a.click();
+            URL.revokeObjectURL(a.href);
+        });
+
+        /* 기본 기간 = 최근 7일 */
+        function dfDefaultRange(){
+            var to = new Date();
+            var from = new Date();
+            from.setDate(from.getDate() - 6);
+            document.getElementById('fFrom').value = ymd(from);
+            document.getElementById('fTo').value   = ymd(to);
         }
-        document.addEventListener('DOMContentLoaded', function(){ setDefaultRange(); render(); });
+
+        document.addEventListener('DOMContentLoaded', function(){
+            dfDefaultRange();
+            dfLoadCombo();
+            dfLoad();
+        });
     </script>
 </th:block>
 </html>
