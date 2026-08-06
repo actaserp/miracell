@@ -194,7 +194,10 @@
     .db-alarm-b { padding:6px 22px 4px; max-height:46vh; overflow-y:auto; }
     .db-az { padding:13px 0; border-bottom:1px solid #f2f4f8; }
     .db-az:last-child { border-bottom:0; }
-    .db-az .zn { font-size:17px; font-weight:800; color:#1f2733; margin-bottom:7px; }
+    .db-az .zn { font-size:17px; font-weight:800; color:#1f2733; margin-bottom:7px;
+      display:flex; align-items:baseline; gap:9px; }
+    .db-az .zn .at { margin-left:auto; font-size:12px; font-weight:700; color:#8a94a4;
+      font-variant-numeric:tabular-nums; }
     .db-az .mx { display:flex; gap:9px; }
     .db-az .mx div { flex:1; text-align:center; border-radius:8px; padding:7px 4px;
       background:#f7f8fb; border:1px solid #eef1f6; }
@@ -970,20 +973,33 @@
      * ★ 이미 떠 있으면 존을 덧붙인다. 창을 여러 개 띄우지 않는다.
      */
     function dbEnvNotify(zones){
+      var now = new Date();
+      var at = dbPad(now.getHours()) + ':' + dbPad(now.getMinutes())
+              + ':' + dbPad(now.getSeconds());
+
       zones.forEach(function(z){
         var dup = dbAlarmZones.some(function(x){
           return String(x.code || x.name) === String(z.code || z.name);
         });
-        if (!dup) dbAlarmZones.push(z);
+        if (dup) return;
+
+        /* ★ 발생 시각과 그때의 값을 함께 굳혀둔다.
+             여러 건이 쌓이면 어느 게 먼저 벗어났는지 알아야 하고,
+             값도 「벗어난 순간의 값」이어야 한다 — 나중에 바뀐 값이
+             알람 창에 반영되면 무엇 때문에 울렸는지 알 수 없다. */
+        var snap = {};
+        for (var k in z) { if (z.hasOwnProperty(k)) snap[k] = z[k]; }
+        snap._at = at;
+        dbAlarmZones.push(snap);
       });
       dbAlarmRender();
       document.getElementById('dbAlarmMask').classList.add('on');
     }
 
     function dbAlarmRender(){
-      var d = new Date();
+      /* 헤더에는 건수만. 시각은 존마다 따로 붙는다 */
       document.getElementById('dbAlarmTime').textContent =
-              dbPad(d.getHours()) + ':' + dbPad(d.getMinutes()) + ':' + dbPad(d.getSeconds());
+              dbAlarmZones.length > 1 ? dbAlarmZones.length + '건' : '';
 
       var cell = function(key, unit, val, min, max, digits){
         var has = (val !== null && val !== undefined && val !== '');
@@ -1001,7 +1017,9 @@
       };
 
       document.getElementById('dbAlarmList').innerHTML = dbAlarmZones.map(function(z){
-        return '<div class="db-az"><div class="zn">' + dbEsc(z.name) + '</div>'
+        return '<div class="db-az">'
+                + '<div class="zn">' + dbEsc(z.name)
+                + '<span class="at">' + dbEsc(z._at || '') + ' 발생</span></div>'
                 + '<div class="mx">'
                 + cell('온도',  '°C', z.temp,  z.temp_min,  z.temp_max,  1)
                 + cell('습도',  '%',  z.humi,  z.humi_min,  z.humi_max,  1)
