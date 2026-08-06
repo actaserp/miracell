@@ -123,12 +123,10 @@
       </div>
 
       <div class="sum-box">
-<!--        <span class="sum-item"><i>판매계획</i><em id="sumPlan">0</em></span>-->
         <span class="sum-item is-primary"><i>수주</i><em id="sumOrder">0</em></span>
         <span class="sum-item is-primary"><i>출하실적</i><em id="sumActual">0</em></span>
-        <span class="sum-item is-warn"><i>차이(실적-계획)</i><em id="sumDiff">0</em></span>
-        <span class="sum-item is-good"><i>계획달성률</i><em id="sumRate">0%</em></span>
         <span class="sum-item"><i>수주잔량</i><em id="sumBacklog">0</em></span>
+        <span class="sum-item is-good"><i>출하율</i><em id="sumShipRate">0%</em></span>
       </div>
 
       <div class="container-fluid grid-wrap" id="gridWrap">
@@ -207,7 +205,7 @@
      new FlexGridContextMenu(this.grid);
      this.grid.downloadFileName = '영업현황집계표';
 
-     // 합계행 강조 / 달성률 색상 / 미달 강조
+     // 합계행 강조 / 출하율 색상
      this.grid.formatItem.addHandler(function (s, e) {
       if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
        e.cell.style.textAlign = 'center';
@@ -224,14 +222,16 @@
        e.cell.style.fontWeight = 'bold';
       }
 
-      if (b === 'Rate') {
-       const r = SalesSummaryPage.num(item.Rate);
+      // 출하율 — 수주 대비 얼마나 나갔는지
+      if (b === 'ShipRate') {
+       const r = SalesSummaryPage.num(item.ShipRate);
        e.cell.style.fontWeight = 'bold';
        e.cell.style.color = r >= 100 ? '#2e9e5b' : (r >= 80 ? '#1f5fbf' : '#c0392b');
       }
-      if (b === 'Diff') {
-       const d = SalesSummaryPage.num(item.Diff);
-       e.cell.style.color = d < 0 ? '#c0392b' : '#2e9e5b';
+      // 수주잔량이 남아 있으면 주의색
+      if (b === 'Backlog') {
+       const v = SalesSummaryPage.num(item.Backlog);
+       if (v > 0) e.cell.style.color = '#c0392b';
       }
      });
 
@@ -265,14 +265,13 @@
      } else if (groupKind === 'product') {
       cols.push({ binding: 'product_code', header: '코드', width: 100, align: 'center' });
       cols.push({ binding: 'product_name', header: '품목', width: 220, align: 'left' });
-      cols.push({ binding: 'Standard', header: '규격', width: 100, align: 'center' });
      } else if (groupKind === 'group') {
       cols.push({ binding: 'MaterialGroupName', header: '품목군', width: 200, align: 'left' });
      } else {
       cols.push({ binding: 'MonthLabel', header: '월', width: 120, align: 'center' });
      }
 
-     // 월별 컬럼 (월별 집계일 땐 중복이므로 생략)
+     // 월별 컬럼 (월별 집계일 땐 중복이므로 생략) — 값은 출하실적 기준
      if (groupKind !== 'month') {
       this.months.forEach(m => {
        const [, mm] = m.split('-');
@@ -284,13 +283,11 @@
       });
      }
 
-     // cols.push({ binding: 'PlanValue',   header: '판매계획', width: 110, align: 'right', format: fmt });
-     cols.push({ binding: 'OrderValue',  header: '수주',     width: 110, align: 'right', format: fmt });
-     cols.push({ binding: 'ActualValue', header: '출하실적', width: 110, align: 'right', format: fmt });
-     cols.push({ binding: 'Diff',        header: '차이',     width: 110, align: 'right', format: fmt });
-     cols.push({ binding: 'Rate',        header: '달성률(%)', width: 90, align: 'right', format: 'n1' });
-     cols.push({ binding: 'Backlog',     header: '수주잔량', width: 110, align: 'right', format: fmt });
-     cols.push({ binding: 'ShareRate',   header: '구성비(%)', width: 90, align: 'right', format: 'n1' });
+     cols.push({ binding: 'OrderValue',  header: '수주',      width: 110, align: 'right', format: fmt });
+     cols.push({ binding: 'ActualValue', header: '출하실적',  width: 110, align: 'right', format: fmt });
+     cols.push({ binding: 'Backlog',     header: '수주잔량',  width: 110, align: 'right', format: fmt });
+     cols.push({ binding: 'ShipRate',    header: '출하율(%)', width: 90,  align: 'right', format: 'n1' });
+     cols.push({ binding: 'ShareRate',   header: '구성비(%)', width: 90,  align: 'right', format: 'n1' });
      cols.push({ binding: 'Description', header: '비고', width: 110 });
 
      this.grid.columns.deferUpdate(() => {
@@ -357,13 +354,13 @@
        r.MonthLabel = `${y}년 ${Number(m)}월`;
       }
 
-      const plan = C.num(r.PlanValue);
       const actual = C.num(r.ActualValue);
       const order = C.num(r.OrderValue);
 
-      if (r.Diff == null) r.Diff = actual - plan;
-      if (r.Rate == null) r.Rate = plan > 0 ? Math.round(actual / plan * 1000) / 10 : 0;
       if (r.Backlog == null) r.Backlog = Math.max(0, order - actual);
+      if (r.ShipRate == null) {
+       r.ShipRate = order > 0 ? Math.round(actual / order * 1000) / 10 : 0;
+      }
      });
 
      // 구성비 (출하실적 기준)
@@ -383,12 +380,11 @@
        const k = 'm_' + m.replace('-', '');
        total[k] = rows.reduce((a, r) => a + C.num(r[k]), 0);
       });
-      ['PlanValue', 'OrderValue', 'ActualValue', 'Backlog'].forEach(k => {
+      ['OrderValue', 'ActualValue', 'Backlog'].forEach(k => {
        total[k] = rows.reduce((a, r) => a + C.num(r[k]), 0);
       });
-      total.Diff = total.ActualValue - total.PlanValue;
-      total.Rate = total.PlanValue > 0
-       ? Math.round(total.ActualValue / total.PlanValue * 1000) / 10 : 0;
+      total.ShipRate = total.OrderValue > 0
+       ? Math.round(total.ActualValue / total.OrderValue * 1000) / 10 : 0;
       total.ShareRate = 100;
 
       rows = rows.concat([total]);
@@ -403,26 +399,18 @@
 
     updateSummary(t) {
      const C = SalesSummaryPage;
-     $('#sumPlan').text(C.fmtNum(t.PlanValue));
      $('#sumOrder').text(C.fmtNum(t.OrderValue));
      $('#sumActual').text(C.fmtNum(t.ActualValue));
+     $('#sumBacklog').text(C.fmtNum(t.Backlog));
 
-     const diff = C.num(t.Diff);
-     $('#sumDiff')
-     .text((diff > 0 ? '+' : '') + C.fmtNum(diff))
-     .css('color', diff < 0 ? '#c0392b' : '#2e9e5b');
-
-     const rate = C.num(t.Rate);
-     $('#sumRate')
+     const rate = C.num(t.ShipRate);
+     $('#sumShipRate')
      .text(rate + '%')
      .css('color', rate >= 100 ? '#2e9e5b' : (rate >= 80 ? '#1f5fbf' : '#c0392b'));
-
-     $('#sumBacklog').text(C.fmtNum(t.Backlog));
     }
 
     /* 드릴다운: 선택 행의 상세(수주/출하 내역) */
     showDrill(row) {
-     const C = SalesSummaryPage;
      const groupKind = $('#cboGroupKind').val();
      const title =
       groupKind === 'company' ? `판매처 상세 - ${row.CompanyName ?? ''}` :
@@ -440,13 +428,11 @@
       autoGenerateColumns: false,
       isReadOnly: true,
       columns: [
-       { binding: 'PlanDate',     header: '계획일',   width: 100, align: 'center' },
+       { binding: 'JumunDate',    header: '수주일',   width: 100, align: 'center' },
        { binding: 'CompanyName',  header: '판매처',   width: 160, align: 'left' },
        { binding: 'product_code', header: '코드',     width: 100, align: 'center' },
-       { binding: 'product_name', header: '품목',     width: 200, align: 'left' },
-       { binding: 'Standard',     header: '규격',     width: 90,  align: 'center' },
+       { binding: 'product_name', header: '품목',     width: 220, align: 'left' },
        { binding: 'UnitName',     header: '단위',     width: 60,  align: 'center' },
-       { binding: 'PlanQty',      header: '계획수량', width: 90,  align: 'right', format: 'n2' },
        { binding: 'OrderQty',     header: '수주수량', width: 90,  align: 'right', format: 'n2' },
        { binding: 'ActualQty',    header: '출하수량', width: 90,  align: 'right', format: 'n2' },
        { binding: 'UnitPrice',    header: '단가',     width: 90,  align: 'right', format: 'n0' },
