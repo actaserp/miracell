@@ -1,0 +1,335 @@
+<html layout:decorate="~{layout_page}">
+
+<th:block layout:fragment="content">
+    <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet"/>
+    <style>
+
+        :root{--bg:#E9EEF1;--surface:#FFF;--surface-2:#F4F7F9;--ink:#15222B;--ink-2:#5A6B76;--line:#D8E0E5;
+            --teal:#0E7C86;--teal-d:#0A5C64;--teal-bg:#E2F1F2;--green:#1E9D58;--green-bg:#E4F4EA;
+            --amber:#C77A00;--amber-bg:#FBEFD8;--red:#C8483B;--red-bg:#F7E4E1;--r:18px;--tap:60px;
+            --shadow:0 1px 0 rgba(21,34,43,.04),0 8px 24px -16px rgba(21,34,43,.28)}
+        *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+        .ms-pop-root{font-family:"Pretendard","Noto Sans KR",-apple-system,sans-serif;color:var(--ink);font-size:17px;line-height:1.45;-webkit-font-smoothing:antialiased;flex:1 1 auto;min-height:0;height:var(--pop-h,100%);max-height:var(--pop-h,none);display:flex;flex-direction:column}
+        .ms-pop-root .app{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;background:var(--bg);border-radius:12px;overflow:hidden}
+
+        .wrap{padding:22px 20px 28px;max-width:1180px;margin:0 auto;width:100%;overflow:auto;-webkit-overflow-scrolling:touch;flex:1 1 auto;min-height:0}
+        .qhead{display:flex;align-items:baseline;gap:12px;margin:2px 2px 18px}
+        .qhead h1{font-size:26px;font-weight:800;letter-spacing:-.03em;margin:0}
+        .qhead .cnt{color:var(--ink-2);font-weight:700;font-variant-numeric:tabular-nums}
+        .qhead .clock{margin-left:auto;font-variant-numeric:tabular-nums;font-weight:700;color:var(--ink-2)}
+
+        /* 공장 전환 — 계정이 한 공장만 쓰면 자동으로 숨는다 */
+        .ftabs{display:flex;gap:8px;margin:0 2px 16px}
+        .ftabs.hide{display:none}
+        .ftab{height:48px;padding:0 20px;border:1px solid var(--line);border-radius:12px;background:var(--surface);
+            font-size:16px;font-weight:800;color:var(--ink-2);cursor:pointer}
+        .ftab:active{background:var(--surface-2)}
+        .ftab.on{background:var(--teal);border-color:var(--teal);color:#fff}
+
+        /* 공정 타일 */
+        .pgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+        .proc{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:20px 20px 18px;
+            cursor:pointer;box-shadow:var(--shadow);transition:transform .12s ease;position:relative;overflow:hidden;
+            min-height:150px;display:flex;flex-direction:column;text-align:left;width:100%;font:inherit;color:inherit}
+        .proc:active{transform:scale(.985)}
+        .proc:focus-visible{outline:3px solid var(--teal);outline-offset:2px}
+        .proc .edge{position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--line)}
+        .proc .edge{background:var(--teal)}
+        .proc .code{font-size:12.5px;font-weight:800;color:var(--ink-2);font-variant-numeric:tabular-nums;letter-spacing:.02em}
+        .proc .nm{font-size:24px;font-weight:800;letter-spacing:-.03em;margin-top:2px}
+        .proc .zone{font-size:13.5px;color:var(--ink-2);font-weight:700;margin-top:3px}
+        .proc .foot{margin-top:auto;padding-top:14px;display:flex;align-items:center;gap:10px}
+        .proc .gohint{font-size:13.5px;font-weight:800;color:var(--teal-d)}
+        .proc .pin{margin-left:auto;width:44px;height:44px;border-radius:12px;border:1px solid var(--line);
+            background:var(--surface-2);display:grid;place-items:center;font-size:17px;color:var(--ink-2);flex:0 0 auto}
+        .proc .pin:active{background:var(--line)}
+        .proc .pin.on{background:var(--amber-bg);border-color:var(--amber);color:var(--amber)}
+        .proc.dim{opacity:.5}
+
+        .note{margin:18px 2px 0;font-size:13.5px;color:var(--ink-2);font-weight:700;line-height:1.7}
+        .note b{color:var(--ink)}
+        .empty{padding:60px 20px;text-align:center;color:var(--ink-2);font-weight:700}
+
+        @media (max-width:980px){.pgrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+        @media (max-width:680px){.pgrid{grid-template-columns:1fr}}
+        @media (prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important}}
+
+    </style>
+
+    <div class="ms-pop-root">
+        <div class="app">
+            <div class="wrap">
+                <div class="qhead">
+                    <h1>생산실적</h1>
+                    <span class="cnt" id="todayLab"></span>
+                    <span class="clock" id="clock"></span>
+                </div>
+
+                <div class="ftabs hide" id="fTabs">
+                    <button class="ftab on" data-f="1">제1공장 · 키트</button>
+                    <button class="ftab" data-f="2">제2공장 · M-CELL</button>
+                </div>
+
+                <div class="pgrid" id="pGrid"></div>
+
+                <div class="note">
+                    타일을 눌러 공정으로 들어갑니다.
+                    오른쪽 아래 <b>핀</b>을 누르면 이 태블릿이 다음부터 그 공정으로 바로 들어갑니다.
+                </div>
+            </div>
+        </div>
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <script th:inline="none">
+        /* ── 높이 자동 맞춤 (공정 화면과 동일) ── */
+        (function () {
+            const root = document.querySelector('.ms-pop-root');
+            if (!root) return;
+            function localBelow() {
+                let below = 0, node = root;
+                while (node && node !== document.body) {
+                    let sib = node.nextElementSibling;
+                    while (sib) {
+                        const r = sib.getBoundingClientRect();
+                        if (r.height > 0 && getComputedStyle(sib).position !== 'fixed') below += r.height;
+                        sib = sib.nextElementSibling;
+                    }
+                    node = node.parentElement;
+                }
+                let fx = 0;
+                document.querySelectorAll('body *').forEach(el => {
+                    if (root.contains(el)) return;
+                    const cs = getComputedStyle(el);
+                    if (cs.position !== 'fixed' && cs.position !== 'sticky') return;
+                    const r = el.getBoundingClientRect();
+                    if (r.height > 0 && r.height < innerHeight * 0.5 && r.bottom > innerHeight - 2) fx = Math.max(fx, r.height);
+                });
+                return Math.max(below, fx);
+            }
+            function availBottom() {
+                let bottom = window.innerHeight;
+                try {
+                    const fe = window.frameElement;
+                    if (fe) {
+                        const pWin = window.parent, pDoc = pWin.document;
+                        const feTop = fe.getBoundingClientRect().top;
+                        let flow = 0, node = fe;
+                        while (node && node !== pDoc.body) {
+                            let sib = node.nextElementSibling;
+                            while (sib) {
+                                const cs = pWin.getComputedStyle(sib), r = sib.getBoundingClientRect();
+                                if (r.height > 0 && cs.position !== 'fixed' && cs.position !== 'absolute') flow += r.height;
+                                sib = sib.nextElementSibling;
+                            }
+                            node = node.parentElement;
+                        }
+                        let fx = 0;
+                        pDoc.querySelectorAll('body *').forEach(el => {
+                            if (el === fe || el.contains(fe)) return;
+                            const cs = pWin.getComputedStyle(el);
+                            if (cs.position !== 'fixed' && cs.position !== 'sticky' && cs.position !== 'absolute') return;
+                            const r = el.getBoundingClientRect();
+                            if (r.height > 0 && r.height <= 160 && r.top > feTop && r.bottom > pWin.innerHeight - 40)
+                                fx = Math.max(fx, r.bottom - r.top);
+                        });
+                        const pFooter = Math.max(flow, fx);
+                        bottom = Math.min(bottom, (pWin.innerHeight - pFooter) - feTop);
+                    }
+                } catch (e) {}
+                return bottom;
+            }
+            function fit() {
+                const top = root.getBoundingClientRect().top;
+                const avail = availBottom() - top - localBelow();
+                root.style.setProperty('--pop-h', Math.max(320, Math.floor(avail)) + 'px');
+            }
+            window.addEventListener('resize', fit);
+            window.addEventListener('orientationchange', fit);
+            try { window.parent.addEventListener('resize', fit); } catch (e) {}
+            fit(); requestAnimationFrame(fit); setTimeout(fit, 200); setTimeout(fit, 600);
+            if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
+        })();
+
+        const CTX = Object.assign({
+            spjangcd: 'ZZ',
+            factoryId: ''         // '1' | '2' | '' (둘 다)
+        }, window.POP_CTX || {});
+
+        /* ── 공정 목록 ───────────────────────────────────────────────────
+           여기 없는 두 공정
+             검사(mc02)  POP 열에 「공정검사」가 따로 있다(pop_inspect). 여기 또 두면
+                         같은 화면이 POP 안에서 두 칸으로 잡힌다
+             멸균(bsc04) PC 작업이고 집계매체가 바코드가 아니라 USB/PLC 라
+                         POP 실적 스캔 대상이 아니다 */
+        const PROCS = [
+            {f: 1, code: 'bsc01', nm: '세척',      zone: '클린룸 1존', menu: 'prod_process_wash_t'},
+            {f: 1, code: 'bsc02', nm: '조립',      zone: '클린룸 2존', menu: 'prod_process_assembly_bsc_t'},
+            {f: 1, code: 'bsc03', nm: '블리스터',  zone: '클린룸 2존', menu: 'prod_process_blister_t'},
+            {f: 1, code: 'bsc06', nm: '융착',      zone: '클린룸 2존', menu: 'prod_welding'},
+            {f: 1, code: 'bsc05', nm: '포장',      zone: '클린룸 4존', menu: 'prod_process_opack_t'},
+
+            {f: 2, code: 'mc01',  nm: '조립',      zone: '조립실',     menu: 'prod_process_assembly_mcell_t'},
+            {f: 2, code: 'mc04',  nm: '수리',      zone: '조립실',     menu: 'prod_process_repair'},
+            {f: 2, code: 'mc03',  nm: '포장',      zone: '포장',       menu: 'prod_process_opack_mcell_t'}
+        ];
+
+        /* 화면 주소 — menu_item."MenuCode" 가 /gui/ 뒤에 들어간다.
+           멸균(prod_process_steril_t)은 넣지 않았다. PC 작업이고 집계매체가
+           바코드가 아니라 USB/PLC 라서 POP 실적 스캔 대상이 아니다. */
+        function procUrl(p) {
+            if (!p.menu) return '';
+            const title = p.nm + ' 공정(' + (p.f === 1 ? '1공장' : '2공장') + ')';
+            return '/gui/' + p.menu + '/default?hideBookmark=true&wintitle=' + encodeURIComponent(title);
+        }
+
+        const PIN_KEY = 'pop.pinnedProc';
+        let curF = CTX.factoryId ? String(CTX.factoryId) : '1';
+
+        function flash(m) {
+            let t = document.getElementById('toast');
+            if (!t) {
+                t = document.createElement('div');
+                t.id = 'toast';
+                t.style.cssText = 'position:fixed;left:50%;bottom:110px;transform:translateX(-50%);background:#15222B;color:#fff;padding:14px 22px;border-radius:14px;font-weight:700;z-index:60;box-shadow:0 12px 30px -10px rgba(0,0,0,.5);transition:opacity .3s';
+                document.body.appendChild(t);
+            }
+            t.textContent = m;
+            t.style.opacity = '1';
+            clearTimeout(flash._t);
+            flash._t = setTimeout(() => t.style.opacity = '0', 1700);
+        }
+
+        function todayStr() {
+            const d = new Date();
+            return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+        }
+
+        function qs(k) {
+            const m = new RegExp('[?&]' + k + '=([^&#]*)').exec(location.search);
+            return m ? decodeURIComponent(m[1]) : '';
+        }
+
+        function pinned() {
+            try {
+                return localStorage.getItem(PIN_KEY) || '';
+            } catch (e) {
+                return '';
+            }
+        }
+
+        function setPinned(code) {
+            try {
+                code ? localStorage.setItem(PIN_KEY, code) : localStorage.removeItem(PIN_KEY);
+            } catch (e) {
+            }
+        }
+
+        function go(p) {
+            const u = procUrl(p);
+            if (!u) {
+                flash(p.nm + ' 화면 주소가 설정되지 않았습니다');
+                return;
+            }
+            location.href = u;
+        }
+
+        function render() {
+            const grid = document.getElementById('pGrid');
+            const list = PROCS.filter(p => String(p.f) === curF);
+            const pin = pinned();
+
+            if (!list.length) {
+                grid.innerHTML = '<div class="empty">표시할 공정이 없습니다</div>';
+                return;
+            }
+
+            grid.innerHTML = '';
+            list.forEach(p => {
+                const el = document.createElement('button');
+                el.type = 'button';
+                el.className = 'proc' + (p.menu ? '' : ' dim');
+                el.dataset.code = p.code;
+                el.innerHTML =
+                    '<span class="edge"></span>' +
+                    '<div class="code">' + p.code.toUpperCase() + '</div>' +
+                    '<div class="nm">' + p.nm + '</div>' +
+                    '<div class="zone">' + p.zone + '</div>' +
+                    '<div class="foot">' +
+                    '  <div class="gohint">' + (p.menu ? '실적 등록 ›' : '화면 미등록') + '</div>' +
+                    '  <div class="pin' + (pin === p.code ? ' on' : '') + '" data-pin="' + p.code + '" ' +
+                    '       title="이 태블릿의 기본 공정">' + (pin === p.code ? '★' : '☆') + '</div>' +
+                    '</div>';
+
+                el.addEventListener('click', function (e) {
+                    const pinBtn = e.target.closest('[data-pin]');
+                    if (pinBtn) {
+                        e.stopPropagation();
+                        const code = pinBtn.getAttribute('data-pin');
+                        if (pinned() === code) {
+                            setPinned('');
+                            flash('기본 공정을 해제했습니다');
+                        } else {
+                            setPinned(code);
+                            flash(p.nm + ' 을(를) 이 태블릿의 기본 공정으로 지정했습니다');
+                        }
+                        render();
+                        return;
+                    }
+                    go(p);
+                });
+                grid.appendChild(el);
+            });
+
+            document.getElementById('todayLab').textContent = todayStr();
+        }
+
+        function initTabs() {
+            const tabs = document.getElementById('fTabs');
+            if (CTX.factoryId) {
+                tabs.classList.add('hide');
+                return;
+            }   // 공장 계정 — 탭 불필요
+            tabs.classList.remove('hide');
+            tabs.querySelectorAll('.ftab').forEach(b => {
+                b.classList.toggle('on', b.dataset.f === curF);
+                b.addEventListener('click', function () {
+                    curF = this.dataset.f;
+                    tabs.querySelectorAll('.ftab').forEach(x => x.classList.toggle('on', x === this));
+                    render();
+                });
+            });
+        }
+
+        function tickClock() {
+            const d = new Date();
+            const el = document.getElementById('clock');
+            if (el) el.textContent = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+        }
+
+        /* ── 시작 ────────────────────────────────────────────────────────
+           ?proc= 이 있으면 타일을 거치지 않는다. 없으면 핀을 본다.
+           둘 다 없으면 타일을 그린다. */
+        (function boot() {
+            const direct = qs('proc') || pinned();
+            if (direct && !qs('pick')) {                 // ?pick=1 을 붙이면 타일을 강제로 본다
+                const p = PROCS.find(x => x.code === direct);
+                if (p) {
+                    location.replace(procUrl(p));
+                    return;
+                }
+                setPinned('');                           // 없는 코드가 박혀 있으면 정리
+            }
+
+            tickClock();
+            setInterval(tickClock, 30000);
+            initTabs();
+
+            render();     // 서버를 타지 않는다 — 공용 스크립트 대기 없이 바로 뜬다
+        })();
+
+    </script>
+</th:block>
+
+</html>

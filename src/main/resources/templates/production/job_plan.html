@@ -277,22 +277,6 @@
                         </tr>
                         <tr>
                             <th style="text-align: center">
-                                <label for="actnm">현장명</label>
-                            </th>
-                            <td>
-                                <input class="form-control2" type="text" id="actnm" name="actnm">
-                            </td>
-                            <th style="text-align: center">
-                                <label for="cmcode">통신</label>
-                            </th>
-                            <td colspan="3">
-                                <select id="cmcode" name="cmcode">
-                                </select>
-                            </td>
-                        </tr>
-
-                        <tr>
-                            <th style="text-align: center">
                                 <label for="description">비고</label>
                             </th>
                             <td colspan="3">
@@ -416,8 +400,6 @@
                     columns: [
                         {binding: 'stdate', header: '계획 시작일', width: 120, align: 'center'},
                         {binding: 'eddate', header: '계획 종료일', width: 120, align: 'center'},
-                        {binding: 'actnm', header: '현장명', width: 200},
-                        {binding: 'cmcode', header: '통신', width: 100, align: 'center', format: 'n0'},
                         {binding: 'description', header: '비고', width: 200},
                         {binding: 'mat_code', header: '품목 코드', width: 150, align: 'center'},
                         {binding: 'mat_name', header: '품목', width: 300},
@@ -489,7 +471,6 @@
                 let $content = $(content);
                 let $btnDelete = $content.find('#btnDelete');
                 let $planForm = $content.find('#planForm');
-                let $cmcode = $content.find('#cmcode');
 
                 let modalContainer = null;
                 if (data.mode === 'new') {
@@ -503,8 +484,6 @@
                 // 저장버튼
                 let $btnPopSave = $('#btnPopSave');
 
-                //수주구분
-                AjaxUtil.fillSelectOptions($cmcode, 'system_code', 'choose', '', 'comunication_type');
                 initPopupDateKindHandler($content);
 
                 setTimeout(() => {
@@ -577,11 +556,9 @@
                         // 공통 정보 + 리스트 전송
                         const payload = {
                             head_id: data.head_id,
-                            actnm: data.actnm,
                             stdate: data.stdate,
                             eddate: data.eddate,
                             datetype: data.datetype,
-                            cmcode: data.cmcode,
                             spjangcd: data.spjangcd,
                             description: data.description,
                             items: items
