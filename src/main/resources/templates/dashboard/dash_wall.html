@@ -1,0 +1,390 @@
+<html layout:decorate="~{layout_page}">
+<head>
+  <style>
+    /* ═══════════════════════════════════════════════════════════
+       벽걸이 전용 대시보드
+
+       ★ dash_main 과 목적이 다르다. 합치지 않는다.
+         dash_main : 앉아서 「무슨 일이 있나」를 파악한다 (관리자용)
+                     목록·상세가 필요하고 12~14px 로 충분하다
+         이 화면    : 지나가며 0.5초 안에 「이상 있나」를 알아챈다
+                     읽는 게 아니라 알아채는 것이다
+
+       ★ 그래서 정보를 3분의 1로 줄였다.
+         작업지시 목록·유닛 로트번호·부적합 상세는 넣지 않는다.
+         3~5m 밖에서 안 읽히는 정보는 화면만 어지럽힌다.
+
+       ★ 밝은 바탕을 쓴다.
+         어두운 바탕이 상태 색은 더 살지만, 주간 조명이 밝은 현장에서는
+         화면이 어둡게 가라앉아 오히려 안 보인다. 다른 화면과 톤도 맞는다.
+         대신 대비를 크게 벌려 멀리서도 읽히게 한다 —
+         바탕은 회색, 카드는 흰색, 상태 색만 진하게.
+
+       ★ 서버는 dash_main 과 공유한다 (/api/dashboard/main/read).
+         같은 숫자를 두 화면이 다르게 말하면 안 되므로 API 를 나누지 않는다.
+    ═══════════════════════════════════════════════════════════ */
+    #wlWrap {
+      position: relative;
+      height: 100vh;
+      background: #e4e9f2;
+      color: #1f2733;
+      padding: 22px 26px;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
+      overflow: hidden;
+    }
+    #wlWrap * { box-sizing: border-box; }
+
+    /* ── 헤더 ── */
+    #wlWrap .wl-head { flex:0 0 auto; display:flex; align-items:center; gap:16px; }
+    #wlWrap .wl-head h1 { margin:0; font-size:30px; font-weight:800; letter-spacing:-.5px; }
+    #wlWrap .wl-live { font-size:14px; font-weight:800; color:#0f9d58;
+      display:flex; align-items:center; gap:7px; }
+    #wlWrap .wl-live i { width:9px; height:9px; border-radius:50%; background:#0f9d58;
+      animation:wlBlink 2s infinite; }
+    @keyframes wlBlink { 0%,100%{opacity:1} 50%{opacity:.25} }
+    #wlWrap .wl-clock { margin-left:auto; font-size:34px; font-weight:800;
+      font-variant-numeric:tabular-nums; letter-spacing:1px; }
+    #wlWrap .wl-clock .d { font-size:16px; color:#8a94a4; font-weight:700;
+      margin-right:12px; letter-spacing:0; }
+    #wlWrap .wl-full { flex:0 0 auto; width:38px; height:38px; border-radius:9px;
+      border:1px solid #cfd6e2; background:#fff; color:#5b6675;
+      font-size:17px; cursor:pointer; }
+
+    /* ── 이상 알림 : 이 화면에서 가장 중요한 요소 ── */
+    #wlWrap .wl-alarm { flex:0 0 auto; border-radius:14px; padding:15px 22px;
+      display:flex; align-items:center; gap:14px;
+      font-size:22px; font-weight:800; }
+    #wlWrap .wl-alarm.ok  { background:#e8f6ef; color:#0b7a45; border:1px solid #b9e5cf; }
+    #wlWrap .wl-alarm.bad { background:#d64545; color:#fff;
+      animation:wlPulse 1.4s infinite; }
+    @keyframes wlPulse { 0%,100%{box-shadow:0 0 0 0 rgba(214,69,69,.5)}
+      70%{box-shadow:0 0 0 16px rgba(214,69,69,0)} }
+    #wlWrap .wl-alarm .cnt { margin-left:auto; font-size:16px; opacity:.85; font-weight:700; }
+
+    /* ── 본문 ── */
+    #wlWrap .wl-body { flex:1 1 auto; min-height:0; display:flex; flex-direction:column; gap:16px; }
+
+    /* 클린룸 4존 */
+    #wlWrap .wl-env { flex:1 1 40%; min-height:0; display:grid;
+      grid-template-columns:repeat(4,1fr); gap:14px; }
+    #wlWrap .wl-ec { background:#fff; border:1px solid #d5dce7; border-radius:16px;
+      box-shadow:0 2px 6px rgba(31,39,51,.07);
+      padding:14px 18px; display:flex; flex-direction:column; min-height:0; }
+    #wlWrap .wl-ec.bad { background:#fff2f2; border-color:#e9b4b4; box-shadow:0 2px 10px rgba(214,69,69,.2); }
+    #wlWrap .wl-ec .zn { font-size:20px; font-weight:800; display:flex; align-items:center; gap:9px; }
+    #wlWrap .wl-ec .zn .st { margin-left:auto; font-size:12px; font-weight:800;
+      padding:3px 10px; border-radius:6px;
+      background:#e8f6ef; color:#0b7a45; }
+    #wlWrap .wl-ec .zn .st.off { background:#eef2f8; color:#98a1b0; }
+    #wlWrap .wl-ec .zn .st.bad { background:#d64545; color:#fff; }
+    #wlWrap .wl-ec .rows { flex:1 1 auto; min-height:0; display:flex;
+      flex-direction:column; justify-content:space-around; margin-top:6px; }
+    #wlWrap .wl-ec .rw { display:flex; align-items:baseline; gap:10px; }
+    #wlWrap .wl-ec .rw .k { font-size:24px; font-weight:800; color:#8a94a4; letter-spacing:.5px; }
+    #wlWrap .wl-ec .rw .v { margin-left:auto; font-size:40px; font-weight:800;
+      font-variant-numeric:tabular-nums; line-height:1.05; }
+    #wlWrap .wl-ec .rw .v small { font-size:17px; color:#a7b0be; margin-left:3px; }
+    #wlWrap .wl-ec .rw.warn .v, #wlWrap .wl-ec .rw.warn .k { color:#d64545; }
+    #wlWrap .wl-ec .rw.na .v { color:#dfe3ea; }
+
+    /* 공정 타일 */
+    #wlWrap .wl-proc { flex:1 1 33%; min-height:0; display:grid;
+      grid-template-columns:1fr 1fr; gap:14px; }
+    #wlWrap .wl-fac { background:#fff; border:1px solid #d5dce7; border-radius:16px;
+      box-shadow:0 2px 6px rgba(31,39,51,.07);
+      padding:12px 16px; display:flex; flex-direction:column; min-height:0; }
+    #wlWrap .wl-fac .ft { font-size:14px; font-weight:800; color:#8a94a4; margin-bottom:9px; }
+    #wlWrap .wl-fac .ft b { color:#1f2733; font-size:17px; margin-right:7px; }
+    #wlWrap .wl-tiles { flex:1 1 auto; min-height:0; display:grid; gap:10px;
+      grid-template-columns:repeat(3,1fr); }
+    #wlWrap .wl-tile { background:#f2f5fa; border-radius:12px; padding:9px 12px;
+      display:flex; flex-direction:column; justify-content:center; }
+    #wlWrap .wl-tile.on { background:#e8f6ef; box-shadow:inset 5px 0 0 #0f9d58; }
+    #wlWrap .wl-tile .tn { font-size:15px; font-weight:800; color:#8a94a4; }
+    #wlWrap .wl-tile.on .tn { color:#0b7a45; }
+    #wlWrap .wl-tile .tv { font-size:26px; font-weight:800; font-variant-numeric:tabular-nums;
+      color:#1f2733; line-height:1.15; }
+    #wlWrap .wl-tile .tv small { font-size:13px; color:#a7b0be; margin-left:2px; }
+    #wlWrap .wl-tile:not(.on) .tv { color:#c2c9d4; }
+
+    /* 하단 KPI */
+    #wlWrap .wl-kpis { flex:0 0 auto; display:grid; grid-template-columns:repeat(5,1fr); gap:14px; }
+    #wlWrap .wl-kpi { background:#fff; border:1px solid #d5dce7; border-radius:16px;
+      box-shadow:0 2px 6px rgba(31,39,51,.07);
+      padding:12px 18px; }
+    #wlWrap .wl-kpi .l { font-size:14px; font-weight:800; color:#8a94a4; }
+    #wlWrap .wl-kpi .v { font-size:44px; font-weight:800; font-variant-numeric:tabular-nums;
+      line-height:1.1; margin-top:2px; }
+    #wlWrap .wl-kpi .v small { font-size:16px; color:#a7b0be; margin-left:3px; }
+    #wlWrap .wl-kpi.blue .v   { color:#2f6fed; }
+    #wlWrap .wl-kpi.green .v  { color:#0f9d58; }
+    #wlWrap .wl-kpi.red .v    { color:#d64545; }
+    #wlWrap .wl-kpi.violet .v { color:#7a6ff0; }
+    #wlWrap .wl-kpi.teal .v   { color:#00a3a3; }
+
+    /* 1920 미만에서는 글자를 조금 줄인다 */
+    @media (max-width:1600px){
+      #wlWrap .wl-ec .rw .v { font-size:32px; }
+      #wlWrap .wl-kpi .v { font-size:36px; }
+      #wlWrap .wl-clock { font-size:28px; }
+    }
+  </style>
+</head>
+
+<th:block layout:fragment="content">
+  <!-- ★ page-title-wrap 을 쓰지 않는다. 벽걸이에서 브레드크럼은 자리만 먹는다 -->
+  <div class="layout-contents" style="padding:0; margin:0">
+    <div id="wlWrap">
+
+      <div class="wl-head">
+        <h1>대시보드</h1>
+        <span class="wl-live"><i></i><span id="wlUpd">연결 중</span></span>
+        <div class="wl-clock"><span class="d" id="wlDate"></span><span id="wlTime"></span></div>
+        <button type="button" class="wl-full" id="wlFull" title="전체화면">⛶</button>
+      </div>
+
+      <div class="wl-alarm ok" id="wlAlarm">
+        <span>정상 운영 중</span>
+      </div>
+
+      <div class="wl-body">
+        <div class="wl-env" id="wlEnv"></div>
+        <div class="wl-proc">
+          <div class="wl-fac">
+            <div class="ft"><b>1공장</b>BSC 생산</div>
+            <div class="wl-tiles" id="wlF1"></div>
+          </div>
+          <div class="wl-fac">
+            <div class="ft"><b>2공장</b>M-CELL</div>
+            <div class="wl-tiles" id="wlF2"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="wl-kpis" id="wlKpis"></div>
+    </div>
+  </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+  <script type="text/javascript">
+    /* ═══════════════════════════════════════════════════════
+       벽걸이 대시보드
+
+       ★ 서버는 dash_main 과 같은 것을 쓴다.
+         같은 숫자를 두 화면이 다르게 말하면 안 된다.
+
+       ★ 폴링 30초. 관리자 화면(60초)보다 짧게 잡는다 —
+         벽걸이는 사람이 새로고침해 줄 수 없다.
+
+       ★ 탭 숨김 처리는 넣지 않는다.
+         벽걸이는 항상 켜져 있는 화면이라 멈추면 그대로 죽은 화면이 된다.
+       ═══════════════════════════════════════════════════════ */
+    const WL_API     = '/api/dashboard/main';
+    const WL_POLL_MS = 30000;
+    const WL_SPJANGCD = (typeof SPJANGCD !== 'undefined' && SPJANGCD) ? SPJANGCD : 'ZZ';
+    const WL_OPEN_WARN_MIN = 240;
+
+    var wlData = null;
+
+    function wlEsc(v){
+      return String(v === null || v === undefined ? '' : v)
+              .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+    function wlNum(v){ return Number(v || 0); }
+    function wlPad(n){ return String(n).padStart(2,'0'); }
+    function wlHas(v){ return v !== null && v !== undefined && v !== ''; }
+
+    /* ── 시계 ── */
+    function wlClock(){
+      var tick = function(){
+        var d = new Date();
+        var days = ['일','월','화','수','목','금','토'];
+        document.getElementById('wlDate').textContent =
+                d.getFullYear() + '.' + wlPad(d.getMonth()+1) + '.' + wlPad(d.getDate())
+                + ' (' + days[d.getDay()] + ')';
+        document.getElementById('wlTime').textContent =
+                wlPad(d.getHours()) + ':' + wlPad(d.getMinutes());
+      };
+      tick();
+      setInterval(tick, 10000);
+    }
+
+    /* ── 조회 ── */
+    function wlLoad(){
+      if (typeof AjaxUtil === 'undefined' || !AjaxUtil.getAsyncData) return;
+
+      AjaxUtil.getAsyncData(WL_API + '/read', {spjangcd: WL_SPJANGCD}, function(res){
+        if (!res || !res.data) {
+          /* ★ 화면을 비우지 않는다. 직전 값을 그대로 두고 표시만 바꾼다.
+               벽걸이가 통신 한 번 실패로 텅 비면 「공장이 멈춘 것」처럼 보인다. */
+          document.getElementById('wlUpd').textContent = '연결 끊김';
+          return;
+        }
+        wlData = res.data;
+        wlRender();
+        var d = new Date();
+        document.getElementById('wlUpd').textContent =
+                wlPad(d.getHours()) + ':' + wlPad(d.getMinutes()) + ' 갱신';
+      });
+    }
+
+    function wlRender(){
+      wlEnv(wlData.env || []);
+      wlProc(wlData.process_now || []);
+      wlKpi(wlData.kpi || {});
+      wlAlarm();
+    }
+
+    /* ── 클린룸 4존 ──
+       벽걸이에서 가장 큰 자리를 준다. 사람이 즉시 대응해야 하는 유일한 값이다.
+       생산 수량은 나중에 봐도 되지만 환경 이탈은 지금 조치해야 한다. */
+    function wlEnv(zones){
+      if (!zones.length) {
+        document.getElementById('wlEnv').innerHTML =
+                '<div class="wl-ec"><div class="zn">클린룸 정보 없음</div></div>';
+        return;
+      }
+
+      var row = function(key, unit, val, min, max, digits){
+        var has = wlHas(val);
+        var v = has ? Number(val) : null;
+        var hasRange = wlHas(min) && wlHas(max);
+        var bad = has && hasRange && (v < Number(min) || v > Number(max));
+        return '<div class="rw ' + (bad ? 'warn' : (has ? '' : 'na')) + '">'
+                + '<span class="k">' + key + '</span>'
+                + '<span class="v">' + (has ? v.toFixed(digits) : '--')
+                + '<small>' + unit + '</small></span></div>';
+      };
+
+      document.getElementById('wlEnv').innerHTML = zones.map(function(z){
+        var t  = row('온도', '°C', z.temp,  z.temp_min,  z.temp_max,  1);
+        var h  = row('습도', '%',  z.humi,  z.humi_min,  z.humi_max,  1);
+        var pr = row('차압', 'Pa', z.press, z.press_min, z.press_max, 0);
+
+        var hasAny = wlHas(z.temp) || wlHas(z.humi) || wlHas(z.press);
+        var bad = /rw warn/.test(t + h + pr);
+        var st = !hasAny ? '<span class="st off">대기</span>'
+                : bad     ? '<span class="st bad">이탈</span>'
+                        :           '<span class="st">정상</span>';
+
+        return '<div class="wl-ec ' + (bad ? 'bad' : '') + '">'
+                + '<div class="zn">' + wlEsc(z.name) + st + '</div>'
+                + '<div class="rows">' + t + h + pr + '</div></div>';
+      }).join('');
+    }
+
+    /* ── 공정 타일 ──
+       작업중인지 아닌지가 먼저 보여야 한다. 수량은 그다음이다. */
+    function wlProc(procs){
+      var wash = wlData.wash_today || {};
+
+      var tile = function(p){
+        var working = wlNum(p.working_cnt);
+        var qty;
+        if (p.code === 'bsc01')      qty = wlNum(wash.session_cnt) + '<small>세션</small>';
+        else if (p.code === 'bsc04') qty = (wlData.steril || []).length + '<small>배치</small>';
+        else                         qty = wlNum(p.today_good).toLocaleString() + '<small>개</small>';
+
+        return '<div class="wl-tile ' + (working ? 'on' : '') + '">'
+                + '<div class="tn">' + wlEsc(p.name) + '</div>'
+                + '<div class="tv">' + qty + '</div></div>';
+      };
+
+      var f1 = procs.filter(function(p){ return wlNum(p.factory_id) === 1; });
+      var f2 = procs.filter(function(p){ return wlNum(p.factory_id) === 2; });
+
+      document.getElementById('wlF1').innerHTML =
+              f1.length ? f1.map(tile).join('') : '<div class="wl-tile"><div class="tn">공정 없음</div></div>';
+      document.getElementById('wlF2').innerHTML =
+              f2.length ? f2.map(tile).join('') : '<div class="wl-tile"><div class="tn">공정 없음</div></div>';
+    }
+
+    /* ── 하단 KPI ──
+       ★ 1공장 「개」와 2공장 「대」를 한 칸에 더하지 않는다. 단위가 다르다. */
+    function wlKpi(k){
+      var cells = [];
+      cells.push({l:'1공장 오늘 생산', v:wlNum(k.f1_today_good).toLocaleString(), u:'개', c:'blue'});
+      cells.push({l:'2공장 포장 완료', v:wlNum(k.f2_packed).toLocaleString(),     u:'대', c:'teal'});
+      cells.push({l:'작업중 차수',     v:wlNum(k.working_sessions),               u:'건', c:'green'});
+      cells.push({l:'진행중 작업지시', v:wlNum(k.open_orders),                    u:'건', c:'violet'});
+      cells.push({l:'오늘 부적합',     v:wlNum(k.today_defect),                   u:'개', c:'red'});
+
+      document.getElementById('wlKpis').innerHTML = cells.map(function(c){
+        return '<div class="wl-kpi ' + c.c + '"><div class="l">' + c.l + '</div>'
+                + '<div class="v">' + c.v + '<small>' + c.u + '</small></div></div>';
+      }).join('');
+    }
+
+    /* ── 이상 알림 ──
+       ★ 이상이 없을 때도 띠를 남긴다.
+         빈 자리로 두면 「알림이 없는 건지 화면이 죽은 건지」 알 수 없다.
+         초록으로 「정상 운영 중」을 보여주는 것 자체가 정보다. */
+    function wlAlarm(){
+      var msgs = [];
+
+      (wlData.env || []).forEach(function(z){
+        var out = function(v, min, max){
+          if (!wlHas(v)) return false;
+          if (wlHas(min) && Number(v) < Number(min)) return true;
+          if (wlHas(max) && Number(v) > Number(max)) return true;
+          return false;
+        };
+        if (out(z.temp, z.temp_min, z.temp_max)
+                || out(z.humi, z.humi_min, z.humi_max)
+                || out(z.press, z.press_min, z.press_max)) {
+          msgs.push(z.name + ' 환경 이탈');
+        }
+      });
+
+      var fail = (wlData.steril || []).filter(function(b){ return b.bi_result === 'fail'; });
+      if (fail.length) msgs.push('멸균 BI 불합격 ' + fail.length + '건');
+
+      var rej = (wlData.unit_states || []).filter(function(s){ return s.state === 'reject'; });
+      if (rej.length && wlNum(rej[0].cnt)) msgs.push('검사 불합격 ' + wlNum(rej[0].cnt) + '대');
+
+      var late = (wlData.orders || []).filter(function(o){ return o.is_late === 'Y'; });
+      if (late.length) msgs.push('납기 경과 ' + late.length + '건');
+
+      var stale = (wlData.equ_running || []).filter(function(e){
+        return wlNum(e.open_min) > WL_OPEN_WARN_MIN;
+      });
+      if (stale.length) msgs.push('미종료 설비 ' + stale.length + '건');
+
+      var el = document.getElementById('wlAlarm');
+      if (!msgs.length) {
+        el.className = 'wl-alarm ok';
+        el.innerHTML = '<span>정상 운영 중</span>'
+                + '<span class="cnt">가동 설비 ' + (wlData.equ_running || []).length + '대</span>';
+      } else {
+        el.className = 'wl-alarm bad';
+        /* 여러 건이면 앞의 두 개만. 벽걸이에서 긴 문장은 안 읽힌다 */
+        var head = msgs.slice(0, 2).join('   ·   ');
+        el.innerHTML = '<span>⚠ ' + wlEsc(head) + '</span>'
+                + (msgs.length > 2 ? '<span class="cnt">외 ' + (msgs.length - 2) + '건</span>' : '');
+      }
+    }
+
+    /* 전체화면 — 벽걸이는 메뉴·주소창이 자리만 먹는다 */
+    function wlToggleFull(){
+      var el = document.getElementById('wlWrap');
+      if (!document.fullscreenElement) {
+        if (el.requestFullscreen) el.requestFullscreen();
+      } else if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+    }
+
+    $(document.body).ready(function(){
+      wlClock();
+      wlLoad();
+      setInterval(wlLoad, WL_POLL_MS);
+      document.getElementById('wlFull').addEventListener('click', wlToggleFull);
+    });
+  </script>
+</th:block>
+</html>
