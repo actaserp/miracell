@@ -323,5 +323,37 @@ public class ShipmentOrderService {
 
 		return items;
 	}
+
+
+	public List<Map<String, Object>> getPkRemain(List<Integer> matIds) {
+		if (matIds == null || matIds.isEmpty()) return List.of();
+
+		MapSqlParameterSource p = new MapSqlParameterSource();
+		p.addValue("matIds", matIds);
+
+		return this.sqlRunner.getRows("""
+        SELECT pm."Code"   AS fg_code
+             , cm."Code"   AS comp_code
+             , cm."Name"   AS comp_name
+             , pr."Code"   AS proc_code          -- bsc03=PK / bsc06=필터팩
+             , bc."Amount" AS per_unit
+             , SUM(ml."CurrentStock")                      AS remain_qty
+             , FLOOR(SUM(ml."CurrentStock") / bc."Amount")  AS units_possible
+          FROM bom b
+          JOIN material pm ON pm.id = b."Material_id"
+          JOIN bom_comp bc ON bc."BOM_id" = b.id AND COALESCE(bc._status,'a') <> 'd'
+          JOIN material cm ON cm.id = bc."Material_id"
+          LEFT JOIN work_center wc ON wc.id = cm."WorkCenter_id"
+          LEFT JOIN process     pr ON pr.id = wc."Process_id"
+          JOIN mat_lot ml ON ml."Material_id" = cm.id
+                         AND ml."StoreHouse_id" = 18
+                         AND COALESCE(ml."CurrentStock",0) > 0
+         WHERE b."Material_id" IN (:matIds)
+           AND COALESCE(b._status,'a') <> 'd'
+           AND pr."Code" IN ('bsc03','bsc06')
+         GROUP BY pm."Code", cm."Code", cm."Name", pr."Code", bc."Amount"
+         ORDER BY pm."Code", cm."Code"
+        """, p);
+	}
 	
 }

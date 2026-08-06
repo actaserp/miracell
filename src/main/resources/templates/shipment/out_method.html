@@ -84,7 +84,7 @@
                 <dd><select class="form-control2" id="cboMaterialGroup" name="cboMaterialGroup"></select></dd>
               </dl>
               <dl>
-                <dt><label>품목명/코드</label></dt>
+                <dt><label>품목명</label></dt>
                 <dd><input type="text" class="form-control2" id="keyword" name="keyword"></dd>
               </dl>
             </div>
@@ -237,13 +237,9 @@
        let all = e.cell.querySelector('#allCheck');
        if (all) {
         let items = s.itemsSource.items || [];
-        all.checked = items.length > 0 && items.every(function (r) {
-         return r.selected;
-        });
+        all.checked = items.length > 0 && items.every(function (r) { return r.selected; });
         all.onclick = function (ev) {
-         items.forEach(function (r) {
-          r.selected = ev.target.checked;
-         });
+         items.forEach(function (r) { r.selected = ev.target.checked; });
          s.refresh();
          _this.updateSelCount();
         };
@@ -305,26 +301,26 @@
      let result = AjaxUtil.getSyncData(this.url + '/read', data);
      if (result == null || !result.success) return;
 
-     (result.data || []).forEach(function (r) {
-      r.selected = false;
-     });
+     (result.data || []).forEach(function (r) { r.selected = false; });
      this.viewData.sourceCollection = result.data;
      this.updateSelCount();
     }
 
     updateSelCount() {
-     let n = (this.viewData.items || []).filter(function (r) {
-      return r.selected;
-     }).length;
-     $('#selCount').text('선택된 품목 ' + n + '건');
+     let n = (this.viewData.items || []).filter(function (r) { return r.selected; }).length;
+     let $c = $('#selCount');
+
+     if (n === 0) {
+      $c.removeClass('on').text('품목을 선택하면 여기서 한 번에 지정합니다');
+     } else {
+      $c.addClass('on').html('<strong>' + n + '건</strong> 선택됨');
+     }
     }
 
     /** method 가 빈 값이면 미지정으로 되돌린다 */
     apply(method) {
      let _this = this;
-     let sel = (this.viewData.items || []).filter(function (r) {
-      return r.selected;
-     });
+     let sel = (this.viewData.items || []).filter(function (r) { return r.selected; });
 
      if (sel.length === 0) {
       Alert.alert('', '품목을 선택하세요.');
@@ -333,17 +329,13 @@
 
      // LOT 관리를 안 하는 품목이 섞였으면 알려준다 — 저장은 막지 않는다.
      // 나중에 LOT 관리를 켤 수 있으니 미리 정해두는 것도 정상적인 사용이다.
-     let noLot = sel.filter(function (r) {
-      return r.lot_use_yn !== 'Y';
-     }).length;
+     let noLot = sel.filter(function (r) { return r.lot_use_yn !== 'Y'; }).length;
      let warn = noLot > 0
       ? '\n(LOT 관리를 안 하는 품목 ' + noLot + '건 포함 — 지금은 적용되지 않습니다)'
       : '';
 
      let label = method ? methodName(method) : '미지정';
-     let ids = sel.map(function (r) {
-      return {id: r.id};
-     });
+     let ids = sel.map(function (r) { return {id: r.id}; });
 
      Alert.confirm('', sel.length + '건을 ' + label + '(으)로 지정하시겠습니까?' + warn,
       function () {
@@ -359,8 +351,7 @@
          }
         });
       },
-      function () {
-      }
+      function () {}
      );
     }
    }
@@ -376,22 +367,23 @@
      page.search();
     });
 
-    $('#keyword').on('keypress', function (e) {
-     if (e.keyCode === 13) page.search();
+    // 검색창이 form 안에 있어 Enter 가 submit 으로 잡힌다 — 페이지가 새로고침되므로 막는다
+    $('#searchForm').on('submit', function (e) {
+     e.preventDefault();
+     return false;
     });
 
-    $('#btnFifo').click(function () {
-     page.apply('fifo');
+    $('#searchForm').on('keydown', function (e) {
+     if (e.key === 'Enter') {
+      e.preventDefault();
+      page.search();
+     }
     });
-    $('#btnLifo').click(function () {
-     page.apply('lifo');
-    });
-    $('#btnManual').click(function () {
-     page.apply('manual');
-    });
-    $('#btnClear').click(function () {
-     page.apply('');
-    });
+
+    $('#btnFifo').click(function () { page.apply('fifo'); });
+    $('#btnLifo').click(function () { page.apply('lifo'); });
+    $('#btnManual').click(function () { page.apply('manual'); });
+    $('#btnClear').click(function () { page.apply(''); });
 
     page.search();
    });

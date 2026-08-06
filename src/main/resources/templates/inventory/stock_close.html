@@ -1,0 +1,790 @@
+<html layout:decorate="~{layout_page}">
+<head>
+  <style>
+      .greenText { color: #66DA26; }
+      .redText   { color: #FF0000; }
+      .blueText  { color: #4374D9; }
+      .grayText  { color: #999999; }
+
+      .select2-container--open { z-index: 9001; }
+
+      .grid-cell-red   { background: #f8d2cb; }
+      .grid-cell-blue  { background: #dcf0f8; }
+      .grid-cell-white { background: #ffffff; }
+
+      .search-flex-row {
+          display: flex;
+          justify-content: space-between; /* 좌: 검색필드 / 우: 버튼 */
+          align-items: flex-end;
+          width: 100%;
+          gap: 16px;
+      }
+
+      /* 마감 등록 팝업 푸터 : 좌 요약 / 우 버튼 */
+      .popup-button.close-footer {
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 8px;
+          justify-content: flex-end;
+      }
+
+      .popup-button.close-footer .close-summary {
+          margin-right: auto;
+          font-weight: 600;
+          white-space: nowrap;
+      }
+
+      .popup-button.close-footer .close-summary span { color: #03428E; }
+      .popup-button.close-footer .close-summary em   { color: #FF0000; font-style: normal; font-weight: 500; }
+
+      .badge-closed {
+          display: inline-block; padding: 1px 8px; border-radius: 10px;
+          background: #03428E; color: #fff; font-size: 12px;
+      }
+      .badge-open {
+          display: inline-block; padding: 1px 8px; border-radius: 10px;
+          background: #dedede; color: #555; font-size: 12px;
+      }
+      .badge-lock {
+          display: inline-block; padding: 1px 8px; border-radius: 10px;
+          background: #f8d2cb; color: #a02; font-size: 12px;
+      }
+  </style>
+</head>
+
+<th:block layout:fragment="content">
+  <div class="layout-contents">
+    <div class="page-title-wrap">
+      <div class="left">
+        <h2>재고 마감</h2>
+        <a title="북마크" class="bookmark toggle">
+          내 메뉴
+        </a>
+      </div>
+      <ul class="page-navi">
+        <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+        <li>재고 관리</li>
+        <li>재고 마감</li>
+      </ul>
+    </div>
+
+    <section class="section">
+      <div class="section-top">
+        <form id="searchForm" autocomplete="off" style="width: 100%;">
+          <div class="search-flex-row">
+            <div class="search-wrap">
+              <dl>
+                <dt>마감일</dt>
+                <dd>
+                  <ul class="date-box">
+                    <li>
+                      <input type="date" id="srchStartDt" name="srchStartDt">
+                      <label for="srchStartDt" class="hide">시작일</label>
+                    </li>
+                    <li>
+                      <input type="date" id="srchEndDt" name="srchEndDt">
+                      <label for="srchEndDt" class="hide">종료일</label>
+                    </li>
+                  </ul>
+                </dd>
+              </dl>
+
+              <dl>
+                <dt><label for="cboHouse">창고</label></dt>
+                <dd>
+                  <div class="srch-box">
+                    <select id="cboHouse" name="cboHouse"></select>
+                  </div>
+                </dd>
+              </dl>
+
+              <dl>
+                <dt><label for="cboMatType">품목유형</label></dt>
+                <dd>
+                  <div class="srch-box">
+                    <select id="cboMatType" name="cboMatType"></select>
+                  </div>
+                </dd>
+              </dl>
+
+              <dl>
+                <dt><label for="cboMatGroup">품목그룹</label></dt>
+                <dd>
+                  <div class="srch-box">
+                    <select id="cboMatGroup" name="cboMatGroup"></select>
+                  </div>
+                </dd>
+              </dl>
+
+              <dl>
+                <dt><label for="txtMatName">품명</label></dt>
+                <dd>
+                  <div class="srch-box">
+                    <input id="txtMatName" name="txtMatName"/>
+                  </div>
+                </dd>
+              </dl>
+
+              <dl>
+                <dt>&nbsp;</dt>
+                <dd>
+                  <li>
+                    <a class="btn btn-delete" title="검색" id="btnSearch">
+                      <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                      검색
+                    </a>
+                  </li>
+                </dd>
+              </dl>
+            </div>
+
+            <div class="button-wrap" style="white-space: nowrap;">
+              <ul>
+                <li>
+                  <a class="btn" title="마감 등록" id="btnCloseRegist"
+                     style="background-color: #03428E; color: white;">
+                    마감 등록
+                  </a>
+                </li>
+                <li>
+                  <a class="btn" title="마감 취소" id="btnCloseCancel">
+                    마감 취소
+                  </a>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      <div class="container-fluid">
+        <div id="stock-close-grid" style="height: 680px;"></div>
+      </div>
+    </section>
+  </div>
+
+
+  <!-- ==========================================================
+       마감 등록 팝업
+       상단 : 기준일 / 창고 / 품목필터 → [대상 조회]
+       하단 : 대상 그리드(체크 선택) → [마감 등록]
+       ========================================================== -->
+  <script type="text/x-tmpl" id="closeRegistPopup">
+    <div class="content_wrap popup">
+        <div class="table-wrap">
+            <form id="stockCloseForm">
+                <table class="write-table">
+                    <tbody>
+                        <tr>
+                            <th style="text-align: center; width: 100px;">
+                                <label for="closeDate">마감 기준일</label>
+                            </th>
+                            <td>
+                                <input class="form-control2" id="closeDate" name="closeDate" type="date">
+                            </td>
+                            <th style="text-align: center; width: 90px;">
+                                <label for="closeStoreHouse">창고</label>
+                            </th>
+                            <td>
+                                <select id="closeStoreHouse" name="closeStoreHouse"></select>
+                            </td>
+                            <th style="text-align: center; width: 90px;">
+                                <label for="closeMatType">품목유형</label>
+                            </th>
+                            <td>
+                                <select id="closeMatType" name="closeMatType"></select>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="closeMatGroup">품목그룹</label>
+                            </th>
+                            <td>
+                                <select id="closeMatGroup" name="closeMatGroup"></select>
+                            </td>
+                            <th style="text-align: center">
+                                <label for="closeZeroYN">재고 0</label>
+                            </th>
+                            <td>
+                                <select id="closeZeroYN" name="closeZeroYN">
+                                    <option value="N" selected>제외</option>
+                                    <option value="Y">포함</option>
+                                </select>
+                            </td>
+                            <td colspan="2" style="text-align: right;">
+                                <a class="btn btn-delete" title="대상 조회" id="btnClosePreview">
+                                    <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                    대상 조회
+                                </a>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center">
+                                <label for="closeDescription">비고</label>
+                            </th>
+                            <td colspan="5">
+                                <input id="closeDescription" name="closeDescription"
+                                       placeholder="예) 2026년 7월 정기 재고마감"/>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </form>
+        </div>
+
+        <div class="container-fluid">
+            <div id="close-preview-grid" style="height: 380px;"></div>
+        </div>
+
+        <div class="popup-button close-footer">
+            <div class="close-summary">
+                선택 <span id="previewSelCnt">0</span> / 대상 <span id="previewTotCnt">0</span> 건
+                &nbsp;<em id="previewWarnMsg"></em>
+            </div>
+            <button type="button" class="btn-popup" id="btnCloseSave"><span data-labelCd="마감등록">마감 등록</span></button>
+            <button type="button" class="btn-popup" id="modal-close-button"><span data-labelCd="닫기">닫기</span></button>
+        </div>
+    </div>
+  </script>
+
+
+  <!-- ==========================================================
+       마감 상세 팝업 (그리드 더블클릭)
+       수정 가능한 것은 비고뿐. 수량은 스냅샷이라 손대지 않는다.
+       ========================================================== -->
+  <script type="text/x-tmpl" id="closeDetailPopup">
+    <div class="content_wrap popup">
+        <div class="table-wrap">
+            <form id="stockCloseDetailForm">
+                <input type="hidden" id="mio_pk" name="mio_pk">
+                <table class="write-table">
+                    <tbody>
+                        <tr>
+                            <th style="text-align: center; width: 110px;">마감일</th>
+                            <td><input id="InoutDate" name="InoutDate" readonly/></td>
+                            <th style="text-align: center; width: 110px;">마감회차</th>
+                            <td><input id="close_no" name="close_no" readonly/></td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center">창고</th>
+                            <td><input id="store_house_name" name="store_house_name" readonly/></td>
+                            <th style="text-align: center">단위</th>
+                            <td><input id="unit_name" name="unit_name" readonly/></td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center">품목코드</th>
+                            <td><input id="material_code" name="material_code" readonly/></td>
+                            <th style="text-align: center">품목명</th>
+                            <td><input id="material_name" name="material_name" readonly/></td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center">기초재고</th>
+                            <td><input id="BeginQty" name="BeginQty" readonly/></td>
+                            <th style="text-align: center">기간 입고</th>
+                            <td><input id="InSumQty" name="InSumQty" readonly/></td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center">기간 출고</th>
+                            <td><input id="OutSumQty" name="OutSumQty" readonly/></td>
+                            <th style="text-align: center">마감재고</th>
+                            <td><input id="LastHouseStock" name="LastHouseStock" readonly/></td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center">마감자</th>
+                            <td><input id="actor_name" name="actor_name" readonly/></td>
+                            <th style="text-align: center">마감일시</th>
+                            <td><input id="created" name="created" readonly/></td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center">비고</th>
+                            <td colspan="3">
+                                <textarea style="height:70px;" id="Description" name="Description"></textarea>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </form>
+        </div>
+
+        <div class="popup-button">
+            <button type="button" class="btn-popup" id="btnDetailSave"><span data-labelCd="저장">저장</span></button>
+            <button type="button" class="btn-popup" id="btnDetailDelete"><span data-labelCd="마감취소">마감 취소</span></button>
+            <button type="button" class="btn-popup" id="modal-close-button"><span data-labelCd="닫기">닫기</span></button>
+        </div>
+    </div>
+  </script>
+</th:block>
+
+
+<th:block layout:fragment="scripts">
+  <script type="text/javascript">
+   /* =====================================================================
+    * 재고 마감 (stock_close)
+    *
+    * ★ 마감 행은 mat_inout 에 「수량 없는 스냅샷」으로 들어간다.
+    *
+    *    InOut = 'close', InputQty = 0, OutputQty = 0
+    *    LastHouseStock / LastStock 에만 재고를 찍고,
+    *    SourceTableName = 'stock_close' 로 식별한다.
+    *
+    *    matinout_tri 가 InputQty/OutputQty 를 합산해 mat_in_house 와
+    *    material."CurrentStock" 를 재집계하므로, 마감 행에 수량을 넣으면
+    *    「마감했다」는 이유만으로 재고가 움직인다. 0 이어야 마감과 마감취소가
+    *    재고를 건드리지 않는다.
+    *
+    * ★ 기초/입고/출고는 저장하지 않는다. 조회할 때 직전 마감 스냅샷 +
+    *   구간 이력으로 서버가 다시 만든다.
+    *
+    * ★ 입고/출고 합계는 참고값이다. mat_inout 의 소비 행은 수량이 비어 있어
+    *   (생산투입의 진실은 mat_lot_cons) 합산만으로는 맞지 않는다.
+    *   그래서 「기초 + 입고 - 출고 ≠ 마감재고」이면 화면에 표시만 하고,
+    *   마감 값을 그것으로 보정하지 않는다. 마감재고의 진실은 mat_in_house 다.
+    * ===================================================================== */
+
+   class StockClosePage {
+    constructor() {
+     this.url = '/api/inventory/stock_close';
+     this.grid = null;
+     this.selector = null;
+     this.init();
+    }
+
+    init() {
+     const _this = this;
+
+     this.grid = new wijmo.grid.FlexGrid('#stock-close-grid', {
+      autoGenerateColumns: false,
+      selectionMode: wijmo.grid.SelectionMode.Row,
+      headersVisibility: wijmo.grid.HeadersVisibility.All,
+      isReadOnly: true,
+      showMarquee: true,
+      formatItem: (sender, e) => {
+       if (e.panel.cellType === wijmo.grid.CellType.RowHeader) {
+        e.cell.textContent = (e.row + 1).toString();
+       }
+       if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+        e.cell.style.textAlign = 'center';
+       }
+      },
+      columns: [
+       {binding: 'mio_pk', header: '마감번호', width: 80, align: 'center', visible: false},
+       {binding: 'close_no', header: '회차', width: 60, align: 'center'},
+       {binding: 'InoutDate', header: '마감일', width: 100, align: 'center'},
+       {binding: 'store_house_name', header: '창고', width: 90, align: 'center'},
+       {binding: 'material_type', header: '품목유형', width: 90, align: 'center'},
+       {binding: 'material_code', header: '품목코드', width: 110, align: 'center'},
+       {binding: 'material_name', header: '품목명', width: 190, align: 'left'},
+       {binding: 'unit_name', header: '단위', width: 55, align: 'center'},
+       {binding: 'BeginQty', header: '기초재고', width: 85, align: 'right', format: 'n0'},
+       {binding: 'InSumQty', header: '입고', width: 75, align: 'right', format: 'n0'},
+       {binding: 'OutSumQty', header: '출고', width: 75, align: 'right', format: 'n0'},
+       {binding: 'DiffQty', header: '증감', width: 75, align: 'right', format: 'n0'},
+       {binding: 'LastHouseStock', header: '마감재고', width: 90, align: 'right', format: 'n0'},
+       {binding: 'LastStock', header: '전체재고', width: 90, align: 'right', format: 'n0'},
+       {binding: 'lot_count', header: '로트수', width: 65, align: 'center'},
+       {binding: 'actor_name', header: '마감자', width: 85, align: 'center'},
+       {binding: 'created', header: '마감일시', width: 130, align: 'center'},
+       {binding: 'Description', header: '비고', width: '*', align: 'left'}
+      ],
+      itemsSource: new wijmo.collections.CollectionView([]),
+      itemFormatter: (panel, row, col, cell) => {
+       if (panel.cellType !== wijmo.grid.CellType.Cell) return;
+
+       const item = panel.rows[row].dataItem;
+       const column = panel.columns[col];
+       if (!item) return;
+
+       if (column.binding === 'LastHouseStock' && item.LastHouseStock < 0) {
+        cell.classList.add('redText');
+       }
+
+       // 증감 ≠ 입고 - 출고 → 이력과 집계가 어긋난 것.
+       // 마감 값은 mat_in_house 가 진실이라 그대로 두고, 눈에만 띄게 한다.
+       if (column.binding === 'DiffQty') {
+        const flow = (item.InSumQty || 0) - (item.OutSumQty || 0);
+        if (Math.abs(flow - (item.DiffQty || 0)) > 0.0001) {
+         cell.classList.add('grid-cell-red');
+         cell.title = '이력 합계(' + flow + ')와 증감이 다릅니다. '
+          + '수량 없는 소비 이력이 있을 수 있습니다.';
+        }
+       }
+
+       if (column.binding === 'mio_pk' || column.binding === 'close_no') {
+        cell.textContent = item[column.binding]?.toString() ?? '';
+       }
+      }
+     });
+
+     new FlexGridContextMenu(this.grid);
+     this.grid.downloadFileName = '재고 마감 내역';
+
+     this.grid.hostElement.addEventListener('dblclick', function (e) {
+      let ht = _this.grid.hitTest(e);
+      if (ht.cellType === wijmo.grid.CellType.Cell) {
+       let item = _this.grid.rows[ht.row].dataItem;
+       if (!item) return;
+       window.selectedGridId = item.mio_pk;
+       _this.detailPopup(item);
+      }
+     });
+    }
+
+    /* ---------------- 목록 조회 ---------------- */
+    searchDataBind() {
+     let _this = this;
+     let data = {
+      'action': 'read',
+      'srchStartDt': $('#searchForm').find('#srchStartDt').val(),
+      'srchEndDt': $('#searchForm').find('#srchEndDt').val(),
+      'house_pk': $('#searchForm').find('#cboHouse').val(),
+      'mat_type': $('#searchForm').find('#cboMatType').val(),
+      'mat_grp_pk': $('#searchForm').find('#cboMatGroup').val(),
+      'keyword': $('#searchForm').find('#txtMatName').val()
+     };
+
+     let result = AjaxUtil.getSyncData(this.url + '/read', data);
+
+     // ★ SqlRunner.getRows 는 오류 시 null 이다. 빈 배열이 아니다.
+     if (result && result.data != null) {
+      _this.grid.itemsSource = new wijmo.collections.CollectionView(result.data);
+      _this.selector = new wijmo.grid.selector.Selector(_this.grid);
+
+      if (window.selectedGridId) {
+       GridUtil.selectRowById(_this.grid, window.selectedGridId, {idField: 'mio_pk'});
+       window.selectedGridId = null;
+      }
+     } else {
+      _this.grid.itemsSource = new wijmo.collections.CollectionView([]);
+     }
+    }
+
+    /* ---------------- 마감 취소 (선택 일괄) ---------------- */
+    cancelSelected() {
+     let _this = this;
+
+     let items = _this.grid.rows
+     .filter(row => row.isSelected)
+     .map(row => row.dataItem)
+     .filter(it => !!it);
+
+     if (items.length === 0) {
+      Alert.alert('', '마감 취소할 항목을 선택하세요.');
+      return;
+     }
+
+     Alert.confirm('', '선택한 ' + items.length + '건의 마감을 취소하시겠습니까?', function () {
+      _this.doDelete(items.map(it => it.mio_pk));
+     });
+    }
+
+    doDelete(pkList, afterFn) {
+     let _this = this;
+     let payload = {
+      pk_list: pkList,
+      spjangcd: sessionStorage.getItem('spjangcd') || ''
+     };
+
+     AjaxUtil.postJsonAsyncData(_this.url + '/delete', payload, function (res) {
+      if (res && res.success) {
+       if (res.message) {
+        Alert.alert('', res.message, function () { _this.searchDataBind(); });
+       } else {
+        Notify.success('마감이 취소되었습니다.');
+        _this.searchDataBind();
+       }
+      } else {
+       Alert.alert('', (res && res.message) || '마감 취소 중 오류가 발생했습니다.');
+      }
+      if (afterFn) afterFn();
+     });
+    }
+
+    /* ---------------- 마감 상세 ---------------- */
+    detailPopup(item) {
+     let _this = this;
+
+     AjaxUtil.getAsyncData(_this.url + '/detail', {mio_pk: item.mio_pk}, function (result) {
+      if (!result || !result.data) {
+       Alert.alert('', '마감 정보를 찾을 수 없습니다.');
+       return;
+      }
+
+      let content = tmpl('closeDetailPopup', {});
+      let $content = $(content);
+      let form = $content.find('#stockCloseDetailForm');
+
+      let modalContainer = new PopupDraggable('재고 마감 상세');
+      modalContainer.open({width: 900, height: 480, $content});
+
+      // 서버가 단건 객체로 주든 배열 1건으로 주든 둘 다 받는다
+      let row = Array.isArray(result.data) ? result.data[0] : result.data;
+      FormUtil.BindDataForm(row, form);
+
+      $content.find('#btnDetailSave').on('click', function () {
+       let data = {
+        mio_pk: $content.find('#mio_pk').val(),
+        Description: $content.find('#Description').val()
+       };
+       AjaxUtil.postAsyncData(_this.url + '/save_memo', data, function (res) {
+        if (res && res.success) {
+         Notify.success('저장되었습니다.');
+         _this.searchDataBind();
+        } else {
+         Alert.alert('', (res && res.message) || '저장 중 오류가 발생했습니다.');
+        }
+       });
+       modalContainer.modal.close();
+      });
+
+      $content.find('#btnDetailDelete').on('click', function () {
+       Alert.confirm('', '이 건의 마감을 취소하시겠습니까?', function () {
+        _this.doDelete([$content.find('#mio_pk').val()]);
+        modalContainer.modal.close();
+       });
+      });
+     });
+    }
+
+    /* ---------------- 마감 등록 팝업 ---------------- */
+    registPopup() {
+     let _this = this;
+
+     let content = tmpl('closeRegistPopup', {});
+     let $content = $(content);
+
+     let modalContainer = new PopupDraggable('재고 마감 등록');
+     modalContainer.open({width: 1180, height: 630, $content});
+
+     AjaxUtil.fillSelectOptions($content.find('#closeStoreHouse'), 'store_house', 'all');
+     AjaxUtil.fillSelectOptions($content.find('#closeMatType'), 'system_code', 'all', false, 'mat_type');
+     AjaxUtil.fillSelectOptions($content.find('#closeMatGroup'), 'material_group', 'all', false);
+
+     $content.find('#closeMatType').on('change', function () {
+      AjaxUtil.fillSelectOptions($content.find('#closeMatGroup'), 'material_group', 'all', false,
+       $(this).val());
+     });
+
+     // 마감 기준일 기본값 = 전월 말일
+     $content.find('#closeDate').val(_this.lastDayOfPrevMonth());
+
+     /* 대상(미리보기) 그리드 */
+     let previewGrid = new wijmo.grid.FlexGrid($content.find('#close-preview-grid')[0], {
+      autoGenerateColumns: false,
+      selectionMode: wijmo.grid.SelectionMode.Row,
+      headersVisibility: wijmo.grid.HeadersVisibility.All,
+      isReadOnly: true,
+      columns: [
+       {binding: 'store_house_name', header: '창고', width: 90, align: 'center'},
+       {binding: 'material_type', header: '품목유형', width: 90, align: 'center'},
+       {binding: 'material_code', header: '품목코드', width: 110, align: 'center'},
+       {binding: 'material_name', header: '품목명', width: 200, align: 'left'},
+       {binding: 'unit_name', header: '단위', width: 55, align: 'center'},
+       {binding: 'prev_close_date', header: '직전마감', width: 95, align: 'center'},
+       {binding: 'BeginQty', header: '기초재고', width: 85, align: 'right', format: 'n0'},
+       {binding: 'InSumQty', header: '입고', width: 75, align: 'right', format: 'n0'},
+       {binding: 'OutSumQty', header: '출고', width: 75, align: 'right', format: 'n0'},
+       {binding: 'HouseStock', header: '마감재고', width: 90, align: 'right', format: 'n0'},
+       {binding: 'CurrentStock', header: '전체재고', width: 90, align: 'right', format: 'n0'},
+       {binding: 'lot_count', header: '로트수', width: 65, align: 'center'},
+       {binding: 'closed_yn', header: '상태', width: 85, align: 'center'}
+      ],
+      itemsSource: new wijmo.collections.CollectionView([]),
+      itemFormatter: (panel, row, col, cell) => {
+       if (panel.cellType !== wijmo.grid.CellType.Cell) return;
+       const item = panel.rows[row].dataItem;
+       const column = panel.columns[col];
+       if (!item) return;
+
+       if (column.binding === 'closed_yn') {
+        if (item.later_close_yn === 'Y') {
+         cell.innerHTML = '<span class="badge-lock">이후마감</span>';
+         cell.title = '이 창고·품목에 더 나중 마감이 있어 이 날짜로는 마감할 수 없습니다.';
+        } else if (item.closed_yn === 'Y') {
+         cell.innerHTML = '<span class="badge-closed">마감됨</span>';
+        } else {
+         cell.innerHTML = '<span class="badge-open">미마감</span>';
+        }
+       }
+       if (column.binding === 'HouseStock' && item.HouseStock < 0) {
+        cell.classList.add('redText');
+       }
+       if (item.later_close_yn === 'Y') {
+        cell.classList.add('grayText');
+       }
+      }
+     });
+     new FlexGridContextMenu(previewGrid);
+     previewGrid.downloadFileName = '재고 마감 대상';
+
+     let refreshCnt = function () {
+      let sel = previewGrid.rows.filter(r => r.isSelected).length;
+      $content.find('#previewSelCnt').text(sel);
+      $content.find('#previewTotCnt').text(previewGrid.rows.length);
+     };
+
+     previewGrid.hostElement.addEventListener('click', function (e) {
+      if (e.target?.type === 'checkbox') {
+       setTimeout(refreshCnt, 0);
+      }
+     });
+
+     /* 대상 조회 */
+     let fnPreview = function () {
+      let closeDate = $content.find('#closeDate').val();
+      if (!closeDate) {
+       Alert.alert('', '마감 기준일을 선택하세요.');
+       return;
+      }
+
+      let data = {
+       closeDate: closeDate,
+       house_pk: $content.find('#closeStoreHouse').val(),
+       mat_type: $content.find('#closeMatType').val(),
+       mat_grp_pk: $content.find('#closeMatGroup').val(),
+       zeroYN: $content.find('#closeZeroYN').val()
+      };
+
+      AjaxUtil.getAsyncData(_this.url + '/preview', data, function (result) {
+       let rows = (result && result.data) ? result.data : [];
+       previewGrid.itemsSource = new wijmo.collections.CollectionView(rows);
+       new wijmo.grid.selector.Selector(previewGrid);
+
+       // 미마감 건만 기본 체크. 이미 마감된 건은 사용자가 직접 고르게 둔다.
+       // 이후 마감이 있는 건은 서버가 어차피 막으므로 체크하지 않는다.
+       previewGrid.rows.forEach(r => {
+        const d = r.dataItem;
+        r.isSelected = !!d && d.closed_yn !== 'Y' && d.later_close_yn !== 'Y';
+       });
+       previewGrid.refresh();
+       refreshCnt();
+
+       let done = rows.filter(r => r.closed_yn === 'Y').length;
+       let lock = rows.filter(r => r.later_close_yn === 'Y').length;
+       let msg = [];
+       if (done > 0) msg.push('이미 마감 ' + done + '건');
+       if (lock > 0) msg.push('이후 마감 있어 불가 ' + lock + '건');
+       $content.find('#previewWarnMsg').text(msg.join(' / '));
+      });
+     };
+
+     $content.find('#btnClosePreview').on('click', fnPreview);
+
+     /* 마감 등록 */
+     $content.find('#btnCloseSave').on('click', function () {
+      let closeDate = $content.find('#closeDate').val();
+      if (!closeDate) {
+       Alert.alert('', '마감 기준일을 선택하세요.');
+       return false;
+      }
+
+      let items = previewGrid.rows
+      .filter(r => r.isSelected)
+      .map(r => r.dataItem)
+      .filter(it => !!it);
+
+      if (items.length === 0) {
+       Alert.alert('', '마감할 대상을 선택하세요.');
+       return false;
+      }
+
+      let already = items.filter(it => it.closed_yn === 'Y').length;
+      let msg = already > 0
+       ? '선택 ' + items.length + '건 중 ' + already + '건은 이미 마감되어 있습니다.\n'
+       + '기존 마감을 덮어쓰고 진행하시겠습니까?'
+       : closeDate + ' 기준으로 ' + items.length + '건을 마감하시겠습니까?';
+
+      Alert.confirm('', msg, function () {
+       // ★ 수량은 보내지 않는다. 서버가 저장 시점의 재고를 다시 읽는다.
+       //   조회~저장 사이에 생긴 입출고가 스냅샷에서 빠지지 않게.
+       let payload = {
+        closeDate: closeDate,
+        Description: $content.find('#closeDescription').val(),
+        overwriteYN: already > 0 ? 'Y' : 'N',
+        spjangcd: sessionStorage.getItem('spjangcd') || '',
+        list: items.map(it => ({
+         Material_id: it.Material_id,
+         StoreHouse_id: it.StoreHouse_id
+        }))
+       };
+
+       AjaxUtil.postJsonAsyncData(_this.url + '/save', payload, function (res) {
+        if (res && res.success) {
+         modalContainer.modal.close();
+         if (res.message) {
+          Alert.alert('', res.message, function () { _this.searchDataBind(); });
+         } else {
+          Notify.success('마감되었습니다.');
+          _this.searchDataBind();
+         }
+        } else {
+         Alert.alert('', (res && res.message) || '마감 중 오류가 발생했습니다.');
+        }
+       });
+      });
+     });
+
+     fnPreview();
+    }
+
+    /* 전월 말일 (yyyy-MM-dd) */
+    lastDayOfPrevMonth() {
+     let d = new Date();
+     let last = new Date(d.getFullYear(), d.getMonth(), 0);
+     let m = ('0' + (last.getMonth() + 1)).slice(-2);
+     let dd = ('0' + last.getDate()).slice(-2);
+     return last.getFullYear() + '-' + m + '-' + dd;
+    }
+   }
+
+
+   let page = null;
+
+   $(document).ready(function (e) {
+    // ★ AjaxUtil 은 window 프로퍼티가 아니다. typeof 로 확인한다.
+    //   window.AjaxUtil 로 보면 영원히 undefined 라 화면이 조용히 빈 채로 멈춘다.
+    if (typeof AjaxUtil === 'undefined' || !AjaxUtil.getSyncData) {
+     document.getElementById('stock-close-grid').innerHTML =
+      '<div style="padding:20px;color:#FF0000;">공용 스크립트(AjaxUtil) 로딩에 실패했습니다. 새로고침 해주세요.</div>';
+     return;
+    }
+
+    page = new StockClosePage();
+
+    $('#searchForm').find('#srchStartDt').val(CommonUtil.getYYYYMMDD(-90));
+    $('#searchForm').find('#srchEndDt').val(CommonUtil.getYYYYMMDD());
+
+    AjaxUtil.fillSelectOptions($('#searchForm').find('#cboHouse'), 'store_house', 'all');
+    AjaxUtil.fillSelectOptions($('#cboMatType'), 'system_code', 'all', false, 'mat_type');
+    AjaxUtil.fillSelectOptions($('#cboMatGroup'), 'material_group', 'all', false);
+
+    $('#cboMatType').on('change', function (e) {
+     AjaxUtil.fillSelectOptions($('#cboMatGroup'), 'material_group', 'all', false, $('#cboMatType').val());
+    });
+
+    $('#btnSearch').click(function (e) {
+     page.searchDataBind();
+    });
+
+    $('#searchForm').find('#cboHouse').change(function (e) {
+     page.searchDataBind();
+    });
+
+    $('#btnCloseRegist').on('click', function () {
+     page.registPopup();
+    });
+
+    $('#btnCloseCancel').on('click', function () {
+     page.cancelSelected();
+    });
+
+    $('#searchForm').on('submit', function (e) {
+     e.preventDefault();
+     $('#btnSearch').click();
+    });
+
+    page.searchDataBind();
+   });
+  </script>
+</th:block>
+</html>

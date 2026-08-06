@@ -1,4 +1,14 @@
 <html layout:decorate="~{layout_page}">
+<style>
+    /* 검색 영역 입력폭 */
+    #searchForm .search-wrap dd input[type="text"],
+    #searchForm .search-wrap dd select {
+        width: 120px;
+    }
+    #searchForm .search-wrap dd input[type="date"] {
+        width: 130px;
+    }
+</style>
 <th:block layout:fragment="content">
     <div class="layout-contents">
         <div class="page-title-wrap">

@@ -318,7 +318,7 @@
     <div class="layout-contents">
         <div class="page-title-wrap">
             <div class="left">
-                <h2>구매입고</h2>
+                <h2>수불전표등록</h2>
                 <a title="북마크" class="bookmark toggle">
                     내 메뉴
                 </a>
@@ -326,7 +326,7 @@
             <ul class="page-navi">
                 <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
                 <li>발주관리</li>
-                <li>구매입고</li>
+                <li>수불전표등록</li>
             </ul>
         </div>
         <section class="section">
@@ -1544,8 +1544,8 @@
 
                 modalContainer.open(Object.assign(TabletUtil.size(1000, 440), {$content}));
                 popup = new materialInoutPopup();
-                //AjaxUtil.fillSelectOptions($content.find('#StoreHouse_id'), 'store_house', 'choose', 3);    // 3:자재창고
-                AjaxUtil.fillSelectOptions($content.find('#StoreHouse_id'), 'store_house', 'choose', '');    // 3:자재창고
+                AjaxUtil.fillSelectOptions($content.find('#StoreHouse_id'), 'store_house', 'choose', 3);    // 3:자재창고
+                // AjaxUtil.fillSelectOptions($content.find('#StoreHouse_id'), 'store_house', 'choose', '');    // 3:자재창고
 
                 AjaxUtil.fillSelectOptions($content.find('#cboMaterialType'), 'system_code', 'choose', '', 'mat_type');
                 AjaxUtil.fillSelectOptions($content.find('#cboMaterialGroup'), 'material_group', 'choose', '', '');
@@ -2152,7 +2152,22 @@
                 let modalContainer = new PopupDraggable('발주 입고');
                 modalContainer.open(Object.assign(TabletUtil.size(1300, 580), {$content}));
 
+                // dataMap: 전체 창고. 여기를 자재창고로 좁히면 다른 유형 창고가 지정된
+                // 발주 행이 빈칸으로 보이고 되돌릴 수도 없게 된다.
                 this.storeHouseOptions = AjaxUtil.getSelectDataWithNull('store_house', 'choose');
+
+                // 기본값: 자재창고. HouseType='3' → 이름에 '자재' → 첫 유효 옵션 순.
+                // dataMap과 같은 배열에서 골라야 value 타입이 어긋나지 않는다.
+                const validOpts = this.storeHouseOptions.filter(o => o && o.value !== '' && o.value != null);
+                let defaultHouse = null;
+                const matHouseOptions = AjaxUtil.getSelectData('store_house', '3') || [];
+                if (matHouseOptions.length) {
+                    defaultHouse = validOpts.find(o => String(o.value) === String(matHouseOptions[0].value));
+                }
+                if (!defaultHouse) {
+                    defaultHouse = validOpts.find(o => (o.text || '').indexOf('자재') > -1) ?? validOpts[0];
+                }
+                console.log('창고 기본값', defaultHouse, '전체', this.storeHouseOptions);  // 확인 후 제거
 
                 let dicStoreHouse = {};
                 $.each(this.storeHouseOptions, function (idx, item) {
@@ -2188,7 +2203,7 @@
                         {binding: 'product_code', header: '제품코드', width: 80, align: 'left', isReadOnly: true},
                         {binding: 'product_name', header: '제품명', width: 150, align: 'left', isReadOnly: true},
                         {binding: 'unit', header: '단위', width: 70, align: 'center', isReadOnly: true},
-                        {binding: 'standard', header: '규격', width: 90, align: 'center', isReadOnly: true},
+                        // {binding: 'standard', header: '규격', width: 90, align: 'center', isReadOnly: true},
                         {
                             binding: 'SujuQty',
                             header: '발주 수량',
@@ -2280,20 +2295,17 @@
                     let fnsuccess = function (result) {
                         if (result.data !== null) {
                             result.data.forEach(item => {
-                                // if (!item.StoreHouse_id) {
-                                //     item.StoreHouse_id = _this.storeHouseOptions[5].value; // 첫 번째 옵션의 value
-                                // }
-                                if (!item.StoreHouse_id) {
-                                    const opts = Array.isArray(_this.storeHouseOptions) ? _this.storeHouseOptions : [];
-                                    // text가 'choose'이거나 value가 빈 값인 placeholder를 건너뛰고 첫 유효 옵션 선택
-                                    const valid = opts.find(o => o && o.value != null && o.value !== '' && (o.text || '').toLowerCase() !== 'choose')
-                                        ?? opts[0]; // 그래도 없으면 0번이라도
-                                    if (valid) item.StoreHouse_id = valid.value;
+                                if (item.StoreHouse_id != null && item.StoreHouse_id !== '') {
+                                    // 발주에 지정된 창고가 dataMap의 value 타입과 맞도록 정규화.
+                                    // 숫자 3 / 문자 "3" 이 섞이면 wijmo가 매칭을 못 해 빈칸이 된다.
+                                    const hit = validOpts.find(o => String(o.value) === String(item.StoreHouse_id));
+                                    item.StoreHouse_id = hit ? hit.value : (defaultHouse ? defaultHouse.value : item.StoreHouse_id);
+                                } else if (defaultHouse) {
+                                    item.StoreHouse_id = defaultHouse.value;
                                 }
                             });
                             _this.baljuInputGrid.itemsSource = new wijmo.collections.CollectionView(result.data);
                             selector = new wijmo.grid.selector.Selector(_this.baljuInputGrid);
-
                         }
                     };
                     let baljuParam = {
@@ -2302,7 +2314,6 @@
                         'action': 'read'
                     };
                     AjaxUtil.getAsyncData(_this.url + '/read_balju', baljuParam, fnsuccess);
-
                 };
 
                 fnLoadBaljuList();

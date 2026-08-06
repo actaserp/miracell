@@ -477,4 +477,12 @@ public class ShipmentOrderController {
 		}
 		return result;
 	}
+
+	@GetMapping("/pk_remain")
+	public AjaxResult getPkRemain(@RequestParam("mat_ids") List<Integer> matIds) {
+		AjaxResult result = new AjaxResult();
+		result.data = this.shipmentOrderService.getPkRemain(matIds);
+		return result;
+	}
+
 }

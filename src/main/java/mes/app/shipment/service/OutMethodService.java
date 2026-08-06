@@ -83,8 +83,8 @@ public class OutMethodService {
                AND (CAST(:matGrpPk AS integer) IS NULL
                     OR mg.id = CAST(:matGrpPk AS integer))
                AND (CAST(:keyword AS varchar) IS NULL
-                    OR m."Code" LIKE CAST(:keyword AS varchar)
-                    OR m."Name" LIKE CAST(:keyword AS varchar))
+                    OR m."Code" ILIKE CAST(:keyword AS varchar)
+                    OR m."Name" ILIKE CAST(:keyword AS varchar))
                AND (CAST(:unsetOnly AS boolean) IS NOT TRUE
                     OR m."OutMethod" IS NULL)
                AND (CAST(:lotOnly AS boolean) IS NOT TRUE
