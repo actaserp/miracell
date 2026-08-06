@@ -26,13 +26,13 @@
 
         <div class="page-title-wrap">
             <div class="left">
-                <h2>공정별작업현황</h2>
+                <h2>기간별생산실적</h2>
                 <a title="북마크" class="bookmark toggle">내 메뉴</a>
             </div>
             <ul class="page-navi">
                 <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
                 <li>생산 관리</li>
-                <li>공정별작업현황</li>
+                <li>기간별생산실적</li>
             </ul>
         </div>
 
@@ -95,10 +95,10 @@
             <div class="pr-sum" id="prSum"></div>
 
             <div class="container-fluid">
-                <div id="theGrid" style="height:600px;"></div>
+                <div id="theGrid" style="height:690px;"></div>
             </div>
 
-            <div class="pr-note">행 하나가 <b>공정</b>입니다. 세척·멸균·2공장 검사까지 포함합니다 — 이 공정들은 실적이 남는 테이블이 달라 작업지시 기준 집계만으로는 잡히지 않습니다. <b>완제품</b> 칸은 마지막 공정의 산출만 센 것으로, 산출 합계를 전부 더하면 같은 물건을 공정마다 다시 세게 되므로 따로 표시합니다. 행을 더블클릭하면 부적합 내역이 나옵니다.</div>
+            <div class="pr-note">행 하나가 <b>실적 1건</b>입니다. 1공장은 만든 개수, 2공장 조립·검사·수리는 <b>대수</b>로 셉니다(한 대가 로트 하나). 부적합은 별도 행으로 나오며 양품 수량에 섞이지 않습니다. 행을 누르면 그 실적에 <b>투입된 자재</b>를 볼 수 있습니다(생산·포장 행만 해당).</div>
         </section>
 
         <div class="pr-ov" id="prOv">
@@ -118,7 +118,7 @@
     <script type="text/javascript">
 
         /* =====================================================================
-           공정별작업현황  —  GET /process
+           기간별생산실적  —  GET /period
 
            ★ 데이터는 소스 7개를 합친 것이다 (ProdResultService)
                1공장 생산형(mat_produce) · 세척(wash_work) · 멸균(steril_batch)
@@ -131,11 +131,18 @@
         ===================================================================== */
         const PR_BASE = '/api/production/prod_result_v2';
 
-        function prNum(v) { const n = parseFloat(v); return isNaN(n) ? 0 : n; }
-        function prComma(v) { return prNum(v).toLocaleString(undefined, {maximumFractionDigits: 2}); }
+        function prNum(v) {
+            const n = parseFloat(v);
+            return isNaN(n) ? 0 : n;
+        }
+
+        function prComma(v) {
+            return prNum(v).toLocaleString(undefined, {maximumFractionDigits: 2});
+        }
 
         /* 상세 오버레이 — 그리드를 갈아 끼워 쓴다 */
         let prOvGrid = null;
+
         function prOpen(title, columns, rows) {
             $('#prOvTitle').text(title);
             $('#prOv').addClass('on');
@@ -151,6 +158,7 @@
             columns.forEach(c => prOvGrid.columns.push(new wijmo.grid.Column(c)));
             prOvGrid.itemsSource = rows || [];
         }
+
         $(document).on('click', '#prOvX', () => $('#prOv').removeClass('on'));
         $(document).on('click', '#prOv', function (e) {
             if (e.target === this) $('#prOv').removeClass('on');
@@ -158,18 +166,25 @@
 
         const PR_DEFECT_COLS = [
             {binding: 'defect_date', header: '발생일', width: 100, align: 'center'},
-            {binding: 'proc_name',   header: '공정',   width: 100, align: 'center'},
-            {binding: 'mat_code',    header: '품목코드', width: 120, align: 'center'},
-            {binding: 'mat_name',    header: '품목',   width: 180},
-            {binding: 'defect_type', header: '유형',   width: 140, align: 'center'},
-            {binding: 'defect_qty',  header: '수량',   width: 80, align: 'right', format: 'n2'},
-            {binding: 'unit',        header: '단위',   width: 60, align: 'center'},
-            {binding: 'worker',      header: '작업자', width: 100, align: 'center'},
-            {binding: 'wo',          header: '작지',   width: 130, align: 'center'},
-            {binding: 'description', header: '내용',   width: 220}
+            {binding: 'proc_name', header: '공정', width: 100, align: 'center'},
+            {binding: 'mat_code', header: '품목코드', width: 120, align: 'center'},
+            {binding: 'mat_name', header: '품목', width: 180},
+            {binding: 'defect_type', header: '유형', width: 140, align: 'center'},
+            {binding: 'defect_qty', header: '수량', width: 80, align: 'right', format: 'n2'},
+            {binding: 'unit', header: '단위', width: 60, align: 'center'},
+            {binding: 'worker', header: '작업자', width: 100, align: 'center'},
+            {binding: 'wo', header: '작지', width: 130, align: 'center'},
+            {binding: 'description', header: '내용', width: 220}
         ];
 
-        class ProdResultProcessPage {
+        /* 소스 표시 — 이 행이 어느 테이블에서 왔는지. 상세 모달이 갈라져서 필요하다 */
+        const SRC_NAME = {
+            produce: '생산', wash: '세척', steril: '멸균',
+            mcunit: '조립(대)', mcrepair: '수리(대)', mcinsp: '검사(대)',
+            mcpack: '포장(박스)', defect: '부적합'
+        };
+
+        class ProdResultPeriodPage {
             constructor() {
                 this.grid = null;
                 this.init();
@@ -188,93 +203,102 @@
                     formatItem: (s, e) => {
                         if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
                             e.cell.style.textAlign = 'center';
-                            return;
-                        }
-                        if (e.panel.cellType !== wijmo.grid.CellType.Cell) return;
-                        /* ★ 셀 DOM 재활용 때문에 매번 비우고 시작한다 (기간별 화면과 같은 이유) */
-                        e.cell.style.color = '';
-                        e.cell.style.fontWeight = '';
-
-                        const it = s.rows[e.row].dataItem;
-                        if (!it) return;
-                        const col = s.columns[e.col].binding;
-                        if (col === 'defect_percent') {
-                            const v = prNum(it.defect_percent);
-                            /* KPI 목표가 3% 다 (사업계획서 1.5) — 넘으면 눈에 띄어야 한다 */
-                            if (v > 3) { e.cell.style.color = '#c8483b'; e.cell.style.fontWeight = '800'; }
-                            else if (v > 0) e.cell.style.color = '#c77a00';
                         }
                     },
                     columns: [
-                        {binding: 'factory_nm',     header: '공장',   width: 90,  align: 'center', allowMerging: true},
-                        {binding: 'proc_code',      header: '공정코드', width: 90,  align: 'center'},
-                        {binding: 'proc_name',      header: '공정',   width: 130, align: 'center'},
-                        {binding: 'work_cnt',       header: '작업건수', width: 90, align: 'right', format: 'n0',
-                            aggregate: wijmo.Aggregate.Sum},
-                        {binding: 'mat_cnt',        header: '품목수', width: 80, align: 'right', format: 'n0'},
-                        {binding: 'day_cnt',        header: '작업일수', width: 85, align: 'right', format: 'n0'},
-                        {binding: 'good_qty',       header: '산출량', width: 100, align: 'right', format: 'n2',
-                            aggregate: wijmo.Aggregate.Sum},
-                        {binding: 'product_qty',    header: '완제품', width: 100, align: 'right', format: 'n2',
-                            aggregate: wijmo.Aggregate.Sum},
-                        {binding: 'defect_qty',     header: '부적합', width: 95, align: 'right', format: 'n2',
-                            aggregate: wijmo.Aggregate.Sum},
-                        {binding: 'defect_percent', header: '불량률(%)', width: 95, align: 'right', format: 'n2'},
-                        {binding: 'first_date',     header: '최초',   width: 105, align: 'center'},
-                        {binding: 'last_date',      header: '최종',   width: 105, align: 'center'}
+                        {binding: 'prod_date', header: '작업일', width: 100, align: 'center', allowMerging: true},
+                        {binding: 'factory_nm', header: '공장', width: 80, align: 'center', allowMerging: true},
+                        {binding: 'proc_name', header: '공정', width: 100, align: 'center', allowMerging: true},
+                        {binding: 'src_label', header: '구분', width: 90, align: 'center'},
+                        {binding: 'wo', header: '작지번호', width: 140, align: 'center'},
+                        {binding: 'mat_code', header: '품목코드', width: 130, align: 'center'},
+                        {binding: 'mat_name', header: '품목', width: 190},
+                        {binding: 'lot_number', header: '로트', width: 140, align: 'center'},
+                        {binding: 'order_qty', header: '지시량', width: 85, align: 'right', format: 'n2'},
+                        {
+                            binding: 'good_qty', header: '양품량', width: 85, align: 'right', format: 'n2',
+                            aggregate: wijmo.Aggregate.Sum
+                        },
+                        {
+                            binding: 'defect_qty', header: '부적합', width: 85, align: 'right', format: 'n2',
+                            aggregate: wijmo.Aggregate.Sum
+                        },
+                        {binding: 'unit', header: '단위', width: 65, align: 'center'},
+                        {binding: 'worker', header: '작업자', width: 110, align: 'center'},
+                        {binding: 'equipment', header: '설비', width: 110, align: 'center'},
+                        {binding: 'start_time', header: '시작', width: 130, align: 'center'},
+                        {binding: 'end_time', header: '종료', width: 130, align: 'center'}
                     ]
                 });
                 new FlexGridContextMenu(this.grid);
-                this.grid.downloadFileName = '공정별작업현황';
+                this.grid.downloadFileName = '기간별생산실적';
 
+                /* 행 클릭 → 투입 자재. mat_produce 기반 행만 되짚을 수 있다 */
                 this.grid.addEventListener(this.grid.hostElement, 'dblclick', function () {
                     const it = _this.grid.selectedItems[0];
-                    if (it) _this.showDefect(it);
+                    if (!it) return;
+                    if (it.src_type !== 'produce' && it.src_type !== 'mcpack') {
+                        Alert.alert('', '투입 자재는 생산·포장 실적에서만 볼 수 있습니다.');
+                        return;
+                    }
+                    _this.showConsumed(it);
                 });
             }
 
             searchMainData() {
                 const param = {
-                    date_from:  $('#date_from').val(),
-                    date_to:    $('#date_to').val(),
+                    date_from: $('#date_from').val(),
+                    date_to: $('#date_to').val(),
                     factory_id: $('#cboFactory').val(),
-                    proc_code:  $('#cboProcess').val(),
+                    proc_code: $('#cboProcess').val(),
                     mat_grp_id: $('#matGrpPk').val(),
-                    mat_type:   $('#cboMatType').val()
+                    mat_type: $('#cboMatType').val()
                 };
-                const r = AjaxUtil.getSyncData(PR_BASE + '/process', param);
+                const r = AjaxUtil.getSyncData(PR_BASE + '/period', param);
                 const rows = (r && r.data) ? r.data : [];
-                rows.forEach(x => { x.factory_nm = (prNum(x.factory_id) === 2) ? '2공장' : '1공장'; });
+
+                rows.forEach(x => {
+                    x.src_label = SRC_NAME[x.src_type] || x.src_type;
+                    x.factory_nm = (prNum(x.factory_id) === 2) ? '2공장' : '1공장';
+                });
                 this.grid.itemsSource = rows;
                 this.renderSum(rows);
             }
 
+            /* ★ 합계는 완제품만 센다. 공정마다 만드는 게 달라 전부 더하면
+                 같은 물건을 여러 번 세게 된다 */
             renderSum(rows) {
-                const prod = rows.reduce((s, x) => s + prNum(x.product_qty), 0);
-                const def  = rows.reduce((s, x) => s + prNum(x.defect_qty), 0);
                 const good = rows.reduce((s, x) => s + prNum(x.good_qty), 0);
-                const rate = (good + def) === 0 ? 0 : def / (good + def) * 100;
+                const prod = rows.filter(x => x.is_product === 'Y')
+                    .reduce((s, x) => s + prNum(x.good_qty), 0);
+                const def = rows.reduce((s, x) => s + prNum(x.defect_qty), 0);
+                const works = rows.filter(x => x.src_type !== 'defect').length;
                 $('#prSum').html(
-                    '<div class="box">공정<b>' + prComma(rows.length) + '</b></div>' +
-                    '<div class="box">완제품 산출<b>' + prComma(prod) + '</b></div>' +
-                    '<div class="box def">부적합<b>' + prComma(def) + '</b></div>' +
-                    '<div class="box def">전체 불량률<b>' + rate.toFixed(2) + '%</b></div>');
+                    '<div class="box">작업 건수<b>' + prComma(works) + '</b></div>' +
+                    '<div class="box">산출 합계<b>' + prComma(good) + '</b></div>' +
+                    '<div class="box">완제품<b>' + prComma(prod) + '</b></div>' +
+                    '<div class="box def">부적합<b>' + prComma(def) + '</b></div>');
             }
 
-            showDefect(it) {
-                const r = AjaxUtil.getSyncData(PR_BASE + '/defect_list', {
-                    date_from: $('#date_from').val(),
-                    date_to:   $('#date_to').val(),
-                    proc_code: it.proc_code
-                });
-                prOpen(it.proc_name + ' — 부적합 내역', PR_DEFECT_COLS, (r && r.data) ? r.data : []);
+            showConsumed(it) {
+                const r = AjaxUtil.getSyncData(PR_BASE + '/consumed_list', {mp_pk: it.ref_pk});
+                prOpen(it.mat_name + ' — 투입 자재', [
+                    {binding: 'mat_code', header: '품목코드', width: 130, align: 'center'},
+                    {binding: 'mat_name', header: '품목', width: 200},
+                    {binding: 'lot_number', header: '로트', width: 150, align: 'center'},
+                    {binding: 'maker_lot_no', header: '외부라벨', width: 130, align: 'center'},
+                    {binding: 'store_house', header: '창고', width: 110, align: 'center'},
+                    {binding: 'consumed', header: '투입량', width: 100, align: 'right', format: 'n2'},
+                    {binding: 'unit', header: '단위', width: 60, align: 'center'},
+                    {binding: 'consumed_at', header: '투입시각', width: 140, align: 'center'}
+                ], (r && r.data) ? r.data : []);
             }
         }
 
         let page = null;
 
         $(document).ready(function () {
-            page = new ProdResultProcessPage();
+            page = new ProdResultPeriodPage();
 
             $('#date_from').val(CommonUtil.getYYYYMMDD(-7));
             $('#date_to').val(CommonUtil.getYYYYMMDD());
@@ -285,12 +309,14 @@
                 AjaxUtil.fillSelectOptions($('#matGrpPk'), 'material_group', 'all', false, $(this).val());
             });
 
+            /* 공정 콤보 — 공장을 고르면 그 공장 공정만 남는다 */
             function fillProcess() {
                 const r = AjaxUtil.getSyncData(PR_BASE + '/process_combo', {factory_id: $('#cboFactory').val()});
                 const $s = $('#cboProcess').empty().append('<option value="">전체</option>');
                 ((r && r.data) ? r.data : []).forEach(p =>
                     $s.append('<option value="' + p.code + '">' + p.name + '</option>'));
             }
+
             fillProcess();
             $('#cboFactory').on('change', fillProcess);
 

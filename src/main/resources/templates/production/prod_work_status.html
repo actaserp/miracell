@@ -20,7 +20,7 @@
         .ws-more { color:#8a94a4; font-weight:700; font-size:11.5px; margin-left:3px; }
 
         .ws-split { display:flex; gap:14px; align-items:flex-start; }
-        .ws-panel {  min-width:0; background:#fff; border:1px solid #e2e6ee; border-radius:12px; overflow:hidden; }
+        .ws-panel { flex:1 1 0; width:0; min-width:0; background:#fff; border:1px solid #e2e6ee; border-radius:12px; overflow:hidden; }
         .ws-phead { display:flex; align-items:center; gap:10px; padding:12px 14px; border-bottom:1px solid #e2e6ee; }
         .ws-phead .pt { font-weight:800; font-size:14.5px; }
         .ws-phead .pt .tag{ font-size:11px; font-weight:800; padding:2px 8px; border-radius:6px; margin-left:7px; }
@@ -110,7 +110,7 @@
         .ws-help-b p:last-child { margin-bottom:0; } .ws-help-b b { color:#3a4759; }
 
         @media (max-width:1400px){ .ws-board { grid-template-columns:repeat(2,1fr); } }
-        @media (max-width:1000px){ .ws-split { flex-direction:column; } .ws-panel{ width:100%; }
+        @media (max-width:1000px){ .ws-split { flex-direction:column; } .ws-panel{ flex:none; width:100%; }
             .ws-board { grid-template-columns:repeat(3,1fr); } }
         @media (max-width:700px){ .ws-board { grid-template-columns:repeat(2,1fr); } }
     </style>
@@ -163,21 +163,6 @@
                 </div>
             </div>
 
-            <div class="ws-help">
-                <button type="button" class="ws-help-btn" onclick="this.parentElement.classList.toggle('on')">읽는 법 ▾</button>
-                <div class="ws-help-b">
-                    <p>세로 줄 하나가 <b>공정</b>이고, 그 안의 카드 하나가 <b>작업 한 건</b>입니다.
-                        고른 기간에 실제로 한 작업만 보이며, 없으면 「작업 없음」으로 표시됩니다.</p>
-                    <p>날짜는 <b>작업을 끝낸 날</b>로 잡습니다. 아직 하는 중이면 수량 대신 <b>계획 수량</b>이 회색으로 보이고,
-                        끝나면 실제 만든 수량으로 바뀝니다.</p>
-                    <p>카드를 누르면 <b>어떤 자재가 얼마나 들어갔는지</b> 볼 수 있고, 공정 이름 아래 빨간
-                        <b>부적합</b> 숫자를 누르면 품목별 상세가 나옵니다.</p>
-                    <p><b>1공장</b>은 만든 개수로, <b>2공장</b>은 대수로 셉니다(한 대가 로트 하나).
-                        맨 위 산출 수량은 공정마다 만드는 것이 달라 전부 더하면 같은 물건을 여러 번 세게 되므로 마지막 공정만 셉니다.</p>
-                    <p>주문(작업지시)이 어디까지 진행됐는지는 <b>생산진행현황</b> 화면에서 봅니다.
-                        공장별 상세는 각 공장 작업실적현황에서 볼 수 있습니다.</p>
-                </div>
-            </div>
         </section>
 
         <div class="ws-overlay" id="ov" onclick="if(event.target===this)wsClose()">

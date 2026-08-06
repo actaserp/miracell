@@ -26,13 +26,13 @@
 
         <div class="page-title-wrap">
             <div class="left">
-                <h2>공정별작업현황</h2>
+                <h2>생산실적집계표</h2>
                 <a title="북마크" class="bookmark toggle">내 메뉴</a>
             </div>
             <ul class="page-navi">
                 <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
                 <li>생산 관리</li>
-                <li>공정별작업현황</li>
+                <li>생산실적집계표</li>
             </ul>
         </div>
 
@@ -40,15 +40,8 @@
             <div class="section-top">
                 <div class="search-wrap">
                     <dl>
-                        <dt><label for="date_from">작업일<span class="eq">*</span></label></dt>
-                        <dd>
-                            <ul class="date-box">
-                                <li><input type="date" id="date_from" name="date_from">
-                                    <label for="date_from" class="hide">시작일</label></li>
-                                <li><input type="date" id="date_to" name="date_to">
-                                    <label for="date_to" class="hide">종료일</label></li>
-                            </ul>
-                        </dd>
+                        <dt><label for="cboYear">연도<span class="eq">*</span></label></dt>
+                        <dd><div class="srch-box"><select id="cboYear"></select></div></dd>
                     </dl>
                     <dl>
                         <dt><label for="cboFactory">공장</label></dt>
@@ -63,20 +56,21 @@
                         </dd>
                     </dl>
                     <dl>
-                        <dt><label for="cboProcess">공정</label></dt>
-                        <dd>
-                            <div class="srch-box">
-                                <select id="cboProcess" name="cboProcess"><option value="">전체</option></select>
-                            </div>
-                        </dd>
-                    </dl>
-                    <dl>
                         <dt><label for="cboMatType">품목유형</label></dt>
                         <dd><select class="form-control2" id="cboMatType" name="cboMatType"></select></dd>
                     </dl>
                     <dl>
                         <dt><label for="matGrpPk">품목그룹</label></dt>
                         <dd><select class="form-control2" id="matGrpPk" name="matGrpPk"></select></dd>
+                    </dl>
+                    <dl>
+                        <dt><label for="cboDataDiv">조회데이터</label></dt>
+                        <dd>
+                            <select class="form-control2" id="cboDataDiv" name="cboDataDiv">
+                                <option value="qty">수량</option>
+                                <option value="money">금액</option>
+                            </select>
+                        </dd>
                     </dl>
                     <dl>
                         <dt>&nbsp;</dt>
@@ -95,10 +89,10 @@
             <div class="pr-sum" id="prSum"></div>
 
             <div class="container-fluid">
-                <div id="theGrid" style="height:600px;"></div>
+                <div id="theGrid" style="height:700px;"></div>
             </div>
 
-            <div class="pr-note">행 하나가 <b>공정</b>입니다. 세척·멸균·2공장 검사까지 포함합니다 — 이 공정들은 실적이 남는 테이블이 달라 작업지시 기준 집계만으로는 잡히지 않습니다. <b>완제품</b> 칸은 마지막 공정의 산출만 센 것으로, 산출 합계를 전부 더하면 같은 물건을 공정마다 다시 세게 되므로 따로 표시합니다. 행을 더블클릭하면 부적합 내역이 나옵니다.</div>
+            <div class="pr-note">품목별 <b>연간 월별</b> 산출입니다. 왼쪽 7개 칸이 고정되어 가로로 스크롤해도 품목이 따라옵니다. 수량과 금액을 <b>조회데이터</b>로 바꿔 볼 수 있고, 금액은 품목 단가를 곱한 값입니다. 같은 품목이 여러 공정에서 나오면 모두 더해지므로, 완제품 기준 수량은 품목유형을 <b>완제품</b>으로 좁혀서 보십시오.</div>
         </section>
 
         <div class="pr-ov" id="prOv">
@@ -118,7 +112,7 @@
     <script type="text/javascript">
 
         /* =====================================================================
-           공정별작업현황  —  GET /process
+           생산실적집계표  —  GET /summary
 
            ★ 데이터는 소스 7개를 합친 것이다 (ProdResultService)
                1공장 생산형(mat_produce) · 세척(wash_work) · 멸균(steril_batch)
@@ -169,14 +163,13 @@
             {binding: 'description', header: '내용',   width: 220}
         ];
 
-        class ProdResultProcessPage {
+        class ProdResultSummaryPage {
             constructor() {
                 this.grid = null;
                 this.init();
             }
 
             init() {
-                const _this = this;
                 this.grid = new wijmo.grid.FlexGrid('#theGrid', {
                     autoGenerateColumns: false,
                     selectionMode: wijmo.grid.SelectionMode.Row,
@@ -185,114 +178,92 @@
                     allowMerging: wijmo.grid.AllowMerging.Cells,
                     showMarquee: true,
                     isReadOnly: true,
+                    frozenColumns: 6,
                     formatItem: (s, e) => {
                         if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
                             e.cell.style.textAlign = 'center';
                             return;
                         }
                         if (e.panel.cellType !== wijmo.grid.CellType.Cell) return;
-                        /* ★ 셀 DOM 재활용 때문에 매번 비우고 시작한다 (기간별 화면과 같은 이유) */
+                        /* ★ 셀 DOM 재활용 때문에 매번 비우고 시작한다 */
                         e.cell.style.color = '';
-                        e.cell.style.fontWeight = '';
 
-                        const it = s.rows[e.row].dataItem;
-                        if (!it) return;
                         const col = s.columns[e.col].binding;
-                        if (col === 'defect_percent') {
-                            const v = prNum(it.defect_percent);
-                            /* KPI 목표가 3% 다 (사업계획서 1.5) — 넘으면 눈에 띄어야 한다 */
-                            if (v > 3) { e.cell.style.color = '#c8483b'; e.cell.style.fontWeight = '800'; }
-                            else if (v > 0) e.cell.style.color = '#c77a00';
+                        if (col && col.startsWith('mon_')) {
+                            const it = s.rows[e.row].dataItem;
+                            /* 실적 없는 달은 숫자를 죽여 둔다 — 0 이 늘어서면 있는 숫자가 묻힌다 */
+                            if (!it || prNum(it[col]) === 0) e.cell.style.color = '#c8ccd4';
                         }
                     },
                     columns: [
-                        {binding: 'factory_nm',     header: '공장',   width: 90,  align: 'center', allowMerging: true},
-                        {binding: 'proc_code',      header: '공정코드', width: 90,  align: 'center'},
-                        {binding: 'proc_name',      header: '공정',   width: 130, align: 'center'},
-                        {binding: 'work_cnt',       header: '작업건수', width: 90, align: 'right', format: 'n0',
+                        {binding: 'mat_type_name', header: '품목유형', width: 100, align: 'center', allowMerging: true},
+                        {binding: 'mat_grp_name',  header: '품목그룹', width: 150, align: 'center', allowMerging: true},
+                        {binding: 'mat_code',      header: '품목코드', width: 140, align: 'center'},
+                        {binding: 'mat_name',      header: '품목',   width: 200},
+                        {binding: 'unit',          header: '단위',   width: 65, align: 'center'},
+                        {binding: 'year_sum',      header: '연간합계', width: 120, align: 'right', format: 'n2',
                             aggregate: wijmo.Aggregate.Sum},
-                        {binding: 'mat_cnt',        header: '품목수', width: 80, align: 'right', format: 'n0'},
-                        {binding: 'day_cnt',        header: '작업일수', width: 85, align: 'right', format: 'n0'},
-                        {binding: 'good_qty',       header: '산출량', width: 100, align: 'right', format: 'n2',
-                            aggregate: wijmo.Aggregate.Sum},
-                        {binding: 'product_qty',    header: '완제품', width: 100, align: 'right', format: 'n2',
-                            aggregate: wijmo.Aggregate.Sum},
-                        {binding: 'defect_qty',     header: '부적합', width: 95, align: 'right', format: 'n2',
-                            aggregate: wijmo.Aggregate.Sum},
-                        {binding: 'defect_percent', header: '불량률(%)', width: 95, align: 'right', format: 'n2'},
-                        {binding: 'first_date',     header: '최초',   width: 105, align: 'center'},
-                        {binding: 'last_date',      header: '최종',   width: 105, align: 'center'}
+                        ...Array.from({length: 12}, (_, i) => ({
+                            binding: 'mon_' + (i + 1),
+                            header: (i + 1) + '월',
+                            width: 88,
+                            format: 'n2',
+                            align: 'right',
+                            allowSorting: false
+                        }))
                     ]
                 });
                 new FlexGridContextMenu(this.grid);
-                this.grid.downloadFileName = '공정별작업현황';
-
-                this.grid.addEventListener(this.grid.hostElement, 'dblclick', function () {
-                    const it = _this.grid.selectedItems[0];
-                    if (it) _this.showDefect(it);
-                });
+                this.grid.downloadFileName = '생산실적집계표';
             }
 
             searchMainData() {
+                const div = $('#cboDataDiv').val();
                 const param = {
-                    date_from:  $('#date_from').val(),
-                    date_to:    $('#date_to').val(),
+                    year:       $('#cboYear').val(),
                     factory_id: $('#cboFactory').val(),
-                    proc_code:  $('#cboProcess').val(),
                     mat_grp_id: $('#matGrpPk').val(),
-                    mat_type:   $('#cboMatType').val()
+                    mat_type:   $('#cboMatType').val(),
+                    data_div:   div
                 };
-                const r = AjaxUtil.getSyncData(PR_BASE + '/process', param);
+                const r = AjaxUtil.getSyncData(PR_BASE + '/summary', param);
                 const rows = (r && r.data) ? r.data : [];
-                rows.forEach(x => { x.factory_nm = (prNum(x.factory_id) === 2) ? '2공장' : '1공장'; });
-                this.grid.itemsSource = rows;
-                this.renderSum(rows);
-            }
 
-            renderSum(rows) {
-                const prod = rows.reduce((s, x) => s + prNum(x.product_qty), 0);
-                const def  = rows.reduce((s, x) => s + prNum(x.defect_qty), 0);
-                const good = rows.reduce((s, x) => s + prNum(x.good_qty), 0);
-                const rate = (good + def) === 0 ? 0 : def / (good + def) * 100;
-                $('#prSum').html(
-                    '<div class="box">공정<b>' + prComma(rows.length) + '</b></div>' +
-                    '<div class="box">완제품 산출<b>' + prComma(prod) + '</b></div>' +
-                    '<div class="box def">부적합<b>' + prComma(def) + '</b></div>' +
-                    '<div class="box def">전체 불량률<b>' + rate.toFixed(2) + '%</b></div>');
-            }
-
-            showDefect(it) {
-                const r = AjaxUtil.getSyncData(PR_BASE + '/defect_list', {
-                    date_from: $('#date_from').val(),
-                    date_to:   $('#date_to').val(),
-                    proc_code: it.proc_code
+                /* 연간합계는 조회데이터에 맞춰 갈아 끼운다 —
+                   수량 볼 때 금액 합계가 붙어 있으면 헷갈린다 */
+                rows.forEach(x => {
+                    x.year_sum = (div === 'money') ? prNum(x.year_money_sum) : prNum(x.year_qty_sum);
                 });
-                prOpen(it.proc_name + ' — 부적합 내역', PR_DEFECT_COLS, (r && r.data) ? r.data : []);
+                this.grid.columns[5].header = (div === 'money') ? '연간생산액' : '연간생산량';
+                this.grid.columns[5].format = (div === 'money') ? 'n0' : 'n2';
+                for (let i = 6; i < this.grid.columns.length; i++) {
+                    this.grid.columns[i].format = (div === 'money') ? 'n0' : 'n2';
+                }
+
+                this.grid.itemsSource = rows;
+                this.renderSum(rows, div);
+            }
+
+            renderSum(rows, div) {
+                const tot = rows.reduce((s, x) => s + prNum(x.year_sum), 0);
+                $('#prSum').html(
+                    '<div class="box">품목<b>' + prComma(rows.length) + '</b></div>' +
+                    '<div class="box">' + (div === 'money' ? '연간 생산액' : '연간 생산량') +
+                    '<b>' + prComma(tot) + '</b></div>');
             }
         }
 
         let page = null;
 
         $(document).ready(function () {
-            page = new ProdResultProcessPage();
+            page = new ProdResultSummaryPage();
 
-            $('#date_from').val(CommonUtil.getYYYYMMDD(-7));
-            $('#date_to').val(CommonUtil.getYYYYMMDD());
-
+            AjaxUtil.fillSelectOptions($('#cboYear'), 'data_year', '', false);
             AjaxUtil.fillSelectOptions($('#cboMatType'), 'system_code', 'all', false, 'mat_type', 'product,semi');
             AjaxUtil.fillSelectOptions($('#matGrpPk'), 'material_group', 'all', false, 'product,semi');
             $('#cboMatType').on('change', function () {
                 AjaxUtil.fillSelectOptions($('#matGrpPk'), 'material_group', 'all', false, $(this).val());
             });
-
-            function fillProcess() {
-                const r = AjaxUtil.getSyncData(PR_BASE + '/process_combo', {factory_id: $('#cboFactory').val()});
-                const $s = $('#cboProcess').empty().append('<option value="">전체</option>');
-                ((r && r.data) ? r.data : []).forEach(p =>
-                    $s.append('<option value="' + p.code + '">' + p.name + '</option>'));
-            }
-            fillProcess();
-            $('#cboFactory').on('change', fillProcess);
 
             $('#btnMainSearch').click(() => page.searchMainData());
             page.searchMainData();
