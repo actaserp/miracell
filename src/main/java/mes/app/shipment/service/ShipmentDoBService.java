@@ -26,8 +26,8 @@ public class ShipmentDoBService {
 	NamedParameterJdbcTemplate namedParameterJdbcTemplate;
 	// 출하지시헤더 조회
 	public List<Map<String, Object>> getShipmentHeaderList(String date_from, String date_to, String state, Integer comp_pk, Integer mat_grp_pk, Integer mat_pk, String keyword) {
-		
-		MapSqlParameterSource paramMap = new MapSqlParameterSource();        
+
+		MapSqlParameterSource paramMap = new MapSqlParameterSource();
 		paramMap.addValue("date_from", Date.valueOf(date_from));
 		paramMap.addValue("date_to", Date.valueOf(date_to));
 		paramMap.addValue("state", state);
@@ -36,7 +36,7 @@ public class ShipmentDoBService {
 		paramMap.addValue("mat_pk", CommonUtil.tryIntNull(mat_pk));
 		paramMap.addValue("keyword", keyword == null ? "" : "%" + keyword + "%");
 
-        String sql = """
+		String sql = """
 			with SH as
 					    (
 					    select sh.id
@@ -52,16 +52,16 @@ public class ShipmentDoBService {
 				            left join company c on c.id = sh."Company_id"
 				            where sh."ShipDate" between :date_from and :date_to		
         		     """;
-        
-        if (comp_pk != null) {
-        	sql += " and sh.\"Company_id\" = :comp_pk ";
-        }
-        
-        if (StringUtils.isEmpty(state) == false) {
-        	sql += " and sh.\"State\" = :state ";
-        }
-        
-        sql += """
+
+		if (comp_pk != null) {
+			sql += " and sh.\"Company_id\" = :comp_pk ";
+		}
+
+		if (StringUtils.isEmpty(state) == false) {
+			sql += " and sh.\"State\" = :state ";
+		}
+
+		sql += """
         		 ), S as 
 			    (
 			    select s."ShipmentHead_id" as head_id
@@ -76,20 +76,20 @@ public class ShipmentDoBService {
 			sql += "inner join material m on m.id = s.\"Material_id\" ";
 		}
 
-        sql += " where 1 = 1 ";
-        
-        if (mat_pk != null) {
-        	sql += " and s.\"Material_id\" = :mat_pk ";
-        } else if (mat_grp_pk != null) {
-        	sql += " and m.\"MaterialGroup_id\" = :mat_grp_pk ";
-        }
+		sql += " where 1 = 1 ";
+
+		if (mat_pk != null) {
+			sql += " and s.\"Material_id\" = :mat_pk ";
+		} else if (mat_grp_pk != null) {
+			sql += " and m.\"MaterialGroup_id\" = :mat_grp_pk ";
+		}
 
 		if(!keyword.isEmpty()){
 			sql += " and m.\"Name\" like :keyword";
 		}
 
 
-        sql += """
+		sql += """
         		group by s."ShipmentHead_id"
 			    )
 			    select SH.*
@@ -104,18 +104,18 @@ public class ShipmentDoBService {
 				order by SH.ship_date, SH.id desc
 				""";
 
-        List<Map<String, Object>> items = this.sqlRunner.getRows(sql, paramMap);
-        
-        return items;
+		List<Map<String, Object>> items = this.sqlRunner.getRows(sql, paramMap);
+
+		return items;
 	}
-	
+
 	// 출하 항목 조회
 	public List<Map<String, Object>> getShipmentList (Integer shipment_header_id) {
 
-		MapSqlParameterSource paramMap = new MapSqlParameterSource();        
+		MapSqlParameterSource paramMap = new MapSqlParameterSource();
 		paramMap.addValue("shipment_header_id", shipment_header_id);
-		
-		 String sql = """
+
+		String sql = """
 	       select
 	        s."ShipmentHead_id" as sh_id
 	        , s.id as shipment_id
@@ -145,19 +145,19 @@ public class ShipmentDoBService {
 	        where sh.id = :shipment_header_id	
 		    order by s.id desc
 		        		 """;
-		 
-        List<Map<String, Object>> items = this.sqlRunner.getRows(sql, paramMap);
-        
-        return items;
+
+		List<Map<String, Object>> items = this.sqlRunner.getRows(sql, paramMap);
+
+		return items;
 	}
 
 	// 출하 처리 LOT상세
 	public List<Map<String, Object>> getShipmentLotList (Integer sh_id, Integer shipment_id) {
 
-		MapSqlParameterSource paramMap = new MapSqlParameterSource();        
+		MapSqlParameterSource paramMap = new MapSqlParameterSource();
 		paramMap.addValue("shipment_id", shipment_id);
 		paramMap.addValue("sh_id", sh_id);
-		
+
 		String sql = """
 			          select
 		                  mlc.id as mlc_id
@@ -180,21 +180,33 @@ public class ShipmentDoBService {
 		        		 """;
 		if (shipment_id != null) {
 			sql += " and s.id = :shipment_id ";
-	    }
-	    sql += " order by ml.\"LotNumber\" ";
+		}
+		sql += " order by ml.\"LotNumber\" ";
 
-        List<Map<String, Object>> items = this.sqlRunner.getRows(sql, paramMap);
-        
-        return items;
+		List<Map<String, Object>> items = this.sqlRunner.getRows(sql, paramMap);
+
+		return items;
 	}
-	
+
 	// lot 검색
+	/**
+	 * LOT 지정 팝업 검색.
+	 *
+	 * ★ lot_number 는 「사내 로트번호」가 아니라 「스캔한 값」이다.
+	 *   현장은 아웃박스(카톤)에 붙은 바코드를 찍는다 — 그 값은 pack_carton."CartonLotNo"
+	 *   이고 mat_lot 어디에도 없다. 카톤을 먼저 풀어 완제품 로트로 환산한다.
+	 *
+	 * ★ 카톤으로 걸리면 그 박스의 수량·국가·출고여부를 함께 내린다.
+	 *   화면이 수량을 자동으로 채우고, 이미 나간 박스를 막는 근거가 된다.
+	 *   포장 완제품이 국가별로 로트가 갈리므로(P-…-KR / -JP) 카톤을 거치면
+	 *   국가가 자동으로 정해진다 — 사람이 로트를 고르다 국가를 섞는 사고가 사라진다.
+	 */
 	public List<Map<String, Object>> getMatLotSearch (Integer sh_id, Integer material_id, String lot_number) {
 
-		MapSqlParameterSource paramMap = new MapSqlParameterSource();      
+		MapSqlParameterSource paramMap = new MapSqlParameterSource();
 		paramMap.addValue("material_id", material_id);
 		paramMap.addValue("lot_number", lot_number);
-		
+
 		String sql = """
 				select
 				         ml.id as ml_id
@@ -208,25 +220,84 @@ public class ShipmentDoBService {
 				        , m."Name" as mat_name
 				        , to_char(ml."EffectiveDate", 'YYYY-MM-DD HH24:MI:SS') as "EffectiveDate"
 				        , to_char(ml."InputDateTime", 'YYYY-MM-DD HH24:MI:SS') as "InputDateTime"
+				        , pc.id            as carton_id
+				        , pc."CartonLotNo" as carton_lot_no
+				        , pc."CartonNo"    as carton_no
+				        , pc."Qty"         as carton_qty
+				        , pc."CountryCode" as carton_country
+				        , pc."ShipState"   as carton_state
 				from mat_lot ml
 				    inner join material m on m.id = ml."Material_id"
 				    left join mat_grp mg on mg.id= m."MaterialGroup_id"
 				    left join unit u on u.id = m."Unit_id"
+				    -- 카톤 스캔일 때만 붙는다. 평소 조회에서는 전부 null
+				    left join pack_carton pc on pc."MatLot_id" = ml.id
+				                            and coalesce(pc._status,'a') = 'a'
+				                            and pc."CartonLotNo" = cast(:lot_number as varchar)
 				where ml."CurrentStock" > 0
 		        		 """;
 		if (material_id != null) {
 			sql += " and ml.\"Material_id\" = :material_id ";
-	    }
+		}
 
-        if (StringUtils.isEmpty(lot_number) == false) {
-        	sql += " and  ml.\"LotNumber\" = :lot_number ";
-        }
-        
-	    sql += " order by ml.\"LotNumber\" ";
+		if (StringUtils.isEmpty(lot_number) == false) {
+			// 사내 로트번호 또는 카톤 바코드 — 둘 중 하나로 걸린다
+			sql += " and (ml.\"LotNumber\" = :lot_number or pc.id is not null) ";
+		}
 
-        List<Map<String, Object>> items = this.sqlRunner.getRows(sql, paramMap);
-        
-        return items;
+		sql += " order by ml.\"LotNumber\" ";
+
+		List<Map<String, Object>> items = this.sqlRunner.getRows(sql, paramMap);
+
+		return items;
+	}
+
+	/**
+	 * 카톤을 출고 처리로 표시한다.
+	 *
+	 * ★ ux_pack_carton_lot 유니크로 번호 중복은 막히지만, 같은 박스를 두 번 찍는 건
+	 *   막지 못한다. ShipState 로 막는다 — 조건부 UPDATE 라 동시에 두 단말이 찍어도
+	 *   한 쪽만 1을 돌려받는다. 화면 가드만으로는 이 경합을 못 막는다.
+	 *
+	 * @return 실제로 바뀐 행 수. 0 이면 이미 출고된 박스다.
+	 */
+	public int markCartonShipped(Integer cartonId, Integer shipmentId, Integer userId) {
+		if (cartonId == null) return 0;
+		MapSqlParameterSource p = new MapSqlParameterSource();
+		p.addValue("id", cartonId);
+		p.addValue("shipmentId", shipmentId);
+		p.addValue("userId", userId);
+		Map<String, Object> r = this.sqlRunner.getRow("""
+            UPDATE pack_carton
+               SET "ShipState"   = 'shipped'
+                 , "Shipment_id" = CAST(:shipmentId AS integer)
+                 , _modified     = now()
+                 , _modifier_id  = CAST(:userId AS integer)
+             WHERE id = :id
+               AND COALESCE("ShipState",'') <> 'shipped'
+            RETURNING id
+            """, p);
+		return (r == null) ? 0 : 1;
+	}
+
+	/**
+	 * 출고 취소 시 되돌린다.
+	 *
+	 * ★ pack_carton."Shipment_id" 는 FK 가 없다(느슨한 연결). DB 가 막아주지 않으므로
+	 *   출고를 지우는 쪽에서 반드시 이걸 불러야 한다. 빠뜨리면 멀쩡한 박스가
+	 *   영원히 'shipped' 로 남아 재출고가 안 된다.
+	 */
+	public int unmarkCartonShipped(Integer shipmentId) {
+		if (shipmentId == null) return 0;
+		MapSqlParameterSource p = new MapSqlParameterSource();
+		p.addValue("shipmentId", shipmentId);
+		List<Map<String, Object>> rows = this.sqlRunner.getRows("""
+            UPDATE pack_carton
+               SET "ShipState" = NULL, "Shipment_id" = NULL, _modified = now()
+             WHERE "Shipment_id" = :shipmentId
+            RETURNING id
+            """, p);
+		return (rows == null) ? 0 : rows.size();
 	}
 
 	public void deleteMatLotCons(Integer mat_lot_cons_id){
@@ -244,7 +315,7 @@ public class ShipmentDoBService {
 		MapSqlParameterSource paramMap = new MapSqlParameterSource();
 		paramMap.addValue("sh_id", sh_id);
 		paramMap.addValue("shipment_id", shipment_id);
-	    
+
 		String sql = """
 				with A as(
 	            select
@@ -255,7 +326,7 @@ public class ShipmentDoBService {
 	            where 1=1 
 	            and sh.id = :sh_id
 				""";
-		
+
 		if (shipment_id != null) {
 			sql += " and s.id = :shipment_id ";
 		}
@@ -353,8 +424,8 @@ public class ShipmentDoBService {
 		}else{
 			throw new RuntimeException("SourceDataTable의 값이 올바르지 않습니다.");
 		}
-		
-        this.sqlRunner.execute(sql, paramMap);    
+
+		this.sqlRunner.execute(sql, paramMap);
 	}
 
 	public void updateShipmentAndHeadByLotConsume(Integer sh_id, Integer shipment_id, String sourceData) {
@@ -526,15 +597,15 @@ public class ShipmentDoBService {
 		        where id=A.sh_id
 				""";
 
-        this.sqlRunner.execute(sql, paramMap);  
+		this.sqlRunner.execute(sql, paramMap);
 	}
-	
+
 	// 관련 수주를 찾아서 수주의 출하 상태를 변경한다.
 	public void updateSujuShipmentState (Integer sh_id) {
 
 		MapSqlParameterSource paramMap = new MapSqlParameterSource();
 		paramMap.addValue("sh_id", sh_id);
-	    
+
 		String sql = """
 		        with A as(
 		        select
@@ -552,8 +623,8 @@ public class ShipmentDoBService {
 		        update suju set "ShipmentState" ='shipped'
 		        from A where A.suju_id = id
 				""";
-		
-        this.sqlRunner.execute(sql, paramMap); 
+
+		this.sqlRunner.execute(sql, paramMap);
 	}
 
 

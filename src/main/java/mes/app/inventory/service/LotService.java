@@ -188,8 +188,21 @@ public class LotService {
                    and ml."MakerLotNo" = k.skey
 
                 union all
-                -- ③ 포장 라벨 테이블 — 카톤(OUT BOX) 등 mat_lot 에 없는 번호
-                select ml.id, 3, 'pack_' || pl."LabelKind"
+                -- ③ 카톤 개체 — 실물 박스에 붙는 바코드(C-…-KR-01).
+                --    pack_carton 이 국가별 완제품 로트를 직접 들고 있어
+                --    차수를 거치지 않고 바로 이어진다 — 국가가 안 섮인다.
+                select ml.id, 3, 'carton'
+                  from pack_carton pc
+                  join mat_lot ml on ml.id = pc."MatLot_id"
+                 cross join k
+                 where k.exact_only is not true
+                   and coalesce(pc._status,'a') = 'a'
+                   and pc."CartonLotNo" = k.skey
+
+                union all
+                -- ④ 포장 라벨 테이블 — 대표 카톤 번호·구 데이터용 폴백.
+                --    국가별로 나누기 전에 만들어진 번호는 여기서만 잡힌다.
+                select ml.id, 4, 'pack_' || pl."LabelKind"
                   from pack_label pl
                   join mat_lot ml on ml."SourceTableName" = 'mat_produce'
                                  and ml."SourceDataPk"    = pl."MatProduce_id"
@@ -227,7 +240,8 @@ public class LotService {
                 when 'maker'        then '박스라벨'
                 when 'pack_ckpk'    then 'CK·PK 라벨'
                 when 'pack_inbox'   then '인박스 라벨'
-                when 'pack_carton'  then '카톤(OUT BOX)'
+                when 'carton'       then '카톤 박스'
+                when 'pack_carton'  then '카톤(대표번호)'
                 else '포장 라벨'
               end as match_by_name
             from best b
@@ -269,14 +283,15 @@ public class LotService {
 		String sql = """
             with mp_list as (
                 -- 이 로트를 산출한 포장 차수
-                select mp.id as mp_id, ml."LotNumber" as prod_lot, ml."MakerLotNo" as maker_lot
+                select mp.id as mp_id, ml.id as prod_lot_id
+                     , ml."LotNumber" as prod_lot, ml."MakerLotNo" as maker_lot
                   from mat_lot ml
                   join mat_produce mp on mp.id = ml."SourceDataPk"
                                      and ml."SourceTableName" = 'mat_produce'
                  where ml."LotNumber" = :lotNumber
                 union
                 -- 이 로트가 담긴 포장 차수
-                select mp.id, pl2."LotNumber", pl2."MakerLotNo"
+                select mp.id, pl2.id, pl2."LotNumber", pl2."MakerLotNo"
                   from mat_lot ml
                   join mat_lot_cons mlc on mlc."MaterialLot_id" = ml.id
                                        and mlc."SourceTableName" = 'mat_produce'
@@ -286,56 +301,78 @@ public class LotService {
                  where ml."LotNumber" = :lotNumber
             )
             , mp_pack as (
-                -- 포장 흔적(라벨 또는 박스라벨)이 있는 차수만.
-                -- 조립·검사 차수까지 뜨면 이 탭이 무의미해진다
                 select k.* from mp_list k
                  where k.maker_lot is not null
                     or exists (select 1 from pack_label pl
                                 where pl."MatProduce_id" = k.mp_id
                                   and coalesce(pl._status,'a') = 'a')
+                    or exists (select 1 from pack_carton pc
+                                where pc."MatProduce_id" = k.mp_id
+                                  and coalesce(pc._status,'a') = 'a')
             )
             , pr as (
-                -- ★ 라벨과 투입은 둘 다 차수에 1:N 이다. 한 조인에 섞으면 서로 곱해져
+                -- ★ 라벨·카톤·투입은 모두 차수에 1:N 이다. 한 조인에 섞으면 서로 곱해져
                 --   CK 48 한 건이 라벨 3장 때문에 3줄로 복사된다(합계 144).
-                --   그래서 행을 아예 분리해 UNION 한다 — 각 줄은 자기 칸만 채운다.
+                --   그래서 행을 분리해 UNION 한다 — 각 줄은 자기 칸만 채운다.
 
-                -- ① 라벨 줄 : 이 박스에 붙은 라벨
-                select k.mp_id
+                -- ① 라벨 줄
+                select k.mp_id, k.prod_lot_id
                      , '라벨'::text as row_type
                      , k.prod_lot
                      , case pl."LabelKind"
                          when 'ckpk'   then 'CK·PK 라벨'
                          when 'inbox'  then '인박스 라벨'
-                         when 'carton' then '카톤(OUT BOX)'
+                         when 'carton' then '카톤(대표번호)'
                          else '박스라벨'
                        end as label_kind_name
                      , coalesce(pl."LotNo", k.maker_lot) as label_lot
                      , pl."Gtin"::text        as gtin
                      , pl."Qty"::float        as label_qty
                      , cast(pl."ExpiryDate" as text) as label_expiry
+                     , null::text  as country_code
+                     , null::text  as ship_state
                      , null::text  as src_mat_name
                      , null::text  as src_lot
                      , null::float as src_qty
-                     , coalesce(pl."LabelKind",'zz') as sort_key
+                     , '1' || coalesce(pl."LabelKind",'zz') as sort_key
                   from mp_pack k
                   left join pack_label pl on pl."MatProduce_id" = k.mp_id
                                          and coalesce(pl._status,'a') = 'a'
 
                 union all
 
-                -- ② 투입 줄 : 이 박스에 들어간 자재 로트 (CK·PK·인박스·카톤 …)
-                select k.mp_id
+                -- ② 카톤 개체 줄 — 실물 박스 하나가 한 줄. 출고에서 찍는 값이 여기 있다.
+                --   MatLot_id 로 걸어 국가별 로트를 조회했을 때 그 국가 박스만 나온다.
+                select k.mp_id, k.prod_lot_id
+                     , '카톤'::text
+                     , k.prod_lot
+                     , '카톤 박스'::text
+                     , pc."CartonLotNo"
+                     , null::text
+                     , pc."Qty"::float
+                     , null::text
+                     , pc."CountryCode"
+                     , pc."ShipState"
+                     , null::text, null::text, null::float
+                     , '2' || lpad(pc."CartonNo"::text, 4, '0')
+                  from mp_pack k
+                  join pack_carton pc on pc."MatProduce_id" = k.mp_id
+                                     and coalesce(pc._status,'a') = 'a'
+                                     and (pc."MatLot_id" is null
+                                          or pc."MatLot_id" = k.prod_lot_id)
+
+                union all
+
+                -- ③ 투입 줄 — 이 박스에 들어간 자재 로트 (CK·PK·인박스·카톤 …)
+                select k.mp_id, k.prod_lot_id
                      , '투입'::text
                      , k.prod_lot
-                     , null::text
-                     , null::text
-                     , null::text
-                     , null::float
-                     , null::text
+                     , null::text, null::text, null::text, null::float, null::text
+                     , null::text, null::text
                      , m2."Name"
                      , ml."LotNumber"
                      , mlc."OutputQty"::float
-                     , m2."Name"
+                     , '3' || m2."Name"
                   from mp_pack k
                   join mat_lot_cons mlc on mlc."SourceDataPk"    = k.mp_id
                                        and mlc."SourceTableName" = 'mat_produce'
@@ -355,28 +392,33 @@ public class LotService {
             , r.gtin
             , r.label_qty
             , r.label_expiry
+            , r.country_code
+            , r.ship_state
             , r.src_mat_name
             , r.src_lot
             , r.src_qty
             -- 차수 단위 값이라 첫 줄에만 찍는다. 매 줄에 두면 줄 수만큼 부풀려진다
-            , case when row_number() over (partition by r.mp_id order by r.row_type, r.sort_key) = 1
-                   then round(coalesce(mp."GoodQty",0)::numeric, 0) end as good_qty
-            -- ★ 박스(카톤) 수.
-            --   1공장 : PackService 가 ceil(units/cap) 을 계산해 carton 라벨의 Qty 에 저장해 둔다.
-            --              계산하지 않고 그 값을 그대로 쓴다 — 출하가 이 라벨 기준이라
-            --              화면에서 다시 계산하면 실물과 어긋날 수 있다.
-            --   2공장 : 유닛 1대 = 박스 1개(1:1). pack_label 을 안 쓰므로 차수당 1.
-            --   1공장인데 carton 라벨이 없으면 모르는 것이다 — 1 로 채우지 않는다.
-            , case when row_number() over (partition by r.mp_id order by r.row_type, r.sort_key) = 1
+            -- ★ 차수 전체(mp."GoodQty")가 아니라 이 로트의 수량이다.
+            --   국가별로 로트가 갈렸으므로 JP 로트를 보면서 차수 합계 10 을 띄우면
+            --   바로 옆 박스수(국가별 2)와 짝이 안 맞아 어느 쪽이 맞는지 알 수 없다.
+            , case when row_number() over (partition by r.prod_lot_id order by r.sort_key) = 1
+                   then round(coalesce((select ml3."InputQty" from mat_lot ml3
+                                         where ml3.id = r.prod_lot_id),
+                                       mp."GoodQty", 0)::numeric, 0) end as good_qty
+            -- ★ 박스수는 pack_carton 을 센다. 국가별 로트를 조회하면 그 국가 박스만 세어진다.
+            --   pack_label 의 carton "Qty" 는 차수 전체라 국가별 화면에서는 과하게 나온다.
+            --   pack_carton 이 없으면(구 데이터) 대표 라벨 값으로 떨어진다.
+            , case when row_number() over (partition by r.prod_lot_id order by r.sort_key) = 1
                    then coalesce(
-                          (select pl2."Qty" from pack_label pl2
+                          nullif((select count(*) from pack_carton pc2
+                                   where pc2."MatProduce_id" = r.mp_id
+                                     and coalesce(pc2._status,'a') = 'a'
+                                     and (pc2."MatLot_id" is null
+                                          or pc2."MatLot_id" = r.prod_lot_id)), 0),
+                          (select pl2."Qty"::bigint from pack_label pl2
                             where pl2."MatProduce_id" = r.mp_id
                               and pl2."LabelKind" = 'carton'
-                              and coalesce(pl2._status,'a') = 'a'),
-                          case when exists (select 1 from pack_label pl3
-                                             where pl3."MatProduce_id" = r.mp_id
-                                               and coalesce(pl3._status,'a') = 'a')
-                               then null else 1 end)
+                              and coalesce(pl2._status,'a') = 'a'))
                    end as box_cnt
             from pr r
             join mat_produce mp on mp.id = r.mp_id
@@ -384,9 +426,7 @@ public class LotService {
             left join work_center wc on wc.id = jr."WorkCenter_id"
             left join process p on p.id = wc."Process_id"
             left join material m on m.id = mp."Material_id"
-            order by r.prod_lot
-                   , case r.row_type when '라벨' then 0 else 1 end
-                   , r.sort_key
+            order by r.prod_lot, r.sort_key
 				""";
 
 		return nz(this.sqlRunner.getRows(sql, dicParam));
@@ -498,6 +538,13 @@ with recursive T as (
         --   뿌리 행은 mp_id 가 없어 빈칸이다 — 「소비된 시각」이 없는 게 맞다.
         --   생성일로 채우지 않는다 : 한 칸에 두 의미가 섮이면
         --   이 날짜로 회수 범위를 자를 때 조용히 오판한다.
+        -- ★ 잔여 = 지금 이 로트에 남은 재고(mat_lot."CurrentStock").
+        --   PK·CK 를 다 안 쓰고 남기는 경우가 많아 「얼마 쓰고 얼마 남았나」를 같이 본다.
+        --   join 이 아니라 스칼라 서브쿼리인 이유 : 같은 번호·품목으로
+        --   mat_lot 행이 여러 개면 트리 행이 그만큼 복사된다.
+        --   ⚠ 투입 당시가 아니라 「조회 시점」 잔여다.
+        , (select sum(ml2."CurrentStock") from mat_lot ml2
+            where ml2."LotNumber" = T.lot_number and ml2."Material_id" = T.mat_pk) as remain_qty
         , to_char(coalesce(mpu."EndTime", mpu."StartTime"), 'yyyy-mm-dd hh24:mi') as used_time
         from T
         left join material m1 on m1.id = T.p_mat_pk
@@ -582,6 +629,14 @@ with recursive T as (
           --   뿌리 행은 mp_id 가 없어 빈칸이다 — 「소비된 시각」이 없는 게 맞다.
           --   생성일로 채우지 않는다 : 한 칸에 두 의미가 섮이면
           --   이 날짜로 회수 범위를 자를 때 조용히 오판한다.
+            -- ★ 잔여 = 지금 이 로트에 남은 재고(mat_lot."CurrentStock").
+          --   PK·CK 를 다 안 쓰고 남기는 경우가 많아 「얼마 쓰고 얼마 남았나」를 같이 본다.
+          --   join 이 아니라 스칼라 서브쿼리인 이유 : 같은 번호·품목으로
+          --   mat_lot 행이 여러 개면 트리 행이 그만큼 복사된다.
+          --   ⚠ 투입 당시가 아니라 「조회 시점」 잔여다.
+          , (select sum(ml2."CurrentStock") from mat_lot ml2
+              where ml2."LotNumber" = T.lot_number
+                and ml2."Material_id" = coalesce(T.p_mat_pk, T.l_mat_pk)) as remain_qty
           , to_char(coalesce(mpu."EndTime", mpu."StartTime"), 'yyyy-mm-dd hh24:mi') as used_time
           from T
           left join mat_produce mpu on mpu.id = T.mp_id
@@ -603,15 +658,22 @@ with recursive T as (
 		String sql = """
 	  with recursive T as (
          with P as(
+            -- ★ 로트번호 → mat_lot → 차수 순으로 찾는다.
+            --   예전엔 mp."LotNumber" 을 직접 비교했는데, 포장 완제품이
+            --   국가별로 나뉘면서(P-…-KR) 차수 로트번호와 재고 로트번호가
+            --   달라졌다. 그대로 두면 트리가 통째로 비어 화면이 백지가 된다.
+            -- ★ lot_number 는 mp."LotNumber" 를 그대로 둔다 —
+            --   아래 재귀가 B.p_lot_number(= 차수 로트) 와 이어붙는다.
             select 
             mp.id as mp_id
             , ''::text as p_lot_number
             , mp."LotNumber" as lot_number
             , jr."Material_id" as mat_pk
-            from job_res jr
-            left join mat_produce mp on mp."JobResponse_id" = jr.id 
-            inner join mat_lot ml on ml."LotNumber" =mp."LotNumber" 
-            where mp."LotNumber" = :lotNumber
+            from mat_lot ml
+            inner join mat_produce mp on mp.id = ml."SourceDataPk"
+                                     and ml."SourceTableName" = 'mat_produce'
+            inner join job_res jr on jr.id = mp."JobResponse_id"
+            where ml."LotNumber" = :lotNumber
          ) 
          ,A as(
           select 
@@ -697,6 +759,19 @@ with recursive T as (
 		return nz(this.sqlRunner.getRows(sql, dicParam));
 	}
 
+	/**
+	 * 제품 출하 추적 — 이 로트가 어느 출하 건으로, 어느 박스에 담겨 나갔나.
+	 *
+	 * ★ 출하량은 shipment."Qty" 가 아니라 mat_lot_cons."OutputQty" 다.
+	 *   전자는 출하 상세(품목) 전체 수량이라, 완제품이 국가별로 갈린 뒤에는
+	 *   -JP 로 조회해도 KR 몫까지 더해진 값이 나온다.
+	 *   (초기수량 25 인 로트에 출하량 50 이 찍히던 원인)
+	 *
+	 * ★ 카톤(pack_carton)을 함께 낸다. 출고를 박스 단위로 하는데 추적에 박스가 없으면
+	 *   회수 때 「어느 상자를 찾아라」를 낼 수 없다.
+	 *   박스가 여럿이면 줄이 늘어난다 — 그게 목적이라 접지 않는다.
+	 *   대신 출하량은 첫 줄에만 찍는다. 매 줄에 두면 줄 수만큼 부풀려진다.
+	 */
 	public List<Map<String, Object>> getProductShipmentTracking(String lotNumber) {
 		MapSqlParameterSource dicParam = new MapSqlParameterSource();
 		dicParam.addValue("lotNumber", lotNumber);
@@ -722,28 +797,55 @@ with recursive T as (
             left join mat_produce mp on mp.id = mlc."SourceDataPk" and mlc."SourceTableName" ='mat_produce'
             inner join T on T.lot_number = ml."LotNumber" 
             inner join job_res jr on jr.id=mp."JobResponse_id" 
-	        ), pp as ( select lot_number from T group by lot_number)
+	        )
+	        -- ★ 품목까지 함께 묶는다. 로트번호만으로 다시 찾으면 PK·FK 처럼
+	        --   번호를 공유하는 로트에서 엉뚱한 출하가 붙는다
+	        , pp as (
+	            select lot_number, min(coalesce(p_mat_pk, l_mat_pk)) as mat_pk
+	              from T
+	             where coalesce(lot_number,'') <> ''
+	             group by lot_number
+	        )
+	        , r as (
 	        select 
-	        pp.lot_number 
+	          pp.lot_number 
 	        , m."Name" as mat_name
 	        , sh."Company_id" 
 	        , c."Name" as company_name
 	        , sh."ShipDate" 
-	        , s."Qty" 
+	        , mlc."OutputQty" as lot_ship_qty      -- ★ 이 로트가 나간 양
+	        , s."Qty" as order_ship_qty            -- 참고 : 출하 상세(품목) 전체
 	        , fn_code_name('shipment_state', sh."State" ) as shipment_state
+	        , pc."CartonLotNo"  as carton_lot_no
+	        , pc."CountryCode"  as carton_country
+	        , pc."Qty"          as carton_qty
+	        , pc."ShipState"    as carton_state
+	        , row_number() over (partition by pp.lot_number, s.id
+	                                 order by pc."CartonNo" nulls first) as rn
 	        from pp 
-	        inner join mat_lot ml on ml."LotNumber" =lot_number
+	        inner join mat_lot ml on ml."LotNumber" = pp.lot_number
+	                             and ml."Material_id" = pp.mat_pk
 	        inner join material m on m.id = ml."Material_id" 
 	        inner join mat_lot_cons mlc on mlc."MaterialLot_id"=ml.id and mlc."SourceTableName" ='shipment'
 	        inner join shipment s on s.id=mlc."SourceDataPk" 
 	        inner join shipment_head sh on sh.id = s."ShipmentHead_id" 
 	        left join company c on c.id = sh."Company_id"
+	        -- 이 출하 건으로 나간 박스. 없으면(로트만 지정한 구 방식) 한 줄로 남는다
+	        left join pack_carton pc on pc."Shipment_id" = s.id
+	                                and coalesce(pc._status,'a') = 'a'
+	                                and pc."MatLot_id" = ml.id
+	        )
+	        select r.lot_number, r.mat_name, r."Company_id", r.company_name, r."ShipDate"
+	             , r.shipment_state
+	             , r.carton_lot_no, r.carton_country, r.carton_qty, r.carton_state
+	             , case when r.rn = 1 then r.lot_ship_qty end as "Qty"
+	             , r.order_ship_qty
+	          from r
+	         order by r."ShipDate", r.lot_number, r.carton_lot_no
 				""";
 
-		List<Map<String, Object>> items = this.sqlRunner.getRows(sql, dicParam);
-		return items;
+		return nz(this.sqlRunner.getRows(sql, dicParam));
 	}
-
 
 
 

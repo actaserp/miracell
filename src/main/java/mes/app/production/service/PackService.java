@@ -1855,8 +1855,11 @@ public class PackService {
 					}
 				}
 
+				// ★ 국가는 로트번호(BSC60-…-CK-JP-260805)에 이미 들어 있다.
+				//   여기엔 어느 공장에서 나온 로트인지를 남긴다 — 2공장(M-CELL)도
+				//   같은 mat_lot 에 로트를 만들기 때문에 이 구분이 없으면 섞여 보인다.
 				receiveLot(ckMatId, ckLotNo, null, ckQty, STORE_CK_OUT,
-					"mat_produce", ckMp.getId(), "CK 생산 입고" + ctag, user, spjangcd);
+					"mat_produce", ckMp.getId(), "CK 생산 입고(1공장)", user, spjangcd);
 				ckLotId = findLotIdBySource(ckMp.getId(), STORE_CK_OUT);
 			}
 
@@ -1915,9 +1918,20 @@ public class PackService {
 		// ── kit 세션 : 완제품 로트 산출 ★완제 시점 ──
 		//   MakerLotNo(외부 UDI)는 아직 없다 — ③ 라벨 스캔에서 채운다
 		//   ★ units 는 완제품 단위다(PK 낱개 아님). 여기가 어긋나면 작지 실적까지 전파된다.
+		//
+		//   ★★ 국가별로 로트를 나눈다.
+		//      하나로 합치면 출고에서 국가를 가를 수 없다 — 출고는 mat_lot 에서 재고를
+		//      차감하므로, 로트가 하나면 카톤만 국가를 알고 차감은 뭉뚱그려진 로트에서
+		//      일어난다. 재고와 실물이 어긋나고 국가별 잔량도 못 낸다.
+		//      CK 가 이미 국가별로 로트를 나누고 있으므로(BSC60-…-CK-JP-260805) 규칙도 같다.
 		Integer outStoreId = (mp.getStoreHouseId() != null) ? mp.getStoreHouseId() : STORE_PRODUCT;
-		receiveLot(mp.getMaterialId(), mp.getLotNumber(), null, units, outStoreId,
-			"mat_produce", mp.getId(), "포장 완제품 입고", user, spjangcd);
+
+		// ── 카톤 발번도 여기서 함께 한다 ──
+		//   ④가 아니라 여기서 낸다. 작업 순서가 「완제품 산출 → 카톤 라벨 출력 → ④완료」라
+		//   ④에서 내면 출력 시점에 번호가 없다.
+		float cap = toFloat(boxSpec.get("outbox_cap"));
+		float cartonCnt = issueCountryLotsAndCartons(mp, units, cap, ckPer, outStoreId, user, spjangcd);
+		String cartonLot = getCartonLot(mpId);
 
 		mp.setInputQty(units);
 		mp.setGoodQty(units);
@@ -1925,19 +1939,6 @@ public class PackService {
 		mp.setStartTime(startTs);
 		mp.set_audit(user);
 		this.matProduceRepository.save(mp);
-
-		// ── 카톤 로트 발번 ──
-		//   ④가 아니라 여기서 낸다. 작업 순서가 「완제품 산출 → 카톤 라벨 출력 → ④완료」라
-		//   ④에서 내면 출력 시점에 번호가 없다.
-		float cap        = toFloat(boxSpec.get("outbox_cap"));
-		float cartonCnt  = cartonCount(units, cap);
-		String cartonLot = getCartonLot(mpId);
-		if (cartonCnt > 0 && isBlank(cartonLot)) {
-			cartonLot = this.lotService.make_production_lot_in_number(CARTON_LOT_PREFIX);
-			saveLabel(mp.getId(), "carton",
-				getExpectedGtin(mp.getMaterialId(), spjangcd), cartonLot,
-				null, null, cartonCnt, null, spjangcd, user);
-		}
 
 		data.put("phase", "label");
 		data.put("lot_number", mp.getLotNumber());
@@ -2063,6 +2064,20 @@ public class PackService {
 
 		// 라벨(ckpk/inbox/carton) 제거 + 완제품 MakerLotNo 해제
 		this.sqlRunner.execute("DELETE FROM pack_label WHERE \"MatProduce_id\" = :mpId", p);
+
+		// ★ 카톤 개체도 함께 지운다. 남겨두면 ②를 다시 돌릴 때
+		//   ux_pack_carton_lot 유니크에 걸려 발번이 실패한다.
+		this.sqlRunner.execute("DELETE FROM pack_carton WHERE \"MatProduce_id\" = :mpId", p);
+
+		// ★★ 완제품 로트 연결을 rollbackProduce 보다 먼저 끊는다.
+		//    rollbackProduce 가 mat_lot 을 지우는데 pack_alloc."MatLot_id" 가 아직
+		//    그 로트를 물고 있으면 pack_alloc_matlot_fk 위반으로 트랜잭션이 통째로 죽는다.
+		//    (CkState 되돌리기는 CK 세션 정리 뒤에 하므로 아래에 따로 남아 있다)
+		this.sqlRunner.execute("""
+            UPDATE pack_alloc
+               SET "MatLot_id" = NULL, "LotNumber" = NULL, _modified = now()
+             WHERE "MatProduce_id" = :mpId
+            """, p);
 
 		// 완제품 입고 + 이 세션의 모든 소비(PK·IN BOX·CK)를 되돌린다
 		rollbackProduce(mpId);
@@ -2336,7 +2351,8 @@ public class PackService {
 	 *   OUT BOX 자재를 카톤 수만큼 소비한다.
 	 *
 	 *   ★ 카톤 수는 화면이 보낸 값을 믿지 않고 서버가 완제품수량 ÷ 입수 로 계산한다.
-	 *     저장할 테이블(pack_carton)이 없고, 두 값에서 항상 같은 답이 나오기 때문이다.
+	 *     → pack_carton 이 생기면서 이 전제는 깨졌다. 국가별로 쪼개면 두 값이 갈리므로
+	 *       ②가 만든 개체 수(cartonCountOf)를 세어 쓴다.
 	 *   ★ GoodQty 는 ②에서 이미 완제품 단위로 들어갔으므로 여기선 환산이 없다.
 	 */
 	public AjaxResult outboxFinish(Integer mpId, String endTimeStr, User user, String spjangcd) {
@@ -2359,7 +2375,10 @@ public class PackService {
 		Map<String, Object> boxSpec = getBoxSpec(mp.getMaterialId(), spjangcd);
 		float units = mp.getGoodQty() == null ? 0f : mp.getGoodQty();   // ★ 완제품 단위
 		float cap   = toFloat(boxSpec.get("outbox_cap"));
-		float cartonCnt = cartonCount(units, cap);
+		// ★ ②에서 실제로 만든 카톤 개수를 센다. 여기서 다시 계산하면 안 된다 —
+		//   국가별로 쪼개면 ceil(전체/cap) 과 Σceil(국가별/cap) 이 달라져
+		//   ②가 만든 박스 수와 ④가 소비하는 OUT BOX 수가 어긋난다.
+		float cartonCnt = cartonCountOf(mpId, units, cap);
 
 		// ── OUT BOX 소비 ──
 		@SuppressWarnings("unchecked")
@@ -2396,6 +2415,184 @@ public class PackService {
 		data.put("carton_lot", getCartonLot(mpId));   // ②에서 발번된 것
 		result.data = data;
 		return result;
+	}
+
+	/**
+	 * 국가별 완제품 로트 + 카톤 개체를 만든다. ②(완제) 시점에 한 번 호출.
+	 *
+	 * 왜 국가별로 나누나:
+	 *   출고는 mat_lot 에서 재고를 차감한다. 로트가 차수당 하나면 카톤 라벨만 국가를
+	 *   알고 차감은 뭉뚱그려진 로트에서 일어나, 재고와 실물이 어긋난다.
+	 *
+	 * ★ mat_produce 는 그대로 1행이다. 차수를 국가별로 쪼개면 작지 실적·설비가동·
+	 *   단계 파생이 전부 걸린다. 대신 mat_lot."SourceDataPk" = mp.id 가 이제 N행이 된다 —
+	 *   이걸 1:1 로 가정하고 조인하는 코드가 있으면 행이 부풀려지므로 함께 점검할 것.
+	 *
+	 * ★ 카톤 수 계산이 바뀐다.
+	 *     예전   ceil(전체유닛 / cap)
+	 *     지금   Σ ceil(국가별유닛 / cap)
+	 *   국가를 섞어 담을 수 없으니 후자가 실물이다. cap 4 에 JP 6 · KR 6 이면
+	 *   예전 3박스, 지금 4박스 — 예전 값이 틀렸던 것이고 OUT BOX 소비도 덜 빠졌다.
+	 *
+	 * ★ pack_alloc."Qty" 는 CK 낱개 기준이라 ckPer 로 나눠 완제품 단위로 환산한다.
+	 *   나눗셈 오차로 합계가 units 와 어긋나면 마지막 국가에서 보정한다 —
+	 *   보정하지 않으면 로트 재고 합계가 GoodQty 와 달라진다.
+	 *
+	 * @return 이 차수의 총 카톤 수
+	 */
+	private float issueCountryLotsAndCartons(MaterialProduce mp, float units, float cap,
+																					 float ckPer, Integer outStoreId,
+																					 User user, String spjangcd) {
+		Integer mpId = mp.getId();
+		if (cap <= 0) cap = 4f;
+		if (ckPer <= 0) ckPer = 1f;
+
+		List<Map<String, Object>> allocs = this.sqlRunner.getRows("""
+            SELECT pa.id AS alloc_id, pa."CountryCode" AS country, pa."Qty" AS qty
+              FROM pack_alloc pa
+             WHERE pa."MatProduce_id" = :mpId AND COALESCE(pa._status,'a') = 'a'
+               AND pa."Qty" > 0
+             ORDER BY pa.id
+            """, new MapSqlParameterSource().addValue("mpId", mpId));
+
+		// 배분이 없으면 예전처럼 로트 하나. 국가를 안 쓰는 현장도 있으므로 막지 않는다
+		if (allocs == null || allocs.isEmpty()) {
+			receiveLot(mp.getMaterialId(), mp.getLotNumber(), null, units, outStoreId,
+				"mat_produce", mpId, "포장 완제품 입고", user, spjangcd);
+			float cnt = cartonCount(units, cap);
+			issueCartonLabel(mp, cnt, null, spjangcd, user);
+			return cnt;
+		}
+
+		// 국가별 완제품 수량 — 마지막 국가에서 잔여를 보정
+		int n = allocs.size();
+		float[] qtys = new float[n];
+		float assigned = 0f;
+		for (int i = 0; i < n; i++) {
+			float q = Math.round(toFloat(allocs.get(i).get("qty")) / ckPer);
+			if (i == n - 1) q = units - assigned;
+			if (q < 0) q = 0f;
+			qtys[i] = q;
+			assigned += q;
+		}
+
+		String cartonBase = this.lotService.make_production_lot_in_number(CARTON_LOT_PREFIX);
+		float totalCartons = 0f;
+
+		for (int i = 0; i < n; i++) {
+			Map<String, Object> a = allocs.get(i);
+			Integer allocId = toInt(a.get("alloc_id"));
+			String country  = str(a.get("country"));
+			float qty       = qtys[i];
+			if (qty <= 0) continue;
+
+			boolean named = !(isBlank(country) || NO_COUNTRY.equals(country));
+			String lotNo  = named ? mp.getLotNumber() + "-" + country : mp.getLotNumber();
+
+			receiveLot(mp.getMaterialId(), lotNo, null, qty, outStoreId,
+				"mat_produce", mpId, "포장 완제품 입고" + ckTag(country), user, spjangcd);
+
+			Integer matLotId = findLotIdByNumber(lotNo, mpId);
+
+			MapSqlParameterSource up = new MapSqlParameterSource();
+			up.addValue("allocId", allocId);
+			up.addValue("lotId", matLotId);
+			up.addValue("lotNo", lotNo);
+			this.sqlRunner.execute("""
+                UPDATE pack_alloc
+                   SET "MatLot_id" = CAST(:lotId AS integer)
+                     , "LotNumber" = :lotNo
+                     , _modified   = now()
+                 WHERE id = :allocId
+                """, up);
+
+			// ── 카톤 개체 ──
+			int cnt = (int) cartonCount(qty, cap);
+			float remain = qty;
+			for (int no = 1; no <= cnt; no++) {
+				float boxQty = Math.min(cap, remain);
+				remain -= boxQty;
+				String cartonNo = cartonBase
+														+ (named ? "-" + country : "")
+														+ String.format("-%02d", no);
+
+				MapSqlParameterSource cp = new MapSqlParameterSource();
+				cp.addValue("mpId", mpId);
+				cp.addValue("allocId", allocId);
+				cp.addValue("country", isBlank(country) ? NO_COUNTRY : country);
+				cp.addValue("no", no);
+				cp.addValue("lotNo", cartonNo);
+				cp.addValue("qty", boxQty);
+				cp.addValue("matLotId", matLotId);
+				// ★ 사람이 읽는 출처 기록. mat_lot."Description"(「포장 완제품 입고」 등)과 같은 규칙 —
+				//   조인이 끊기거나 코드 마스터가 비어도 이 한 줄이면 어디서 생긴 행인지 안다.
+				cp.addValue("memo", "카톤 포장" + ckTag(country)
+															+ " · " + lotNo + " · " + no + "/" + cnt + "박스");
+				cp.addValue("spjangcd", spjangcd);
+				cp.addValue("userId", user == null ? null : user.getId());
+				this.sqlRunner.execute("""
+                    INSERT INTO pack_carton
+                           ("MatProduce_id","PackAlloc_id","CountryCode","CartonNo",
+                            "CartonLotNo","Qty","MatLot_id","Description",
+                            _status,_created,_creater_id,spjangcd)
+                    VALUES (:mpId, :allocId, :country, :no,
+                            :lotNo, CAST(:qty AS float8), CAST(:matLotId AS integer), :memo,
+                            'a', now(), CAST(:userId AS integer), CAST(:spjangcd AS varchar))
+                    """, cp);
+			}
+			totalCartons += cnt;
+		}
+
+		// ★ 대표 라벨도 개체와 같은 채번(cartonBase)을 쓴다.
+		//   따로 발번하면 대표번호 C-…-0014 와 실물 C-…-0013-JP-01 의 접두가 어긋나
+		//   화면에서 서로 다른 카톤처럼 보인다.
+		issueCartonLabel(mp, totalCartons, cartonBase, spjangcd, user);
+		return totalCartons;
+	}
+
+	/**
+	 * pack_label 의 carton 행 — 차수 대표 번호 + 총 박스 수.
+	 *
+	 * ★ 개체는 pack_carton 이 들고, 이 행은 대표값으로만 남긴다.
+	 *   ux_pack_label (MatProduce_id, LabelKind) 유니크가 차수당 1행을 강제하는데,
+	 *   그 유니크는 ckpk/inbox 의 UPSERT(saveLabel 의 ON CONFLICT)를 지탱하고 있어
+	 *   풀면 라벨 저장 전체가 흔들린다. 그래서 건드리지 않는다.
+	 */
+	private void issueCartonLabel(MaterialProduce mp, float cartonCnt, String base,
+																String spjangcd, User user) {
+		if (cartonCnt <= 0) return;
+		String exist = getCartonLot(mp.getId());
+		String lot = !isBlank(exist) ? exist
+									 : !isBlank(base)          ? base
+											 : this.lotService.make_production_lot_in_number(CARTON_LOT_PREFIX);
+		saveLabel(mp.getId(), "carton",
+			getExpectedGtin(mp.getMaterialId(), spjangcd), lot,
+			null, null, cartonCnt, null, spjangcd, user);
+	}
+
+	/** 로트번호로 이 차수의 산출 로트 id. 국가별로 N행이라 findLotIdBySource 로는 못 가른다 */
+	private Integer findLotIdByNumber(String lotNumber, Integer mpId) {
+		MapSqlParameterSource p = new MapSqlParameterSource();
+		p.addValue("lotNo", lotNumber);
+		p.addValue("mpId", mpId);
+		Map<String, Object> r = this.sqlRunner.getRow("""
+            SELECT ml.id FROM mat_lot ml
+             WHERE ml."LotNumber" = :lotNo
+               AND ml."SourceTableName" = 'mat_produce'
+               AND ml."SourceDataPk" = :mpId
+             ORDER BY ml.id DESC LIMIT 1
+            """, p);
+		return (r == null) ? null : toInt(r.get("id"));
+	}
+
+	/** 이 차수의 카톤 개수 — pack_carton 이 진실. 없으면(구 데이터) 계산으로 떨어진다 */
+	private float cartonCountOf(Integer mpId, float units, float cap) {
+		Map<String, Object> r = this.sqlRunner.getRow("""
+            SELECT COUNT(*) AS cnt FROM pack_carton
+             WHERE "MatProduce_id" = :mpId AND COALESCE(_status,'a') = 'a'
+            """, new MapSqlParameterSource().addValue("mpId", mpId));
+		float cnt = (r == null) ? 0f : toFloat(r.get("cnt"));
+		return (cnt > 0) ? cnt : cartonCount(units, cap);
 	}
 
 	private static float cartonCount(float units, float cap) {
@@ -2510,6 +2707,14 @@ public class PackService {
 			AjaxResult rb = rollbackPackWork(mp, user);
 			if (!rb.success) return rb;
 		} else {
+			// ★ 여기도 mat_lot 을 지우는 경로다. pack_carton 과 pack_alloc."MatLot_id" 가
+			//   물고 있으면 FK 위반으로 죽으므로 먼저 끊는다.
+			this.sqlRunner.execute("DELETE FROM pack_carton WHERE \"MatProduce_id\" = :mpId", p);
+			this.sqlRunner.execute("""
+                UPDATE pack_alloc
+                   SET "MatLot_id" = NULL, "LotNumber" = NULL, _modified = now()
+                 WHERE "MatProduce_id" = :mpId
+                """, p);
 			// ①/② 단계라도 혹시 남은 소비가 있으면 정리
 			rollbackProduce(mpId);
 		}
@@ -2520,6 +2725,8 @@ public class PackService {
                    (SELECT id FROM pack_alloc WHERE "MatProduce_id" = :mpId)
             """, p);
 		this.sqlRunner.execute("DELETE FROM pack_alloc_item WHERE \"MatProduce_id\" = :mpId", p);
+		// ★ pack_carton 이 PackAlloc_id 로 pack_alloc 을 물고 있다 — 먼저 지워야 FK 에 안 걸린다
+		this.sqlRunner.execute("DELETE FROM pack_carton     WHERE \"MatProduce_id\" = :mpId", p);
 		this.sqlRunner.execute("DELETE FROM pack_alloc      WHERE \"MatProduce_id\" = :mpId", p);
 		this.sqlRunner.execute("DELETE FROM pack_label      WHERE \"MatProduce_id\" = :mpId", p);
 
@@ -2670,15 +2877,19 @@ public class PackService {
 			p.addValue("name", str(a.get("country_name")));
 			p.addValue("qty", qty);
 			p.addValue("ckLot", str(a.get("ck_lot")));
+			// ★ 출처 기록 — Qty 가 CK 낱개 기준이라는 점을 행 자체에 남긴다.
+			//   완제품 단위와 헷갈려 잘못 읽는 사고가 반복되는 값이다.
+			p.addValue("memo", "포장 국가배분" + ckTag(countryCodeOf(a))
+													 + " · CK 낱개 " + fmt(qty));
 			p.addValue("spjangcd", spjangcd);
 			p.addValue("userId", userId);
 
 			Map<String, Object> row = this.sqlRunner.getRow("""
                 INSERT INTO pack_alloc
                        ("MatProduce_id","Country_id","CountryCode","CountryName","Qty","CkLotNumber",
-                        "CkState",_status,_created,_creater_id,spjangcd)
+                        "CkState","Description",_status,_created,_creater_id,spjangcd)
                 VALUES (:mpId, CAST(:countryId AS integer), :code, :name, CAST(:qty AS float8), :ckLot,
-                        'plan','a',now(),CAST(:userId AS integer),CAST(:spjangcd AS varchar))
+                        'plan',:memo,'a',now(),CAST(:userId AS integer),CAST(:spjangcd AS varchar))
                 RETURNING id
                 """, p);
 			if (row == null) continue;
@@ -2713,15 +2924,21 @@ public class PackService {
 		p.addValue("lotId", matLotId);
 		p.addValue("sterile", sterile);
 		p.addValue("kind", itemKind);
+		// ★ 출처 기록. 이 테이블은 한 몸에 성격이 다른 두 행이 산다 —
+		//   ck = 배분에 매달린 CK 구성자재 / pk = 세션에 직접 매달린 투입 PK 로트.
+		//   ItemKind 만 보고 판단하다 헷갈리는 일이 많아 행 자체에 남긴다.
+		p.addValue("memo", ("pk".equals(itemKind) ? "포장 담긴 PK 로트" : "CK 구성자재")
+												 + " · " + fmt(qty)
+												 + ("Y".equals(sterile) ? " · 지정 멸균로트" : ""));
 		p.addValue("spjangcd", spjangcd);
 		p.addValue("userId", user == null ? null : user.getId());
 		this.sqlRunner.execute("""
             INSERT INTO pack_alloc_item
                    ("PackAlloc_id","MatProduce_id","Material_id","Qty","MatLot_id","SterileYN","ItemKind",
-                    _status,_created,_creater_id,spjangcd)
+                    "Description",_status,_created,_creater_id,spjangcd)
             VALUES (CAST(:allocId AS integer), CAST(:mpId AS integer), :matId,
                     CAST(:qty AS float8), CAST(:lotId AS integer), :sterile, :kind,
-                    'a',now(),CAST(:userId AS integer),CAST(:spjangcd AS varchar))
+                    :memo,'a',now(),CAST(:userId AS integer),CAST(:spjangcd AS varchar))
             """, p);
 	}
 

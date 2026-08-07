@@ -139,7 +139,7 @@
           <!-- 힌트를 별도 dl 로. 입력 dd 안에 두면 그 칸만 두 줄이 되어 행 전체가 틀어진다 -->
           <dl class="scan-hint-dl">
             <dt><span class="eq"></span></dt>
-<!--            <dd><span class="scan-hint">GS1-128 전체를 스캔해도 (10) 로트만 사용합니다</span></dd>-->
+            <!--            <dd><span class="scan-hint">GS1-128 전체를 스캔해도 (10) 로트만 사용합니다</span></dd>-->
           </dl>
 
           <!-- 같은 박스라벨에 완제품 로트가 여러 건일 때만 노출 -->
@@ -480,14 +480,16 @@
        { binding: 'mat_name', header: '완제품', width: 160, align: 'left' },
        { binding: 'prod_lot', header: '완제품LOT', width: 160, align: 'center' },
        { binding: 'good_qty', header: '포장수량', width: 90, align: 'right', format: 'n0' },
-       /* 1공장은 carton 라벨의 Qty 가 곧 카톤 수(PackService 가 ceil(units/cap) 로 저장).
-          2공장은 유닛 1대 = 박스 1개라 차수당 1 */
+       /* pack_carton 을 센 값. 국가별 로트를 조회하면 그 국가 박스만 세어진다.
+          pack_label 의 carton "Qty" 는 차수 전체라 국가별 화면에서 과하게 나온다 */
        { binding: 'box_cnt', header: '박스수', width: 80, align: 'right', format: 'n0' },
-       /* 라벨 줄 */
-       { binding: 'label_kind_name', header: '라벨구분', width: 130, align: 'center' },
-       { binding: 'label_lot', header: '라벨LOT(박스)', width: 160, align: 'center' },
+       /* 라벨 · 카톤 줄 */
+       { binding: 'label_kind_name', header: '구분상세', width: 130, align: 'center' },
+       { binding: 'label_lot', header: '라벨·카톤LOT', width: 200, align: 'center' },
+       { binding: 'country_code', header: '국가', width: 60, align: 'center' },
+       { binding: 'ship_state', header: '출고상태', width: 90, align: 'center' },
        { binding: 'gtin', header: 'GTIN', width: 140, align: 'center' },
-       { binding: 'label_qty', header: '라벨수량', width: 90, align: 'right', format: 'n0' },
+       { binding: 'label_qty', header: '수량', width: 80, align: 'right', format: 'n0' },
        /* 투입 줄 */
        { binding: 'src_mat_name', header: '투입품목', width: 220, align: 'left' },
        { binding: 'src_lot', header: '투입LOT', width: 200, align: 'center' },
