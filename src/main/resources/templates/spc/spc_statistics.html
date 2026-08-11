@@ -57,6 +57,7 @@
             </dd>
           </dl>
 
+          <!-- ▼▼ [숨김] 품목명 조회 - 여러 공정 공용 시 살릴 것 ▼▼
           <dl>
             <dt>
               <label for="item_name">
@@ -69,6 +70,8 @@
               </div>
             </dd>
           </dl>
+          ▲▲ [숨김] 품목명 조회 ▲▲ -->
+          <input type="hidden" id="item_name" value="">
           <dl>
             <dt>
               <label for="processCode">
@@ -93,6 +96,7 @@
               </div>
             </dd>
           </dl>
+          <!-- ▼▼ [숨김] 레시피 조회 - 여러 공정 공용 시 살릴 것 ▼▼
           <dl>
             <dt>
               <label for="recipe">
@@ -105,6 +109,8 @@
               </div>
             </dd>
           </dl>
+          ▲▲ [숨김] 레시피 조회 ▲▲ -->
+          <input type="hidden" id="recipe" value="">
           <dl>
             <dt>&nbsp;</dt>
             <dd>
@@ -126,8 +132,11 @@
             padding:8px 10px; border:1px solid #e6e6e6; border-radius:10px; background:#fafafa; margin:6px 0 10px;">
         <span><b>공정(설비)</b>: <span id="metaProcess">-</span></span>
         <span><b>측정항목</b>: <span id="metaMeasure">-</span></span>
+        <!-- ▼▼ [숨김] 레시피·품목 표시 - 여러 공정 공용 시 살릴 것 ▼▼
         <span><b>레시피</b>: <span id="metaRecipe">-</span></span>
         <span><b>품목</b>: <span id="metaItem">-</span></span>
+        ▲▲ [숨김] 레시피·품목 표시 ▲▲ -->
+        <span style="display:none;"><span id="metaRecipe">-</span><span id="metaItem">-</span></span>
       </div>
       <table class="write-table" style="width: 100%; border-collapse: collapse;">
         <caption style="text-align: left; margin-bottom: 8px;">관리기준 상세테이블</caption>
@@ -379,26 +388,28 @@
      //공정코드
      const $p = $('#processCode');
 
-     AjaxUtil.fillSelectOptions($p, 'process', '', '', '');
-
-// 41/43만 남기기
-     const allowProc = new Set(['41', '43']);
-     $p.find('option').each(function () {
-      const v = String($(this).val());
-      if (v !== '' && !allowProc.has(v)) $(this).remove();
+     // ★ SPC 관리기준(tb_spc_std01)에 등록된 공정만 콤보에 채운다.
+     //   하드코딩(멸균 56만) 대신, 스펙이 있는 공정을 동적으로 로드한다.
+     //   -> 나중에 다른 공정 SPC 를 등록하면 자동으로 콤보에 나타난다.
+     const procRes = AjaxUtil.getSyncData(this.baseUrl + '/processes', {});
+     const procRows = (procRes && procRes.data) ? procRes.data : [];
+     $p.empty();
+     procRows.forEach(function (r) {
+      $p.append($('<option>').val(r.value).text(r.text));
      });
 
-    // 기본 공정 선택
-     $p.val('43').change();
+     // 기본 공정 = 첫 번째(보통 멸균). 없으면 빈 상태.
+     const firstProc = procRows.length > 0 ? String(procRows[0].value) : '';
+     if (firstProc) $p.val(firstProc);
 
-    // 공정 변경 시 측정항목 다시 로드
+     // 공정 변경 시 측정항목 다시 로드
      $p.off('change.spc').on('change.spc', function () {
       const procCode = String($(this).val());
-      fillMeasureByProcess(procCode, ''); // 필요하면 이전 선택값 넣기
+      fillMeasureByProcess(procCode, '');
      });
 
-    // 최초 1회
-     fillMeasureByProcess('43', '');
+     // 최초 1회 측정항목 로드
+     if (firstProc) fillMeasureByProcess(firstProc, '');
 
     }//init
 
@@ -623,6 +634,14 @@
      if (typeof t === 'number') return t;
 
      const s = String(t).trim();
+
+     // ★ 멸균 CSV 서비스 표준 포맷: "yyyy-MM-dd HH:mm:ss" (공백 구분)
+     const m2 = s.match(/^(\d{4}-\d{2}-\d{2})\s+(\d{2}):(\d{2}):(\d{2})$/);
+     if (m2) {
+      return new Date(`${m2[1]}T${m2[2]}:${m2[3]}:${m2[4]}`).getTime();
+     }
+
+     // (구) 리플로우 로그: "yyyy-MM-dd 오전/오후 h:mm:ss"
      const m = s.match(/^(\d{4}-\d{2}-\d{2})\s+(오전|오후)\s+(\d{1,2}):(\d{2}):(\d{2})$/);
      if (m) {
       const date = m[1];

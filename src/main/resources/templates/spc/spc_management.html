@@ -26,6 +26,7 @@
       <div class="section-top">
         <form id="searchForm">
         <div class="search-wrap">
+          <!-- ▼▼ [숨김] 품목명·레시피 검색 - 여러 공정 공용 시 살릴 것 ▼▼
           <dl >
             <dt>
               <label>
@@ -54,12 +55,39 @@
             </ul>
           </dd>
           </dl>
+          ▲▲ [숨김] 품목명·레시피 검색 ▲▲ -->
+
+          <!-- 공정명 검색 -->
+          <dl>
+            <dt>
+              <label for="srchProcess">공정명</label>
+            </dt>
+            <dd>
+              <ul class="date-box">
+                <li>
+                  <select id="srchProcess" name="srchProcess" style="min-width:140px;"></select>
+                </li>
+              </ul>
+            </dd>
+          </dl>
+          <!-- 측정항목 검색 -->
+          <dl>
+            <dt>
+              <label for="srchMeasure">측정항목</label>
+            </dt>
+            <dd>
+              <ul class="date-box">
+                <li>
+                  <select id="srchMeasure" name="srchMeasure" style="min-width:140px;"></select>
+                </li>
+              </ul>
+            </dd>
+          </dl>
           <dl>
             <dt>&nbsp;</dt>
             <dd>
               <li>
                 <a class="btn btn-delete" title="검색" id="btnSearch">
-                  <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
                   <img src="/images/icon/btn-srch.svg" alt="검색 아이콘">
                   검색
                 </a>
@@ -107,20 +135,22 @@
         <input type="hidden" class="form-control2" id="id" name="id" readonly/>
         <tbody>
         <tr>
-          <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+          <!-- ▼▼ [숨김] 레시피·품목명 상세입력 - 여러 공정 공용 시 style 제거로 살릴 것 ▼▼ -->
+          <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd; display:none;">
             <label for="recipe">레시피</label>
           </th>
-          <td colspan="">
+          <td colspan="" style="display:none;">
             <input  type="text" id="recipe" name="recipe"
                     style="width: 100%;">
           </td>
-          <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+          <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd; display:none;">
             <label for="item_code">품목명</label>
           </th>
-          <td colspan="">
+          <td colspan="" style="display:none;">
             <input type="text" id="item_name" name="item_name" style="width: 100%" placeholder="">
             <input type="hidden" id="item_code" name="item_code" style="width: 100%" placeholder="">
           </td>
+          <!-- ▲▲ [숨김] 레시피·품목명 상세입력 ▲▲ -->
           <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
             <label for="process_code"><span class="eq">*</span>공정명</label>
           </th>
@@ -134,6 +164,22 @@
           <td >
             <input type="number" style="width: 100%;" id="target_value"
                    name="target_value">
+          </td>
+
+          <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+            <label for="sample_size"><span class="eq">*</span>샘플수</label>
+          </th>
+          <td >
+            <input type="number" style="width: 100%;" id="sample_size"
+                   name="sample_size">
+          </td>
+
+          <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+            <label for="use_yn"><span class="eq">*</span>사용여부</label>
+          </th>
+          <td style=" border: 1px solid #e8e8e8; ">
+            <input type="checkbox" style="width: 100%; margin-left: 46%;" id="use_yn"
+                   name="use_yn"></input>
           </td>
         </tr>
         <tr>
@@ -197,23 +243,7 @@
                     name="measure_cycle_unit"></select>
           </td>
         </tr>
-        <tr>
-          <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
-            <label for="sample_size"><span class="eq">*</span>샘플수</label>
-          </th>
-          <td >
-            <input type="number" style="width: 100%;" id="sample_size"
-                   name="sample_size">
-          </td>
 
-          <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
-            <label for="use_yn"><span class="eq">*</span>사용여부</label>
-          </th>
-          <td style=" border: 1px solid #e8e8e8; ">
-            <input type="checkbox" style="width: 100%; margin-left: 46%;" id="use_yn"
-                   name="use_yn"></input>
-          </td>
-        </tr>
         </tbody>
       </table>
       </form>
@@ -256,8 +286,10 @@
           },
           columns: [
             //{ key: 'id', label: '번호', width: 150, align: 'center' },
-            { binding: 'recipe', header: '레시피', width: '*', align: 'center' },
-            { binding: 'item_name', header: '품목명', width: 300, align: 'center' },
+            // ▼▼ [숨김] 레시피·품목명 컬럼 - 여러 공정 공용 시 주석 해제로 살릴 것 ▼▼
+            // { binding: 'recipe', header: '레시피', width: '*', align: 'center' },
+            // { binding: 'item_name', header: '품목명', width: 300, align: 'center' },
+            // ▲▲ [숨김] 레시피·품목명 컬럼 ▲▲
             { binding: 'process_name', header: '공정명', width: '*', align: 'center' },
             { binding: 'measure_name', header: '측정항목', width: '*', align: 'center' },
             { binding: 'target_value', header: '타겟값', width: '*', align: 'center' },
@@ -291,8 +323,11 @@
       }
 
       searchData() {
-        const data = FormUtil.extractForm($('#searchForm'));
-        data['action'] = 'read';
+        const data = {
+          srchProcess: $('#srchProcess').val() || '',
+          srchMeasure: $('#srchMeasure').val() || '',
+          action: 'read'
+        };
         const result = AjaxUtil.getSyncData('/api/spc-management/list', data);
         if (result && result.data) {
           this.viewData.sourceCollection = result.data;
@@ -332,8 +367,15 @@
         formData['item_code'] = $('#item_code').val();
         // formData['measure_cycle_unit_name'] = $('#measure_cycle_unit option:selected').text();
 
+        // ✅ id 를 확실히 담는다.
+        //   readonly hidden(#id)이 FormUtil.extractForm 에서 누락되면
+        //   백엔드가 신규(INSERT)로 처리해 유니크 제약(item_code,process_code,measure_code) 위반이 난다.
+        //   선택된 행(selectedItem) 또는 #id 값에서 직접 가져와 보정.
+        const editId = ($('#id').val() || (this.selectedItem && this.selectedItem.id) || '').toString();
+        if (editId) formData['id'] = editId;
+
         formData['use_yn'] = $('#use_yn').is(':checked') ? 'Y' : 'N';
-        formData['action'] = formData.id ? 'update' : 'create';
+        formData['action'] = editId ? 'update' : 'create';
 
         const result = AjaxUtil.postSyncData('/api/spc-management/save', formData);
         if (result.success) {
@@ -388,35 +430,30 @@
     $(document).ready(() => {
       window.page = new SpcManagementPage();
       page.bindEvents();
-      // 공정명 select
+      // 공정명 select (상세폼)
       AjaxUtil.fillSelectOptions($('#process_code'), 'process', 'choose', '', '');
-      // 측정항목 select
+      // 측정항목 select (상세폼)
       AjaxUtil.fillSelectOptions($('#measure_code'), 'system_code', 'choose', '', 'measure_code');
       // 측정단위 select
       AjaxUtil.fillSelectOptions($('#unit_code'), 'system_code', 'choose', '', 'measure_unit');
       // 측정주기 단위 select
       AjaxUtil.fillSelectOptions($('#measure_cycle_unit'), 'system_code', 'choose', '', 'measure_cycle_unit');
+
+      // 검색조건: 공정명 / 측정항목
+      AjaxUtil.fillSelectOptions($('#srchProcess'), 'process', 'all', '', '');
+      AjaxUtil.fillSelectOptions($('#srchMeasure'), 'system_code', 'all', '', 'measure_code');
+
+      // ▼▼ [숨김] 품목 팝업 - 여러 공정 공용 시 상세폼 살릴 때 함께 사용 ▼▼
       // 품목 검색 버튼 클릭 시 팝업
       $(document).on('click', '#item_name', function () {
-        // const $row = $(this).closest('tr');
-        //
-        // const $productInput = $row.find('input[name^="txtProductName_"]');
-        // const $productId = $row.find('input[name^="Material_id_"]');
-        // const $productCode = $row.find('input[name^="product_code_"]');
-        // const $materialGroup = $row.find('input[name^="MaterialGroupName_"]');
-
         const pop = new PopMatComponent();
         pop.material_type = 'product,sangpum';
-
         pop.show(function (item) {
-          // $productInput.val(item.Name);
-          // $productId.val(item.id);
-          // $productCode.val(item.Code);
-          // $materialGroup.val(item.group_name);
           $('#item_name').val(item.Name);        // 품목명
           $('#item_code').val(item.Code); // 품목코드
         });
       });
+      // ▲▲ [숨김] 품목 팝업 ▲▲
 
       page.searchData();
     });

@@ -1,0 +1,399 @@
+<html layout:decorate="~{layout_page}">
+
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>고객불만 등록</h2>
+                <a title="북마크" class="bookmark toggle">내 메뉴</a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>품질 관리</li>
+                <li>고객불만 등록</li>
+            </ul>
+        </div>
+
+        <section class="section">
+            <div class="section-top">
+                <div class="search-wrap">
+                    <dl>
+                        <dt>조회 일자<span class="eq">*</span></dt>
+                        <dd>
+                            <ul class="date-box">
+                                <li><input type="month" id="month_picker" name="month_picker"></li>
+                            </ul>
+                        </dd>
+                    </dl>
+                    <dl>
+                        <dt><label for="cboState">처리상태</label></dt>
+                        <dd>
+                            <div class="srch-box">
+                                <select id="cboState" name="cboState">
+                                    <option value="">전체</option>
+                                    <option value="1">접수</option>
+                                    <option value="2">처리중</option>
+                                    <option value="3">완료</option>
+                                </select>
+                            </div>
+                        </dd>
+                    </dl>
+                    <dl>
+                        <dt><label for="keyword">검색어</label></dt>
+                        <dd>
+                            <div class="srch-box">
+                                <input type="text" id="keyword" name="keyword" placeholder="고객사·제품·접수번호">
+                            </div>
+                        </dd>
+                    </dl>
+                    <dl>
+                        <dt>&nbsp;</dt>
+                        <dd>
+                            <li>
+                                <a class="btn btn-delete" title="검색" id="btnMainSearch">
+                                    <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘"> 검색
+                                </a>
+                            </li>
+                        </dd>
+                    </dl>
+                </div>
+
+                <div class="btn-wrap" style="margin-left:auto; display:flex; gap:6px;">
+                    <a class="btn btn-add" id="btnNew">신규</a>
+                    <a class="btn btn-delete" id="btnDelete">삭제</a>
+                </div>
+            </div>
+
+            <div class="grid_box">
+                <div id="complaint_grid" style="height:100%;"></div>
+            </div>
+        </section>
+    </div>
+
+    <!-- ===== 입력/수정 팝업 (모달) ===== -->
+    <script type="text/x-tmpl" id="complaintFormTemplate">
+        <div class="content_wrap popup" id="ccFormPopup">
+            <section class="section" style="padding-top:10px;">
+                <div class="search-wrap" style="display:block;">
+                    <table class="table-write">
+                        <colgroup>
+                            <col style="width:120px;"><col style="width:auto;">
+                            <col style="width:120px;"><col style="width:auto;">
+                        </colgroup>
+                        <tbody>
+                        <tr>
+                            <th>접수일자<span class="eq">*</span></th>
+                            <td><input type="date" id="f_receipt_date" class="form-control2"></td>
+                            <th>접수번호</th>
+                            <td><input type="text" id="f_complaint_no" class="form-control2" readonly placeholder="저장 시 자동 채번"></td>
+                        </tr>
+                        <tr>
+                            <th>고객사</th>
+                            <td>
+                                <div style="display:flex; gap:4px;">
+                                    <input type="hidden" id="f_company_id">
+                                    <input type="text" id="f_company_name" class="form-control2" readonly style="flex:1;">
+                                    <button type="button" class="btn-popup" id="btnCompPick">선택</button>
+                                </div>
+                            </td>
+                            <th>제품</th>
+                            <td>
+                                <div style="display:flex; gap:4px;">
+                                    <input type="hidden" id="f_material_id">
+                                    <input type="text" id="f_material_name" class="form-control2" readonly style="flex:1;">
+                                    <button type="button" class="btn-popup" id="btnMatPick">선택</button>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>로트번호</th>
+                            <td><input type="text" id="f_lot_no" class="form-control2"></td>
+                            <th>불만유형</th>
+                            <td>
+                                <select id="f_complaint_type" class="form-control2">
+                                    <option value="1">품질</option>
+                                    <option value="2">포장</option>
+                                    <option value="3">배송</option>
+                                    <option value="4">기타</option>
+                                </select>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>수량</th>
+                            <td><input type="number" id="f_qty" class="form-control2" step="0.001"></td>
+                            <th>처리상태</th>
+                            <td>
+                                <select id="f_action_state" class="form-control2">
+                                    <option value="1">접수</option>
+                                    <option value="2">처리중</option>
+                                    <option value="3">완료</option>
+                                </select>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>담당자</th>
+                            <td><select id="f_person_id" class="form-control2"><option value="">선택</option></select></td>
+                            <th>처리완료일</th>
+                            <td><input type="date" id="f_action_date" class="form-control2"></td>
+                        </tr>
+                        <tr>
+                            <th>불만내용</th>
+                            <td colspan="3"><textarea id="f_content" class="form-control2" style="width:100%; height:60px;"></textarea></td>
+                        </tr>
+                        <tr>
+                            <th>처리내용</th>
+                            <td colspan="3"><textarea id="f_action_content" class="form-control2" style="width:100%; height:60px;"></textarea></td>
+                        </tr>
+                        <tr>
+                            <th>비고</th>
+                            <td colspan="3"><textarea id="f_description" class="form-control2" style="width:100%; height:40px;"></textarea></td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+            <div class="popup-button">
+                <button type="button" class="btn-popup" id="btnFormSave"><span>저장</span></button>
+                <button type="button" class="btn-popup" id="btnFormClose"><span>닫기</span></button>
+            </div>
+        </div>
+    </script>
+
+    <div th:replace="~{common/popup_company :: popup_company}"></div>
+    <div th:replace="~{common/popup_material :: popup_material}"></div>
+
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <script type="text/javascript">
+        class CustomerComplaintPage {
+            constructor() {
+                this.grid = null;
+                this.baseUrl = '/api/quality/complaint';
+                this.editId = null;
+                this.modal = null;
+                this.init();
+            }
+
+            init() {
+                const _this = this;
+
+                this.grid = new wijmo.grid.FlexGrid('#complaint_grid', {
+                    autoGenerateColumns: false,
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    isReadOnly: true,
+                    allowSorting: true,
+                    itemsSource: new wijmo.collections.CollectionView([]),
+                    columns: [
+                        {binding: 'complaint_no', header: '접수번호', width: 140, align: 'center'},
+                        {binding: 'receipt_date', header: '접수일', width: 100, align: 'center'},
+                        {binding: 'company_name', header: '고객사', width: 160, align: 'left'},
+                        {binding: 'material_name', header: '제품', width: 180, align: 'left'},
+                        {binding: 'lot_no', header: '로트', width: 110, align: 'center'},
+                        {binding: 'complaint_type_name', header: '불만유형', width: 90, align: 'center'},
+                        {binding: 'qty', header: '수량', width: 80, align: 'right', format: 'n0'},
+                        {binding: 'action_state_name', header: '처리상태', width: 90, align: 'center'},
+                        {binding: 'person_name', header: '담당자', width: 90, align: 'center'},
+                        {binding: 'action_date', header: '처리완료일', width: 100, align: 'center'},
+                        {binding: 'content', header: '불만내용', width: '*', align: 'left'}
+                    ],
+                    formatItem: (s, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                    }
+                });
+                new FlexGridContextMenu(this.grid);
+                this.grid.downloadFileName = '고객불만 현황';
+
+                // 더블클릭 → 수정 팝업
+                this.grid.hostElement.addEventListener('dblclick', function () {
+                    const item = _this.grid.selectedItems[0];
+                    if (item) _this.openForm(item.id);
+                });
+
+                // 담당자 콤보 로딩
+                this.loadPersonCombo();
+
+                // 기본 월
+                const mp = document.getElementById('month_picker');
+                if (!mp.value) mp.value = new Date().toISOString().slice(0, 7);
+
+                this.search();
+            }
+
+            loadPersonCombo() {
+                // 공통 콤보 (부적합 화면과 동일 소스)
+                let rows = [];
+                try {
+                    const res = AjaxUtil.getSyncData('/api/common/combo', {combo_type: 'person'});
+                    rows = (res && res.data) ? res.data : [];
+                } catch (e) { console.warn('person combo 로드 실패', e); }
+                this._persons = rows.map(r => ({
+                    id: (r.id !== undefined ? r.id : r.value),
+                    name: (r.name !== undefined ? r.name : r.text)
+                }));
+            }
+
+            fillPersonSelect($sel, selectedId) {
+                let html = '<option value="">선택</option>';
+                (this._persons || []).forEach(function (p) {
+                    html += '<option value="' + p.id + '"' + (String(p.id) === String(selectedId) ? ' selected' : '') + '>' + p.name + '</option>';
+                });
+                $sel.html(html);
+            }
+
+            monthRange() {
+                const [y, m] = document.getElementById('month_picker').value.split('-');
+                const last = new Date(Number(y), Number(m), 0).getDate();
+                return {
+                    from: `${y}-${m}-01`,
+                    to: `${y}-${m}-${String(last).padStart(2, '0')}`
+                };
+            }
+
+            search() {
+                const r = this.monthRange();
+                const param = {
+                    date_from: r.from,
+                    date_to: r.to,
+                    action_state: $('#cboState').val(),
+                    keyword: $('#keyword').val()
+                };
+                const res = AjaxUtil.getSyncData(this.baseUrl + '/list', param);
+                const rows = (res && res.data) ? res.data : [];
+                if (this.grid.itemsSource && this.grid.itemsSource.sourceCollection) {
+                    this.grid.itemsSource.sourceCollection = rows;
+                } else {
+                    this.grid.itemsSource = new wijmo.collections.CollectionView(rows);
+                }
+            }
+
+            // ===== 입력/수정 팝업 =====
+            openForm(id) {
+                const _this = this;
+                this.editId = id || null;
+
+                const content = tmpl('complaintFormTemplate', {});
+                const $content = $(content);
+                this.modal = new PopupDraggable(id ? '고객불만 수정' : '고객불만 등록');
+                this.modal.open({width: 760, height: 620, $content});
+
+                // 담당자 콤보 채우기
+                this.fillPersonSelect($content.find('#f_person_id'), null);
+
+                // 기본값
+                $content.find('#f_receipt_date').val(new Date().toISOString().slice(0, 10));
+
+                // 팝업 버튼: 고객사
+                $content.find('#btnCompPick').on('click', function () {
+                    new PopCompComponent('').show(function (item) {
+                        $content.find('#f_company_id').val(item.id);
+                        $content.find('#f_company_name').val(item.compName);
+                    });
+                });
+                // 팝업 버튼: 제품
+                $content.find('#btnMatPick').on('click', function () {
+                    new PopupMaterialPage('single').show(function (item) {
+                        $content.find('#f_material_id').val(item.id);
+                        $content.find('#f_material_name').val(item.Name);
+                    });
+                });
+
+                $content.find('#btnFormClose').on('click', function () { _this.modal.close(); });
+                $content.find('#btnFormSave').on('click', function () { _this.saveForm($content); });
+
+                // 수정이면 기존값 로딩
+                if (id) {
+                    const res = AjaxUtil.getSyncData(this.baseUrl + '/detail', {id: id});
+                    const d = (res && res.data) ? res.data : null;
+                    if (d) this.fillForm($content, d);
+                }
+            }
+
+            fillForm($c, d) {
+                $c.find('#f_receipt_date').val(d.ReceiptDate || '');
+                $c.find('#f_complaint_no').val(d.ComplaintNo || '');
+                $c.find('#f_company_id').val(d.Company_id || '');
+                $c.find('#f_company_name').val(d.company_name || '');
+                $c.find('#f_material_id').val(d.Material_id || '');
+                $c.find('#f_material_name').val(d.material_name || '');
+                $c.find('#f_lot_no').val(d.LotNo || '');
+                $c.find('#f_complaint_type').val(d.ComplaintType || '1');
+                $c.find('#f_qty').val(d.Qty || '');
+                $c.find('#f_action_state').val(d.ActionState || '1');
+                $c.find('#f_action_date').val(d.ActionDate || '');
+                $c.find('#f_content').val(d.Content || '');
+                $c.find('#f_action_content').val(d.ActionContent || '');
+                $c.find('#f_description').val(d.Description || '');
+                this.fillPersonSelect($c.find('#f_person_id'), d.Person_id);
+            }
+
+            saveForm($c) {
+                const _this = this;
+                const receiptDate = $c.find('#f_receipt_date').val();
+                if (!receiptDate) {
+                    Alert.alert('', '접수일자를 입력하세요.');
+                    return;
+                }
+                const param = {
+                    id: this.editId || '',
+                    receipt_date: receiptDate,
+                    complaint_no: $c.find('#f_complaint_no').val(),
+                    company_id: $c.find('#f_company_id').val(),
+                    material_id: $c.find('#f_material_id').val(),
+                    lot_no: $c.find('#f_lot_no').val(),
+                    complaint_type: $c.find('#f_complaint_type').val(),
+                    qty: $c.find('#f_qty').val(),
+                    action_state: $c.find('#f_action_state').val(),
+                    action_content: $c.find('#f_action_content').val(),
+                    action_date: $c.find('#f_action_date').val(),
+                    person_id: $c.find('#f_person_id').val(),
+                    content: $c.find('#f_content').val(),
+                    description: $c.find('#f_description').val()
+                };
+                const res = AjaxUtil.postSyncData(this.baseUrl + '/save', param);
+                if (res && res.success) {
+                    Alert.alert('', res.message || '저장되었습니다.');
+                    _this.modal.close();
+                    _this.search();
+                } else {
+                    Alert.alert('', (res && res.message) ? res.message : '저장에 실패했습니다.');
+                }
+            }
+
+            deleteSelected() {
+                const _this = this;
+                const item = this.grid.selectedItems[0];
+                if (!item) {
+                    Alert.alert('', '삭제할 항목을 선택하세요.');
+                    return;
+                }
+                Alert.confirm('', '선택한 고객불만을 삭제할까요?', function () {
+                    const res = AjaxUtil.postSyncData(_this.baseUrl + '/delete', {'ids[]': item.id});
+                    if (res && res.success) {
+                        Alert.alert('', res.message || '삭제되었습니다.');
+                        _this.search();
+                    } else {
+                        Alert.alert('', (res && res.message) ? res.message : '삭제에 실패했습니다.');
+                    }
+                });
+            }
+        }
+
+        let page = null;
+        $(document).ready(function () {
+            page = new CustomerComplaintPage();
+
+            $('#btnMainSearch').on('click', function () { page.search(); });
+            $('#btnNew').on('click', function () { page.openForm(null); });
+            $('#btnDelete').on('click', function () { page.deleteSelected(); });
+            $('#month_picker').on('change', function () { page.search(); });
+            $('#keyword').on('keypress', function (e) {
+                if (e.keyCode === 13) page.search();
+            });
+        });
+    </script>
+</th:block>
+</html>

@@ -9,23 +9,65 @@ import org.springframework.stereotype.Service;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * SPC 통계분석 서비스 (멸균 로그 CSV 기반).
+ *
+ * ─────────────────────────────────────────────────────────────────────
+ * ★ 데이터 소스: 멸균 배치에 첨부된 로그 CSV
+ *
+ *   기존에는 하드코딩 폴더(C:\temp\mes21\Reflow\PV)를 통째로 스캔했으나(다른 회사 리플로우 데이터),
+ *   미라셀은 멸균 로그를 화면(prod_process_steril)에서 업로드하고
+ *   그 경로가 attach_file 에 저장된다. 따라서 폴더스캔을 없애고
+ *   조회일자에 해당하는 멸균 배치의 첨부 파일을 DB 에서 찾아 그 경로의 파일만 읽는다.
+ *
+ *   조회 흐름:
+ *     조회일자(from~to)
+ *       -> steril_batch (SterilDate BETWEEN from AND to)
+ *       -> steril_batch_file (FileRole='sterilizer' AND UseForCalc='Y')  = 계산대상 로그
+ *       -> attach_file (FilePath + PhysicFileName 으로 실제 파일)
+ *       -> CSV 파싱 -> measure_code 컬럼 값 추출 -> 통계
+ *
+ * ★ 멸균 로그 CSV 포맷 (FileRole='sterilizer', UseForCalc='Y' = DATA.CSV 소수형)
+ *     헤더:  Date,Time,PS,HUMI,CHAMBER,CHAMBER LL,CHAMBER BS,CHAMBER LH
+ *     예:    2026-06-24,16:13:29,103.8,27.5,54.5,55.4,54.0,55.8
+ *     - 콤마 구분(CSV), Date/Time 이 별도 컬럼
+ *     - PS=압력, HUMI=습도, CHAMBER 4지점=챔버 온도 센서
+ *
+ * ★ measure_code -> CSV 컬럼 매핑
+ *     PRESSURE -> PS,  HUMIDITY -> HUMI
+ *     TEMP_CH  -> CHAMBER,  TEMP_LL -> CHAMBER LL,  TEMP_BS -> CHAMBER BS,  TEMP_LH -> CHAMBER LH
+ * ─────────────────────────────────────────────────────────────────────
+ */
 @Slf4j
 @Service
 public class SpcStatisticsService {
 
 	@Autowired
 	SqlRunner sqlRunner;
+
+	// measure_code -> CSV 헤더 컬럼명(정규화 비교용은 normalize() 통과값과 매칭)
+	private static final Map<String, String> MEASURE_TO_CSV = Map.of(
+		"PRESSURE", "PS",
+		"HUMIDITY", "HUMI",
+		"TEMP_CH",  "CHAMBER",
+		"TEMP_LL",  "CHAMBER LL",
+		"TEMP_BS",  "CHAMBER BS",
+		"TEMP_LH",  "CHAMBER LH"
+	);
+
+	// =====================================================================
+	// 측정항목 콤보 / 관리기준 (기존 유지)
+	// =====================================================================
 
 	public List<Map<String, Object>> getMeasureCodes(String processCode) {
 		MapSqlParameterSource dicParam = new MapSqlParameterSource();
@@ -37,10 +79,29 @@ public class SpcStatisticsService {
 			FROM tb_spc_std01
 			WHERE process_code = :processCode
 			  AND COALESCE(use_yn, 'Y') = 'Y'
-			ORDER BY text;
-			
+			ORDER BY text
 			""";
 		return sqlRunner.getRows(sql, dicParam);
+	}
+
+	/**
+	 * SPC 관리기준(tb_spc_std01)에 스펙이 등록된 공정 목록.
+	 * 통계 화면의 공정 콤보를 이걸로 채우면, 스펙이 있는 공정만 조회 대상이 되고
+	 * 나중에 다른 공정 SPC 를 등록하면 자동으로 콤보에 나타난다.
+	 * process 테이블과 조인해 공정명을 함께 준다.
+	 */
+	public List<Map<String, Object>> getSpcProcesses() {
+		String sql = """
+			SELECT DISTINCT
+			       s.process_code                       AS value,
+			       COALESCE(p."Name", s.process_name,
+			                s.process_code)              AS text
+			  FROM tb_spc_std01 s
+			  LEFT JOIN process p ON CAST(p.id AS varchar) = s.process_code
+			 WHERE COALESCE(s.use_yn, 'Y') = 'Y'
+			 ORDER BY text
+			""";
+		return sqlRunner.getRows(sql, new MapSqlParameterSource());
 	}
 
 	public Map<String, Object> findSpec(String processCd, String metricCd, String recipe, String itemName) {
@@ -60,13 +121,10 @@ public class SpcStatisticsService {
         where spc.process_code = :process_cd
           and spc.measure_code = :metric_cd
           and coalesce(spc.use_yn, 'Y') = 'Y'
-          -- ✅ recipe/item 조건은 있으면 적용, 없으면 무시 (fallback 가능)
           and (coalesce(:recipe,'') = '' or spc.recipe = :recipe)
           and (coalesce(:item_name,'') = '' or spc.item_name = :item_name)
         order by
-          -- ✅ recipe가 들어왔으면 recipe 매칭이 먼저
           case when coalesce(:recipe,'') <> '' and spc.recipe = :recipe then 0 else 1 end,
-          -- ✅ item이 들어왔으면 item 매칭이 먼저
           case when coalesce(:item_name,'') <> '' and spc.item_name = :item_name then 0 else 1 end,
           spc.updated_at desc,
           spc.id desc
@@ -76,21 +134,18 @@ public class SpcStatisticsService {
 		return sqlRunner.getRow(sql, param);
 	}
 
-
-	// ---------------------------
-	// 2) spcList 메인 (Capability 스타일)
-	// ---------------------------
+	// =====================================================================
+	// spcList 메인
+	// =====================================================================
 	public Object getSpcListResult(
-		String baseDir, String spjangcd,
+		String spjangcd,
 		String dateFrom, String dateTo,
 		String itemName, String processCode,
 		String measureCode, String recipe
 	) {
-
 		// (A) 관리기준
 		Map<String, Object> specRow = findSpec(processCode, measureCode, recipe, itemName);
 		if (specRow == null || specRow.isEmpty()) {
-			// spcList는 "없으면 빈 리턴" 정책이면 이렇게
 			Map<String, Object> empty = new LinkedHashMap<>();
 			empty.put("message", "관리기준(스펙)이 등록되지 않았습니다.");
 			empty.put("rows", List.of());
@@ -127,17 +182,20 @@ public class SpcStatisticsService {
 		spec.put("recipe", toStr(specRow.get("recipe")));
 		spec.put("item_name", toStr(specRow.get("item_name")));
 
-		// (B) 기간 파싱
+		// (B) 기간 파싱 (datetime-local: yyyy-MM-dd'T'HH:mm)
 		LocalDateTime from = parseDateTimeLocal(dateFrom);
 		LocalDateTime to = parseDateTimeLocal(dateTo);
 		if (from == null || to == null) throw new IllegalArgumentException("조회 일자 형식이 올바르지 않습니다.");
 		if (to.isBefore(from)) throw new IllegalArgumentException("종료일이 시작일보다 빠릅니다.");
 
-		// (C) 로그 스캔 -> time/value rows (spcList는 raw table용)
-		LogScanTable scan = scanLogsForTable(baseDir, from, to, itemName, recipe, measureCode);
+		// (C) 멸균 로그 파일 조회 + CSV 파싱 -> time/value rows
+		//   기간은 steril_batch.SterilDate 로 이미 걸렀다(scanSterilLogs).
+		//   찾은 배치의 CSV 는 통째로 읽는다 — CSV 내부 시각으로 다시 자르지 않는다.
+		//   (테스트 데이터는 배치일과 CSV 로그일이 다를 수 있고, 실제로도 한 배치의
+		//    멸균 사이클 데이터는 전부 봐야 한다.)
+		List<Map<String, Object>> rows = scanSterilLogs(from, to, measureCode);
 
-		// 값 없으면 빈
-		if (scan.rows.isEmpty()) {
+		if (rows.isEmpty()) {
 			Map<String, Object> result = new LinkedHashMap<>();
 			result.put("spec", spec);
 			result.put("unit", unitName);
@@ -151,18 +209,14 @@ public class SpcStatisticsService {
 			return result;
 		}
 
-		// (D) KPI 계산 (이미 table row에 value가 Double로 들어있게 만들자)
-		List<Double> values = scan.rows.stream()
-														.map(r -> (Double) r.get("value"))
-														.filter(Objects::nonNull)
-														.toList();
+		// (D) KPI
+		List<Double> values = rows.stream()
+			.map(r -> (Double) r.get("value"))
+			.filter(Objects::nonNull)
+			.toList();
 
 		Stats stats = calcStats(values);
-
-		// ✅ 한계초과: spcList는 UCL/LCL 기준(너 기존 로직과 동일)
 		int limitOver = countOutOfLimit(values, ucl, lcl);
-
-		// ✅ CPK: spcList에서 CPK도 내려주고 싶으면 USL/LSL 기반으로 계산
 		double cpk = calcCpk(usl, lsl, stats.mean, stats.sigma);
 
 		Map<String, Object> kpi = new LinkedHashMap<>();
@@ -174,10 +228,10 @@ public class SpcStatisticsService {
 		kpi.put("limitOverCount", limitOver);
 		kpi.put("cpk", Double.isNaN(cpk) ? "" : cpk);
 
-		// (E) judge 붙여서 rows 내려주기
-		List<Map<String, Object>> tableRows = attachJudge(scan.rows, ucl, lcl);
+		// (E) judge
+		List<Map<String, Object>> tableRows = attachJudge(rows, ucl, lcl);
 
-		// (F) 최종
+		// (F) 결과
 		Map<String, Object> result = new LinkedHashMap<>();
 		result.put("spec", spec);
 		result.put("unit", unitName.isBlank() ? resolveUnit(measureCode) : unitName);
@@ -186,209 +240,180 @@ public class SpcStatisticsService {
 		result.put("recipe", recipe);
 		result.put("item_name", itemName);
 		result.put("measure_name", measureName);
-
 		return result;
 	}
 
-	// =========================================================
-// 로그 스캔(테이블용): time/value
-// =========================================================
-	private static class LogScanTable {
-		List<Map<String, Object>> rows = new ArrayList<>();
-	}
+	// =====================================================================
+	// 멸균 로그 조회 + CSV 파싱
+	// =====================================================================
 
-// ------------------------
-// 매핑( enum/DTO 없이 )
-// ------------------------
+	/**
+	 * 조회기간의 멸균 배치에서 계산대상(sterilizer + UseForCalc='Y') CSV 를 찾아
+	 * measure_code 에 해당하는 컬럼값을 time/value 로 뽑는다.
+	 */
+	private List<Map<String, Object>> scanSterilLogs(LocalDateTime from, LocalDateTime to, String measureCode) {
 
-	// DIRECT 항목의 primary 후보
-	private static final Map<String, List<String>> PRIMARY_COLS = Map.of(
-		"O2_PPM", List.of("에어", "산소농도", "O2", "O2_PPM", "O2 PPM", "O2(ppm)", "O₂"),
-		"CONV_SPEED", List.of("C/V Speed", "CV Speed", "C/V SPEED", "CV SPEED")
-	);
+		String csvCol = MEASURE_TO_CSV.get(normCode(measureCode));
+		if (csvCol == null) {
+			throw new IllegalArgumentException("측정항목(measure_code) 매핑이 없습니다: " + measureCode);
+		}
 
-	// DIRECT 항목의 fallback 후보(필요 시만)
-	private static final Map<String, List<String>> FALLBACK_COLS = Map.of(
-		"O2_PPM", List.of() // 현재 로그 포맷에선 primary에 "에어"가 있으니 보통 비움
-	);
+		// 날짜 범위: SterilDate 는 date 타입 -> from/to 의 날짜부분으로 비교
+		MapSqlParameterSource p = new MapSqlParameterSource();
+		p.addValue("date_from", from.toLocalDate().toString());
+		p.addValue("date_to", to.toLocalDate().toString());
 
-	// 계산형 항목 목록
-	private static final Set<String> CALCULATED_CODES = Set.of(
-		"PEAK_TEMP",
-		"TAL_SEC"
-	);
+		String sql = """
+			SELECT b.id            AS batch_id,
+			       b."SterilDate"  AS steril_date,
+			       b."BatchNo"     AS batch_no,
+			       af."FilePath"        AS file_path,
+			       af."PhysicFileName"  AS physic_name,
+			       af."FileName"        AS file_name,
+			       af."ExtName"         AS ext_name
+			  FROM steril_batch b
+			  JOIN steril_batch_file sbf ON sbf."SterilBatch_id" = b.id
+			  JOIN attach_file af        ON af.id = sbf."AttachFile_id"
+			 WHERE b."SterilDate" BETWEEN CAST(:date_from AS date) AND CAST(:date_to AS date)
+			   AND COALESCE(b._status, 'a') = 'a'
+			   AND COALESCE(sbf."_status", 'a') = 'a'
+			   AND sbf."FileRole" = 'sterilizer'
+			   AND sbf."UseForCalc" = 'Y'
+			 ORDER BY b."SterilDate", b.id
+			""";
 
-	// O2 유효성 판단에 필요한 컬럼 후보(로그 헤더 기준)
-	private static final List<String> MODE_COLS = List.of("질소/에어", "모드", "N2/AIR", "N2/Air");
-	private static final List<String> UNIT_COLS = List.of("단 위", "단위", "UNIT");
-	private static final List<String> RUN_COLS  = List.of("가동 상태", "가동상태", "RUN");
+		List<Map<String, Object>> files = sqlRunner.getRows(sql, p);
+		if (files == null || files.isEmpty()) return new ArrayList<>();
 
-	// ------------------------
-// 엔트리
-// ------------------------
-	private LogScanTable scanLogsForTable(
-		String baseDir, LocalDateTime from, LocalDateTime to,
-		String itemName, String recipe,
-		String measureCode
-	) {
-		Path root = Paths.get(baseDir);
-		if (!Files.exists(root)) throw new IllegalArgumentException("로그 폴더가 존재하지 않습니다: " + baseDir);
+		List<Map<String, Object>> out = new ArrayList<>();
+		for (Map<String, Object> f : files) {
+			String filePath = toStr(f.get("file_path"));
+			String physic = toStr(f.get("physic_name"));
+			String origName = toStr(f.get("file_name"));
 
-		String code = normCode(measureCode);
-
-		// DIRECT 항목만 컬럼 후보가 필요함
-		List<String> primaryCandidates = isCalculated(code) ? List.of() : getPrimaryCandidates(code);
-		List<String> fallbackCandidates = isCalculated(code) ? List.of() : getFallbackCandidates(code);
-
-		LogScanTable out = new LogScanTable();
-
-		try {
-			Files.walk(root)
-				.filter(Files::isRegularFile)
-				.forEach(p -> {
-					try {
-						scanSingleFileForTable(p, from, to, itemName, recipe, code, primaryCandidates, fallbackCandidates, out);
-					} catch (Exception ex) {
-						log.warn("log scan failed: {} / {}", p, ex.getMessage());
-					}
-				});
-		} catch (IOException e) {
-			throw new RuntimeException("로그 폴더 탐색 실패: " + e.getMessage(), e);
+			Path path = resolveFilePath(filePath, physic, origName);
+			if (path == null || !Files.exists(path)) {
+				log.warn("멸균 로그 파일 없음: batch={} path={}", f.get("batch_no"), path);
+				continue;
+			}
+			try {
+				parseSterilCsv(path, from, to, csvCol, out);
+			} catch (Exception ex) {
+				log.warn("멸균 로그 파싱 실패: {} / {}", path, ex.getMessage());
+			}
 		}
 
 		// 시간순 정렬
-		out.rows.sort(Comparator.comparing(r -> toLocalDateTimeSafe(r.get("time"))));
+		out.sort(Comparator.comparing(r -> toLocalDateTimeSafe(r.get("time"))));
 		return out;
 	}
 
-	private void scanSingleFileForTable(
-		Path file, LocalDateTime from, LocalDateTime to,
-		String itemName, String recipe,
-		String measureCode,
-		List<String> primaryCandidates,
-		List<String> fallbackCandidates,
-		LogScanTable out
-	) throws IOException {
+	/**
+	 * 실제 파일 경로 조립.
+	 * 저장 파일명은 PhysicFileName(UUID.csv). FilePath 는 디렉토리.
+	 * 윈도우 경로(\) / 리눅스 경로(/) 모두 대응.
+	 */
+	private Path resolveFilePath(String dir, String physicName, String origName) {
+		if (dir == null || dir.isBlank()) return null;
+		String fileName = (physicName != null && !physicName.isBlank()) ? physicName : origName;
+		if (fileName == null || fileName.isBlank()) return null;
 
-		Charset cs = Charset.forName("UTF-8");
+		// 디렉토리 끝 구분자 정리
+		String d = dir.replace('\\', '/');
+		if (d.endsWith("/")) d = d.substring(0, d.length() - 1);
+		try {
+			return Paths.get(d, fileName);
+		} catch (Exception e) {
+			return null;
+		}
+	}
+
+	/**
+	 * 멸균 CSV 파싱.
+	 *   헤더: Date,Time,PS,HUMI,CHAMBER,CHAMBER LL,CHAMBER BS,CHAMBER LH
+	 *   Date+Time 결합 -> LocalDateTime, from~to 범위 내만.
+	 *   csvCol 컬럼값 -> value(Double)
+	 */
+	private void parseSterilCsv(Path file, LocalDateTime from, LocalDateTime to,
+								String csvCol, List<Map<String, Object>> out) throws IOException {
+
+		// 인코딩: 대부분 ASCII/latin. UTF-8 로 열되 실패해도 계속.
+		Charset cs = StandardCharsets.UTF_8;
 
 		try (BufferedReader br = Files.newBufferedReader(file, cs)) {
-
-			// ------------------------
-			// 헤더 라인 찾기
-			// ------------------------
 			String headerLine = null;
-			while (true) {
-				String line = br.readLine();
-				if (line == null) return;
-				line = line.trim();
-				if (line.isEmpty()) continue;
-				headerLine = line;
-				break;
-			}
-
-			String[] headers = splitColumns(headerLine);
-			Map<String, Integer> idx = new HashMap<>();
-			for (int i = 0; i < headers.length; i++) idx.put(normalize(headers[i]), i);
-
-			Integer dtIdx = firstIndex(idx, List.of("날짜", "날 짜", "date", "datetime"));
-			if (dtIdx == null) return;
-
-			Integer recipeIdx = firstIndex(idx, List.of("파일이름", "파일 이름", "file name", "filename"));
-
-			// O2 유효성 판단 인덱스(없어도 동작)
-			Integer modeIdx = firstIndex(idx, MODE_COLS);
-			Integer unitIdx = firstIndex(idx, UNIT_COLS);
-			Integer runIdx  = firstIndex(idx, RUN_COLS);
-
-			// ------------------------
-			// DIRECT: valueIdx 찾기
-			// CALCULATED: zone idx 모으기
-			// ------------------------
-			Integer valueIdx = null;
-			List<Integer> zoneActualIdxs = List.of();
-
-			if (!isCalculated(measureCode)) {
-				valueIdx = findFirstIdx(idx, primaryCandidates);
-				if (valueIdx == null) valueIdx = findFirstIdx(idx, fallbackCandidates);
-				if (valueIdx == null) return;
-			} else {
-				// 계산형(PEAK_TEMP/TAL_SEC)에서 사용할 Zone 현재값 인덱스 모으기
-				zoneActualIdxs = collectZoneActualIdxs(idx);
-				if (zoneActualIdxs.isEmpty()) return;
-			}
-
-			// ------------------------
-			// 데이터 라인 스캔
-			// ------------------------
 			String line;
+			// 첫 비어있지 않은 줄 = 헤더
 			while ((line = br.readLine()) != null) {
-				line = line.trim();
-				if (line.isEmpty()) continue;
+				String t = line.strip();
+				if (!t.isEmpty()) { headerLine = t; break; }
+			}
+			if (headerLine == null) return;
 
-				String[] cols = splitColumns(line);
-				if (dtIdx >= cols.length) continue;
+			String[] headers = headerLine.split(",", -1);
+			Map<String, Integer> idx = new HashMap<>();
+			for (int i = 0; i < headers.length; i++) {
+				idx.put(normalize(headers[i]), i);
+			}
 
-				LocalDateTime ts = parseKoreanLogDateTime(cols[dtIdx]);
+			Integer dateIdx = idx.get(normalize("Date"));
+			Integer timeIdx = idx.get(normalize("Time"));
+			Integer valIdx  = idx.get(normalize(csvCol));
+			if (dateIdx == null || timeIdx == null || valIdx == null) {
+				// 헤더 매칭 실패 -> 이 파일은 포맷이 다르거나 해당 컬럼 없음
+				log.warn("CSV 헤더 매칭 실패: {} (need Date,Time,{})", file.getFileName(), csvCol);
+				return;
+			}
+
+			while ((line = br.readLine()) != null) {
+				String t = line.strip();
+				if (t.isEmpty()) continue;
+				String[] cols = t.split(",", -1);
+				if (dateIdx >= cols.length || timeIdx >= cols.length || valIdx >= cols.length) continue;
+
+				LocalDateTime ts = parseCsvDateTime(cols[dateIdx], cols[timeIdx]);
 				if (ts == null) continue;
-				if (ts.isBefore(from) || ts.isAfter(to)) continue;
+				// ★ CSV 내부 시각으로는 필터하지 않는다.
+				//   기간 필터는 이미 steril_batch.SterilDate 로 적용됐고,
+				//   찾은 배치의 사이클 데이터는 전부 통계 대상이다.
 
-				// recipe filter
-				if (recipe != null && !recipe.isBlank() && recipeIdx != null && recipeIdx < cols.length) {
-					String r = cols[recipeIdx];
-					if (r == null || !r.contains(recipe)) continue;
-				}
-
-				// itemName filter (현재 정책 유지)
-				if (itemName != null && !itemName.isBlank() && recipeIdx != null && recipeIdx < cols.length) {
-					String r = cols[recipeIdx];
-					if (r == null || !r.contains(itemName)) continue;
-				}
-
-				Double v;
-
-				if (!isCalculated(measureCode)) {
-					// ------------------------
-					// DIRECT: 컬럼 값 읽기
-					// ------------------------
-					if (valueIdx >= cols.length) continue;
-
-					// O2_PPM이면 유효성 체크(N2/PPM/자동)
-					if ("O2_PPM".equals(measureCode)) {
-						if (!isValidO2Row(cols, modeIdx, unitIdx, runIdx)) continue;
-					}
-
-					v = toDouble(cols[valueIdx]);
-					if (v == null) continue;
-
-				} else {
-					// ------------------------
-					// CALCULATED
-					// ------------------------
-					if ("PEAK_TEMP".equals(measureCode)) {
-						v = computePeakTemp(cols, zoneActualIdxs);
-						if (v == null) continue;
-					} else if ("TAL_SEC".equals(measureCode)) {
-						// ⚠️ TAL은 누적 계산이 필요(행 단위 계산으로는 부정확)
-						// TODO: 파일 단위로 time-series를 모아서 기준온도 이상 유지시간 누적 계산 구현 필요
-						continue;
-					} else {
-						// 계산형인데 정의 안 된 경우
-						continue;
-					}
-				}
+				Double v = toDouble(cols[valIdx]);
+				if (v == null) continue;
 
 				Map<String, Object> row = new LinkedHashMap<>();
-				row.put("time", cols[dtIdx]);   // 원문 (예: 2026-01-26 오전 06:15:13)
+				// 화면 표시/정렬 위해 "yyyy-MM-dd HH:mm:ss" 형태로 저장
+				row.put("time", ts.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
 				row.put("value", v);
-				out.rows.add(row);
+				out.add(row);
 			}
 		}
 	}
 
-	// ------------------------
-// Judge 부착(기존 유지)
-// ------------------------
+	/** "2026-06-24" + "16:13:29" -> LocalDateTime */
+	private LocalDateTime parseCsvDateTime(String date, String time) {
+		if (date == null || time == null) return null;
+		String d = date.strip();
+		String tm = time.strip();
+		if (d.isEmpty() || tm.isEmpty()) return null;
+		// 초가 없을 수도 있으니 보정
+		String[] tp = tm.split(":");
+		if (tp.length == 2) tm = tm + ":00";
+		try {
+			return LocalDateTime.parse(d + "T" + tm);
+		} catch (Exception e) {
+			// yyyy-MM-dd HH:mm:ss 시도
+			try {
+				return LocalDateTime.parse(d + " " + tm,
+					DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+			} catch (Exception ex) {
+				return null;
+			}
+		}
+	}
+
+	// =====================================================================
+	// Judge / 통계 (기존 유지)
+	// =====================================================================
 	private List<Map<String, Object>> attachJudge(List<Map<String, Object>> rows, Double ucl, Double lcl) {
 		List<Map<String, Object>> out = new ArrayList<>();
 		for (Map<String, Object> r : rows) {
@@ -406,86 +431,6 @@ public class SpcStatisticsService {
 		return out;
 	}
 
-	// =========================================================
-// 유틸: enum/DTO 없이 매핑 조회
-// =========================================================
-	private static String normCode(String measureCode) {
-		if (measureCode == null || measureCode.isBlank())
-			throw new IllegalArgumentException("측정항목(measure_code)이 비었습니다.");
-		return measureCode.trim().toUpperCase();
-	}
-
-	private boolean isCalculated(String measureCode) {
-		return CALCULATED_CODES.contains(normCode(measureCode));
-	}
-
-	private List<String> getPrimaryCandidates(String measureCode) {
-		String code = normCode(measureCode);
-		List<String> cols = PRIMARY_COLS.get(code);
-		if (cols == null)
-			throw new IllegalArgumentException("PRIMARY 로그 컬럼 매핑이 정의되지 않았습니다: " + code);
-		return cols;
-	}
-
-	private List<String> getFallbackCandidates(String measureCode) {
-		String code = normCode(measureCode);
-		return FALLBACK_COLS.getOrDefault(code, List.of());
-	}
-
-	private Integer findFirstIdx(Map<String, Integer> idx, List<String> candidates) {
-		for (String c : candidates) {
-			Integer ii = idx.get(normalize(c));
-			if (ii != null) return ii;
-		}
-		return null;
-	}
-
-	// ZT 현재값N / ZB 현재값N 모으기 (로그에 따라 1~10 또는 1~12)
-	private List<Integer> collectZoneActualIdxs(Map<String, Integer> idx) {
-		List<Integer> list = new ArrayList<>();
-		for (int n = 1; n <= 12; n++) {
-			Integer zt = idx.get(normalize("ZT 현재값" + n));
-			Integer zb = idx.get(normalize("ZB 현재값" + n));
-			if (zt != null) list.add(zt);
-			if (zb != null) list.add(zb);
-		}
-		return list;
-	}
-
-	private Double computePeakTemp(String[] cols, List<Integer> zoneActualIdxs) {
-		Double max = null;
-		for (Integer i : zoneActualIdxs) {
-			if (i == null || i >= cols.length) continue;
-			Double v = toDouble(cols[i]);
-			if (v == null) continue;
-			if (max == null || v > max) max = v;
-		}
-		return max;
-	}
-
-	// O2_PPM 유효성 판단: N2/PPM/자동
-	private boolean isValidO2Row(String[] cols, Integer modeIdx, Integer unitIdx, Integer runIdx) {
-		// 모드: N2일 때만 유효
-		if (modeIdx != null && modeIdx < cols.length) {
-			String mode = cols[modeIdx];
-			if (mode != null && !mode.isBlank() && !"N2".equalsIgnoreCase(mode.trim())) return false;
-		}
-		// 단위: PPM일 때만 유효
-		if (unitIdx != null && unitIdx < cols.length) {
-			String unit = cols[unitIdx];
-			if (unit != null && !unit.isBlank() && !"PPM".equalsIgnoreCase(unit.trim())) return false;
-		}
-		// 가동 상태: 자동일 때만 유효
-		if (runIdx != null && runIdx < cols.length) {
-			String run = cols[runIdx];
-			if (run != null && !run.isBlank() && !run.contains("자동")) return false;
-		}
-		return true;
-	}
-
-	// =========================================================
-	// KPI helpers
-	// =========================================================
 	private static class Stats {
 		int n;
 		double mean;
@@ -497,25 +442,20 @@ public class SpcStatisticsService {
 	private Stats calcStats(List<Double> values) {
 		Stats s = new Stats();
 		s.n = values.size();
+		if (s.n == 0) { s.mean = 0; s.sigma = 0; s.min = 0; s.max = 0; return s; }
 		double sum = 0;
 		s.min = Double.POSITIVE_INFINITY;
 		s.max = Double.NEGATIVE_INFINITY;
-
 		for (double v : values) {
 			sum += v;
 			if (v < s.min) s.min = v;
 			if (v > s.max) s.max = v;
 		}
 		s.mean = sum / s.n;
-
 		if (s.n < 2) { s.sigma = 0.0; return s; }
-
 		double ss = 0;
-		for (double v : values) {
-			double d = v - s.mean;
-			ss += d * d;
-		}
-		s.sigma = Math.sqrt(ss / (s.n - 1)); // 표본 표준편차
+		for (double v : values) { double d = v - s.mean; ss += d * d; }
+		s.sigma = Math.sqrt(ss / (s.n - 1));
 		return s;
 	}
 
@@ -551,74 +491,39 @@ public class SpcStatisticsService {
 		return kpi;
 	}
 
-	// =========================================================
-	// parsing/util (Capability에서 복붙)
-	// =========================================================
+	// =====================================================================
+	// util
+	// =====================================================================
 	private LocalDateTime parseDateTimeLocal(String s) {
 		if (s == null || s.isBlank()) return null;
 		try { return LocalDateTime.parse(s); } catch (Exception ignore) {}
 		try { return LocalDateTime.parse(s, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")); } catch (Exception ignore) {}
+		try { return LocalDateTime.parse(s, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")); } catch (Exception ignore) {}
 		return null;
 	}
 
-	private LocalDateTime parseKoreanLogDateTime(String s) {
-		if (s == null) return null;
-		s = s.trim();
-		if (s.isEmpty()) return null;
-
-		Pattern p = Pattern.compile("^(\\d{4}-\\d{2}-\\d{2})\\s+(오전|오후)\\s+(\\d{1,2}:\\d{2}:\\d{2})$");
-		Matcher m = p.matcher(s);
-		if (!m.find()) return null;
-
-		String date = m.group(1);
-		String ampm = m.group(2);
-		String time = m.group(3);
-
-		try {
-			LocalDate d = LocalDate.parse(date);
-			LocalTime t = LocalTime.parse(padHour(time));
-			int hour = t.getHour();
-			if ("오후".equals(ampm) && hour < 12) hour += 12;
-			if ("오전".equals(ampm) && hour == 12) hour = 0;
-			return LocalDateTime.of(d, LocalTime.of(hour, t.getMinute(), t.getSecond()));
-		} catch (Exception e) {
-			return null;
-		}
-	}
-
-	private String padHour(String hhmmss) {
-		if (hhmmss == null) return "";
-		String[] parts = hhmmss.split(":");
-		if (parts.length != 3) return hhmmss;
-		if (parts[0].length() == 1) parts[0] = "0" + parts[0];
-		return parts[0] + ":" + parts[1] + ":" + parts[2];
-	}
-
-	private String[] splitColumns(String line) {
-		if (line.contains("\t")) return line.split("\t", -1);
-		return line.split("\\s{2,}", -1);
+	private String normCode(String measureCode) {
+		if (measureCode == null || measureCode.isBlank())
+			throw new IllegalArgumentException("측정항목(measure_code)이 비었습니다.");
+		return measureCode.trim().toUpperCase();
 	}
 
 	private String normalize(String s) {
 		if (s == null) return "";
 		return s.replace("\uFEFF", "")
-						 .trim()
-						 .replaceAll("\\s+", "")
-						 .toLowerCase();
-	}
-
-	private Integer firstIndex(Map<String, Integer> idx, List<String> candidates) {
-		for (String c : candidates) {
-			Integer i = idx.get(normalize(c));
-			if (i != null) return i;
-		}
-		return null;
+			.trim()
+			.replaceAll("\\s+", "")
+			.toLowerCase();
 	}
 
 	private LocalDateTime toLocalDateTimeSafe(Object timeStr) {
 		if (timeStr == null) return LocalDateTime.MIN;
-		LocalDateTime t = parseKoreanLogDateTime(String.valueOf(timeStr));
-		return (t == null) ? LocalDateTime.MIN : t;
+		try {
+			return LocalDateTime.parse(String.valueOf(timeStr),
+				DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+		} catch (Exception e) {
+			return LocalDateTime.MIN;
+		}
 	}
 
 	private static String toStr(Object o) { return o == null ? "" : String.valueOf(o); }
@@ -643,10 +548,10 @@ public class SpcStatisticsService {
 	}
 
 	private String resolveUnit(String measureCode) {
-		return switch (measureCode) {
-			case "PEAK_TEMP" -> "℃";
-			case "O2_PPM" -> "ppm";
-			case "CONV_SPEED" -> "mm/min";
+		return switch (normCode(measureCode)) {
+			case "TEMP_CH", "TEMP_LL", "TEMP_BS", "TEMP_LH" -> "℃";
+			case "PRESSURE" -> "N/m²";
+			case "HUMIDITY" -> "%";
 			default -> "";
 		};
 	}

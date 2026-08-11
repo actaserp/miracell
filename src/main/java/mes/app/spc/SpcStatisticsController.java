@@ -19,8 +19,8 @@ public class SpcStatisticsController {
 	@Autowired
 	SpcStatisticsService spcStatisticsService;
 
-	//  로그 폴더
-	private static final String BASE_DIR = "C:\\temp\\mes21\\Reflow\\PV";
+	// ★ 데이터 소스는 멸균 배치 첨부(attach_file)에서 파일 경로를 얻어 읽는다.
+	//   기존 하드코딩 폴더(C:\temp\mes21\Reflow\PV)는 제거됨.
 
 	@GetMapping("/measureCodes")
 	public AjaxResult getMeasureCodes(@RequestParam String process_code) {
@@ -29,7 +29,21 @@ public class SpcStatisticsController {
 			// tb_spc_std01에서 process_code에 해당하는 measure_code/distinct
 			List<Map<String, Object>> rows = spcStatisticsService.getMeasureCodes(process_code);
 			r.success = true;
-			r.data = rows; // 예: [{value:"O2_PPM", text:"O2농도"}, ...]
+			r.data = rows; // 예: [{value:"TEMP_CH", text:"챔버온도"}, ...]
+		} catch (Exception e) {
+			r.success = false;
+			r.message = e.getMessage();
+		}
+		return r;
+	}
+
+	/** SPC 관리기준이 등록된 공정 목록 (통계 화면 공정 콤보용) */
+	@GetMapping("/processes")
+	public AjaxResult getProcesses() {
+		AjaxResult r = new AjaxResult();
+		try {
+			r.data = spcStatisticsService.getSpcProcesses();
+			r.success = true;
 		} catch (Exception e) {
 			r.success = false;
 			r.message = e.getMessage();
@@ -50,7 +64,7 @@ public class SpcStatisticsController {
 		AjaxResult ar = new AjaxResult();
 		try {
 			ar.data = spcStatisticsService.getSpcListResult(
-				BASE_DIR, spjangcd, date_from, date_to, item_name, processCode, measureCode, recipe
+				spjangcd, date_from, date_to, item_name, processCode, measureCode, recipe
 			);
 			ar.success = true;
 			ar.message = "";

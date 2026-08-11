@@ -24,12 +24,12 @@ public class SpcManagementController {
     /** ✅ 목록 조회 */
     @GetMapping("/list")
     public AjaxResult list(
-            @RequestParam(value ="srchMat", required = false) String srchMat,
-            @RequestParam(value ="srchRecipe", required = false) String srchRecipe
+            @RequestParam(value ="srchProcess", required = false) String srchProcess,
+            @RequestParam(value ="srchMeasure", required = false) String srchMeasure
     ) {
         AjaxResult result = new AjaxResult();
         try {
-            List<Map<String, Object>> items = this.service.getList(srchMat,srchRecipe);
+            List<Map<String, Object>> items = this.service.getList(srchProcess, srchMeasure);
             result.success = true;
             result.data = items;
         } catch (Exception e) {
@@ -66,11 +66,18 @@ public class SpcManagementController {
             Tb_spc_std01 entity;
 
             // ✅ 수정 여부 확인
+            //   1) id 가 오면 id 로 조회
+            //   2) id 가 없으면 유니크키(process_code+measure_code+item_code)로 기존 행을 찾는다.
+            //      화면에서 id 가 누락돼도 신규 INSERT 로 처리해 유니크 제약을 위반하는 것을 막는다.
             if (params.get("id") != null && !params.get("id").isEmpty()) {
                 entity = service.findById(Integer.valueOf(params.get("id")))
                         .orElse(new Tb_spc_std01());
             } else {
-                entity = new Tb_spc_std01();
+                entity = service.findByKey(
+                            params.get("process_code"),
+                            params.get("measure_code"),
+                            params.get("item_code"))
+                        .orElse(new Tb_spc_std01());
             }
 
             // ✅ form 데이터 매핑
@@ -145,16 +152,20 @@ public class SpcManagementController {
 
 
     /** ✅ 삭제 */
+    // [변경] @RequestBody(JSON) -> @RequestParam(form-urlencoded).
+    //   화면의 AjaxUtil.postSyncData 는 form-urlencoded 로 전송하므로
+    //   @RequestBody 로 받으면 415(Content type not supported) 가 난다.
     @PostMapping("/delete")
-    public AjaxResult delete(@RequestBody Tb_spc_std01 req) {
+    public AjaxResult delete(@RequestParam Map<String, String> params) {
         AjaxResult result = new AjaxResult();
         try {
-            if (req.getId() == null) {
+            String idStr = params.get("id");
+            if (idStr == null || idStr.isEmpty()) {
                 result.success = false;
                 result.message = "삭제할 ID가 없습니다.";
                 return result;
             }
-            service.delete(req.getId());
+            service.delete(Integer.valueOf(idStr));
             result.success = true;
         } catch (Exception e) {
             result.success = false;

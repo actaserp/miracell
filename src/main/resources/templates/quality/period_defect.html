@@ -1,0 +1,186 @@
+<html layout:decorate="~{layout_page}">
+
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>기간별불량현황</h2>
+                <a title="북마크" class="bookmark toggle">내 메뉴</a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>품질 관리</li>
+                <li>기간별불량현황</li>
+            </ul>
+        </div>
+
+        <section class="section">
+            <div class="section-top">
+                <div class="search-wrap">
+                    <dl>
+                        <dt>조회 기간<span class="eq">*</span></dt>
+                        <dd>
+                            <ul class="date-box" style="display:flex; align-items:center; gap:4px;">
+                                <li><input type="date" id="date_from" name="date_from"></li>
+                                <li style="padding:0 2px;">~</li>
+                                <li><input type="date" id="date_to" name="date_to"></li>
+                            </ul>
+                        </dd>
+                    </dl>
+                    <dl>
+                        <dt><label for="cboProcess">공정</label></dt>
+                        <dd>
+                            <div class="srch-box">
+                                <select id="cboProcess" name="cboProcess">
+                                    <option value="">전체</option>
+                                </select>
+                            </div>
+                        </dd>
+                    </dl>
+                    <dl>
+                        <dt>&nbsp;</dt>
+                        <dd>
+                            <li>
+                                <a class="btn btn-delete" title="검색" id="btnMainSearch">
+                                    <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘"> 검색
+                                </a>
+                            </li>
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+
+            <div class="grid_box">
+                <div id="defect_grid" style="height:100%;"></div>
+            </div>
+        </section>
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <script type="text/javascript">
+        class PeriodDefectPage {
+            constructor() {
+                this.grid = null;
+                this.baseUrl = '/api/quality/period_defect';
+                this.init();
+            }
+
+            init() {
+                this.grid = new wijmo.grid.FlexGrid('#defect_grid', {
+                    autoGenerateColumns: false,
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    isReadOnly: true,
+                    allowSorting: true,
+                    itemsSource: new wijmo.collections.CollectionView([]),
+                    columns: [
+                        {binding: 'work_date', header: '일자', width: 160, align: 'center'},
+                        {binding: 'output_qty', header: '생산수량', width: 140, align: 'right', format: 'n0'},
+                        {binding: 'defect_qty', header: '불량수량', width: 140, align: 'right', format: 'n0'},
+                        {binding: 'defect_cnt', header: '불량건수', width: 120, align: 'right', format: 'n0'},
+                        {binding: 'defect_rate', header: '불량률(%)', width: 130, align: 'right'},
+                        {binding: '', header: '', width: '*'}
+                    ],
+                    formatItem: (s, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                        if (e.panel.cellType === wijmo.grid.CellType.Cell) {
+                            const col = s.columns[e.col];
+                            const item = s.rows[e.row].dataItem;
+                            if (col.binding === 'defect_rate') {
+                                if (item.defect_rate === null || item.defect_rate === undefined) {
+                                    e.cell.textContent = '—';
+                                    e.cell.style.color = '#c2c9d4';
+                                } else {
+                                    e.cell.textContent = Number(item.defect_rate).toFixed(2);
+                                    e.cell.style.color = (Number(item.defect_rate) > 1.0) ? '#d64545' : '';
+                                    e.cell.style.fontWeight = (Number(item.defect_rate) > 1.0) ? '800' : '';
+                                }
+                            }
+                        }
+                    }
+                });
+                new FlexGridContextMenu(this.grid);
+                this.grid.downloadFileName = '기간별불량현황';
+
+                this.grid.columnFooters.rows.push(new wijmo.grid.Row());
+                this.grid.collectionView.collectionChanged.addHandler(() => this.updateFooter());
+
+                this.loadProcessCombo();
+
+                // 기본 기간: 이번 달 1일 ~ 오늘
+                const now = new Date();
+                const first = new Date(now.getFullYear(), now.getMonth(), 1);
+                const ymd = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+                document.getElementById('date_from').value = ymd(first);
+                document.getElementById('date_to').value = ymd(now);
+
+                this.search();
+            }
+
+            loadProcessCombo() {
+                const res = AjaxUtil.getSyncData(this.baseUrl + '/process_combo', {});
+                const $proc = $('#cboProcess').empty().append('<option value="">전체</option>');
+                ((res && res.data) ? res.data : []).forEach(function (x) {
+                    $proc.append('<option value="' + x.code + '">' + x.name + '</option>');
+                });
+            }
+
+            search() {
+                const from = document.getElementById('date_from').value;
+                const to = document.getElementById('date_to').value;
+                if (!from || !to) {
+                    Alert.alert('', '조회 기간을 선택하세요.');
+                    return;
+                }
+                if (from > to) {
+                    Alert.alert('', '시작일이 종료일보다 뒤입니다.');
+                    return;
+                }
+                const param = {
+                    date_from: from,
+                    date_to: to,
+                    proc_code: $('#cboProcess').val()
+                };
+                const res = AjaxUtil.getSyncData(this.baseUrl + '/list', param);
+                const rows = (res && res.data) ? res.data : [];
+                if (this.grid.itemsSource && this.grid.itemsSource.sourceCollection) {
+                    this.grid.itemsSource.sourceCollection = rows;
+                } else {
+                    this.grid.itemsSource = new wijmo.collections.CollectionView(rows);
+                }
+                this.updateFooter();
+            }
+
+            updateFooter() {
+                if (!this.grid || !this.grid.columnFooters || this.grid.columnFooters.rows.length === 0) return;
+                const rows = this.grid.collectionView ? this.grid.collectionView.items : [];
+                const fr = this.grid.columnFooters.rows[0].index;
+
+                let outSum = 0, defSum = 0, cntSum = 0;
+                rows.forEach(r => {
+                    outSum += Number(r.output_qty) || 0;
+                    defSum += Number(r.defect_qty) || 0;
+                    cntSum += Number(r.defect_cnt) || 0;
+                });
+                const rate = outSum > 0 ? (defSum / outSum * 100) : null;
+
+                this.grid.columnFooters.setCellData(fr, 'work_date', '합계');
+                this.grid.columnFooters.setCellData(fr, 'output_qty', outSum);
+                this.grid.columnFooters.setCellData(fr, 'defect_qty', defSum);
+                this.grid.columnFooters.setCellData(fr, 'defect_cnt', cntSum);
+                this.grid.columnFooters.setCellData(fr, 'defect_rate', rate != null ? rate.toFixed(2) : '—');
+            }
+        }
+
+        let page = null;
+        $(document).ready(function () {
+            page = new PeriodDefectPage();
+            $('#btnMainSearch').on('click', function () { page.search(); });
+            $('#date_from, #date_to').on('change', function () { page.search(); });
+        });
+    </script>
+</th:block>
+</html>
