@@ -233,6 +233,7 @@ public class LotService {
             , sh."Name" as store_name
             , ml."SourceTableName"
             , ml."SourceDataPk"
+            , ml."Material_id" as mat_id
             , b.match_by
             , (select skey from k) as matched_key
             , case b.match_by

@@ -45,6 +45,22 @@
     </script>
 
     <style>
+        /* ── 태블릿·터치 기기에서 푸터 숨김 ──
+           현장 화면은 세로 공간이 곧 작업 목록이다. 저작권 한 줄에 40~60px 을
+           내주면 품목 카드가 한 장 덜 보인다.
+           마우스가 없는 기기(pointer:coarse)에서만 감춘다 — PC 관리 화면은 그대로다.
+           ★ LayoutState 가 .footer 의 outerHeight() 로 본문 높이를 계산하는데,
+             숨기면 0 이 되어 본문이 그만큼 넓어진다. 계산식은 손댈 필요 없다. */
+        @media (pointer: coarse) {
+            /* 푸터를 감추면 그 자리가 그대로 빈다 — 본문 높이가 푸터를 뺀 값으로
+               계산돼 있기 때문이다. 감추는 것과 «그만큼 늘리는 것»을 같이 해야 한다. */
+            .footer { display: none !important; }
+            .con_area { height: 100vh !important; bottom: 0 !important; }
+            .tab-content { height: calc(100% - var(--tabs-h, 0px)) !important; }
+            .tab-content .tab-pane,
+            .nth-tabs-frame,
+            .nth-tabs-frame iframe { height: 100% !important; }
+        }
         .left {
             cursor: pointer;
         }
@@ -789,7 +805,8 @@
                     $('.menu_area').toggleClass('hidden', collapsed);
                     $('.dashboard-layout-header').toggleClass('header-collapsed', collapsed);
 
-                    const footerH = $('.footer').outerHeight() || 0;
+                    // 태블릿에서 푸터를 CSS 로 감추면 outerHeight() 가 0 이 된다(의도된 값)
+                    const footerH = $('.footer').is(':visible') ? ($('.footer').outerHeight() || 0) : 0;
                     const tabsH   = $('.nth-tabs .page-tabs').outerHeight() || 0;
 
                     if (collapsed) {

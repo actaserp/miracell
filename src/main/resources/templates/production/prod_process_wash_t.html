@@ -99,6 +99,23 @@
         .wk .wkdel{height:40px;padding:0 14px;border-radius:12px;border:1px solid var(--line);background:var(--red-bg);color:var(--red);font-weight:800;font-size:14px;cursor:pointer;flex:0 0 auto}
         .wk .wkdel:active{background:var(--red);color:#fff}
         .emptybox{text-align:center;color:var(--ink-2);font-weight:700;padding:30px;border:1.5px dashed var(--line);border-radius:var(--r)}
+        /* 바코드 연속 스캔 */
+        .scanwrap{position:relative;border-radius:16px;overflow:hidden;background:#0d1417;aspect-ratio:4/3;max-height:38dvh;margin-top:6px}
+        .scanwrap video{width:100%;height:100%;object-fit:cover;display:block}
+        .scanwrap .frame{position:absolute;inset:14% 8%;border:3px solid rgba(255,255,255,.85);border-radius:12px;box-shadow:0 0 0 100vmax rgba(0,0,0,.28)}
+        .scanwrap .frame.hit{border-color:#31C48D}
+        .scanwrap .msg{position:absolute;left:0;right:0;bottom:0;padding:10px 14px;background:rgba(13,20,23,.72);color:#fff;font-weight:800;font-size:13.5px;text-align:center}
+        .scanlist{display:flex;flex-direction:column;gap:8px;max-height:26dvh;overflow:auto;margin-top:10px}
+        .scanrow{display:flex;align-items:center;gap:10px;padding:11px 13px;border:1px solid var(--line);border-radius:13px;background:var(--surface)}
+        .scanrow.err{border-color:#d33;background:#FDF2F2}
+        .scanrow.warn{border-color:#E3A008;background:#FDF9EF}
+        .scanrow .sid{flex:1;min-width:0}
+        .scanrow .snm{font-size:15px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .scanrow .slot{font-size:12px;color:var(--ink-2);font-weight:700;font-variant-numeric:tabular-nums}
+        .scanrow .sq{font-weight:800;font-variant-numeric:tabular-nums;flex:0 0 auto;font-size:16px}
+        .scanmanual{display:flex;gap:8px;margin-top:10px}
+        .scanmanual input{flex:1;min-height:50px;border:1.5px solid var(--line);border-radius:13px;padding:0 14px;font-size:15px;font-weight:700}
+        .scanmanual button{min-height:50px;padding:0 16px;border-radius:13px;border:1.5px solid var(--line);background:var(--surface-2);font-weight:800;cursor:pointer}
 
         /* C. 품목(재고) */
         .item{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;
@@ -139,6 +156,9 @@
         .btn.ghost{background:var(--surface-2);color:var(--ink-2);border:1px solid var(--line)}.btn.ghost:active{background:var(--line)}
         .btn.primary{background:var(--teal);color:#fff;padding:0 30px;box-shadow:0 8px 18px -8px rgba(14,124,134,.7)}.btn.primary:active{background:var(--teal-d)}
         .btn.start{background:var(--teal);color:#fff;flex:1;justify-content:center;font-size:20px}
+        /* 액션바 버튼 묶음 — .btn.start 의 flex:1 이 혼자 늘어나 짝이 안 맞았다 */
+        .cbtns{display:flex;gap:10px;flex:0 0 auto}
+        .cbtns .btn{flex:1 1 0;min-width:150px;justify-content:center;font-size:18px;padding:0 16px}
         .btn.danger{background:var(--red-bg);color:var(--red)}
 
         /* 시트 */
@@ -238,6 +258,23 @@
             <div class="fieldlab">생산창고 재고 (불출분) · 눌러서 담기</div>
             <div class="stocklist" id="stockList"></div>
             <button class="ok" data-close style="background:var(--surface-2);color:var(--ink);border:1.5px solid var(--line)">닫기</button>
+        </div></div></div>
+
+        <!-- 바코드 연속 스캔 시트 -->
+        <div class="mask" id="scanMask"><div class="sheet"><div class="body">
+            <div class="sh"><h3>바코드 스캔</h3><button class="x" data-close>✕</button></div>
+            <div class="fieldlab">라벨을 비추면 자동으로 담깁니다 · 계속 찍으세요</div>
+            <div class="scanwrap" id="scanWrap">
+                <video id="scanVideo" playsinline muted></video>
+                <div class="frame" id="scanFrame"></div>
+                <div class="msg" id="scanMsg">카메라 준비 중…</div>
+            </div>
+            <div class="scanmanual">
+                <input id="scanManual" placeholder="라벨 번호 직접 입력" autocomplete="off"/>
+                <button id="scanManualBtn">담기</button>
+            </div>
+            <div class="scanlist" id="scanList"></div>
+            <button class="ok" id="scanDone">담기 완료</button>
         </div></div></div>
 
         <!-- 시간 수정 시트 -->
@@ -614,7 +651,10 @@
         function renderCAction() {
             document.getElementById('cAction').innerHTML =
                 `<div class="actsum"><span class="l">완료수량</span><span class="v">${workerDone(curW).toLocaleString()} EA</span></div>
-        <button class="btn ghost" data-cact="addItem">＋ 품목 추가</button>`;
+        <div class="cbtns">
+          <button class="btn ghost" data-cact="addItem">＋ 품목 추가</button>
+          <button class="btn start" data-cact="scan">⛶ 바코드 스캔</button>
+        </div>`;
         }
 
         /* ★ 수량은 로컬 상태로만 들고 있는다.
@@ -691,7 +731,9 @@
         });
         document.getElementById('cAction').addEventListener('click', e => {
             const b = e.target.closest('[data-cact]');
-            if (b && b.dataset.cact === 'addItem') openStockSheet();
+            if (!b) return;
+            if (b.dataset.cact === 'addItem') openStockSheet();
+            if (b.dataset.cact === 'scan') openScanSheet();
         });
 
         /* ── 시트 공통 ── */
@@ -787,6 +829,283 @@
                 openStockSheet();
                 flash('담기 · 대기');
             });
+        });
+
+
+        /* ══════════════════════════════════════════════════════════════════
+           바코드 연속 스캔
+           ────────────────────────────────────────────────────────────────
+           ★ 확인 버튼이 없다. 비추면 바로 담긴다 — 찍고 찍고 찍는 흐름이라야
+             현장에 "불출할 때 다 찍으세요" 라고 말할 명분이 선다.
+
+           ★ 로트는 «기록»이지 «지정»이 아니다.
+             차감은 지금처럼 서버 FIFO 다(WashService.itemFinish).
+             찍은 로트와 실제 차감 로트가 다를 수 있다 —
+             클린룸 입고는 원 로트번호를 유지하므로 추적은 세척 배치 단위로 성립한다.
+             로트를 그대로 차감하려면 wash_work_item."MatLot_id" 추가가 필요하다.
+
+           ★ 같은 로트를 여러 번 찍으면 한 줄에서 수량만 올라간다.
+             30개들이 박스 두 개를 찍으면 60 이 된다.
+           ══════════════════════════════════════════════════════════════════ */
+        const LOT_API = '/api/lot/lot_tracking/lot_detail';
+
+        let scanStream = null, scanDet = null, scanTimer = null, scanBusy = false;
+        let scanSeen = {};        // key(로트|품목) → {…, item_id}
+        let lastCode = '', lastAt = 0;
+
+        /* ★ 라벨에는 사내 로트번호 하나만 인쇄된다 (예: LI-20260811-0002).
+              수량·유효기간은 라벨에 눈으로만 있고 바코드에는 안 들어간다.
+              그래서 스캔값으로 mat_lot 을 조회해 거기서 가져온다.
+              혹시 GS1-128 로 바뀌어도 (10)로트 만 뽑아 같은 경로를 타게 해 둔다. */
+        function scanKey(raw) {
+            raw = String(raw || '').trim();
+            let m;
+            if ((m = raw.match(/\(10\)([^()\u001d]+)/))) return m[1].trim();
+            if (raw.indexOf('\u001d') >= 0 && raw.indexOf('10') === 0) {
+                return raw.substring(2).split('\u001d')[0].trim();
+            }
+            return raw;
+        }
+
+        function beep(ok) {
+            try {
+                if (navigator.vibrate) navigator.vibrate(ok ? 40 : [60, 50, 60]);
+                const A = window.AudioContext || window.webkitAudioContext;
+                if (!A) return;
+                const ac = new A(), o = ac.createOscillator(), g = ac.createGain();
+                o.connect(g); g.connect(ac.destination);
+                o.frequency.value = ok ? 1180 : 380;
+                g.gain.value = 0.07;
+                o.start(); setTimeout(() => { o.stop(); ac.close(); }, ok ? 90 : 200);
+            } catch (e) { /* 소리는 있으면 좋고 없어도 그만 */ }
+        }
+
+        function scanMsg(t) { document.getElementById('scanMsg').textContent = t; }
+
+        /* 스캔 값 → 세척 품목 + 수량.
+           lot_detail 이 사내 로트/박스라벨/카톤을 모두 사내 로트로 환산해 준다.
+           ★ 수량은 그 로트의 «현재 재고»(CurrentStock)를 쓴다.
+             라벨의 「LOT수량」은 입고 당시 수량이라, 일부를 이미 썼으면 실물과 다르다. */
+        function resolveScan(raw) {
+            const key = scanKey(raw);
+            if (!key) return {err: '읽은 값이 비어 있습니다'};
+
+            let rows = [];
+            try {
+                const r = AjaxUtil.getSyncData(LOT_API, {lot_number: key, exact: 'N'}) || {};
+                rows = r.data || [];
+            } catch (e) { return {err: '로트 조회 실패', lot: key}; }
+
+            if (!rows.length) return {err: '등록되지 않은 라벨입니다', lot: key};
+            const hit = rows[0];
+
+            /* 세척 대상 목록에서 같은 품목을 찾는다.
+               lot_detail 에 mat_id 가 없으면 품목명으로 맞춘다(폴백). */
+            const mid = (hit.mat_id != null) ? hit.mat_id : hit.Material_id;
+            let target = null;
+            if (mid != null) target = STOCK.filter(x => String(x.mat_id) === String(mid))[0];
+            if (!target) target = STOCK.filter(x => x.name === hit.mat_name)[0];
+            if (!target) {
+                return {err: '세척 대상 품목이 아닙니다 (' + (hit.mat_name || '?') + ')',
+                    lot: hit.LotNumber || key};
+            }
+
+            const remain = num(hit.CurrentStock);
+            return {
+                mat_id: target.mat_id, name: target.name, code: target.code,
+                lot: hit.LotNumber || key,
+                qty: remain > 0 ? remain : num(hit.InputQty),   // 로트 잔량 = 이 박스에서 쓸 수 있는 전량
+                remain: remain,
+                expiry: hit.EffectiveDate || null
+            };
+        }
+
+        /* 인식 1건 처리 — 같은 로트면 수량만 더한다 */
+        function scanHit(raw) {
+            const res = resolveScan(raw);
+            if (res.err) {
+                beep(false);
+                scanSeen['ERR|' + (res.lot || raw) + '|' + Date.now()] =
+                    {err: res.err, lot: res.lot || String(raw).slice(0, 24)};
+                drawScanList();
+                scanMsg(res.err);
+                return;
+            }
+
+            const k = res.lot + '|' + res.mat_id;
+            /* 그 로트에 남아 있는 전량을 담는다. 일부만 쓸 거면 담긴 뒤 수량을 줄인다. */
+            const add = (res.qty > 0) ? res.qty : 1;
+
+            if (scanSeen[k]) {
+                /* 이미 담은 로트다. 잔량 전체가 들어가 있으므로 더하지 않는다 —
+                   더하면 같은 박스를 두 번 비췄을 때 재고보다 큰 수량이 된다. */
+                scanSeen[k].hits++;
+                beep(true);
+                drawScanList();
+                scanMsg('이미 담긴 로트입니다 · ' + res.name + ' ' + scanSeen[k].qty);
+                return;
+            }
+
+            const row = {
+                mat_id: res.mat_id, name: res.name, code: res.code, lot: res.lot,
+                qty: add, hits: 1, item_id: null,
+                /* 장부상 이미 소진된 로트 — 앞선 세척에서 FIFO 가 이 로트를 대신 뺐다는 뜻.
+                   담는 것은 막지 않는다. 실물이 손에 있는데 못 담게 하면 현장이 멈춘다. */
+                warn: (res.remain <= 0) ? '장부상 소진된 로트' : null,
+                expiry: res.expiry
+            };
+            scanSeen[k] = row;
+            beep(true);
+            drawScanList();
+            scanMsg(res.name + ' 담기 · ' + add);
+
+            /* 서버에는 «행 생성»만 맡긴다 — 스캔을 막지 않는다.
+               ★ 수량을 /item_save 로 보내면 안 된다. 그쪽은 qty>0 이면
+                 State 를 wait→working 으로 올리고 StartTime 까지 넣는다.
+                 찍자마자 작업중이 되어 「시작」을 누를 게 없어진다.
+               수량은 이 화면이 원래 쓰는 방식(로컬 보관 + dirty)에 태운다.
+               「작업시작」이 /item_start 로 수량을 같이 보낸다. */
+            apiPost('/item_add', {work_id: curW.work_id, mat_id: row.mat_id, spjangcd: CTX.spjangcd}, (r) => {
+                row.item_id = (r.data && r.data.item_id) || null;
+                refreshItems();
+                applyScanQty();
+            });
+        }
+
+        /* 스캔으로 담은 수량을 화면 행에 얹는다.
+           refreshItems() 가 서버에서 다시 읽어오면 Qty 는 0 이므로 매번 다시 얹어야 한다. */
+        function applyScanQty() {
+            if (!curW) return;
+            let touched = false;
+            Object.keys(scanSeen).forEach(k => {
+                const r = scanSeen[k];
+                if (r.err || !r.item_id) return;
+                const it = curW.items.filter(x => String(x.item_id) === String(r.item_id))[0];
+                if (!it || it.st === 'done') return;
+                if (it.qty !== r.qty) {
+                    it.qty = r.qty;
+                    dirty.add(it.item_id);      // 화면을 벗어날 때 flushDirty 가 저장한다
+                    touched = true;
+                }
+            });
+            if (touched) renderItems();
+        }
+
+        function drawScanList() {
+            const keys = Object.keys(scanSeen);
+            const box = document.getElementById('scanList');
+            if (!keys.length) { box.innerHTML = ''; return; }
+            box.innerHTML = keys.reverse().map(k => {
+                const r = scanSeen[k];
+                if (r.err) {
+                    return `<div class="scanrow err"><div class="sid">
+              <div class="snm">${r.err}</div><div class="slot">${r.lot || ''}</div></div></div>`;
+                }
+                return `<div class="scanrow ${r.warn ? 'warn' : ''}"><div class="sid">
+            <div class="snm">${r.name}</div>
+            <div class="slot">LOT ${r.lot}${r.hits > 1 ? ' · ' + r.hits + '회' : ''}${r.warn ? ' · ' + r.warn : ''}</div></div>
+          <div class="sq">${r.qty.toLocaleString()}</div></div>`;
+            }).join('');
+        }
+
+        /* ── 카메라 ── */
+        async function openScanSheet() {
+            scanSeen = {}; lastCode = ''; lastAt = 0;
+            drawScanList();
+            document.getElementById('scanManual').value = '';
+            /* 대상 목록을 먼저 채워둔다 — 스캔값을 여기에 맞춘다 */
+            const r = apiGet('/target_materials', {work_id: curW.work_id, spjangcd: CTX.spjangcd});
+            STOCK = (r.data || []).map(m => ({
+                mat_id: m.mat_id, code: m.mat_code, name: m.mat_name, stock: num(m.stock)
+            }));
+            showMask('scanMask');
+            scanMsg('카메라 준비 중…');
+
+            if (!('BarcodeDetector' in window)) {
+                scanMsg('이 브라우저는 카메라 인식을 지원하지 않습니다 — 아래에 직접 입력하세요');
+                document.getElementById('scanWrap').style.display = 'none';
+                return;
+            }
+            try {
+                scanDet = new window.BarcodeDetector({
+                    formats: ['code_128', 'code_39', 'ean_13', 'ean_8', 'qr_code', 'data_matrix', 'itf']
+                });
+                scanStream = await navigator.mediaDevices.getUserMedia({
+                    video: {facingMode: 'environment', width: {ideal: 1280}}
+                });
+                const v = document.getElementById('scanVideo');
+                v.srcObject = scanStream;
+                await v.play();
+                scanMsg('라벨을 비추세요');
+                scanLoop();
+            } catch (e) {
+                console.error('[scan]', e);
+                scanMsg('카메라를 열 수 없습니다 — 아래에 직접 입력하세요');
+            }
+        }
+
+        function scanLoop() {
+            clearTimeout(scanTimer);
+            scanTimer = setTimeout(async () => {
+                const mask = document.getElementById('scanMask');
+                if (!mask.classList.contains('show')) return;   // 닫혔으면 멈춘다
+                if (!scanBusy && scanDet) {
+                    scanBusy = true;
+                    try {
+                        const v = document.getElementById('scanVideo');
+                        const found = await scanDet.detect(v);
+                        if (found && found.length) {
+                            const code = found[0].rawValue || '';
+                            const now = Date.now();
+                            /* 같은 값이 연속으로 잡힌다 — 2.5초는 무시한다 */
+                            if (code && !(code === lastCode && now - lastAt < 2500)) {
+                                lastCode = code; lastAt = now;
+                                const fr = document.getElementById('scanFrame');
+                                fr.classList.add('hit');
+                                setTimeout(() => fr.classList.remove('hit'), 350);
+                                scanHit(code);
+                            }
+                        }
+                    } catch (e) { /* 프레임 실패는 무시하고 다음 프레임 */ }
+                    scanBusy = false;
+                }
+                scanLoop();
+            }, 220);
+        }
+
+        function closeScan() {
+            clearTimeout(scanTimer);
+            scanTimer = null;
+            if (scanStream) {
+                scanStream.getTracks().forEach(t => t.stop());
+                scanStream = null;
+            }
+            const v = document.getElementById('scanVideo');
+            if (v) v.srcObject = null;
+        }
+
+        document.getElementById('scanManualBtn').onclick = () => {
+            const el = document.getElementById('scanManual');
+            const v = (el.value || '').trim();
+            if (!v) { flash('라벨 번호를 입력하세요'); return; }
+            scanHit(v);
+            el.value = '';
+            el.focus();
+        };
+        document.getElementById('scanManual').addEventListener('keydown', e => {
+            /* 블루투스 스캐너(키보드 웨지)도 이 칸으로 받는다 — 엔터로 확정된다 */
+            if (e.key === 'Enter') { e.preventDefault(); document.getElementById('scanManualBtn').click(); }
+        });
+        document.getElementById('scanDone').onclick = () => {
+            closeScan();
+            hideMask('scanMask');
+            refreshItems();
+            applyScanQty();     // ★ 마지막 스캔은 item_add 응답이 늦어 0 으로 보이던 자리
+            const n = Object.keys(scanSeen).filter(k => !scanSeen[k].err).length;
+            if (n) flash(n + '개 품목 담기 완료 — 수량을 확인하고 작업을 시작하세요');
+        };
+        document.getElementById('scanMask').addEventListener('click', e => {
+            if (e.target.id === 'scanMask' || e.target.closest('[data-close]')) closeScan();
         });
 
         /* 품목 시작·종료 시간 수정 */
