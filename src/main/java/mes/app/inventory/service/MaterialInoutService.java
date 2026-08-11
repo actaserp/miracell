@@ -16,10 +16,10 @@ public class MaterialInoutService {
 
 	@Autowired
 	SqlRunner sqlRunner;
-	
+
 	public List<Map<String, Object>> getMaterialInout(String srchStartDt, String srchEndDt, String housePk,
-			String matType, String matGrpPk, String keyword, String spjangcd) {
-		
+																										String matType, String matGrpPk, String keyword, String spjangcd) {
+
 		MapSqlParameterSource param = new MapSqlParameterSource();
 		param.addValue("srchStartDt", srchStartDt);
 		param.addValue("srchEndDt", srchEndDt);
@@ -28,7 +28,7 @@ public class MaterialInoutService {
 		param.addValue("matGrpPk", matGrpPk);
 		param.addValue("keyword", keyword);
 		param.addValue("spjangcd", spjangcd);
-		
+
 		String sql = """
 					select distinct mi.id as mio_pk
                     , fn_code_name('inout_type', mi."InOut") as inout
@@ -88,21 +88,21 @@ public class MaterialInoutService {
                     and mi."InoutDate" between cast(:srchStartDt as date) and cast(:srchEndDt as date)
                     and mi.spjangcd = :spjangcd
 				""";
-		
+
 		if (StringUtils.isEmpty(housePk)==false) sql +=" and sh.id = cast(:housePk as Integer) ";
 		if (StringUtils.isEmpty(matType)==false) sql +=" and mg.\"MaterialType\" = :matType ";
 		if (StringUtils.isEmpty(matGrpPk)==false) sql +=" and m.\"MaterialGroup_id\" = cast(:matGrpPk as Integer) ";
 		if (StringUtils.isEmpty(keyword)==false) sql +=" and upper(m.\"Name\") like concat('%%',upper(:keyword),'%%') ";
-		
+
 		sql += " order by \"InoutDate\" desc, \"InoutTime\" desc, mi.id desc ";
-		
-        List<Map<String, Object>> items = this.sqlRunner.getRows(sql, param);
-        
-        return items;
+
+		List<Map<String, Object>> items = this.sqlRunner.getRows(sql, param);
+
+		return items;
 	}
 
 	public List<Map<String, Object>> getMaterialInoutReceipt(String srchStartDt, String srchEndDt, String housePk,
-													  String matType, String matGrpPk, String keyword, String spjangcd) {
+																													 String matType, String matGrpPk, String keyword, String spjangcd) {
 
 		MapSqlParameterSource param = new MapSqlParameterSource();
 		param.addValue("srchStartDt", srchStartDt);
@@ -185,7 +185,7 @@ public class MaterialInoutService {
 	}
 
 	public List<Map<String, Object>> getMaterialInoutIssue(String srchStartDt, String srchEndDt, String housePk,
-															  String matType, String matGrpPk, String keyword, String spjangcd) {
+																												 String matType, String matGrpPk, String keyword, String spjangcd) {
 
 		MapSqlParameterSource param = new MapSqlParameterSource();
 		param.addValue("srchStartDt", srchStartDt);
@@ -266,7 +266,7 @@ public class MaterialInoutService {
 	}
 
 	public List<Map<String, Object>> getMaterialInoutDisposal(String srchStartDt, String srchEndDt, String housePk,
-													  String matType, String matGrpPk, String keyword, String spjangcd) {
+																														String matType, String matGrpPk, String keyword, String spjangcd) {
 
 		MapSqlParameterSource param = new MapSqlParameterSource();
 		param.addValue("srchStartDt", srchStartDt);
@@ -422,10 +422,10 @@ public class MaterialInoutService {
 	}
 
 	public List<Map<String, Object>> mioLotList(String mioId) {
-		
+
 		MapSqlParameterSource param = new MapSqlParameterSource();
 		param.addValue("mioId", mioId);
-		
+
 		String sql = """
             select 
             mi.id as mio_id
@@ -453,17 +453,17 @@ public class MaterialInoutService {
                 left join mat_inout mi on ml."SourceDataPk" = mi.id and ml."SourceTableName" ='mat_inout'
             where mi.id = cast(:mioId as Integer) 
 			""";
-		
+
 		List<Map<String, Object>> items = this.sqlRunner.getRows(sql, param);
 		return items;
 	}
 
 	public List<Map<String, Object>> mioTestList(Integer mioId, Integer testResultId) {
-		
+
 		MapSqlParameterSource param = new MapSqlParameterSource();
 		param.addValue("mioId", mioId);
 		param.addValue("testResultId", testResultId);
-		
+
 		String sql = """
 				select ti.id, up."Name" as "CheckName", ti."ResultType" as "resultType", to_char(tir."TestDateTime", 'YYYY-MM-DD') as "testDate"
 				, tir."JudgeCode", tir."CharResult" , ti."Name" as name ,tir."Char1" as result1
@@ -476,11 +476,11 @@ public class MaterialInoutService {
 				and tr.id= :testResultId
 				order by ti.id
 				""";
-		
-		
-		
+
+
+
 		List<Map<String, Object>> items = this.sqlRunner.getRows(sql, param);
-		
+
 		return items;
 	}
 
@@ -517,7 +517,7 @@ public class MaterialInoutService {
 	}
 
 	public List<Map<String, Object>> mioTestDefaultList() {
-		
+
 		String sql = """
 				select ti.id,ti."Name" as name, ti."ResultType" as "resultType", '' as result1
 				from test_item ti
@@ -525,26 +525,26 @@ public class MaterialInoutService {
 				where tm."Code"  = 'inout_test'
 				order by ti.id
 			    """;
-		
+
 		List<Map<String, Object>> items = this.sqlRunner.getRows(sql, null);
-		
+
 		return items;
 	}
 
 	public Map<String, Object> getEffectDate(Integer mioId) {
-		
+
 		MapSqlParameterSource param = new MapSqlParameterSource();
 		param.addValue("mioId", mioId);
-		
+
 		String sql = """
 				select (case when mi."EffectiveDate" = null then null else to_char(mi."EffectiveDate", 'YYYY-MM-DD') end)  as "EffectiveDate"
 				from mat_inout mi 
 				inner join material m on m.id = mi."Material_id"
 				where mi.id = :mioId
 				""";
-		
+
 		Map<String,Object> items = this.sqlRunner.getRow(sql, param);
-		
+
 		return items;
 	}
 
@@ -803,10 +803,95 @@ public class MaterialInoutService {
             """, p);
 	}
 
+	/**
+	 * 자사 품목코드로 역조회 — 바코드가 없는 자재는 material."Code" 를 그대로 찍는다.
+	 *
+	 * ★ GS1 파싱을 태우지 않고 원문 그대로 대조한다.
+	 *   숫자로 시작하는 코드는 파서가 AI 로 오인해 잘라먹는다.
+	 */
+	public Map<String, Object> findMaterialByCode(String code, String spjangcd) {
+		if (code == null || code.isBlank()) return null;
+		MapSqlParameterSource p = new MapSqlParameterSource();
+		p.addValue("code", code.trim());
+		p.addValue("spjangcd", (spjangcd == null || spjangcd.isBlank()) ? null : spjangcd);
+
+		return this.sqlRunner.getRow("""
+            SELECT m.id                 AS material_id
+                 , m."Code"             AS material_code
+                 , m."Name"             AS material_name
+                 , m."ValidDays"        AS valid_days
+                 , COALESCE(m."LotUseYN",'N') AS lot_use_yn
+                 , 'CODE'               AS barcode_type
+                 , 'each'               AS pack_level
+                 , 1                    AS pack_qty
+                 , NULL::integer        AS company_id
+              FROM material m
+             WHERE m."Code" = CAST(:code AS varchar)
+               AND (CAST(:spjangcd AS varchar) IS NULL OR m.spjangcd = CAST(:spjangcd AS varchar))
+             LIMIT 1
+            """, p);
+	}
+
+	/** 품목의 현재 등록 바코드 1건 — 등록 화면이 「이미 걸려 있다」를 알리는 데 쓴다 */
+	public Map<String, Object> getBarcodeOfMaterial(Integer materialId) {
+		if (materialId == null) return null;
+		MapSqlParameterSource p = new MapSqlParameterSource();
+		p.addValue("materialId", materialId);
+		return this.sqlRunner.getRow("""
+            SELECT id, "BarcodeType" AS barcode_type, "GTIN" AS gtin, "UdiDi" AS udi_di
+                 , "PackLevel" AS pack_level, "PackQty" AS pack_qty, "Company_id" AS company_id
+              FROM material_barcode
+             WHERE "Material_id" = :materialId
+               AND COALESCE(_status,'a') <> 'd'
+             LIMIT 1
+            """, p);
+	}
+
 	/** 미등록 바코드 자동 학습용 — 스캔한 GTIN 을 품목에 매핑 등록 */
 	public int registerBarcode(Integer materialId, String barcodeType, String gtin, String udiDi,
 														 Integer companyId, String spjangcd, Integer userId) {
+		return registerBarcode(materialId, barcodeType, gtin, udiDi, companyId, spjangcd, userId, null, null);
+	}
+
+	/**
+	 * 바코드 등록 — 품목당 1건.
+	 *
+	 * ★ ux_matbc_one_per_material 이 품목당 활성 1건을 강제하므로,
+	 *   기존 행이 있으면 먼저 소프트 삭제한다. 안 지우면 유니크 위반으로 죽는다.
+	 *   하드 삭제가 아닌 이유는 「예전엔 이 바코드였다」를 남겨야 하기 때문이다.
+	 *
+	 * ★ packQty 는 「이 바코드 1건 = 품목 몇 개」다.
+	 *   매입처가 인박스 바코드를 붙여 보내면 1스캔이 N개가 된다.
+	 *   품목에 바코드가 몇 개냐(=1건)와는 다른 축이다.
+	 *   CHECK 제약이 each 는 반드시 1이 되도록 막고 있어 실수가 걸린다.
+	 */
+	public int registerBarcode(Integer materialId, String barcodeType, String gtin, String udiDi,
+														 Integer companyId, String spjangcd, Integer userId,
+														 String packLevel, java.math.BigDecimal packQty) {
+		if (materialId == null)
+			throw new IllegalArgumentException("품목을 선택하세요");
+		if ((gtin == null || gtin.isBlank()) && (udiDi == null || udiDi.isBlank()))
+			throw new IllegalArgumentException("바코드 값이 없습니다");
+
+		String lvl = (packLevel == null || packLevel.isBlank()) ? "each" : packLevel.trim();
+		java.math.BigDecimal qty = (packQty == null) ? java.math.BigDecimal.ONE : packQty;
+		if ("each".equals(lvl)) qty = java.math.BigDecimal.ONE;   // CHECK 제약과 동일 규칙
+		if (qty.signum() <= 0)
+			throw new IllegalArgumentException("입수량은 1 이상이어야 합니다");
+
+		MapSqlParameterSource d = new MapSqlParameterSource();
+		d.addValue("materialId", materialId);
+		d.addValue("userId", userId);
+		this.sqlRunner.execute("""
+            UPDATE material_barcode
+               SET _status = 'd', _modified = now(), _modifier_id = CAST(:userId AS integer)
+             WHERE "Material_id" = :materialId
+               AND COALESCE(_status,'a') <> 'd'
+            """, d);
+
 		MapSqlParameterSource p = new MapSqlParameterSource();
+		p.addValue("packLevel", lvl);
+		p.addValue("packQty", qty);
 		p.addValue("materialId", materialId);
 		p.addValue("type", (barcodeType == null || barcodeType.isBlank()) ? "GS1" : barcodeType);
 		p.addValue("gtin", (gtin == null || gtin.isBlank()) ? null : gtin);
@@ -820,7 +905,8 @@ public class MaterialInoutService {
                    ("Material_id","BarcodeType","GTIN","UdiDi","PackLevel","PackQty",
                     "Company_id","PrimaryYN",_status,_created,_creater_id,spjangcd)
             VALUES (:materialId, :type, CAST(:gtin AS varchar), CAST(:udiDi AS varchar),
-                    'each', 1, CAST(:companyId AS integer), 'N',
+                    CAST(:packLevel AS varchar), CAST(:packQty AS numeric),
+                    CAST(:companyId AS integer), 'Y',
                     'a', now(), CAST(:userId AS integer), CAST(:spjangcd AS varchar))
             """, p);
 	}

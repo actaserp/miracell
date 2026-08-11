@@ -2912,7 +2912,8 @@
                             e.cell.style.textAlign = 'center';
                             // 편집 가능한 컬럼 헤더 파랑 표시
                             const b = sender.columns[e.col].binding;
-                            if (b === 'lotNumber' || b === 'effectiveDate' || b === 'inputQty') {
+                            if (b === 'lotNumber' || b === 'makerLotNo'
+                                || b === 'effectiveDate' || b === 'inputQty') {
                                 e.cell.style.color = '#5567ff';
                             }
                         }
@@ -2946,7 +2947,10 @@
                             format: 'n0',
                             isReadOnly: true
                         },
-                        {binding: 'lotNumber', header: '로트번호(빈칸=자동)', width: 150, align: 'center', isReadOnly: false},
+                        {binding: 'lotNumber', header: '사내로트(빈칸=자동)', width: 150, align: 'center', isReadOnly: false},
+                        /* 바코드 (10) 에서 자동으로 채워진다. 없으면 박스에 적힌 값을 직접 입력.
+                           리콜 때 「그 제조사 로트」로 모아 보려면 이 칸이 있어야 한다 */
+                        {binding: 'makerLotNo', header: '제조사로트', width: 150, align: 'center', isReadOnly: false},
                         {
                             binding: 'effectiveDate',
                             header: '유효기간(YYYY-MM-DD)',
@@ -3071,7 +3075,13 @@
                     e.preventDefault();
                     const raw = $(this).val().trim();
                     $(this).val('');
-                    if (raw) _this.handlePoScan(raw, $content);   // ← PO 조회로 변경
+                    if (!raw) return;
+                    /* ★ 두 종류가 같은 칸으로 들어온다.
+                         PO…  발주 바코드 → 그 발주의 미입고 라인을 목록에 올린다
+                         그 외 제품 바코드 → 올라온 라인 중 어느 것이 실제로 왔는지 확정한다
+                       발주만으로는 「올 예정」까지만 알 수 있다. 실물 확인은 제품 스캔이 한다. */
+                    if (/^PO/i.test(raw)) _this.handlePoScan(raw, $content);
+                    else _this.handleItemScan(raw, $content);
                 });
 
                 // ★ 입고 저장
@@ -3088,11 +3098,21 @@
                         return;
                     }
 
-                    for (const it of items) {
-                        if (!(Number(it.inputQty) > 0)) {
-                            Alert.alert('', `입고수량이 0 이하인 항목이 있습니다. (${it.materialName})`);
-                            return;
-                        }
+                    /* ★ 확정된 줄만 저장한다.
+                         발주 라인은 「올 예정」일 뿐이고, 실제로 온 것은 제품 스캔이 확정한다.
+                         수량 0 인 줄(=안 찍은 줄)은 저장 대상에서 제외한다 —
+                         예전엔 전량 프리필이라 안 온 품목까지 그대로 입고됐다. */
+                    const targets = items.filter(it => Number(it.inputQty) > 0);
+                    if (targets.length === 0) {
+                        Alert.alert('', '확정된 품목이 없습니다. 실물 바코드를 스캔하세요.');
+                        return;
+                    }
+                    if (targets.length < items.length) {
+                        const skipped = items.length - targets.length;
+                        if (!confirm(skipped + '개 품목은 스캔되지 않아 제외됩니다. 계속할까요?')) return;
+                    }
+
+                    for (const it of targets) {
                         if (Number(it.inputQty) > Number(it.remainQty)) {
                             Alert.alert('', `미입고수량(${it.remainQty})을 초과했습니다. (${it.materialName})`);
                             return;
@@ -3106,19 +3126,20 @@
                     const payload = {
                         store_house_id: storeHouseId,                      // 라인에 창고 없을 때 fallback
                         spjangcd: sessionStorage.getItem('spjangcd') || '',
-                        lines: items.map(it => ({
+                        lines: targets.map(it => ({
                             bh_id: it.bh_id,
                             balju_id: it.balju_id,                     // 발주 라인 PK (입고수량 누적용)
                             Material_id: it.Material_id,
                             StoreHouse_id: it.StoreHouse_id || storeHouseId,
                             InputQty: Number(it.inputQty),
                             LotNumber: it.lotNumber || '',             // 빈칸이면 서버 자동채번
+                            MakerLotNo: it.makerLotNo || '',           // 제조사 로트(바코드 (10))
                             EffectiveDate: it.effectiveDate,
                             Description: ''
                         }))
                     };
 
-                    Alert.confirm('', `${items.length}건을 입고 처리하시겠습니까?`, function () {
+                    Alert.confirm('', `${targets.length}건을 입고 처리하시겠습니까?`, function () {
                         AjaxUtil.postJsonAsyncData(_this.url + '/lot_save_by_po', payload, function (res) {
                             if (!res.success) {
                                 Alert.alert('', res.message || '저장 중 오류가 발생했습니다.');
@@ -3180,6 +3201,120 @@
             }
 
             // PO 바코드 스캔 → 발주 라인 로드
+            /**
+             * 제품 바코드 스캔 — 발주 라인 중 실제로 들어온 것을 확정한다.
+             *
+             * 해석 순서는 서버(scan_lookup)가 정한다.
+             *   ① GTIN → ② UDI-DI → ③ 자사 품목코드 → ④ 로트번호 역추적
+             * 어디에도 안 걸리면 미등록 — 그 자리에서 발주 라인에 연결해 등록한다.
+             */
+            handleItemScan(raw, $content) {
+                const _this = this;
+                const cv = _this.scanResultGrid.itemsSource;
+
+                if (!cv.sourceCollection.length) {
+                    Notify.warn('먼저 발주 바코드를 스캔하세요.');
+                    $content.find('#scanBarcode').focus();
+                    return;
+                }
+
+                const parsed = _this.parseScannedBarcode(raw) || {};
+
+                AjaxUtil.getAsyncData(_this.url + '/scan_lookup', {
+                    gtin14: parsed.gtin14 || '',
+                    di: parsed.di || '',
+                    lot: parsed.lot || '',
+                    raw: raw,
+                    barcode_type: parsed.standard || '',
+                    spjangcd: sessionStorage.getItem('spjangcd') || ''
+                }, function (res) {
+                    const d = res && res.data;
+                    if (!d) {
+                        _this.askBarcodeRegister(raw, parsed, $content);
+                        return;
+                    }
+
+                    const line = cv.sourceCollection.find(it =>
+                        String(it.Material_id) === String(d.material_id));
+                    if (!line) {
+                        Notify.error('발주에 없는 품목입니다 · ' + (d.material_name || ''));
+                        $content.find('#scanBarcode').focus();
+                        return;
+                    }
+
+                    /* ★ 1스캔 = pack_qty 개. 인박스 바코드를 낱개로 세면 수량이 크게 틀어진다 */
+                    const step = Number(d.pack_qty) || 1;
+                    const next = (Number(line.inputQty) || 0) + step;
+                    if (next > Number(line.remainQty)) {
+                        Notify.warn('미입고수량(' + line.remainQty + ')을 초과합니다 · ' + line.materialName);
+                        $content.find('#scanBarcode').focus();
+                        return;
+                    }
+                    line.inputQty = next;
+                    line.confirmed = true;
+                    line.statusText = '확인 ' + next + '/' + line.remainQty;
+
+                    /* ★ 제조사 로트는 사내 로트번호 칸에 넣지 않는다.
+                         LotNumber 는 우리가 채번하는 사내 번호(비우면 서버가 자동 발번),
+                         MakerLotNo 는 바코드 (10) 에서 읽은 외부 번호다.
+                         한 칸에 섞으면 사내 번호 체계가 매입처마다 제각각이 된다. */
+                    if (parsed.lot && !line.makerLotNo) line.makerLotNo = parsed.lot;
+                    if (d.effective_date && !line.effectiveDate) line.effectiveDate = d.effective_date;
+
+                    cv.refresh();
+                    _this.updateScanSummary($content);
+                    $content.find('#scanBarcode').focus();
+                });
+            }
+
+            /**
+             * 미등록 바코드를 발주 라인에 연결한다.
+             *
+             * ★ 후보를 발주 라인으로 좁힌다. 전체 품목에서 고르게 하면 잘못 붙기 쉽고,
+             *   첫 연결이 틀리면 그 뒤로는 스캔이 자동이라 조용히 계속 틀린다.
+             * ★ 품목당 바코드는 1건이다. 이미 있으면 서버가 갈아끼운다.
+             */
+            askBarcodeRegister(raw, parsed, $content) {
+                const _this = this;
+                const cv = _this.scanResultGrid.itemsSource;
+                const lines = cv.sourceCollection;
+
+                let html = '<div style="padding:8px 4px">'
+                    + '<div style="margin-bottom:8px">미등록 바코드입니다 · <b>' + raw + '</b></div>'
+                    + '<div style="margin-bottom:6px">어느 품목입니까?</div>'
+                    + '<select id="regMatSel" class="form-control2" style="width:100%">';
+                lines.forEach(function (it) {
+                    html += '<option value="' + it.Material_id + '">'
+                        + it.materialCode + ' · ' + it.materialName + '</option>';
+                });
+                html += '</select>'
+                    + '<div style="margin-top:10px">이 바코드 1개는 몇 개입니까?</div>'
+                    + '<input id="regPackQty" type="number" min="1" value="1" class="form-control2" style="width:120px">'
+                    + '<div style="font-size:12px;color:#888;margin-top:4px">'
+                    + '낱개면 1, 인박스면 입수량을 넣으세요</div></div>';
+
+                Alert.confirm('바코드 등록', html, function () {
+                    const matId = Number($('#regMatSel').val());
+                    const qty = Number($('#regPackQty').val()) || 1;
+                    AjaxUtil.postAsyncData(_this.url + '/barcode_register', {
+                        material_id: matId,
+                        gtin: parsed.gtin14 || '',
+                        udi_di: (!parsed.gtin14 ? (parsed.di || raw) : ''),
+                        barcode_type: parsed.standard || 'CODE',
+                        pack_level: (qty > 1 ? 'inbox' : 'each'),
+                        pack_qty: qty,
+                        spjangcd: sessionStorage.getItem('spjangcd') || ''
+                    }, function (r) {
+                        if (!r.success) {
+                            Alert.alert('', r.message || '등록 실패');
+                            return;
+                        }
+                        Notify.success('바코드를 등록했습니다. 다시 스캔하세요.');
+                        $content.find('#scanBarcode').focus();
+                    });
+                });
+            }
+
             handlePoScan(raw, $content) {
                 const _this = this;
 
@@ -3241,9 +3376,15 @@
                         baljuQty: line.baljuQty,
                         receivedQty: line.receivedQty,
                         remainQty: remain,
-                        lotNumber: '',
+                        lotNumber: '',                 // 사내 로트 — 비우면 서버 자동채번
+                        makerLotNo: '',                // 제조사 로트 — 바코드 (10)
                         effectiveDate: headerExp,            // 기본 유효기간 상속
-                        inputQty: remain,               // ★ 미입고 전량 프리필 → 부분입고 시 수정
+                        /* ★ 전량 프리필을 하지 않는다.
+                             예전엔 미입고 전량이 채워진 채로 떠서, 안 온 품목까지
+                             그대로 저장되면 재고가 조용히 부풀려졌다.
+                             제품을 찍어 확정한 만큼만 쌓인다. */
+                        inputQty: 0,
+                        confirmed: false,
                         statusText: '대기'
                     });
                 });
