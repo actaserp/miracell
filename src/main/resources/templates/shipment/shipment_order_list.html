@@ -13,7 +13,7 @@
     <div class="layout-contents">
         <div class="page-title-wrap">
             <div class="left">
-                <h2>출하 지시 조회</h2>
+                <h2>출고 계획 현황</h2>
                 <a title="북마크" class="bookmark toggle">
                     내 메뉴
                 </a>
@@ -21,7 +21,7 @@
             <ul class="page-navi">
                 <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
                 <li>영업 관리</li>
-                <li>출하 지시 조회</li>
+                <li>출고 계획 현황</li>
             </ul>
         </div>
         <div style="display: flex; gap: 5px;">
@@ -36,9 +36,14 @@
                                     </label>
                                 </dt>
                                 <dd>
-                                    <input type="date" id="srchStartDt" name="srchStartDt"/>
-                                    ~
-                                    <input type="date" id="srchEndDt" name="srchEndDt"/>
+                                    <!-- ★ srch-box 로 감싸야 두 날짜가 한 줄에 선다.
+                                         맨 텍스트 '~' 는 줄바꿈 지점이 되어 폭이 좁아지면 아래로 떨어진다.
+                                         다른 화면(출고 계획 등록·LOT 트래킹)과 같은 구조로 맞춘다 -->
+                                    <div class="srch-box">
+                                        <input type="date" id="srchStartDt" name="srchStartDt"/>
+                                        <span class="slow_sign">~</span>
+                                        <input type="date" id="srchEndDt" name="srchEndDt"/>
+                                    </div>
                                 </dd>
                             </dl>
 
@@ -420,10 +425,10 @@
             });
 
             $('#searchForm').on('keydown', function(e){
-               if(e.key === 'Enter'){
-                   e.preventDefault();
-                   page.searchMain();
-               }
+                if(e.key === 'Enter'){
+                    e.preventDefault();
+                    page.searchMain();
+                }
             });
 
             $('#btnSaveShipDate').click(function (e) {

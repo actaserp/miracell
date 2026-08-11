@@ -254,7 +254,7 @@
 
                 let content = tmpl('mult_matSearchTemplate', {});
                 let $content = $(content);
-                this.modalContainer.open({width: 950, height: 500, $content});
+                this.modalContainer.open({width: 850, height: 500, $content});
 
                 requestAnimationFrame(() => {
                     const $gridHost = document.querySelector('#search-grid');
@@ -280,12 +280,12 @@
                         isReadOnly: true,
                         keyActionEnter: wijmo.grid.KeyAction.None,
                         columns: [
-                            {binding: 'Code', header: '품목코드', width: 100, align: 'center'},
+                            {binding: 'Code', header: '품목코드', width: 150, align: 'center'},
                             {binding: 'group_name', header: '품목그룹', width: 110, cssClass:'align-left'},
-                            {binding: 'mat_user_name', header: '품목중분류', width: 250, cssClass:'align-left'},
-                            {binding: 'Name', header: '품목명', width: 250, cssClass:'align-left'},
+                            // {binding: 'mat_user_name', header: '품목중분류', width: 250, cssClass:'align-left'},
+                            {binding: 'Name', header: '품목명', width: '*', cssClass:'align-left'},
                             {binding: 'unit_name', header: '단위', width: 70, align: 'center'},
-                            {binding: 'Spec', header: '규격', width: '*', align: 'left'},
+                            // {binding: 'Spec', header: '규격', width: '*', align: 'left'},
                             {binding: 'cur_stock', header: '총재고', width: '*', align: 'left'}
                         ],
                         itemsSource: this.viewData,
@@ -300,7 +300,7 @@
                     this.$btnMaterialSelect = $content.find('#btnMaterialSelect');
 
                     // AjaxUtil.fillSelectOptions(this.$cboMaterialType, 'system_code', null, false, 'mat_type', this.material_type);
-                    AjaxUtil.fillSelectOptions(this.$cboMaterialGrp, 'material_group', 'all', false, '');
+                    AjaxUtil.fillSelectOptions(this.$cboMaterialGrp, 'material_group', 'all', 112, ''); // 제품[112]을 기본으로
 
                     //if (this.material_type != null) {
                     //    this.$cboMaterialType.val(this.material_type);

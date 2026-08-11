@@ -743,6 +743,22 @@ public class McellPackService {
                  WHERE id=:srcId AND ("MakerLotNo" IS NULL OR "MakerLotNo"='')
                 """, mk);
 
+		/* ★ 완제품 로트에 출처를 남긴다.
+		     finishProduction 이 붙이는 기본 문구는 「2차수생산」처럼 공정과 무관해서,
+		     mat_lot 을 훑을 때 조립·검사 산출물과 구분되지 않는다.
+		     2공장은 완제품 로트번호까지 유닛에서 승계하므로(같은 LotNumber 두 행)
+		     이 문구가 없으면 어느 쪽이 포장분인지 판별할 근거가 창고밖에 없다.
+		   ★ 1공장(「포장 완제품 입고」·「CK 생산 입고(1공장)」)과 같은 규칙이다.
+		   ★ 박스 라벨을 함께 적는다 — 실물과 대조할 때 이 한 줄이면 끝난다. */
+		MapSqlParameterSource ds = new MapSqlParameterSource()
+																 .addValue("mpId", mpId)
+																 .addValue("memo", "포장 완제품 입고(2공장) · 유닛 " + lotNumber
+																										 + ((label == null || label.isBlank()) ? "" : " · 박스라벨 " + label));
+		this.sqlRunner.execute("""
+                UPDATE mat_lot SET "Description" = :memo
+                 WHERE "SourceTableName"='mat_produce' AND "SourceDataPk"=:mpId
+                """, ds);
+
 		// ── 5. 유닛 packed ──
 		MapSqlParameterSource up = new MapSqlParameterSource()
 																 .addValue("unitId", unitId).addValue("userId", user.getId());

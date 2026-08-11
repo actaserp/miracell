@@ -361,7 +361,6 @@
                     <col style="width: 6%">
                     <col style="width: 20%">
                     <col style="width: 6%">
-                    <col style="width: 11%">
                     <col style="width: 6%">
                     <col style="width: 13%">
                     <col style="width: 9%">
@@ -375,7 +374,6 @@
                     <th>코드</th>
                     <th>품목</th>
                     <th>단위</th>
-                    <th>규격</th>
                     <th>수량</th>
                     <th>단가 <span style="font-size: 13px;">(선택시 부가세 포함)</span></th>
                     <th>공급가액</th>
@@ -400,13 +398,13 @@
                             <input type="hidden" name="MaterialGroupName" />
                             <input type="hidden" name="Material_id" />
                             <input type="hidden" name="standard_locked">
-                            <a class="btn in_btn" title="품목 신규등록" id="btnProductSave">
+                            <!--<a class="btn in_btn" title="품목 신규등록" id="btnProductSave">
                                 <img th:src="@{/images/icon/ico-plus.svg}" alt="등록 아이콘" />
-                            </a>
+                            </a>-->
                         </div>
                     </td>
                     <td><input type="text" style="text-align:center;" name="unit" placeholder="단위" readonly/></td>
-                    <td>
+                    <!--<td>
                       <div class="input-with-button">
                         <input type="hidden" id = "standard_id" name="standard_id" />
                         <input type="text" style="text-align:center;" name="standard" placeholder="규격" />
@@ -414,7 +412,7 @@
                             <img th:src="@{/images/icon/ico-plus.svg}" alt="등록 아이콘" />
                         </a>
                       </div>
-                    </td>
+                    </td>-->
                     <td><input type="text" style="text-align:right;" name="quantity" placeholder="수량" /></td>
                     <td>
                         <div class="input-with-checkbox">
@@ -1557,7 +1555,7 @@
 // 🔹 단위 + 규격에 따른 실제 계산 수량
            let qtyForCalc = baseQty;
 
-           if (isStandardNumeric) {
+           /*if (isStandardNumeric) {
             if (isMeter(unitVal)) {
              // M인 경우만 규격 × 수량
              qtyForCalc = standardNum * baseQty;
@@ -1565,7 +1563,7 @@
              // M이 아닌 단위(EA, SET 등)는 규격 무시
              qtyForCalc = baseQty;
             }
-           }
+           }*/
 
            const isVatIncluded = $row.find('input[name^="VatIncluded_"]').is(':checked');
             const isVatExempt   = false;

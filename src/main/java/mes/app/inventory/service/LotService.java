@@ -26,6 +26,18 @@ import mes.domain.repository.ShipmentHeadRepository;
 import mes.domain.repository.ShipmentRepository;
 import mes.domain.services.SqlRunner;
 
+/**
+ * LOT 트래킹 서비스.
+ *
+ * ★ 재귀 CTE 4개(재료추적·제품추적·입출고추적·출하추적)는 모두 「지나온 로트번호 배열(path)」로
+ *   순환을 막는다. PK·FK 가 로트번호를 공유하므로(공정도메인 기준 §1) 이 안전망이 없으면
+ *   무한 재귀로 서버가 멈춘다.
+ *
+ *   ⚠ path 를 이어붙일 때 반드시 ::text 로 캐스팅한다.
+ *      앵커에서 path 타입이 text[] 로 고정되는데 "LotNumber" 는 varchar 라
+ *      text[] || varchar 는 PostgreSQL 의 anyarray||anyelement 로 해석되지 않는다
+ *      → "연산자 없음: text[] || character varying" 로 쿼리 전체가 죽는다.
+ */
 @Service
 public class LotService {
 
@@ -190,7 +202,7 @@ public class LotService {
                 union all
                 -- ③ 카톤 개체 — 실물 박스에 붙는 바코드(C-…-KR-01).
                 --    pack_carton 이 국가별 완제품 로트를 직접 들고 있어
-                --    차수를 거치지 않고 바로 이어진다 — 국가가 안 섮인다.
+                --    차수를 거치지 않고 바로 이어진다 — 국가가 안 섞인다.
                 select ml.id, 3, 'carton'
                   from pack_carton pc
                   join mat_lot ml on ml.id = pc."MatLot_id"
@@ -493,6 +505,13 @@ with recursive T as (
         , mat_pk 
         , 1 as lvl 
         , "EffectiveDate"
+        -- ★ 순환 방지. PK·FK 가 로트번호를 공유하므로(공정도메인 §1)
+        --   산출 로트번호와 소비 로트번호가 같아지는 순간 자기를 다시 불러
+        --   무한 재귀가 된다. 지나온 로트를 배열로 들고 다니며 막는다.
+        -- ⚠ 원소를 text 로 캐스팅한다. 여기서 path 타입이 text[] 로 굳는데
+        --   "LotNumber" 는 varchar 라, 아래 재귀에서 ::text 없이 이어붙이면
+        --   「연산자 없음: text[] || character varying」 로 쿼리가 통째로 죽는다.
+        , array[lot_number::text] as path
         from P
         union all 
         select 
@@ -505,8 +524,11 @@ with recursive T as (
         , B.mat_pk as mat_pk
         , t.lvl +1 as lvl
         , B."EffectiveDate"
+        , T.path || B.lot_number::text          -- ★ ::text 필수 (위 주석)
         from T   
           inner join B on B.p_lot_number  = T.lot_number 
+         where not (B.lot_number::text = any(T.path))   -- 순환 차단
+           and T.lvl < 20                               -- 깊이 상한(안전망)
         )        
         select 
         jr_id 
@@ -537,7 +559,7 @@ with recursive T as (
         --   리콜 범위를 자를 때 쓴다 — 「8/3 이후 투입분」 같은 판단이 이 칸 없이는 불가능하다.
         --   진행 중이면 EndTime 이 비므로 StartTime 으로 떨군다.
         --   뿌리 행은 mp_id 가 없어 빈칸이다 — 「소비된 시각」이 없는 게 맞다.
-        --   생성일로 채우지 않는다 : 한 칸에 두 의미가 섮이면
+        --   생성일로 채우지 않는다 : 한 칸에 두 의미가 섞이면
         --   이 날짜로 회수 범위를 자를 때 조용히 오판한다.
         -- ★ 잔여 = 지금 이 로트에 남은 재고(mat_lot."CurrentStock").
         --   PK·CK 를 다 안 쓰고 남기는 경우가 많아 「얼마 쓰고 얼마 남았나」를 같이 본다.
@@ -555,8 +577,7 @@ with recursive T as (
         order by lvl
 				""";
 
-		List<Map<String, Object>> items = this.sqlRunner.getRows(sql, dicParam);
-		return items;
+		return nz(this.sqlRunner.getRows(sql, dicParam));
 	}
 
 	public List<Map<String, Object>> getProductTracking(String lotNumber) {
@@ -577,6 +598,11 @@ with recursive T as (
             , null::int as p_mat_pk
             , ml."Material_id" as l_mat_pk
             , 1 as lvl
+            -- ★ 순환 방지. 이 재귀는 T.lot_number = ml."LotNumber" 로 이어지고
+            --   새 행의 lot_number 는 mp."LotNumber" 다. 둘이 같으면 자기를 다시 불러
+            --   무한 재귀가 된다 — PK·FK 가 로트번호를 공유하는 구조에서 실제로 발생한다.
+            -- ⚠ 원소를 text 로 캐스팅한다 (재료추적 주석 참고).
+            , array[ml."LotNumber"::text] as path
             from mat_lot ml        
             -- left 로 둔다 : 시드처럼 생산 차수가 없는 로트도 뿌리로는 남아야 한다
             left join mat_produce mp0 on mp0.id = ml."SourceDataPk"
@@ -592,16 +618,22 @@ with recursive T as (
             , mp."Material_id" as p_mat_pk
             , ml."Material_id" as l_mat_pk
             , (t.lvl+1 ) as lvl
+            , T.path || mp."LotNumber"::text          -- ★ ::text 필수
             from mat_lot ml 
             inner join mat_lot_cons mlc ON mlc."MaterialLot_id" =ml.id 
             left join mat_produce mp on mp.id = mlc."SourceDataPk" and mlc."SourceTableName" ='mat_produce'
             inner join T on T.lot_number = ml."LotNumber" 
             inner join job_res jr on jr.id=mp."JobResponse_id" 
+            -- mp 가 left join 이라 LotNumber 가 NULL 이면 조건 전체가 NULL 이 되어
+            -- 그 행이 조용히 사라진다. is null 을 먼저 열어 의도를 명시한다
+            where (mp."LotNumber" is null
+                   or not (mp."LotNumber"::text = any(T.path)))   -- 순환 차단
+              and T.lvl < 20                                      -- 깊이 상한(안전망)
         )
           -- ★ 이 재귀 CTE 는 내부 칸 이름과 의미가 엇갈린다.
           --   뿌리 행 : l_mat_pk 가 lot_number 의 품목, 부모 없음
           --   재귀 행 : p_mat_pk 가 lot_number 의 품목, l_mat_pk 가 p_lot_number 의 품목
-          --   그대로 내리면 재귀 행부터 품목명 두 칸이 서로 바뀜 보인다.
+          --   그대로 내리면 재귀 행부터 품목명 두 칸이 서로 바뀌어 보인다.
           --   여기서 재료추적과 같은 규칙(mat_pk = 자기, p_mat_pk = 부모)으로 맞춘다.
           select 
           concat(p_lot_number , lot_number) as id
@@ -628,7 +660,7 @@ with recursive T as (
           --   리콜 범위를 자를 때 쓴다 — 「8/3 이후 투입분」 같은 판단이 이 칸 없이는 불가능하다.
           --   진행 중이면 EndTime 이 비므로 StartTime 으로 떨군다.
           --   뿌리 행은 mp_id 가 없어 빈칸이다 — 「소비된 시각」이 없는 게 맞다.
-          --   생성일로 채우지 않는다 : 한 칸에 두 의미가 섮이면
+          --   생성일로 채우지 않는다 : 한 칸에 두 의미가 섞이면
           --   이 날짜로 회수 범위를 자를 때 조용히 오판한다.
             -- ★ 잔여 = 지금 이 로트에 남은 재고(mat_lot."CurrentStock").
           --   PK·CK 를 다 안 쓰고 남기는 경우가 많아 「얼마 쓰고 얼마 남았나」를 같이 본다.
@@ -648,8 +680,7 @@ with recursive T as (
           order by lvl
 				""";
 
-		List<Map<String, Object>> items = this.sqlRunner.getRows(sql, dicParam);
-		return items;
+		return nz(this.sqlRunner.getRows(sql, dicParam));
 	}
 
 	public List<Map<String, Object>> getMaterialInoutTracking(String lotNumber) {
@@ -695,12 +726,21 @@ with recursive T as (
         )
         select  
         p_lot_number, lot_number, null::integer as mp_id, mat_pk  
+        , 1 as lvl
+        -- ★ 순환 방지. A 가 job_res 전체를 훑기 때문에 이 재귀가 제일 깊게 내려간다 —
+        --   로트번호가 한 번이라도 돌면 무한루프로 서버가 멈춘다.
+        -- ⚠ 원소를 text 로 캐스팅한다 (재료추적 주석 참고).
+        , array[lot_number::text] as path
         from P
         union all 
         select 
         T.lot_number as p_lot_number, B.lot_number, B.mp_id, B.mat_pk as mat_pk
+        , (T.lvl+1) as lvl
+        , T.path || B.lot_number::text          -- ★ ::text 필수
         from T   
           inner join B on B.p_lot_number  = T.lot_number 
+         where not (B.lot_number::text = any(T.path))   -- 순환 차단
+           and T.lvl < 20                               -- 깊이 상한(안전망)
         ), LL as
         (
         -- 품목 id 를 함께 들고 나온다. 로트번호만으로 다시 찾으면
@@ -784,6 +824,10 @@ with recursive T as (
             , null::float as mp_id
             , null::int as p_mat_pk
             , ml."Material_id" as l_mat_pk
+            , 1 as lvl
+            -- ★ 순환 방지 — 위 두 추적과 같은 구조라 같은 함정이 있다.
+            -- ⚠ 원소를 text 로 캐스팅한다 (재료추적 주석 참고).
+            , array[ml."LotNumber"::text] as path
             from mat_lot ml
             where ml."LotNumber"= :lotNumber
             union all 
@@ -793,11 +837,16 @@ with recursive T as (
             , mp.id as mp_id
             , mp."Material_id" as p_mat_pk
             , ml."Material_id" as l_mat_pk
+            , (T.lvl+1) as lvl
+            , T.path || mp."LotNumber"::text          -- ★ ::text 필수
             from mat_lot ml 
             inner join mat_lot_cons mlc ON mlc."MaterialLot_id" =ml.id 
             left join mat_produce mp on mp.id = mlc."SourceDataPk" and mlc."SourceTableName" ='mat_produce'
             inner join T on T.lot_number = ml."LotNumber" 
             inner join job_res jr on jr.id=mp."JobResponse_id" 
+            where (mp."LotNumber" is null
+                   or not (mp."LotNumber"::text = any(T.path)))   -- 순환 차단
+              and T.lvl < 20                                      -- 깊이 상한(안전망)
 	        )
 	        -- ★ 품목까지 함께 묶는다. 로트번호만으로 다시 찾으면 PK·FK 처럼
 	        --   번호를 공유하는 로트에서 엉뚱한 출하가 붙는다
@@ -847,23 +896,6 @@ with recursive T as (
 
 		return nz(this.sqlRunner.getRows(sql, dicParam));
 	}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 	public List<Map<String, Object>> getMatLotList(String mat_type, Integer mat_group, Integer material, String lot_num, String date_from, String date_to, String cond) {
@@ -1008,6 +1040,4 @@ with recursive T as (
 
 		return items;
 	}
-
-
 }

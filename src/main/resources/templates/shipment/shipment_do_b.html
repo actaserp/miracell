@@ -139,7 +139,7 @@
                     <div class="container-fluid" style="margin-top: 15px;">
                         <div class="title_box buttons">
                             <span class="right_align rpt" data-labelCd="출고 처리 LOT상세">출고 처리 LOT상세</span>
-                            <input style="width: 170px; height: 32px" class="w-140 tac y_write_auth" type="text"
+                            <input style="width: 200px; height: 32px" class="w-140 tac y_write_auth" type="text"
                                    id="LotNumber" placeholder="LOT번호 스캔 or 입력" disabled/>
                             <button type="button" class="btn-default" id="btnLOTSelect" title="LOT추가" disabled><i
                                 class="fas fa-plus"></i></button>
@@ -489,12 +489,16 @@
                     selectionMode: wijmo.grid.SelectionMode.Row, // 행 단위 선택
                     isReadOnly: false,
                     columns: [
-                        {binding: 'LotNumber', header: 'LOT', maxWidth: 170, align: 'center', isReadOnly: true},
-                        {binding: 'unit_name', header: '단위', maxWidth: 100, align: 'center', isReadOnly: true},
+                        {binding: 'LotNumber', header: 'LOT', maxWidth: 190, align: 'center', isReadOnly: true},
+                        /* 카톤을 찍어 담았을 때만 값이 있다.
+                           1공장만 포장에서 국가를 고르므로 빈 줄이 정상이다 */
+                        {binding: 'carton_country', header: '국가', maxWidth: 60, align: 'center', isReadOnly: true},
+                        {binding: 'carton_lot_no', header: '카톤(박스)', width: 100, align: 'center', isReadOnly: true},
+                        {binding: 'unit_name', header: '단위', width: 100, align: 'center', isReadOnly: true},
                         {
                             binding: 'OutputQty',
                             header: '수량',
-                            maxWidth: 120,
+                            width: 120,
                             align: 'right',
                             isReadOnly: false, // 편집 가능
                             editor: new wijmo.input.InputNumber(document.createElement('div'), {
@@ -784,13 +788,17 @@
                     showMarquee: true,
                     isReadOnly: true,
                     columns: [
-                        {binding: 'LotNumber', header: 'LOT', width: 150, align: 'center'},
-                        {binding: 'unit_name', header: '단위', width: '*', align: 'center'},
-                        {binding: 'InputQty', header: '초기수량', width: '*', align: 'right'},
-                        {binding: 'CurrentStock', header: '현재고량', width: '*', align: 'right'},
-                        {binding: 'mat_grp_name', header: '품목그룹', width: '*', align: 'left'},
-                        {binding: 'mat_code', header: '품목코드', width: '*', align: 'center'},
-                        {binding: 'mat_name', header: '품목', width: '*', align: 'left'},
+                        {binding: 'LotNumber', header: 'LOT', width: 180, align: 'center'},
+                        {binding: 'carton_country', header: '국가', width: 60, align: 'center'},
+                        {binding: 'unit_name', header: '단위', width: 80, align: 'center'},
+                        {binding: 'InputQty', header: '초기수량', width: 80, align: 'right'},
+                        {binding: 'CurrentStock', header: '현재고량', width: 80, align: 'right'},
+                        {binding: 'mat_grp_name', header: '품목그룹', width: 80, align: 'left'},
+                        {binding: 'mat_code', header: '품목코드', width: 80, align: 'center'},
+                        {binding: 'mat_name', header: '품목', width: 120, align: 'left'},
+                        {binding: 'carton_lot_no', header: '카톤(박스)', width: 80, align: 'center'},
+                        /* 이 국가로 아직 안 나간 박스 수. 몇 번 더 찍어야 하는지 바로 보인다 */
+                        {binding: 'carton_remain', header: '남은박스', width: 80, align: 'right'},
                     ],
                     itemsSource: _this.viewData4,
                     formatItem: function (s, e) {
@@ -812,7 +820,12 @@
                     if (selectedRowIndex >= 0) { // 유효한 행이 선택되었는지 확인
                         let selectedRowData = s.rows[selectedRowIndex].dataItem; // 선택된 행의 데이터
 
-                        selectedRowData.lot_use_quantity = selectedRowData.CurrentStock;
+                        /* 카톤 후보 줄이면 그 박스 수량으로, 아니면 예전처럼 현재고로.
+                           대표번호를 찍으면 국가별 후보가 여러 줄 뜨는데,
+                           고르는 순간 그 박스 수량이 채워져야 손으로 칠 일이 없다. */
+                        selectedRowData.lot_use_quantity = (selectedRowData.carton_id)
+                            ? selectedRowData.carton_qty
+                            : selectedRowData.CurrentStock;
                         FormUtil.BindDataForm(selectedRowData, $lotForm);
                         selectedItem = selectedRowData;
 
@@ -851,8 +864,19 @@
                         /* 카톤으로 한 건만 걸리면 그 박스로 확정한다.
                            박스는 수량이 정해져 있으므로 사람이 수량을 칠 이유가 없다 —
                            손으로 치면 스캔의 의미가 절반 사라진다. */
+                        /* ★ 카톤 후보가 딱 한 줄일 때만 자동 확정한다.
+                           대표번호(C-20260810-0010)는 한 차수의 모든 박스가 같은 번호를 달아서
+                           국가별로 여러 줄이 걸린다 — 그때는 사람이 골라야 하므로 자동으로 정하면 안 된다. */
                         let rows = result.data || [];
-                        let hit = (rows.length === 1 && rows[0].carton_id) ? rows[0] : null;
+                        let cartonRows = rows.filter(function (r) {
+                            return r.carton_id;
+                        });
+                        let hit = (cartonRows.length === 1) ? cartonRows[0] : null;
+                        if (cartonRows.length > 1) {
+                            Alert.alert('나갈 박스를 고르세요',
+                                '이 카톤 라벨은 국가별 후보가 ' + cartonRows.length + '건입니다.\n'
+                                + '목록에서 나갈 국가의 줄을 선택해 주세요.');
+                        }
                         if (hit) {
                             if (String(hit.carton_state) === 'shipped') {
                                 Alert.alert('이미 출고된 박스',

@@ -24,12 +24,16 @@ public class BalJuOptimalStockController {
   @GetMapping("/read")
   public AjaxResult getList(@RequestParam(value = "mat_name", required = false) String mat_name,
                             @RequestParam(value = "Inventory_status", required = false) String status,
-                            @RequestParam(value="srchStartDt") String  startDt,
-                            @RequestParam(value="srchEndDt") String endDt,
-                            @RequestParam(value = "spjangcd")String spjangcd) {
+                            @RequestParam(value = "srchStartDt") String startDt,
+                            @RequestParam(value = "srchEndDt") String endDt,
+                            @RequestParam(value = "spjangcd") String spjangcd,
+                            // 소요량 기준: suju | plan | sum | max(기본)
+                            @RequestParam(value = "basis", required = false, defaultValue = "max") String basis,
+                            // 품목구분: 빈값=제품 제외 전체 / raw_mat(기본) | semi | sub_mat | ...
+                            @RequestParam(value = "mat_type", required = false, defaultValue = "raw_mat") String matType) {
     AjaxResult result = new AjaxResult();
-    /*log.info("자재 적정재고 현황 mat_name:{}, Inventory_status:{}, srchStartDt:{}, srchEndDt:{}, spjangcd:{}"
-        , mat_name, status, startDt,endDt, spjangcd );*/
+    /*log.info("자재 적정재고 현황 mat_name:{}, Inventory_status:{}, srchStartDt:{}, srchEndDt:{}, spjangcd:{}, basis:{}"
+        , mat_name, status, startDt, endDt, spjangcd, basis);*/
 
     startDt = startDt + " 00:00:00";
     endDt = endDt + " 23:59:59";
@@ -37,7 +41,8 @@ public class BalJuOptimalStockController {
     Timestamp start = Timestamp.valueOf(startDt);
     Timestamp end = Timestamp.valueOf(endDt);
 
-    List<Map<String,Object>> items = optimalStockService.getList(mat_name,status ,start,end, spjangcd);
+    List<Map<String, Object>> items =
+      optimalStockService.getList(mat_name, status, start, end, spjangcd, basis, matType);
     result.data = items;
     return result;
   }

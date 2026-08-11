@@ -170,12 +170,26 @@ public class ShipmentDoBService {
 		                  , mlc."SourceDataPk"
 		                  , u."Name" as unit_name
 		                  , to_char(ml."EffectiveDate", 'YYYY-MM-DD HH24:MI:SS') as "EffectiveDate"
+		                  -- ★ 국가는 카톤이 아니라 배분(pack_alloc)에서 가져온다.
+		                  --   로트가 이미 국가별로 갈려 있어서(P-…-KR) 박스를 안 찍고
+		                  --   로트를 직접 골라도 국가는 보여야 한다.
+		                  --   2공장(M-CELL)은 배분이 없어 빈칸이고, 그게 정상이다.
+		                  , coalesce(pc."CountryCode", pa."CountryCode") as carton_country
+		                  , pc."CartonLotNo" as carton_lot_no
+		                  , pc."Qty"         as carton_qty
 		               from shipment_head sh
 				 	   inner join shipment s on s."ShipmentHead_id"=sh.id            
 		               inner join mat_lot_cons mlc on mlc."SourceTableName"='shipment' and mlc."SourceDataPk" = s.id
 		               inner join mat_lot ml on mlc."MaterialLot_id" = ml.id
 		               inner join material m on m.id=ml."Material_id" 
 		               left join unit u on u.id =m."Unit_id" 
+		               left join pack_alloc pa on pa."MatLot_id" = ml.id
+		                                      and coalesce(pa._status,'a') = 'a'
+		               -- 이 출하 건으로 실제 찍은 박스. MatLot_id 까지 맞추지 않으면
+		               -- 국가가 섞인 출하에서 남의 나라 박스가 붙는다
+		               left join pack_carton pc on pc."Shipment_id" = s.id
+		                                       and pc."MatLot_id"   = ml.id
+		                                       and coalesce(pc._status,'a') = 'a'
 		               where sh.id = :sh_id
 		        		 """;
 		if (shipment_id != null) {
@@ -192,14 +206,23 @@ public class ShipmentDoBService {
 	/**
 	 * LOT 지정 팝업 검색.
 	 *
-	 * ★ lot_number 는 「사내 로트번호」가 아니라 「스캔한 값」이다.
-	 *   현장은 아웃박스(카톤)에 붙은 바코드를 찍는다 — 그 값은 pack_carton."CartonLotNo"
-	 *   이고 mat_lot 어디에도 없다. 카톤을 먼저 풀어 완제품 로트로 환산한다.
+	 * ★ lot_number 는 「사내 로트번호」가 아니라 「스캔한 값」이다. 세 가지가 들어온다.
+	 *     ① 사내 로트번호      P-20260810-0009-KR
+	 *     ② 카톤 개체 바코드   C-20260810-0005-KR-01
+	 *     ③ 카톤 대표번호      C-20260810-0010
 	 *
-	 * ★ 카톤으로 걸리면 그 박스의 수량·국가·출고여부를 함께 내린다.
-	 *   화면이 수량을 자동으로 채우고, 이미 나간 박스를 막는 근거가 된다.
-	 *   포장 완제품이 국가별로 로트가 갈리므로(P-…-KR / -JP) 카톤을 거치면
-	 *   국가가 자동으로 정해진다 — 사람이 로트를 고르다 국가를 섞는 사고가 사라진다.
+	 * ★ ③이 현장의 실제 라벨이다.
+	 *   포장이 카톤 라벨을 「동일수량 1바코드」로 뽑아서, 같은 차수의 박스가 국가·순번
+	 *   구분 없이 같은 번호를 단다. 스캔만으로는 어느 나라 몫인지 못 가른다.
+	 *   그래서 대표번호로 걸리면 국가별로 한 줄씩 후보를 내려 사람이 고르게 한다.
+	 *
+	 * ★ 국가별로 「아직 안 나간 박스 중 가장 빠른 순번」 하나만 내린다.
+	 *   전부 나열하면 국가당 7줄씩 쌓여 고르기 어렵고, 순서대로 나가면 되므로
+	 *   다음 박스를 정해 주는 편이 빠르다. 남은 개수는 carton_remain 으로 함께 낸다.
+	 *
+	 * ★ 국가(carton_country)는 카톤이 없어도 pack_alloc 에서 채운다.
+	 *   로트가 이미 국가별로 갈려 있으므로(P-…-KR) 박스를 안 찍고 로트를 직접 골라도
+	 *   국가는 보여야 한다. 2공장(M-CELL)은 배분이 없어 빈칸이고, 그게 정상이다.
 	 */
 	public List<Map<String, Object>> getMatLotSearch (Integer sh_id, Integer material_id, String lot_number) {
 
@@ -208,41 +231,76 @@ public class ShipmentDoBService {
 		paramMap.addValue("lot_number", lot_number);
 
 		String sql = """
-				select
-				         ml.id as ml_id
-				        , ml."LotNumber"
-				        , ROUND(ml."InputQty"::numeric, 2) as "InputQty"
-				        , ROUND(ml."CurrentStock"::numeric, 2) as "CurrentStock"
-				        , to_char(ml."InputDateTime"::timestamp without time zone, 'YYYY-MM-DD HH24:MI:SS') AS "InputDateTime"
-				        , ml."Material_id"
-				        , u."Name" as unit_name
-				        , m."Code" as mat_code
-				        , m."Name" as mat_name
-				        , to_char(ml."EffectiveDate", 'YYYY-MM-DD HH24:MI:SS') as "EffectiveDate"
-				        , to_char(ml."InputDateTime", 'YYYY-MM-DD HH24:MI:SS') as "InputDateTime"
-				        , pc.id            as carton_id
-				        , pc."CartonLotNo" as carton_lot_no
-				        , pc."CartonNo"    as carton_no
-				        , pc."Qty"         as carton_qty
-				        , pc."CountryCode" as carton_country
-				        , pc."ShipState"   as carton_state
-				from mat_lot ml
-				    inner join material m on m.id = ml."Material_id"
-				    left join mat_grp mg on mg.id= m."MaterialGroup_id"
-				    left join unit u on u.id = m."Unit_id"
-				    -- 카톤 스캔일 때만 붙는다. 평소 조회에서는 전부 null
-				    left join pack_carton pc on pc."MatLot_id" = ml.id
-				                            and coalesce(pc._status,'a') = 'a'
-				                            and pc."CartonLotNo" = cast(:lot_number as varchar)
-				where ml."CurrentStock" > 0
+            with k as (
+                select nullif(trim(cast(:lot_number as varchar)),'') as skey
+            )
+            , cart as (
+                -- ② 카톤 개체 바코드
+                select pc.* from pack_carton pc cross join k
+                 where coalesce(pc._status,'a') = 'a'
+                   and k.skey is not null
+                   and pc."CartonLotNo" = k.skey
+                union all
+                -- ③ 카톤 대표번호 (pack_label 의 carton 행)
+                select pc.*
+                  from pack_label pl
+                  join pack_carton pc on pc."MatProduce_id" = pl."MatProduce_id"
+                                     and coalesce(pc._status,'a') = 'a'
+                 cross join k
+                 where pl."LabelKind" = 'carton'
+                   and coalesce(pl._status,'a') = 'a'
+                   and k.skey is not null
+                   and pl."LotNo" = k.skey
+            )
+            , pick as (
+                -- 국가(= 완제품 로트)별로 아직 안 나간 다음 박스 하나
+                select distinct on ("MatLot_id") *
+                  from cart
+                 where coalesce("ShipState",'') <> 'shipped'
+                 order by "MatLot_id", "CartonNo"
+            )
+            , remain as (
+                select "MatLot_id", count(*) as cnt
+                  from cart
+                 where coalesce("ShipState",'') <> 'shipped'
+                 group by "MatLot_id"
+            )
+            select
+                     ml.id as ml_id
+                    , ml."LotNumber"
+                    , ROUND(ml."InputQty"::numeric, 2) as "InputQty"
+                    , ROUND(ml."CurrentStock"::numeric, 2) as "CurrentStock"
+                    , ml."Material_id"
+                    , u."Name" as unit_name
+                    , m."Code" as mat_code
+                    , m."Name" as mat_name
+                    , mg."Name" as mat_grp_name
+                    , to_char(ml."EffectiveDate", 'YYYY-MM-DD HH24:MI:SS') as "EffectiveDate"
+                    , to_char(ml."InputDateTime", 'YYYY-MM-DD HH24:MI:SS') as "InputDateTime"
+                    , pk.id            as carton_id
+                    , pk."CartonLotNo" as carton_lot_no
+                    , pk."CartonNo"    as carton_no
+                    , pk."Qty"         as carton_qty
+                    , coalesce(pk."CountryCode", pa."CountryCode") as carton_country
+                    , pk."ShipState"   as carton_state
+                    , rm.cnt           as carton_remain
+            from mat_lot ml
+                inner join material m on m.id = ml."Material_id"
+                left join mat_grp mg on mg.id = m."MaterialGroup_id"
+                left join unit u on u.id = m."Unit_id"
+                left join pack_alloc pa on pa."MatLot_id" = ml.id
+                                       and coalesce(pa._status,'a') = 'a'
+                left join pick   pk on pk."MatLot_id" = ml.id
+                left join remain rm on rm."MatLot_id" = ml.id
+            where ml."CurrentStock" > 0
 		        		 """;
 		if (material_id != null) {
 			sql += " and ml.\"Material_id\" = :material_id ";
 		}
 
 		if (StringUtils.isEmpty(lot_number) == false) {
-			// 사내 로트번호 또는 카톤 바코드 — 둘 중 하나로 걸린다
-			sql += " and (ml.\"LotNumber\" = :lot_number or pc.id is not null) ";
+			// 사내 로트번호 또는 카톤(개체·대표) 바코드
+			sql += " and (ml.\"LotNumber\" = :lot_number or pk.id is not null) ";
 		}
 
 		sql += " order by ml.\"LotNumber\" ";
