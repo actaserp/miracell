@@ -50,14 +50,26 @@
             height: 100%;
         }
 
-        .eq-sum { display:grid; grid-template-columns:repeat(auto-fill, minmax(210px,1fr)); gap:10px; margin:12px 0; }
-        .eq-card { background:#fff; border:1px solid #e2e6ee; border-radius:10px; padding:12px 14px; }
-        .eq-card .nm { font-size:12px; font-weight:800; color:#3a4759; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-        .eq-card .rt { font-size:22px; font-weight:800; margin-top:4px; font-variant-numeric:tabular-nums; color:#2f6fed; }
-        .eq-card .rt small { font-size:12px; color:#8a94a4; margin-left:2px; }
-        .eq-card .sub { font-size:11px; color:#8a94a4; margin-top:3px; }
-        .eq-card .open { display:inline-block; margin-top:5px; font-size:10.5px; font-weight:800;
-            padding:2px 7px; border-radius:5px; background:#fff7ed; color:#b4560a; }
+        /* 설비 요약 — 카드 대신 가로 막대.
+           설비가 9대라 카드로 깔면 화면이 길어지고, 무엇보다 떨어져 있는 상자끼리는
+           84.2% 와 79.5% 의 대소가 눈에 안 들어온다. 막대는 길이가 곧 비교다. */
+        .eq-sum { display:grid; grid-template-columns:repeat(auto-fill, minmax(330px,1fr));
+            gap:2px 22px; margin:12px 0; }
+        .eq-row { display:flex; align-items:center; gap:9px; padding:5px 2px;
+            border-bottom:1px solid #f0f2f6; }
+        .eq-row .nm { flex:0 0 96px; font-size:11.5px; font-weight:700; color:#3a4759;
+            overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .eq-row .bar { flex:1 1 auto; height:8px; background:#eef1f6; border-radius:4px;
+            overflow:hidden; }
+        .eq-row .bar i { display:block; height:100%; background:#2f6fed; border-radius:4px; }
+        .eq-row .bar i.low { background:#c9ced8; }   /* 30% 미만은 회색 — 파란 막대 사이에서 걸린다 */
+        .eq-row .rt { flex:0 0 52px; text-align:right; font-size:13px; font-weight:800;
+            color:#2f3d52; font-variant-numeric:tabular-nums; }
+        .eq-row .rt small { font-size:10px; color:#8a94a4; margin-left:1px; }
+        .eq-row .hr { flex:0 0 56px; text-align:right; font-size:11px; color:#8a94a4;
+            font-variant-numeric:tabular-nums; }
+        .eq-row .open { flex:0 0 auto; font-size:10px; font-weight:800; padding:1px 5px;
+            border-radius:4px; background:#fff7ed; color:#b4560a; }
         .eq-warn { background:#fff7ed; border:1px solid #f6dfc2; color:#b4560a; border-radius:8px;
             padding:9px 13px; font-size:12.5px; font-weight:700; margin-bottom:10px; }
         .row-open { background-color:#fff7ed !important; }
@@ -111,6 +123,15 @@
                         </dl>
 
                         <dl>
+                            <dt>
+                                <label for="search_equipment">설비</label>
+                            </dt>
+                            <dd>
+                                <select id="search_equipment" name="equipment_id"></select>
+                            </dd>
+                        </dl>
+
+                        <dl>
                             <dt>&nbsp;</dt>
                             <dd>
                                 <li>
@@ -123,22 +144,6 @@
                             </dd>
                         </dl>
 
-                    </div>
-                    <div class="button-wrap">
-                        <ul>
-                            <li>
-                                <a class="btn btn-edit" title="시각 수정" id="btnEdit">
-                                    <img th:src="@{/images/icon/ico-edit.svg}" alt="수정 아이콘">
-                                    시각 수정
-                                </a>
-                            </li>
-                            <li>
-                                <a class="btn btn-delete" title="삭제" id="btnDel">
-                                    <img th:src="@{/images/icon/ico-delete.svg}" alt="삭제 아이콘">
-                                    삭제
-                                </a>
-                            </li>
-                        </ul>
                     </div>
                 </div>
             </form>
@@ -172,91 +177,6 @@
     </div>
 
 
-    <script type="text/x-tmpl" id="addDataPopup">
-        <div class="content_wrap popup" id="div_excel_upload">
-        <form id="equipmentStopForm">
-            <div class="table-wrap">
-                <table class="write-table">
-                    <caption>주문등록 테이블</caption>
-                    <input type="hidden" id="id" name="id" value="">
-                    <tbody>
-                        <tr>
-                            <th style="text-align: center">
-                                <label for="start_date">시작일</label>
-                            </th>
-                            <td>
-                                <input type="date" id="start_date" name="start_date">
-                            </td>
-                            <th style="text-align: center">
-                                <label for="DueDate">시작시간</label>
-                            </th>
-                            <td>
-                                <input type="text" id="StartTime" name="StartTime">
-                            </td>
-                        </tr>
-
-                        <tr>
-                            <th style="text-align: center">
-                                <label for="end_date">종료일</label>
-                            </th>
-                            <td>
-                                <input type="date" id="end_date" name="end_date">
-                            </td>
-                            <th style="text-align: center">
-                                <label for="EndTime">종료시간</label>
-                            </th>
-                            <td>
-                                <input type="text" id="EndTime" name="EndTime">
-                            </td>
-                        </tr>
-
-                        <tr>
-                            <th style="text-align: center">
-                                <label for="end_date">설비</label>
-                            </th>
-                            <td>
-                               <select id="Equipment_id" name="Equipment_id" ></select>
-                            </td>
-
-                            <!--<th style="text-align: center">
-                                <label for="end_date">비가동유형</label>
-                            </th>
-                            <td>
-                            </td>-->
-
-
-
-                            <!--<th style="text-align: center">
-                                <label for="RunState">상태</label>
-                            </th>
-                            <td>
-                                <select id="RunState" name="RunState"></select>
-                            </td>-->
-                        </tr>
-
-                        <tr>
-                            <th style="text-align: center">
-                                <label for="description">비고</label>
-                            </th>
-                            <td colspan="3">
-                                <textarea id="Description" name="Description"></textarea>
-                            </td>
-                        </tr>
-
-                    </tbody>
-                </table>
-            </div>
-
-            <div class="popup-button">
-
-                    <button type="button" class="btn-popup y_write_auth" id="btnSave">저장</button>
-                    <button type="button" class="btn-popup" id="modal-close-button">닫기</button>
-
-            </div>
-            </form>
-
-        </div>
-    </script>
 
 
 </th:block>
@@ -488,6 +408,11 @@
                     'date_to': endDate,
                 };
 
+                // 전체(빈 값)면 파라미터 자체를 빼야 서버의 IS NULL 분기가 탄다.
+                // 빈 문자열을 보내면 CAST('' AS integer) 에서 터진다.
+                let eqId = $('#search_equipment').val();
+                if (eqId) param['equipment_id'] = eqId;
+
                 let resp = null;
                 try {
                     resp = AjaxUtil.getSyncData(_this.baseUrl + '/read', param);
@@ -573,195 +498,62 @@
                 let html = summary.map(function (m) {
                     let open = Number(m.open_cnt || 0);
                     openTotal += open;
-                    let badge = open
-                        ? '<div class="open">미종료 ' + open + '건 · 합계 제외</div>'
-                        : '';
-                    return '<div class="eq-card">'
-                        + '<div class="nm">' + esc(m.Name) + '</div>'
-                        + '<div class="rt">' + Number(m.run_rate || 0).toFixed(1) + '<small>%</small></div>'
-                        + '<div class="sub">' + Number(m.run_hour || 0).toFixed(2) + '시간'
-                        + ' · 구간 ' + Number(m.row_cnt || 0) + '건'
-                        + (Number(m.merged_cnt || 0) && Number(m.merged_cnt) !== Number(m.row_cnt)
-                            ? ' (겹침 병합 ' + Number(m.merged_cnt) + ')' : '')
-                        + '</div>' + badge + '</div>';
+                    let rate = Number(m.run_rate || 0);
+                    let rows = Number(m.row_cnt || 0);
+                    let merged = Number(m.merged_cnt || 0);
+
+                    /* 구간 건수·겹침 병합은 툴팁으로 옮긴다.
+                       9줄이 나란히 서면 각 줄은 최소 정보여야 비교가 된다. */
+                    let tip = esc(m.Name) + ' · 구간 ' + rows + '건'
+                        + (merged && merged !== rows ? ' (겹침 병합 ' + merged + ')' : '')
+                        + (open ? ' · 미종료 ' + open + '건은 합계 제외' : '');
+
+                    let badge = open ? '<span class="open">미종료 ' + open + '</span>' : '';
+
+                    return '<div class="eq-row" title="' + tip + '">'
+                        + '<span class="nm">' + esc(m.Name) + '</span>'
+                        + '<span class="bar"><i class="' + (rate < 30 ? 'low' : '') + '"'
+                        + ' style="width:' + Math.min(100, rate).toFixed(1) + '%"></i></span>'
+                        + '<span class="rt">' + rate.toFixed(1) + '<small>%</small></span>'
+                        + '<span class="hr">' + Number(m.run_hour || 0).toFixed(1) + 'h</span>'
+                        + badge + '</div>';
                 }).join('');
 
                 $('#eqSummary').html(html);
 
                 $('#eqWarn').html(openTotal
                     ? '<div class="eq-warn">⚠ 종료되지 않은 구간이 ' + openTotal + '건 있습니다 — '
-                    + '주황색 행입니다. 작업이 진행중이면 정상이고, 취소된 작업이면 삭제해 주세요. '
+                    + '주황색 행입니다. 작업이 진행중이면 정상입니다. 취소된 작업이라면 생산실적에서 정리해 주세요. '
                     + '가동시간·가동률에는 포함되지 않습니다.</div>'
                     : '');
             }
 
-            /**
-             * 시각 수정.
-             *
-             * ★ 신규 등록은 열지 않는다. equ_run 은 생산 시작·완료가 만든다.
-             *   화면에서 새로 만들면 입력 경로가 둘이 되고, 어느 것이 실제 가동인지
-             *   가릴 방법이 없어진다(출처 컬럼이 없다).
-             *   설비도 바꾸지 않는다 — 다른 기계에서 났다는 주장은 실적 쪽에서 고칠 일이다.
-             */
-            editDataBind() {
-                let _this = this;
-                let sel = this.grid.selectedItems;
-                let row = (sel && sel.length > 0) ? sel[0] : null;
-
-                if (!row || !row.id) {
-                    Alert.alert('', '수정할 가동 구간을 선택하세요.');
-                    return;
-                }
-
-                let content = tmpl('addDataPopup', {});
-                let $content = $(content);
-                let form = $('#equipmentStopForm');
-
-                modalContainer = new PopupDraggable('가동 시각 수정 — ' + (row.Name || ''));
-                modalContainer.open({width: 720, height: 430, $content});
-                popup = new equipmentStopPopup();
-
-                $content.find('#id').val(row.id);
-
-                // 설비는 표시만. 바꿀 수 없다
-                let $equipment = $content.find('#Equipment_id');
-                AjaxUtil.fillSelectOptions($equipment, 'equipment', false, row.Equipment_id);
-                $equipment.val(row.Equipment_id);
-                $equipment.prop('disabled', true);
-
-                $content.find('#start_date').val(row.start_date);
-                $content.find('#end_date').val(row.end_date || '');
-
-                $content.find('#StartTime').timepicker({
-                    show2400: true, timeFormat: 'H:i'
-                }).val(row.StartTime);
-
-                $content.find('#EndTime').timepicker({
-                    show2400: true, timeFormat: 'H:i'
-                }).val(row.EndTime || '');
-
-                $content.find('#Description').val(row.Description || '');
-
-                $content.find('#btnSave').on('click', function () {
-                    popup.saveData(form, modalContainer.modal);
-                });
-            }
-
-            delDataBind() {
-                let _this = this;
-                let sel = this.grid.selectedItems;
-                let row = (sel && sel.length > 0) ? sel[0] : null;
-
-                if (!row || !row.id) {
-                    Alert.alert('', '삭제할 가동 구간을 선택하세요.');
-                    return;
-                }
-
-                let fnSuccess = function (res) {
-                    if (!res.success) {
-                        Alert.alert('', res.message);
-                    } else {
-                        Notify.success('삭제되었습니다');
-                        page.searchMainData();
-                    }
-                };
-
-                // 정상 구간을 지우면 그만큼 가동시간이 사라진다. 한 번 더 묻는다
-                let msg = (row.is_open === 'Y')
-                    ? '종료되지 않은 구간입니다. 취소된 작업이면 삭제해도 됩니다. 삭제할까요?'
-                    : '이 구간을 삭제하면 그만큼 가동시간이 줄어듭니다. 삭제할까요?';
-
-                Alert.confirm('', msg,
-                    function () {
-                        AjaxUtil.postAsyncData(_this.baseUrl + '/delData', {id: row.id}, fnSuccess);
-                    },
-                    function () {
-                    }
-                );
-            }
-        }
-
-        class equipmentStopPopup {
-            constructor() {
-                this.grid = null;
-                this.baseUrl = '/api/production/equipment_run_chart';
-                this.init();
-            }
-
-            init() {
-                let _this = this;
-
-            }
-
-            saveData(form, modal) {
-                let _this = this;
-                let data = FormUtil.extractForm($('#equipmentStopForm'));
-
-                if (!data.id) {
-                    Alert.alert('', '대상을 찾을 수 없습니다. 목록을 새로고침해 주세요.');
-                    return;
-                }
-                if (!data.start_date || !data.StartTime) {
-                    Alert.alert('', '시작 일자와 시간을 입력해주세요.');
-                    return;
-                }
-
-                // 종료를 비우면 「아직 진행중」으로 되돌린다.
-                // 잘못 닫힌 구간을 되살릴 수 있어야 하므로 허용한다.
-                let hasEnd = !!(data.end_date && data.EndTime);
-                if (hasEnd) {
-                    let s1 = Date.parse(data.start_date + ' ' + data.StartTime);
-                    let e1 = Date.parse(data.end_date + ' ' + data.EndTime);
-                    if (s1 >= e1) {
-                        Alert.alert('', '종료가 시작보다 빠르거나 같습니다.');
-                        return;
-                    }
-                } else if (data.end_date || data.EndTime) {
-                    Alert.alert('', '종료 일자와 시간을 함께 입력하거나, 둘 다 비워 진행중으로 두세요.');
-                    return;
-                }
-
-                let fnSuccess = function (res) {
-                    if (!res.success) {
-                        Alert.alert('', res.message);
-                    } else {
-                        // 겹침은 차단하지 않는다. 있으면 메시지로만 알린다
-                        Notify.success(res.message || '저장되었습니다');
-                        page.searchMainData();
-                        modal.close();
-                    }
-                };
-
-                AjaxUtil.postAsyncData(_this.baseUrl + '/addData', data, fnSuccess);
-            }
         }
 
         let page = null;
-        let popup = null;
-        let modalContainer = null;
 
         $(document.body).ready(function (e) {
             page = new equipmentOpertationChart();
 
             let today = CommonUtil.getYYYYMMDD();
-            console.log('todya', today);
 
-            $('#date_from').val(today);
+            var d = new Date();
+            d.setDate(d.getDate() - 7);
+            var pad = n => String(n).padStart(2, '0');
+            $('#date_from').val(d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()));
             $('#date_to').val(today);
+
+            // 설비 콤보. 두 번째 인자는 공용 코드셋 이름이다(모달에서 쓰던 것과 동일)
+            AjaxUtil.fillSelectOptions($('#search_equipment'), 'equipment', 'all');
+
+            // 콤보만 바꿔도 바로 조회한다 — 검색 버튼을 한 번 더 누르게 하지 않는다
+            $('#search_equipment').on('change', function () {
+                page.searchMainData();
+            });
 
             // 검색
             $('#btnSearch').click(function (e) {
                 page.searchMainData();
-            });
-
-            // 변경
-            $('#btnEdit').click(function (e) {
-                page.editDataBind();
-            });
-
-            // 삭제
-            $('#btnDel').click(function (e) {
-                page.delDataBind();
             });
 
             page.searchMainData();

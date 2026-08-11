@@ -1061,7 +1061,8 @@
                 }
                 if (f.FieldKey === 'control_result') {
                     // 대조군은 "양성(균 증식)" 이 정상. 음성이면 시험 무효 → 경고.
-                    return this._selectHtml(f.FieldKey, v, [O('', '선택'), O('양성', '양성 (정상)'), O('음성', '음성 (시험무효)')], cls);
+                    return this._selectHtml(f.FieldKey, v,
+                        [O('', '선택'), O('positive', '양성 (정상)'), O('negative', '음성 (시험무효)')], cls);
                 }
                 return '<input type="text" class="fval' + (isEdit ? ' edited' : '') + '" data-key="' + f.FieldKey +
                     '" value="' + String(v).replace(/"/g, '&quot;') + '" style="width:100%;">';
@@ -1075,7 +1076,7 @@
             _refreshBiNote() {
                 const bi = String(this._valOf('bi_result'));
                 const ctrl = String(this._valOf('control_result'));
-                const need = (bi === 'FAIL') || (ctrl === '음성');
+                const need = (bi === 'FAIL') || (ctrl === 'negative');
                 let $box = $('#biNoteBox');
                 if (!need) { $box.remove(); return; }
                 const val = String(this._valOf('bi_note') || '').replace(/"/g, '&quot;');
@@ -1822,7 +1823,7 @@
                     '<td style="text-align:right;">' + this._num(l.avail) + '</td>' +
                     '<td style="text-align:center;"><input type="number" data-wqty="' + l.mat_lot_id + '" value="' + this._num(l.avail) + '" min="1" max="' + this._num(l.avail) + '" style="width:78px;height:32px;text-align:right;"></td>' +
                     '<td>' + (l.in_date || '') + '</td></tr>'
-                ).join('') : '<tr><td colspan="6" class="muted" style="text-align:center;padding:16px;">멸균 대기 로트가 없습니다. (클린룸 재고 · SterilizationYN=Y)</td></tr>';
+                ).join('') : '<tr><td colspan="6" class="muted" style="text-align:center;padding:16px;">멸균 대기 로트가 없습니다. </td></tr>';
                 $('#waitList').html('<table class="work-table" style="width:100%;border-collapse:collapse;"><thead><tr>' +
                     '<th style="width:40px;"></th><th>로트번호</th><th>품목</th><th style="width:90px;">가용수량</th><th style="width:110px;">담을 수량</th><th style="width:110px;">입고일</th></tr></thead><tbody>' + rows + '</tbody></table>');
             }
