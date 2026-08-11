@@ -305,16 +305,44 @@
                 if (item.indvdlz_supply_qty != null) $('#indvdlzSupplyQty').val(item.indvdlz_supply_qty);
                 if (item.supply_unit_price != null) $('#supplyUnitPrice').val(item.supply_unit_price);
                 if (item.supply_amt != null) $('#supplyAmt').val(item.supply_amt);
-                // 식약처 26번 식별자(seq) — 화면엔 숨겨두고 보고 시 함께 전송
-                $('#meddevItemSeq').val(item.meddev_item_seq || '');
-                $('#modelSeq').val(item.model_seq || '');
-                $('#udiDiSeq').val(item.udi_di_seq || '');
                 $('#matchId').val(item.match_id || '');
                 // 보고 기준월 미선택 시 출고일 기준으로 자동 세팅
                 if (item.supply_date && item.supply_date.length === 8 && !$('#stdMonth').val()) {
                     $('#stdMonth').val(item.supply_date.substr(0,4) + '-' + item.supply_date.substr(4,2));
                 }
+
+                // ★ 식약처 식별자(meddevItemSeq/seq/udiDiSeq)는 우리 DB에 없다.
+                //   UDI-DI 코드로 식약처 24번 API(고유식별자 품목정보 조회)를 호출해 채운다.
+                //   보고확정(26번)의 필수값이므로 여기서 확보해 hidden 에 저장한다.
+                $('#meddevItemSeq').val('');
+                $('#modelSeq').val('');
+                $('#udiDiSeq').val('');
+                this.loadUdiDiProduct(item.udi_di_code);
+
                 Notify.success('바코드 정보를 불러왔습니다.');
+            }
+
+            /**
+             * 식약처 24번 API로 UDI-DI 품목정보(식별자 seq) 조회 후 hidden 에 세팅.
+             * 실패해도 나머지 입력은 유지한다(식약처 미등록/통신오류 시 안내만).
+             */
+            loadUdiDiProduct(udiDiCode) {
+                if (!udiDiCode) return;
+                AjaxUtil.getAsyncData(gUrl + '/udidi_product', { udi_di_code: udiDiCode },
+                    function (result) {
+                        if (result && result.success && result.data) {
+                            let d = result.data;
+                            $('#meddevItemSeq').val(d.meddev_item_seq != null ? d.meddev_item_seq : '');
+                            $('#modelSeq').val(d.model_seq != null ? d.model_seq : '');
+                            $('#udiDiSeq').val(d.udi_di_seq != null ? d.udi_di_seq : '');
+                            Notify.success('식약처 품목정보(식별자)를 조회했습니다.');
+                        } else {
+                            Alert.alert('식약처 품목정보 조회',
+                                (result && result.message)
+                                    ? result.message
+                                    : '해당 UDI-DI의 식약처 품목정보를 찾지 못했습니다.\n식별자를 확인 후 보고하세요.');
+                        }
+                    });
             }
 
             toggleDvyfgRow() {

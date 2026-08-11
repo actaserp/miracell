@@ -162,6 +162,78 @@ public class UdiApiClient {
 		}
 	}
 
+	// ===================== 24. 고유식별자(UDI-DI) 품목 정보 조회 =====================
+
+	/**
+	 * 고유식별자(UDI-DI) 품목 정보 조회 (24번).
+	 * UDI-DI 코드(GTIN 등)로 공급내역 보고에 필요한 식별자
+	 * (meddevItemSeq/seq/udiDiSeq)와 품목정보를 조회한다.
+	 *
+	 * GET /api/v1/supply-info/udidi-product?udiDiCode={코드}
+	 * udiDiCode 는 URL 인코딩하되 '+' → %2B, '&' → %26 은 별도 치환한다(가이드 24.1).
+	 *
+	 * @return 조회 결과(items 배열의 첫 항목)를 Map 으로. 없으면 null.
+	 */
+	public Map<String, Object> getUdiDiProduct(String udiDiCode) {
+		if (udiDiCode == null || udiDiCode.isBlank()) {
+			throw new IllegalArgumentException("UDI-DI 코드가 비어 있습니다.");
+		}
+
+		// 가이드 규칙: '+' → %2B, '&' → %26 선치환 후 표준 URL 인코딩
+		String pre = udiDiCode.replace("+", "%2B").replace("&", "%26");
+		String encoded = org.springframework.web.util.UriUtils
+				.encodeQueryParam(pre, StandardCharsets.UTF_8);
+
+		String url = baseUrl + API_PREFIX + "/supply-info/udidi-product?udiDiCode=" + encoded;
+
+		HttpHeaders headers = new HttpHeaders();
+		headers.add(HttpHeaders.AUTHORIZATION, "Bearer " + getAccessToken());
+		headers.setAccept(java.util.List.of(MediaType.APPLICATION_JSON));
+
+		HttpEntity<Void> entity = new HttpEntity<>(headers);
+
+		try {
+			ResponseEntity<String> res = this.restTemplate.exchange(
+					url, HttpMethod.GET, entity, String.class);
+
+			JsonNode body = this.objectMapper.readTree(res.getBody());
+			JsonNode items = body.path("items");
+			if (!items.isArray() || items.isEmpty()) {
+				return null;
+			}
+			// 첫 항목을 Map 으로 변환
+			@SuppressWarnings("unchecked")
+			Map<String, Object> first = this.objectMapper.convertValue(items.get(0), Map.class);
+			return first;
+
+		} catch (org.springframework.web.client.HttpStatusCodeException ex) {
+			int code = ex.getStatusCode().value();
+			if (code == 401) {
+				// 토큰 만료 → 1회 재발급 후 재시도
+				invalidateToken();
+				headers.set(HttpHeaders.AUTHORIZATION, "Bearer " + getAccessToken());
+				try {
+					ResponseEntity<String> res2 = this.restTemplate.exchange(
+							url, HttpMethod.GET, new HttpEntity<>(headers), String.class);
+					JsonNode body2 = this.objectMapper.readTree(res2.getBody());
+					JsonNode items2 = body2.path("items");
+					if (!items2.isArray() || items2.isEmpty()) return null;
+					@SuppressWarnings("unchecked")
+					Map<String, Object> first2 = this.objectMapper.convertValue(items2.get(0), Map.class);
+					return first2;
+				} catch (Exception ex2) {
+					throw new RuntimeException("UDI-DI 품목정보 조회 실패: " + ex2.getMessage(), ex2);
+				}
+			}
+			String msg = extractMessage(ex.getResponseBodyAsString(),
+					"UDI-DI 품목정보 조회 실패 (HTTP " + code + ")");
+			throw new RuntimeException(msg, ex);
+
+		} catch (Exception ex) {
+			throw new RuntimeException("UDI-DI 품목정보 조회 통신 오류: " + ex.getMessage(), ex);
+		}
+	}
+
 	// ===================== 26. 공급내역 보고자료 추가 =====================
 
 	/**

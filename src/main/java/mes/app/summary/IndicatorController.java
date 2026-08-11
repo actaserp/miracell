@@ -1,5 +1,6 @@
 package mes.app.summary;
 
+import mes.app.summary.service.UphService;
 import mes.domain.model.AjaxResult;
 import mes.domain.services.SqlRunner;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +22,29 @@ public class IndicatorController {
 
 	@Autowired
 	SqlRunner sqlRunner;
+
+	@Autowired
+	UphService uphService;
+
+	/**
+	 * 시간당 생산량 (UPH).
+	 * 공정별·월별 { proc_code, proc_name, qty_1..12, hour_1..12 } 을 내려준다.
+	 * UPH 계산·요약·그래프는 화면에서 수행(목표는 화면 입력값 기준).
+	 */
+	@GetMapping("/uph_read")
+	public AjaxResult getUphList(
+			@RequestParam(value = "cboYear") String cboYear) {
+		AjaxResult result = new AjaxResult();
+		try {
+			int year = Integer.parseInt(cboYear);
+			result.data = uphService.getUphByProcess(year);
+			result.success = true;
+		} catch (Exception e) {
+			result.success = false;
+			result.message = e.getMessage();
+		}
+		return result;
+	}
 
 	@GetMapping("/prod_read")
 	public AjaxResult getProductionMonthList(

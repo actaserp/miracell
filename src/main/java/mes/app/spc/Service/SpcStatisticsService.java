@@ -193,7 +193,13 @@ public class SpcStatisticsService {
 		//   찾은 배치의 CSV 는 통째로 읽는다 — CSV 내부 시각으로 다시 자르지 않는다.
 		//   (테스트 데이터는 배치일과 CSV 로그일이 다를 수 있고, 실제로도 한 배치의
 		//    멸균 사이클 데이터는 전부 봐야 한다.)
-		List<Map<String, Object>> rows = scanSterilLogs(from, to, measureCode);
+		List<Map<String, Object>> rawRows = scanSterilLogs(from, to, measureCode);
+
+		// (C-2) 관리기준의 측정주기·샘플수로 대표값 리샘플링.
+		//   원천 CSV -> 측정주기 간격 평균 -> 샘플수 부분군 평균.
+		//   이후 모든 통계·판정·차트는 이 대표값(rows) 기준으로 계산한다.
+		//   (현재 멸균 설정 1 HOUR / n=1 이고 데이터도 1시간 간격이면 원천과 동일)
+		List<Map<String, Object>> rows = resample(rawRows, cycleValue, cycleUnit, sampleSize);
 
 		if (rows.isEmpty()) {
 			Map<String, Object> result = new LinkedHashMap<>();
@@ -240,7 +246,125 @@ public class SpcStatisticsService {
 		result.put("recipe", recipe);
 		result.put("item_name", itemName);
 		result.put("measure_name", measureName);
+		// 리샘플링 요약(화면 참고용): 원천 개수 / 대표값 개수
+		result.put("raw_count", rawRows.size());
+		result.put("sampled_count", rows.size());
 		return result;
+	}
+
+	// =====================================================================
+	// 측정주기 · 샘플수 리샘플링 (관리기준 반영)
+	// =====================================================================
+
+	/**
+	 * 관리기준의 측정주기·샘플수로 원천 CSV 값을 대표값으로 솎는다.
+	 *
+	 * ★ 왜 필요한가
+	 *   원천 CSV 는 설비가 촘촘히 남긴 로그다. 관리기준(tb_spc_std01)은
+	 *   "얼마 간격으로(측정주기), 한 번에 몇 개씩(샘플수) 관리하는가"를 정의한다.
+	 *   그 정의대로 데이터를 줄여야 통계·관리도가 관리기준과 일치한다.
+	 *
+	 * ★ 2단계
+	 *   ① 측정주기 솎기 — 측정주기 단위가 시간계열(MIN/HOUR/DAY)이면
+	 *      그 간격으로 구간을 나눠 각 구간의 평균 1개를 대표값으로 만든다.
+	 *      비시간 단위(LOT/PCS)는 시각 기준으로 나눌 수 없으므로 이 단계를 건너뛴다.
+	 *   ② 샘플수 부분군 — 샘플수 n>=2 면 ①의 결과를 시간순 n개씩 묶어
+	 *      각 부분군의 평균을 대표값으로 만든다(부분군 평균 = X-bar 개념의 단순형).
+	 *
+	 *   두 단계 모두 대표값 = 평균. 대표시각 = 그 그룹의 첫 시각.
+	 *   n=1 이고 측정주기 간격이 원천 간격과 같으면 결과는 원천과 동일하다
+	 *   (현재 멸균 설정 1 HOUR / n=1, 데이터도 1시간 간격 → 그대로).
+	 *
+	 * @param rows       time/value (시간순 정렬된 원천)
+	 * @param cycleValue 측정주기 값 (>=1)
+	 * @param cycleUnit  측정주기 단위코드 (01 MIN / 02 HOUR / 03 DAY / 04 LOT / 05 PCS)
+	 * @param sampleSize 샘플수 n (>=1)
+	 */
+	private List<Map<String, Object>> resample(List<Map<String, Object>> rows,
+											   Integer cycleValue, String cycleUnit, Integer sampleSize) {
+		if (rows == null || rows.isEmpty()) return new ArrayList<>();
+
+		int cv = (cycleValue == null || cycleValue < 1) ? 1 : cycleValue;
+		int n  = (sampleSize == null || sampleSize < 1) ? 1 : sampleSize;
+		long cycleSec = cycleUnitToSeconds(cycleUnit, cv);   // 0 이면 비시간 단위
+
+		// ① 측정주기 솎기 (시간계열 단위일 때만)
+		List<Map<String, Object>> byCycle;
+		if (cycleSec > 0) {
+			byCycle = new ArrayList<>();
+			LocalDateTime bucketStart = null;
+			List<Double> bucket = new ArrayList<>();
+			String bucketTime = null;
+
+			for (Map<String, Object> r : rows) {
+				Double v = (Double) r.get("value");
+				if (v == null) continue;
+				LocalDateTime ts = toLocalDateTimeSafe(r.get("time"));
+
+				if (bucketStart == null) {
+					bucketStart = ts; bucketTime = toStr(r.get("time"));
+				}
+				// 현재 값이 버킷 시작 + 주기를 벗어나면 버킷 마감
+				long elapsed = java.time.Duration.between(bucketStart, ts).getSeconds();
+				if (elapsed >= cycleSec && !bucket.isEmpty()) {
+					byCycle.add(mkRow(bucketTime, average(bucket)));
+					bucket = new ArrayList<>();
+					bucketStart = ts; bucketTime = toStr(r.get("time"));
+				}
+				bucket.add(v);
+			}
+			if (!bucket.isEmpty()) byCycle.add(mkRow(bucketTime, average(bucket)));
+		} else {
+			// 비시간 단위(LOT/PCS) — 시각 솎기 없이 원천 값 그대로 넘김
+			byCycle = new ArrayList<>();
+			for (Map<String, Object> r : rows) {
+				Double v = (Double) r.get("value");
+				if (v == null) continue;
+				byCycle.add(mkRow(toStr(r.get("time")), v));
+			}
+		}
+
+		// ② 샘플수 부분군 (n>=2 일 때만)
+		if (n <= 1) return byCycle;
+
+		List<Map<String, Object>> out = new ArrayList<>();
+		List<Double> sub = new ArrayList<>();
+		String subTime = null;
+		for (Map<String, Object> r : byCycle) {
+			if (sub.isEmpty()) subTime = toStr(r.get("time"));
+			sub.add((Double) r.get("value"));
+			if (sub.size() >= n) {
+				out.add(mkRow(subTime, average(sub)));
+				sub = new ArrayList<>();
+			}
+		}
+		// 남은 꼬리(부분군 미달)도 평균내어 버리지 않는다 — 데이터가 적을 때 다 날아가면 곤란
+		if (!sub.isEmpty()) out.add(mkRow(subTime, average(sub)));
+
+		return out;
+	}
+
+	/** 측정주기 단위코드 → 초. 비시간 단위(LOT/PCS)는 0. */
+	private long cycleUnitToSeconds(String unitCode, int value) {
+		String u = (unitCode == null) ? "" : unitCode.trim();
+		return switch (u) {
+			case "01" -> 60L * value;            // MIN
+			case "02" -> 3600L * value;          // HOUR
+			case "03" -> 86400L * value;         // DAY
+			default   -> 0L;                     // 04 LOT / 05 PCS / 미지정 → 시간 솎기 안 함
+		};
+	}
+
+	private Map<String, Object> mkRow(String time, double value) {
+		Map<String, Object> m = new LinkedHashMap<>();
+		m.put("time", time);
+		m.put("value", value);
+		return m;
+	}
+
+	private static double average(List<Double> xs) {
+		if (xs == null || xs.isEmpty()) return 0d;
+		double s = 0; for (double v : xs) s += v; return s / xs.size();
 	}
 
 	// =====================================================================

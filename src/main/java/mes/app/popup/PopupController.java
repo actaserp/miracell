@@ -1128,7 +1128,24 @@ public class PopupController {
 
 	/**
 	 * UDI 바코드 매칭 조회 (보고 화면 "바코드 조회" 팝업용)
-	 * 미보고('N') 매칭건을 조회하고, 보고 입력폼 필드명에 맞춰 alias 한다.
+	 *
+	 * 포장공정에서 pack_label 에 적재된 바코드 매핑(LotNo=우리 라벨, RawData=UDI 바코드)을
+	 * 실제 출고건과 조인해 내려준다. 한 행 = 한 출고건(국가별로 갈린 완제품 로트 단위).
+	 *
+	 *   pack_label(inbox)               우리 라벨 + UDI RawData
+	 *     → mat_produce → mat_lot       완제품 로트 (SourceTableName='mat_produce')
+	 *       → mat_lot_cons(shipment)    출고 소비내역 (INNER: 출고된 것만)
+	 *         → shipment → shipment_head → company   공급일·거래처·수량
+	 *
+	 * ★ inbox 라벨만 대상 (판매 최소단위). carton/ckpk 는 제외.
+	 * ★ 출고건만(INNER JOIN). 포장만 되고 아직 안 나간 건은 납품보고 대상이 아니다.
+	 * ★ RawData(GS1-128) 파싱
+	 *     udi_di_code = (01) 다음 GTIN 14자리 (식별자 없는 순수코드)
+	 *     std_code    = '(01)' + GTIN            (표준코드, PI 제외)
+	 *     udi_pi_code = RawData 에서 (01)GTIN 및 (30)포장수량을 제거한 PI 부분
+	 *     lot_no(10) / manuf_ym(11) / use_tmlmt(17) / item_serial_no(21)
+	 *   식약처 식별자(meddev_item_seq/model_seq/udi_di_seq)는 우리 DB에 없다.
+	 *   팝업에서 행 선택 시 24번 API(고유식별자 품목정보 조회)로 별도 조회해 채운다.
 	 */
 	@RequestMapping("/search_udi_barcode")
 	public AjaxResult getSearchUdiBarcode(
@@ -1140,56 +1157,76 @@ public class PopupController {
 		MapSqlParameterSource paramMap = new MapSqlParameterSource();
 
 		String sql = """
-				select b.id                 as match_id
-				, b."OwnBarcode"            as own_barcode
-				, b."UdiBarcode"            as udi_barcode
-				, b."StdCode"               as std_code
-				, b."UdiDiCode"             as udi_di_code
-				, b."UdiPiCode"             as udi_pi_code
-				, b."MeddevItemSeq"         as meddev_item_seq
-				, b."ModelSeq"              as model_seq
-				, b."UdiDiSeq"              as udi_di_seq
-				, b."LotNo"                 as lot_no
-				, b."ItemSerialNo"          as item_serial_no
-				, b."ManufYm"               as manuf_ym
-				, b."UseTmlmt"              as use_tmlmt
-				, b."BcncCode"              as bcnc_code
-				, b."SupplyDate"            as supply_date
-				, b."SupplyQty"             as supply_qty
-				, b."IndvdlzSupplyQty"      as indvdlz_supply_qty
-				, b."SupplyUnitPrice"       as supply_unit_price
-				, b."SupplyAmt"             as supply_amt
-				, b."SupplyTypeCode"        as supply_type_code
-				, b."StdMonth"              as std_month
-				, m."Name"                  as material_name
-				, m."Code"                  as material_code
-				, c."Name"                  as company_name
-				from udi_barcode_match b
-				left join material m on m.id = b."Material_id"
-				left join company  c on c.id = b."Company_id"
-				where b."ReportedYN" = 'N'
+				with base as (
+				  select
+				    pl.id                                              as label_id,
+				    pl."MatProduce_id"                                 as mat_produce_id,
+				    pl."LotNo"                                         as own_barcode,
+				    pl."RawData"                                       as udi_barcode,
+				    substring(pl."RawData" from '\\(01\\)([0-9]{14})') as udi_di_code,
+				    substring(pl."RawData" from '\\(10\\)([^()]+)')    as lot_no,
+				    substring(pl."RawData" from '\\(11\\)([0-9]{6})')  as manuf_ym,
+				    substring(pl."RawData" from '\\(17\\)([0-9]{6})')  as use_tmlmt,
+				    substring(pl."RawData" from '\\(21\\)([^()]+)')    as item_serial_no
+				  from pack_label pl
+				  where pl."LabelKind" = 'inbox'
+				    and coalesce(pl._status,'a') = 'a'
+				    and pl."RawData" is not null and pl."RawData" <> ''
+				)
+				select
+				  b.label_id                                           as match_id
+				, b.own_barcode                                        as own_barcode
+				, b.udi_barcode                                        as udi_barcode
+				, b.udi_di_code                                        as udi_di_code
+				, '(01)' || b.udi_di_code                              as std_code
+				, regexp_replace(
+				    regexp_replace(b.udi_barcode, '\\(01\\)[0-9]{14}', ''),
+				    '\\(30\\)[0-9]+', ''
+				  )                                                    as udi_pi_code
+				, b.lot_no                                             as lot_no
+				, b.manuf_ym                                           as manuf_ym
+				, b.use_tmlmt                                          as use_tmlmt
+				, b.item_serial_no                                     as item_serial_no
+				, ml."LotNumber"                                       as prod_lot
+				, mt."Name"                                            as material_name
+				, mt."Code"                                            as material_code
+				, to_char(sh."ShipDate",'YYYYMMDD')                    as supply_date
+				, mlc."OutputQty"                                      as supply_qty
+				, c."Name"                                             as company_name
+				, c."Code"                                             as bcnc_code
+				, fn_code_name('shipment_state', sh."State")           as ship_state_name
+				from base b
+				join mat_lot ml on ml."SourceTableName" = 'mat_produce'
+				               and ml."SourceDataPk"    = b.mat_produce_id
+				join material mt on mt.id = ml."Material_id"
+				join mat_lot_cons mlc on mlc."MaterialLot_id" = ml.id
+				                     and mlc."SourceTableName" = 'shipment'
+				join shipment s       on s.id = mlc."SourceDataPk"
+				join shipment_head sh on sh.id = s."ShipmentHead_id"
+				left join company c   on c.id = sh."Company_id"
+				where 1=1
 				""";
 
 		if (StringUtils.hasText(dateFrom)) {
-			sql += " and b.\"SupplyDate\" >= :dateFrom ";
+			sql += " and to_char(sh.\"ShipDate\",'YYYYMMDD') >= :dateFrom ";
 			paramMap.addValue("dateFrom", dateFrom);
 		}
 		if (StringUtils.hasText(dateTo)) {
-			sql += " and b.\"SupplyDate\" <= :dateTo ";
+			sql += " and to_char(sh.\"ShipDate\",'YYYYMMDD') <= :dateTo ";
 			paramMap.addValue("dateTo", dateTo);
 		}
 		if (StringUtils.hasText(keyword)) {
 			sql += """
-					 and ( b."OwnBarcode" ilike concat('%%',:keyword,'%%')
-						or b."UdiBarcode" ilike concat('%%',:keyword,'%%')
-						or b."UdiDiCode"  ilike concat('%%',:keyword,'%%')
-						or b."LotNo"      ilike concat('%%',:keyword,'%%')
-						or m."Name"       ilike concat('%%',:keyword,'%%') )
+					 and ( b.own_barcode ilike concat('%%',:keyword,'%%')
+						or b.udi_barcode  ilike concat('%%',:keyword,'%%')
+						or b.udi_di_code  ilike concat('%%',:keyword,'%%')
+						or b.lot_no       ilike concat('%%',:keyword,'%%')
+						or mt."Name"      ilike concat('%%',:keyword,'%%') )
 					""";
 			paramMap.addValue("keyword", keyword);
 		}
 
-		sql += " order by b.\"SupplyDate\" desc, b.id desc ";
+		sql += " order by sh.\"ShipDate\" desc, b.label_id desc, prod_lot ";
 
 		result.data = this.sqlRunner.getRows(sql, paramMap);
 		return result;

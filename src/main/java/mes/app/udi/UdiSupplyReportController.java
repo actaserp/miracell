@@ -47,6 +47,47 @@ public class UdiSupplyReportController {
 		return result;
 	}
 
+	/**
+	 * 고유식별자(UDI-DI) 품목 정보 조회 (식약처 24번 API 중계).
+	 * 바코드 조회 팝업에서 행 선택 시 호출한다. UDI-DI 코드로
+	 * meddevItemSeq/seq/udiDiSeq 등 보고 필수 식별자를 받아 화면 폼에 채운다.
+	 *
+	 * 사용: GET /api/udi/supply_report/udidi_product?udi_di_code=08809286200461
+	 */
+	@GetMapping("/udidi_product")
+	public AjaxResult getUdiDiProduct(@RequestParam("udi_di_code") String udiDiCode) {
+		AjaxResult result = new AjaxResult();
+		try {
+			Map<String, Object> item = this.udiApiClient.getUdiDiProduct(udiDiCode);
+			if (item == null) {
+				result.success = false;
+				result.message = "해당 UDI-DI 코드의 품목정보를 식약처에서 찾을 수 없습니다.";
+				return result;
+			}
+			// 화면에서 바로 쓰도록 필요한 식별자만 정리해 내려준다.
+			java.util.Map<String, Object> data = new java.util.HashMap<>();
+			data.put("meddev_item_seq", item.get("meddevItemSeq"));
+			data.put("model_seq", item.get("seq"));           // 모델 일련번호 = seq
+			data.put("udi_di_seq", item.get("udiDiSeq"));
+			data.put("item_name", item.get("itemName"));
+			data.put("type_name", item.get("typeName"));
+			data.put("permit_no", item.get("permitNo"));
+			data.put("use_lot_no", item.get("useLotNo"));
+			data.put("use_item_seq", item.get("useItemSeq"));
+			data.put("use_manuf_ym", item.get("useManufYm"));
+			data.put("use_time_limit", item.get("useTimeLimit"));
+			data.put("pack_quantity", item.get("packQuantity"));
+			// 원본 전체도 함께 (필요 시 참조)
+			data.put("_raw", item);
+			result.data = data;
+			result.success = true;
+		} catch (Exception ex) {
+			result.success = false;
+			result.message = ex.getMessage();
+		}
+		return result;
+	}
+
 	/** 보고자료 목록 조회 */
 	@GetMapping("/list")
 	public AjaxResult getList(
