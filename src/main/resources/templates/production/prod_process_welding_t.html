@@ -431,7 +431,8 @@
             const r = AjaxUtil.getSyncData('/api/common/combo', {
                 combo_type: comboType, cond1: cond1 || '', cond2: cond2 || '', cond3: cond3 || ''
             }) || {};
-            return (r.data || []).map(x => ({value: x.value, text: x.text, code: x.Code || ''}));
+            return (r.data || []).map(x => ({value: x.value, text: x.text, code: x.Code || '',
+                factory: String(x.Factory_id || x.factory_id || '')}));
         }
 
         /* ── 기준 데이터 ── */
@@ -710,6 +711,7 @@
             document.getElementById('bDate').textContent = fmtDate(curD.date);
             document.getElementById('bDoneQty').textContent = curD._loaded ? dayDone(curD) : curD.good_qty;
             document.getElementById('wkCnt').textContent = curD.crews.length + '조';
+            setTimeout(refreshWoBadge, 0);
             const box = document.getElementById('wkList');
             if (!curD.crews.length) {
                 box.innerHTML = `<div class="emptybox">아직 작업조가 없습니다. 아래 ‘작업조 추가’로 시작하세요.</div>`;
@@ -1004,7 +1006,7 @@
         function openCrewSheet() {
             selWorkers = [];
             selE = null;
-            if (!WORKERS.length) WORKERS = combo('person');
+            if (!WORKERS.length) WORKERS = fetchWorkers();   /* 소속 공장 인원만 */
             if (!EQUIPS.length) EQUIPS = WC ? combo('equipment', '', '', WC) : [];
             document.getElementById('workerOpts').innerHTML = WORKERS.length
                 ? WORKERS.map(w => `<button class="opt" data-w="${w.value}" data-n="${w.text}"><span class="ck"></span>${w.text}</button>`).join('')
@@ -1464,6 +1466,209 @@
                 boot(tries + 1);
             }, 50);
         })();
+
+        /* ══════════════════════════════════════════════════════════════════
+           [공통 추가] ① 작업자 = 소속 공장 인원만  ② 재고 새로고침
+           - ①은 포장공정(prod_process_opack_bsc_t) 규약과 통일한다.
+             포장은 /workers 를 factory_id 와 함께 부른다. 다른 공정도 같게 맞췄다.
+             ★ 서버가 이 엔드포인트를 아직 안 열었으면 공용 콤보로 폴백한다
+               (그 경우 콘솔에 경고가 남는다 — 전사 인원이 다 뜬다는 뜻).
+           - ②는 "화면을 다시 그리는" 것이 아니라 지금 보고 있는 자리는 그대로 두고
+             재고 수치만 서버에서 다시 읽는다. 앞 공정이 방금 만든 재고를 받는 용도.
+           ══════════════════════════════════════════════════════════════════ */
+        var WORKER_API = '/api/production/work/workers';
+        var WORKER_FACTORY_ID = 1;
+
+        /* 공용 콤보를 직접 부른다 — 화면마다 combo() 유무가 달라 여기서 자체 호출한다.
+           cond1 = 공장(Factory_id). ComboService.person 이 이 조건을 받는다.
+           서버는 퇴사자(_status·Exitdate)도 함께 걸러 내려준다. */
+        function comboPerson(factoryId) {
+            if (typeof AjaxUtil === 'undefined' || !AjaxUtil.getSyncData) return [];
+            var r = AjaxUtil.getSyncData('/api/common/combo', {
+                combo_type: 'person',
+                cond1: (factoryId == null ? '' : String(factoryId)),
+                cond2: '', cond3: ''
+            }) || {};
+            return (r.data || []).map(function (x) {
+                return {
+                    value: x.value,
+                    text : x.text,
+                    code : x.code || x.Code || '',
+                    factory: String(x.Factory_id != null ? x.Factory_id
+                        : (x.factory_id != null ? x.factory_id : ''))
+                };
+            }).filter(function (w) { return w.value != null && w.text; });
+        }
+
+        function fetchWorkerRows() {
+            if (typeof AjaxUtil === 'undefined' || !AjaxUtil.getSyncData) return [];
+
+            /* ① 공용 콤보 (기본 경로) */
+            var list = [];
+            try { list = comboPerson(WORKER_FACTORY_ID); } catch (e) { list = []; }
+
+            /* ② 콤보가 비면 공정 전용 /workers 로 폴백 (포장처럼 자체 엔드포인트가 있는 화면용) */
+            if (!list.length) {
+                var rows = [];
+                try {
+                    var r = AjaxUtil.getSyncData(WORKER_API, {
+                        factory_id: WORKER_FACTORY_ID,
+                        spjangcd: (typeof CTX !== 'undefined' && CTX && CTX.spjangcd) ? CTX.spjangcd : 'ZZ'
+                    }) || {};
+                    rows = r.data || (Array.isArray(r) ? r : []);
+                } catch (e2) { rows = []; }
+                if (!Array.isArray(rows)) rows = [];
+                list = rows.map(function (w) {
+                    var id = (w.worker_id != null) ? w.worker_id
+                        : (w.actor_id  != null) ? w.actor_id
+                            : (w.person_id != null) ? w.person_id
+                                : (w.id != null) ? w.id : w.value;
+                    return {
+                        value: id,
+                        text : w.name || w.actor_name || w.text || '',
+                        code : w.code || '',
+                        factory: String(w.factory_id != null ? w.factory_id
+                            : (w.Factory_id != null ? w.Factory_id : ''))
+                    };
+                }).filter(function (w) { return w.value != null && w.text; });
+                if (list.length) console.warn('[workers] 공용 콤보가 비어 ' + WORKER_API + ' 로 폴백했습니다.');
+            }
+
+            /* ③ 응답에 공장이 실려 있으면 화면에서 한 번 더 거른다 (2차 방어).
+                  공장 미지정자는 어느 화면에서도 보이도록 남긴다 — 서버 조건과 같은 방침. */
+            var f = list.filter(function (w) { return !w.factory || w.factory === String(WORKER_FACTORY_ID); });
+            if (f.length) list = f;
+            return list;
+        }
+        /* {value,text,code} 형태로 쓰는 화면용 */
+        function fetchWorkers() { return fetchWorkerRows(); }
+        /* {actor_id,actor_name} 형태로 쓰는 화면용 */
+        function fetchWorkersActor() {
+            return fetchWorkerRows().map(function (w) {
+                return {actor_id: w.value, actor_name: w.text, code: w.code};
+            });
+        }
+
+        /* ── 새로고침 버튼 : 각 화면 헤더(qhead / topbar2) 우측에 붙인다 ──
+           목록·액션바는 다시 그려지고 스크롤도 타서 고정 자리를 잡기 어렵다.
+           헤더는 화면당 하나씩 고정이라 겹칠 일이 없다. */
+        (function () {
+            var root = document.querySelector('.ms-wash-root, .ms-pack-root') || document;
+            var heads = root.querySelectorAll('.qhead, .topbar2');
+            if (!heads.length) return;
+            var busy = false;
+
+            function run(b) {
+                if (busy) return;
+                busy = true;
+                var t = b.innerHTML;
+                b.innerHTML = '…';
+                b.disabled = true;
+                b.style.opacity = '.5';
+                setTimeout(function () {
+                    try {
+                        stockRefresh();
+                        if (typeof flash === 'function') flash('새로 불러왔습니다');
+                    } catch (e) {
+                        console.error('[stockRefresh]', e);
+                        if (typeof flash === 'function') flash('불러오지 못했습니다');
+                    }
+                    b.innerHTML = t;
+                    b.disabled = false;
+                    b.style.opacity = '';
+                    busy = false;
+                }, 0);
+            }
+
+            Array.prototype.forEach.call(heads, function (h) {
+                if (h.querySelector('.msRefreshBtn')) return;
+                var b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'msRefreshBtn';
+                b.title = '새로고침';
+                b.setAttribute('aria-label', '새로고침');
+                b.innerHTML = '⟳';
+                /* 헤더에 이미 오른쪽으로 미는 요소(.qfilter 의 margin-left:auto,
+                   .htitle 의 flex:1)가 있으면 auto 를 또 주면 안 된다.
+                   남은 공간이 둘로 나뉘어 앞 요소가 가운데로 밀려난다. */
+                var pushed = Array.prototype.some.call(h.children, function (c) {
+                    var cs = getComputedStyle(c);
+                    return cs.marginLeft === 'auto' || parseFloat(cs.flexGrow) > 0;
+                });
+                b.style.cssText = (pushed ? '' : 'margin-left:auto;') + 'flex:0 0 auto;align-self:center;'
+                    + 'width:40px;height:40px;border-radius:12px;'
+                    + 'border:1px solid var(--line,#dfe3e8);background:var(--surface,#fff);'
+                    + 'color:var(--ink-2,#5b6570);font-size:19px;font-weight:800;line-height:1;'
+                    + 'cursor:pointer;touch-action:manipulation;'
+                    + '-webkit-user-select:none;user-select:none';
+                b.addEventListener('click', function () { run(b); });
+                h.appendChild(b);
+            });
+        })();
+
+        function scOn(id) {
+            var el = document.getElementById(id);
+            return !!el && !el.classList.contains('hide');
+        }
+        function maskOn(id) {
+            var el = document.getElementById(id);
+            return !!el && el.classList.contains('show');
+        }
+
+        /* ── 재고 새로고침 (조립·블리스터·융착 공통 골격) ──
+           BOM 행을 새로 만들지 않는다. 사람이 손으로 넣은 수량·추가 자재가 날아가므로
+           mat_id 로 맞춰 stock 값만 덮어쓴다. */
+
+        /* ── 미배정 작업지시 건수 (B화면 안내줄에 붙는다) ──
+           작지는 「용기 선택」 시트 안에만 있어서, B/C 화면에 머무는 동안에는
+           새 작지가 내려와도 화면에 아무 변화가 없다. 그래서 건수만 따로 읽어 띄운다. */
+        function refreshWoBadge() {
+            if (!PROC_ID || typeof curD === 'undefined' || !curD) return;
+            var n = 0;
+            try {
+                var r = apiGet('/work_orders', {process_id: PROC_ID, date: curD.date, spjangcd: CTX.spjangcd});
+                n = (r.data || []).length;
+            } catch (e) { return; }
+            var bar = document.querySelector('#scB .actionbar .actsum .l');
+            if (!bar) return;
+            if (!bar.dataset.base) bar.dataset.base = bar.textContent;
+            bar.textContent = bar.dataset.base + (n ? ('  ·  작업지시 ' + n + '건') : '');
+        }
+        function stockRefresh() {
+            if (scOn('scC') && typeof curC !== 'undefined' && curC) {
+                curC.items.forEach(function (it) {
+                    if (it.st === 'done' || !it.mat_id) return;   // 완료분은 차감 실적이라 건드리지 않는다
+                    var fresh = loadBomDefault(it.mat_id, curD.date);
+                    var rows = fresh && fresh.bom ? fresh.bom : (fresh || []);
+                    var map = {};
+                    rows.forEach(function (b) { map[b.mat_id] = b; });
+                    (it.bom || []).forEach(function (b) {
+                        var n = map[b.mat_id];
+                        if (n) { b.stock = n.stock; if (n.store) b.store = n.store; }
+                    });
+                    if (it.ves && fresh && fresh.ves) it.ves.stock = fresh.ves.stock;
+                    /* 블리스터 : 용기 반제품 로트도 다시 읽되 고른 로트는 유지 */
+                    if (it.ves && typeof loadVesLot === 'function') {
+                        var lot = loadVesLot(it.ves.mat_id);
+                        var list = lot ? lot.list : [];
+                        it.vesLots = list;
+                        var keep = it.vesLot ? list.filter(function (l) { return l.lot_id === it.vesLot.lot_id; })[0] : null;
+                        it.vesLot = keep || (list[0] || null);
+                    }
+                });
+                renderItems();
+            } else if (scOn('scB') && typeof curD !== 'undefined' && curD) {
+                reloadCurDay();
+            } else {
+                refreshDays();
+            }
+            /* 열려 있는 시트도 같이 갱신 */
+            if (maskOn('partMask') && typeof partVi !== 'undefined' && partVi != null) openPartSheet(partVi);
+            if (maskOn('lotMask') && typeof lotVi !== 'undefined' && lotVi != null) openLotSheet(lotVi);
+            if (maskOn('vesMask')) openVesSheet();
+            refreshWoBadge();          /* 새 작업지시가 내려왔는지 같이 확인한다 */
+        }
+
     </script>
 
     <!-- 스텝퍼 롱프레스 자동증감 -->

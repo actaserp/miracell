@@ -541,14 +541,22 @@ public class ComboService {
         dicParam.addValue("cond3", cond3);
         return this.sqlRunner.getRows(sql, dicParam);
 	};
-	
-	ComboDataFunction person=(String cond1, String cond2, String cond3)-> { 
-		String sql = "select id as Value, \"Name\" as text from person where 1=1 order by \"Name\" ";
+
+	ComboDataFunction person=(String cond1, String cond2, String cond3)-> {
+		String sql = "select id as Value, \"Name\" as text, \"Code\" as code, \"Factory_id\" as \"Factory_id\" "
+				+ "from person where 1=1 "
+				+ "and coalesce(_status,'a') = 'a' "
+				+ "and coalesce(\"rtflag\",'0') <> '1' ";      // rtflag 1 = 퇴직
+		// cond1 = 공장(Factory_id). 비우면 전원 — 기존 호출은 그대로 동작한다
+		if (StringUtils.hasText(cond1)) {
+			sql += "and (\"Factory_id\" = cast(:cond1 as Integer) or \"Factory_id\" is null) ";
+		}
+		sql += " order by \"Name\" ";
 		MapSqlParameterSource dicParam = new MapSqlParameterSource();
-        dicParam.addValue("cond1", cond1);
-        dicParam.addValue("cond2", cond2);
-        dicParam.addValue("cond3", cond3);
-        return this.sqlRunner.getRows(sql, dicParam);
+		dicParam.addValue("cond1", cond1);
+		dicParam.addValue("cond2", cond2);
+		dicParam.addValue("cond3", cond3);
+		return this.sqlRunner.getRows(sql, dicParam);
 	};
 	
 	ComboDataFunction routing=(String cond1, String cond2, String cond3)-> { 

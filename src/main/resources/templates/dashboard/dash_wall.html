@@ -283,8 +283,17 @@
     function wlProc(procs){
       var wash = wlData.wash_today || {};
 
+      /* ★ 세척·멸균은 mat_produce 가 없어 working_cnt 가 늘 0 이다 (dash_main 과 동일 처리) */
+      var procWorking = function(p){
+        if (p.code === 'bsc01') return wlNum(wash.working_cnt);
+        if (p.code === 'bsc04') {
+          return (wlData.steril || []).filter(function(b){ return b.state === 'working'; }).length;
+        }
+        return wlNum(p.working_cnt);
+      };
+
       var tile = function(p){
-        var working = wlNum(p.working_cnt);
+        var working = procWorking(p);
         var qty;
         if (p.code === 'bsc01')      qty = wlNum(wash.session_cnt) + '<small>세션</small>';
         else if (p.code === 'bsc04') qty = (wlData.steril || []).length + '<small>배치</small>';

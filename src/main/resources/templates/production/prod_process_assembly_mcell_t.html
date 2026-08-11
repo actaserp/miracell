@@ -416,7 +416,8 @@
             const r = AjaxUtil.getSyncData('/api/common/combo', {
                 combo_type: comboType, cond1: cond1 || '', cond2: cond2 || '', cond3: cond3 || ''
             }) || {};
-            return (r.data || []).map(x => ({value: x.value, text: x.text, code: x.Code || ''}));
+            return (r.data || []).map(x => ({value: x.value, text: x.text, code: x.Code || '',
+                factory: String(x.Factory_id || x.factory_id || '')}));
         }
         async function guard(fn) {
             try { busy(true); return await fn(); }
@@ -1051,10 +1052,8 @@
             if (!WC) console.warn('[mcell] 워크센터를 찾지 못했습니다. work_center."Process_id" 매핑 확인');
         }
         function loadBaseData() {
-            /* 1공장과 동일하게 공용 콤보 우선, 없으면 전용 엔드포인트로 폴백 */
-            const ps = combo('person');
-            WORKERS = ps.length ? ps.map(x => ({actor_id: x.value, actor_name: x.text}))
-                : (apiGet('/workers') || []);
+            /* 작업자 = 소속 공장(2공장) 인원만. 포장공정과 같은 규약 */
+            WORKERS = fetchWorkersActor();
             const es = combo('equipment', WC);
             EQUIPS = es.length ? es.map(x => ({equipment_id: x.value, equipment_name: x.text, equipment_code: x.code}))
                 : (apiGet('/equipments', {workcenter_id: WC}) || []);
@@ -1079,10 +1078,188 @@
             }
             setTimeout(function () { boot(tries + 1); }, 50);
         })();
+
+        /* ══════════════════════════════════════════════════════════════════
+           [공통 추가] ① 작업자 = 소속 공장 인원만  ② 재고 새로고침
+           - ①은 포장공정(prod_process_opack_bsc_t) 규약과 통일한다.
+             포장은 /workers 를 factory_id 와 함께 부른다. 다른 공정도 같게 맞췄다.
+             ★ 서버가 이 엔드포인트를 아직 안 열었으면 공용 콤보로 폴백한다
+               (그 경우 콘솔에 경고가 남는다 — 전사 인원이 다 뜬다는 뜻).
+           - ②는 "화면을 다시 그리는" 것이 아니라 지금 보고 있는 자리는 그대로 두고
+             재고 수치만 서버에서 다시 읽는다. 앞 공정이 방금 만든 재고를 받는 용도.
+           ══════════════════════════════════════════════════════════════════ */
+        /* ★ function 선언으로 둔다. 부팅 때 작업자를 미리 읽는 화면(2공장 조립·검사)이 있는데
+           이 블록은 스크립트 끝에 있어서, var 로 두면 그 시점엔 값이 아직 undefined 다.
+           공장 없이 조회가 나가고 그 결과가 그대로 굳는다. */
+        function workerApi()       { return '/api/production/mcell/workers'; }
+        function workerFactoryId() { return 2; }
+
+        /* 공용 콤보를 직접 부른다 — 화면마다 combo() 유무가 달라 여기서 자체 호출한다.
+           cond1 = 공장(Factory_id). ComboService.person 이 이 조건을 받는다.
+           서버는 퇴사자(_status·Exitdate)도 함께 걸러 내려준다. */
+        function comboPerson(factoryId) {
+            if (typeof AjaxUtil === 'undefined' || !AjaxUtil.getSyncData) return [];
+            var r = AjaxUtil.getSyncData('/api/common/combo', {
+                combo_type: 'person',
+                cond1: (factoryId == null ? '' : String(factoryId)),
+                cond2: '', cond3: ''
+            }) || {};
+            return (r.data || []).map(function (x) {
+                return {
+                    value: x.value,
+                    text : x.text,
+                    code : x.code || x.Code || '',
+                    factory: String(x.Factory_id != null ? x.Factory_id
+                        : (x.factory_id != null ? x.factory_id : ''))
+                };
+            }).filter(function (w) { return w.value != null && w.text; });
+        }
+
+        function fetchWorkerRows() {
+            if (typeof AjaxUtil === 'undefined' || !AjaxUtil.getSyncData) return [];
+
+            /* ① 공용 콤보 (기본 경로) */
+            var list = [];
+            try { list = comboPerson(workerFactoryId()); } catch (e) { list = []; }
+
+            /* ② 콤보가 비면 공정 전용 /workers 로 폴백 (포장처럼 자체 엔드포인트가 있는 화면용) */
+            if (!list.length) {
+                var rows = [];
+                try {
+                    var r = AjaxUtil.getSyncData(workerApi(), {
+                        factory_id: workerFactoryId(),
+                        spjangcd: (typeof CTX !== 'undefined' && CTX && CTX.spjangcd) ? CTX.spjangcd : 'ZZ'
+                    }) || {};
+                    rows = r.data || (Array.isArray(r) ? r : []);
+                } catch (e2) { rows = []; }
+                if (!Array.isArray(rows)) rows = [];
+                list = rows.map(function (w) {
+                    var id = (w.worker_id != null) ? w.worker_id
+                        : (w.actor_id  != null) ? w.actor_id
+                            : (w.person_id != null) ? w.person_id
+                                : (w.id != null) ? w.id : w.value;
+                    return {
+                        value: id,
+                        text : w.name || w.actor_name || w.text || '',
+                        code : w.code || '',
+                        factory: String(w.factory_id != null ? w.factory_id
+                            : (w.Factory_id != null ? w.Factory_id : ''))
+                    };
+                }).filter(function (w) { return w.value != null && w.text; });
+                if (list.length) console.warn('[workers] 공용 콤보가 비어 ' + workerApi() + ' 로 폴백했습니다.');
+            }
+
+            /* ③ 응답에 공장이 실려 있으면 화면에서 한 번 더 거른다 (2차 방어).
+                  공장 미지정자는 어느 화면에서도 보이도록 남긴다 — 서버 조건과 같은 방침. */
+            var f = list.filter(function (w) { return !w.factory || w.factory === String(workerFactoryId()); });
+            if (f.length) list = f;
+            return list;
+        }
+        /* {value,text,code} 형태로 쓰는 화면용 */
+        function fetchWorkers() { return fetchWorkerRows(); }
+        /* {actor_id,actor_name} 형태로 쓰는 화면용 */
+        function fetchWorkersActor() {
+            return fetchWorkerRows().map(function (w) {
+                return {actor_id: w.value, actor_name: w.text, code: w.code};
+            });
+        }
+
+        /* ── 새로고침 버튼 : 각 화면 헤더(qhead / topbar2) 우측에 붙인다 ──
+           목록·액션바는 다시 그려지고 스크롤도 타서 고정 자리를 잡기 어렵다.
+           헤더는 화면당 하나씩 고정이라 겹칠 일이 없다. */
+        (function () {
+            var root = document.querySelector('.ms-wash-root, .ms-pack-root') || document;
+            var heads = root.querySelectorAll('.qhead, .topbar2');
+            if (!heads.length) return;
+            var busy = false;
+
+            function run(b) {
+                if (busy) return;
+                busy = true;
+                var t = b.innerHTML;
+                b.innerHTML = '…';
+                b.disabled = true;
+                b.style.opacity = '.5';
+                setTimeout(function () {
+                    try {
+                        stockRefresh();
+                        if (typeof flash === 'function') flash('새로 불러왔습니다');
+                    } catch (e) {
+                        console.error('[stockRefresh]', e);
+                        if (typeof flash === 'function') flash('불러오지 못했습니다');
+                    }
+                    b.innerHTML = t;
+                    b.disabled = false;
+                    b.style.opacity = '';
+                    busy = false;
+                }, 0);
+            }
+
+            Array.prototype.forEach.call(heads, function (h) {
+                if (h.querySelector('.msRefreshBtn')) return;
+                var b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'msRefreshBtn';
+                b.title = '새로고침';
+                b.setAttribute('aria-label', '새로고침');
+                b.innerHTML = '⟳';
+                /* 헤더에 이미 오른쪽으로 미는 요소(.qfilter 의 margin-left:auto,
+                   .htitle 의 flex:1)가 있으면 auto 를 또 주면 안 된다.
+                   남은 공간이 둘로 나뉘어 앞 요소가 가운데로 밀려난다. */
+                var pushed = Array.prototype.some.call(h.children, function (c) {
+                    var cs = getComputedStyle(c);
+                    return cs.marginLeft === 'auto' || parseFloat(cs.flexGrow) > 0;
+                });
+                b.style.cssText = (pushed ? '' : '') + 'flex:0 0 auto;align-self:center;'
+                    + 'width:40px;height:40px;border-radius:12px;'
+                    + 'border:1px solid var(--line,#dfe3e8);background:var(--surface,#fff);'
+                    + 'color:var(--ink-2,#5b6570);font-size:19px;font-weight:800;line-height:1;'
+                    + 'cursor:pointer;touch-action:manipulation;'
+                    + '-webkit-user-select:none;user-select:none';
+                b.addEventListener('click', function () {
+                    run(b);
+                });
+                h.appendChild(b);
+            });
+        })();
+
+        function scOn(id) {
+            var el = document.getElementById(id);
+            return !!el && !el.classList.contains('hide');
+        }
+
+        function maskOn(id) {
+            var el = document.getElementById(id);
+            return !!el && el.classList.contains('show');
+        }
+
+        /* ── 재고 새로고침 ── (스텝의 재고 로트 · 투입자재 재고) */
+        function stockRefresh() {
+            WORKERS = [];
+            if (scOn('scC') && typeof curU !== 'undefined' && curU) {
+                guard(async () => {
+                    await loadSteps();
+                });
+            } else if (scOn('scB') && typeof curO !== 'undefined' && curO) {
+                guard(async () => {
+                    await renderUnits();
+                });
+            } else {
+                guard(async () => {
+                    await renderQueue();
+                });
+            }
+        }
+
     </script>
 
     <!-- 스텝퍼 롱프레스 자동증감 -->
-    <style>.bstep button, .dateedit button, .timeedit button {touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}</style>
+    <style>.bstep button, .dateedit button, .timeedit button {
+        touch-action: manipulation;
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-touch-callout: none;
+    }</style>
     <script>
         (function () {
             var SEL = '.bstep button, .dateedit button, .timeedit button';

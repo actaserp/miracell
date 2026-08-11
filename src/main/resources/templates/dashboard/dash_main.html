@@ -577,8 +577,27 @@
 
       var wash = dbData.wash_today || {};
 
+      /* ★ working_cnt / today_good 은 mat_produce 에서만 나온다.
+           세척(bsc01)은 wash_work, 멸균(bsc04)은 steril_batch 에 실적을 남기므로
+           그대로 두면 실제로 작업 중이어도 영영 「대기」(회색)로 굳는다.
+           수량은 이미 갈아끼워 두었는데 상태만 빠져 있었다. */
+      var procWork = function(p){
+        if (p.code === 'bsc01') {
+          /* 서버가 wash_today.working_cnt 를 안 내리면 세션수로도 판단하지 않는다 —
+             오늘 끝난 세션까지 「작업중」이 되어 버린다. 값이 올 때만 켠다. */
+          return {cnt: dbNum(wash.working_cnt), who: wash.workers || '-'};
+        }
+        if (p.code === 'bsc04') {
+          var run = (dbData.steril || []).filter(function(b){ return b.state === 'working'; });
+          return {cnt: run.length,
+            who: run.map(function(b){ return b.equ_name || '멸균기'; }).join(', ') || '-'};
+        }
+        return {cnt: dbNum(p.working_cnt), who: p.workers || '-'};
+      };
+
       var tile = function(p){
-        var working = dbNum(p.working_cnt);
+        var w = procWork(p);
+        var working = w.cnt;
         var good = dbNum(p.today_good);
 
         /* 세척·멸균은 mat_produce 를 만들지 않는다. 수량 대신 그 공정의 단위로 적는다.
@@ -596,7 +615,7 @@
                 + '<div class="zn"><i></i>' + dbEsc(p.name) + '</div>'
                 + '<div class="zq">' + qtyHtml + '</div>'
                 + '<div class="zw">' + (working
-                        ? '작업중 ' + working + '건 · ' + dbEsc(p.workers || '-')
+                        ? '작업중 ' + working + '건 · ' + dbEsc(w.who)
                         : '<span style="color:#c2c9d4">대기</span>') + '</div>'
                 + '</div>';
       };
@@ -813,22 +832,28 @@
            알람 창이 뜨고 카드가 붉어지므로 띠까지 쓰면 같은 말을 세 번 한다.
            띠는 알람 창이 없는 항목(납기·불합격·미종료)만 맡는다. */
 
-      var late = (dbData.orders || []).filter(function(o){ return o.is_late === 'Y'; });
+      var late = (dbData.orders || []).filter(function (o) {
+        return o.is_late === 'Y';
+      });
       if (late.length) {
         out.push('<div class="db-alert red">⚠ 납기가 지난 작업지시 ' + late.length + '건</div>');
       }
 
-      var reject = (dbData.unit_states || []).filter(function(s){ return s.state === 'reject'; });
+      var reject = (dbData.unit_states || []).filter(function (s) {
+        return s.state === 'reject';
+      });
       if (reject.length && dbNum(reject[0].cnt)) {
         out.push('<div class="db-alert red">⚠ 검사 불합격 유닛 ' + dbNum(reject[0].cnt) + '대 — 재작업 대기</div>');
       }
 
-      var fail = (dbData.steril || []).filter(function(b){ return b.bi_result === 'fail'; });
+      var fail = (dbData.steril || []).filter(function (b) {
+        return b.bi_result === 'fail';
+      });
       if (fail.length) {
         out.push('<div class="db-alert red">⚠ 멸균 BI 불합격 배치 ' + fail.length + '건 — 배치 파기 확인</div>');
       }
 
-      var stale = (dbData.equ_running || []).filter(function(e){
+      var stale = (dbData.equ_running || []).filter(function (e) {
         return dbNum(e.open_min) > DB_OPEN_WARN_MIN;
       });
       if (stale.length) {
@@ -843,15 +868,15 @@
     /* ── 폴링 ──
        ★ 탭이 숨겨지면 멈춘다. 배경 탭이 60초마다 서버를 두드릴 이유가 없다.
          벽걸이 모니터는 항상 보이는 탭이라 영향받지 않는다. */
-    function dbStartPoll(){
+    function dbStartPoll() {
       if (dbTimer) clearInterval(dbTimer);
-      dbTimer = setInterval(function(){
+      dbTimer = setInterval(function () {
         if (document.hidden) return;
         dbLoad();
       }, DB_POLL_MS);
     }
 
-    document.addEventListener('visibilitychange', function(){
+    document.addEventListener('visibilitychange', function () {
       if (!document.hidden) dbLoad();   // 돌아오면 즉시 한 번
     });
 
@@ -870,10 +895,10 @@
     var dbEnvState = {};   /* zoneCode → 직전 이탈 여부 */
     var dbEnvFirst = true; /* 첫 조회 여부 */
 
-    function dbEnvCheckAlarm(zones){
+    function dbEnvCheckAlarm(zones) {
       var newlyBad = [];
 
-      zones.forEach(function(z){
+      zones.forEach(function (z) {
         var key = String(z.code || z.name);
         var bad = dbEnvIsBad(z);
         var was = dbEnvState[key];
@@ -901,8 +926,8 @@
       dbEnvNotify(newlyBad);
     }
 
-    function dbEnvIsBad(z){
-      var out = function(v, min, max){
+    function dbEnvIsBad(z) {
+      var out = function (v, min, max) {
         if (v === null || v === undefined || v === '') return false;
         if (min !== null && min !== undefined && Number(v) < Number(min)) return true;
         if (max !== null && max !== undefined && Number(v) > Number(max)) return true;
@@ -925,22 +950,22 @@
     var dbEnvHist = [];
     const DB_HIST_MAX = 100;
 
-    function dbHistAdd(zone, kind){
+    function dbHistAdd(zone, kind) {
       var d = new Date();
       var parts = [];
-      var push = function(label, v, min, max, unit){
+      var push = function (label, v, min, max, unit) {
         if (v === null || v === undefined || v === '') return;
         var bad = (min !== null && min !== undefined && Number(v) < Number(min))
                 || (max !== null && max !== undefined && Number(v) > Number(max));
         if (kind === 'bad' && !bad) return;   /* 이탈 기록엔 벗어난 값만 */
         parts.push(label + ' ' + v + unit);
       };
-      push('온도', zone.temp,  zone.temp_min,  zone.temp_max,  '°C');
-      push('습도', zone.humi,  zone.humi_min,  zone.humi_max,  '%');
+      push('온도', zone.temp, zone.temp_min, zone.temp_max, '°C');
+      push('습도', zone.humi, zone.humi_min, zone.humi_max, '%');
       push('차압', zone.press, zone.press_min, zone.press_max, 'Pa');
 
       dbEnvHist.unshift({
-        at: dbPad(d.getMonth()+1) + '-' + dbPad(d.getDate()) + ' '
+        at: dbPad(d.getMonth() + 1) + '-' + dbPad(d.getDate()) + ' '
                 + dbPad(d.getHours()) + ':' + dbPad(d.getMinutes()) + ':' + dbPad(d.getSeconds()),
         name: zone.name,
         kind: kind,
@@ -949,9 +974,9 @@
       if (dbEnvHist.length > DB_HIST_MAX) dbEnvHist.length = DB_HIST_MAX;
     }
 
-    function dbHistOpen(){
+    function dbHistOpen() {
       document.getElementById('dbHistRows').innerHTML = dbEnvHist.length
-              ? dbEnvHist.map(function(h){
+              ? dbEnvHist.map(function (h) {
                 return '<tr><td>' + dbEsc(h.at) + '</td>'
                         + '<td>' + dbEsc(h.name) + '</td>'
                         + '<td class="l">' + dbEsc(h.detail || '-') + '</td>'
@@ -972,13 +997,13 @@
      *
      * ★ 이미 떠 있으면 존을 덧붙인다. 창을 여러 개 띄우지 않는다.
      */
-    function dbEnvNotify(zones){
+    function dbEnvNotify(zones) {
       var now = new Date();
       var at = dbPad(now.getHours()) + ':' + dbPad(now.getMinutes())
               + ':' + dbPad(now.getSeconds());
 
-      zones.forEach(function(z){
-        var dup = dbAlarmZones.some(function(x){
+      zones.forEach(function (z) {
+        var dup = dbAlarmZones.some(function (x) {
           return String(x.code || x.name) === String(z.code || z.name);
         });
         if (dup) return;
@@ -988,7 +1013,9 @@
              값도 「벗어난 순간의 값」이어야 한다 — 나중에 바뀐 값이
              알람 창에 반영되면 무엇 때문에 울렸는지 알 수 없다. */
         var snap = {};
-        for (var k in z) { if (z.hasOwnProperty(k)) snap[k] = z[k]; }
+        for (var k in z) {
+          if (z.hasOwnProperty(k)) snap[k] = z[k];
+        }
         snap._at = at;
         dbAlarmZones.push(snap);
       });
@@ -996,12 +1023,12 @@
       document.getElementById('dbAlarmMask').classList.add('on');
     }
 
-    function dbAlarmRender(){
+    function dbAlarmRender() {
       /* 헤더에는 건수만. 시각은 존마다 따로 붙는다 */
       document.getElementById('dbAlarmTime').textContent =
               dbAlarmZones.length > 1 ? dbAlarmZones.length + '건' : '';
 
-      var cell = function(key, unit, val, min, max, digits){
+      var cell = function (key, unit, val, min, max, digits) {
         var has = (val !== null && val !== undefined && val !== '');
         var v = has ? Number(val) : null;
         var hasRange = (min !== null && min !== undefined
@@ -1016,14 +1043,14 @@
                 + '<div class="r">' + rg + ' ' + unit + '</div></div>';
       };
 
-      document.getElementById('dbAlarmList').innerHTML = dbAlarmZones.map(function(z){
+      document.getElementById('dbAlarmList').innerHTML = dbAlarmZones.map(function (z) {
         return '<div class="db-az">'
                 + '<div class="zn">' + dbEsc(z.name)
                 + '<span class="at">' + dbEsc(z._at || '') + ' 발생</span></div>'
                 + '<div class="mx">'
-                + cell('온도',  '°C', z.temp,  z.temp_min,  z.temp_max,  1)
-                + cell('습도',  '%',  z.humi,  z.humi_min,  z.humi_max,  1)
-                + cell('차압',  'Pa', z.press, z.press_min, z.press_max, 0)
+                + cell('온도', '°C', z.temp, z.temp_min, z.temp_max, 1)
+                + cell('습도', '%', z.humi, z.humi_min, z.humi_max, 1)
+                + cell('차압', 'Pa', z.press, z.press_min, z.press_max, 0)
                 + '</div></div>';
       }).join('');
     }
@@ -1031,7 +1058,7 @@
     /* 확인 = 「봤다」는 뜻이지 「해결됐다」가 아니다.
        창은 닫히지만 이탈이 계속되면 상단 붉은 띠와 붉은 카드가 남는다.
        같은 존이 정상으로 돌아갔다가 다시 벗어나면 창이 다시 뜬다. */
-    function dbAlarmAck(){
+    function dbAlarmAck() {
       dbAlarmZones = [];
       document.getElementById('dbAlarmMask').classList.remove('on');
     }
@@ -1039,18 +1066,18 @@
     /* ═══════════════════════════════════════════════
        관리기준 설정 모달
        ═══════════════════════════════════════════════ */
-    function dbEnvOpen(){
+    function dbEnvOpen() {
       document.getElementById('dbEnvMsg').textContent = '';
 
-      AjaxUtil.getAsyncData(DB_API + '/env_limit', {spjangcd: DB_SPJANGCD}, function(res){
+      AjaxUtil.getAsyncData(DB_API + '/env_limit', {spjangcd: DB_SPJANGCD}, function (res) {
         var rows = (res && res.data) ? res.data : [];
         if (!rows.length) {
           document.getElementById('dbEnvRows').innerHTML =
                   '<tr><td colspan="7" style="padding:22px; color:#8a94a4">'
                   + '관리기준이 등록되어 있지 않습니다. cleanroom_limit 테이블을 확인해 주세요.</td></tr>';
         } else {
-          document.getElementById('dbEnvRows').innerHTML = rows.map(function(z){
-            var inp = function(k, v){
+          document.getElementById('dbEnvRows').innerHTML = rows.map(function (z) {
+            var inp = function (k, v) {
               return '<td><input type="number" step="0.1" data-k="' + k + '" value="'
                       + (v === null || v === undefined ? '' : v) + '"></td>';
             };
@@ -1067,13 +1094,16 @@
       });
     }
 
-    function dbEnvClose(){
+    function dbEnvClose() {
       document.getElementById('dbEnvModal').classList.remove('on');
     }
 
-    function dbEnvSave(){
+    function dbEnvSave() {
       var rows = document.querySelectorAll('#dbEnvRows tr[data-code]');
-      if (!rows.length) { dbEnvClose(); return; }
+      if (!rows.length) {
+        dbEnvClose();
+        return;
+      }
 
       /* 하한 ≥ 상한을 화면에서 먼저 막는다.
          그대로 저장하면 모든 측정값이 이탈이 되어 알람이 멈추지 않는다.
@@ -1084,8 +1114,8 @@
            기준문서의 「대괄호 뒤 여는 괄호」 함정과 같은 계열이고,
            JS 문법 검사로는 절대 안 잡힌다. 바깥 배열을 비워두고 push 로 채운다. */
       var pairs = [];
-      pairs.push(['temp_min',  'temp_max',  '온도']);
-      pairs.push(['humi_min',  'humi_max',  '습도']);
+      pairs.push(['temp_min', 'temp_max', '온도']);
+      pairs.push(['humi_min', 'humi_max', '습도']);
       pairs.push(['press_min', 'press_max', '차압']);
       var payloads = [];
 
@@ -1109,8 +1139,8 @@
       }
 
       var done = 0, failed = null;
-      payloads.forEach(function(d){
-        AjaxUtil.postAsyncData(DB_API + '/env_limit/save', d, function(res){
+      payloads.forEach(function (d) {
+        AjaxUtil.postAsyncData(DB_API + '/env_limit/save', d, function (res) {
           done++;
           if (res && res.success === false) failed = res.message;
           if (done === payloads.length) {
@@ -1131,7 +1161,7 @@
       });
     }
 
-    $(document.body).ready(function(){
+    $(document.body).ready(function () {
       dbFitHeight();
       window.addEventListener('resize', dbFitHeight);
       /* 폰트·메뉴가 늦게 그려지면 시작 위치가 달라진다. 한 박자 뒤 다시 잰다 */
@@ -1144,17 +1174,17 @@
       document.getElementById('dbGear').addEventListener('click', dbEnvOpen);
       document.getElementById('dbAlarmAck').addEventListener('click', dbAlarmAck);
       document.getElementById('dbHist').addEventListener('click', dbHistOpen);
-      document.getElementById('dbHistClose').addEventListener('click', function(){
+      document.getElementById('dbHistClose').addEventListener('click', function () {
         document.getElementById('dbHistModal').classList.remove('on');
       });
-      document.getElementById('dbHistClear').addEventListener('click', function(){
+      document.getElementById('dbHistClear').addEventListener('click', function () {
         dbEnvHist = [];
         dbHistOpen();
       });
       document.getElementById('dbEnvClose').addEventListener('click', dbEnvClose);
       document.getElementById('dbEnvCancel').addEventListener('click', dbEnvClose);
       document.getElementById('dbEnvSave').addEventListener('click', dbEnvSave);
-      document.getElementById('dbEnvModal').addEventListener('click', function(e){
+      document.getElementById('dbEnvModal').addEventListener('click', function (e) {
         if (e.target && e.target.id === 'dbEnvModal') dbEnvClose();  // 바깥 클릭
       });
     });
