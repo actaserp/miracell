@@ -231,21 +231,8 @@
       .bc-bars svg{display:block}
       .bc-data{font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;word-break:break-all}
       .bc-sub{font-size:12px;color:var(--ink-2);font-weight:700;margin-top:2px}
-      /* ★ #printArea 는 평소 display:none 이다. visibility:visible 로는 못 이기므로
-         인쇄 시 display 를 되살려야 한다 — 안 그러면 미리보기가 백지다.
-         ★ html·body 배경까지 비운다. 회색 바탕이 깔리면 바코드 대비가 떨어져
-           스캐너 인식률이 낮아지고 토너도 쓸데없이 소모된다. */
-      /* ★ visibility 가 아니라 display 로 숨긴다.
-         visibility:hidden 은 자리를 차지한 채 안 보이게 할 뿐이라 레이아웃이 남고,
-         빈 페이지나 어긋난 여백이 생긴다.
-       ★ body 직계 자식만 숨기고 #printArea 만 살린다 — 안쪽 구조가 어떻든 영향받지 않는다. */
-      @media print{
-          body > *{display:none !important}
-          body > #printArea{display:block !important;position:static;width:100%;padding:20px}
-          html, body{background:#fff !important}
-          #printArea, #printArea *{background:transparent !important;box-shadow:none !important}
-      }
-      #printArea{display:none}
+      /* 인쇄는 숨긴 iframe(#printFrame)에서 한다 — 화면 CSS 와 분리되어
+         @media print 로 화면을 숨길 필요가 없다. #printArea 도 더 쓰지 않는다. */
       @media (max-width:1100px){.qgrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
       @media (max-width:680px){.qgrid{grid-template-columns:1fr}}
       @media (prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important}}
@@ -383,7 +370,6 @@
     </div></div></div>
   </div>
 
-  <div id="printArea"></div>
 </th:block>
 
 <th:block layout:fragment="scripts">
@@ -722,6 +708,16 @@
     return d + '|' + a + '|' + e;
    }
 
+   /** 작업 소요시간(분). 종료가 없으면(작업중) null — 「0분」으로 보이면 안 끝난 걸 끝난 걸로 읽는다 */
+   function workMin(s) {
+    if (!s.start_time || !s.end_time) return null;
+    var a = new Date(String(s.start_time).replace(' ', 'T'));
+    var b = new Date(String(s.end_time).replace(' ', 'T'));
+    if (isNaN(a) || isNaN(b)) return null;
+    var m = Math.round((b - a) / 60000);
+    return (m < 0) ? null : m;
+   }
+
    function buildSessions() {
     var map = {}; SESSIONS = [];
     PACKED.forEach(function (p) {
@@ -730,13 +726,18 @@
       map[k] = {
        key: k, actor_id: p.actor_id, actor_name: p.actor_name,
        equipment_id: p.equipment_id, equipment_name: p.equipment_name,
-       work_date: (p.start_time || '').split(' ')[0], start_time: p.start_time, boxes: []
+       work_date: (p.start_time || '').split(' ')[0],
+       start_time: p.start_time, end_time: p.end_time, boxes: []
       };
       SESSIONS.push(map[k]);
      }
      var s = map[k];
      s.boxes.push(p);
+     /* ★ 작업 = 그 작업자가 포장한 박스들의 「첫 시작 ~ 마지막 종료」다.
+          박스마다 시작·종료가 이미 정확히 남는데(1대=1박스라 몇 분이면 끝난다)
+          화면이 시작만 보여줘서 작업자가 얼마나 일했는지 알 수 없었다. */
      if (p.start_time && (!s.start_time || p.start_time < s.start_time)) s.start_time = p.start_time;
+     if (p.end_time && (!s.end_time || p.end_time > s.end_time)) s.end_time = p.end_time;
     });
     // 아직 박스가 없는 새 작업
     LOCAL.forEach(function (s) {
@@ -775,8 +776,16 @@
       '<div class="who"><span class="lot">' + esc(s.actor_name || '작업자 미지정') + '</span>' +
       '<span class="sub">' + esc(s.work_date || '') +
       ' · 설비 ' + esc(s.equipment_name || '미지정') +
-      (s.start_time ? ' · 시작 ' + pill(s.start_time) : '') + '</span></div>' +
-      '<span class="badge ' + (n ? 'work' : 'wait') + '">포장 ' + n + '대</span></div>';
+      (s.start_time ? ' · ' + pill(s.start_time) + ' ~ ' + (s.end_time ? pill(s.end_time) : '작업중')
+       + (workMin(s) != null ? ' (' + workMin(s) + '분)' : '') : '') + '</span></div>' +
+      /* ★ 한 박스라도 포장했으면 「완료」다.
+           세션 키가 작업자+설비+날짜라, 같은 사람이 다른 날 또 하면 새 카드가 생긴다.
+           즉 이 카드는 「그날 그 사람의 작업」이고 박스를 담은 순간 결과가 남는다.
+           지시 5대 중 2대만 했어도 이 사람의 그날 작업은 끝난 것으로 본다 —
+           남은 3대는 다른 날 다른 작업자가 이어서 한다.
+         ★ 박스가 0이면 아직 시작만 한 상태라 「작업중」. */
+      '<span class="badge ' + (n ? 'done' : 'wait') + '">' +
+      (n ? '완료 · ' + n + '대' : '작업중') + '</span></div>';
     }).join('') : '<div class="emptysess">아직 작업이 없습니다. 아래 「작업 추가」로 작업자를 지정하세요.</div>';
 
     document.getElementById('readyCnt').textContent = READY.length + '대';
@@ -881,6 +890,7 @@
      '<div class="infopill tap" id="pickWorker"><span>작업자</span><b>' + esc(SESS.actor_name || '선택') + '</b></div>' +
      '<div class="infopill tap" id="pickEquip"><span>설비</span><b>' + esc(SESS.equipment_name || '미지정') + '</b></div>' +
      '<div class="infopill tap" data-time="sess"><span>시작</span><b>' + pill(SESS.start_time) + '</b></div>' +
+     '<div class="infopill"><span>종료</span><b>' + (SESS.end_time ? pill(SESS.end_time) : '작업중') + '</b></div>' +
      '<span class="sstate ' + (SESS.boxes.length ? 'work' : 'wait') + '">포장 ' + SESS.boxes.length + '대</span>';
    }
 
@@ -1356,10 +1366,17 @@
     if (!labels || !labels.length) { flash('출력할 바코드가 없습니다'); return; }
     document.getElementById('bcTitle').textContent = title;
     /* JsBarcode 는 DOM 요소에 그린다 — svg 자리를 먼저 만들고 붙인 뒤 렌더한다 */
+    /* ★ 클래스(.bc-card)가 상위 레이아웃 규칙에 덮여 테두리·가운데정렬이 안 먹었다.
+        인쇄 문서와 똑같이 인라인으로 박아 어느 화면에서든 같게 보이게 한다. */
     document.getElementById('bcList').innerHTML = labels.map(function (l, i) {
-     return '<div class="bc-card"><div class="bc-bars"><svg id="bcSvg' + i + '"></svg></div>' +
-      '<div class="bc-data">' + esc(l.line) + '</div>' +
-      (l.sub ? '<div class="bc-sub">' + esc(l.sub) + '</div>' : '') + '</div>';
+     return '<div style="border:1px dashed #999;border-radius:12px;padding:14px 16px;' +
+      'margin:0 0 10px;background:#fff;text-align:center">' +
+      '<div style="display:flex;justify-content:center;margin-bottom:8px">' +
+      '<svg id="bcSvg' + i + '"></svg></div>' +
+      '<div style="font-size:13px;font-weight:700;word-break:break-all">' + esc(l.line) + '</div>' +
+      (l.sub ? '<div style="font-size:12px;color:#5A6B76;font-weight:700;margin-top:2px">'
+       + esc(l.sub) + '</div>' : '') +
+      '</div>';
     }).join('');
     labels.forEach(function (l, i) {
      GS1.draw(document.getElementById('bcSvg' + i), l.line, {height:56});
@@ -1368,34 +1385,80 @@
     showMask('bcMask');
    }
 
+   /**
+    * 라벨 인쇄 — 숨긴 iframe 에 독립 문서를 만들어 그것만 인쇄한다.
+    *
+    * ★ 화면 CSS 와 싸우지 않는 게 핵심이다.
+    *   @media print 로 화면을 숨기는 방식은 레이아웃 컨테이너(height·flex·overflow)나
+    *   상위 레이아웃의 규칙에 계속 걸린다. 실제로 1공장은 화면 내용이 함께 인쇄됐다.
+    *   iframe 은 문서가 통째로 분리돼 있어 그런 간섭이 원천적으로 없다.
+    *
+    * ★ JsBarcode 는 DOM 요소에 그린다. iframe 안에는 라이브러리가 없으므로
+    *   부모 문서에서 그린 뒤 SVG 를 문자열로 옮겨 넣는다.
+    */
    document.getElementById('bcPrint').onclick = function () {
-    var labels = window.__printLabels || [], html = '', idx = 0, ids = [];
+    var labels = window.__printLabels || [];
+    if (!labels.length) { flash('출력할 바코드가 없습니다'); return; }
+    var title = document.getElementById('bcTitle').textContent;
+
+    // 1) 부모 문서에서 화면 밖에 그린다 — 여기서 그려야 JsBarcode 를 쓸 수 있다
+    var stage = document.createElement('div');
+    stage.style.cssText = 'position:absolute;left:-99999px;top:0;width:760px';
+    document.body.appendChild(stage);
+
+    var html = '', idx = 0, ids = [];
     labels.forEach(function (l) {
      var n = l.copies || 1;
      for (var i = 0; i < n; i++) {
       /* ★ 한 줄에 한 장, 가로 전체. 옆으로 붙이면 바가 좁아져 인식률이 떨어진다.
          ★ 테두리는 「여기서 자르세요」 선 — quiet zone 을 침범하지 않게 padding 을 둔다. */
       var id = 'prSvg' + (idx++);
-      ids.push({id:id, line:l.line});
-      html += '<div style="border:1px dashed #999;padding:14px 16px;margin:0 0 10px;' +
-       'display:block;width:100%;text-align:center;page-break-inside:avoid">' +
-       '<svg id="' + id + '"></svg>' +
-       '<div style="font-size:13px;font-weight:700">' + esc(l.line) + '</div>' +
-       (l.sub ? '<div style="font-size:12px;color:#5A6B76;font-weight:700;margin-top:2px">' + esc(l.sub) + '</div>' : '') +
+      ids.push({id: id, line: l.line});
+      html += '<div class="lb">' +
+       '<div class="bars"><svg id="' + id + '"></svg></div>' +
+       '<div class="d1">' + esc(l.line) + '</div>' +
+       (l.sub ? '<div class="d2">' + esc(l.sub) + '</div>' : '') +
        '</div>';
      }
     });
-    var pa = document.getElementById('printArea');
-    /* ★ 인쇄 직전에 body 직속으로 옮긴다.
-         화면 루트(.ms-*-root)는 height·flex·overflow 가 걸린 컨테이너라,
-         그 안에 있으면 인쇄 시 화면 내용과 함께 잘려 나온다.
-         (2공장은 우연히 루트 바깥에 있어 정상이었고 1공장만 틀어졌다)
-         한 번 옮기면 그대로 남으므로 매번 검사만 한다. */
-    if (pa.parentNode !== document.body) document.body.appendChild(pa);
-    pa.innerHTML = '<h3 style="margin:0 0 10px">' + document.getElementById('bcTitle').textContent + '</h3>' + html;
-    ids.forEach(function (o) { GS1.draw(document.getElementById(o.id), o.line, {height:64}); });
+    stage.innerHTML = html;
+    ids.forEach(function (o) { GS1.draw(stage.querySelector('#' + o.id), o.line, {height: 64}); });
+
+    // 2) 그려진 결과를 독립 문서로 옮긴다
+    var body = stage.innerHTML;
+    document.body.removeChild(stage);
+
+    var fr = document.getElementById('printFrame');
+    if (!fr) {
+     fr = document.createElement('iframe');
+     fr.id = 'printFrame';
+     fr.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden';
+     document.body.appendChild(fr);
+    }
+    var doc = fr.contentWindow.document;
+    doc.open();
+    doc.write('<!doctype html><html><head><meta charset="utf-8"><title>' + esc(title) + '</title>' +
+     '<style>' +
+     '*{box-sizing:border-box}' +
+     'body{margin:0;padding:16px;background:#fff;' +
+     "font-family:'Noto Sans KR',-apple-system,system-ui,sans-serif;color:#000}" +
+     'h3{margin:0 0 10px;font-size:15px}' +
+     '.lb{border:1px dashed #999;padding:14px 16px;margin:0 0 10px;text-align:center;' +
+     'page-break-inside:avoid;break-inside:avoid}' +
+     '.bars{display:flex;justify-content:center;margin-bottom:8px}' +
+     '.bars svg{display:block;max-width:100%;height:auto}' +
+     '.d1{font-size:13px;font-weight:700}' +
+     '.d2{font-size:12px;color:#5A6B76;font-weight:700;margin-top:2px}' +
+     '@page{margin:10mm}' +
+     '</style></head><body><h3>' + esc(title) + '</h3>' + body + '</body></html>');
+    doc.close();
+
     hideMask('bcMask');
-    setTimeout(function () { window.print(); }, 150);
+    // 문서가 그려질 틈을 준다. 바로 print() 하면 빈 페이지가 나오는 기기가 있다
+    setTimeout(function () {
+     try { fr.contentWindow.focus(); fr.contentWindow.print(); }
+     catch (e) { flash('인쇄를 시작할 수 없습니다'); }
+    }, 250);
    };
 
    /** 포장 완료 건 → 라벨.

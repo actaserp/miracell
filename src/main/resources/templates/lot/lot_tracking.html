@@ -315,7 +315,7 @@
      this.shipmentGrid = null;
      this.packGrid = null;
      this.lot_detail = null;
-     this.candidates = [];      // 스캔 키 하나에 걸린 로트 후보들
+     this.candidates = [];      // 스캔 키 하나에 걸린 로트 후보들(로트번호 단위 그룹)
     }
 
     init() {
@@ -356,8 +356,8 @@
 
      // 후보 선택 — 이미 받아 둔 상세를 그대로 쓴다(재조회 없음)
      this.$candidate.on('change', function () {
-      let row = _this.candidates[Number($(this).val())];
-      if (row) _this.applyLot(row);
+      let g = _this.candidates[Number($(this).val())];
+      if (g) _this.applyLot(g);
      });
     }
 
@@ -560,7 +560,8 @@
        return;
       }
       _this.setCandidates(rows);
-      _this.applyLot(rows[0]);
+      // ★ setCandidates 가 로트번호로 묶어 둔 첫 그룹을 편다 (행이 아니다)
+      _this.applyLot(_this.candidates[0]);
      };
      let fnfailure = function (req, status, error) {
      };
@@ -569,23 +570,78 @@
 
     /* 한 박스라벨(UDI)이 완제품 로트 여러 건에 붙어 있을 수 있다 —
        PK 로트를 섞어 포장하면 같은 UDI 가 여러 차수에 기록된다.
-       첫 건만 보여주고 끝내면 옆 로트를 못 찾으므로 고를 수 있게 남긴다. */
-    setCandidates(rows) {
-     this.candidates = rows;
-     if (rows.length <= 1) { this.$candWrap.hide(); return; }
+       첫 건만 보여주고 끝내면 옆 로트를 못 찾으므로 고를 수 있게 남긴다.
 
+       ★ 후보의 단위는 「사내 로트번호」다. mat_lot 행이 아니다.
+       세척은 새 채번 없이(WashService.newLot) 원 번호를 그대로 물려
+       클린룸·부적합창고 행을 새로 만든다. 4회 세척하면 같은 번호로 5행이 된다.
+       그런데 이력 5탭은 전부 로트번호로 돌기 때문에 행을 골라 봐야 결과가 같다 —
+       고를 것은 번호뿐이다. 창고별로 흩어진 재고는 콤보가 아니라
+       「보관창고 / 현재고량」 칸에서 갈라 보여준다. */
+    setCandidates(rows) {
+     // ① 로트번호(+품목)로 묶는다. 품목까지 보는 이유 : 번호를 공유하는 로트가 있으면
+     //    번호만으로 묶었다가 서로 다른 품목이 한 줄로 합쳐진다
+     let groups = [], idx = {};
+     rows.forEach(function (r) {
+      let key = (r.LotNumber || '') + '|' + (r.mat_id == null ? '' : r.mat_id);
+      let g = idx[key];
+      if (!g) { g = idx[key] = { rep: r, rows: [] }; groups.push(g); }
+      g.rows.push(r);
+      // 대표 = 가장 먼저 생긴 행(= 원본). 세척 산출 행은 그 뒤에 만들어진다
+      if (Number(r.ml_id) < Number(g.rep.ml_id)) g.rep = r;
+     });
+
+     // ② 창고별 재고 합계. 세척은 생산창고에서 빼 클린룸으로 옮기는 것이라
+     //    합계가 보존된다 — 더해서 「이 로트가 지금 통틀어 얼마 남았나」가 나온다
+     groups.forEach(function (g) {
+      let sum = 0, byStore = {}, order = [];
+      g.rows.forEach(function (r) {
+       let v = Number(r.CurrentStock);
+       if (isNaN(v)) return;
+       sum += v;
+       let s = r.store_name || '(창고미상)';
+       if (byStore[s] === undefined) { byStore[s] = 0; order.push(s); }
+       byStore[s] += v;
+      });
+      g.stock_sum = sum;
+      // 재고가 남은 창고만 적는다. 다 쓴 창고까지 적으면 줄만 길어진다
+      let parts = order.filter(function (s) { return byStore[s] > 0; })
+      .map(function (s) { return s + ' ' + byStore[s]; });
+      g.store_text = parts.length ? parts.join(' · ') : (g.rep.store_name || '');
+      g.row_count = g.rows.length;
+     });
+
+     this.candidates = groups;
+     if (groups.length <= 1) { this.$candWrap.hide(); this.$candidate.empty(); return; }
+
+     // ③ 여기까지 와서 2건 이상이면 진짜로 로트번호가 다른 경우다 —
+     //    박스라벨 하나에 완제품 로트가 여럿 걸린 상황. 번호를 보여줘야 한다
      let $c = this.$candidate.empty();
-     rows.forEach(function (r, i) {
-      $c.append($('<option>').val(i)
-      .text((r.LotNumber || '') + ' · ' + (r.mat_name || '')));
+     groups.forEach(function (g, i) {
+      let r = g.rep, parts = [];
+      if (r.LotNumber) parts.push(r.LotNumber);
+      if (r.mat_name)  parts.push(r.mat_name);
+      if (g.store_text) parts.push(g.store_text);
+      if (parts.length === 0) parts.push('#' + (i + 1));
+      $c.append($('<option>').val(i).text(parts.join(' · ')));
      });
      this.$candWrap.show();
     }
 
-    applyLot(row) {
+    /* ★ 인자는 setCandidates 가 만든 「그룹」(= 로트번호 하나)이다.
+       폼은 대표 행(원본)으로 채우되, 현재고량·보관창고 두 칸만 덮어쓴다.
+       세척 로트를 대표 행 그대로 두면 생산창고 잔량만 보이고
+       클린룸에 있는 실물이 화면에서 사라진다. */
+    applyLot(g) {
+     let row = (g && g.rep) ? g.rep : g;   // 하위호환 — 행을 그대로 넘겨도 동작
      this.lot_detail = row;
      this.$lotForm[0].reset();
      FormUtil.BindDataForm(row, this.$lotForm);
+
+     if (g && g.rows && g.rows.length > 1) {
+      this.$lotForm.find('#CurrentStock').val(g.stock_sum);
+      this.$lotForm.find('#store_name').val(g.store_text);
+     }
 
      this.$spanLotNumber.text('LOT : ' + (row.LotNumber || ''));
      if (row.match_by && row.match_by !== 'lot') {
@@ -597,7 +653,7 @@
      }
 
      if (this.candidates.length > 1) {
-      let idx = this.candidates.indexOf(row);
+      let idx = this.candidates.indexOf(g);
       if (idx >= 0) this.$candidate.val(String(idx));
      }
 

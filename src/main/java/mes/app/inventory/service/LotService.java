@@ -478,6 +478,9 @@ with recursive T as (
           , jr."WorkOrderNumber" 
           , mp."LotNumber" p_lot_number
           , mc."Material_id" as mat_pk
+          -- ★ 차수가 산출한 품목. 아래 재귀에서 부모 품목을 맞추는 데 쓴다.
+          --   로트번호만으로 이으면 번호를 공유하는 다른 품목의 가지가 섞인다
+          , mp."Material_id" as p_mat_id
           , mp.id as mp_id
           , mc.id as mc_id
           , mc."BomQty"
@@ -511,7 +514,12 @@ with recursive T as (
         -- ⚠ 원소를 text 로 캐스팅한다. 여기서 path 타입이 text[] 로 굳는데
         --   "LotNumber" 는 varchar 라, 아래 재귀에서 ::text 없이 이어붙이면
         --   「연산자 없음: text[] || character varying」 로 쿼리가 통째로 죽는다.
-        , array[lot_number::text] as path
+        -- ★ 원소는 「로트|품목」이다. 로트번호만 넣으면 아래 node_key(로트|품목)와
+        --   기준이 어긋난다 — 2공장은 포장이 원 로트번호를 그대로 물려받아
+        --   (조립품 789 → 완제품 853, 번호 동일) 번호만 보는 차단이
+        --   품목이 다른 정상 가지를 순환으로 오인해 통째로 자른다.
+        --   품목까지 같아야 진짜 순환이므로 무한재귀 방어는 그대로다.
+        , array[concat(lot_number,'|',mat_pk)::text] as path
         from P
         union all 
         select 
@@ -524,12 +532,30 @@ with recursive T as (
         , B.mat_pk as mat_pk
         , t.lvl +1 as lvl
         , B."EffectiveDate"
-        , T.path || B.lot_number::text          -- ★ ::text 필수 (위 주석)
+        , T.path || concat(B.lot_number,'|',B.mat_pk)::text   -- ★ ::text 필수 (위 주석)
         from T   
           inner join B on B.p_lot_number  = T.lot_number 
-         where not (B.lot_number::text = any(T.path))   -- 순환 차단
+                      -- ★ 부모 품목도 맞춘다. 번호를 공유하는 로트에서
+                      --   완제품 가지와 조립품 가지가 서로 섞이는 것을 막는다.
+                      --   is null 을 여는 이유 : 구 데이터에 Material_id 가 없는
+                      --   차수가 있으면 조건 전체가 NULL 이 되어 조용히 사라진다
+                      and (B.p_mat_id is null or B.p_mat_id = T.mat_pk)
+         where not (concat(B.lot_number,'|',B.mat_pk)::text = any(T.path))   -- 순환 차단
            and T.lvl < 20                               -- 깊이 상한(안전망)
         )        
+        -- ★ 같은 node_key(로트|품목)가 뿌리와 자식 양쪽에 생기는 것을 정리한다.
+        --   2공장은 포장이 원 로트번호를 그대로 물려받으므로 조회한 번호로
+        --   ① 조립품이 자기 뿌리로 한 번 ② 완제품의 자식으로 한 번, 두 번 나온다.
+        --   키가 겹치면 트리가 한쪽을 삼키므로 부모가 있는 쪽(깊은 lvl)을 남긴다.
+        --   1공장처럼 번호가 겹치지 않으면 rn 이 전부 1 이라 아무것도 안 바뀐다.
+        , D as (
+            select * from (
+                select T.*
+                     , row_number() over (partition by T.lot_number, T.mat_pk
+                                              order by T.lvl desc) as rn
+                  from T
+            ) z where z.rn = 1
+        )
         select 
         jr_id 
         , "WorkOrderNumber" 
@@ -569,7 +595,7 @@ with recursive T as (
         , (select sum(ml2."CurrentStock") from mat_lot ml2
             where ml2."LotNumber" = T.lot_number and ml2."Material_id" = T.mat_pk) as remain_qty
         , to_char(coalesce(mpu."EndTime", mpu."StartTime"), 'yyyy-mm-dd hh24:mi') as used_time
-        from T
+        from D T
         left join material m1 on m1.id = T.p_mat_pk
         inner join material m2 on m2.id = T.mat_pk
         left join unit u on u.id = m2."Unit_id"
@@ -594,7 +620,10 @@ with recursive T as (
             --   재귀 행의 wo 는 「이 로트를 소비한 작지」라 의미가 다르지만,
             --   화면에선 둘 다 「그 줄의 생산 작지」로 읽혀 같은 칸이 맞다.
             --   안 채우면 상위 제품이 없는 완제품은 영원히 빈칸이 된다.
-            , jr0."WorkOrderNumber" as wo
+            -- ⚠ max 인 이유는 아래 group by 다. 생산 행(작지 있음)과
+            --   세척 행(작지 없음)이 한 번호로 섞이면 값이 있는 쪽을 남긴다
+            --   (max 는 null 을 건너뛴다).
+            , max(jr0."WorkOrderNumber") as wo
             , null::int as p_mat_pk
             , ml."Material_id" as l_mat_pk
             , 1 as lvl
@@ -602,13 +631,22 @@ with recursive T as (
             --   새 행의 lot_number 는 mp."LotNumber" 다. 둘이 같으면 자기를 다시 불러
             --   무한 재귀가 된다 — PK·FK 가 로트번호를 공유하는 구조에서 실제로 발생한다.
             -- ⚠ 원소를 text 로 캐스팅한다 (재료추적 주석 참고).
-            , array[ml."LotNumber"::text] as path
+            -- ★ 원소는 「로트|품목」. 재료추적과 같은 이유다 —
+            --   포장이 원 로트번호를 물려받으면 번호만 보는 차단이
+            --   「조립품 → 완제품」 가지를 순환으로 오인해 잘라낸다
+            , array[concat(ml."LotNumber",'|',ml."Material_id")::text] as path
             from mat_lot ml        
             -- left 로 둔다 : 시드처럼 생산 차수가 없는 로트도 뿌리로는 남아야 한다
             left join mat_produce mp0 on mp0.id = ml."SourceDataPk"
                                      and ml."SourceTableName" = 'mat_produce'
             left join job_res jr0 on jr0.id = mp0."JobResponse_id"
             where ml."LotNumber" = :lotNumber
+            -- ★ 로트번호+품목으로 접는다. 안 접으면 mat_lot 행 수만큼 뿌리가 복사된다 —
+            --   세척은 새 채번 없이 원 번호로 클린룸 행을 만들므로(WashService.newLot)
+            --   4회 세척한 로트는 똑같은 줄이 4번 찍히고, node_key 까지 같아
+            --   트리에서도 안 접힌다. 품목을 함께 묶는 이유는 번호를 공유하는
+            --   서로 다른 품목까지 한 줄로 합치지 않기 위해서다.
+            group by ml."LotNumber", ml."Material_id"
             union all 
             select 
              ml."LotNumber" as p_lot_numbe
@@ -618,17 +656,33 @@ with recursive T as (
             , mp."Material_id" as p_mat_pk
             , ml."Material_id" as l_mat_pk
             , (t.lvl+1 ) as lvl
-            , T.path || mp."LotNumber"::text          -- ★ ::text 필수
+            , T.path || concat(mp."LotNumber",'|',mp."Material_id")::text   -- ★ ::text 필수
             from mat_lot ml 
             inner join mat_lot_cons mlc ON mlc."MaterialLot_id" =ml.id 
             left join mat_produce mp on mp.id = mlc."SourceDataPk" and mlc."SourceTableName" ='mat_produce'
+            -- ★ 품목까지 맞춰 잇는다. 번호만 보면 같은 번호를 쓰는 완제품 행까지
+            --   같은 부모로 물려 자식이 두 번 붙는다
             inner join T on T.lot_number = ml."LotNumber" 
+                        and ml."Material_id" = coalesce(T.p_mat_pk, T.l_mat_pk)
             inner join job_res jr on jr.id=mp."JobResponse_id" 
             -- mp 가 left join 이라 LotNumber 가 NULL 이면 조건 전체가 NULL 이 되어
             -- 그 행이 조용히 사라진다. is null 을 먼저 열어 의도를 명시한다
             where (mp."LotNumber" is null
-                   or not (mp."LotNumber"::text = any(T.path)))   -- 순환 차단
+                   or not (concat(mp."LotNumber",'|',mp."Material_id")::text
+                           = any(T.path)))                        -- 순환 차단
               and T.lvl < 20                                      -- 깊이 상한(안전망)
+        )
+        -- ★ 뿌리와 자식에 같은 node_key 가 생기는 것을 정리한다 (재료추적과 동일).
+        --   포장이 원 번호를 물려받으면 완제품 로트가 ① 자기 뿌리 ② 조립품의 자식
+        --   두 번 나온다. 부모가 있는 쪽(깊은 lvl)을 남긴다.
+        , D as (
+            select * from (
+                select T.*
+                     , row_number() over (
+                           partition by T.lot_number, coalesce(T.p_mat_pk, T.l_mat_pk)
+                               order by T.lvl desc) as rn
+                  from T
+            ) z where z.rn = 1
         )
           -- ★ 이 재귀 CTE 는 내부 칸 이름과 의미가 엇갈린다.
           --   뿌리 행 : l_mat_pk 가 lot_number 의 품목, 부모 없음
@@ -671,7 +725,7 @@ with recursive T as (
               where ml2."LotNumber" = T.lot_number
                 and ml2."Material_id" = coalesce(T.p_mat_pk, T.l_mat_pk)) as remain_qty
           , to_char(coalesce(mpu."EndTime", mpu."StartTime"), 'yyyy-mm-dd hh24:mi') as used_time
-          from T
+          from D T
           left join mat_produce mpu on mpu.id = T.mp_id
           left join material mself on mself.id = coalesce(T.p_mat_pk, T.l_mat_pk)
           left join material mpar  on mpar.id  = (case when T.p_lot_number is null
@@ -706,6 +760,29 @@ with recursive T as (
                                      and ml."SourceTableName" = 'mat_produce'
             inner join job_res jr on jr.id = mp."JobResponse_id"
             where ml."LotNumber" = :lotNumber
+
+            union all
+
+            -- ★ 세척 로트도 뿌리로 받는다.
+            --   세척은 로트번호를 유지한 채 mat_lot 행을 새로 만든다
+            --   (WashService.newLot — 새 채번 없음). 원 로트와 번호·품목이 같고
+            --   창고만 생산(17) → 클린룸(5) 로 다르다.
+            --   위 갈래는 SourceTableName='mat_produce' 만 앵커로 잡으므로
+            --   세척 로트를 넣으면 P 가 0건이 되어 재귀 전체가 비고
+            --   「원재료입고정보」 탭이 백지가 된다.
+            --
+            --   차수를 거치지 않고 자기 로트번호를 그대로 lot_number 로 실어
+            --   아래 LL → mat_lot 조인에서 생산창고 원본 행을 만나게 한다.
+            --   클린룸 행 자신은 맨 아래 where 절
+            --   (SourceTableName 이 mat_inout 인 것만)에서 걸러지므로
+            --   원재료 한 줄만 남는다.
+            select null::integer  as mp_id
+                 , ''::text        as p_lot_number
+                 , ml."LotNumber"  as lot_number
+                 , ml."Material_id" as mat_pk
+              from mat_lot ml
+             where ml."SourceTableName" = 'wash_work_item'
+               and ml."LotNumber" = :lotNumber
          ) 
          ,A as(
           select 
@@ -784,8 +861,22 @@ with recursive T as (
         inner join material m on m.id = LL.mat_pk
         inner join mat_lot ml on ml."LotNumber" = LL.lot_number
                              and ml."Material_id" = LL.mat_pk
-        left join mat_inout mi on mi.id = ml."SourceDataPk"
-                              and ml."SourceTableName" = 'mat_inout'
+        -- ★ 입고 행이 로트를 가리키는 방향이 두 가지다.
+        --   ① ml."SourceTableName"='mat_inout'  → 로트가 입고를 가리킨다
+        --   ② mi."SourceTableName"='mat_lot'    → 입고가 로트를 가리킨다
+        --   ②가 초기입고 시드 282건 전부다(InOut='in', InputType='order_in').
+        --   ①만 걸면 입고 행이 멀쩡히 있는데도 입고일·수량·구분이 전부 빈칸이 된다.
+        --   lateral + limit 1 인 이유 : 한 로트에 입고 행이 여럿이면
+        --   조인이 트리 행을 그만큼 복제한다. 가장 이른 것(=최초 입고)을 잡는다.
+        left join lateral (
+            select mi2.*
+              from mat_inout mi2
+             where (ml."SourceTableName" = 'mat_inout' and mi2.id = ml."SourceDataPk")
+                or (mi2."SourceTableName" = 'mat_lot'  and mi2."SourceDataPk" = ml.id
+                    and mi2."InOut" = 'in')
+             order by mi2."InoutDate", mi2.id
+             limit 1
+        ) mi on true
         left join company c on c.id = mi."Company_id"
         left join store_house sh on sh.id = ml."StoreHouse_id"
         -- 세척·멸균·생산이 만든 로트는 「원재료 입고」가 아니다 — 빈칸 행의 정체.
@@ -851,10 +942,14 @@ with recursive T as (
 	        -- ★ 품목까지 함께 묶는다. 로트번호만으로 다시 찾으면 PK·FK 처럼
 	        --   번호를 공유하는 로트에서 엉뚱한 출하가 붙는다
 	        , pp as (
-	            select lot_number, min(coalesce(p_mat_pk, l_mat_pk)) as mat_pk
+	            -- ★ 품목별로 남긴다. min() 으로 하나만 고르면 같은 번호를 쓰는
+	            --   두 품목 중 한쪽만 남는다 — 2공장은 조립품(789)과 완제품(853)이
+	            --   번호를 공유하는데 출하는 완제품 쪽에 걸려 있어서,
+	            --   min 이 조립품을 고르면 출하 이력이 통째로 사라진다.
+	            select distinct lot_number, coalesce(p_mat_pk, l_mat_pk) as mat_pk
 	              from T
 	             where coalesce(lot_number,'') <> ''
-	             group by lot_number
+	               and coalesce(p_mat_pk, l_mat_pk) is not null
 	        )
 	        , r as (
 	        select 
