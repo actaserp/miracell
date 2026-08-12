@@ -23,6 +23,55 @@ public class UdiSupplyReportService {
 	SqlRunner sqlRunner;
 
 	/**
+	 * 반품/폐기 대상 조회 — 확정된 납품(flag=1, ReportState='r') 보고건 목록.
+	 * 반품/폐기는 "이미 식약처에 보고된 납품"만 대상이 되므로 확정건만 조회한다.
+	 * 식별자(seq)/표준코드/거래처 등 반품·폐기 보고에 필요한 값을 모두 포함해
+	 * 화면에서 그대로 복사할 수 있게 한다.
+	 */
+	public List<Map<String, Object>> getConfirmedDeliveries(String dateFrom, String dateTo, String keyword) {
+		MapSqlParameterSource paramMap = new MapSqlParameterSource();
+		paramMap.addValue("dateFrom", dateFrom);
+		paramMap.addValue("dateTo", dateTo);
+
+		String sql = """
+				select r.id                 as delivery_id
+				, r."SupplyTypeCode"        as supply_type_code
+				, r."MeddevItemSeq"         as meddev_item_seq
+				, r."ModelSeq"              as model_seq
+				, r."UdiDiSeq"              as udi_di_seq
+				, r."StdCode"               as std_code
+				, r."UdiDiCode"             as udi_di_code
+				, r."UdiPiCode"             as udi_pi_code
+				, r."LotNo"                 as lot_no
+				, r."ItemSerialNo"          as item_serial_no
+				, r."ManufYm"               as manuf_ym
+				, r."UseTmlmt"              as use_tmlmt
+				, r."BcncCode"              as bcnc_code
+				, r."IsDiffDvyfg"           as is_diff_dvyfg
+				, r."DvyfgPlaceBcncCode"    as dvyfg_place_bcnc_code
+				, r."SupplyDate"            as supply_date
+				, r."SupplyQty"             as supply_qty
+				, r."StdMonth"              as std_month
+				from udi_supply_report r
+				where r."SupplyFlagCode" = '1'
+				  and r."ReportState" = 'r'
+				""";
+
+		if (StringUtils.isEmpty(dateFrom) == false)
+			sql += " and r.\"SupplyDate\" >= :dateFrom ";
+		if (StringUtils.isEmpty(dateTo) == false)
+			sql += " and r.\"SupplyDate\" <= :dateTo ";
+		if (StringUtils.isEmpty(keyword) == false) {
+			sql += " and ( r.\"UdiDiCode\" ilike concat('%',:keyword,'%') or r.\"StdCode\" ilike concat('%',:keyword,'%') or r.\"LotNo\" ilike concat('%',:keyword,'%') ) ";
+			paramMap.addValue("keyword", keyword);
+		}
+
+		sql += " order by r.\"SupplyDate\" desc, r.id desc ";
+
+		return this.sqlRunner.getRows(sql, paramMap);
+	}
+
+	/**
 	 * 보고확정/취소 팝업용 월 목록.
 	 * 공급구분별로 기준월(StdMonth)마다 임시('t')/확정('r')/취소('c') 건수와 수량을 집계한다.
 	 * 화면은 이 목록에서 월을 골라 그 달 전체를 보고/취소한다(월 단위 보고 원칙).
@@ -98,6 +147,7 @@ public class UdiSupplyReportService {
 				, r."ManufYm"             as manuf_ym
 				, r."UseTmlmt"            as use_tmlmt
 				, r."BcncCode"            as bcnc_code
+				, r."BcncIsRcper"         as bcnc_is_rcper
 				, r."IsDiffDvyfg"         as is_diff_dvyfg
 				, r."DvyfgPlaceBcncCode"  as dvyfg_place_bcnc_code
 				, r."SupplyDate"          as supply_date
@@ -152,7 +202,7 @@ public class UdiSupplyReportService {
 				  "LotNo","ItemSerialNo","ManufYm","UseTmlmt",
 				  "BcncCode","IsDiffDvyfg","DvyfgPlaceBcncCode",
 				  "SupplyDate","SupplyQty","IndvdlzSupplyQty","SupplyUnitPrice","SupplyAmt",
-				  "Remark","ReportState","_status","_created","_creater_id"
+				  "Remark","BcncIsRcper","ReportState","_status","_created","_creater_id"
 				) values (
 				  :stdMonth,:supplyFlagCode,:supplyTypeCode,
 				  :meddevItemSeq,:modelSeq,:udiDiSeq,
@@ -161,7 +211,7 @@ public class UdiSupplyReportService {
 				  :bcncCode,:isDiffDvyfg,:dvyfgPlaceBcncCode,
 				  :supplyDate, cast(nullif(:supplyQty,'') as numeric), cast(nullif(:indvdlzSupplyQty,'') as numeric),
 				  cast(nullif(:supplyUnitPrice,'') as numeric), cast(nullif(:supplyAmt,'') as numeric),
-				  :remark,'t','t', now(), :userId
+				  :remark,:bcncIsRcper,'t','t', now(), :userId
 				)
 				returning id
 				""";
@@ -195,6 +245,7 @@ public class UdiSupplyReportService {
 				  "SupplyUnitPrice"    = cast(nullif(:supplyUnitPrice,'') as numeric),
 				  "SupplyAmt"          = cast(nullif(:supplyAmt,'') as numeric),
 				  "Remark"             = :remark,
+				  "BcncIsRcper"        = :bcncIsRcper,
 				  "ReportState"        = 't',
 				  "_modified"          = now(),
 				  "_modifier_id"       = :userId
@@ -281,37 +332,41 @@ public class UdiSupplyReportService {
 	/**
 	 * 보고확정 대상(임시 't') 조회.
 	 * 식약처 26번(보고자료 추가) 본문에 바로 매핑할 수 있도록 API 필드명으로 alias 한다.
+	 *
+	 * 매뉴얼 1.5.2: 선택(X) 필드도 키를 포함해 빈 문자열로 전송해야 함.
+	 * → 모든 선택 필드는 coalesce(..., '') 로 null → 빈 문자열 처리.
+	 * → suplyQty 등 수량은 string(10) 타입이므로 문자열로 변환.
+	 * → meddevItemSeq/seq/udiDiSeq 는 number 타입이므로 숫자 그대로 반환.
+	 * → suplyTypeCode 는 flag=3(폐기) 등에서도 항상 포함 (빈 문자열로라도 전송).
+	 * → isDiffDvyfg 는 boolean 타입. null 이면 false.
 	 */
 	public List<Map<String, Object>> getReportsByIds(List<Integer> ids) {
 		MapSqlParameterSource paramMap = new MapSqlParameterSource();
 		paramMap.addValue("ids", ids);
 		String sql = """
 				select r.id
-				, r."StdMonth"            as "suplyContStdmt"
-				, r."SupplyFlagCode"      as "suplyFlagCode"
-				, r."SupplyTypeCode"      as "suplyTypeCode"
-				, r."MeddevItemSeq"       as "meddevItemSeq"
-				, r."ModelSeq"            as "seq"
-				, r."UdiDiSeq"            as "udiDiSeq"
-				, r."StdCode"             as "stdCode"
-				, r."UdiDiCode"           as "udiDiCode"
-				, r."UdiPiCode"           as "udiPiCode"
-				, r."LotNo"               as "lotNo"
-				, r."ItemSerialNo"        as "itemSeq"
-				, r."ManufYm"             as "manufYm"
-				, r."UseTmlmt"            as "useTmlmt"
-				, r."BcncCode"            as "bcncCode"
-				, r."IsDiffDvyfg"         as "isDiffDvyfg"
-				, r."DvyfgPlaceBcncCode"  as "dvyfgPlaceBcncCode"
-				, r."SupplyDate"          as "suplyDate"
-				, trim(to_char(r."SupplyQty", 'FM999999999990'))        as "suplyQty"
-				, case when r."IndvdlzSupplyQty" is null then null
-				       else trim(to_char(r."IndvdlzSupplyQty", 'FM999999999990')) end as "indvdlzSuplyQty"
-				, case when r."SupplyUnitPrice" is null then null
-				       else trim(to_char(r."SupplyUnitPrice", 'FM999999999990')) end as "suplyUntpc"
-				, case when r."SupplyAmt" is null then null
-				       else trim(to_char(r."SupplyAmt", 'FM999999999990')) end as "suplyAmt"
-				, r."Remark"              as "remark"
+				, r."StdMonth"                                                         as "suplyContStdmt"
+				, r."SupplyFlagCode"                                                   as "suplyFlagCode"
+				, coalesce(r."SupplyTypeCode", '')                                     as "suplyTypeCode"
+				, r."MeddevItemSeq"                                                    as "meddevItemSeq"
+				, r."ModelSeq"                                                         as "seq"
+				, r."UdiDiSeq"                                                         as "udiDiSeq"
+				, r."StdCode"                                                          as "stdCode"
+				, r."UdiDiCode"                                                        as "udiDiCode"
+				, r."UdiPiCode"                                                        as "udiPiCode"
+				, coalesce(r."LotNo", '')                                              as "lotNo"
+				, coalesce(r."ItemSerialNo", '')                                       as "itemSeq"
+				, coalesce(r."ManufYm", '')                                            as "manufYm"
+				, coalesce(r."UseTmlmt", '')                                           as "useTmlmt"
+				, coalesce(r."BcncCode", '')                                           as "bcncCode"
+				, coalesce(r."IsDiffDvyfg", false)                                     as "isDiffDvyfg"
+				, coalesce(r."DvyfgPlaceBcncCode", '')                                 as "dvyfgPlaceBcncCode"
+				, r."SupplyDate"                                                       as "suplyDate"
+				, trim(to_char(r."SupplyQty", 'FM999999999990'))                       as "suplyQty"
+				, coalesce(trim(to_char(r."IndvdlzSupplyQty", 'FM999999999990')), '')  as "indvdlzSuplyQty"
+				, coalesce(trim(to_char(r."SupplyUnitPrice",  'FM999999999990')), '')  as "suplyUntpc"
+				, coalesce(trim(to_char(r."SupplyAmt",        'FM999999999990')), '')  as "suplyAmt"
+				, coalesce(r."Remark", '')                                             as "remark"
 				from udi_supply_report r
 				where r.id in (:ids) and r."ReportState" in ('t','c')
 				order by r."StdMonth", r.id

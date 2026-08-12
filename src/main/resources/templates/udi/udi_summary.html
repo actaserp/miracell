@@ -88,8 +88,8 @@
                     selectionMode: wijmo.grid.SelectionMode.Row,
                     isReadOnly: true,
                     columns: [
-                        {binding: 'udi_di_code', header: 'UDI-DI', width: 150, align: 'left'},
-                        {binding: 'std_code', header: '표준코드', width: 180, align: 'left'},
+                        {binding: 'udi_di_code', header: 'UDI-DI', width: 170, align: 'left'},
+                        {binding: 'std_code', header: '표준코드', width: 370, align: 'left'},
                         {binding: 'delivery_qty', header: '납품수량', width: 100, align: 'right', format: 'n0'},
                         {binding: 'return_qty', header: '반품수량', width: 100, align: 'right', format: 'n0'},
                         {binding: 'disposal_qty', header: '폐기수량', width: 100, align: 'right', format: 'n0'},
@@ -108,6 +108,7 @@
                 // 합계 행 표시
                 this.grid.columnFooters.rows.push(new wijmo.grid.GroupRow());
                 this.grid.bottomLeftCells.setCellData(0, 0, '합계');
+                this.grid.rowHeaders.columns[0].width = 100; // UDI-DI + 표준코드 너비 합산
                 ['delivery_qty', 'return_qty', 'disposal_qty', 'delivery_amt', 'report_cnt', 'confirmed_cnt', 'temp_cnt']
                     .forEach(b => {
                         this.grid.columns.getColumn(b).aggregate = wijmo.Aggregate.Sum;

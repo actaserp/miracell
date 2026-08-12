@@ -88,13 +88,13 @@
                     <input type="hidden" id="udiDiSeq" name="udi_di_seq"/>
                     <table class="table_input">
                         <colgroup>
-                            <col style="width:30%"><col style="width:70%">
+                            <col style="width:25%"><col style="width:75%">
                         </colgroup>
                         <tbody>
                         <tr>
                             <th>공급형태<span class="eq"></span></th>
                             <td>
-                                <select id="supplyTypeCode" name="supply_type_code">
+                                <select id="supplyTypeCode" name="supply_type_code" style="width:100%;">
                                     <option value="">선택</option>
                                     <option value="1">제조·수입·판매(임대)에 공급</option>
                                     <option value="2">의료기관에 공급</option>
@@ -105,23 +105,23 @@
                         </tr>
                         <tr>
                             <th>UDI-DI 코드<span class="eq"></span></th>
-                            <td><input type="text" id="udiDiCode" name="udi_di_code"/></td>
+                            <td><input type="text" id="udiDiCode" name="udi_di_code" style="width:100%;"/></td>
                         </tr>
                         <tr>
                             <th>표준코드<span class="eq"></span></th>
-                            <td><input type="text" id="stdCode" name="std_code"/></td>
+                            <td><input type="text" id="stdCode" name="std_code" style="width:100%;"/></td>
                         </tr>
                         <tr>
                             <th>UDI-PI 코드</th>
-                            <td><input type="text" id="udiPiCode" name="udi_pi_code"/></td>
+                            <td><input type="text" id="udiPiCode" name="udi_pi_code" style="width:100%;"/></td>
                         </tr>
                         <tr>
                             <th>로트번호</th>
-                            <td><input type="text" id="lotNo" name="lot_no"/></td>
+                            <td><input type="text" id="lotNo" name="lot_no" style="width:100%;"/></td>
                         </tr>
                         <tr>
                             <th>일련번호</th>
-                            <td><input type="text" id="itemSerialNo" name="item_serial_no"/></td>
+                            <td><input type="text" id="itemSerialNo" name="item_serial_no" style="width:100%;"/></td>
                         </tr>
                         <tr>
                             <th>제조연월(YYMMDD)</th>
@@ -214,6 +214,7 @@
                 this.grid = null;
                 this.viewData = new wijmo.collections.CollectionView();
                 this.useFlags = null;   // 24번 조회로 채워지는 품목 PI 사용특성
+                this.currentReportState = '';   // 그리드에서 선택한 건의 보고상태(수정 가드용)
                 this.init();
             }
 
@@ -285,6 +286,7 @@
 
             fillForm(item) {
                 $('#id').val(item.id);
+                this.currentReportState = item.report_state || '';
                 // 기존건 선택 시 이전 품목특성 초기화 (수기 수정은 서버 검증이 최종 방어)
                 this.useFlags = null;
                 // 식약처 식별자(hidden) 복원 — 기존 저장건은 DB에 있으므로 그대로 채운다
@@ -300,6 +302,7 @@
                 $('#manufYm').val(item.manuf_ym || '');
                 $('#useTmlmt').val(item.use_tmlmt || '');
                 $('#bcncCode').val(item.bcnc_code || '');
+                $('#bcncIsRcper').prop('checked', item.bcnc_is_rcper === true);
                 $('#isDiffDvyfg').prop('checked', item.is_diff_dvyfg === true);
                 $('#dvyfgPlaceBcncCode').val(item.dvyfg_place_bcnc_code || '');
                 $('#supplyDate').val(this.toDateInput(item.supply_date));
@@ -318,6 +321,7 @@
                 $('#id').val('');
                 $('#matchId').val('');
                 $('#formStdMonth').val('');
+                this.currentReportState = '';
                 this.useFlags = null;
                 $('#supplyAmt').data('manual', false);
                 this.toggleDvyfgRow();
@@ -496,6 +500,13 @@
                     if (data.supply_amt === '' || data.supply_amt == null)              miss.push('공급금액(요양기관)');
                 }
 
+                // ── 요양기관(의료기관) → 공급형태는 '의료기관에 공급'(2) ──
+                if (data.bcnc_is_rcper && data.supply_type_code !== '2') {
+                    Alert.alert('공급형태 확인',
+                        '거래처가 요양기관(의료기관)입니다.\n공급형태를 "의료기관에 공급"으로 선택하세요.');
+                    return false;
+                }
+
                 if (miss.length > 0) {
                     Alert.alert('필수값 확인',
                         '다음 항목을 입력하세요.\n\n· ' + miss.join('\n· '));
@@ -506,6 +517,12 @@
 
             save() {
                 let data = this.collectForm();
+                // 확정('r') 상태는 수정 불가 안내 (서버에서도 재검증)
+                if (data.id && this.currentReportState === 'r') {
+                    Alert.alert('수정 불가',
+                        '보고확정된 자료는 수정할 수 없습니다.\n먼저 해당 월을 보고취소한 후 수정하세요.');
+                    return;
+                }
                 if (!this.validateForm(data)) return;
                 let _this = this;
                 AjaxUtil.postAsyncData(gUrl + '/save', data, function (result) {
@@ -525,9 +542,19 @@
             del() {
                 let ids = this.selectedIds();
                 if (ids.length === 0) { Alert.alert('', '삭제할 항목을 선택하세요.'); return; }
+
+                // 보고확정('r') 상태 포함 여부 확인
+                let hasConfirmed = this.grid.rows
+                    .filter(r => r.isSelected)
+                    .some(r => r.dataItem && r.dataItem.report_state === 'r');
+                if (hasConfirmed) {
+                    Alert.alert('삭제 불가', '보고확정된 자료는 삭제할 수 없습니다.\n해당 월을 보고취소한 후 삭제하세요.');
+                    return;
+                }
+
                 let _this = this;
                 Alert.confirm('선택 삭제',
-                    '선택된 항목을 삭제하시겠습니까?\n\n※ 임시 상태 자료만 삭제됩니다. 보고확정된 자료는 보고취소 후 삭제할 수 있습니다.',
+                    '선택된 항목을 삭제하시겠습니까?\n\n※ 임시 상태 자료만 삭제됩니다.',
                     function () {
                         AjaxUtil.postAsyncData(gUrl + '/delete', {ids: ids}, function (result) {
                             if (result.success) { Notify.success(result.message); _this.searchList(); }

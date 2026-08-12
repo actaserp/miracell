@@ -145,6 +145,22 @@ public class UdiSupplyReportController {
 		return result;
 	}
 
+	/**
+	 * 반품/폐기 대상 조회 — 확정된 납품 보고건 목록.
+	 * 반품/폐기 화면의 "납품건 조회" 팝업에서 호출한다.
+	 * 사용: GET /api/udi/supply_report/confirmed_deliveries?date_from=&date_to=&keyword=
+	 */
+	@GetMapping("/confirmed_deliveries")
+	public AjaxResult getConfirmedDeliveries(
+			@RequestParam(value = "date_from", required = false) String dateFrom,
+			@RequestParam(value = "date_to", required = false) String dateTo,
+			@RequestParam(value = "keyword", required = false) String keyword) {
+
+		AjaxResult result = new AjaxResult();
+		result.data = this.supplyReportService.getConfirmedDeliveries(dateFrom, dateTo, keyword);
+		return result;
+	}
+
 	/** 보고자료 목록 조회 */
 	@GetMapping("/list")
 	public AjaxResult getList(
@@ -200,7 +216,15 @@ public class UdiSupplyReportController {
 				result.data = newId;
 				result.message = "저장되었습니다.";
 			} else {
-				p.addValue("id", Integer.parseInt(idStr));
+				int reportId = Integer.parseInt(idStr);
+				// 확정('r') 상태는 수정 불가 — 먼저 보고취소해야 함
+				Map<String, Object> cur = this.supplyReportService.getReport(reportId);
+				if (cur != null && "r".equals(str(cur.get("ReportState")))) {
+					result.success = false;
+					result.message = "보고확정된 자료는 수정할 수 없습니다. 먼저 해당 월을 보고취소한 후 수정하세요.";
+					return result;
+				}
+				p.addValue("id", reportId);
 				this.supplyReportService.updateReport(p);
 				result.message = "수정되었습니다.";
 			}
@@ -367,6 +391,10 @@ public class UdiSupplyReportController {
 			if (isBlank(p.get("supply_unit_price"))) return "출고+요양기관인 경우 공급단가는 필수입니다.";
 			if (isBlank(p.get("supply_amt")))        return "출고+요양기관인 경우 공급금액은 필수입니다.";
 		}
+		// 요양기관(의료기관) 거래처 → 공급형태는 반드시 '의료기관에 공급'(2)
+		if (isRcper && !"2".equals(str(p.get("supply_type_code")))) {
+			return "거래처가 요양기관(의료기관)인 경우 공급형태를 '의료기관에 공급'으로 선택해야 합니다.";
+		}
 		return null;
 	}
 
@@ -386,6 +414,7 @@ public class UdiSupplyReportController {
 		s.addValue("manufYm", str(p.get("manuf_ym")));
 		s.addValue("useTmlmt", str(p.get("use_tmlmt")));
 		s.addValue("bcncCode", str(p.get("bcnc_code")));
+		s.addValue("bcncIsRcper", toBool(p.get("bcnc_is_rcper")));
 		s.addValue("isDiffDvyfg", toBool(p.get("is_diff_dvyfg")));
 		s.addValue("dvyfgPlaceBcncCode", str(p.get("dvyfg_place_bcnc_code")));
 		s.addValue("supplyDate", str(p.get("supply_date")));

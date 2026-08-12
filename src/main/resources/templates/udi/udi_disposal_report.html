@@ -3,7 +3,7 @@
     <div class="layout-contents">
         <div class="page-title-wrap">
             <div class="left">
-                <h2>UDI 폐기보고</h2>
+                <h2>UDI 폐기보고 <span id="udiModeBadge" style="display:none;"></span></h2>
                 <a title="북마크" class="bookmark toggle">내 메뉴</a>
             </div>
             <ul class="page-navi">
@@ -20,11 +20,7 @@
                     <div class="section-top">
                         <div class="search-wrap">
                             <dl>
-                                <dt><label>보고 기준월<span class="eq"></span></label></dt>
-                                <dd><input type="month" id="stdMonth" name="stdMonth"/></dd>
-                            </dl>
-                            <dl>
-                                <dt><label>폐기일</label></dt>
+                                <dt><label>폐기일<span class="eq"></span></label></dt>
                                 <dd>
                                     <div class="srch-box">
                                         <input type="date" id="srchStartDt" name="srchStartDt"/>
@@ -33,8 +29,6 @@
                                     </div>
                                 </dd>
                             </dl>
-                        </div>
-                        <div class="search-wrap">
                             <dl>
                                 <dt><label>보고상태</label></dt>
                                 <dd>
@@ -46,6 +40,8 @@
                                     </select>
                                 </dd>
                             </dl>
+                        </div>
+                        <div class="search-wrap">
                             <dl>
                                 <dt><label>UDI-DI/표준코드</label></dt>
                                 <dd><input type="text" id="keyword" name="keyword"/></dd>
@@ -66,9 +62,8 @@
 
                 <div class="title_box" style="margin-bottom: 5px;">
                     <div class="left_align">
-                        <a class="btn btn-add" title="신규" id="btnNew">신규</a>
-                        <a class="btn btn-delete" title="삭제" id="btnDelete">삭제</a>
-                        <a class="btn btn-save" title="보고확정" id="btnConfirm">보고확정</a>
+                        <a class="btn btn-delete" title="삭제" id="btnDelete">선택 삭제</a>
+                        <a class="btn btn-save" title="보고확정 및 취소" id="btnConfirm">보고확정 및 취소</a>
                     </div>
                 </div>
 
@@ -80,42 +75,57 @@
             <!-- 우측: 입력 폼 -->
             <section class="section" style="flex: 1; min-width: 0;">
                 <div class="title_box">
+                    <div class="left_align">
+                        <a class="btn btn-add" title="납품건 조회" id="btnDeliveryPick">납품건 조회</a>
+                    </div>
                     <span class="right_align rpt">폐기 상세입력</span>
                 </div>
                 <form id="editForm" autocomplete="off" class="udi-edit-form" style="overflow:auto;">
                     <input type="hidden" id="id" name="id"/>
+                    <input type="hidden" id="meddevItemSeq" name="meddev_item_seq"/>
+                    <input type="hidden" id="modelSeq" name="model_seq"/>
+                    <input type="hidden" id="udiDiSeq" name="udi_di_seq"/>
+                    <input type="hidden" id="supplyTypeCode" name="supply_type_code"/>
                     <table class="table_input">
                         <colgroup>
-                            <col style="width:30%"><col style="width:70%">
+                            <col style="width:25%"><col style="width:75%">
                         </colgroup>
                         <tbody>
                         <tr>
                             <th>UDI-DI 코드<span class="eq"></span></th>
-                            <td><input type="text" id="udiDiCode" name="udi_di_code"/></td>
+                            <td><input type="text" id="udiDiCode" name="udi_di_code" readonly style="background:#f2f4f7; width:100%;"/></td>
                         </tr>
                         <tr>
                             <th>표준코드<span class="eq"></span></th>
-                            <td><input type="text" id="stdCode" name="std_code"/></td>
+                            <td><input type="text" id="stdCode" name="std_code" readonly style="background:#f2f4f7; width:100%;"/></td>
                         </tr>
                         <tr>
                             <th>UDI-PI 코드</th>
-                            <td><input type="text" id="udiPiCode" name="udi_pi_code"/></td>
+                            <td><input type="text" id="udiPiCode" name="udi_pi_code" readonly style="background:#f2f4f7; width:100%;"/></td>
                         </tr>
                         <tr>
                             <th>로트번호</th>
-                            <td><input type="text" id="lotNo" name="lot_no"/></td>
+                            <td><input type="text" id="lotNo" name="lot_no" readonly style="background:#f2f4f7; width:100%;"/></td>
                         </tr>
                         <tr>
                             <th>일련번호</th>
-                            <td><input type="text" id="itemSerialNo" name="item_serial_no"/></td>
+                            <td><input type="text" id="itemSerialNo" name="item_serial_no" readonly style="background:#f2f4f7;"/></td>
                         </tr>
                         <tr>
                             <th>제조연월(YYMMDD)</th>
-                            <td><input type="text" id="manufYm" name="manuf_ym" maxlength="6" placeholder="예: 240115"/></td>
+                            <td><input type="text" id="manufYm" name="manuf_ym" maxlength="6" readonly style="background:#f2f4f7;"/></td>
                         </tr>
                         <tr>
                             <th>사용기한(YYMMDD)</th>
-                            <td><input type="text" id="useTmlmt" name="use_tmlmt" maxlength="6" placeholder="예: 261231"/></td>
+                            <td><input type="text" id="useTmlmt" name="use_tmlmt" maxlength="6" readonly style="background:#f2f4f7;"/></td>
+                        </tr>
+                        <tr>
+                            <th>보고 기준월<span class="eq"></span></th>
+                            <td>
+                                <input type="text" id="formStdMonth" name="form_std_month" readonly
+                                       style="background:#f2f4f7; width:120px;" placeholder="폐기일 기준 자동"/>
+                                <span style="color:#8a94a4; font-size:12px; margin-left:6px;">폐기일자 기준 자동 설정</span>
+                            </td>
                         </tr>
                         <tr>
                             <th>폐기일자<span class="eq"></span></th>
@@ -142,14 +152,15 @@
                                 </select>
                             </td>
                         </tr>
-                        <tr>
-                            <th>비고</th>
-                            <td><input type="text" id="remark" name="remark" maxlength="650"/></td>
+                        <tr id="etcReasonRow" style="display:none;">
+                            <th>상세폐기사유</th>
+                            <td><input type="text" id="remark" name="remark" maxlength="650" placeholder="기타 사유를 입력하세요"/></td>
                         </tr>
                         </tbody>
                     </table>
                     <div class="title_box" style="margin-top:8px;">
                         <div class="right_align">
+                            <a class="btn btn-add" title="신규" id="btnNew">신규</a>
                             <a class="btn btn-save" title="저장" id="btnSave">저장</a>
                         </div>
                     </div>
@@ -163,7 +174,7 @@
     <script type="text/javascript">
 
         // 화면 구분값: 폐기(3). 납품/반품과 동일 API를 공유하며 이 값으로만 구분된다.
-        // 폐기는 거래처/납품장소/공급형태/단가·금액이 필요 없다.
+        // 폐기는 거래처/납품장소/공급형태/단가·금액 전부 불필요.
         const SUPPLY_FLAG_CODE = '3';
         let gUrl = '/api/udi/supply_report';
 
@@ -194,6 +205,18 @@
                     formatItem: function (s, e) {
                         if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
                             e.cell.style.textAlign = 'center';
+                            return;
+                        }
+                        if (e.panel.cellType === wijmo.grid.CellType.Cell) {
+                            let item = s.rows[e.row].dataItem;
+                            let col = s.columns[e.col];
+                            if (col.binding === 'report_state_name' && item) {
+                                let st = item.report_state;
+                                e.cell.style.fontWeight = 'bold';
+                                if (st === 'r')      e.cell.style.color = '#1a8a4c';
+                                else if (st === 'c') e.cell.style.color = '#cc2f3e';
+                                else                 e.cell.style.color = '#8a6d1a';
+                            }
                         }
                     },
                 });
@@ -215,7 +238,6 @@
             searchList() {
                 let data = FormUtil.extractForm($('#searchForm'));
                 let param = {
-                    std_month: (data['stdMonth'] || '').replace('-', ''),
                     supply_flag_code: SUPPLY_FLAG_CODE,
                     date_from: (data['srchStartDt'] || '').replaceAll('-', ''),
                     date_to: (data['srchEndDt'] || '').replaceAll('-', ''),
@@ -226,8 +248,28 @@
                 this.grid.itemsSource = (result && result.data) ? result.data : [];
             }
 
+            /** 납품건 조회 팝업에서 선택한 확정 납품건을 폐기 폼에 복사 */
+            bindFromDelivery(item) {
+                $('#meddevItemSeq').val(item.meddev_item_seq != null ? item.meddev_item_seq : '');
+                $('#modelSeq').val(item.model_seq != null ? item.model_seq : '');
+                $('#udiDiSeq').val(item.udi_di_seq != null ? item.udi_di_seq : '');
+                $('#supplyTypeCode').val(item.supply_type_code || '');
+                $('#udiDiCode').val(item.udi_di_code || '');
+                $('#stdCode').val(item.std_code || '');
+                $('#udiPiCode').val(item.udi_pi_code || '');
+                $('#lotNo').val(item.lot_no || '');
+                $('#itemSerialNo').val(item.item_serial_no || '');
+                $('#manufYm').val(item.manuf_ym || '');
+                $('#useTmlmt').val(item.use_tmlmt || '');
+                Notify.success('납품건 정보를 불러왔습니다. 폐기일자·수량·사유를 입력하세요.');
+            }
+
             fillForm(item) {
                 $('#id').val(item.id);
+                $('#meddevItemSeq').val(item.meddev_item_seq != null ? item.meddev_item_seq : '');
+                $('#modelSeq').val(item.model_seq != null ? item.model_seq : '');
+                $('#udiDiSeq').val(item.udi_di_seq != null ? item.udi_di_seq : '');
+                $('#supplyTypeCode').val(item.supply_type_code || '');
                 $('#udiDiCode').val(item.udi_di_code || '');
                 $('#stdCode').val(item.std_code || '');
                 $('#udiPiCode').val(item.udi_pi_code || '');
@@ -236,36 +278,70 @@
                 $('#manufYm').val(item.manuf_ym || '');
                 $('#useTmlmt').val(item.use_tmlmt || '');
                 $('#supplyDate').val(this.toDateInput(item.supply_date));
+                this.syncStdMonth();
                 $('#supplyQty').val(item.supply_qty);
-                $('#indvdlzSupplyQty').val(item.indvdlz_supply_qty);
-                // 폐기사유는 remark에 저장된 값을 선택 목록과 매칭, 없으면 비고로 표시
+                $('#indvdlzSupplyQty').val(item.indvdlz_supply_qty != null ? item.indvdlz_supply_qty : '');
                 this.fillReason(item.remark || '');
             }
 
             fillReason(remark) {
+                remark = remark || '';
                 const options = $('#disposalReason option').map(function () { return this.value; }).get();
-                if (options.indexOf(remark) >= 0) {
+                if (remark && options.indexOf(remark) >= 0 && remark !== '기타') {
+                    // 표준 사유(유효기간경과/불량/회수/파손)
                     $('#disposalReason').val(remark);
                     $('#remark').val('');
+                } else if (remark) {
+                    // 그 외 텍스트 → 기타 + 상세폐기사유
+                    $('#disposalReason').val('기타');
+                    $('#remark').val(remark === '기타' ? '' : remark);
                 } else {
                     $('#disposalReason').val('');
-                    $('#remark').val(remark);
+                    $('#remark').val('');
                 }
+                this.toggleEtcReason();
             }
 
             newRow() {
                 $('#editForm')[0].reset();
                 $('#id').val('');
+                $('#formStdMonth').val('');
+                this.toggleEtcReason();
+            }
+
+            syncStdMonth() {
+                let d = $('#supplyDate').val() || '';
+                if (d.length >= 7) {
+                    $('#formStdMonth').val(d.substr(0, 4) + d.substr(5, 2));
+                } else {
+                    $('#formStdMonth').val('');
+                }
+            }
+
+            /** 폐기사유가 '기타'일 때만 상세폐기사유 입력행을 보인다 */
+            toggleEtcReason() {
+                let isEtc = $('#disposalReason').val() === '기타';
+                $('#etcReasonRow').toggle(isEtc);
+                if (!isEtc) $('#remark').val('');
             }
 
             collectForm() {
-                // 폐기사유 select가 선택되면 그 값을, 아니면 비고 입력값을 remark로 보낸다.
-                let reason = $('#disposalReason').val();
-                let remark = reason ? reason : $('#remark').val();
+                // 폐기사유가 '기타'면 상세폐기사유 텍스트를, 그 외에는 사유 라벨을 remark로 보낸다.
+                let reason = ($('#disposalReason').val() || '').trim();
+                let remark;
+                if (reason === '기타') {
+                    remark = ($('#remark').val() || '').trim() || '기타';
+                } else {
+                    remark = reason;
+                }
                 return {
                     id: $('#id').val(),
-                    std_month: ($('#stdMonth').val() || '').replace('-', ''),
+                    meddev_item_seq: $('#meddevItemSeq').val(),
+                    model_seq: $('#modelSeq').val(),
+                    udi_di_seq: $('#udiDiSeq').val(),
+                    std_month: $('#formStdMonth').val(),
                     supply_flag_code: SUPPLY_FLAG_CODE,
+                    supply_type_code: $('#supplyTypeCode').val(),
                     udi_di_code: $('#udiDiCode').val(),
                     std_code: $('#stdCode').val(),
                     udi_pi_code: $('#udiPiCode').val(),
@@ -280,9 +356,26 @@
                 };
             }
 
+            validateForm(data) {
+                let miss = [];
+                if (!data.std_month)   miss.push('보고 기준월(폐기일자 입력 시 자동)');
+                if (!data.udi_di_code) miss.push('UDI-DI 코드(납품건 조회)');
+                if (!data.std_code)    miss.push('표준코드(납품건 조회)');
+                if (!data.supply_date) miss.push('폐기일자');
+                if (data.supply_qty === '' || data.supply_qty == null) miss.push('폐기수량');
+                if (!data.meddev_item_seq || !data.model_seq || !data.udi_di_seq) {
+                    miss.push('식약처 품목 식별자(납품건 조회로 자동 입력)');
+                }
+                if (miss.length > 0) {
+                    Alert.alert('필수값 확인', '다음 항목을 입력하세요.\n\n· ' + miss.join('\n· '));
+                    return false;
+                }
+                return true;
+            }
+
             save() {
                 let data = this.collectForm();
-                if (!data.std_month) { Alert.alert('', '보고 기준월을 선택하세요.'); return; }
+                if (!this.validateForm(data)) return;
                 let _this = this;
                 AjaxUtil.postAsyncData(gUrl + '/save', data, function (result) {
                     if (result.success) {
@@ -300,26 +393,35 @@
 
             del() {
                 let ids = this.selectedIds();
-                if (ids.length === 0) { Alert.alert('', '선택된 항목이 없습니다.'); return; }
+                if (ids.length === 0) { Alert.alert('', '삭제할 항목을 선택하세요.'); return; }
+
+                let hasConfirmed = this.grid.rows
+                    .filter(r => r.isSelected)
+                    .some(r => r.dataItem && r.dataItem.report_state === 'r');
+                if (hasConfirmed) {
+                    Alert.alert('삭제 불가', '보고확정된 자료는 삭제할 수 없습니다.\n해당 월을 보고취소한 후 삭제하세요.');
+                    return;
+                }
+
                 let _this = this;
-                Alert.confirm('삭제', '선택된 항목을 삭제하시겠습니까? (임시 상태만 삭제됩니다)', function () {
-                    AjaxUtil.postAsyncData(gUrl + '/delete', {ids: ids}, function (result) {
-                        if (result.success) { Notify.success(result.message); _this.searchList(); }
-                        else { Alert.alert('', result.message); }
+                Alert.confirm('선택 삭제',
+                    '선택된 항목을 삭제하시겠습니까?\n\n※ 임시 상태 자료만 삭제됩니다.',
+                    function () {
+                        AjaxUtil.postAsyncData(gUrl + '/delete', {ids: ids}, function (result) {
+                            if (result.success) { Notify.success(result.message); _this.searchList(); }
+                            else { Alert.alert('', result.message); }
+                        });
                     });
-                });
             }
 
-            confirm() {
-                let ids = this.selectedIds();
-                if (ids.length === 0) { Alert.alert('', '선택된 항목이 없습니다.'); return; }
+            openReportMonthPopup() {
+                if (typeof PopupUdiReportMonthPage === 'undefined') {
+                    Alert.alert('', '보고 팝업을 불러오지 못했습니다. (배포 반영 필요)');
+                    return;
+                }
                 let _this = this;
-                Alert.confirm('보고확정', '선택된 항목을 식약처로 보고확정 처리하시겠습니까?', function () {
-                    AjaxUtil.postAsyncData(gUrl + '/confirm', {ids: ids}, function (result) {
-                        if (result.success) { Notify.success(result.message); _this.searchList(); }
-                        else { Alert.alert('', result.message); }
-                    });
-                });
+                let pop = new PopupUdiReportMonthPage(SUPPLY_FLAG_CODE);
+                pop.show(SUPPLY_FLAG_CODE, function () { _this.searchList(); });
             }
 
             toDateInput(yyyymmdd) {
@@ -329,16 +431,36 @@
         }
 
         let page = null;
+        let gTestMode = true;
+
         $(document).ready(function () {
             page = new UdiReportPage();
 
-            const now = new Date();
-            const monthStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
-            $('#stdMonth').val(monthStr);
+            AjaxUtil.getAsyncData(gUrl + '/mode', {}, function (result) {
+                if (result && result.success && result.data) {
+                    gTestMode = (result.data.test_mode === true);
+                    let $badge = $('#udiModeBadge');
+                    if (gTestMode) {
+                        $badge.text('테스트 모드').attr('title', '식약처에 실제 보고되지 않습니다.')
+                            .css({'display':'inline-block','font-size':'12px','font-weight':'700',
+                                'color':'#b4560a','background':'#fff4e0','border':'1px solid #f0c48a',
+                                'border-radius':'4px','padding':'2px 8px','margin-left':'8px','vertical-align':'middle'});
+                    } else {
+                        $badge.text('운영 모드').attr('title', '식약처에 실제 보고됩니다.')
+                            .css({'display':'inline-block','font-size':'12px','font-weight':'700',
+                                'color':'#0a7c46','background':'#e3f6ec','border':'1px solid #9bd6b4',
+                                'border-radius':'4px','padding':'2px 8px','margin-left':'8px','vertical-align':'middle'});
+                    }
+                }
+            });
 
-            const oneMonthAgo = new Date(now); oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
-            $('#srchStartDt').val(CommonUtil.formatYYYYMMDD(oneMonthAgo));
-            $('#srchEndDt').val(CommonUtil.formatYYYYMMDD(now));
+            function fmtDate(d) {
+                return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+            }
+            const now = new Date();
+            const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+            $('#srchStartDt').val(fmtDate(firstOfMonth));
+            $('#srchEndDt').val(fmtDate(now));
 
             $('#btnSearch').click(function (e) { e.preventDefault(); page.searchList(); });
             $('#searchForm').on('keydown', function (e) {
@@ -347,10 +469,24 @@
             $('#btnNew').click(function () { page.newRow(); });
             $('#btnSave').click(function () { page.save(); });
             $('#btnDelete').click(function () { page.del(); });
-            $('#btnConfirm').click(function () { page.confirm(); });
+            $('#btnConfirm').click(function () { page.openReportMonthPopup(); });
+            $('#supplyDate').on('change input', function () { page.syncStdMonth(); });
+            $('#disposalReason').change(function () { page.toggleEtcReason(); });
 
+            $('#btnDeliveryPick').click(function () {
+                if (typeof PopupUdiDeliveryPickPage === 'undefined') {
+                    Alert.alert('', '납품건 조회 팝업을 불러오지 못했습니다. (배포 반영 필요)');
+                    return;
+                }
+                let pop = new PopupUdiDeliveryPickPage();
+                pop.show(function (item) { page.bindFromDelivery(item); });
+            });
+
+            page.newRow();
             page.searchList();
         });
     </script>
+    <th:block th:replace="/common/popup_udi_delivery_pick :: popup_udi_delivery_pick"></th:block>
+    <th:block th:replace="/common/popup_udi_report_month :: popup_udi_report_month"></th:block>
 </th:block>
 </html>

@@ -1,0 +1,131 @@
+<th:block th:fragment="popup_udi_delivery_pick">
+<script type="text/x-tmpl" id="udiDeliveryPickTemplate">
+    <div class="content_wrap popup" id="udiDeliveryPickPopup">
+        <section class="section" style="padding-top: 10px;">
+            <div class="section-top">
+                <p style="margin:0 0 8px; color:#555; font-size:13px;">
+                    반품·폐기 대상은 <b>식약처에 보고된 납품건</b>만 선택할 수 있습니다.
+                    납품건을 선택하면 품목·식별자·표준코드·거래처 정보가 자동으로 채워집니다.
+                </p>
+                <div class="search-wrap" style="margin-bottom:8px; display:flex; gap:16px; align-items:flex-end; flex-wrap:wrap;">
+                    <dl style="margin:0;">
+                        <dt><label>납품일</label></dt>
+                        <dd>
+                            <div style="display:flex; align-items:center; gap:4px;">
+                                <input type="date" id="pickDateFrom" style="width:140px;"/>
+                                <span class="slow_sign">~</span>
+                                <input type="date" id="pickDateTo" style="width:140px;"/>
+                            </div>
+                        </dd>
+                    </dl>
+                    <dl style="margin:0;">
+                        <dt><label>UDI-DI/로트</label></dt>
+                        <dd><input type="text" id="pickKeyword" style="width:180px;"/></dd>
+                    </dl>
+                    <dl style="margin:0;">
+                        <dt>&nbsp;</dt>
+                        <dd><a class="btn btn-delete" id="pickSearchBtn">검색</a></dd>
+                    </dl>
+                </div>
+                <div class="container-fluid">
+                    <div id="udi-delivery-pick-grid" style="height: 340px;"></div>
+                </div>
+            </div>
+        </section>
+        <div class="popup-button">
+            <button type="button" class="btn-popup" id="udiDeliveryPickSelectBtn"><span>선택</span></button>
+            <button type="button" class="btn-popup" id="modal-close-button"><span>닫기</span></button>
+        </div>
+    </div>
+</script>
+
+<script type="text/javascript">
+
+    class PopupUdiDeliveryPickPage {
+        constructor() {
+            this.grid = null;
+            this.viewData = new wijmo.collections.CollectionView();
+            this.callback = null;
+            this.modalContainer = new PopupDraggable('확정 납품건 조회');
+        }
+
+        searchDataBind() {
+            let param = {
+                date_from: ($('#pickDateFrom').val() || '').replaceAll('-', ''),
+                date_to: ($('#pickDateTo').val() || '').replaceAll('-', ''),
+                keyword: $('#pickKeyword').val() || ''
+            };
+            let result = AjaxUtil.getSyncData('/api/udi/supply_report/confirmed_deliveries', param);
+            let rows = (result && result.data) ? result.data : [];
+            rows.forEach(r => {
+                r.supply_date_fmt = (r.supply_date && r.supply_date.length === 8)
+                    ? r.supply_date.substr(0,4)+'-'+r.supply_date.substr(4,2)+'-'+r.supply_date.substr(6,2)
+                    : r.supply_date;
+            });
+            this.viewData.sourceCollection = rows;
+        }
+
+        show(callback) {
+            let _this = this;
+            this.callback = callback;
+
+            let content = tmpl('udiDeliveryPickTemplate', {});
+            let $content = $(content);
+            this.modalContainer.open({ width: 900, height: 560, $content });
+
+            // 기본 검색기간: 최근 3개월
+            let now = new Date();
+            let from = new Date(now); from.setMonth(from.getMonth() - 3);
+            let fmt = d => d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+            $('#pickDateFrom').val(fmt(from));
+            $('#pickDateTo').val(fmt(now));
+
+            this.grid = new wijmo.grid.FlexGrid('#udi-delivery-pick-grid', {
+                selectionMode: wijmo.grid.SelectionMode.Row,
+                autoGenerateColumns: false,
+                showMarquee: true,
+                isReadOnly: true,
+                columns: [
+                    {binding: 'supply_date_fmt', header: '납품일',   width: 100, align: 'center'},
+                    {binding: 'udi_di_code',     header: 'UDI-DI',   width: 130, align: 'left'},
+                    {binding: 'std_code',        header: '표준코드', width: 200, align: 'left'},
+                    {binding: 'lot_no',          header: '로트',     width: 110, align: 'center'},
+                    {binding: 'manuf_ym',        header: '제조연월', width: 80,  align: 'center'},
+                    {binding: 'bcnc_code',       header: '거래처',   width: 120, align: 'center'},
+                    {binding: 'supply_qty',      header: '납품수량', width: 80,  align: 'right'},
+                ],
+                itemsSource: this.viewData,
+                formatItem: (s, e) => {
+                    if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                        e.cell.style.textAlign = 'center';
+                    }
+                },
+            });
+
+            // 더블클릭 또는 행 선택 후 선택 처리
+            this.grid.addEventListener(this.grid.hostElement, 'dblclick', function () {
+                _this.pickCurrent();
+            });
+
+            $('#pickSearchBtn').click(function () { _this.searchDataBind(); });
+            $('#pickKeyword').on('keydown', function (e) {
+                if (e.key === 'Enter') { e.preventDefault(); _this.searchDataBind(); }
+            });
+            $('#udiDeliveryPickSelectBtn').click(function () { _this.pickCurrent(); });
+
+            this.searchDataBind();
+        }
+
+        pickCurrent() {
+            let item = this.grid.collectionView.currentItem;
+            if (!item) { Alert.alert('', '납품건을 선택하세요.'); return; }
+            if (this.callback) this.callback(item);
+            this.close();
+        }
+
+        close() {
+            this.modalContainer.close();
+        }
+    }
+</script>
+</th:block>

@@ -370,6 +370,8 @@ public class UdiApiClient {
 			}
 			String msg = extractMessage(resp, "요청 처리에 실패했습니다. (HTTP " + code + ")");
 			log.error("[UDI] POST {} 실패 -> {} {}", path, code, msg);
+			log.error("[UDI] 응답본문: {}", resp);
+			log.error("[UDI] 요청본문: {}", body);
 			return Result.fail(code, msg, resp);
 
 		} catch (Exception ex) {
