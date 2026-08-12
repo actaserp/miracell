@@ -1,0 +1,148 @@
+<th:block th:fragment="popup_udi_bcnc">
+<script type="text/x-tmpl" id="udiBcncSearchTemplate">
+    <div class="content_wrap popup" id="udiBcncPopup">
+        <section class="section" style="padding-top: 10px;">
+            <div class="section-top">
+                <div class="search-wrap" style="text-align: left;">
+                    <dl>
+                        <dt><label for="udiBcncName">거래처명</label></dt>
+                        <dd>
+                            <div class="srch-box">
+                                <input class="form-control2" type="text" id="udiBcncName" name="udiBcncName"/>
+                            </div>
+                        </dd>
+                    </dl>
+                    <dl>
+                        <dt><label for="udiBcncTaxNo">사업자번호</label></dt>
+                        <dd>
+                            <div class="srch-box">
+                                <input class="form-control2" type="text" id="udiBcncTaxNo" name="udiBcncTaxNo"/>
+                            </div>
+                        </dd>
+                    </dl>
+                    <dl>
+                        <dt>&nbsp;</dt>
+                        <dd>
+                            <li>
+                                <a class="btn btn-delete" title="검색" id="btnUdiBcncSearch">
+                                    <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">검색
+                                </a>
+                            </li>
+                        </dd>
+                    </dl>
+                </div>
+                <div class="container-fluid">
+                    <div id="udi-bcnc-grid" style="height: 320px;"></div>
+                </div>
+            </div>
+        </section>
+
+        <div class="popup-button">
+            <button type="button" class="btn-popup" id="btnUdiBcncSelect"><span data-commonCd="선택">선택</span></button>
+            <button type="button" class="btn-popup" id="modal-close-button"><span data-commonCd="닫기">닫기</span></button>
+        </div>
+    </div>
+</script>
+
+<script type="text/javascript">
+
+    class PopupUdiBcncPage {
+        constructor() {
+            this.grid = null;
+            this.viewData = new wijmo.collections.CollectionView();
+            this.callback = null;
+            this.modalContainer = new PopupDraggable('거래처 조회 (식약처 등록)');
+        }
+
+        searchDataBind() {
+            // 식약처 18번(거래처 목록 조회) API를 중계 호출한다.
+            let data = {
+                offset: 1,
+                limit: 100,
+                company_name: $('#udiBcncName').val() || '',
+                tax_no: $('#udiBcncTaxNo').val() || ''
+            };
+            let result = AjaxUtil.getSyncData('/api/udi/supply_report/bcnc_list', data);
+
+            let rows = [];
+            if (result && result.success && result.data && result.data.items) {
+                rows = result.data.items;
+            } else if (result && !result.success) {
+                Alert.alert('거래처 조회', result.message || '거래처 조회에 실패했습니다.');
+            }
+            this.viewData.sourceCollection = rows;
+        }
+
+        selectData(item) {
+            if (typeof this.callback !== 'undefined' && this.callback != null) {
+                this.callback(item);
+            }
+            this.close();
+        }
+
+        show(callback) {
+            let _this = this;
+            this.callback = callback;
+
+            let content = tmpl('udiBcncSearchTemplate', {});
+            let $content = $(content);
+            this.modalContainer.open({ width: 900, height: 540, $content });
+
+            this.grid = new wijmo.grid.FlexGrid('#udi-bcnc-grid', {
+                selectionMode: wijmo.grid.SelectionMode.Row,
+                autoGenerateColumns: false,
+                showMarquee: true,
+                isReadOnly: true,
+                formatItem: (s, e) => {
+                    if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                        e.cell.style.textAlign = 'center';
+                    }
+                },
+                columns: [
+                    {binding: 'bcncCode',          header: '거래처코드',   width: 160, align: 'left'},
+                    {binding: 'companyName',       header: '거래처명',     width: 180, align: 'left'},
+                    {binding: 'bossName',          header: '대표자',       width: 90,  align: 'center'},
+                    {binding: 'taxNo',             header: '사업자번호',   width: 120, align: 'center'},
+                    {binding: 'bcncCobFlagCodeNm', header: '업종',        width: 90,  align: 'center'},
+                    {binding: 'hptlSymbl',         header: '요양기관코드', width: 110, align: 'center'},
+                    {binding: 'area',              header: '지역',        width: 70,  align: 'center'},
+                    {binding: 'entpAddr',          header: '주소',        width: '*', align: 'left'},
+                ],
+                itemsSource: this.viewData,
+            });
+            this.grid.rowHeaders.columns.splice(0, 1);
+            new FlexGridContextMenu(this.grid);
+            this.grid.downloadFileName = 'UDI 거래처';
+
+            $content.find('#btnUdiBcncSearch').click(function () {
+                _this.searchDataBind();
+            });
+
+            $content.find('#btnUdiBcncSelect').click(function () {
+                let items = _this.grid.selectedItems;
+                if (items.length === 0) { Alert.alert('', '선택된 거래처가 없습니다.'); return false; }
+                _this.selectData(items[0]);
+            });
+
+            this.grid.hostElement.addEventListener('dblclick', function () {
+                let items = _this.grid.selectedItems;
+                if (items.length === 0) return false;
+                _this.selectData(items[0]);
+            });
+
+            $content.find('#udiBcncName').on('keypress', function (e) {
+                if (e.keyCode === 13) _this.searchDataBind();
+            });
+            $content.find('#udiBcncTaxNo').on('keypress', function (e) {
+                if (e.keyCode === 13) _this.searchDataBind();
+            });
+
+            this.searchDataBind();
+        }
+
+        close() {
+            this.modalContainer.close();
+        }
+    }
+</script>
+</th:block>

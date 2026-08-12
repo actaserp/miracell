@@ -1,0 +1,171 @@
+<th:block th:fragment="popup_udi_report_month">
+<script type="text/x-tmpl" id="udiReportMonthTemplate">
+    <div class="content_wrap popup" id="udiReportMonthPopup">
+        <section class="section" style="padding-top: 10px;">
+            <div class="section-top">
+                <p style="margin:0 0 10px; color:#555; font-size:13px;">
+                    UDI 공급내역 보고는 <b>기준월(공급월) 단위</b>로 처리됩니다.
+                    보고할 월을 선택하세요. 그 달의 임시 자료 전체가 한 번에 보고됩니다.
+                    <br>이미 보고확정된 월은 <b>보고취소</b> 후 수정·재보고할 수 있습니다.
+                </p>
+                <div class="container-fluid">
+                    <div id="udi-report-month-grid" style="height: 320px;"></div>
+                </div>
+            </div>
+        </section>
+        <div class="popup-button">
+            <button type="button" class="btn-popup" id="modal-close-button"><span>닫기</span></button>
+        </div>
+    </div>
+</script>
+
+<script type="text/javascript">
+
+    class PopupUdiReportMonthPage {
+        constructor(supplyFlagCode) {
+            this.grid = null;
+            this.supplyFlagCode = supplyFlagCode || '1';
+            this.viewData = new wijmo.collections.CollectionView();
+            this.onDone = null;
+            this.modalContainer = new PopupDraggable('UDI 월별 보고확정 / 취소');
+        }
+
+        searchDataBind() {
+            let result = AjaxUtil.getSyncData('/api/udi/supply_report/months',
+                { supply_flag_code: this.supplyFlagCode });
+            let rows = (result && result.data) ? result.data : [];
+            // 각 월의 액션 상태 계산
+            rows.forEach(r => {
+                r.temp_cnt = Number(r.temp_cnt || 0);
+                r.confirmed_cnt = Number(r.confirmed_cnt || 0);
+                r.canceled_cnt = Number(r.canceled_cnt || 0);
+                r.std_month_fmt = (r.std_month && r.std_month.length === 6)
+                    ? r.std_month.substr(0,4) + '-' + r.std_month.substr(4,2) : r.std_month;
+                // 상태 요약
+                let parts = [];
+                if (r.temp_cnt) parts.push('임시 ' + r.temp_cnt);
+                if (r.confirmed_cnt) parts.push('확정 ' + r.confirmed_cnt);
+                if (r.canceled_cnt) parts.push('취소 ' + r.canceled_cnt);
+                r.state_summary = parts.join(', ') || '-';
+            });
+            this.viewData.sourceCollection = rows;
+        }
+
+        show(supplyFlagCode, onDone) {
+            let _this = this;
+            if (supplyFlagCode) this.supplyFlagCode = supplyFlagCode;
+            this.onDone = onDone;
+
+            let content = tmpl('udiReportMonthTemplate', {});
+            let $content = $(content);
+            this.modalContainer.open({ width: 760, height: 480, $content });
+
+            this.grid = new wijmo.grid.FlexGrid('#udi-report-month-grid', {
+                selectionMode: wijmo.grid.SelectionMode.Row,
+                autoGenerateColumns: false,
+                showMarquee: true,
+                isReadOnly: true,
+                columns: [
+                    {binding: 'std_month_fmt', header: '보고기준월', width: 110, align: 'center'},
+                    {binding: 'state_summary', header: '상태(건수)', width: 200, align: 'left'},
+                    {binding: 'total_qty',     header: '총수량',    width: 90,  align: 'right'},
+                    {binding: 'action',        header: '처리',      width: '*', align: 'center'},
+                ],
+                itemsSource: this.viewData,
+                formatItem: (s, e) => {
+                    if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                        e.cell.style.textAlign = 'center';
+                        return;
+                    }
+                    if (e.panel.cellType === wijmo.grid.CellType.Cell) {
+                        let col = s.columns[e.col];
+                        let item = s.rows[e.row].dataItem;
+                        if (col.binding === 'action') {
+                            // 상태에 따른 액션 버튼
+                            //  - 보고 대상(임시 t / 취소 c)이 있으면 [보고]
+                            //  - 확정(r)이 있으면 [보고취소]
+                            let html = '';
+                            let reportable = (item.temp_cnt + item.canceled_cnt) > 0;   // t 또는 c
+                            if (item.confirmed_cnt > 0 && !reportable) {
+                                // 확정만 있음 → 취소만 가능
+                                html = '<button class="btn-mini btn-cancel" data-m="' + item.std_month + '">보고취소</button>';
+                            } else if (item.confirmed_cnt > 0 && reportable) {
+                                // 확정 + (임시/취소) 혼재 → 취소 먼저 유도(재보고 절차)
+                                html = '<button class="btn-mini btn-cancel" data-m="' + item.std_month + '">보고취소</button>'
+                                     + ' <span style="color:#b4560a;font-size:11px;">(취소 후 재보고)</span>';
+                            } else if (reportable) {
+                                // 임시 또는 취소만 있음 → 보고(재보고)
+                                let label = (item.temp_cnt > 0 && item.canceled_cnt === 0) ? '보고' : '재보고';
+                                html = '<button class="btn-mini btn-report" data-m="' + item.std_month + '">' + label + '</button>';
+                            } else {
+                                html = '<span style="color:#aaa;">-</span>';
+                            }
+                            e.cell.innerHTML = html;
+                        }
+                    }
+                },
+            });
+            this.grid.rowHeaders.columns.splice(0, 1);
+
+            // 버튼 클릭(이벤트 위임)
+            $(this.grid.hostElement).on('click', '.btn-report', function () {
+                let m = $(this).data('m');
+                _this.doReport(String(m));
+            });
+            $(this.grid.hostElement).on('click', '.btn-cancel', function () {
+                let m = $(this).data('m');
+                _this.doCancel(String(m));
+            });
+
+            this.searchDataBind();
+        }
+
+        doReport(stdMonth) {
+            let _this = this;
+            let fmt = stdMonth.substr(0,4) + '-' + stdMonth.substr(4,2);
+            let msg = (typeof gTestMode !== 'undefined' && gTestMode)
+                ? fmt + ' 보고 대상 자료(임시·취소 포함) 전체를 식약처에 보고합니다.\n\n※ 테스트 모드: 실제 반영되지 않고 입력값 검증만 수행됩니다.'
+                : fmt + ' 보고 대상 자료(임시·취소 포함) 전체를 식약처에 보고합니다.\n\n※ 운영 모드: 실제 식약처에 보고됩니다.';
+            Alert.confirm('월별 보고확정', msg, function () {
+                AjaxUtil.postAsyncData('/api/udi/supply_report/report_month',
+                    { std_month: stdMonth, supply_flag_code: _this.supplyFlagCode },
+                    function (result) {
+                        if (result.success) Notify.success(result.message || '보고되었습니다.');
+                        else Alert.alert('보고 실패', result.message || '보고에 실패했습니다.');
+                        _this.searchDataBind();
+                        if (_this.onDone) _this.onDone();
+                    });
+            });
+        }
+
+        doCancel(stdMonth) {
+            let _this = this;
+            let fmt = stdMonth.substr(0,4) + '-' + stdMonth.substr(4,2);
+            Alert.confirm('월별 보고취소',
+                fmt + ' 보고를 취소하시겠습니까?\n\n취소 후 자료를 수정하고 다시 보고할 수 있습니다.',
+                function () {
+                    AjaxUtil.postAsyncData('/api/udi/supply_report/cancel_month',
+                        { std_month: stdMonth, supply_flag_code: _this.supplyFlagCode },
+                        function (result) {
+                            if (result.success) Notify.success(result.message || '취소되었습니다.');
+                            else Alert.alert('취소 실패', result.message || '취소에 실패했습니다.');
+                            _this.searchDataBind();
+                            if (_this.onDone) _this.onDone();
+                        });
+                });
+        }
+
+        close() {
+            this.modalContainer.close();
+        }
+    }
+</script>
+<style>
+    .btn-mini {
+        padding: 2px 10px; font-size: 12px; border-radius: 4px; cursor: pointer;
+        border: 1px solid transparent;
+    }
+    .btn-report { background:#2eaa63; color:#fff; border-color:#268a50; }
+    .btn-cancel { background:#e05260; color:#fff; border-color:#c33d4a; }
+</style>
+</th:block>

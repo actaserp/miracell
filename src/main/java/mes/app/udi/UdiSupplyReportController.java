@@ -48,6 +48,34 @@ public class UdiSupplyReportController {
 	}
 
 	/**
+	 * 거래처 목록 조회 (식약처 18번 API 중계).
+	 * 거래처 조회 팝업에서 호출한다. 식약처 등록 거래처만 26번 보고에 쓸 수 있으므로
+	 * 여기서 조회한 bcncCode 를 화면에 채운다.
+	 *
+	 * 사용: GET /api/udi/supply_report/bcnc_list?offset=1&limit=20&company_name=...
+	 */
+	@GetMapping("/bcnc_list")
+	public AjaxResult getBcncList(
+			@RequestParam(value = "offset", defaultValue = "1") int offset,
+			@RequestParam(value = "limit", defaultValue = "20") int limit,
+			@RequestParam(value = "company_name", required = false) String companyName,
+			@RequestParam(value = "tax_no", required = false) String taxNo,
+			@RequestParam(value = "bcnc_code", required = false) String bcncCode) {
+
+		AjaxResult result = new AjaxResult();
+		try {
+			Map<String, Object> body = this.udiApiClient.getBcncList(
+					offset, limit, companyName, taxNo, bcncCode);
+			result.data = body;
+			result.success = true;
+		} catch (Exception ex) {
+			result.success = false;
+			result.message = ex.getMessage();
+		}
+		return result;
+	}
+
+	/**
 	 * 고유식별자(UDI-DI) 품목 정보 조회 (식약처 24번 API 중계).
 	 * 바코드 조회 팝업에서 행 선택 시 호출한다. UDI-DI 코드로
 	 * meddevItemSeq/seq/udiDiSeq 등 보고 필수 식별자를 받아 화면 폼에 채운다.
@@ -88,10 +116,39 @@ public class UdiSupplyReportController {
 		return result;
 	}
 
+	/**
+	 * 현재 식약처 연동 모드 조회 (테스트/운영).
+	 * 화면 상단 '테스트 모드' 배지 및 보고확정 안내에 사용한다.
+	 * 사용: GET /api/udi/supply_report/mode
+	 */
+	@GetMapping("/mode")
+	public AjaxResult getMode() {
+		AjaxResult result = new AjaxResult();
+		boolean test = this.udiApiClient.isTestMode();
+		java.util.Map<String, Object> data = new java.util.HashMap<>();
+		data.put("test_mode", test);
+		data.put("mode_label", test ? "테스트 모드" : "운영 모드");
+		result.data = data;
+		result.success = true;
+		return result;
+	}
+
+	/**
+	 * 보고확정/취소 팝업용 월 목록 조회.
+	 * 기준월별 임시/확정/취소 건수를 집계해 내려준다. 화면은 월을 골라 그 달 전체를 보고/취소한다.
+	 * 사용: GET /api/udi/supply_report/months?supply_flag_code=1
+	 */
+	@GetMapping("/months")
+	public AjaxResult getReportMonths(@RequestParam("supply_flag_code") String supplyFlagCode) {
+		AjaxResult result = new AjaxResult();
+		result.data = this.supplyReportService.getReportMonths(supplyFlagCode);
+		return result;
+	}
+
 	/** 보고자료 목록 조회 */
 	@GetMapping("/list")
 	public AjaxResult getList(
-			@RequestParam("std_month") String stdMonth,
+			@RequestParam(value = "std_month", required = false) String stdMonth,
 			@RequestParam("supply_flag_code") String supplyFlagCode,
 			@RequestParam(value = "date_from", required = false) String dateFrom,
 			@RequestParam(value = "date_to", required = false) String dateTo,
@@ -182,6 +239,60 @@ public class UdiSupplyReportController {
 			result.message = "삭제 중 오류 발생: " + ex.getMessage();
 			ex.printStackTrace();
 			TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+		}
+		return result;
+	}
+
+	/**
+	 * 월 단위 보고확정 (식약처 26번 등록 → 34번 보고확정).
+	 * 해당 기준월의 임시('t') 건 전체를 보고한다.
+	 * 사용: POST /api/udi/supply_report/report_month  (std_month, supply_flag_code)
+	 */
+	@PostMapping("/report_month")
+	public AjaxResult reportMonth(
+			@RequestParam("std_month") String stdMonth,
+			@RequestParam("supply_flag_code") String supplyFlagCode,
+			Authentication auth) {
+
+		AjaxResult result = new AjaxResult();
+		User user = (User) auth.getPrincipal();
+		try {
+			mes.app.udi.service.UdiReportSubmitService.SubmitResult sr =
+					this.reportSubmitService.submitMonth(stdMonth, supplyFlagCode, user.getId());
+			result.success = sr.success;
+			result.message = sr.message;
+			result.data = java.util.Map.of("reported", sr.reportedCount, "failed", sr.failedCount);
+		} catch (Exception ex) {
+			result.success = false;
+			result.message = "보고확정 중 오류 발생: " + ex.getMessage();
+			ex.printStackTrace();
+		}
+		return result;
+	}
+
+	/**
+	 * 월 단위 보고취소 (식약처 34번 토글).
+	 * 해당 기준월의 확정('r') 건을 취소('c')로 되돌린다. 이후 수정 → 재보고 가능.
+	 * 사용: POST /api/udi/supply_report/cancel_month  (std_month, supply_flag_code)
+	 */
+	@PostMapping("/cancel_month")
+	public AjaxResult cancelMonth(
+			@RequestParam("std_month") String stdMonth,
+			@RequestParam("supply_flag_code") String supplyFlagCode,
+			Authentication auth) {
+
+		AjaxResult result = new AjaxResult();
+		User user = (User) auth.getPrincipal();
+		try {
+			mes.app.udi.service.UdiReportSubmitService.SubmitResult sr =
+					this.reportSubmitService.cancelMonth(stdMonth, supplyFlagCode, user.getId());
+			result.success = sr.success;
+			result.message = sr.message;
+			result.data = java.util.Map.of("canceled", sr.reportedCount, "failed", sr.failedCount);
+		} catch (Exception ex) {
+			result.success = false;
+			result.message = "보고취소 중 오류 발생: " + ex.getMessage();
+			ex.printStackTrace();
 		}
 		return result;
 	}

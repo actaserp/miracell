@@ -1141,7 +1141,7 @@ public class PopupController {
 	 * ★ 출고건만(INNER JOIN). 포장만 되고 아직 안 나간 건은 납품보고 대상이 아니다.
 	 * ★ RawData(GS1-128) 파싱
 	 *     udi_di_code = (01) 다음 GTIN 14자리 (식별자 없는 순수코드)
-	 *     std_code    = '(01)' + GTIN            (표준코드, PI 제외)
+	 *     std_code    = RawData 에서 (30)포장수량만 제거한 전체 (DI+PI, 식약처 표준코드 규칙)
 	 *     udi_pi_code = RawData 에서 (01)GTIN 및 (30)포장수량을 제거한 PI 부분
 	 *     lot_no(10) / manuf_ym(11) / use_tmlmt(17) / item_serial_no(21)
 	 *   식약처 식별자(meddev_item_seq/model_seq/udi_di_seq)는 우리 DB에 없다.
@@ -1178,7 +1178,7 @@ public class PopupController {
 				, b.own_barcode                                        as own_barcode
 				, b.udi_barcode                                        as udi_barcode
 				, b.udi_di_code                                        as udi_di_code
-				, '(01)' || b.udi_di_code                              as std_code
+				, regexp_replace(b.udi_barcode, '\\(30\\)[0-9]+', '') as std_code
 				, regexp_replace(
 				    regexp_replace(b.udi_barcode, '\\(01\\)[0-9]{14}', ''),
 				    '\\(30\\)[0-9]+', ''

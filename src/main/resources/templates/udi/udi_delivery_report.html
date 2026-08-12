@@ -3,7 +3,7 @@
     <div class="layout-contents">
         <div class="page-title-wrap">
             <div class="left">
-                <h2>UDI 납품보고</h2>
+                <h2>UDI 납품보고 <span id="udiModeBadge" style="display:none;"></span></h2>
                 <a title="북마크" class="bookmark toggle">내 메뉴</a>
             </div>
             <ul class="page-navi">
@@ -20,11 +20,7 @@
                     <div class="section-top">
                         <div class="search-wrap">
                             <dl>
-                                <dt><label>보고 기준월<span class="eq"></span></label></dt>
-                                <dd><input type="month" id="stdMonth" name="stdMonth"/></dd>
-                            </dl>
-                            <dl>
-                                <dt><label>공급일</label></dt>
+                                <dt><label>공급일<span class="eq"></span></label></dt>
                                 <dd>
                                     <div class="srch-box">
                                         <input type="date" id="srchStartDt" name="srchStartDt"/>
@@ -33,8 +29,6 @@
                                     </div>
                                 </dd>
                             </dl>
-                        </div>
-                        <div class="search-wrap">
                             <dl>
                                 <dt><label>보고상태</label></dt>
                                 <dd>
@@ -46,6 +40,8 @@
                                     </select>
                                 </dd>
                             </dl>
+                        </div>
+                        <div class="search-wrap">
                             <dl>
                                 <dt><label>UDI-DI/표준코드</label></dt>
                                 <dd><input type="text" id="keyword" name="keyword"/></dd>
@@ -66,9 +62,8 @@
 
                 <div class="title_box" style="margin-bottom: 5px;">
                     <div class="left_align">
-                        <a class="btn btn-add" title="신규" id="btnNew">신규</a>
-                        <a class="btn btn-delete" title="삭제" id="btnDelete">삭제</a>
-                        <a class="btn btn-save" title="보고확정" id="btnConfirm">보고확정</a>
+                        <a class="btn btn-delete" title="삭제" id="btnDelete">선택 삭제</a>
+                        <a class="btn btn-save" title="보고확정 및 취소" id="btnConfirm">보고확정 및 취소</a>
                     </div>
                 </div>
 
@@ -138,9 +133,11 @@
                         </tr>
                         <tr>
                             <th>거래처 코드<span class="eq"></span></th>
-                            <td>
-                                <input type="text" id="bcncCode" name="bcnc_code"/>
-                                <label style="margin-left:8px;">
+                            <td style="display: flex;">
+                                <input type="text" id="bcncCode" name="bcnc_code" style="width:auto;"/>
+                                <a class="btn btn-add" title="거래처 조회" id="btnBcncSearch" style="margin-left:4px;">조회</a>
+                                <input type="hidden" id="bcncCompanyName" name="bcnc_company_name"/>
+                                <label style="margin-left:8px; display: flex;">
                                     <input type="checkbox" id="bcncIsRcper" name="bcnc_is_rcper"/> 요양기관
                                 </label>
                             </td>
@@ -148,12 +145,24 @@
                         <tr>
                             <th>납품장소 다름<span class="eq"></span></th>
                             <td>
-                                <label><input type="checkbox" id="isDiffDvyfg" name="is_diff_dvyfg"/> 공급받은자와 납품장소가 다름</label>
+                                <label style="display: flex; margin-left:8px;"><input type="checkbox" id="isDiffDvyfg" name="is_diff_dvyfg"/> 공급받은자와 납품장소가 다름</label>
                             </td>
                         </tr>
                         <tr id="dvyfgRow" style="display:none;">
                             <th>납품장소 거래처</th>
-                            <td><input type="text" id="dvyfgPlaceBcncCode" name="dvyfg_place_bcnc_code"/></td>
+                            <td>
+                                <input type="text" id="dvyfgPlaceBcncCode" name="dvyfg_place_bcnc_code" style="width:auto;"/>
+                                <a class="btn btn-add" title="납품장소 거래처 조회" id="btnDvyfgBcncSearch" style="margin-left:4px;">조회</a>
+                                <input type="hidden" id="dvyfgPlaceCompanyName" name="dvyfg_place_company_name"/>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>보고 기준월<span class="eq"></span></th>
+                            <td>
+                                <input type="text" id="formStdMonth" name="form_std_month" readonly
+                                       style="background:#f2f4f7; width:120px;" placeholder="공급일 기준 자동"/>
+                                <span style="color:#8a94a4; font-size:12px; margin-left:6px;">공급일자 기준 자동 설정</span>
+                            </td>
                         </tr>
                         <tr>
                             <th>공급일자<span class="eq"></span></th>
@@ -183,6 +192,7 @@
                     </table>
                     <div class="title_box" style="margin-top:8px;">
                         <div class="right_align">
+                            <a class="btn btn-add" title="신규" id="btnNew">신규</a>
                             <a class="btn btn-save" title="저장" id="btnSave">저장</a>
                         </div>
                     </div>
@@ -203,6 +213,7 @@
             constructor() {
                 this.grid = null;
                 this.viewData = new wijmo.collections.CollectionView();
+                this.useFlags = null;   // 24번 조회로 채워지는 품목 PI 사용특성
                 this.init();
             }
 
@@ -229,6 +240,18 @@
                     formatItem: function (s, e) {
                         if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
                             e.cell.style.textAlign = 'center';
+                            return;
+                        }
+                        if (e.panel.cellType === wijmo.grid.CellType.Cell) {
+                            let item = s.rows[e.row].dataItem;
+                            let col = s.columns[e.col];
+                            if (col.binding === 'report_state_name' && item) {
+                                let st = item.report_state;
+                                e.cell.style.fontWeight = 'bold';
+                                if (st === 'r')      e.cell.style.color = '#1a8a4c';   // 확정=초록
+                                else if (st === 'c') e.cell.style.color = '#cc2f3e';   // 취소=빨강
+                                else                 e.cell.style.color = '#8a6d1a';   // 임시=주황
+                            }
                         }
                     },
                 });
@@ -250,7 +273,6 @@
             searchList() {
                 let data = FormUtil.extractForm($('#searchForm'));
                 let param = {
-                    std_month: (data['stdMonth'] || '').replace('-', ''),   // YYYY-MM -> YYYYMM
                     supply_flag_code: SUPPLY_FLAG_CODE,
                     date_from: (data['srchStartDt'] || '').replaceAll('-', ''),
                     date_to: (data['srchEndDt'] || '').replaceAll('-', ''),
@@ -263,6 +285,12 @@
 
             fillForm(item) {
                 $('#id').val(item.id);
+                // 기존건 선택 시 이전 품목특성 초기화 (수기 수정은 서버 검증이 최종 방어)
+                this.useFlags = null;
+                // 식약처 식별자(hidden) 복원 — 기존 저장건은 DB에 있으므로 그대로 채운다
+                $('#meddevItemSeq').val(item.meddev_item_seq != null ? item.meddev_item_seq : '');
+                $('#modelSeq').val(item.model_seq != null ? item.model_seq : '');
+                $('#udiDiSeq').val(item.udi_di_seq != null ? item.udi_di_seq : '');
                 $('#supplyTypeCode').val(item.supply_type_code || '');
                 $('#udiDiCode').val(item.udi_di_code || '');
                 $('#stdCode').val(item.std_code || '');
@@ -275,9 +303,12 @@
                 $('#isDiffDvyfg').prop('checked', item.is_diff_dvyfg === true);
                 $('#dvyfgPlaceBcncCode').val(item.dvyfg_place_bcnc_code || '');
                 $('#supplyDate').val(this.toDateInput(item.supply_date));
+                this.syncStdMonth();
                 $('#supplyQty').val(item.supply_qty);
+                $('#indvdlzSupplyQty').val(item.indvdlz_supply_qty != null ? item.indvdlz_supply_qty : '');
                 $('#supplyUnitPrice').val(item.supply_unit_price);
                 $('#supplyAmt').val(item.supply_amt);
+                $('#supplyAmt').data('manual', item.supply_amt != null && item.supply_amt !== '');
                 $('#remark').val(item.remark || '');
                 this.toggleDvyfgRow();
             }
@@ -286,6 +317,9 @@
                 $('#editForm')[0].reset();
                 $('#id').val('');
                 $('#matchId').val('');
+                $('#formStdMonth').val('');
+                this.useFlags = null;
+                $('#supplyAmt').data('manual', false);
                 this.toggleDvyfgRow();
             }
 
@@ -299,17 +333,20 @@
                 $('#itemSerialNo').val(item.item_serial_no || '');
                 $('#manufYm').val(item.manuf_ym || '');
                 $('#useTmlmt').val(item.use_tmlmt || '');
-                if (item.bcnc_code) $('#bcncCode').val(item.bcnc_code);
+                // ※ 거래처는 우리 내부 코드(company.Code)라 식약처 거래처 코드와 다르다.
+                //   자동 바인드하지 않고, 반드시 거래처 조회(18번)로 식약처 코드를 선택하게 한다.
+                //   (팝업 그리드의 거래처명은 "이 출고가 누구에게 갔는지" 참고용일 뿐이다.)
                 if (item.supply_date) $('#supplyDate').val(this.toDateInput(item.supply_date));
                 if (item.supply_qty != null) $('#supplyQty').val(item.supply_qty);
                 if (item.indvdlz_supply_qty != null) $('#indvdlzSupplyQty').val(item.indvdlz_supply_qty);
                 if (item.supply_unit_price != null) $('#supplyUnitPrice').val(item.supply_unit_price);
                 if (item.supply_amt != null) $('#supplyAmt').val(item.supply_amt);
+                // 바코드로 단가/수량이 채워졌으면 공급금액 자동계산 재개
+                $('#supplyAmt').data('manual', false);
+                $('#supplyUnitPrice').trigger('input');
                 $('#matchId').val(item.match_id || '');
-                // 보고 기준월 미선택 시 출고일 기준으로 자동 세팅
-                if (item.supply_date && item.supply_date.length === 8 && !$('#stdMonth').val()) {
-                    $('#stdMonth').val(item.supply_date.substr(0,4) + '-' + item.supply_date.substr(4,2));
-                }
+                // 공급일(출고일)에서 보고기준월 자동 파생 (입력폼)
+                this.syncStdMonth();
 
                 // ★ 식약처 식별자(meddevItemSeq/seq/udiDiSeq)는 우리 DB에 없다.
                 //   UDI-DI 코드로 식약처 24번 API(고유식별자 품목정보 조회)를 호출해 채운다.
@@ -319,7 +356,7 @@
                 $('#udiDiSeq').val('');
                 this.loadUdiDiProduct(item.udi_di_code);
 
-                Notify.success('바코드 정보를 불러왔습니다.');
+                Notify.success('바코드 정보를 불러왔습니다. (거래처는 거래처 조회로 선택하세요)');
             }
 
             /**
@@ -328,6 +365,7 @@
              */
             loadUdiDiProduct(udiDiCode) {
                 if (!udiDiCode) return;
+                let _this = this;
                 AjaxUtil.getAsyncData(gUrl + '/udidi_product', { udi_di_code: udiDiCode },
                     function (result) {
                         if (result && result.success && result.data) {
@@ -335,8 +373,16 @@
                             $('#meddevItemSeq').val(d.meddev_item_seq != null ? d.meddev_item_seq : '');
                             $('#modelSeq').val(d.model_seq != null ? d.model_seq : '');
                             $('#udiDiSeq').val(d.udi_di_seq != null ? d.udi_di_seq : '');
+                            // 품목의 PI 사용 특성(로트/일련/제조연월/사용기한 필수 판단용)
+                            _this.useFlags = {
+                                lotNo:    d.use_lot_no === true,
+                                itemSeq:  d.use_item_seq === true,
+                                manufYm:  d.use_manuf_ym === true,
+                                timeLimit: d.use_time_limit === true
+                            };
                             Notify.success('식약처 품목정보(식별자)를 조회했습니다.');
                         } else {
+                            _this.useFlags = null;
                             Alert.alert('식약처 품목정보 조회',
                                 (result && result.message)
                                     ? result.message
@@ -345,8 +391,37 @@
                     });
             }
 
+            /** 거래처 조회 팝업(18번)에서 선택한 거래처를 폼에 바인드 */
+            bindBcnc(item) {
+                $('#bcncCode').val(item.bcncCode || '');
+                $('#bcncCompanyName').val(item.companyName || '');
+                // 요양기관코드(hptlSymbl)가 있으면 요양기관 → 단가/금액 필수
+                let isRcper = !!(item.hptlSymbl && String(item.hptlSymbl).trim() !== '');
+                $('#bcncIsRcper').prop('checked', isRcper);
+                let msg = '거래처: ' + (item.companyName || '') + ' (' + (item.bcncCode || '') + ')';
+                if (isRcper) msg += ' — 요양기관(단가·금액 필수)';
+                Notify.success(msg);
+            }
+
+            /** 납품장소 거래처 조회 팝업(18번)에서 선택한 거래처를 폼에 바인드 */
+            bindDvyfgBcnc(item) {
+                $('#dvyfgPlaceBcncCode').val(item.bcncCode || '');
+                $('#dvyfgPlaceCompanyName').val(item.companyName || '');
+                Notify.success('납품장소 거래처: ' + (item.companyName || '') + ' (' + (item.bcncCode || '') + ')');
+            }
+
             toggleDvyfgRow() {
                 $('#dvyfgRow').toggle($('#isDiffDvyfg').is(':checked'));
+            }
+
+            /** 공급일자에서 보고기준월(YYYYMM)을 파생해 입력폼에 세팅 */
+            syncStdMonth() {
+                let d = $('#supplyDate').val() || '';        // YYYY-MM-DD
+                if (d.length >= 7) {
+                    $('#formStdMonth').val(d.substr(0, 4) + d.substr(5, 2));   // YYYYMM
+                } else {
+                    $('#formStdMonth').val('');
+                }
             }
 
             collectForm() {
@@ -356,7 +431,7 @@
                     meddev_item_seq: $('#meddevItemSeq').val(),
                     model_seq: $('#modelSeq').val(),
                     udi_di_seq: $('#udiDiSeq').val(),
-                    std_month: ($('#stdMonth').val() || '').replace('-', ''),
+                    std_month: $('#formStdMonth').val(),   // 입력폼 기준월(공급일 파생) 사용
                     supply_flag_code: SUPPLY_FLAG_CODE,
                     supply_type_code: $('#supplyTypeCode').val(),
                     udi_di_code: $('#udiDiCode').val(),
@@ -379,9 +454,59 @@
                 };
             }
 
+            /**
+             * 저장/보고 전 필수값 검증 (매뉴얼 26번 규칙, 납품=출고 기준).
+             * 미충족 항목이 있으면 첫 항목을 Alert 로 안내하고 false 반환.
+             */
+            validateForm(data) {
+                let miss = [];
+
+                // ── 항상 필수 ──
+                if (!data.std_month)        miss.push('보고 기준월');
+                if (!data.supply_type_code) miss.push('공급형태');           // 출고 → 필수
+                if (!data.udi_di_code)      miss.push('UDI-DI 코드');
+                if (!data.std_code)         miss.push('표준코드');
+                if (!data.supply_date)      miss.push('공급일자');
+                if (data.supply_qty === '' || data.supply_qty == null) miss.push('수량');
+
+                // ── 식약처 식별자(24번 조회) 필수 ──
+                if (!data.meddev_item_seq || !data.model_seq || !data.udi_di_seq) {
+                    miss.push('식약처 품목 식별자(바코드 조회로 자동 입력)');
+                }
+
+                // ── 품목 특성에 따른 조건부 필수 (24번 useFlags) ──
+                if (this.useFlags) {
+                    if (this.useFlags.lotNo && !data.lot_no)         miss.push('로트번호(품목이 로트 사용)');
+                    if (this.useFlags.itemSeq && !data.item_serial_no) miss.push('일련번호(품목이 일련번호 사용)');
+                    if (this.useFlags.manufYm && !data.manuf_ym)     miss.push('제조연월(품목이 제조연월 사용)');
+                    if (this.useFlags.timeLimit && !data.use_tmlmt)  miss.push('사용기한(품목이 사용기한 사용)');
+                }
+
+                // ── 출고 → 거래처 필수 ──
+                if (!data.bcnc_code) miss.push('거래처 코드');
+
+                // ── 납품장소 다름 체크 → 납품장소 거래처 필수 ──
+                if (data.is_diff_dvyfg && !data.dvyfg_place_bcnc_code) {
+                    miss.push('납품장소 거래처(납품장소 다름 선택 시)');
+                }
+
+                // ── 요양기관 → 단가/금액 필수 ──
+                if (data.bcnc_is_rcper) {
+                    if (data.supply_unit_price === '' || data.supply_unit_price == null) miss.push('공급단가(요양기관)');
+                    if (data.supply_amt === '' || data.supply_amt == null)              miss.push('공급금액(요양기관)');
+                }
+
+                if (miss.length > 0) {
+                    Alert.alert('필수값 확인',
+                        '다음 항목을 입력하세요.\n\n· ' + miss.join('\n· '));
+                    return false;
+                }
+                return true;
+            }
+
             save() {
                 let data = this.collectForm();
-                if (!data.std_month) { Alert.alert('', '보고 기준월을 선택하세요.'); return; }
+                if (!this.validateForm(data)) return;
                 let _this = this;
                 AjaxUtil.postAsyncData(gUrl + '/save', data, function (result) {
                     if (result.success) {
@@ -399,25 +524,29 @@
 
             del() {
                 let ids = this.selectedIds();
-                if (ids.length === 0) { Alert.alert('', '선택된 항목이 없습니다.'); return; }
+                if (ids.length === 0) { Alert.alert('', '삭제할 항목을 선택하세요.'); return; }
                 let _this = this;
-                Alert.confirm('삭제', '선택된 항목을 삭제하시겠습니까? (임시 상태만 삭제됩니다)', function () {
-                    AjaxUtil.postAsyncData(gUrl + '/delete', {ids: ids}, function (result) {
-                        if (result.success) { Notify.success(result.message); _this.searchList(); }
-                        else { Alert.alert('', result.message); }
+                Alert.confirm('선택 삭제',
+                    '선택된 항목을 삭제하시겠습니까?\n\n※ 임시 상태 자료만 삭제됩니다. 보고확정된 자료는 보고취소 후 삭제할 수 있습니다.',
+                    function () {
+                        AjaxUtil.postAsyncData(gUrl + '/delete', {ids: ids}, function (result) {
+                            if (result.success) { Notify.success(result.message); _this.searchList(); }
+                            else { Alert.alert('', result.message); }
+                        });
                     });
-                });
             }
 
-            confirm() {
-                let ids = this.selectedIds();
-                if (ids.length === 0) { Alert.alert('', '선택된 항목이 없습니다.'); return; }
+            /** 보고확정 및 취소 — 월 단위 팝업을 연다 */
+            openReportMonthPopup() {
+                if (typeof PopupUdiReportMonthPage === 'undefined') {
+                    Alert.alert('', '보고 팝업을 불러오지 못했습니다. (배포 반영 필요)');
+                    return;
+                }
                 let _this = this;
-                Alert.confirm('보고확정', '선택된 항목을 식약처로 보고확정 처리하시겠습니까?', function () {
-                    AjaxUtil.postAsyncData(gUrl + '/confirm', {ids: ids}, function (result) {
-                        if (result.success) { Notify.success(result.message); _this.searchList(); }
-                        else { Alert.alert('', result.message); }
-                    });
+                let pop = new PopupUdiReportMonthPage(SUPPLY_FLAG_CODE);
+                pop.show(SUPPLY_FLAG_CODE, function () {
+                    // 보고/취소 후 목록 갱신
+                    _this.searchList();
                 });
             }
 
@@ -428,8 +557,37 @@
         }
 
         let page = null;
+        let gTestMode = true;   // 식약처 연동 모드 (서버에서 조회, 기본 테스트로 안전하게)
+
         $(document).ready(function () {
             page = new UdiReportPage();
+
+            // 식약처 연동 모드 조회 → 상단 배지 표시
+            AjaxUtil.getAsyncData(gUrl + '/mode', {}, function (result) {
+                if (result && result.success && result.data) {
+                    gTestMode = (result.data.test_mode === true);
+                    let $badge = $('#udiModeBadge');
+                    if (gTestMode) {
+                        $badge.text('테스트 모드')
+                            .attr('title', '식약처에 실제 보고되지 않습니다. 입력값 검증만 수행됩니다.')
+                            .css({
+                                'display': 'inline-block', 'font-size': '12px', 'font-weight': '700',
+                                'color': '#b4560a', 'background': '#fff4e0', 'border': '1px solid #f0c48a',
+                                'border-radius': '4px', 'padding': '2px 8px', 'margin-left': '8px',
+                                'vertical-align': 'middle'
+                            });
+                    } else {
+                        $badge.text('운영 모드')
+                            .attr('title', '식약처에 실제 보고됩니다.')
+                            .css({
+                                'display': 'inline-block', 'font-size': '12px', 'font-weight': '700',
+                                'color': '#0a7c46', 'background': '#e3f6ec', 'border': '1px solid #9bd6b4',
+                                'border-radius': '4px', 'padding': '2px 8px', 'margin-left': '8px',
+                                'vertical-align': 'middle'
+                            });
+                    }
+                }
+            });
 
             // 로컬 날짜 포맷(YYYY-MM-DD) — 외부 유틸(CommonUtil) 의존 제거
             function fmtDate(d) {
@@ -439,11 +597,10 @@
             }
 
             const now = new Date();
-            const monthStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
-            $('#stdMonth').val(monthStr);
 
-            const oneMonthAgo = new Date(now); oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
-            $('#srchStartDt').val(fmtDate(oneMonthAgo));
+            // 검색 공급일 기본값: 이번달 1일 ~ 오늘
+            const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+            $('#srchStartDt').val(fmtDate(firstOfMonth));
             $('#srchEndDt').val(fmtDate(now));
 
             $('#btnSearch').click(function (e) { e.preventDefault(); page.searchList(); });
@@ -453,8 +610,30 @@
             $('#btnNew').click(function () { page.newRow(); });
             $('#btnSave').click(function () { page.save(); });
             $('#btnDelete').click(function () { page.del(); });
-            $('#btnConfirm').click(function () { page.confirm(); });
+            $('#btnConfirm').click(function () { page.openReportMonthPopup(); });
             $('#isDiffDvyfg').change(function () { page.toggleDvyfgRow(); });
+
+            // 공급일자 → 보고기준월 자동 파생 (UDI 월별 보고: 공급월 = 보고기준월).
+            // 공급일이 속한 달을 보고기준월로 고정한다. 사용자는 기준월을 직접 못 바꾼다.
+            $('#supplyDate').on('change input', function () {
+                page.syncStdMonth();
+            });
+
+            // 공급금액 자동계산: 수량 또는 단가 입력 시 (수량 × 단가) 자동 반영.
+            // 사용자가 공급금액을 직접 수정하면 그 값을 우선(수동 편집 표시).
+            function recalcSupplyAmt() {
+                if ($('#supplyAmt').data('manual') === true) return;   // 수동 편집됨 → 자동계산 안 함
+                let qty = parseFloat(($('#supplyQty').val() || '').toString().replace(/,/g, ''));
+                let price = parseFloat(($('#supplyUnitPrice').val() || '').toString().replace(/,/g, ''));
+                if (isFinite(qty) && isFinite(price)) {
+                    $('#supplyAmt').val(Math.round(qty * price));
+                }
+            }
+            $('#supplyQty, #supplyUnitPrice').on('input', recalcSupplyAmt);
+            // 공급금액을 직접 건드리면 이후 자동계산 중단, 비우면 다시 자동계산 재개
+            $('#supplyAmt').on('input', function () {
+                $(this).data('manual', ($(this).val() || '').trim() !== '');
+            });
             $('#btnBarcodeSearch').click(function () {
                 if (typeof PopupUdiBarcodePage === 'undefined') {
                     Alert.alert('', '바코드 조회 팝업을 불러오지 못했습니다. (배포 반영 필요)');
@@ -464,10 +643,31 @@
                 pop.show(function (item) { page.bindFromMatch(item); });
             });
 
+            $('#btnBcncSearch').click(function () {
+                if (typeof PopupUdiBcncPage === 'undefined') {
+                    Alert.alert('', '거래처 조회 팝업을 불러오지 못했습니다. (배포 반영 필요)');
+                    return;
+                }
+                let pop = new PopupUdiBcncPage();
+                pop.show(function (item) { page.bindBcnc(item); });
+            });
+
+            $('#btnDvyfgBcncSearch').click(function () {
+                if (typeof PopupUdiBcncPage === 'undefined') {
+                    Alert.alert('', '거래처 조회 팝업을 불러오지 못했습니다. (배포 반영 필요)');
+                    return;
+                }
+                let pop = new PopupUdiBcncPage();
+                pop.show(function (item) { page.bindDvyfgBcnc(item); });
+            });
+
+            page.newRow();     // 첫 진입 시 입력란을 깨끗한 상태로
             page.searchList();
         });
     </script>
     <!-- 팝업 프래그먼트는 핵심 스크립트 뒤에 배치 (누락되어도 화면 핵심 로직은 정상 동작) -->
     <th:block th:replace="/common/popup_udi_barcode :: popup_udi_barcode"></th:block>
+    <th:block th:replace="/common/popup_udi_bcnc :: popup_udi_bcnc"></th:block>
+    <th:block th:replace="/common/popup_udi_report_month :: popup_udi_report_month"></th:block>
 </th:block>
 </html>

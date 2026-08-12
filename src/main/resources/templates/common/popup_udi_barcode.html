@@ -94,15 +94,16 @@
                     }
                 },
                 columns: [
+                    {binding: 'supply_date',   header: '출고일',    width: 90,  align: 'center'},
+                    {binding: 'material_name', header: '품목명',    width: 160, align: 'left'},
+                    {binding: 'company_name',  header: '거래처',    width: 120, align: 'left'},
+                    {binding: 'supply_qty',    header: '수량',      width: 70,  align: 'right'},
                     {binding: 'own_barcode',   header: '자체바코드', width: 130, align: 'left'},
                     {binding: 'udi_di_code',   header: 'UDI-DI',   width: 130, align: 'left'},
-                    {binding: 'material_name', header: '품목명',    width: 160, align: 'left'},
+                    
                     {binding: 'lot_no',        header: 'LOT',      width: 100, align: 'center'},
                     {binding: 'manuf_ym',      header: '제조연월',  width: 80,  align: 'center'},
                     {binding: 'use_tmlmt',     header: '사용기한',  width: 80,  align: 'center'},
-                    {binding: 'supply_date',   header: '출고일',    width: 90,  align: 'center'},
-                    {binding: 'company_name',  header: '거래처',    width: 120, align: 'left'},
-                    {binding: 'supply_qty',    header: '수량',      width: 70,  align: 'right'},
                 ],
                 itemsSource: this.viewData,
             });

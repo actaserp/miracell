@@ -66,6 +66,16 @@ public class UdiApiClient {
 	private static final String API_PREFIX = "/api/test/v1";   // ← 테스트 (기본)
 	// private static final String API_PREFIX = "/api/v1";     // ← 운영 (실보고)
 
+	/**
+	 * 현재 식약처 연동이 테스트 모드인지 여부.
+	 * API_PREFIX 에 '/test/' 가 포함되면 테스트(실보고 안 됨).
+	 * 화면의 '테스트 모드' 표시가 이 값을 따라가므로, 운영 전환 시
+	 * API_PREFIX 한 줄만 바꾸면 화면 표시도 자동으로 바뀐다.
+	 */
+	public boolean isTestMode() {
+		return API_PREFIX.contains("/test/");
+	}
+
 	// ---- 토큰 캐시 ----
 	private volatile String accessToken;
 	private volatile long expiresAtMillis = 0L;
@@ -159,6 +169,73 @@ public class UdiApiClient {
 					"토큰 발급 성공 (token=" + masked + ", 만료까지 약 " + remainSec + "초)", null);
 		} catch (Exception ex) {
 			return Result.fail(0, "토큰 발급 실패: " + ex.getMessage(), null);
+		}
+	}
+
+	// ===================== 18. 거래처 목록 조회 =====================
+
+	/**
+	 * 거래처 목록 조회 (18번).
+	 * 식약처에 등록된 거래처를 조회한다. 공급내역 보고(26번)의 bcncCode 는
+	 * 반드시 여기서 조회된 거래처 코드여야 한다.
+	 *
+	 * GET /api/v1/company-info/bcnc?offset={}&limit={}&companyName={}&...
+	 *
+	 * @return 응답 body(JSON)를 Map 으로. items/totalElements/page 포함.
+	 */
+	public Map<String, Object> getBcncList(int offset, int limit,
+			String companyName, String taxNo, String cnptcd) {
+
+		StringBuilder url = new StringBuilder(baseUrl + API_PREFIX + "/company-info/bcnc");
+		url.append("?offset=").append(offset <= 0 ? 1 : offset);
+		url.append("&limit=").append(limit <= 0 ? 20 : Math.min(limit, 100));
+		if (companyName != null && !companyName.isBlank()) {
+			url.append("&companyName=").append(org.springframework.web.util.UriUtils
+					.encodeQueryParam(companyName, StandardCharsets.UTF_8));
+		}
+		if (taxNo != null && !taxNo.isBlank()) {
+			url.append("&taxNo=").append(org.springframework.web.util.UriUtils
+					.encodeQueryParam(taxNo, StandardCharsets.UTF_8));
+		}
+		if (cnptcd != null && !cnptcd.isBlank()) {
+			url.append("&cnptcd=").append(org.springframework.web.util.UriUtils
+					.encodeQueryParam(cnptcd, StandardCharsets.UTF_8));
+		}
+
+		HttpHeaders headers = new HttpHeaders();
+		headers.add(HttpHeaders.AUTHORIZATION, "Bearer " + getAccessToken());
+		headers.setAccept(java.util.List.of(MediaType.APPLICATION_JSON));
+
+		try {
+			ResponseEntity<String> res = this.restTemplate.exchange(
+					url.toString(), HttpMethod.GET, new HttpEntity<>(headers), String.class);
+			JsonNode body = this.objectMapper.readTree(res.getBody());
+			@SuppressWarnings("unchecked")
+			Map<String, Object> map = this.objectMapper.convertValue(body, Map.class);
+			return map;
+
+		} catch (org.springframework.web.client.HttpStatusCodeException ex) {
+			int code = ex.getStatusCode().value();
+			if (code == 401) {
+				invalidateToken();
+				headers.set(HttpHeaders.AUTHORIZATION, "Bearer " + getAccessToken());
+				try {
+					ResponseEntity<String> res2 = this.restTemplate.exchange(
+							url.toString(), HttpMethod.GET, new HttpEntity<>(headers), String.class);
+					JsonNode body2 = this.objectMapper.readTree(res2.getBody());
+					@SuppressWarnings("unchecked")
+					Map<String, Object> map2 = this.objectMapper.convertValue(body2, Map.class);
+					return map2;
+				} catch (Exception ex2) {
+					throw new RuntimeException("거래처 목록 조회 실패: " + ex2.getMessage(), ex2);
+				}
+			}
+			String msg = extractMessage(ex.getResponseBodyAsString(),
+					"거래처 목록 조회 실패 (HTTP " + code + ")");
+			throw new RuntimeException(msg, ex);
+
+		} catch (Exception ex) {
+			throw new RuntimeException("거래처 목록 조회 통신 오류: " + ex.getMessage(), ex);
 		}
 	}
 

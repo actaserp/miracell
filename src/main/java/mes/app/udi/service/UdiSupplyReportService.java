@@ -22,6 +22,54 @@ public class UdiSupplyReportService {
 	@Autowired
 	SqlRunner sqlRunner;
 
+	/**
+	 * 보고확정/취소 팝업용 월 목록.
+	 * 공급구분별로 기준월(StdMonth)마다 임시('t')/확정('r')/취소('c') 건수와 수량을 집계한다.
+	 * 화면은 이 목록에서 월을 골라 그 달 전체를 보고/취소한다(월 단위 보고 원칙).
+	 */
+	public List<Map<String, Object>> getReportMonths(String supplyFlagCode) {
+		MapSqlParameterSource paramMap = new MapSqlParameterSource();
+		paramMap.addValue("supplyFlagCode", supplyFlagCode);
+		String sql = """
+				select r."StdMonth"                                                as std_month
+				, count(*)                                                          as total_cnt
+				, sum(case when r."ReportState" = 't' then 1 else 0 end)            as temp_cnt
+				, sum(case when r."ReportState" = 'r' then 1 else 0 end)            as confirmed_cnt
+				, sum(case when r."ReportState" = 'c' then 1 else 0 end)            as canceled_cnt
+				, coalesce(sum(r."SupplyQty"), 0)                                   as total_qty
+				, max(r."ReportedAt")                                               as last_reported_at
+				from udi_supply_report r
+				where r."SupplyFlagCode" = :supplyFlagCode
+				group by r."StdMonth"
+				order by r."StdMonth" desc
+				""";
+		return this.sqlRunner.getRows(sql, paramMap);
+	}
+
+	/** 특정 기준월의 특정 상태 건 id 목록 (월 단위 보고/취소용) */
+	public List<Integer> getReportIdsByMonth(String stdMonth, String supplyFlagCode, String reportState) {
+		MapSqlParameterSource paramMap = new MapSqlParameterSource();
+		paramMap.addValue("stdMonth", stdMonth);
+		paramMap.addValue("supplyFlagCode", supplyFlagCode);
+		paramMap.addValue("reportState", reportState);
+		String sql = """
+				select r.id
+				from udi_supply_report r
+				where r."StdMonth" = :stdMonth
+				  and r."SupplyFlagCode" = :supplyFlagCode
+				  and r."ReportState" = :reportState
+				order by r.id
+				""";
+		List<Map<String, Object>> rows = this.sqlRunner.getRows(sql, paramMap);
+		List<Integer> ids = new java.util.ArrayList<>();
+		if (rows != null) {
+			for (Map<String, Object> row : rows) {
+				ids.add(((Number) row.get("id")).intValue());
+			}
+		}
+		return ids;
+	}
+
 	/** 보고자료 목록 조회 (화면 그리드) */
 	public List<Map<String, Object>> getReportList(String stdMonth, String supplyFlagCode,
 												   String dateFrom, String dateTo,
@@ -39,6 +87,9 @@ public class UdiSupplyReportService {
 				, r."StdMonth"            as std_month
 				, r."SupplyFlagCode"      as supply_flag_code
 				, r."SupplyTypeCode"      as supply_type_code
+				, r."MeddevItemSeq"       as meddev_item_seq
+				, r."ModelSeq"            as model_seq
+				, r."UdiDiSeq"            as udi_di_seq
 				, r."StdCode"             as std_code
 				, r."UdiDiCode"           as udi_di_code
 				, r."UdiPiCode"           as udi_pi_code
@@ -51,6 +102,7 @@ public class UdiSupplyReportService {
 				, r."DvyfgPlaceBcncCode"  as dvyfg_place_bcnc_code
 				, r."SupplyDate"          as supply_date
 				, r."SupplyQty"           as supply_qty
+				, r."IndvdlzSupplyQty"    as indvdlz_supply_qty
 				, r."SupplyUnitPrice"     as supply_unit_price
 				, r."SupplyAmt"           as supply_amt
 				, r."Remark"              as remark
@@ -61,10 +113,11 @@ public class UdiSupplyReportService {
 				                       else r."ReportState" end as report_state_name
 				, r."ReportedAt"          as reported_at
 				from udi_supply_report r
-				where r."StdMonth" = :stdMonth
-				  and r."SupplyFlagCode" = :supplyFlagCode
+				where r."SupplyFlagCode" = :supplyFlagCode
 				""";
 
+		if (StringUtils.isEmpty(stdMonth) == false)
+			sql += " and r.\"StdMonth\" = :stdMonth ";
 		if (StringUtils.isEmpty(dateFrom) == false)
 			sql += " and r.\"SupplyDate\" >= :dateFrom ";
 		if (StringUtils.isEmpty(dateTo) == false)
@@ -106,8 +159,8 @@ public class UdiSupplyReportService {
 				  :stdCode,:udiDiCode,:udiPiCode,
 				  :lotNo,:itemSerialNo,:manufYm,:useTmlmt,
 				  :bcncCode,:isDiffDvyfg,:dvyfgPlaceBcncCode,
-				  :supplyDate, cast(:supplyQty as numeric), cast(:indvdlzSupplyQty as numeric),
-				  cast(:supplyUnitPrice as numeric), cast(:supplyAmt as numeric),
+				  :supplyDate, cast(nullif(:supplyQty,'') as numeric), cast(nullif(:indvdlzSupplyQty,'') as numeric),
+				  cast(nullif(:supplyUnitPrice,'') as numeric), cast(nullif(:supplyAmt,'') as numeric),
 				  :remark,'t','t', now(), :userId
 				)
 				returning id
@@ -116,7 +169,12 @@ public class UdiSupplyReportService {
 		return row == null ? null : ((Number) row.get("id")).intValue();
 	}
 
-	/** 보고자료 수정 (임시 't' 상태인 건만) */
+	/**
+	 * 보고자료 수정.
+	 * 임시('t')는 그대로 수정한다.
+	 * 취소('c')된 건을 수정하면 재보고 대상이 되도록 임시('t')로 되돌린다.
+	 * 확정('r')된 건은 수정 불가(먼저 보고취소해야 함).
+	 */
 	public void updateReport(MapSqlParameterSource p) {
 		String sql = """
 				update udi_supply_report set
@@ -132,14 +190,15 @@ public class UdiSupplyReportService {
 				  "IsDiffDvyfg"        = :isDiffDvyfg,
 				  "DvyfgPlaceBcncCode" = :dvyfgPlaceBcncCode,
 				  "SupplyDate"         = :supplyDate,
-				  "SupplyQty"          = cast(:supplyQty as numeric),
-				  "IndvdlzSupplyQty"   = cast(:indvdlzSupplyQty as numeric),
-				  "SupplyUnitPrice"    = cast(:supplyUnitPrice as numeric),
-				  "SupplyAmt"          = cast(:supplyAmt as numeric),
+				  "SupplyQty"          = cast(nullif(:supplyQty,'') as numeric),
+				  "IndvdlzSupplyQty"   = cast(nullif(:indvdlzSupplyQty,'') as numeric),
+				  "SupplyUnitPrice"    = cast(nullif(:supplyUnitPrice,'') as numeric),
+				  "SupplyAmt"          = cast(nullif(:supplyAmt,'') as numeric),
 				  "Remark"             = :remark,
+				  "ReportState"        = 't',
 				  "_modified"          = now(),
 				  "_modifier_id"       = :userId
-				where id = :id and "ReportState" = 't'
+				where id = :id and "ReportState" in ('t','c')
 				""";
 		this.sqlRunner.execute(sql, p);
 	}
@@ -245,16 +304,37 @@ public class UdiSupplyReportService {
 				, r."IsDiffDvyfg"         as "isDiffDvyfg"
 				, r."DvyfgPlaceBcncCode"  as "dvyfgPlaceBcncCode"
 				, r."SupplyDate"          as "suplyDate"
-				, r."SupplyQty"           as "suplyQty"
-				, r."IndvdlzSupplyQty"    as "indvdlzSuplyQty"
-				, r."SupplyUnitPrice"     as "suplyUntpc"
-				, r."SupplyAmt"           as "suplyAmt"
+				, trim(to_char(r."SupplyQty", 'FM999999999990'))        as "suplyQty"
+				, case when r."IndvdlzSupplyQty" is null then null
+				       else trim(to_char(r."IndvdlzSupplyQty", 'FM999999999990')) end as "indvdlzSuplyQty"
+				, case when r."SupplyUnitPrice" is null then null
+				       else trim(to_char(r."SupplyUnitPrice", 'FM999999999990')) end as "suplyUntpc"
+				, case when r."SupplyAmt" is null then null
+				       else trim(to_char(r."SupplyAmt", 'FM999999999990')) end as "suplyAmt"
 				, r."Remark"              as "remark"
 				from udi_supply_report r
-				where r.id in (:ids) and r."ReportState" = 't'
+				where r.id in (:ids) and r."ReportState" in ('t','c')
 				order by r."StdMonth", r.id
 				""";
 		return this.sqlRunner.getRows(sql, paramMap);
+	}
+
+	/** 보고취소 처리: 확정('r') → 취소('c') 상태로 전환. 이후 수정 후 재보고 가능 */
+	public void markCanceled(List<Integer> ids, String message, Integer userId) {
+		if (ids == null || ids.isEmpty()) return;
+		MapSqlParameterSource paramMap = new MapSqlParameterSource();
+		paramMap.addValue("ids", ids);
+		paramMap.addValue("message", message);
+		paramMap.addValue("userId", userId);
+		String sql = """
+				update udi_supply_report set
+				  "ReportState"       = 'c',
+				  "MfdsResultMessage" = :message,
+				  "_modified"         = now(),
+				  "_modifier_id"      = :userId
+				where id in (:ids) and "ReportState" = 'r'
+				""";
+		this.sqlRunner.execute(sql, paramMap);
 	}
 
 	/** 보고확정 성공 처리: 상태 'r' + 보고일시 + 식약처 응답 메시지 저장 */
@@ -271,7 +351,7 @@ public class UdiSupplyReportService {
 				  "MfdsResultMessage" = :message,
 				  "_modified"         = now(),
 				  "_modifier_id"      = :userId
-				where id in (:ids) and "ReportState" = 't'
+				where id in (:ids) and "ReportState" in ('t','c')
 				""";
 		this.sqlRunner.execute(sql, paramMap);
 	}
@@ -288,7 +368,7 @@ public class UdiSupplyReportService {
 				  "MfdsResultMessage" = :message,
 				  "_modified"         = now(),
 				  "_modifier_id"      = :userId
-				where id in (:ids) and "ReportState" = 't'
+				where id in (:ids) and "ReportState" in ('t','c')
 				""";
 		this.sqlRunner.execute(sql, paramMap);
 	}
