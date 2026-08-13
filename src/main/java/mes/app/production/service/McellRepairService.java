@@ -213,6 +213,21 @@ public class McellRepairService {
                      , rm."SrcMatLot_id" AS src_mat_lot_id
                      , sl."LotNumber"    AS src_lot_number   -- 뜯어낸 부품의 원 로트
                      , uq.q             AS used_qty   -- −회수 상한. NULL = 조립 이력 없음(상한 없음)
+                     /* ★ 포장 자재인가 — 접수 때 박스를 풀며 자동으로 담긴 것.
+                          이것들은 조립이 아니라 포장에서 투입되므로 usedQtyOf(조립 스텝 기준)가
+                          영원히 NULL 이다. 그걸 「조립 이력이 없다」로 표시하면
+                          근거 없는 회수처럼 보이지만, 실제로는 포장 BOM 이 근거다.
+                          원 완제품의 BOM 에 그 품목이 있으면 포장 자재로 본다. */
+                     , EXISTS (
+                           SELECT 1
+                             FROM mcell_repair r2
+                             JOIN bom b2 ON b2."Material_id" = r2."SrcMaterial_id"
+                                        AND COALESCE(b2."_status",'a') = 'a'
+                             JOIN bom_comp bc2 ON bc2."BOM_id" = b2.id
+                                              AND COALESCE(bc2."_status",'a') = 'a'
+                                              AND bc2."Material_id" = rm."Material_id"
+                            WHERE r2.id = cu."McellRepair_id"
+                       )                AS from_pack_bom
                   FROM mcell_repair_mat rm
                   JOIN mcell_unit cu ON cu.id = rm."McellUnit_id"
                   JOIN material m  ON m.id = rm."Material_id"
@@ -394,6 +409,17 @@ public class McellRepairService {
         for (Map<String, Object> row : rows) {
             Map<String, Object> v = intakeVerdict(row);
             row.putAll(v);
+
+            /* ★ 「접수하면 무엇이 되는가」를 함께 내린다.
+                 완제품 로트를 스캔하면 재고로 잡히는 것은 완제품이 아니라
+                 그 안의 재공품이다(박스를 풀어 꺼내므로).
+                 화면이 재고 수량 대신 이걸 보여줘야 작업자가 헷갈리지 않는다 —
+                 재고 0/1 은 출하 여부일 뿐 접수 가능 여부와 무관하다. */
+            Map<String, Object> semi = findPackedSemi(asInt(row.get("mat_id")));
+            row.put("unpack", semi != null);
+            row.put("intake_mat_id",   semi != null ? asInt(semi.get("semi_mat_id")) : asInt(row.get("mat_id")));
+            row.put("intake_mat_code", semi != null ? str(semi.get("semi_code")) : str(row.get("mat_code")));
+            row.put("intake_mat_name", semi != null ? str(semi.get("semi_name")) : str(row.get("mat_name")));
         }
         return rows;
     }
@@ -430,9 +456,16 @@ public class McellRepairService {
         } else if (storeId != null && storeId == storeRepair() && stock > 0) {
             allowReturn = false; allowSpec = false;
             note = "이미 수리 접수된 로트입니다.";
-        } else if (stock > 0 && storeId != null && storeId == STORE_PROD) {
+        } else if (stock > 0) {
+            /* ★ 사내 재고가 남아 있으면 반품일 수 없다 — 나간 적이 없는 물건이다.
+                 창고를 가리지 않는다. 제품창고에 서 있는 완제품도,
+                 검사완료창고의 재공품도 아직 출고 전이라는 점은 같다.
+                 반면 사양변경은 가지고 있는 재고를 바꾸는 것이 정상 경로다.
+               (이전에는 생산창고만 막았는데, 그러면 제품창고 재고를
+                반품으로 접수해 재고가 하나 더 생겨버린다) */
             allowReturn = false;
-            note = "검사 전 사내 재고입니다. 반품 접수는 안 되고 사양변경만 가능합니다.";
+            note = "아직 " + (storeId != null && storeId == STORE_PROD ? "검사 전 " : "")
+                    + "사내 재고입니다. 출고되지 않았으므로 반품은 안 되고 사양변경만 가능합니다.";
         }
 
         Map<String, Object> out = new LinkedHashMap<>();
@@ -604,17 +637,40 @@ public class McellRepairService {
     }
 
     /** 사양변경 대상 품목 후보 (완제품 / 유닛 품목) */
-    public List<Map<String, Object>> getTargetMaterials(String keyword) {
+    /**
+     * 품목 후보. 쓰임이 둘이고 성격이 반대라 scope 로 가른다.
+     *
+     *   spec (기본) — 사양변경 대상 = 「바꿔서 만들 것」.
+     *       검사 대상 반제품만. 완제품을 넣으면 결과 로트가
+     *       「박스 없는 완제품」이 되어 재고가 어긋난다.
+     *       완제품 로트를 스캔한 경우는 findPackedSemi 가 포장 BOM 을
+     *       내려가 반제품을 자동으로 잡으므로 여기 있을 필요도 없다.
+     *
+     *   src — 미등록 로트의 원품목 = 「들어온 물건이 무엇인가」.
+     *       우리 MES 에서 만든 적 없는 물건(구형·외주·이관 전 생산분)이
+     *       반품으로 들어오면 사람이 지정해야 한다.
+     *       그 물건은 대개 박스째 오므로 완제품이 반드시 후보에 있어야 한다.
+     *       ★ 여기서 완제품을 골라도 접수는 반제품으로 잡힌다 —
+     *         regist 가 findPackedSemi 로 박스를 풀고 회수 목록까지 깐다.
+     */
+    public List<Map<String, Object>> getTargetMaterials(String keyword, String scope) {
         MapSqlParameterSource p = new MapSqlParameterSource()
                 .addValue("kw", (keyword == null || keyword.isBlank()) ? null : "%" + keyword.trim() + "%");
+        /* 조건을 문자열로 이어붙이지 않는다 — text block 을 쪼개면 읽기 어렵고
+           여는 """ 뒤에 내용이 붙어 컴파일도 안 된다. 플래그 하나로 처리한다. */
+        p.addValue("srcScope", "src".equals(scope));
         return this.sqlRunner.getRows("""
                 SELECT m.id AS mat_id, m."Code" AS mat_code, m."Name" AS mat_name
+                     , mg."MaterialType" AS mat_type
                   FROM material m
                   LEFT JOIN mat_grp mg ON mg.id = m."MaterialGroup_id"
                  WHERE COALESCE(m."Factory_id",0) = 2
-                   AND (COALESCE(m."InspectYN",'N') = 'Y' OR mg."MaterialType" = 'product')
+                   AND COALESCE(m."_status",'a') = 'a'
+                   AND (COALESCE(m."InspectYN",'N') = 'Y'
+                        OR (CAST(:srcScope AS boolean)
+                            AND mg."MaterialType" IN ('product','semi')))
                    AND (CAST(:kw AS varchar) IS NULL OR m."Code" ILIKE :kw OR m."Name" ILIKE :kw)
-                 ORDER BY m."Code"
+                 ORDER BY mg."MaterialType" DESC, m."Code"
                  LIMIT 200
                 """, p);
     }
@@ -713,10 +769,41 @@ public class McellRepairService {
         String srcLotNo   = (lot != null) ? str(lot.get("lot_number")) : key;
         String makerLotNo = (lot != null) ? str(lot.get("maker_lot_no")) : key;
         float  stock      = (lot != null) ? (float) toD(lot.get("stock")) : 0f;
-        String intakeType = (stock > 0) ? "move" : "new";
+        /* ★ 유형에 따라 현물을 확보하는 방법이 다르다.
+             반품 : 언제나 신규 입고.
+                   나갔던 물건이 돌아오는 것이므로 사내 재고가 있을 수 없다.
+                   재고가 남아 있는데 반품이라면 그건 「나간 적 없는 물건의 반품」이라
+                   앞뒤가 맞지 않는다 — 아래에서 막는다.
+             사양변경 : 가지고 있는 재고를 바꾸는 경우가 정상이다.
+                   재고가 있으면 그것을 쓰고(순증 0), 없으면 출하품이 돌아온 것이니 신규 입고. */
+        String intakeType;
+        if ("spec".equals(cat)) {
+            intakeType = (stock > 0) ? "move" : "new";
+        } else {
+            intakeType = "new";
+            if (stock > 0) {
+                r.success = false;
+                r.message = "이 로트는 아직 사내 재고(" + str(lot.get("store_name")) + ")에 있습니다. "
+                        + "출고되지 않은 물건은 반품이 아닙니다. "
+                        + "재고 상태에서 사양을 바꾸는 것이라면 «사양변경» 으로 접수하세요.";
+                return r;
+            }
+        }
 
-        // ── 2. 산출품목 = 사양변경 대상이 있으면 그것 ───────────
-        Integer outMatId = (targetMaterialId != null) ? targetMaterialId : srcMatId;
+        /* ── 1-b. 완제품(포장완료)이면 박스를 푼다 ────────────────
+             반품은 대개 박스째 들어오지만 수리하는 물건은 포장 전 반제품이다.
+             포장 BOM 을 한 단 내려가면 그 대응이 그대로 있다 :
+               semi 구성품 하나  = 수리 대상 (조립·검사 품목, InspectYN='Y')
+               나머지 sub_mat 들 = 박스·폼·케이블·어댑터 → 회수 대상
+             국내/해외가 완제품 코드로 갈리고 재공품은 공용이므로,
+             반드시 스캔한 완제품에서 정방향으로 내려가야 한다.
+             (재공품에서 역으로 올라가면 국내용인지 수출용인지 알 수 없다) */
+        Map<String, Object> unpack = findPackedSemi(srcMatId);
+        Integer semiMatId = (unpack == null) ? null : asInt(unpack.get("semi_mat_id"));
+
+        // ── 2. 산출품목 = 사양변경 대상 > 박스 푼 반제품 > 원 품목 ───
+        Integer outMatId = (targetMaterialId != null) ? targetMaterialId
+                : (semiMatId != null ? semiMatId : srcMatId);
 
         // ── 3. 수리 작지 (mat_produce."JobResponse_id" NOT NULL 이라 반드시 필요) ──
         MapSqlParameterSource jp = new MapSqlParameterSource()
@@ -759,10 +846,22 @@ public class McellRepairService {
                 """, rp);
         Integer repairId = asInt(rRow.get("id"));
 
-        // ── 5. 수리창고에 현물 확보 ─────────────────────────────
-        //   move : 이미 있는 재고를 옮긴다(순증 0).  new : 반품으로 새로 받는다(+1).
+        /* ── 5. 수리창고에 현물 확보 ─────────────────────────────
+             move : 이미 있는 재고를 옮긴다(순증 0).  new : 반품으로 새로 받는다(+1).
+
+           ★ 박스를 푼 경우는 둘 다 아니다.
+             스캔한 것은 완제품이지만 수리대에 올라가는 물건은 그 안의 재공품이다.
+             완제품 로트를 그대로 옮기면 수리창고에 「완제품」재고가 서고,
+             원 로트가 재공품 번호가 아니게 되어 usedQtyOf 가 조립 이력을 못 찾는다
+             (그 조회는 mcell_unit."LotNumber" = 원로트번호 로 조립 유닛을 찾는다).
+             그래서 재공품으로 새 로트를 받고, 완제품 재고가 남아 있으면 그만큼 뺀다. */
         Integer srcMatLotId;
-        if ("move".equals(intakeType)) {
+        if (semiMatId != null) {
+            // 박스 해체 — 완제품 재고가 남아 있으면 차감하고 재공품으로 받는다.
+            // (사양변경으로 제품창고 재고를 헐 때가 여기다. 반품이면 stock=0 이라 차감 없이 입고)
+            srcMatLotId = unpackIntake(lot, semiMatId, srcLotNo, makerLotNo,
+                    repairId, repairNo, spjangcd, user);
+        } else if ("move".equals(intakeType)) {
             Integer fromStore = asInt(lot.get("store_id"));
             srcMatLotId = asInt(lot.get("id"));
             if (fromStore != null && !fromStore.equals(storeRepair())) {
@@ -786,7 +885,12 @@ public class McellRepairService {
                 .addValue("rid", repairId).addValue("userId", user.getId()));
 
         // ── 6. 유닛 1대 ─────────────────────────────────────────
-        //   기본 로트 모드 : 반품=원 로트 유지, 사양변경=새 로트 발번 (화면에서 바꿀 수 있음)
+        /*   기본 로트 모드 : 반품=원 로트 유지, 사양변경=새 로트 발번 (화면에서 바꿀 수 있음)
+             ★ 박스를 푼 경우도 새 로트다. 품목이 완제품에서 반제품으로 바뀌므로
+               같은 로트번호를 물려주면 한 번호가 두 품목을 가리키게 된다. */
+        /* 박스를 푼 경우는 원 로트(재공품 번호)를 그대로 이어간다 —
+           방금 그 번호로 재고를 받았고, 조립 이력도 그 번호에 달려 있다.
+           사양변경만 새 번호를 딴다(품목이 바뀌므로). */
         String lotMode = "spec".equals(cat) ? "new" : "keep";
         MapSqlParameterSource up = new MapSqlParameterSource()
                 .addValue("jrId", jrId).addValue("matId", outMatId)
@@ -802,13 +906,177 @@ public class McellRepairService {
                 RETURNING id
                 """, up);
 
+        Integer unitId = asInt(uRow.get("id"));
+
+        /* ── 7. 포장 자재 회수 목록 자동 등록 ────────────────────
+             박스를 풀었으면 그 안에 들어 있던 것들이 전부 회수 후보다.
+             박스·폼도 멀쩡하면 다시 쓰므로 전부 담고,
+             실제로 회수 못 하는 것만 작업자가 mat_del 로 지운다.
+             (수량도 mat_qty 로 줄일 수 있다 — IN BOX 2개 중 1개만 성한 경우)
+
+             ★ 여기서 실패해도 접수는 살린다. 회수 목록은 사람이 다시 담을 수 있지만
+               접수가 통째로 롤백되면 현물은 이미 창고에 있는데 전표가 없어진다. */
+        int recovered = 0;
+        if (semiMatId != null) {
+            recovered = seedReturnMats(unitId, srcMatId, semiMatId, spjangcd, user);
+        }
+
         r.data = Map.of("repair_id", repairId, "repair_no", repairNo,
-                "job_res_id", jrId, "unit_id", asInt(uRow.get("id")),
-                "intake_type", intakeType, "src_lot", srcLotNo);
-        r.message = "move".equals(intakeType)
+                "job_res_id", jrId, "unit_id", unitId,
+                "intake_type", intakeType, "src_lot", srcLotNo,
+                "unpacked", semiMatId != null, "return_mat_cnt", recovered);
+        r.message = ("move".equals(intakeType)
                 ? "기존 재고를 수리창고로 이동했습니다."
-                : "반품으로 신규 입고했습니다.";
+                : "반품으로 신규 입고했습니다.")
+                + (semiMatId != null
+                ? " 박스를 풀어 " + str(unpack.get("semi_code")) + " 로 접수했습니다."
+                + (recovered > 0 ? " 포장자재 " + recovered + "건이 회수 목록에 담겼습니다." : "")
+                : "");
         return r;
+    }
+
+    /**
+     * 박스를 풀어 재공품으로 접수한다.
+     *
+     * 실제로 일어나는 일 그대로를 재고에 적는다 :
+     *   완제품 재고가 남아 있으면  → 그만큼 차감 (박스를 헐었으므로 완제품이 아니다)
+     *   재공품                    → 수리창고에 +1 (수리대에 올라갈 물건)
+     *   포장 자재                  → seedReturnMats 가 회수 목록에 담고,
+     *                               실제 입고는 unitFinish 가 한다(회수 여부 확정 후)
+     *
+     * ★ 로트번호는 원 번호를 그대로 쓴다.
+     *   완제품과 재공품이 같은 번호를 쓰는 것이 이 공장의 규칙이고
+     *   (MC4144-260812-001 이 양쪽에 다 있다), 무엇보다 usedQtyOf 가
+     *   mcell_unit."LotNumber" = 원로트번호 로 조립 이력을 찾는다.
+     *   새 번호를 따면 조립 때 쓰인 자재를 영영 못 본다.
+     *
+     * ★ 완제품 재고가 0 이어도 정상이다 — 출하되었다가 돌아온 물건이다.
+     *   그때는 차감 없이 재공품만 받는다.
+     */
+    private Integer unpackIntake(Map<String, Object> lot, Integer semiMatId,
+                                 String srcLotNo, String makerLotNo,
+                                 Integer repairId, String repairNo,
+                                 String spjangcd, User user) {
+
+        // 1) 완제품 재고가 남아 있으면 헐어 없앤다
+        if (lot != null && toD(lot.get("stock")) > 0) {
+            MapSqlParameterSource dp = new MapSqlParameterSource()
+                    .addValue("id", asInt(lot.get("id")))
+                    .addValue("matId", asInt(lot.get("mat_id")))
+                    .addValue("store", asInt(lot.get("store_id")))
+                    .addValue("lot", srcLotNo)
+                    .addValue("rid", repairId)
+                    .addValue("memo", "수리 접수 · 박스 해체 · " + repairNo)
+                    .addValue("userId", user.getId()).addValue("spjangcd", spjangcd);
+            this.sqlRunner.execute("""
+                    UPDATE mat_lot
+                       SET "CurrentStock" = GREATEST(COALESCE("CurrentStock",0) - 1, 0),
+                           "_modified" = now(), "_modifier_id" = :userId
+                     WHERE id = :id
+                    """, dp);
+            this.sqlRunner.execute("""
+                    INSERT INTO mat_inout ("Material_id","StoreHouse_id","LotNumber","InoutDate","InoutTime",
+                                           "InOut","InputQty","OutputQty","InputType","SourceTableName","SourceDataPk",
+                                           "State","Description","_status","_created","_creater_id",spjangcd)
+                    VALUES (:matId,:store,:lot,CURRENT_DATE,LOCALTIME,'out',NULL,1,'move',
+                            'mcell_repair',:rid,'confirmed',:memo,'a',now(),:userId,:spjangcd)
+                    """, dp);
+        }
+
+        // 2) 재공품을 수리창고로 받는다
+        AjaxResult in = this.productionCreateService.receiveLot(
+                semiMatId, srcLotNo, makerLotNo, 1f, storeRepair(),
+                "mcell_repair", repairId, "수리 접수 · 박스 해체 입고 · " + repairNo, user, spjangcd);
+        if (!in.success) throw new IllegalStateException(in.message);
+        return asInt(((Map<?, ?>) in.data).get("mat_lot_id"));
+    }
+
+    /**
+     * 완제품 → 그 안의 반제품(수리 대상) 찾기.
+     *
+     * 포장 BOM 구성품 중 MaterialType='semi' 인 것 하나를 집는다.
+     * M-CELL 완제품 BOM 은 semi 하나 + sub_mat 여럿(박스·폼·케이블·어댑터) 구조라
+     * semi 는 항상 하나다. 혹시 둘 이상이면 _order 가 앞선 것(=본체)을 쓴다.
+     *
+     * ★ 완제품이 아니면 null. 포장 전 반제품이 그대로 들어온 경우이며,
+     *   그때는 박스를 풀 것도 회수할 것도 없다.
+     * ★ bom_comp 는 "BOM_id"(대문자), 수량은 "Amount" 다. "Bom_id"·"Qty" 가 아니다.
+     */
+    private Map<String, Object> findPackedSemi(Integer productMatId) {
+        if (productMatId == null) return null;
+        return this.sqlRunner.getRow("""
+                SELECT cm.id       AS semi_mat_id
+                     , cm."Code"   AS semi_code
+                     , cm."Name"   AS semi_name
+                     , b.id        AS bom_id
+                  FROM material pm
+                  JOIN mat_grp  pmg ON pmg.id = pm."MaterialGroup_id"
+                  JOIN bom      b   ON b."Material_id" = pm.id
+                                   AND COALESCE(b."_status",'a') = 'a'
+                  JOIN bom_comp bc  ON bc."BOM_id" = b.id
+                                   AND COALESCE(bc."_status",'a') = 'a'
+                  JOIN material cm  ON cm.id = bc."Material_id"
+                  JOIN mat_grp  cmg ON cmg.id = cm."MaterialGroup_id"
+                 WHERE pm.id = :matId
+                   AND pmg."MaterialType" = 'product'
+                   AND cmg."MaterialType" = 'semi'
+                 ORDER BY bc."_order", bc.id
+                 LIMIT 1
+                """, new MapSqlParameterSource().addValue("matId", productMatId));
+    }
+
+    /**
+     * 포장 자재를 −회수 목록에 미리 담는다.
+     *
+     * 담기는 것 : 포장 BOM 구성품 중 semi 를 뺀 전부(박스·폼·케이블·어댑터).
+     * 수량      : BOM Amount 그대로. 반품 1대 기준이라 배수 계산이 없다.
+     *
+     * ★ 회수 여부를 여기서 판단하지 않는다.
+     *   박스가 찌그러졌는지, 어댑터가 살았는지는 물건을 열어봐야 안다.
+     *   전부 담아두고 못 쓰는 것만 지우는 편이,
+     *   빠진 것을 나중에 기억해 담는 것보다 훨씬 덜 샌다.
+     *
+     * ★ matAdd 를 거치지 않고 직접 INSERT 하는 이유 :
+     *   matAdd 의 guardReturnQty 는 「원 M-CELL 에 투입된 수량」을 상한으로 두는데,
+     *   그 계산이 조립 스텝(mcell_unit_step)의 소비 이력만 본다.
+     *   포장 자재는 조립에서 투입된 적이 없어 상한이 0 으로 잡힌다.
+     *   BOM 이 곧 근거이므로 여기서는 그 검사를 건너뛴다.
+     *   (사람이 화면에서 더 담을 때는 종전대로 matAdd 를 타고 검사를 받는다)
+     *
+     * @return 담긴 건수
+     */
+    private int seedReturnMats(Integer unitId, Integer productMatId, Integer semiMatId,
+                               String spjangcd, User user) {
+        List<Map<String, Object>> comps = this.sqlRunner.getRows("""
+                SELECT cm.id AS mat_id, COALESCE(bc."Amount",1) AS amount
+                  FROM bom b
+                  JOIN bom_comp bc ON bc."BOM_id" = b.id
+                                  AND COALESCE(bc."_status",'a') = 'a'
+                  JOIN material cm ON cm.id = bc."Material_id"
+                  JOIN mat_grp  cmg ON cmg.id = cm."MaterialGroup_id"
+                 WHERE b."Material_id" = :matId
+                   AND COALESCE(b."_status",'a') = 'a'
+                   AND cmg."MaterialType" <> 'semi'
+                   AND cm.id <> :semiId
+                 ORDER BY bc."_order", bc.id
+                """, new MapSqlParameterSource()
+                .addValue("matId", productMatId).addValue("semiId", semiMatId));
+
+        int n = 0;
+        for (Map<String, Object> c : comps) {
+            double amt = toD(c.get("amount"));
+            if (amt <= 0) continue;
+            this.sqlRunner.execute("""
+                    INSERT INTO mcell_repair_mat ("McellUnit_id","Material_id","Dir","Qty","State",
+                                                  "_status","_created","_creater_id",spjangcd)
+                    VALUES (:uid,:matId,'-',:qty,'plan','a',now(),:userId,:spjangcd)
+                    """, new MapSqlParameterSource()
+                    .addValue("uid", unitId).addValue("matId", asInt(c.get("mat_id")))
+                    .addValue("qty", (float) amt)
+                    .addValue("userId", user.getId()).addValue("spjangcd", spjangcd));
+            n++;
+        }
+        return n;
     }
 
     /** 접수 취소 (수리 시작 전에만). 확보한 재고도 되돌린다. */
@@ -861,8 +1129,46 @@ public class McellRepairService {
 
         MapSqlParameterSource p = new MapSqlParameterSource()
                 .addValue("rid", repairId).addValue("userId", user.getId());
-        this.sqlRunner.execute("UPDATE mcell_unit   SET \"_status\"='d', \"_modified\"=now(), \"_modifier_id\"=:userId WHERE \"McellRepair_id\"=:rid", p);
-        this.sqlRunner.execute("UPDATE mcell_repair SET \"_status\"='d', \"State\"='cancel', \"_modified\"=now(), \"_modifier_id\"=:userId WHERE id=:rid", p);
+
+        /* ★ 접수 취소는 「없던 일로 한다」는 뜻이므로 행을 남기지 않는다.
+             자식부터 순서대로 지운다 — 회수목록 → 유닛 → 접수 → 작지.
+             (mcell_repair."JobResponse_id" 가 job_res 를 참조하므로
+              접수 행을 남긴 채 작지를 지우면 FK 로 막힌다) */
+        this.sqlRunner.execute("""
+                DELETE FROM mcell_repair_mat rm
+                 USING mcell_unit mu
+                 WHERE mu.id = rm."McellUnit_id"
+                   AND mu."McellRepair_id" = :rid
+                """, p);
+        this.sqlRunner.execute("DELETE FROM mcell_unit   WHERE \"McellRepair_id\"=:rid", p);
+        this.sqlRunner.execute("DELETE FROM mcell_repair WHERE id=:rid", p);
+
+        /* ★ 접수 때 만든 수리 작지도 지운다.
+             regist 가 job_res 를 직접 INSERT 한다(mat_produce."JobResponse_id" 가
+             NOT NULL 이라 실적을 담을 그릇이 필요했다).
+             접수를 취소하면 그 그릇도 쓸 데가 없는데, 남겨두면
+             조립·수리 큐에 「지시 1 · 실적 0」짜리 작지가 영영 떠 있는다.
+
+             ★ 진짜로 지운다. _status='d' 로 두지 않는다.
+               job_res 를 읽는 곳이 대시보드·실적현황·작업일보·공정화면까지 여럿인데,
+               그 쿼리들이 전부 _status 조건을 걸고 있지는 않다.
+               하나라도 빠지면 취소한 작지가 그 화면에만 계속 보인다.
+               접수 취소는 「없던 일로 한다」는 뜻이므로 행을 남길 이유가 없다.
+
+             ★ 실적(mat_produce)이 붙어 있으면 지우지 않는다.
+               수리 시작 전에만 취소되므로 원래 없어야 하지만,
+               있다면 그건 이 작지가 다른 용도로도 쓰였다는 뜻이라
+               조용히 지우는 쪽이 더 위험하다.
+               FK 로도 막히므로 DELETE 가 실패하는 것보다 미리 거르는 편이 낫다. */
+        Integer jrId = asInt(rep.get("job_res_id"));
+        if (jrId != null) {
+            this.sqlRunner.execute("""
+                    DELETE FROM job_res
+                     WHERE id = :jrId
+                       AND NOT EXISTS (SELECT 1 FROM mat_produce mp
+                                        WHERE mp."JobResponse_id" = :jrId)
+                    """, new MapSqlParameterSource().addValue("jrId", jrId));
+        }
         return r;
     }
 
@@ -1215,7 +1521,12 @@ public class McellRepairService {
             String recLot = (base != null && !base.isBlank())
                     ? nextSuffixLot(base, "-RC")
                     : resultLot + "-RC" + rmatId;
-            String memo = "수리 회수 · " + resultLot
+            /* ★ 이 비고는 「회수된 부품」의 입고 이력에 붙는다.
+                 결과 로트(resultLot)는 수리된 M-CELL 번호라 이 부품과 무관하다 —
+                 나중에 부품 로트를 조회하면 남의 번호가 박혀 있어 오해를 부른다.
+                 어느 수리에서 나왔는지는 수리번호로 남긴다. */
+            String rNo = str(u.get("repair_no"));
+            String memo = "수리 회수 · " + ((rNo != null && !rNo.isBlank()) ? rNo : ("유닛#" + unitId))
                     + (base != null && !base.isBlank() ? " · 원 부품로트 " + base : "");
             AjaxResult in = this.productionCreateService.receiveLot(
                     asInt(m.get("mat_id")), recLot, null, (float) toD(m.get("qty")),

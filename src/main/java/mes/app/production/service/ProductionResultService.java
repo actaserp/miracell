@@ -1351,15 +1351,45 @@ public class ProductionResultService {
 
     public Map<String, Object> getJobResponseGoodDefectQty(Integer jrPk) {
 
+        /* ★ 원시 SQL 로 읽기 전에 반드시 flush 한다.
+         *   호출자들은 mat_produce 를 JPA 로 저장하는데 save() 는 flush 를 보장하지 않고,
+         *   아래 쿼리는 SqlRunner(원시 JDBC)라 Hibernate 자동 flush 를 타지 않는다.
+         *   flush 없이는 방금 'finished' 로 바꾼 차수가 DB 에서 아직 'working' 이라
+         *   State 필터에 걸려 빠진다 — 완료했는데 작지 양품이 0 으로 남는다.
+         *   합계가 State 를 안 보던 때는 드러나지 않던 순서 문제다.
+         *   호출처가 여럿이라(컨트롤러 4곳·롤업 2곳) 각자 flush 하게 두지 않고
+         *   읽는 쪽에서 한 번에 보장한다. */
+        this.matProduceRepository.flush();
+
         MapSqlParameterSource param = new MapSqlParameterSource();
         param.addValue("jrPk", jrPk);
 
+        /* ★ 완료된 차수만 센다.
+         *   mat_produce."GoodQty" 는 작업 중에도 값이 들어간다 —
+         *   배정(chasu_assign)·작업시작·중간저장이 모두 예정 수량을 써 넣고,
+         *   확정은 완료 시점에 한 번 더 덮어쓴다("수량 확정").
+         *   필터가 없으면 차수를 배정만 해도 그 수량이 작지 양품으로 올라가,
+         *   생산실적현황·작업일보가 아직 만들지 않은 물량을 실적으로 보고한다.
+         *
+         *   ★ 완료 판정(recalcJobResAndCheckComplete)에는 영향이 없다.
+         *     그쪽은 anyUnfinished 로 「미완 차수 없음」을 먼저 요구하므로,
+         *     판정에 도달한 시점엔 모든 차수가 이미 finished 다.
+         *     바뀌는 것은 진행 중 job_res."GoodQty" 가 부풀지 않는다는 점뿐이다.
+         *
+         *   ★ getChasuDefectQty(부적합 탭 검증)에는 이 필터를 넣지 않는다.
+         *     그쪽은 작업 중 차수의 부적합까지 대조해야 하며,
+         *     빠뜨리면 멀쩡한 저장이 불일치로 롤백된다. */
         String sql = """
                 select jr.id
-                	  ,coalesce(sum(mp."GoodQty"),0) as good_qty
-                	  ,coalesce(sum(mp."DefectQty"),0) as defect_qty
+                	  ,coalesce(sum(mp."GoodQty")   filter (where mp."State" = 'finished'),0) as good_qty
+                	  ,coalesce(sum(mp."DefectQty") filter (where mp."State" = 'finished'),0) as defect_qty
                 from job_res jr 
                 inner join mat_produce mp on mp."JobResponse_id" = jr.id 
+                                         -- ★ 삭제된 차수는 빼야 한다.
+                                         --   itemDelete 는 mat_produce 를 _status='d' 로
+                                         --   소프트삭제만 하므로, 이 조건이 없으면
+                                         --   지운 차수의 수량이 작지 합계에 영구히 남는다.
+                                         and coalesce(mp._status,'a') = 'a'
                 where jr.id = :jrPk
                 group by jr.id
                 """;
@@ -1378,6 +1408,7 @@ public class ProductionResultService {
                 select coalesce(sum(mp."DefectQty"),0) as defect_qty 
                 from mat_produce mp 
                    			where mp."JobResponse_id" = :jrPk
+                   			  and coalesce(mp._status,'a') = 'a'
                    		""";
 
         Map<String, Object> items = this.sqlRunner.getRow(sql, param);
@@ -1735,7 +1766,12 @@ public class ProductionResultService {
         jr.setDefectQty(defectSum);
 
         // 모든 차수 종료 + 양품+불량 >= 지시량 이면 자동완료
+        // ★ 삭제된 차수(_status='d')는 세지 않는다.
+        //   findByJobResponseId 는 _status 를 거르지 않아, 지워진 'wait' 차수가 남아 있으면
+        //   anyUnfinished 가 영원히 true 가 되어 작지가 'working' 에서 못 벗어난다.
+        //   합계 쿼리(getJobResponseGoodDefectQty)는 이미 거르고 있어 판정만 어긋났다.
         boolean anyUnfinished = this.matProduceRepository.findByJobResponseId(jrPk).stream()
+                .filter(mp -> !"d".equals(mp.get_status()))
                 .anyMatch(mp -> !"finished".equals(mp.getState()));
         float orderQty = jr.getOrderQty() == null ? 0f : jr.getOrderQty().floatValue();
         boolean complete = !anyUnfinished && (goodSum + defectSum) >= orderQty && orderQty > 0;

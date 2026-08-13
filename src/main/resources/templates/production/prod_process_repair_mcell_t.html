@@ -165,6 +165,13 @@
         .itag{font-size:11.5px;font-weight:800;padding:3px 9px;border-radius:999px;flex:0 0 auto}
         .itag.move{background:var(--teal-bg);color:var(--teal-d)}.itag.new{background:var(--amber-bg);color:var(--amber)}
         .itag.no{background:var(--red-bg);color:var(--red)}
+        /* 포장 상태 배지 — 품명 앞에 붙어 무엇을 집었는지 바로 보이게 한다 */
+        .ptag{font-size:11px;font-weight:800;padding:2px 8px;border-radius:999px;
+            display:inline-block;vertical-align:middle;margin-right:5px}
+        .ptag.boxed{background:#eef1ff;color:#4553b8}
+        .ptag.bare{background:var(--surface-2);color:var(--ink-2)}
+        .prow .pinto{font-size:12px;font-weight:800;color:var(--teal-d);margin-top:5px;line-height:1.45}
+        .prow .pinto .dim{color:var(--ink-2);font-weight:700;font-size:11px}
         .prow .pwarn{font-size:12px;font-weight:800;color:var(--red);margin-top:4px;line-height:1.4}
 
         @media (max-width:680px){.qgrid{grid-template-columns:1fr}}
@@ -250,8 +257,19 @@
             <div style="display:flex;gap:10px">
                 <input id="regLot" class="txin" style="flex:1;font-weight:800;font-variant-numeric:tabular-nums;background:var(--surface-2)"
                        placeholder="예: MC20022N-260701-004" autocomplete="off"/>
+                <button class="opt" id="regScan" style="display:none;border-color:var(--teal);color:#fff;background:var(--teal)">📷</button>
                 <button class="opt" id="regFind" style="border-color:var(--teal);color:var(--teal-d);background:var(--teal-bg)">조회</button>
             </div>
+
+            <!-- 카메라 스캔 -->
+            <div id="regCamBox" style="display:none;position:relative;margin-top:10px;background:#000;border-radius:14px;overflow:hidden">
+                <video id="regVideo" playsinline muted style="width:100%;max-height:34dvh;object-fit:cover;display:block"></video>
+                <div style="position:absolute;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px;background:rgba(0,0,0,.55);color:#fff;font-weight:700">
+                    <span id="regCamMsg">라벨을 비추세요</span>
+                    <button class="opt" id="regCamStop" style="height:38px;background:#fff">닫기</button>
+                </div>
+            </div>
+
             <div id="regLotResult"></div>
 
             <div id="regTargetWrap" style="display:none">
@@ -562,7 +580,15 @@
                 var plus = mats.filter(function (m) { return m.dir === '+'; });
                 var minus = mats.filter(function (m) { return m.dir === '-'; });
                 html += '<div class="secline">투입 자재 (＋추가 / −차감 자유 조정) <span class="ln"></span><span>＋' + plus.length + ' / −' + minus.length + '</span></div>';
-                if (!mats.length) html += '<div class="emptybox">투입 자재가 없습니다. 아래에서 자재를 담으세요.</div>';
+                /* 담기 버튼을 목록 위에 둔다.
+                   회수 목록이 접수 때 자동으로 깔려 길어졌기 때문에,
+                   아래에 두면 박스·폼·케이블을 다 지나쳐 스크롤해야 손이 닿는다. */
+                if (!locked) {
+                    html += '<div class="addbar">' +
+                        '<button class="addbtn" data-add="+">＋ 자재 추가(투입)</button>' +
+                        '<button class="addbtn minus" data-add="-">− 자재 회수(재사용품)</button></div>';
+                }
+                if (!mats.length) html += '<div class="emptybox">투입 자재가 없습니다. 위에서 자재를 담으세요.</div>';
                 html += mats.map(function (m) {
                     var isPlus = m.dir === '+';
                     var cap = isPlus ? num(m.stock)
@@ -577,6 +603,12 @@
                         sub = '회수 → 생산창고 재입고' +
                             (m.src_lot_number ? ' · 부품로트 ' + esc(m.src_lot_number) : '') +
                             ' · 원 M-CELL 조립 시 ' + qtyTxt(cap) + ' 투입 (최대 ' + qtyTxt(cap) + ')';
+                    } else if (m.from_pack_bom) {
+                        /* 접수 때 박스를 풀며 자동으로 담긴 포장 자재.
+                           포장에서 투입된 것이라 조립 이력(usedQtyOf)에는 당연히 없다.
+                           「조립 이력이 없다」고 적으면 근거 없는 회수처럼 보이지만
+                           실제 근거는 포장 BOM 이다. */
+                        sub = '회수 → 생산창고 재입고 · 포장 자재(BOM 기준 자동) · 회수 못 하면 삭제';
                     } else {
                         sub = '회수 → 생산창고 재입고 · 조립 이력이 없어 상한 없음';
                     }
@@ -595,11 +627,6 @@
                             '<button class="rm" data-mrm="' + m.rmat_id + '">✕</button>') + '</div>';
                 }).join('');
 
-                if (!locked) {
-                    html += '<div class="addbar" style="margin-top:4px">' +
-                        '<button class="addbtn" data-add="+">＋ 자재 추가(투입)</button>' +
-                        '<button class="addbtn minus" data-add="-">− 자재 회수(재사용품)</button></div>';
-                }
                 if (locked && num(u.insp_cnt) > 0) {
                     html += '<div class="notebox">검사 회차가 있어 수리 복귀가 막혀 있습니다. 검사 화면에서 회차를 먼저 삭제하세요.</div>';
                 }
@@ -945,6 +972,7 @@
             document.getElementById('btnReg').addEventListener('click', function () {
                 regCat = 'return'; regLotSel = null; regTgtSel = null; regLots = [];
                 document.querySelectorAll('#regCat .opt').forEach(function (x) { x.classList.toggle('sel', x.dataset.c === 'return'); });
+                stopCam();
                 document.getElementById('regLot').value = '';
                 document.getElementById('regNote').value = '';
                 document.getElementById('regTgtKw').value = '';
@@ -1000,11 +1028,29 @@
                                 ? '<span class="itag move">재고 이동</span>'
                                 : '<span class="itag new">반품 신규입고</span>')
                             : '<span class="itag no">접수 불가</span>';
+                        /* ★ 포장 여부를 앞세운다.
+                             바코드를 찍으면 같은 로트번호로 완제품과 재공품이 함께 나오는데
+                             «SMART-M-CELL4-A (국내)» 와 «M-CELL4-A(재공품)» 는 이름이 비슷해
+                             손에 든 것이 어느 쪽인지 품명만으로는 헷갈린다.
+                             박스가 있느냐 없느냐는 눈으로 바로 확인되는 사실이라 그걸 묻는다. */
+                        var ptag = l.unpack
+                            ? '<span class="ptag boxed">포장완료 · 박스 있음</span>'
+                            : '<span class="ptag bare">재공품 · 박스 없음</span>';
+
+                        /* ★ 재고 수량은 보여주지 않는다.
+                             수리는 대개 출하됐다 돌아오는 물건이라 재고 0 이 정상인데,
+                             0 을 보여주면 「재고가 없는데 접수가 되나」로 읽힌다.
+                             대신 접수하면 무엇이 되는지를 적는다. */
+                        var into = l.unpack
+                            ? '<div class="pinto">박스를 풀어 <b>' + esc(l.intake_mat_name) + '</b> 로 접수' +
+                            '<br><span class="dim">포장 자재는 회수 목록에 자동으로 담깁니다</span></div>'
+                            : '<div class="pinto"><span class="dim">박스 없이 들어온 물건입니다 · 포장 자재 회수 없음</span></div>';
+
                         return '<div class="prow' + (ok ? '' : ' nostock') + '" data-l="' + i + '">' +
-                            '<div class="pid"><div class="pnm">' + esc(l.mat_name) + '</div>' +
+                            '<div class="pid"><div class="pnm">' + ptag + ' ' + esc(l.mat_name) + '</div>' +
                             '<div class="pcode">' + esc(l.lot_number) +
                             (l.maker_lot_no ? ' · 라벨 ' + esc(l.maker_lot_no) : '') +
-                            ' · ' + esc(l.store_name || ('창고' + l.store_id)) + ' 재고 ' + qtyTxt(l.stock) + '</div>' +
+                            ' · ' + esc(l.store_name || ('창고' + l.store_id)) + '</div>' + into +
                             (l.verdict_note ? '<div class="pwarn">' + esc(l.verdict_note) + '</div>' : '') +
                             '</div>' + tag + '</div>';
                     }).join('') + '</div>';
@@ -1052,7 +1098,9 @@
                 });
             }
             function loadSrcList(kw) {
-                var d = api('/target_materials', {keyword: kw || ''}) || [];
+                // scope=src — 미등록 반품은 박스째 오므로 완제품도 고를 수 있어야 한다.
+                // 완제품을 고르면 서버가 박스를 풀어 반제품으로 접수한다.
+                var d = api('/target_materials', {keyword: kw || '', scope: 'src'}) || [];
                 document.getElementById('regSrcList').innerHTML = d.map(function (m) {
                     return '<div class="prow' + (srcSel === m.mat_id ? ' sel' : '') + '" data-s="' + m.mat_id + '">' +
                         '<div class="pid"><div class="pnm">' + esc(m.mat_name) + '</div>' +
@@ -1109,6 +1157,96 @@
                 });
                 setTimeout(function () { document.getElementById('regOk').disabled = false; }, 1200);
             };
+
+            /* ── 바코드 카메라 스캔 (접수 로트) ──────────────────────
+               세척 화면과 같은 방식: BarcodeDetector 로 프레임을 훑는다.
+               다른 점은 여기가 단발 스캔이라는 것 — 하나 잡히면 바로 닫고
+               조회까지 태운다. 접수는 로트 하나를 지목하는 일이라 연속 스캔이 없다.
+
+               ★ 지원될 때만 버튼을 노출한다. 안드로이드 크롬은 되고
+                 아이패드 사파리는 안 된다. 기기 판별 대신 이 조건 하나로 갈린다.
+               ★ HTTPS 가 아니면 getUserMedia 자체가 없다.                        */
+            var camStream = null, camTimer = null, camDet = null;
+
+            if (window.BarcodeDetector && navigator.mediaDevices
+                && navigator.mediaDevices.getUserMedia) {
+                document.getElementById('regScan').style.display = '';
+            }
+
+            /* GS1-128 에서 로트(AI 10)만 뽑는다. 자사 발행 Code128 은 값이 곧 로트번호라
+               파싱에 걸리지 않고 원문 그대로 내려간다. */
+            function lotFromScan(raw) {
+                if (!raw) return '';
+                var s = String(raw).trim();
+
+                if (s.indexOf('(') >= 0) {                       // (01)...(10)... 표기
+                    var m = /\(10\)([^(]*)/.exec(s);
+                    return m ? m[1].trim() : s;
+                }
+                if (!/^\d/.test(s)) return s;                    // 숫자로 시작하지 않으면 자사 로트
+
+                var FIXED = {'01': 14, '11': 6, '15': 6, '17': 6, '13': 6};
+                var i = 0, guard = 0;
+                while (i < s.length && guard++ < 40) {
+                    var ai = s.substr(i, 2);
+                    if (!/^\d{2}$/.test(ai)) break;
+                    i += 2;
+                    var val;
+                    if (FIXED[ai] !== undefined) { val = s.substr(i, FIXED[ai]); i += FIXED[ai]; }
+                    else {
+                        var gs = s.indexOf('\u001D', i);
+                        val = (gs >= 0) ? s.substring(i, gs) : s.substring(i);
+                        i = (gs >= 0) ? gs + 1 : s.length;
+                    }
+                    if (ai === '10') return val.replace(/\u001D/g, '').trim();
+                }
+                return s;
+            }
+
+            function stopCam() {
+                if (camTimer) { clearInterval(camTimer); camTimer = null; }
+                if (camStream) { camStream.getTracks().forEach(function (t) { t.stop(); }); camStream = null; }
+                camDet = null;
+                document.getElementById('regCamBox').style.display = 'none';
+            }
+
+            document.getElementById('regScan').addEventListener('click', function () {
+                var box = document.getElementById('regCamBox');
+                if (box.style.display !== 'none') { stopCam(); return; }
+
+                camDet = new window.BarcodeDetector({
+                    formats: ['code_128', 'code_39', 'ean_13', 'ean_8',
+                        'qr_code', 'data_matrix', 'itf', 'codabar']
+                });
+                navigator.mediaDevices.getUserMedia({
+                    video: {facingMode: 'environment', width: {ideal: 1280}}
+                }).then(function (st) {
+                    camStream = st;
+                    var v = document.getElementById('regVideo');
+                    v.srcObject = st;
+                    v.play();
+                    box.style.display = '';
+                    document.getElementById('regCamMsg').textContent = '라벨을 비추세요';
+
+                    camTimer = setInterval(function () {
+                        if (!camDet || v.readyState < 2) return;
+                        camDet.detect(v).then(function (codes) {
+                            if (!codes || !codes.length) return;
+                            var lot = lotFromScan(codes[0].rawValue);
+                            if (!lot) return;
+                            if (navigator.vibrate) navigator.vibrate(40);
+                            document.getElementById('regLot').value = lot.toUpperCase();
+                            stopCam();
+                            doFind();                     // 스캔 → 조회까지 한 번에
+                        }).catch(function () { /* 프레임 하나 실패는 무시 */ });
+                    }, 220);
+                }).catch(function () {
+                    flash('카메라를 열 수 없습니다 (권한·HTTPS 확인)');
+                    stopCam();
+                });
+            });
+
+            document.getElementById('regCamStop').addEventListener('click', stopCam);
 
             /* ── 토스트 ────────────────────────────────────────── */
             var tT;
@@ -1272,7 +1410,9 @@
                         + 'color:var(--ink-2,#5b6570);font-size:19px;font-weight:800;line-height:1;'
                         + 'cursor:pointer;touch-action:manipulation;'
                         + '-webkit-user-select:none;user-select:none';
-                    b.addEventListener('click', function () { run(b); });
+                    b.addEventListener('click', function () {
+                        run(b);
+                    });
                     h.appendChild(b);
                 });
             })();
@@ -1281,6 +1421,7 @@
                 var el = document.getElementById(id);
                 return !!el && !el.classList.contains('hide');
             }
+
             function maskOn(id) {
                 var el = document.getElementById(id);
                 return !!el && el.classList.contains('show');
@@ -1301,38 +1442,52 @@
         }
 
         /* 날짜 유틸 — start() 밖에 둔다(부팅 실패 시에도 입력칸은 채워지게) */
-        function pad2d(n) { return String(n).padStart(2, '0'); }
+        function pad2d(n) {
+            return String(n).padStart(2, '0');
+        }
+
         function todayStr() {
             var d = new Date();
             return d.getFullYear() + '-' + pad2d(d.getMonth() + 1) + '-' + pad2d(d.getDate());
         }
+
         function shiftDay(ymd, days) {
             var p = ymd.split('-');
             var d = new Date(+p[0], +p[1] - 1, +p[2]);
             d.setDate(d.getDate() + days);
             return d.getFullYear() + '-' + pad2d(d.getMonth() + 1) + '-' + pad2d(d.getDate());
         }
+
         function repairDayRange() {
             return (window.REPAIR_CTX && window.REPAIR_CTX.dayRange) || 30;
         }
+
         function dateFrom() {
             var v = document.getElementById('dFrom').value;
             return v || shiftDay(todayStr(), -repairDayRange());
         }
+
         function dateTo() {
             var v = document.getElementById('dTo').value;
             return v || todayStr();
         }
+
         function initDates() {
             var t = todayStr();
             var f = document.getElementById('dFrom'), o = document.getElementById('dTo');
             if (f && !f.value) f.value = shiftDay(t, -repairDayRange());
             if (o && !o.value) o.value = t;
         }
+
         initDates();
     </script>
 
-    <style>.stepper button {touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}</style>
+    <style>.stepper button {
+        touch-action: manipulation;
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-touch-callout: none;
+    }</style>
     <script th:inline="none">
         /* 스테퍼 길게 누르기 반복 */
         (function () {

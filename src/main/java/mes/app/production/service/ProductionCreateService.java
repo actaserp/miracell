@@ -16,6 +16,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -63,8 +65,18 @@ public class ProductionCreateService {
     public static class BomInput {
         public Integer matId;
         public float qty;
+        /** 로트 지정 차감. 비어 있으면 FIFO(기존 동작). */
+        public List<LotInput> lots;
         public BomInput() {}
         public BomInput(Integer matId, float qty) { this.matId = matId; this.qty = qty; }
+    }
+
+    /** 화면에서 로트를 직접 골라 수량을 나눈 경우의 한 줄. */
+    public static class LotInput {
+        public Integer lotId;
+        public float qty;
+        public LotInput() {}
+        public LotInput(Integer lotId, float qty) { this.lotId = lotId; this.qty = qty; }
     }
 
     /** 생산 실적 생성 요청 */
@@ -526,12 +538,38 @@ public class ProductionCreateService {
                  ORDER BY ml."InputDateTime" ASC, ml.id ASC
                 """, lp);
 
+            /* ★ 화면에서 로트를 직접 고른 경우 그 순서·수량을 먼저 따른다.
+                 유효기한 임박분 우선 소진처럼 FIFO 와 다르게 빼야 할 사유가 있고,
+                 화면에 「이 로트에서 이만큼」이라 적어 보여준 이상 그대로 빠져야 한다.
+                 지정분이 소요량에 모자라면 남은 만큼은 아래 FIFO 가 이어서 채운다.
+               ★ 지정 로트라도 재고·창고 검증은 그대로 받는다.
+                 화면이 보낸 lotId 를 믿고 그냥 빼면 남의 창고 로트나
+                 이미 소진된 로트에서 마이너스가 난다. */
+            if (bi.lots != null && !bi.lots.isEmpty()) {
+                Map<Integer, Map<String, Object>> byId = new LinkedHashMap<>();
+                for (Map<String, Object> lot : lots) {
+                    byId.put(((Number) lot.get("ml_id")).intValue(), lot);
+                }
+                List<Map<String, Object>> ordered = new ArrayList<>();
+                for (LotInput li : bi.lots) {
+                    if (li == null || li.lotId == null || li.qty <= 0) continue;
+                    Map<String, Object> lot = byId.remove(li.lotId);
+                    if (lot == null) continue;   // 그 창고에 없거나 잔량 0 — FIFO 로 흘려보낸다
+                    lot.put("cap", li.qty);      // 이 로트에서 뺄 상한
+                    ordered.add(lot);
+                }
+                ordered.addAll(byId.values());   // 남은 로트는 FIFO 순서 유지
+                lots = ordered;
+            }
+
             float remain = need;
             for (Map<String, Object> lot : lots) {
                 if (remain <= 0) break;
                 int mlId = ((Number) lot.get("ml_id")).intValue();
                 float cs = toF(lot.get("cs"));
-                float take = Math.min(cs, remain);
+                // 지정분이 있으면 그 상한까지만. 없으면 잔량 전부(FIFO)
+                float cap = (lot.get("cap") != null) ? toF(lot.get("cap")) : cs;
+                float take = Math.min(Math.min(cs, cap), remain);
                 if (take <= 0) continue;
 
                 MatLotCons mlc = new MatLotCons();

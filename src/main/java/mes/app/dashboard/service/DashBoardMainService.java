@@ -123,6 +123,16 @@ public class DashBoardMainService {
 	 *
 	 * 세척·멸균은 mat_produce 를 만들지 않아 여기서 0 으로 나온다.
 	 * 그 둘은 getWashToday / getSterilToday 가 따로 채운다.
+	 *
+	 * ★ 1공장 포장(bsc05)은 CK(반제품)와 키트 결합(완제품)을 둘 다 만든다.
+	 *   today_good 하나로 내리면 CK 10 + 완제품 10 이 「20개 생산」이 된다.
+	 *   단위가 둘 다 「개」라서 더해도 오류가 안 나고, 그래서 더 위험하다.
+	 *   → today_good 은 그대로 두고(다른 공정이 쓴다) 포장용으로
+	 *     today_good_product / today_good_semi 를 함께 내린다. 화면이 둘로 나눠 적는다.
+	 *
+	 * ★ 산출품목은 mat_produce."Material_id" 를 먼저 본다.
+	 *   작지 품목(job_res."Material_id")을 쓰면 한 작지에 CK 생산과 결합이 섞인 경우
+	 *   전부 CK 로 보인다. COALESCE(om, m) 로 차수 자기 품목을 우선한다.
 	 */
 	public List<Map<String, Object>> getProcessNow(String spjangcd) {
 		String sql = """
@@ -134,8 +144,15 @@ public class DashBoardMainService {
 				         , mp."Actor_id"  AS actor
 				         , COALESCE(mp."EndTime", mp."StartTime",
 				                    mp."ProductionDate"::timestamptz)::date AS work_date
+				         , CASE WHEN COALESCE(omg."MaterialType", mg."MaterialType", '') = 'product'
+				                  OR COALESCE(om."Code", m."Code") LIKE '%FG%'
+				                THEN 'Y' ELSE 'N' END                       AS is_product
 				      FROM mat_produce mp
 				      JOIN job_res jr ON jr.id = mp."JobResponse_id"
+				      LEFT JOIN material om  ON om.id  = mp."Material_id"
+				      LEFT JOIN mat_grp  omg ON omg.id = om."MaterialGroup_id"
+				      LEFT JOIN material m   ON m.id   = jr."Material_id"
+				      LEFT JOIN mat_grp  mg  ON mg.id  = m."MaterialGroup_id"
 				     WHERE COALESCE(mp._status,'a') = 'a'
 				       AND (CAST(:spjangcd AS varchar) IS NULL OR jr.spjangcd = CAST(:spjangcd AS varchar))
 				)
@@ -147,8 +164,34 @@ public class DashBoardMainService {
 				     , COALESCE(SUM(mp.good) FILTER (
 				           WHERE mp.work_date = CURRENT_DATE
 				             AND (mp.st = 'finished' OR mp.end_time IS NOT NULL)), 0) AS today_good
+				     , COALESCE(SUM(mp.good) FILTER (
+				           WHERE mp.work_date = CURRENT_DATE
+				             AND (mp.st = 'finished' OR mp.end_time IS NOT NULL)
+				             AND mp.is_product = 'Y'), 0)                            AS today_good_product
+				     , COALESCE(SUM(mp.good) FILTER (
+				           WHERE mp.work_date = CURRENT_DATE
+				             AND (mp.st = 'finished' OR mp.end_time IS NOT NULL)
+				             AND mp.is_product = 'N'), 0)                            AS today_good_semi
 				     , COALESCE(STRING_AGG(DISTINCT pe."Name", ', ') FILTER (
 				           WHERE mp.st <> 'finished' AND mp.end_time IS NULL), '')  AS workers
+				     /* ★ 검사(mc02)는 mat_produce 를 만들지 않는다 — 판정만 하는 공정이라
+				          산출 품목이 없다. 세척·멸균과 같은 계열이고, 그래서 today_good 이
+				          영원히 0 이었다(검사를 아무리 해도 「0건」으로 굳었다).
+				          검사 실적의 진실은 mcell_unit 상태다.
+				            판정 끝난 대수 = pass + reject + packed
+				              · packed 를 빼면 포장까지 간 대수가 검사에서 사라진다
+				                (통과했기 때문에 포장된 것이다)
+				              · reject 를 빼면 검사했지만 떨어진 대수가 증발한다
+				          대기 대수(inspect_wait)는 이 공정의 「작업중」으로 쓴다 —
+				          검사 자리에 물건이 와 있다는 뜻이다. */
+				     , CASE WHEN pr."Code" = 'mc02' THEN (
+				           SELECT COUNT(*) FROM mcell_unit mu
+				            WHERE COALESCE(mu._status,'a') = 'a'
+				              AND mu."State" IN ('pass','reject','packed')) END      AS unit_done
+				     , CASE WHEN pr."Code" = 'mc02' THEN (
+				           SELECT COUNT(*) FROM mcell_unit mu
+				            WHERE COALESCE(mu._status,'a') = 'a'
+				              AND mu."State" = 'inspect_wait') END                   AS unit_waiting
 				  FROM process pr
 				  LEFT JOIN work_center wc ON wc."Process_id" = pr.id
 				  LEFT JOIN mp ON mp.wc = wc.id
@@ -368,23 +411,49 @@ public class DashBoardMainService {
 	 *
 	 * ★ 1공장 수량과 2공장 대수를 한 숫자로 더하지 않는다.
 	 *   진척 단위가 다르다 — 섞으면 아무 의미 없는 합계가 된다.
+	 *
+	 * ★ 「1공장 완제품」은 공정 합계가 아니다.
+	 *   전 공정을 더하면 키트 10개를 만들었을 때
+	 *   조립 10 + 블리스터 10 + 융착 10 + 포장 10 = 40 이 찍힌다.
+	 *   같은 물건을 공정 수만큼 센 숫자인데 화면에서는 「40개 생산」으로 읽힌다.
+	 *   공정이 하나 늘면 생산이 안 늘어도 이 값이 커진다는 것이 결정적이다.
+	 *   → 마지막 공정(bsc05 포장)의 완제품만 센다.
+	 *     2공장 칸이 packed(포장 완료) 대수이므로 축도 맞는다 —
+	 *     양쪽 다 「오늘 끝까지 나온 것」이다.
+	 *
+	 * ★ CK(반제품)는 여기서 뺀다. 포장 카드에 따로 서 있으므로
+	 *   KPI 에서 다시 더하면 방금 나눈 것을 도로 합치는 셈이다.
+	 *
+	 * ★ 조립·블리스터만 돌린 날은 이 칸이 0 이다. 그게 맞는 표시다
+	 *   (완제품이 안 나왔다). 그날의 진행은 아래 존 타일이 보여준다.
 	 */
 	public Map<String, Object> getKpi(String spjangcd) {
 		String sql = """
 				WITH mp AS (
 				    SELECT COALESCE(mp."GoodQty",0) AS good
 				         , COALESCE(pr."Factory_id", 1) AS factory_id
+				         , pr."Code"                    AS proc_code
+				         , CASE WHEN COALESCE(omg."MaterialType", mg."MaterialType", '') = 'product'
+				                  OR COALESCE(om."Code", m."Code") LIKE '%FG%'
+				                THEN 'Y' ELSE 'N' END   AS is_product
 				      FROM mat_produce mp
 				      JOIN job_res jr ON jr.id = mp."JobResponse_id"
 				      LEFT JOIN work_center wc ON wc.id = COALESCE(mp."WorkCenter_id", jr."WorkCenter_id")
 				      LEFT JOIN process     pr ON pr.id = wc."Process_id"
+				      LEFT JOIN material om  ON om.id  = mp."Material_id"
+				      LEFT JOIN mat_grp  omg ON omg.id = om."MaterialGroup_id"
+				      LEFT JOIN material m   ON m.id   = jr."Material_id"
+				      LEFT JOIN mat_grp  mg  ON mg.id  = m."MaterialGroup_id"
 				     WHERE COALESCE(mp._status,'a') = 'a'
 				       AND (mp."State" = 'finished' OR mp."EndTime" IS NOT NULL)
 				       AND COALESCE(mp."EndTime", mp."StartTime",
 				                    mp."ProductionDate"::timestamptz)::date = CURRENT_DATE
 				       AND (CAST(:spjangcd AS varchar) IS NULL OR jr.spjangcd = CAST(:spjangcd AS varchar))
 				)
-				SELECT (SELECT COALESCE(SUM(good),0) FROM mp WHERE factory_id = 1)        AS f1_today_good
+				SELECT (SELECT COALESCE(SUM(good),0) FROM mp
+				         WHERE factory_id = 1
+				           AND proc_code = 'bsc05'
+				           AND is_product = 'Y')                                    AS f1_today_good
 				     , (SELECT COUNT(*) FROM mcell_unit mu
 				         WHERE COALESCE(mu._status,'a')='a' AND mu."State" = 'packed')     AS f2_packed
 				     , (SELECT COUNT(*) FROM job_res jr

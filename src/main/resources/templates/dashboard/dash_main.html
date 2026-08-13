@@ -101,6 +101,18 @@
     @keyframes dbPulse { 0%,100%{opacity:1} 50%{opacity:.35} }
     #dbWrap .zone .zq { font-size:19px; font-weight:800; font-variant-numeric:tabular-nums; margin-top:3px; }
     #dbWrap .zone .zq small { font-size:10.5px; color:#8a94a4; margin-left:2px; }
+    /* 한 타일에 값이 둘 — 1공장 포장(완제품 / CK)처럼
+       성격이 다른 산출이 한 공정에서 나오는 경우.
+       구분선을 넣어 「합계를 쪼갠 것」이 아니라 「별개의 둘」임을 보인다. */
+    #dbWrap .zone .zsplit { display:flex; align-items:stretch; gap:9px; margin-top:1px; }
+    #dbWrap .zone .zsplit > div { flex:1 1 0; min-width:0; }
+    #dbWrap .zone .zsplit > div + div { border-left:1px solid #e5e9f0; padding-left:9px; }
+    #dbWrap .zone.on .zsplit > div + div { border-left-color:#bfe6d1; }
+    #dbWrap .zone .zsplit .sl { font-size:9.5px; font-weight:800; color:#a7b0be;
+      letter-spacing:.3px; white-space:nowrap; }
+    #dbWrap .zone.on .zsplit .sl { color:#5c9c7c; }
+    #dbWrap .zone .zsplit .zq { font-size:17px; margin-top:1px; }
+
     #dbWrap .zone .zw { font-size:10.5px; color:#5b6675; margin-top:2px; height:14px;
       overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     #dbWrap .zone .env { display:flex; gap:6px; margin-top:5px; }
@@ -552,10 +564,15 @@
 
     /* ── KPI ──
        ★ 1공장 수량과 2공장 대수를 한 칸에 더하지 않는다.
-         진척 단위가 달라 합치면 아무 의미 없는 숫자가 된다. */
+         진척 단위가 달라 합치면 아무 의미 없는 숫자가 된다.
+
+       ★ 「1공장 완제품」은 공정 합계가 아니다(서버 getKpi 참고).
+         전 공정을 더하면 키트 10개가 조립·블리스터·융착·포장에서 각각 세어져
+         40개로 보인다. 마지막 공정의 완제품만 센다 — 2공장 「포장 완료」와 같은 축.
+         조립만 돌린 날 0 이 뜨는 건 맞는 표시다. 그날 진행은 아래 존 타일에 있다. */
     function dbRenderKpi(k){
       var cells = [
-        {l:'1공장 오늘 생산', v:dbNum(k.f1_today_good).toLocaleString(), u:'개',  c:'blue'},
+        {l:'1공장 완제품',   v:dbNum(k.f1_today_good).toLocaleString(), u:'개',  c:'blue'},
         {l:'2공장 포장 완료', v:dbNum(k.f2_packed).toLocaleString(),     u:'대',  c:'blue'},
         {l:'진행중 작업지시', v:dbNum(k.open_orders),                    u:'건',  c:'violet'},
         {l:'작업중 차수',     v:dbNum(k.working_sessions),               u:'건',  c:'green'},
@@ -581,6 +598,35 @@
            세척(bsc01)은 wash_work, 멸균(bsc04)은 steril_batch 에 실적을 남기므로
            그대로 두면 실제로 작업 중이어도 영영 「대기」(회색)로 굳는다.
            수량은 이미 갈아끼워 두었는데 상태만 빠져 있었다. */
+      /* ★ 2공장 검사(mc02)도 mat_produce 를 만들지 않는다 — 세척·멸균과 같은 계열이다.
+           검사는 「판정만」 하는 공정이라 산출 품목이 없고, today_good 이 영원히 0 이다.
+           검사를 아무리 해도 0건으로 굳어 「오늘 검사 안 했다」로 읽힌다.
+
+           검사 실적의 진실은 mcell_unit 상태다.
+           판정이 끝난 유닛 = pass + reject + packed.
+           · packed 를 빼면 포장까지 간 대수가 검사에서 사라진다(검사를 통과했기에 포장된 것)
+           · reject 를 빼면 「검사했지만 떨어진 대수」가 실적에서 증발한다 */
+      var unitMap = {};
+      (dbData.unit_states || []).forEach(function(s){ unitMap[s.state] = dbNum(s.cnt); });
+      var unitCnt = function(states){
+        var n = 0;
+        states.forEach(function(k){ n += (unitMap[k] || 0); });
+        return n;
+      };
+
+      /* ★ 1공장 포장(bsc05)은 CK(반제품)와 키트 결합(완제품)을 둘 다 만든다.
+           둘 다 단위가 「개」라 더해도 오류가 안 나고, 그래서 더 위험하다 —
+           CK 10 + 완제품 10 이 「20개 생산」으로 읽힌다.
+           카드는 하나로 두되 값을 둘로 나눈다.
+
+           서버가 today_good_product / today_good_semi 를 내려줄 때만 나눈다.
+           안 내려주면 예전처럼 합계 한 줄 — 없는 숫자를 화면에서 지어내지 않는다. */
+      var packSplit = function(p){
+        var pr = p.today_good_product;
+        if (pr === null || pr === undefined || pr === '') return null;
+        return {prod: dbNum(pr), semi: dbNum(p.today_good_semi)};
+      };
+
       var procWork = function(p){
         if (p.code === 'bsc01') {
           /* 서버가 wash_today.working_cnt 를 안 내리면 세션수로도 판단하지 않는다 —
@@ -592,6 +638,14 @@
           return {cnt: run.length,
             who: run.map(function(b){ return b.equ_name || '멸균기'; }).join(', ') || '-'};
         }
+        if (p.code === 'mc02') {
+          /* 검사 대기 = 검사 자리에 물건이 와 있다는 뜻. 이게 이 공정의 「작업중」이다.
+             mat_produce 가 없어 working_cnt 는 늘 0 이다.
+             서버가 unit_waiting 을 내리면 그걸 쓰고, 없으면 unit_states 로 센다. */
+          var wq = (p.unit_waiting === null || p.unit_waiting === undefined)
+                  ? unitCnt(['inspect_wait']) : dbNum(p.unit_waiting);
+          return {cnt: wq, who: '검사대기'};
+        }
         return {cnt: dbNum(p.working_cnt), who: p.workers || '-'};
       };
 
@@ -602,18 +656,32 @@
 
         /* 세척·멸균은 mat_produce 를 만들지 않는다. 수량 대신 그 공정의 단위로 적는다.
            0 으로 두면 「오늘 아무것도 안 했다」로 읽힌다. */
+        var split = (p.code === 'bsc05') ? packSplit(p) : null;
+
         var qtyHtml;
         if (p.code === 'bsc01') {
           qtyHtml = dbNum(wash.session_cnt) + '<small>세션</small>';
         } else if (p.code === 'bsc04') {
           qtyHtml = (dbData.steril || []).length + '<small>배치</small>';
+        } else if (p.code === 'mc02') {
+          var done = (p.unit_done === null || p.unit_done === undefined)
+                  ? unitCnt(['pass', 'reject', 'packed']) : dbNum(p.unit_done);
+          qtyHtml = done.toLocaleString() + '<small>대</small>';
         } else {
           qtyHtml = good.toLocaleString() + '<small>개</small>';
         }
 
+        var half = function(label, v){
+          return '<div><div class="sl">' + label + '</div>'
+                  + '<div class="zq">' + dbNum(v).toLocaleString() + '<small>개</small></div></div>';
+        };
+        var bodyHtml = split
+                ? '<div class="zsplit">' + half('완제품', split.prod) + half('CK', split.semi) + '</div>'
+                : '<div class="zq">' + qtyHtml + '</div>';
+
         return '<div class="zone ' + (working ? 'on' : '') + '">'
                 + '<div class="zn"><i></i>' + dbEsc(p.name) + '</div>'
-                + '<div class="zq">' + qtyHtml + '</div>'
+                + bodyHtml
                 + '<div class="zw">' + (working
                         ? '작업중 ' + working + '건 · ' + dbEsc(w.who)
                         : '<span style="color:#c2c9d4">대기</span>') + '</div>'

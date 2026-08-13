@@ -303,51 +303,61 @@
                                         불출 등록
                                     </a>
                                 </li>
+                                <li>
+                                    <a class="btn" title="바코드 불출" id="btnScanIssue" style="background-color:#0B7285;color:#fff;">
+                                        바코드 불출
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="btn" title="바코드 불출 이력" id="btnScanHist">
+                                        불출 이력
+                                    </a>
+                                </li>
                             </ul>
                         </div>
                     </div>
                 </form>
-<!--                <div class="button-wrap">-->
-<!--                    <ul>-->
-<!--                        <li>-->
-<!--                            <a class="btn" title="등록" id="btnShowMovePopup">-->
-<!--                                창고 이동-->
-<!--                            </a>-->
-<!--                        </li>-->
-<!--                        <li>-->
-<!--                            <a class="btn" title="입고검사" id="btnInputTest">-->
-<!--                                입고검사-->
-<!--                            </a>-->
-<!--                        </li>-->
-<!--                        <li>-->
-<!--                            <a class="btn" title="품목 입고" id="btnBaljuInput">-->
-<!--                                발주 입고-->
-<!--                            </a>-->
-<!--                        </li>-->
+                <!--                <div class="button-wrap">-->
+                <!--                    <ul>-->
+                <!--                        <li>-->
+                <!--                            <a class="btn" title="등록" id="btnShowMovePopup">-->
+                <!--                                창고 이동-->
+                <!--                            </a>-->
+                <!--                        </li>-->
+                <!--                        <li>-->
+                <!--                            <a class="btn" title="입고검사" id="btnInputTest">-->
+                <!--                                입고검사-->
+                <!--                            </a>-->
+                <!--                        </li>-->
+                <!--                        <li>-->
+                <!--                            <a class="btn" title="품목 입고" id="btnBaljuInput">-->
+                <!--                                발주 입고-->
+                <!--                            </a>-->
+                <!--                        </li>-->
 
-<!--                        <li>-->
-<!--                            <a class="btn" title="미발주 입고" id="btnInput">-->
-<!--                                미발주 입고-->
-<!--                            </a>-->
-<!--                        </li>-->
+                <!--                        <li>-->
+                <!--                            <a class="btn" title="미발주 입고" id="btnInput">-->
+                <!--                                미발주 입고-->
+                <!--                            </a>-->
+                <!--                        </li>-->
 
-<!--                        <li>-->
-<!--                            <a class="btn" title="입고 반품" id="btnInputReturn">-->
-<!--                                입고 반품-->
-<!--                            </a>-->
-<!--                        </li>-->
-<!--                        <li>-->
-<!--                            <a class="btn" title="다중 입고" id="btnMultiInput">-->
-<!--                                다중 입고-->
-<!--                            </a>-->
-<!--                        </li>-->
-<!--                        <li>-->
-<!--                            <a class="btn" title="로트 입고 등록" id="btnLotInput">-->
-<!--                                로트 입고 등록-->
-<!--                            </a>-->
-<!--                        </li>-->
-<!--                    </ul>-->
-<!--                </div>-->
+                <!--                        <li>-->
+                <!--                            <a class="btn" title="입고 반품" id="btnInputReturn">-->
+                <!--                                입고 반품-->
+                <!--                            </a>-->
+                <!--                        </li>-->
+                <!--                        <li>-->
+                <!--                            <a class="btn" title="다중 입고" id="btnMultiInput">-->
+                <!--                                다중 입고-->
+                <!--                            </a>-->
+                <!--                        </li>-->
+                <!--                        <li>-->
+                <!--                            <a class="btn" title="로트 입고 등록" id="btnLotInput">-->
+                <!--                                로트 입고 등록-->
+                <!--                            </a>-->
+                <!--                        </li>-->
+                <!--                    </ul>-->
+                <!--                </div>-->
             </div>
             <div class="container-fluid">
                 <div id="material-storehouse-grid" style="height: 680px;"></div>
@@ -587,6 +597,444 @@
     </script>
 
 
+
+
+    <!-- ══════════════════════════════════════════════════════════════
+         바코드 불출 (자재창고 → 생산창고)
+         wijmo 미사용. PC(스캐너) · 태블릿(카메라) 공용 마크업.
+         ══════════════════════════════════════════════════════════════ -->
+
+    <!-- ══════════════════════════════════════════════════════════════
+         불출 등록 (이동) — 출발창고 → 도착창고, 로트 직접 선택
+         품목을 고르면 출발창고의 로트 재고가 펼쳐지고 거기서 꺼낼 만큼 적는다.
+         총량을 먼저 받아 서버가 쪼개는 방식보다 실물과 어긋날 여지가 적다.
+         ══════════════════════════════════════════════════════════════ -->
+    <script type="text/x-tmpl" id="issueRegPopup">
+        <div class="content_wrap popup si-root">
+          <div class="si-scroll">
+
+            <div class="ir-form">
+                <div class="ir-field">
+                    <label>불출일</label>
+                    <input type="date" id="irDate"/>
+                </div>
+                <div class="ir-field">
+                    <label>불출창고 <span class="ir-req">*</span></label>
+                    <select id="irFrom"></select>
+                </div>
+                <div class="ir-field">
+                    <label>입고창고 <span class="ir-req">*</span></label>
+                    <select id="irTo"></select>
+                </div>
+            </div>
+
+            <div class="ir-field ir-mat">
+                <label>품목</label>
+                <div class="ir-matbox">
+                    <input type="hidden" id="irMatId"/>
+                    <input type="text" id="irMatName" readonly placeholder="품목을 조회하세요"/>
+                    <button type="button" class="si-btn" id="irMatBtn">품목조회</button>
+                </div>
+            </div>
+
+            <!-- 선택 품목의 로트 재고 -->
+            <div class="ir-lotbox" id="irLotBox" style="display:none">
+                <div class="ir-lothead">
+                    <span id="irLotTitle">로트 재고</span>
+                    <span class="si-hint" style="margin:0">선입선출 순서입니다. 담을 로트를 고르세요.</span>
+                </div>
+                <div class="si-list-wrap" style="max-height:200px">
+                    <table class="si-table">
+                        <colgroup><col style="width:38px"><col><col style="width:90px"><col style="width:110px"></colgroup>
+                        <thead><tr>
+                            <th><input type="checkbox" id="irLotAll"/></th>
+                            <th>로트</th><th class="tar">잔여</th><th class="tar">담을 수량</th>
+                        </tr></thead>
+                        <tbody id="irLotRows"></tbody>
+                    </table>
+                </div>
+                <div style="display:flex;justify-content:flex-end;margin-top:8px">
+                    <button type="button" class="si-btn si-cam" id="irAdd">선택한 로트 담기</button>
+                </div>
+            </div>
+
+            <!-- 담긴 목록 -->
+            <div class="si-list-wrap" style="max-height:200px;margin-top:10px">
+                <table class="si-table">
+                    <colgroup>
+                        <col style="width:34px"><col style="width:90px"><col>
+                        <col style="width:140px"><col style="width:90px"><col style="width:40px">
+                    </colgroup>
+                    <thead>
+                    <tr><th>#</th><th>품목코드</th><th>품목</th><th>로트</th>
+                        <th class="tar">불출량</th><th></th></tr>
+                    </thead>
+                    <tbody id="irRows">
+                    <tr class="si-empty"><td colspan="6">품목을 고르고 로트를 담으세요.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="ir-field" style="margin-top:8px">
+                <label>비고</label>
+                <textarea id="irDesc" rows="2" style="width:100%"></textarea>
+            </div>
+
+          </div>
+            <div class="popup-button">
+                <button type="button" class="btn-popup" id="irClose">닫기</button>
+                <button type="button" class="btn-popup y_write_auth" id="irSave"
+                        style="background-color:#03428E;color:#fff">불출</button>
+            </div>
+        </div>
+    </script>
+
+    <style id="issueRegCss">
+        .ir-form { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px; }
+        .ir-field { display:flex; flex-direction:column; gap:4px; flex:1 1 190px; min-width:0; }
+        .ir-field > label { font-weight:700; color:#444; font-size:13px; }
+        .ir-req { color:#C0392B; }
+        .ir-field select, .ir-field input[type=date], .ir-field input[type=text] {
+            height:40px; padding:0 10px; border:1px solid #d4d5d7; border-radius:6px;
+            width:100%; box-sizing:border-box;
+        }
+        .ir-field textarea { border:1px solid #d4d5d7; border-radius:6px; padding:8px;
+            box-sizing:border-box; font-family:inherit; }
+        .ir-mat { flex:1 1 100%; margin-bottom:10px; }
+        .ir-matbox { display:flex; gap:6px; align-items:center; }
+        .ir-matbox input[type=text] { flex:1 1 auto; min-width:0; height:40px;
+            padding:0 10px; border:1px solid #d4d5d7; border-radius:6px; }
+        .ir-matbox .si-btn { height:40px; }
+
+        .ir-lotbox { border:1px solid var(--teal, #0B7285); border-radius:8px;
+            padding:8px; background:#F4FBFC; }
+        .ir-lothead { display:flex; align-items:baseline; gap:10px; flex-wrap:wrap;
+            margin-bottom:6px; }
+        .ir-lothead > span:first-child { font-weight:800; color:#0B7285; }
+
+        @media (max-width: 900px) {
+            .ir-form { gap:8px; }
+            .ir-field { flex:1 1 100%; }
+            .ir-field select, .ir-field input { height:48px; font-size:16px; }
+            .ir-matbox { flex-wrap:wrap; }
+            .ir-matbox input[type=text] { flex:1 1 100%; height:48px; font-size:16px; }
+            .ir-matbox .si-btn { flex:1 1 45%; height:48px; }
+        }
+    </style>
+
+    <!-- 태블릿 반응형 : 툴바 · 팝업 ────────────────────────────────
+         PC 에서는 아무 영향이 없도록 전부 미디어쿼리 안에 둔다.  -->
+    <style id="tabletFixCss">
+        /* ══════════════════════════════════════════════════════════
+           태블릿 모드 — rp_input.html 과 동일한 방식.
+           판정은 JS(TabletUtil.isTablet)에서 하고 body.tablet-mode 로 내려온다.
+           미디어쿼리를 같이 걸면 기준이 두 곳이 되어 어긋난다.
+           ══════════════════════════════════════════════════════════ */
+
+        /* ── 검색영역 ──────────────────────────────────────────
+           원칙: dl 내부(라벨+입력의 가로 배치)는 건드리지 않는다.
+           전역 스타일시트가 잡아둔 모양이 있고, 그걸 세로로 세우면
+           오히려 라벨 위치가 들쭉날쭉해진다.
+           여기서는 「줄바꿈을 허용」하는 것까지만 한다. */
+
+        /* [검색][버튼] 을 가로로 붙여 두던 것을 풀어 버튼을 아래줄로 */
+        body.tablet-mode .search-flex-row {
+            flex-wrap: wrap;
+            align-items: flex-start;
+        }
+
+        /* dl 이 한 줄에 안 들어가면 다음 줄로. 각 dl 은 제 크기를 지킨다 */
+        body.tablet-mode .search-wrap {
+            flex-wrap: wrap;
+            gap: 8px 12px;
+            width: 100%;
+        }
+        body.tablet-mode .search-wrap > dl {
+            flex: 0 0 auto;      /* 눌려서 찌그러지지 않게 */
+            margin: 0;
+        }
+
+        /* 터치 대상 높이만 키운다. 폭·정렬은 전역 스타일 그대로 */
+        body.tablet-mode .search-wrap select,
+        body.tablet-mode .search-wrap input[type=text],
+        body.tablet-mode .search-wrap input[type=date] {
+            height: 42px;
+        }
+
+        /* ── 상단 버튼줄 ─────────────────────────────────────── */
+        body.tablet-mode .button-wrap {
+            white-space: normal !important;
+            width: 100%;
+            margin-top: 8px;
+        }
+        body.tablet-mode .button-wrap > ul {
+            display: flex; flex-wrap: wrap; gap: 6px; padding: 0; margin: 0;
+        }
+        body.tablet-mode .button-wrap > ul > li { margin: 0; list-style: none; flex: 1 1 auto; }
+        body.tablet-mode .button-wrap .btn {
+            width: 100%; min-height: 44px;
+            display: inline-flex; align-items: center; justify-content: center;
+        }
+
+        /* ── 모달 ────────────────────────────────────────────
+           ax5.ui.modal 이 인라인 px 로 width/height/left/top 을 박는다.
+           [class*="modal"] 같은 넓은 선택자는 중첩 팝업(품목·구매처 조회)까지
+           물어 레이아웃을 깨뜨리므로 쓰지 않는다. */
+        body.tablet-mode .modal,
+        body.tablet-mode .popup-draggable {
+            width: 96vw !important;
+            max-width: 96vw !important;
+            height: auto !important;
+            max-height: 92vh !important;
+            left: 2vw !important;
+            top: 4vh !important;
+            transform: none !important;
+        }
+        /* ★ 높이를 자르면서 스크롤을 안 주면 하단 버튼이 잘려 사라진다. */
+        body.tablet-mode .content_wrap,
+        body.tablet-mode .modal > .modal-body,
+        body.tablet-mode .popup-draggable > .modal-body {
+            max-height: calc(92vh - 60px);
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        body.tablet-mode .popup-button .btn-popup { min-height: 46px; }
+
+        /* ══════════════════════════════════════════════════════════
+           팝업 높이 고정 + 내부 스크롤 (PC·태블릿 공통)
+           내용이 늘어나면 모달이 아래로 계속 자라 화면을 벗어났다.
+           바깥을 묶고 안쪽만 흐르게 한다.
+           ══════════════════════════════════════════════════════════ */
+        .si-root {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            max-height: 100%;
+            overflow: hidden;
+        }
+        .si-root > .si-scroll {
+            flex: 1 1 auto;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            min-height: 0;     /* ★ 없으면 flex 자식이 안 줄어들어 스크롤이 안 걸린다 */
+            padding-right: 2px;
+        }
+        .si-root > .popup-button { flex: 0 0 auto; padding-top: 10px; background: inherit; }
+    </style>
+
+    <script>
+        /* 태블릿 판정 — rp_input.html 과 동일 기준.
+           폭만 보면 1138 태블릿을 놓치고, 포인터만 보면 터치스크린 PC 가 걸린다. */
+        window.TabletUtil = window.TabletUtil || {
+            BREAKPOINT: 1280,
+            isTouch() {
+                return (window.matchMedia && window.matchMedia('(pointer: coarse)').matches)
+                    || ('ontouchstart' in window)
+                    || navigator.maxTouchPoints > 0;
+            },
+            isTablet() {
+                return window.innerWidth <= this.BREAKPOINT && this.isTouch();
+            },
+            size(w, h) {
+                const ratio = this.isTablet() ? 0.96 : 0.98;
+                return {
+                    width: Math.min(w, Math.floor(window.innerWidth * ratio)),
+                    height: Math.min(h, Math.floor(window.innerHeight * (this.isTablet() ? 0.92 : 0.95)))
+                };
+            },
+            applyBodyClass() {
+                document.body.classList.toggle('tablet-mode', this.isTablet());
+            }
+        };
+        window.addEventListener('resize', () => TabletUtil.applyBodyClass());
+        $(function () { TabletUtil.applyBodyClass(); });
+    </script>
+
+    <script type="text/x-tmpl" id="scanIssuePopup">
+        <div class="content_wrap popup si-root">
+          <div class="si-scroll">
+
+            <!-- 창고 -->
+            <div class="si-head">
+                <div class="si-store">
+                    <label>출발</label>
+                    <select id="siFrom"></select>
+                    <span class="si-arrow">→</span>
+                    <label>도착</label>
+                    <select id="siTo"></select>
+                </div>
+                <div class="si-sum">
+                    <span id="siSummary">스캔 0건</span>
+                </div>
+            </div>
+
+            <!-- 스캔 입력 -->
+            <div class="si-scan">
+                <input id="siInput" autocomplete="off" placeholder="바코드를 스캔하세요 (스캐너 · 직접입력)" />
+                <button type="button" class="si-btn" id="siAdd">입력</button>
+                <button type="button" class="si-btn si-cam" id="siCam" style="display:none">📷 카메라</button>
+            </div>
+            <div class="si-hint" id="siHint">
+                스캐너는 입력칸에 그대로 들어옵니다. 같은 로트를 다시 찍으면 무시됩니다.
+            </div>
+
+            <!-- 카메라 -->
+            <div class="si-video" id="siVideoBox" style="display:none">
+                <video id="siVideo" playsinline muted></video>
+                <div class="si-vbar">
+                    <span id="siVMsg">라벨을 비추세요</span>
+                    <button type="button" class="si-btn" id="siCamStop">닫기</button>
+                </div>
+            </div>
+
+            <!-- 목록 -->
+            <div class="si-list-wrap">
+                <table class="si-table">
+                    <colgroup>
+                        <col style="width:34px"><col style="width:90px"><col>
+                        <col style="width:150px"><col style="width:90px"><col style="width:110px"><col style="width:40px">
+                    </colgroup>
+                    <thead>
+                    <tr>
+                        <th>#</th><th>품목코드</th><th>품목</th><th>로트</th>
+                        <th class="tar">재고</th><th class="tar">이동량</th><th></th>
+                    </tr>
+                    </thead>
+                    <tbody id="siRows">
+                    <tr class="si-empty"><td colspan="7">스캔한 항목이 여기에 쌓입니다.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+          </div>
+            <div class="popup-button">
+                <button type="button" class="btn-popup" id="siClose">닫기</button>
+                <button type="button" class="btn-popup" id="siClear">전체 지우기</button>
+                <button type="button" class="btn-popup y_write_auth" id="siSubmit"
+                        style="background-color:#03428E;color:#fff">불출</button>
+            </div>
+        </div>
+    </script>
+
+    <!-- 바코드 불출 이력 -->
+    <script type="text/x-tmpl" id="scanHistPopup">
+        <div class="content_wrap popup si-root">
+          <div class="si-scroll">
+            <div class="si-head">
+                <div class="si-store">
+                    <label>기간</label>
+                    <input type="date" id="shFrom"/> ~ <input type="date" id="shTo"/>
+                    <button type="button" class="si-btn" id="shSearch">조회</button>
+                </div>
+            </div>
+            <div class="si-list-wrap" style="max-height:none;height:380px">
+                <table class="si-table">
+                    <colgroup>
+                        <col style="width:150px"><col style="width:150px"><col>
+                        <col style="width:70px"><col style="width:90px"><col style="width:100px"><col style="width:80px">
+                    </colgroup>
+                    <thead>
+                    <tr><th>불출번호</th><th>일시</th><th>창고</th><th class="tar">건수</th>
+                        <th class="tar">수량</th><th>작업자</th><th></th></tr>
+                    </thead>
+                    <tbody id="shRows"></tbody>
+                </table>
+            </div>
+          </div>
+            <div class="popup-button">
+                <button type="button" class="btn-popup" id="shClose">닫기</button>
+            </div>
+        </div>
+    </script>
+
+    <style id="scanIssueCss">
+        .si-root { font-size: 14px; }
+        .si-head { display:flex; align-items:center; justify-content:space-between;
+            gap:10px; flex-wrap:wrap; margin-bottom:8px; }
+        .si-store { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+        .si-store label { font-weight:700; color:#444; }
+        .si-store select, .si-store input[type=date] { height:38px; padding:0 8px;
+            border:1px solid #d4d5d7; border-radius:6px; background:#fff; }
+        .si-arrow { color:#03428E; font-weight:800; }
+        .si-sum { font-weight:700; color:#03428E; }
+
+        .si-scan { display:flex; gap:6px; margin-bottom:4px; }
+        .si-scan input { flex:1 1 auto; height:46px; padding:0 12px; font-size:16px;
+            border:2px solid #03428E; border-radius:8px; }
+        .si-btn { height:46px; padding:0 16px; border:1px solid #d4d5d7; background:#fff;
+            border-radius:8px; font-weight:700; cursor:pointer; white-space:nowrap; }
+        .si-btn:active { background:#eef3f9; }
+        .si-cam { background:#03428E; color:#fff; border-color:#03428E; }
+        .si-hint { font-size:12px; color:#888; margin-bottom:8px; }
+
+        .si-video { position:relative; margin-bottom:8px; background:#000; border-radius:8px;
+            overflow:hidden; }
+        .si-video video { width:100%; max-height:260px; object-fit:cover; display:block; }
+        .si-vbar { position:absolute; left:0; right:0; bottom:0; display:flex;
+            align-items:center; justify-content:space-between; gap:8px;
+            padding:8px; background:rgba(0,0,0,.55); color:#fff; }
+        .si-vbar .si-btn { height:36px; padding:0 12px; }
+
+        .si-list-wrap { max-height:320px; overflow:auto; border:1px solid #e3e4e6; border-radius:8px; }
+        .si-table { width:100%; border-collapse:collapse; }
+        .si-table th { position:sticky; top:0; z-index:1; background:#f5f6f8;
+            padding:9px 8px; font-size:13px; border-bottom:1px solid #e3e4e6; }
+        .si-table td { padding:8px; border-bottom:1px solid #f0f0f2; }
+        .si-table .tar { text-align:right; }
+        .si-table .si-empty td { text-align:center; color:#999; padding:28px 8px; }
+
+        .si-row-bad  { background:#FDECEC; }
+        .si-row-bad  td { color:#C0392B; }
+        .si-row-zero { background:#F5F5F5; color:#888; }
+        .si-qty { width:100%; height:34px; text-align:right; padding:0 6px;
+            border:1px solid #d4d5d7; border-radius:6px; }
+        .si-qty:disabled { background:#f0f0f0; }
+        .si-del { border:none; background:none; color:#999; font-size:16px; cursor:pointer; }
+        .si-del:hover { color:#C0392B; }
+        .si-lot { font-family:monospace; font-size:13px; }
+        .si-tag { display:inline-block; font-size:11px; padding:1px 6px; border-radius:10px;
+            margin-left:4px; background:#eee; color:#666; }
+
+        @media (max-width: 900px) {
+            .si-scan input { font-size:18px; height:52px; }
+            .si-btn { height:52px; }
+            .si-table th, .si-table td { padding:10px 6px; }
+        }
+    </style>
+
+
+    <!-- 수동 불출 · 로트 배분 확인 -->
+    <script type="text/x-tmpl" id="lotConfirmPopup">
+        <div class="content_wrap popup si-root">
+          <div class="si-scroll">
+            <div class="si-head">
+                <div class="si-store"><span id="lcRoute" style="font-weight:700"></span></div>
+                <div class="si-sum"><span id="lcSummary"></span></div>
+            </div>
+            <div class="si-hint">
+                선입선출(FIFO)로 자동 배분했습니다. 실물과 다르면 수량을 고치거나 행을 지우세요.
+            </div>
+            <div class="si-list-wrap" style="max-height:360px">
+                <table class="si-table">
+                    <colgroup>
+                        <col style="width:90px"><col><col style="width:160px">
+                        <col style="width:90px"><col style="width:110px"><col style="width:40px">
+                    </colgroup>
+                    <thead>
+                    <tr><th>품목코드</th><th>품목</th><th>로트</th>
+                        <th class="tar">재고</th><th class="tar">이동량</th><th></th></tr>
+                    </thead>
+                    <tbody id="lcRows"></tbody>
+                </table>
+            </div>
+          </div>
+            <div class="popup-button">
+                <button type="button" class="btn-popup" id="lcCancel">취소</button>
+                <button type="button" class="btn-popup y_write_auth" id="lcOk"
+                        style="background-color:#03428E;color:#fff">불출 확정</button>
+            </div>
+        </div>
+    </script>
 
     <script type="text/x-tmpl" id="matMovePopup">
         <div class="content_wrap popup">
@@ -2509,6 +2957,32 @@
 
             }
 
+            /* 로트 배분 확인 후 불출.
+               기존 moveMaterial() 은 mat_inout 만 남기고 mat_lot 을 안 옮긴다 —
+               그러면 세척·조립이 그 자재를 못 찾는다. 대체 경로다. */
+            previewMove() {
+                const _this = this;
+                if (this.checkMoveValidation() === false) return false;
+
+                const from = this.$cboFrom.val();
+                const to = this.$cboTo.val();
+                const items = [];
+
+                $.each(this.grid.selectedItems, function (idx, item) {
+                    const q = Number(item.move_qty || 0);
+                    if (q > 0) items.push({mat_id: item.mat_id, qty: q});
+                });
+                if (!items.length) { Alert.alert('', '이동수량 변경이 없습니다.'); return false; }
+
+                const c = new LotMoveConfirm(from, to, items, function () {
+                    _this.modalContainer.close();
+                    if (window.page) page.searchDataBind();
+                });
+                c.fromName = this.$cboFrom.find('option:selected').text();
+                c.toName = this.$cboTo.find('option:selected').text();
+                c.open();
+            }
+
             moveMaterial() {
 
                 let _this = this;
@@ -2592,11 +3066,9 @@
                 });
 
                 $btnMoveAction.click(function (e) {
-                    if (_this.checkMoveValidation()) {
-                        Alert.confirm('', '이동하시겠습니까?', function () {
-                            _this.moveMaterial();
-                        });
-                    }
+                    // ★ 기존 moveMaterial() 은 로트를 옮기지 않아 그대로 두고 쓰지 않는다.
+                    //   여기서는 로트 배분 확인 단계를 거친다.
+                    _this.previewMove();
                 });
 
                 this.$cboFrom.on('change', function (e) {
@@ -2615,6 +3087,883 @@
                     AjaxUtil.fillSelectOptions(_this.$cboMaterial, 'material', 'choose', false, '', '', matType);
                 });
 
+            }
+        }
+
+
+
+        /* 이 화면에는 esc / spjangcd 헬퍼가 없어 여기서 정의한다.
+           전역에 이미 있으면 그것을 쓴다. */
+        function esc(s) {
+            if (s === null || s === undefined) return '';
+            return String(s).replace(/[&<>"']/g, function (c) {
+                return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+            });
+        }
+        function SPJ() {
+            if (typeof SPJANGCD !== 'undefined' && SPJANGCD) return SPJANGCD;
+            const el = document.querySelector('[name=spjangcd], #spjangcd');
+            return el ? el.value : '';
+        }
+
+        /* ══════════════════════════════════════════════════════════════
+           바코드 불출 (자재창고 → 생산창고)
+
+           ★ 스캐너와 카메라는 서로 다른 층에서 동작한다
+             · USB/블루투스 스캐너 = 키보드. 입력칸에 그대로 타이핑되고 Enter 가 온다.
+               별도 권한도 드라이버도 없다. PC·태블릿 공통.
+             · 카메라 = BarcodeDetector. 안드로이드 크롬만 지원하므로
+               있을 때만 버튼을 노출한다. 별도 기기 판별을 하지 않는다 —
+               이 조건 하나로 PC/아이패드가 자연히 걸러진다.
+             두 경로 모두 handleScan() 하나로 들어간다.
+
+           ★ 없는 로트도 행으로 깐다
+             알럿을 띄우면 연속 스캔 중 손이 멈춘다. 빨간 행 + 다른 소리로 알린다.
+           ══════════════════════════════════════════════════════════════ */
+        class ScanIssue {
+            constructor() {
+                this.API = '/api/inventory/move_scan';
+                this.rows = [];          // {key, found, mat_lot_id, ...}
+                this.lastScan = '';
+                this.lastAt = 0;
+                this.stream = null;
+                this.timer = null;
+                this.detector = null;
+                this.seq = 0;
+            }
+
+            /* ── GS1-128 파싱 ──────────────────────────────────────
+               (01)GTIN (10)LOT (11)제조일 (17)유효기한 (30)수량.
+               가변길이 AI(10·21 등)는 FNC1(그룹구분자)에서 끊긴다.
+               라벨/스캐너에 따라 GS(0x1D)가 오기도, 안 오기도 한다.  */
+            parseGs1(raw) {
+                const out = {raw: raw, gtin14: '', lot: '', eff: '', qty: null};
+                if (!raw) return out;
+                let s = String(raw).trim();
+
+                // 괄호 표기 (01)08809... 도 받는다
+                const hasParen = s.indexOf('(') >= 0;
+                if (hasParen) {
+                    const re = /\((\d{2,4})\)([^(]*)/g;
+                    let m;
+                    while ((m = re.exec(s)) !== null) this.putAi(out, m[1], m[2]);
+                    return out;
+                }
+
+                // GS 구분자 정규화
+                s = s.replace(/\x1D/g, '\u001D');
+                const FIXED = {'01': 14, '11': 6, '15': 6, '17': 6, '13': 6};
+                let i = 0;
+                let guard = 0;
+                while (i < s.length && guard++ < 40) {
+                    const ai2 = s.substr(i, 2);
+                    if (!/^\d{2}$/.test(ai2)) break;
+                    i += 2;
+                    let val;
+                    if (FIXED[ai2] !== undefined) {
+                        val = s.substr(i, FIXED[ai2]);
+                        i += FIXED[ai2];
+                    } else {
+                        const gs = s.indexOf('\u001D', i);
+                        val = (gs >= 0) ? s.substring(i, gs) : s.substring(i);
+                        i = (gs >= 0) ? gs + 1 : s.length;
+                    }
+                    this.putAi(out, ai2, val);
+                }
+                return out;
+            }
+
+            putAi(out, ai, val) {
+                val = (val || '').replace(/\u001D/g, '').trim();
+                if (ai === '01') out.gtin14 = val;
+                else if (ai === '10') out.lot = val;
+                else if (ai === '17') out.eff = val;
+                else if (ai === '30' || ai === '37') out.qty = parseFloat(val);
+            }
+
+            /* ── 스캔 1건 처리 ────────────────────────────────────── */
+            handleScan(raw) {
+                let val = (raw || '').trim();
+                if (!val) return;
+
+                // 같은 값이 초당 여러 번 잡히는 것을 막는다 (카메라는 프레임마다 인식된다)
+                const now = Date.now();
+                if (val === this.lastScan && now - this.lastAt < 2500) return;
+                this.lastScan = val;
+                this.lastAt = now;
+
+                const p = this.parseGs1(val);
+                const _this = this;
+
+                const data = {
+                    from_store: this.$from.val(),
+                    spjangcd: SPJ(),
+                    raw: val
+                };
+                if (p.gtin14) data.gtin14 = p.gtin14;
+                if (p.lot) data.lot = p.lot;
+
+                AjaxUtil.getAsyncData(this.API + '/lot_lookup', data, function (res) {
+                    const d = (res && res.data) || {};
+                    const lots = d.lots || [];
+                    if (!lots.length) {
+                        _this.addBadRow(p.lot || val);
+                        _this.beep(false);
+                        return;
+                    }
+                    // 같은 로트번호가 창고 안에 여러 행일 수 있다(이전 불출·세척이 쪼갠 흔적).
+                    // 전부 담되 오래된 것부터 — 서버가 이미 InputDateTime ASC 로 준다.
+                    lots.forEach(function (l) { _this.addRow(l); });
+                    _this.beep(true);
+                });
+            }
+
+            addRow(l) {
+                // 이미 담긴 로트면 다시 담지 않는다. 수량은 손으로 고치는 것이 원칙.
+                const dup = this.rows.find(r => r.found && r.mat_lot_id === l.mat_lot_id);
+                if (dup) { this.flashRow(dup.key); return; }
+
+                const stock = Number(l.stock || 0);
+                this.rows.push({
+                    key: 'r' + (++this.seq),
+                    found: true,
+                    mat_lot_id: l.mat_lot_id,
+                    lot_number: l.lot_number,
+                    mat_code: l.mat_code,
+                    mat_name: l.mat_name,
+                    unit_name: l.unit_name || '',
+                    stock: stock,
+                    qty: stock                 // ★ 전량이 기본. 필요하면 손으로 줄인다
+                });
+                this.render();
+            }
+
+            addBadRow(key) {
+                this.rows.push({
+                    key: 'r' + (++this.seq),
+                    found: false,
+                    scan_key: key
+                });
+                this.render();
+            }
+
+            render() {
+                const $tb = this.$content.find('#siRows');
+                if (!this.rows.length) {
+                    $tb.html('<tr class="si-empty"><td colspan="7">스캔한 항목이 여기에 쌓입니다.</td></tr>');
+                    this.updateSummary();
+                    return;
+                }
+                let html = '';
+                this.rows.forEach((r, idx) => {
+                    if (!r.found) {
+                        html += '<tr class="si-row-bad" data-k="' + r.key + '">'
+                            + '<td>' + (idx + 1) + '</td>'
+                            + '<td colspan="3">확인되지 않는 로트 · <span class="si-lot">'
+                            + esc(r.scan_key) + '</span></td>'
+                            + '<td class="tar">—</td>'
+                            + '<td class="tar">—</td>'
+                            + '<td><button type="button" class="si-del" data-del="' + r.key + '">✕</button></td>'
+                            + '</tr>';
+                        return;
+                    }
+                    const zero = r.stock <= 0;
+                    html += '<tr class="' + (zero ? 'si-row-zero' : '') + '" data-k="' + r.key + '">'
+                        + '<td>' + (idx + 1) + '</td>'
+                        + '<td>' + esc(r.mat_code || '') + '</td>'
+                        + '<td>' + esc(r.mat_name || '')
+                        + (zero ? '<span class="si-tag">재고 없음</span>' : '') + '</td>'
+                        + '<td class="si-lot">' + esc(r.lot_number || '') + '</td>'
+                        + '<td class="tar">' + this.num(r.stock) + '</td>'
+                        + '<td class="tar"><input type="number" class="si-qty" data-q="' + r.key + '"'
+                        + ' value="' + r.qty + '" min="0" max="' + r.stock + '"'
+                        + (zero ? ' disabled' : '') + '/></td>'
+                        + '<td><button type="button" class="si-del" data-del="' + r.key + '">✕</button></td>'
+                        + '</tr>';
+                });
+                $tb.html(html);
+                this.updateSummary();
+            }
+
+            updateSummary() {
+                const ok = this.rows.filter(r => r.found && r.qty > 0);
+                const bad = this.rows.filter(r => !r.found).length;
+                const total = ok.reduce((a, r) => a + Number(r.qty || 0), 0);
+                let txt = '스캔 ' + this.rows.length + '건 · 불출 대상 ' + ok.length + '건 / '
+                    + this.num(total) + '개';
+                if (bad) txt += ' · 확인불가 ' + bad + '건';
+                this.$content.find('#siSummary').text(txt);
+            }
+
+            flashRow(key) {
+                const $tr = this.$content.find('[data-k="' + key + '"]');
+                $tr.css('background', '#FFF6D6');
+                setTimeout(() => $tr.css('background', ''), 400);
+            }
+
+            /* ── 소리·진동 ────────────────────────────────────────
+               성공은 짧은 한 번, 실패는 낮게 두 번. 화면을 안 봐도 구분된다. */
+            beep(ok) {
+                try {
+                    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    const play = (freq, at, dur) => {
+                        const o = ctx.createOscillator(), g = ctx.createGain();
+                        o.connect(g); g.connect(ctx.destination);
+                        o.frequency.value = freq;
+                        g.gain.setValueAtTime(0.08, ctx.currentTime + at);
+                        o.start(ctx.currentTime + at);
+                        o.stop(ctx.currentTime + at + dur);
+                    };
+                    if (ok) play(1400, 0, 0.08);
+                    else { play(320, 0, 0.12); play(320, 0.18, 0.12); }
+                } catch (e) { /* 소리는 있으면 좋은 것. 없다고 막지 않는다 */ }
+                if (navigator.vibrate) navigator.vibrate(ok ? 40 : [50, 60, 50]);
+            }
+
+            /* ── 카메라 ──────────────────────────────────────────── */
+            async startCam() {
+                const _this = this;
+                try {
+                    this.detector = new window.BarcodeDetector({
+                        formats: ['code_128', 'code_39', 'ean_13', 'ean_8',
+                            'qr_code', 'data_matrix', 'itf', 'codabar']
+                    });
+                    this.stream = await navigator.mediaDevices.getUserMedia({
+                        video: {facingMode: 'environment', width: {ideal: 1280}}
+                    });
+                    const v = this.$content.find('#siVideo')[0];
+                    v.srcObject = this.stream;
+                    await v.play();
+                    this.$content.find('#siVideoBox').show();
+
+                    this.timer = setInterval(async function () {
+                        if (!_this.detector || v.readyState < 2) return;
+                        try {
+                            const codes = await _this.detector.detect(v);
+                            if (codes && codes.length) {
+                                _this.$content.find('#siVMsg').text('인식: ' + codes[0].rawValue);
+                                _this.handleScan(codes[0].rawValue);
+                            }
+                        } catch (e) { /* 프레임 하나 실패는 무시 */ }
+                    }, 220);
+                } catch (e) {
+                    Alert.alert('카메라', '카메라를 열 수 없습니다. 권한과 HTTPS 접속을 확인하세요.');
+                    this.stopCam();
+                }
+            }
+
+            stopCam() {
+                if (this.timer) { clearInterval(this.timer); this.timer = null; }
+                if (this.stream) {
+                    this.stream.getTracks().forEach(t => t.stop());
+                    this.stream = null;
+                }
+                this.detector = null;
+                if (this.$content) this.$content.find('#siVideoBox').hide();
+            }
+
+            /* ── 불출 ────────────────────────────────────────────── */
+            submit() {
+                const _this = this;
+                const lines = this.rows
+                    .filter(r => r.found && Number(r.qty) > 0)
+                    .map(r => ({mat_lot_id: r.mat_lot_id, qty: Number(r.qty)}));
+
+                if (!lines.length) { Alert.alert('', '불출할 항목이 없습니다.'); return; }
+
+                const from = this.$from.val(), to = this.$to.val();
+                if (!from || !to) { Alert.alert('', '창고를 선택하세요.'); return; }
+                if (from === to) { Alert.alert('', '출발창고와 도착창고가 같습니다.'); return; }
+
+                const bad = this.rows.filter(r => !r.found).length;
+                const total = lines.reduce((a, l) => a + l.qty, 0);
+                let msg = lines.length + '건 · 총 ' + this.num(total) + '개를 불출합니다.';
+                if (bad) msg += '\n확인불가 ' + bad + '건은 제외됩니다.';
+
+                Alert.confirm('', msg, function () {
+                    /* ★ 서버가 @RequestBody(JSON) 로 받으므로 postJsonData 를 쓴다.
+                         CSRF 토큰 · Content-Type · JSON.stringify · 로딩 표시를 유틸이 처리한다.
+                         $.ajax 를 직접 부르면 CSRF 헤더가 빠져 403 이 나고,
+                         화면에는 「통신 오류」한 줄만 떠서 원인을 찾기 어렵다. */
+                    AjaxUtil.postJsonData(_this.API + '/move', {
+                        from_store: Number(from),
+                        to_store: Number(to),
+                        description: '바코드 불출',
+                        spjangcd: SPJ(),
+                        lines: lines
+                    }, function (res) {
+                        if (!res || !res.success) {
+                            Alert.alert('', (res && res.message) || '불출에 실패했습니다.');
+                            return;
+                        }
+                        Notify.success('불출 완료 · ' + (res.data && res.data.move_no || ''));
+                        _this.rows = [];
+                        _this.render();
+                        if (window.page) page.searchDataBind();
+                    });
+                });
+            }
+
+            num(v) {
+                const n = Number(v || 0);
+                return (n % 1 === 0) ? n.toLocaleString() : n.toLocaleString(undefined, {maximumFractionDigits: 3});
+            }
+
+            /* ── 열기 ────────────────────────────────────────────── */
+            open() {
+                const _this = this;
+                const $content = $(tmpl('scanIssuePopup', {}));
+                this.$content = $content;
+
+                this.modal = new PopupDraggable('바코드 불출 (자재창고 → 생산창고)');
+                const sz = TabletUtil.size(900, 640);
+                this.modal.open({width: sz.width, height: sz.height, $content});
+
+                this.$from = $content.find('#siFrom');
+                this.$to = $content.find('#siTo');
+                AjaxUtil.fillSelectOptions(this.$from, 'store_house', '', false);
+                AjaxUtil.fillSelectOptions(this.$to, 'store_house', '', false);
+                // 자재창고(3) → 생산창고(17). 옵션에 없으면 조용히 첫 값이 남는다.
+                this.$from.val('3');
+                this.$to.val('17');
+
+                // 카메라는 지원될 때만 노출 — 이 조건 하나로 PC·아이패드가 걸러진다
+                if (window.BarcodeDetector && navigator.mediaDevices
+                    && navigator.mediaDevices.getUserMedia) {
+                    $content.find('#siCam').show();
+                } else {
+                    $content.find('#siHint').text(
+                        '스캐너는 입력칸에 그대로 들어옵니다. (이 기기에서는 카메라 스캔이 지원되지 않습니다)');
+                }
+
+                const $input = $content.find('#siInput');
+                setTimeout(() => $input.focus(), 100);
+
+                // 스캐너는 값 끝에 Enter 를 보낸다
+                $input.on('keydown', function (e) {
+                    if (e.key === 'Enter' || e.keyCode === 13) {
+                        e.preventDefault();
+                        _this.handleScan($input.val());
+                        $input.val('').focus();
+                    }
+                });
+                $content.find('#siAdd').on('click', function () {
+                    _this.handleScan($input.val());
+                    $input.val('').focus();
+                });
+
+                $content.find('#siCam').on('click', function () { _this.startCam(); });
+                $content.find('#siCamStop').on('click', function () { _this.stopCam(); });
+
+                // 이동량 수정
+                $content.on('change input', '[data-q]', function () {
+                    const r = _this.rows.find(x => x.key === this.dataset.q);
+                    if (!r) return;
+                    let v = Number(this.value || 0);
+                    if (v < 0) v = 0;
+                    if (v > r.stock) { v = r.stock; this.value = v; }   // 재고 초과 금지
+                    r.qty = v;
+                    _this.updateSummary();
+                });
+
+                // 행 삭제 — 잘못 찍은 것을 되돌리는 유일한 수단
+                $content.on('click', '[data-del]', function () {
+                    _this.rows = _this.rows.filter(x => x.key !== this.dataset.del);
+                    _this.render();
+                });
+
+                $content.find('#siClear').on('click', function () {
+                    if (!_this.rows.length) return;
+                    Alert.confirm('', '스캔 목록을 모두 지웁니다.', function () {
+                        _this.rows = []; _this.render();
+                    });
+                });
+
+                $content.find('#siSubmit').on('click', function () { _this.submit(); });
+                $content.find('#siClose').on('click', function () {
+                    _this.stopCam();
+                    _this.modal.close();
+                });
+
+                // 창고를 바꾸면 이미 담긴 로트는 의미가 달라진다
+                this.$from.on('change', function () {
+                    if (!_this.rows.length) return;
+                    Alert.confirm('', '출발창고를 바꾸면 스캔 목록이 초기화됩니다.', function () {
+                        _this.rows = []; _this.render();
+                    });
+                });
+            }
+        }
+
+        /* ── 바코드 불출 이력 · 취소 ──────────────────────────────── */
+        class ScanIssueHistory {
+            constructor() { this.API = '/api/inventory/move_scan'; }
+
+            open() {
+                const _this = this;
+                const $content = $(tmpl('scanHistPopup', {}));
+                this.$content = $content;
+                this.modal = new PopupDraggable('바코드 불출 이력');
+                const sz = TabletUtil.size(900, 520);
+                this.modal.open({width: sz.width, height: sz.height, $content});
+
+                $content.find('#shFrom').val(CommonUtil.getYYYYMMDD(-7));
+                $content.find('#shTo').val(CommonUtil.getYYYYMMDD());
+                $content.find('#shSearch').on('click', function () { _this.load(); });
+                $content.find('#shClose').on('click', function () { _this.modal.close(); });
+
+                $content.on('click', '[data-cancel]', function () {
+                    const id = this.dataset.cancel;
+                    Alert.confirm('불출 취소',
+                        '이 불출을 취소하고 재고를 되돌립니다.\n\n' +
+                        '★ 이미 세척·생산에 쓰인 로트가 있으면 취소되지 않습니다.',
+                        function () {
+                            AjaxUtil.postAsyncData(_this.API + '/cancel', {move_id: id}, function (res) {
+                                if (!res || !res.success) {
+                                    Alert.alert('취소 불가', (res && res.message) || '오류가 발생했습니다.');
+                                    return;
+                                }
+                                Notify.success('취소되었습니다');
+                                _this.load();
+                                if (window.page) page.searchDataBind();
+                            });
+                        });
+                });
+
+                this.load();
+            }
+
+            load() {
+                const _this = this;
+                const $c = this.$content;
+                AjaxUtil.getAsyncData(this.API + '/history', {
+                    date_from: $c.find('#shFrom').val(),
+                    date_to: $c.find('#shTo').val(),
+                    spjangcd: SPJ()
+                }, function (res) {
+                    const rows = (res && res.data) || [];
+                    if (!rows.length) {
+                        $c.find('#shRows').html(
+                            '<tr class="si-empty"><td colspan="7">불출 이력이 없습니다.</td></tr>');
+                        return;
+                    }
+                    let html = '';
+                    rows.forEach(function (r) {
+                        const canceled = r.state === 'canceled';
+                        html += '<tr' + (canceled ? ' class="si-row-zero"' : '') + '>'
+                            + '<td class="si-lot">' + esc(r.move_no || '') + '</td>'
+                            + '<td>' + (r.move_date || '') + ' ' + String(r.move_time || '').substring(0, 5) + '</td>'
+                            + '<td>' + esc(r.from_store || '') + ' → '
+                            + esc(r.to_store || '') + '</td>'
+                            + '<td class="tar">' + (r.line_cnt || 0) + '</td>'
+                            + '<td class="tar">' + Number(r.total_qty || 0).toLocaleString() + '</td>'
+                            + '<td>' + esc(r.worker || '') + '</td>'
+                            + '<td>' + (canceled
+                                ? '<span class="si-tag">취소됨</span>'
+                                : '<button type="button" class="si-del" data-cancel="' + r.move_id
+                                + '" title="취소">↩</button>')
+                            + '</td></tr>';
+                    });
+                    $c.find('#shRows').html(html);
+                });
+            }
+        }
+
+
+
+        /* ── 수동 불출 · 로트 배분 확인 ────────────────────────────
+           품목·수량만 받아 서버가 FIFO 로 로트를 배분하고, 그 결과를 확인시킨다.
+
+           ★ 왜 확인 단계가 필요한가
+             로트를 안 옮기면 세척·조립이 그 자재를 못 찾는다(mat_lot.StoreHouse_id 기준).
+             그렇다고 조용히 FIFO 로 옮기면, 나중에 작업자가 실물 바코드를 찍었을 때
+             "재고 0" 으로 뜬다 — 시스템이 이미 그 로트를 대신 빼갔기 때문이다.
+             그래서 무엇이 나가는지 보여주고, 다르면 고칠 수 있게 한다.            */
+        class LotMoveConfirm {
+            constructor(from, to, items, onDone) {
+                this.API = '/api/inventory/move_scan';
+                this.from = from;
+                this.to = to;
+                this.items = items;          // [{mat_id, qty}]
+                this.onDone = onDone;
+                this.rows = [];
+                this.seq = 0;
+            }
+
+            open() {
+                const _this = this;
+                AjaxUtil.postJsonData(this.API + '/preview', {
+                    from_store: Number(this.from),
+                    spjangcd: SPJ(),
+                    items: this.items
+                }, function (res) {
+                    if (!res || !res.success) {
+                        Alert.alert('', (res && res.message) || '배분에 실패했습니다.');
+                        return;
+                    }
+                    _this.build(res.data || []);
+                    if (!_this.rows.length) {
+                        Alert.alert('', '출발창고에 배분할 로트 재고가 없습니다.');
+                        return;
+                    }
+                    _this.render();
+                });
+            }
+
+            build(data) {
+                const _this = this;
+                this.rows = [];
+                this.shortages = [];
+                data.forEach(function (m) {
+                    if (Number(m.shortage || 0) > 0) {
+                        _this.shortages.push({
+                            name: m.mat_name || ('품목 ' + m.mat_id),
+                            qty: Number(m.shortage)
+                        });
+                    }
+                    (m.lots || []).forEach(function (l) {
+                        _this.rows.push({
+                            key: 'l' + (++_this.seq),
+                            mat_lot_id: l.mat_lot_id,
+                            lot_number: l.lot_number,
+                            mat_code: m.mat_code || l.mat_code,
+                            mat_name: m.mat_name || l.mat_name,
+                            stock: Number(l.stock || 0),
+                            qty: Number(l.qty || 0)
+                        });
+                    });
+                });
+            }
+
+            render() {
+                const _this = this;
+                const $content = $(tmpl('lotConfirmPopup', {}));
+                this.$content = $content;
+                this.modal = new PopupDraggable('불출 · 로트 배분 확인');
+                const sz = TabletUtil.size(860, 560);
+                this.modal.open({width: sz.width, height: sz.height, $content});
+
+                $content.find('#lcRoute').text(
+                    (this.fromName || '출발') + ' → ' + (this.toName || '도착'));
+
+                this.draw();
+
+                $content.on('change input', '[data-q]', function () {
+                    const r = _this.rows.find(x => x.key === this.dataset.q);
+                    if (!r) return;
+                    let v = Number(this.value || 0);
+                    if (v < 0) v = 0;
+                    if (v > r.stock) { v = r.stock; this.value = v; }
+                    r.qty = v;
+                    _this.sum();
+                });
+                $content.on('click', '[data-del]', function () {
+                    _this.rows = _this.rows.filter(x => x.key !== this.dataset.del);
+                    _this.draw();
+                });
+                $content.find('#lcCancel').on('click', function () { _this.modal.close(); });
+                $content.find('#lcOk').on('click', function () { _this.submit(); });
+            }
+
+            draw() {
+                let html = '';
+                if (!this.rows.length) {
+                    html = '<tr class="si-empty"><td colspan="6">배분된 로트가 없습니다.</td></tr>';
+                } else {
+                    this.rows.forEach(r => {
+                        html += '<tr data-k="' + r.key + '">'
+                            + '<td>' + esc(r.mat_code || '') + '</td>'
+                            + '<td>' + esc(r.mat_name || '') + '</td>'
+                            + '<td class="si-lot">' + esc(r.lot_number || '') + '</td>'
+                            + '<td class="tar">' + Number(r.stock).toLocaleString() + '</td>'
+                            + '<td class="tar"><input type="number" class="si-qty" data-q="' + r.key
+                            + '" value="' + r.qty + '" min="0" max="' + r.stock + '"/></td>'
+                            + '<td><button type="button" class="si-del" data-del="' + r.key + '">✕</button></td>'
+                            + '</tr>';
+                    });
+                }
+                this.$content.find('#lcRows').html(html);
+                this.sum();
+            }
+
+            sum() {
+                const ok = this.rows.filter(r => r.qty > 0);
+                const total = ok.reduce((a, r) => a + Number(r.qty || 0), 0);
+                let txt = '로트 ' + ok.length + '건 / ' + total.toLocaleString() + '개';
+                if (this.shortages && this.shortages.length) {
+                    txt += ' · 재고부족 ' + this.shortages.length + '품목';
+                }
+                const $s = this.$content.find('#lcSummary');
+                $s.text(txt);
+                $s.css('color', (this.shortages && this.shortages.length) ? '#C0392B' : '#03428E');
+            }
+
+            submit() {
+                const _this = this;
+                const lines = this.rows.filter(r => Number(r.qty) > 0)
+                    .map(r => ({mat_lot_id: r.mat_lot_id, qty: Number(r.qty)}));
+                if (!lines.length) { Alert.alert('', '이동할 로트가 없습니다.'); return; }
+
+                const total = lines.reduce((a, l) => a + l.qty, 0);
+                let msg = '로트 ' + lines.length + '건 · 총 ' + total.toLocaleString() + '개를 불출합니다.';
+                if (this.shortages && this.shortages.length) {
+                    msg += '\n\n★ 재고가 모자란 품목이 있습니다:\n'
+                        + this.shortages.map(s => ' · ' + s.name + ' ' + s.qty + '개 부족').join('\n');
+                }
+
+                Alert.confirm('', msg, function () {
+                    AjaxUtil.postJsonData(_this.API + '/move', {
+                        from_store: Number(_this.from),
+                        to_store: Number(_this.to),
+                        description: '수동 불출',
+                        spjangcd: SPJ(),
+                        lines: lines
+                    }, function (res) {
+                        if (!res || !res.success) {
+                            Alert.alert('', (res && res.message) || '불출에 실패했습니다.');
+                            return;
+                        }
+                        Notify.success('불출 완료 · ' + (res.data && res.data.move_no || ''));
+                        _this.modal.close();
+                        if (typeof _this.onDone === 'function') _this.onDone();
+                    });
+                });
+            }
+        }
+
+
+
+        /* ══════════════════════════════════════════════════════════════
+           불출 등록 = 창고 이동 (출발 → 도착)
+
+           ★ 기존 addDataPopup 은 mat_inout out 한 줄만 남긴다.
+             그건 "불출" 이 아니라 재고를 없애는 것이다. 받는 창고가 없고
+             mat_lot 도 안 옮겨서, 옮긴 자재를 세척·조립이 찾지 못한다.
+             그래서 이 화면은 출발/도착 두 창고를 받고 로트를 실제로 옮긴다.
+
+           ★ 수량을 먼저 받지 않는다
+             품목을 고르면 출발창고의 로트 재고가 펼쳐진다. 거기서 꺼낼 만큼
+             적으면 그게 곧 수량이다. 총량을 받아 서버가 FIFO 로 쪼개면
+             장부가 집은 로트와 작업자가 든 상자가 달라질 수 있다.
+           ══════════════════════════════════════════════════════════════ */
+        class IssueRegister {
+            constructor() {
+                this.API = '/api/inventory/move_scan';
+                this.rows = [];      // 담긴 로트들
+                this.lots = [];      // 현재 조회된 로트 재고
+                this.seq = 0;
+            }
+
+            open() {
+                const _this = this;
+                const $content = $(tmpl('issueRegPopup', {}));
+                this.$content = $content;
+
+                this.modal = new PopupDraggable('불출 등록');
+                const sz = TabletUtil.size(880, 720);
+                this.modal.open({width: sz.width, height: sz.height, $content: $content});
+
+                $content.find('#irDate').val(new Date().toISOString().substring(0, 10));
+
+                this.$from = $content.find('#irFrom');
+                this.$to = $content.find('#irTo');
+                AjaxUtil.fillSelectOptions(this.$from, 'store_house', '', false);
+                AjaxUtil.fillSelectOptions(this.$to, 'store_house', '', false);
+                this.$from.val('3');    // 자재창고
+                this.$to.val('17');     // 생산창고
+
+                // 품목조회 — 기존 화면과 같은 팝업을 그대로 쓴다
+                $content.find('#irMatBtn').on('click', function () {
+                    const cb = function (items) {
+                        $content.find('#irMatId').val(items.id);
+                        $content.find('#irMatName').val(items.Name);
+                        _this.loadLots();
+                    };
+                    new PopupMaterialPage('single').show(cb);
+                });
+
+                // 출발창고를 바꾸면 지금 펼쳐둔 로트도, 담아둔 것도 의미가 달라진다
+                this.$from.on('change', function () {
+                    if (_this.rows.length) {
+                        Alert.confirm('', '불출창고를 바꾸면 담은 목록이 초기화됩니다.', function () {
+                            _this.rows = [];
+                            _this.render();
+                            _this.loadLots();
+                        }, function () {
+                            // 취소하면 되돌린다
+                            _this.$from.val(_this.lastFrom || '3');
+                        });
+                    } else {
+                        _this.loadLots();
+                    }
+                    _this.lastFrom = _this.$from.val();
+                });
+                this.lastFrom = this.$from.val();
+
+                $content.find('#irAdd').on('click', function () { _this.addPicked(); });
+                // ★ 담은 행을 빼면 로트 목록의 「잔여」가 그만큼 다시 늘어야 한다.
+                //   drawLots 가 rows 를 기준으로 잔여를 계산하므로 같이 그려준다.
+                $content.on('click', '[data-irdel]', function () {
+                    _this.rows = _this.rows.filter(x => x.key !== this.dataset.irdel);
+                    _this.render();
+                    if (_this.lots.length) _this.drawLots();
+                });
+
+                // 로트 전체선택
+                $content.on('change', '#irLotAll', function () {
+                    $content.find('.ir-chk:not(:disabled)').prop('checked', this.checked);
+                });
+                // 수량을 적으면 그 줄은 자동으로 체크
+                $content.on('input', '[data-lotq]', function () {
+                    const on = Number(this.value || 0) > 0;
+                    $content.find('.ir-chk[data-lot="' + this.dataset.lotq + '"]').prop('checked', on);
+                });
+                $content.find('#irClose').on('click', function () { _this.modal.close(); });
+                $content.find('#irSave').on('click', function () { _this.save(); });
+
+                this.render();
+            }
+
+            /* 선택 품목의 출발창고 로트 재고 */
+            loadLots() {
+                const _this = this;
+                const matId = this.$content.find('#irMatId').val();
+                const storeId = this.$from.val();
+                if (!matId || !storeId) return;
+
+                AjaxUtil.getAsyncData(this.API + '/lots', {
+                    mat_id: matId, store_id: storeId, spjangcd: SPJ()
+                }, function (res) {
+                    _this.lots = (res && res.data) || [];
+                    _this.drawLots();
+                });
+            }
+
+            drawLots() {
+                const $box = this.$content.find('#irLotBox');
+                const matName = this.$content.find('#irMatName').val();
+
+                if (!this.lots.length) {
+                    $box.show();
+                    this.$content.find('#irLotTitle').text(matName + ' — 로트 재고 없음');
+                    this.$content.find('#irLotRows').html(
+                        '<tr class="si-empty"><td colspan="4">이 창고에 재고가 있는 로트가 없습니다.</td></tr>');
+                    return;
+                }
+
+                let html = '';
+                this.lots.forEach((l) => {
+                    // ★ 이미 담은 만큼을 뺀 「잔여」를 보여준다.
+                    //   담은 행을 지우면 rows 에서 빠지므로 이 값이 자동으로 다시 늘어난다.
+                    const used = this.rows.filter(r => Number(r.mat_lot_id) === Number(l.mat_lot_id))
+                        .reduce((a, r) => a + Number(r.qty || 0), 0);
+                    const left = Number(l.stock || 0) - used;
+                    const dis = left <= 0;
+                    html += '<tr' + (dis ? ' class="si-row-zero"' : '') + '>'
+                        + '<td><input type="checkbox" class="ir-chk" data-lot="' + l.mat_lot_id + '"'
+                        + (dis ? ' disabled' : '') + '/></td>'
+                        + '<td class="si-lot">' + esc(l.lot_number || '')
+                        + (l.effective_date ? '<span class="si-tag">~' + String(l.effective_date).substring(0, 10) + '</span>' : '')
+                        + '</td>'
+                        + '<td class="tar">' + Number(left).toLocaleString() + '</td>'
+                        + '<td class="tar"><input type="number" class="si-qty" data-lotq="'
+                        + l.mat_lot_id + '" min="0" max="' + left + '" value="'
+                        + (left > 0 ? left : 0) + '"' + (dis ? ' disabled' : '') + '/></td>'
+                        + '</tr>';
+                });
+                this.$content.find('#irLotTitle').text(matName + ' — 로트 재고');
+                this.$content.find('#irLotRows').html(html);
+                this.$content.find('#irLotAll').prop('checked', false);
+                $box.show();
+            }
+
+            /* 체크한 로트를 아래 목록으로 담는다 */
+            addPicked() {
+                const _this = this;
+                const matId = this.$content.find('#irMatId').val();
+                if (!matId) { Alert.alert('', '품목을 먼저 조회하세요.'); return; }
+
+                const $chk = this.$content.find('.ir-chk:checked');
+                if (!$chk.length) { Alert.alert('', '담을 로트를 선택하세요.'); return; }
+
+                let added = 0, skipped = 0;
+                $chk.each(function () {
+                    const lotId = Number(this.dataset.lot);
+                    const q = Number(_this.$content.find('[data-lotq="' + lotId + '"]').val() || 0);
+                    if (q <= 0) { skipped++; return; }
+
+                    const lot = _this.lots.find(x => Number(x.mat_lot_id) === lotId);
+                    if (!lot) return;
+
+                    _this.rows.push({
+                        key: 'i' + (++_this.seq),
+                        mat_lot_id: lotId,
+                        lot_number: lot.lot_number,
+                        mat_code: lot.mat_code,
+                        mat_name: lot.mat_name,
+                        qty: q
+                    });
+                    added++;
+                });
+
+                if (!added) { Alert.alert('', '담을 수량이 0 입니다.'); return; }
+                this.render();
+                this.drawLots();     // 잔여 재계산
+                if (skipped) Notify.success(added + '건 담김 (수량 0 인 ' + skipped + '건 제외)');
+            }
+
+            render() {
+                const $tb = this.$content.find('#irRows');
+                if (!this.rows.length) {
+                    $tb.html('<tr class="si-empty"><td colspan="6">품목을 고르고 로트별 수량을 담으세요.</td></tr>');
+                    return;
+                }
+                let html = '';
+                this.rows.forEach((r, i) => {
+                    html += '<tr>'
+                        + '<td>' + (i + 1) + '</td>'
+                        + '<td>' + esc(r.mat_code || '') + '</td>'
+                        + '<td>' + esc(r.mat_name || '') + '</td>'
+                        + '<td class="si-lot">' + esc(r.lot_number || '') + '</td>'
+                        + '<td class="tar">' + Number(r.qty).toLocaleString() + '</td>'
+                        + '<td><button type="button" class="si-del" data-irdel="' + r.key + '">✕</button></td>'
+                        + '</tr>';
+                });
+                $tb.html(html);
+            }
+
+            save() {
+                const _this = this;
+                if (!this.rows.length) { Alert.alert('', '불출할 항목이 없습니다.'); return; }
+
+                const from = this.$from.val(), to = this.$to.val();
+                if (!from || !to) { Alert.alert('', '창고를 선택하세요.'); return; }
+                if (from === to) { Alert.alert('', '불출창고와 입고창고가 같습니다.'); return; }
+
+                const total = this.rows.reduce((a, r) => a + Number(r.qty || 0), 0);
+                const fromName = this.$from.find('option:selected').text();
+                const toName = this.$to.find('option:selected').text();
+
+                Alert.confirm('',
+                    fromName + ' → ' + toName + '\n로트 ' + this.rows.length + '건 · 총 '
+                    + total.toLocaleString() + '개를 불출합니다.',
+                    function () {
+                        AjaxUtil.postJsonData(_this.API + '/move', {
+                            from_store: Number(from),
+                            to_store: Number(to),
+                            description: _this.$content.find('#irDesc').val() || '불출 등록',
+                            spjangcd: SPJ(),
+                            lines: _this.rows.map(r => ({mat_lot_id: r.mat_lot_id, qty: Number(r.qty)}))
+                        }, function (res) {
+                            if (!res || !res.success) {
+                                Alert.alert('', (res && res.message) || '불출에 실패했습니다.');
+                                return;
+                            }
+                            Notify.success('불출 완료 · ' + (res.data && res.data.move_no || ''));
+                            _this.modal.close();
+                            if (window.page) page.searchDataBind();
+                        });
+                    });
             }
         }
 
@@ -2645,9 +3994,11 @@
             $('#searchForm').find('#cboHouse').change(function (e) {
                 page.searchDataBind();
             });
-            // 미발주 입고
+            // 불출 등록 (창고 이동)
+            // ★ 기존 page.addDataPopup() 은 mat_inout out 한 줄만 남기고 로트를 안 옮긴다.
+            //   메서드는 지우지 않고 두되, 이 버튼은 이동 개념 화면으로 연결한다.
             $('#btnInput').on('click', function () {
-                page.addDataPopup();
+                new IssueRegister().open();
             });
 
             // 입고 반품
@@ -2661,6 +4012,16 @@
             // 발주입고
             $('#btnBaljuInput').on('click', function () {
                 page.showBaljuInputPopup();
+            });
+
+            // 바코드 불출
+            $('#btnScanIssue').on('click', function () {
+                new ScanIssue().open();
+            });
+
+            // 바코드 불출 이력 (취소)
+            $('#btnScanHist').on('click', function () {
+                new ScanIssueHistory().open();
             });
 
             // 품목 창고이동 팝업 생성

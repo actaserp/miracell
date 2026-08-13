@@ -78,11 +78,18 @@ public class McellRepairController {
         return r;
     }
 
-    /** 사양변경 대상 품목 후보 */
+    /**
+     * 품목 후보.
+     *   scope=spec (기본) : 사양변경 대상 — 검사 대상 반제품만
+     *   scope=src         : 미등록 로트의 원품목 — 완제품 포함
+     *                       (외부 생산분이 박스째 반품될 때 사람이 지정한다)
+     */
     @GetMapping("/target_materials")
-    public AjaxResult targetMaterials(@RequestParam(value = "keyword", required = false) String keyword) {
+    public AjaxResult targetMaterials(
+            @RequestParam(value = "keyword", required = false) String keyword,
+            @RequestParam(value = "scope", defaultValue = "spec") String scope) {
         AjaxResult r = new AjaxResult();
-        r.data = this.mcellRepairService.getTargetMaterials(keyword);
+        r.data = this.mcellRepairService.getTargetMaterials(keyword, scope);
         return r;
     }
 
