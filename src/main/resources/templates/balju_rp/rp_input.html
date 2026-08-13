@@ -157,6 +157,140 @@
         body.tablet-mode .search-flex-row { flex-wrap: wrap; }
         body.tablet-mode .search-wrap { flex-wrap: wrap; gap: 8px; }
 
+        /* ══ 카메라 바코드 스캔 ═════════════════════════════════════
+           HID 스캐너(DS2278)가 없는 자리 — 태블릿·폰 내장 카메라로 찍는다.
+           인식값은 #scanBarcode 와 «완전히 같은 경로»(handlePoScan /
+           handleItemScan)로 흘려보낸다. 여기서 따로 처리를 만들면
+           규칙이 두 벌이 되어 한쪽만 고쳤을 때 조용히 갈라진다. */
+        .camscan {
+            margin-top: 8px;
+            border: 1px solid #E5E7EC;
+            border-radius: 8px;
+            padding: 10px;
+            background: #FAFBFC;
+        }
+
+        .camscan-head {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .camscan-head .cam-hint {
+            margin-right: auto;
+            font-weight: 400;
+            font-size: 12px;
+            color: #888;
+        }
+
+        .camscan-body {
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+        }
+
+        .camwrap {
+            position: relative;
+            flex: 0 0 320px;
+            background: #0d1417;
+            border-radius: 8px;
+            overflow: hidden;
+            aspect-ratio: 4 / 3;
+        }
+
+        .camwrap video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .camwrap .camframe {
+            position: absolute;
+            inset: 14% 8%;
+            border: 3px solid rgba(255, 255, 255, .85);
+            border-radius: 8px;
+            box-shadow: 0 0 0 100vmax rgba(0, 0, 0, .25);
+        }
+
+        .camwrap .camframe.hit {
+            border-color: #31C48D;
+        }
+
+        .camwrap .cammsg {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            padding: 8px 10px;
+            background: rgba(13, 20, 23, .72);
+            color: #fff;
+            font-size: 13px;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        .camlist {
+            flex: 1;
+            min-width: 0;
+            max-height: 240px;
+            overflow: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .camrow {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            padding: 8px 10px;
+            border: 1px solid #E5E7EC;
+            border-radius: 6px;
+            background: #fff;
+        }
+
+        .camrow.ok {
+            border-color: #31C48D;
+            background: #F3FAF7;
+        }
+
+        .camrow.err {
+            border-color: #E02424;
+            background: #FDF2F2;
+        }
+
+        .camrow .cm-t {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .camrow .cm-n {
+            font-size: 13px;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .camrow .cm-c {
+            font-size: 11px;
+            color: #888;
+            word-break: break-all;
+        }
+
+        body.tablet-mode .camwrap { flex: 0 0 40vw; }
+        body.tablet-mode .camlist { max-height: 30vh; }
+
+        /* 팝업이 좁아지면 영상 아래로 로그가 내려간다 */
+        @media (max-width: 900px) {
+            .camscan-body { flex-direction: column; }
+            .camwrap { flex: 0 0 auto; width: 100%; }
+            .camlist { width: 100%; max-height: 26vh; }
+        }
+
     </style>
     <style id="print_css">
         @media print {
@@ -1291,11 +1425,31 @@
                     <input type="text" id="scanBarcode" name="scanBarcode" autocomplete="off"
                            placeholder="이 칸에 커서를 두고 스캐너로 스캔하세요"
                            style="flex:1; height:38px; font-size:16px; padding:0 10px; border:2px solid #03428E; border-radius:4px;"/>
+                    <button type="button" class="btn" id="btnCamScan">📷 카메라 스캔</button>
                     <button type="button" class="btn" id="btnScanClear">초기화</button>
                 </div>
             </div>
             <div style="margin-top:4px; color:#888; font-size:12px;">
                 연속 스캔 가능 · 동일 로트는 수량이 합산됩니다 · 미등록 GTIN은 빨간색으로 표시됩니다
+                <br/>스캐너가 없으면 「카메라 스캔」으로 찍습니다 · 발주(PO)를 먼저 찍고 제품을 찍습니다
+            </div>
+
+            <!-- 카메라 연속 스캔 : 세척 공정 화면과 같은 방식(BarcodeDetector) -->
+            <div class="camscan" id="camScanBox" style="display:none;">
+                <div class="camscan-head">
+                    <span>카메라 스캔</span>
+                    <span class="cam-hint">비추면 바로 담깁니다 · 확인 버튼 없음</span>
+                    <button type="button" class="btn" id="btnCamLogClear">기록 지우기</button>
+                    <button type="button" class="btn" id="btnCamClose">카메라 끄기</button>
+                </div>
+                <div class="camscan-body">
+                    <div class="camwrap" id="camWrap">
+                        <video id="camVideo" playsinline muted></video>
+                        <div class="camframe" id="camFrame"></div>
+                        <div class="cammsg" id="camMsg">카메라 준비 중…</div>
+                    </div>
+                    <div class="camlist" id="camList"></div>
+                </div>
             </div>
 
             <div class="grid_box" style="margin-top:8px;">
@@ -2213,6 +2367,16 @@
                             isReadOnly: true
                         },
                         {binding: 'SujuQty2', header: '기입고 수량', width: 90, align: 'right', isReadOnly: true},
+                        // 가입고중 = 수입검사 대기분. 잔량에서 이미 빠져 있으므로
+                        // 「발주수량은 남았는데 입고수량이 0으로 뜬다」의 답이 이 칸이다.
+                        {
+                            binding: 'PendingQty',
+                            header: '가입고중',
+                            width: 80,
+                            align: 'right',
+                            format: 'n0',
+                            isReadOnly: true
+                        },
                         {binding: 'DueDate', header: '납기예정일', width: 100, align: 'center', isReadOnly: true},
                         {
                             binding: 'StoreHouse_id',
@@ -2237,6 +2401,20 @@
                     itemsSource: new wijmo.collections.CollectionView([]),
                 });
                 let selector = null;
+
+                /* 미입고 잔량 = 발주 - 기입고 - 가입고중.
+                   ★ 이 계산은 반드시 한 곳에서만 한다.
+                     예전에는 beginningEdit 와 체크박스 핸들러에 같은 식이 두 벌 있었고,
+                     한쪽만 고치면 「직접 클릭하면 맞는데 체크박스로 고르면 옛 값이 들어가는」
+                     상태가 된다. */
+                const fnRemainQty = function (item) {
+                    if (!item) return 0;
+                    const suju = parseFloat(item.SujuQty) || 0;
+                    const already = parseFloat(item.SujuQty2) || 0;
+                    const pending = parseFloat(item.PendingQty) || 0;
+                    return Math.max(suju - already - pending, 0);
+                };
+
                 this.baljuInputGrid.beginningEdit.addHandler((s, e) => {
                     let col = s.columns[e.col];
                     let row = e.row;
@@ -2246,13 +2424,7 @@
 
                         // 현재 값이 null, undefined, 빈 문자열일 때만 수행
                         if (currentValue === null || currentValue === undefined || currentValue === '') {
-                            let sujuQty = s.getCellData(row, s.columns.getColumn('SujuQty').index, false);
-                            let sujuQty2 = s.getCellData(row, s.columns.getColumn('SujuQty2').index, false);
-
-                            sujuQty = parseFloat(sujuQty) || 0;
-                            sujuQty2 = parseFloat(sujuQty2) || 0;
-
-                            s.setCellData(row, col.index, sujuQty - sujuQty2);
+                            s.setCellData(row, col.index, fnRemainQty(s.rows[row]?.dataItem));
                         }
                     }
                 });
@@ -2266,9 +2438,7 @@
 
                             items.forEach(item => {
                                 if ((!item.inputQty || item.inputQty === '') && item.SujuQty) {
-                                    let sujuQty = parseFloat(item.SujuQty) || 0;
-                                    let sujuQty2 = parseFloat(item.SujuQty2) || 0;
-                                    item.inputQty = sujuQty - sujuQty2;
+                                    item.inputQty = fnRemainQty(item);
                                 }
                             });
 
@@ -2348,6 +2518,17 @@
                         // 추가: 음수 또는 0 체크도 필요할 경우
                         if (isNaN(row.inputQty) || Number(row.inputQty) <= 0) {
                             Alert.alert('', '입고 수량은 0보다 큰 숫자여야 합니다.');
+                            return;
+                        }
+
+                        // 가입고중인 수량까지 뺀 잔량을 넘지 못하게. 서버도 막지만
+                        // 여기서 잡아야 「저장 눌렀는데 에러」 대신 그 자리에서 알 수 있다.
+                        const remain = fnRemainQty(row);
+                        if (Number(row.inputQty) > remain) {
+                            Alert.alert('', (row.product_name || '') + ' · 입고 가능 수량(' + remain
+                                + ')을 초과했습니다.'
+                                + (Number(row.PendingQty) > 0
+                                    ? ' 가입고 대기 ' + row.PendingQty + ' 이 검사 대기중입니다.' : ''));
                             return;
                         }
                     }
@@ -3011,6 +3192,7 @@
                 $content.find('#btnScanClear').on('click', function () {
                     _this.scanResultGrid.itemsSource = new wijmo.collections.CollectionView([]);
                     _this.updateScanSummary($content);
+                    $content.find('#camList').empty();      // 카메라 스캔 기록도 같이 비운다
                     $content.find('#scanBarcode').val('').focus();
                 });
 
@@ -3084,6 +3266,27 @@
                     else _this.handleItemScan(raw, $content);
                 });
 
+                /* ── 카메라 스캔 ────────────────────────────────────────────
+                   세척 공정 화면(prod_process_wash_t)의 연속 스캔을 그대로 가져왔다.
+                   ★ 확인 버튼이 없다. 비추면 바로 처리된다 —
+                     현장에 "받을 때 다 찍으세요" 라고 말할 수 있으려면 이래야 한다.
+                   ★ 인식값은 스캐너 칸과 같은 분기(PO / 제품)를 탄다. */
+                this.cam = {
+                    stream: null, det: null, timer: null, busy: false,
+                    last: '', lastAt: 0, paused: false, pausedAt: 0
+                };
+
+                $content.find('#btnCamScan').on('click', function () {
+                    if (_this.cam && _this.cam.stream) _this.closeCamScan($content);
+                    else _this.openCamScan($content);
+                });
+                $content.find('#btnCamClose').on('click', function () {
+                    _this.closeCamScan($content);
+                });
+                $content.find('#btnCamLogClear').on('click', function () {
+                    $content.find('#camList').empty();
+                });
+
                 // ★ 입고 저장
                 $content.find('#btnScanSave').on('click', function () {
                     const items = _this.scanResultGrid.itemsSource.items;
@@ -3130,6 +3333,7 @@
                             bh_id: it.bh_id,
                             balju_id: it.balju_id,                     // 발주 라인 PK (입고수량 누적용)
                             Material_id: it.Material_id,
+                            Company_id: it.Company_id,     // lotSaveByPo 가 mat_inout.Company_id 에 넣는다
                             StoreHouse_id: it.StoreHouse_id || storeHouseId,
                             InputQty: Number(it.inputQty),
                             LotNumber: it.lotNumber || '',             // 빈칸이면 서버 자동채번
@@ -3172,6 +3376,7 @@
                 // 닫기 시 그리드 참조 · 리사이즈 핸들러 정리
                 $content.find('#modal-close-button').on('click', function () {
                     $(window).off('resize.scanpop orientationchange.scanpop');
+                    _this.closeCamScan($content);   // ★ 카메라를 끄지 않으면 렌즈가 계속 켜져 있다
                     _this.scanResultGrid = null;
                 });
 
@@ -3179,6 +3384,196 @@
                 setTimeout(function () {
                     $content.find('#scanBarcode').focus();
                 }, 100);
+            }
+
+            /* ══════════════════════════════════════════════════════════
+               카메라 바코드 스캔
+               ────────────────────────────────────────────────────────
+               ★ 스캐너 칸(#scanBarcode)과 «같은 함수»를 호출한다.
+                 카메라용 처리를 따로 만들면 미입고 초과 검사·제조사로트
+                 반영 같은 규칙이 두 곳에 생겨 한쪽만 고치게 된다.
+               ★ 결과는 콜백으로 받아 오른쪽 기록에 초록/빨강으로 쌓는다.
+                 카메라를 든 사람은 그리드를 못 보고 있다.
+               ★ HTTPS(또는 localhost) 에서만 카메라가 열린다.
+               ══════════════════════════════════════════════════════════ */
+            async openCamScan($content) {
+                const _this = this;
+                if (!this.cam) this.cam = {
+                    stream: null, det: null, timer: null, busy: false,
+                    last: '', lastAt: 0, paused: false, pausedAt: 0
+                };
+
+                $content.find('#camScanBox').show();
+                $content.find('#camWrap').show();
+                $content.find('#btnCamScan').text('카메라 끄기');
+                this.camMsg($content, '카메라 준비 중…');
+
+                if (!('BarcodeDetector' in window)) {
+                    $content.find('#camWrap').hide();
+                    this.camLog($content, false, '이 브라우저는 카메라 인식을 지원하지 않습니다',
+                        '스캐너 칸에 직접 입력하세요 (Chrome/Edge 안드로이드 권장)');
+                    return;
+                }
+
+                try {
+                    /* 지원하지 않는 포맷을 넘기면 생성자가 던진다 — 기본 생성으로 물러난다 */
+                    try {
+                        this.cam.det = new window.BarcodeDetector({
+                            formats: ['code_128', 'code_39', 'ean_13', 'ean_8', 'qr_code', 'data_matrix', 'itf']
+                        });
+                    } catch (e) {
+                        this.cam.det = new window.BarcodeDetector();
+                    }
+
+                    this.cam.stream = await navigator.mediaDevices.getUserMedia({
+                        video: {facingMode: 'environment', width: {ideal: 1280}}
+                    });
+                    const v = $content.find('#camVideo')[0];
+                    v.srcObject = this.cam.stream;
+                    await v.play();
+                    this.camMsg($content, '바코드를 비추세요');
+                    this.camScanLoop($content);
+                } catch (e) {
+                    console.error('[camscan]', e);
+                    this.camMsg($content, '카메라를 열 수 없습니다');
+                    this.camLog($content, false, '카메라를 열 수 없습니다',
+                        'HTTPS 접속 여부와 카메라 권한을 확인하세요');
+                }
+            }
+
+            camScanLoop($content) {
+                const _this = this;
+                if (!this.cam) return;
+                clearTimeout(this.cam.timer);
+                this.cam.timer = setTimeout(async function () {
+                    const v = $content.find('#camVideo')[0];
+                    /* 팝업이 통째로 닫히면 video 가 문서에서 빠진다.
+                       그 경로(팝업 X 버튼)로도 카메라가 꺼지도록 여기서 잡는다. */
+                    if (!v || !document.body.contains(v) || !_this.cam || !_this.cam.stream) {
+                        _this.closeCamScan($content);
+                        return;
+                    }
+                    /* 등록 모달이 열려 있는 동안은 읽지 않는다.
+                       닫혔는지는 모달 안의 #regMatSel 이 사라진 것으로 판별한다.
+                       (Alert.confirm 은 취소 콜백이 없어 이 방법뿐이다)
+                       바로 뒤 프레임에서 모달이 아직 안 그려졌을 수 있어 600ms 는 기다린다. */
+                    if (_this.cam.paused) {
+                        if (Date.now() - (_this.cam.pausedAt || 0) > 600
+                            && !document.getElementById('regMatSel')) {
+                            _this.cam.paused = false;
+                            _this.cam.last = '';   // 같은 바코드를 다시 읽을 수 있게 푼다
+                            _this.camMsg($content, '바코드를 비추세요');
+                        }
+                        _this.camScanLoop($content);
+                        return;
+                    }
+
+                    if (!_this.cam.busy && _this.cam.det) {
+                        _this.cam.busy = true;
+                        try {
+                            const found = await _this.cam.det.detect(v);
+                            if (found && found.length) {
+                                const code = found[0].rawValue || '';
+                                const now = Date.now();
+                                /* 같은 값이 연속으로 잡힌다 — 2.5초는 무시한다 */
+                                if (code && !(code === _this.cam.last && now - _this.cam.lastAt < 2500)) {
+                                    _this.cam.last = code;
+                                    _this.cam.lastAt = now;
+                                    const $f = $content.find('#camFrame');
+                                    $f.addClass('hit');
+                                    setTimeout(function () {
+                                        $f.removeClass('hit');
+                                    }, 350);
+                                    _this.camHit(code, $content);
+                                }
+                            }
+                        } catch (e) { /* 프레임 실패는 무시하고 다음 프레임 */
+                        }
+                        _this.cam.busy = false;
+                    }
+                    _this.camScanLoop($content);
+                }, 220);
+            }
+
+            /* 인식 1건 → 스캐너 칸과 동일 분기 */
+            camHit(raw, $content) {
+                const _this = this;
+                const code = String(raw || '').trim();
+                if (!code) return;
+
+                const done = function (ok, msg) {
+                    _this.camBeep(ok);
+                    _this.camLog($content, ok, msg || (ok ? '처리됨' : '실패'), code);
+                    _this.camMsg($content, msg || '');
+                };
+
+                /* PO… 발주 바코드 → 미입고 라인을 목록에 올린다
+                   그 외 제품 바코드 → 올라온 라인 중 실제로 온 것을 확정한다 */
+                if (/^PO/i.test(code)) this.handlePoScan(code, $content, done);
+                else this.handleItemScan(code, $content, done);
+            }
+
+            closeCamScan($content) {
+                if (!this.cam) return;
+                clearTimeout(this.cam.timer);
+                this.cam.timer = null;
+                if (this.cam.stream) {
+                    this.cam.stream.getTracks().forEach(function (t) {
+                        t.stop();
+                    });
+                    this.cam.stream = null;
+                }
+                this.cam.det = null;
+                this.cam.busy = false;
+                this.cam.last = '';
+                this.cam.paused = false;
+                this.cam.pausedAt = 0;
+                if ($content && $content.length) {
+                    const v = $content.find('#camVideo')[0];
+                    if (v) v.srcObject = null;
+                    $content.find('#camScanBox').hide();
+                    $content.find('#btnCamScan').text('📷 카메라 스캔');
+                    $content.find('#scanBarcode').focus();
+                }
+            }
+
+            camMsg($content, t) {
+                $content.find('#camMsg').text(t || '');
+            }
+
+            /* 최신 것이 위로. 30줄까지만 남긴다 — 길어지면 스크롤만 늘어난다 */
+            camLog($content, ok, title, sub) {
+                const esc = function (v) {
+                    return $('<div>').text(v == null ? '' : String(v)).html();
+                };
+                const $list = $content.find('#camList');
+                $list.prepend(
+                    '<div class="camrow ' + (ok ? 'ok' : 'err') + '"><div class="cm-t">'
+                    + '<div class="cm-n">' + esc(title) + '</div>'
+                    + '<div class="cm-c">' + esc(sub) + '</div></div></div>'
+                );
+                const $rows = $list.children('.camrow');
+                if ($rows.length > 30) $rows.slice(30).remove();
+            }
+
+            /* 소리·진동은 있으면 좋고 없어도 그만 — 실패해도 스캔을 막지 않는다 */
+            camBeep(ok) {
+                try {
+                    if (navigator.vibrate) navigator.vibrate(ok ? 40 : [60, 50, 60]);
+                    const A = window.AudioContext || window.webkitAudioContext;
+                    if (!A) return;
+                    const ac = new A(), o = ac.createOscillator(), g = ac.createGain();
+                    o.connect(g);
+                    g.connect(ac.destination);
+                    o.frequency.value = ok ? 1180 : 380;
+                    g.gain.value = 0.07;
+                    o.start();
+                    setTimeout(function () {
+                        o.stop();
+                        ac.close();
+                    }, ok ? 90 : 200);
+                } catch (e) { /* noop */
+                }
             }
 
             updateScanSummary($content) {
@@ -3208,13 +3603,21 @@
              *   ① GTIN → ② UDI-DI → ③ 자사 품목코드 → ④ 로트번호 역추적
              * 어디에도 안 걸리면 미등록 — 그 자리에서 발주 라인에 연결해 등록한다.
              */
-            handleItemScan(raw, $content) {
+            handleItemScan(raw, $content, cb) {
                 const _this = this;
                 const cv = _this.scanResultGrid.itemsSource;
 
-                if (!cv.sourceCollection.length) {
-                    Notify.warn('먼저 발주 바코드를 스캔하세요.');
+                /* cb 는 카메라 스캔이 넘긴다. 있으면 결과를 그쪽 기록으로 돌려주고,
+                   없으면 지금까지처럼 토스트로만 알린다. */
+                const fail = function (msg, level) {
+                    if (cb) cb(false, msg);
+                    else if (level === 'error') Notify.error(msg);
+                    else Notify.warn(msg);
                     $content.find('#scanBarcode').focus();
+                };
+
+                if (!cv.sourceCollection.length) {
+                    fail('먼저 발주 바코드를 스캔하세요.');
                     return;
                 }
 
@@ -3230,15 +3633,18 @@
                 }, function (res) {
                     const d = res && res.data;
                     if (!d) {
-                        _this.askBarcodeRegister(raw, parsed, $content);
+                        /* 미등록 바코드 — 카메라로 찍었든 스캐너로 찍었든 그 자리에서 등록한다.
+                           카메라는 askBarcodeRegister 가 «멈춰 세운다» (§camScanLoop).
+                           모달이 떠 있는 동안에도 프레임은 계속 잡히므로, 멈추지 않으면
+                           뒤에서 읽힌 다른 값이 방금 고른 품목에 붙는다. */
+                        _this.askBarcodeRegister(raw, parsed, $content, cb);
                         return;
                     }
 
                     const line = cv.sourceCollection.find(it =>
                         String(it.Material_id) === String(d.material_id));
                     if (!line) {
-                        Notify.error('발주에 없는 품목입니다 · ' + (d.material_name || ''));
-                        $content.find('#scanBarcode').focus();
+                        fail('발주에 없는 품목입니다 · ' + (d.material_name || ''), 'error');
                         return;
                     }
 
@@ -3246,8 +3652,7 @@
                     const step = Number(d.pack_qty) || 1;
                     const next = (Number(line.inputQty) || 0) + step;
                     if (next > Number(line.remainQty)) {
-                        Notify.warn('미입고수량(' + line.remainQty + ')을 초과합니다 · ' + line.materialName);
-                        $content.find('#scanBarcode').focus();
+                        fail('미입고수량(' + line.remainQty + ')을 초과합니다 · ' + line.materialName);
                         return;
                     }
                     line.inputQty = next;
@@ -3263,6 +3668,7 @@
 
                     cv.refresh();
                     _this.updateScanSummary($content);
+                    if (cb) cb(true, line.materialName + ' · ' + next + '/' + line.remainQty);
                     $content.find('#scanBarcode').focus();
                 });
             }
@@ -3274,10 +3680,25 @@
              *   첫 연결이 틀리면 그 뒤로는 스캔이 자동이라 조용히 계속 틀린다.
              * ★ 품목당 바코드는 1건이다. 이미 있으면 서버가 갈아끼운다.
              */
-            askBarcodeRegister(raw, parsed, $content) {
+            askBarcodeRegister(raw, parsed, $content, cb) {
                 const _this = this;
                 const cv = _this.scanResultGrid.itemsSource;
                 const lines = cv.sourceCollection;
+
+                /* ★ 카메라가 돌고 있으면 멈춰 세운다.
+                     모달이 떠 있어도 프레임은 계속 잡힌다. 그대로 두면 등록 창에서
+                     품목을 고르는 사이에 렌즈에 들어온 «다른» 라벨이 읽혀,
+                     방금 고른 품목에 엉뚱한 바코드가 붙는다. 첫 연결이 틀리면
+                     그 뒤로는 스캔이 자동이라 조용히 계속 틀린다.
+                   ★ 다시 켜는 시점은 camScanLoop 가 «모달이 사라졌는지»로 판단한다 —
+                     Alert.confirm 은 취소 콜백을 주지 않아서 여기서 풀 수가 없다. */
+                if (_this.cam && _this.cam.stream) {
+                    _this.cam.paused = true;
+                    _this.cam.pausedAt = Date.now();
+                    _this.camBeep(false);
+                    _this.camMsg($content, '미등록 바코드 — 등록하는 동안 스캔을 멈춥니다');
+                    _this.camLog($content, false, '미등록 바코드 · 등록 창을 엽니다', raw);
+                }
 
                 let html = '<div style="padding:8px 4px">'
                     + '<div style="margin-bottom:8px">미등록 바코드입니다 · <b>' + raw + '</b></div>'
@@ -3306,7 +3727,17 @@
                         spjangcd: sessionStorage.getItem('spjangcd') || ''
                     }, function (r) {
                         if (!r.success) {
-                            Alert.alert('', r.message || '등록 실패');
+                            if (cb) cb(false, r.message || '바코드 등록 실패');
+                            else Alert.alert('', r.message || '등록 실패');
+                            return;
+                        }
+                        if (cb) {
+                            /* ★ 등록했으니 방금 그 바코드를 그대로 다시 태운다.
+                                 현장에서 같은 라벨을 두 번 들이대게 하지 않는다.
+                                 등록 직후라 이번엔 scan_lookup 에 걸린다. */
+                            Notify.success('바코드를 등록했습니다.');
+                            if (_this.cam) _this.cam.last = '';
+                            _this.handleItemScan(raw, $content, cb);
                             return;
                         }
                         Notify.success('바코드를 등록했습니다. 다시 스캔하세요.');
@@ -3315,21 +3746,35 @@
                 });
             }
 
-            handlePoScan(raw, $content) {
+            handlePoScan(raw, $content, cb) {
                 const _this = this;
+
+                /* cb 는 카메라 스캔이 넘긴다 (handleItemScan 과 같은 규칙) */
+                const fail = function (msg, hard) {
+                    if (cb) cb(false, msg);
+                    else if (hard) Alert.alert('', msg);
+                    else Notify.warn(msg);
+                    $content.find('#scanBarcode').focus();
+                };
 
                 // 발주 바코드 판별 (발주등록 화면에서 "PO"+bh_id 로 발행)
                 if (!/^PO/i.test(raw)) {
-                    Notify.warn('발주 바코드가 아닙니다. (PO로 시작해야 함)');
+                    fail('발주 바코드가 아닙니다. (PO로 시작해야 함)');
                     return;
                 }
-                const baljuNo = raw.replace(/^PO/i, '');
+                /* ★ 바코드에 실리는 값은 «주문번호»(20250701-0011) 다.
+                     BaljuOrderController 가 "PO" + JumunNumber 로 발행한다.
+                     bh_id(숫자 PK)로 발행한다고 적힌 옛 주석을 믿고 아래 중복 가드를
+                     bh_id 와 비교하고 있었는데, 그 조건은 영원히 안 걸린다 —
+                     같은 발주를 두 번 찍으면 라인이 두 벌 쌓여 이중입고가 된다.
+                     여기서는 주문번호로 1차 방어하고, 진짜 방어는 서버가 돌려준
+                     bh_id 로 아래에서 한 번 더 한다(옛 숫자 바코드도 그대로 통과). */
+                const baljuNo = raw.replace(/^PO/i, '').trim();
 
-                // 중복 스캔 방지 — 이미 로드된 발주면 무시(이중입고 방지 1차 방어)
                 const cv = _this.scanResultGrid.itemsSource;
-                if (cv.sourceCollection.some(it => String(it.bh_id) === String(baljuNo))) {
-                    Notify.warn('이미 불러온 발주입니다.');
-                    $content.find('#scanBarcode').focus();
+                if (cv.sourceCollection.some(it =>
+                    String(it.JumunNumber) === baljuNo || String(it.bh_id) === baljuNo)) {
+                    fail('이미 불러온 발주입니다.');
                     return;
                 }
 
@@ -3338,13 +3783,13 @@
                     spjangcd: sessionStorage.getItem('spjangcd') || ''
                 }, function (res) {
                     if (!res.success) {
-                        Alert.alert('', res.message || '발주를 찾을 수 없습니다.');
+                        fail(res.message || '발주를 찾을 수 없습니다.', true);
                         return;
                     }
                     const d = res.data;
 
                     if (!d.lines || d.lines.length === 0) {
-                        Notify.warn('입고할 미입고 품목이 없습니다. (이미 전량입고 또는 완료)');
+                        fail('입고할 미입고 품목이 없습니다. (이미 전량입고 또는 완료)');
                         return;
                     }
                     // 구매처 자동 표시
@@ -3352,7 +3797,19 @@
                         $content.find('#scanCompany').val(d.company_id);
                         $content.find('#scanCompanyName').val(d.companyName || '');
                     }
+                    /* ★ 진짜 중복 방어 — 서버가 풀어 준 PK 로 본다.
+                         바코드 값이 주문번호든 bh_id 든 여기서는 한 가지로 모인다. */
+                    if (cv.sourceCollection.some(it => String(it.bh_id) === String(d.bh_id))) {
+                        fail('이미 불러온 발주입니다.');
+                        return;
+                    }
+
+                    const before = cv.sourceCollection.length;
                     _this.addPoLines(d, $content);
+                    if (cb) {
+                        const added = cv.sourceCollection.length - before;
+                        cb(true, '발주 ' + (d.baljuNo || d.JumunNumber || raw) + ' · ' + added + '건 불러옴');
+                    }
                 });
             }
 
@@ -3369,6 +3826,7 @@
                         JumunNumber: d.baljuNo || d.JumunNumber,
                         balju_id: line.balju_id,
                         Material_id: line.Material_id,
+                        Company_id: line.Company_id,      // ★ 매입처 — 입고이력에 남긴다
                         materialCode: line.product_code,
                         materialName: line.product_name,
                         unit: line.unit,

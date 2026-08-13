@@ -978,13 +978,29 @@ public class MaterialInoutController {
 
 				Balju balju = this.bujuRepository.getBujuById(bal_pk);
 
-				double sujuQty2 = jdbcTemplate.queryForObject("""
-					SELECT COALESCE(SUM("InputQty"), 0)
+				// ★ 확정 입고 + 가입고 대기 를 함께 센다.
+				//    InputQty 만 세면 가입고분이 0 으로 보여 같은 라인을 또 받게 된다.
+				//    부적합(_status='t' & State='confirmed')은 재입고 대상이라 세지 않는다.
+				double alreadyIn = jdbcTemplate.queryForObject("""
+					SELECT COALESCE(SUM(
+					         CASE WHEN COALESCE("_status", 'a') = 'a'
+					              THEN COALESCE("InputQty", 0)
+					              WHEN COALESCE("_status", 'a') = 't' AND "State" = 'waiting'
+					              THEN COALESCE("PotentialInputQty", 0)
+					              ELSE 0 END), 0)
 					FROM mat_inout
 					WHERE "SourceDataPk" = ? 
 					  AND "SourceTableName" = 'balju'
-					  AND COALESCE("_status", 'a') = 'a'
+					  AND "InOut" = 'in'
 				""", Double.class, bal_pk);
+
+				double baljuQty = balju.getSujuQty() != null ? balju.getSujuQty() : 0d;
+				if (alreadyIn + qty > baljuQty) {
+					result.success = false;
+					result.message = "미입고수량 초과 (발주라인 " + bal_pk + " · 발주 " + (int) baljuQty
+														 + " · 기입고+가입고 " + (int) alreadyIn + " · 요청 " + qty + ")";
+					return result;
+				}
 
 				balju.setShipmentState(storeHouseIdStr);
 				mi.setInputType("order_in");
@@ -1346,13 +1362,19 @@ public class MaterialInoutController {
 				Integer storeHouseId = CommonUtil.tryIntNull(line.get("StoreHouse_id"));
 				if (storeHouseId == null) storeHouseId = storeHouseFallback;
 
-				// ★ 과입고 차단 (기입고합계 + 이번수량 > 발주수량 이면 롤백)
+				// ★ 과입고 차단 (기입고합계 + 가입고대기 + 이번수량 > 발주수량 이면 롤백)
+				//   가입고(_status='t')는 InputQty 가 비어 있어 예전 쿼리로는 0 으로 보였다.
+				//   부적합(_status='t' & State='confirmed')은 재입고 대상이라 세지 않는다.
 				double alreadyIn = jdbcTemplate.queryForObject("""
-                SELECT COALESCE(SUM("InputQty"), 0)
+                SELECT COALESCE(SUM(
+                         CASE WHEN COALESCE("_status", 'a') = 'a'
+                              THEN COALESCE("InputQty", 0)
+                              WHEN COALESCE("_status", 'a') = 't' AND "State" = 'waiting'
+                              THEN COALESCE("PotentialInputQty", 0)
+                              ELSE 0 END), 0)
                 FROM mat_inout
                 WHERE "SourceDataPk" = ?
                   AND "SourceTableName" = 'balju'
-                  AND COALESCE("_status", 'a') = 'a'
                   AND "InOut" = 'in'
             """, Double.class, balPk);
 
@@ -1361,7 +1383,7 @@ public class MaterialInoutController {
 				if (alreadyIn + qty > baljuQty) {
 					result.success = false;
 					result.message = "미입고수량 초과 (발주라인 " + balPk + ", 발주 " + (int) baljuQty
-														 + " / 기입고 " + (int) alreadyIn + " / 요청 " + qty + ")";
+														 + " / 기입고+가입고 " + (int) alreadyIn + " / 요청 " + qty + ")";
 					throw new RuntimeException(result.message);
 				}
 
@@ -1458,17 +1480,32 @@ public class MaterialInoutController {
 		if (barcode == null || !barcode.toUpperCase().startsWith("PO")) {
 			result.success = false; result.message = "발주 바코드가 아닙니다."; return result;
 		}
-		String jumunNumber = barcode.substring(2); // "PO" + JumunNumber
+		String jumunNumber = barcode.substring(2).trim(); // "PO" + JumunNumber
 
 		List<Map<String, Object>> lines =
 			this.materialInoutService.getBaljuLinesByJumunNumber(jumunNumber, spjangcd);
 
+		/* ★ SqlRunner.getRows 는 SQL 오류 시 예외가 아니라 null 을 돌려준다.
+		     그대로 내려보내면 화면에는 「미입고 품목이 없습니다」로 보여서
+		     쿼리가 깨진 것인지 정말 다 받은 것인지 구분이 안 된다.
+		     여기서 갈라 두면 최소한 다른 문구가 뜬다. */
+		if (lines == null) {
+			result.success = false;
+			result.message = "발주 조회에 실패했습니다. 관리자에게 문의하세요. (발주번호 " + jumunNumber + ")";
+			log.error("receiving_by_barcode 조회 실패 - jumunNumber={}, spjangcd={}", jumunNumber, spjangcd);
+			return result;
+		}
+
 		Map<String, Object> data = new HashMap<>();
 		data.put("JumunNumber", jumunNumber);
-		data.put("lines", lines);
-		if (lines != null && !lines.isEmpty()) {
-			data.put("companyName", lines.get(0).get("CompanyName"));
-			data.put("company_id",  lines.get(0).get("Company_id"));
+		data.put("baljuNo",     jumunNumber);
+		data.put("lines",       lines);
+		if (!lines.isEmpty()) {
+			Map<String, Object> first = lines.get(0);
+			// 화면이 중복 스캔 방어에 쓰는 키. 없으면 같은 발주를 두 번 담을 수 있다.
+			data.put("bh_id",       first.get("bh_id"));
+			data.put("companyName", first.get("CompanyName"));
+			data.put("company_id",  first.get("Company_id"));
 		}
 
 		result.data = data;

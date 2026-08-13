@@ -24,7 +24,7 @@ public class ShipmentListService {
 	mes.domain.repository.SujuRepository sujuRepository;
 
 	public List<Map<String, Object>> getShipmentHeadList(String dateFrom, String dateTo, String compPk, String matGrpPk, String matPk, String keyword, String state, String company) {
-		
+
 		MapSqlParameterSource paramMap = new MapSqlParameterSource();
 		paramMap.addValue("dateFrom", dateFrom);
 		paramMap.addValue("dateTo", dateTo);
@@ -34,7 +34,7 @@ public class ShipmentListService {
 		paramMap.addValue("keyword", keyword);
 		//String state = "shipped";
 		paramMap.addValue("state", state);
-		
+
 		String sql = """
 				select sh.id
 		        , sh."Company_id" as company_id
@@ -159,8 +159,8 @@ public class ShipmentListService {
 				where s."ShipmentHead_id" = cast(:headId as Integer)
 	            order by m."Code", m."Name"
 				""";
-        List<Map<String,Object>> items = this.sqlRunner.getRows(sql, paramMap);
-		
+		List<Map<String,Object>> items = this.sqlRunner.getRows(sql, paramMap);
+
 		return items;
 	}
 
@@ -228,6 +228,117 @@ public class ShipmentListService {
 				""";
 
 		this.sqlRunner.execute(sql, paramMap);
+	}
+
+	// =========================================================================
+	// 출고 취소 — 되돌릴 수 있는지 확인하고, 되돌린다
+	// =========================================================================
+
+	/**
+	 * 취소 가능 여부. 막아야 할 사유가 있으면 «문구» 를, 없으면 null 을 돌려준다.
+	 *
+	 * ★ 두 가지를 본다.
+	 *   ① 수리 접수 — 나간 물건이 반품·수리로 돌아왔으면 그 출고는 이미 후속 이력이 붙었다.
+	 *      여기서 취소하면 재고가 되살아나는데 실물은 수리창고(20)에 있어
+	 *      «같은 물건이 두 곳에» 잡힌다.
+	 *   ② 로트 상태 — 출고 뒤 그 로트가 «다시 소비» 됐으면 되돌릴 수 없다.
+	 *      순서를 거꾸로 풀면 중간 이력이 매달릴 곳을 잃는다.
+	 *      로트 행 자체가 사라진 경우도 마찬가지다.
+	 */
+	public String findCancelBlockReason(Integer shId) {
+		MapSqlParameterSource p = new MapSqlParameterSource().addValue("shId", shId);
+
+		// ① 수리 접수
+		Map<String, Object> rep = this.sqlRunner.getRow("""
+            SELECT mr."RepairNo" AS repair_no, ml."LotNumber" AS lot_number
+              FROM shipment s
+              JOIN mat_lot_cons mlc ON mlc."SourceTableName" = 'shipment'
+                                   AND mlc."SourceDataPk"    = s.id
+              JOIN mat_lot ml ON ml.id = mlc."MaterialLot_id"
+              JOIN mcell_repair mr ON (mr."SrcMatLot_id" = ml.id
+                                    OR mr."SrcLotNumber" = ml."LotNumber")
+             WHERE s."ShipmentHead_id" = :shId
+               AND COALESCE(mr._status,'a') <> 'd'
+             LIMIT 1
+            """, p);
+		if (rep != null)
+			return "수리 접수(" + rep.get("repair_no") + ")가 걸린 로트가 있어 취소할 수 없습니다. — "
+							 + rep.get("lot_number");
+
+		// ② 출고 뒤 그 로트가 다시 소비됐는가
+		Map<String, Object> used = this.sqlRunner.getRow("""
+            SELECT ml."LotNumber" AS lot_number, mlc2."SourceTableName" AS src
+              FROM shipment s
+              JOIN mat_lot_cons mlc ON mlc."SourceTableName" = 'shipment'
+                                   AND mlc."SourceDataPk"    = s.id
+              JOIN mat_lot ml ON ml.id = mlc."MaterialLot_id"
+              JOIN mat_lot_cons mlc2 ON mlc2."MaterialLot_id" = ml.id
+                                    AND mlc2.id > mlc.id
+                                    AND mlc2."SourceTableName" <> 'shipment'
+             WHERE s."ShipmentHead_id" = :shId
+             LIMIT 1
+            """, p);
+		if (used != null)
+			return "출고 이후 다시 투입된 로트가 있어 취소할 수 없습니다. — "
+							 + used.get("lot_number") + " (" + used.get("src") + ")";
+
+		// ③ 되돌릴 로트 행이 남아 있는가 (지워졌으면 되살릴 대상이 없다)
+		Map<String, Object> gone = this.sqlRunner.getRow("""
+            SELECT COUNT(*) AS cnt
+              FROM shipment s
+              JOIN mat_lot_cons mlc ON mlc."SourceTableName" = 'shipment'
+                                   AND mlc."SourceDataPk"    = s.id
+              LEFT JOIN mat_lot ml ON ml.id = mlc."MaterialLot_id"
+             WHERE s."ShipmentHead_id" = :shId AND ml.id IS NULL
+            """, p);
+		if (gone != null && toLong(gone.get("cnt")) > 0)
+			return "출고에 물린 로트가 이미 삭제되어 재고를 되돌릴 수 없습니다.";
+
+		return null;
+	}
+
+	/**
+	 * 출고로 나간 재고를 되돌린다.
+	 *
+	 * ★★ 예전에는 이 단계가 «아예 없었다». shipment."Qty" 를 0 으로 쓰고 _status 를 't' 로
+	 *   바꾸는 것이 전부라, mat_lot_cons 가 그대로 남아 재고는 차감된 채였다.
+	 *   게다가 바로 뒤에 도는 updateShipmentQantityByLotConsume 이 그 남은 소비이력에서
+	 *   수량을 다시 계산해 "Qty" 를 원래대로 «복원» 했다 — 취소가 사실상 무효였다.
+	 *
+	 * ★ mat_lot."CurrentStock" 을 직접 UPDATE 하지 않는다. 트리거 소관이다
+	 *   (부적합·포장과 같은 규칙). mat_lot_cons 를 지우면 알아서 되살아난다.
+	 * ★ mat_inout(out) 도 함께 지운다. 이력만 남으면 집계와 실제가 갈린다.
+	 * ★ 카톤 출고표시도 푼다. 안 풀면 그 박스는 다시 찍을 수 없다.
+	 */
+	public void rollbackShipmentLots(Integer shId) {
+		MapSqlParameterSource p = new MapSqlParameterSource().addValue("shId", shId);
+
+		// 카톤 출고표시 해제 — mat_lot_cons 를 지우기 «전» 에 한다(조인이 살아 있을 때)
+		this.sqlRunner.execute("""
+            UPDATE pack_carton
+               SET "ShipState" = NULL, "Shipment_id" = NULL, _modified = now()
+             WHERE "Shipment_id" IN (SELECT id FROM shipment WHERE "ShipmentHead_id" = :shId)
+            """, p);
+
+		// 소비이력(out) 제거
+		this.sqlRunner.execute("""
+            DELETE FROM mat_inout
+             WHERE "SourceTableName" = 'shipment' AND "InOut" = 'out'
+               AND "SourceDataPk" IN (SELECT id FROM shipment WHERE "ShipmentHead_id" = :shId)
+            """, p);
+
+		// 차감 되돌리기 — 트리거가 mat_lot."CurrentStock" 을 복원한다
+		this.sqlRunner.execute("""
+            DELETE FROM mat_lot_cons
+             WHERE "SourceTableName" = 'shipment'
+               AND "SourceDataPk" IN (SELECT id FROM shipment WHERE "ShipmentHead_id" = :shId)
+            """, p);
+	}
+
+	private static long toLong(Object o) {
+		if (o == null) return 0L;
+		if (o instanceof Number) return ((Number) o).longValue();
+		try { return Long.parseLong(String.valueOf(o)); } catch (Exception e) { return 0L; }
 	}
 
 	// 출고헤더 기준으로 상태값 (출고상태)변경

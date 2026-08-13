@@ -455,94 +455,74 @@ public class LotService {
 		dicParam.addValue("lotNumber", lotNumber);
 
 		String sql = """
-with recursive T as (    
-         with P as(
-            select 
-            jr.id as jr_id
-            , jr."WorkOrderNumber" 
-            , mp.id as mp_id
-            , ''::text as p_lot_number
-            , mp."LotNumber" as lot_number
-            , jr."Material_id" as mat_pk
+with recursive T as (
+        /* ★★ 재귀는 «로트를 따라» 내려간다 (2026-08 재작성).
+         *
+         *   예전에는 A/B 가 뿌리 작지(jr_id) 하나로 고정된 CTE 였다. 그래서
+         *   재귀를 아무리 돌려도 «그 작지가 소비한 것» 밖으로 못 나갔다 —
+         *     · CK 산출 차수는 같은 작지라 우연히 붙었지만
+         *     · PK 는 블리스터 작지에서 나온 물건이라 후보에 아예 없었고
+         *     · 그 아래 조립·세척은 말할 것도 없었다.
+         *   결과적으로 트리가 «완제품 → 투입 4행» 에서 끊겼다.
+         *
+         *   이제 각 단계마다 「이 로트를 만든 차수」를 찾아 그 차수가 소비한
+         *   로트를 자식으로 단다. 작지 경계를 넘어 원자재까지 내려간다.
+         */
+            -- 뿌리 : 조회한 로트와 그것을 산출한 차수
+            select
+              jr.id                    as jr_id
+            , jr."WorkOrderNumber"
+            , null::integer            as mp_id
+            , ''::text                 as p_lot_number
+            , ml."LotNumber"           as lot_number
+            , null::integer            as p_mat_pk
+            -- ★ jr."Material_id" 가 아니라 mp."Material_id" 다.
+            --   포장 자식 작지의 Material_id 는 «CK 반제품» 이고,
+            --   실제 산출품은 차수(mat_produce)의 Material_id = 완제품이다.
+            , mp."Material_id"         as mat_pk
+            , 1                        as lvl
             , ml."EffectiveDate"
-            from job_res jr
-            inner join mat_produce mp on mp."JobResponse_id" = jr.id            
-            inner join material m on m.id=jr."Material_id" 
-            left join mat_grp mg on mg.id = m."MaterialGroup_id" 
-            inner join mat_lot ml on ml."SourceDataPk" =mp.id and ml."SourceTableName" ='mat_produce'
+            -- ★ 순환 방지. PK·FK 가 로트번호를 공유하므로(공정도메인 §1)
+            --   번호만 보면 정상 가지를 순환으로 오인해 잘라낸다 — 「로트|품목」으로 둔다.
+            -- ⚠ 원소를 text 로 캐스팅한다. path 타입이 text[] 로 굳는데 "LotNumber" 는
+            --   varchar 라, 아래에서 ::text 없이 이어붙이면 쿼리가 통째로 죽는다.
+            , array[concat(ml."LotNumber",'|',mp."Material_id")::text] as path
+            from mat_lot ml
+            inner join mat_produce mp on mp.id = ml."SourceDataPk"
+                                     and ml."SourceTableName" = 'mat_produce'
+            inner join job_res jr on jr.id = mp."JobResponse_id"
             where ml."LotNumber" = :lotNumber
-         ) 
-         ,A as(
-          select 
-           jr.jr_id
-          , jr."WorkOrderNumber" 
-          , mp."LotNumber" p_lot_number
-          , mc."Material_id" as mat_pk
-          -- ★ 차수가 산출한 품목. 아래 재귀에서 부모 품목을 맞추는 데 쓴다.
-          --   로트번호만으로 이으면 번호를 공유하는 다른 품목의 가지가 섞인다
-          , mp."Material_id" as p_mat_id
-          , mp.id as mp_id
-          , mc.id as mc_id
-          , mc."BomQty"
-          , mc."ConsumedQty" 
-          from p as jr
-          left join mat_consu mc on mc."JobResponse_id" = jr.jr_id
-          left join mat_produce mp on mp."JobResponse_id" =jr.jr_id
-        ) , B as(
-        select 
-        A.*
-        ,ml."LotNumber" as lot_number
-        , ml."Material_id"  
-        , ml."EffectiveDate"
-        from mat_lot ml 
-        inner join mat_lot_cons mlc on mlc."MaterialLot_id" =ml.id
-        inner join A on A.mp_id = mlc."SourceDataPk" and mlc."SourceTableName" ='mat_produce' and ml."Material_id" =A.mat_pk  
-        )        
-        select 
-        jr_id
-        , "WorkOrderNumber" 
-        ,p_lot_number
-        , lot_number
-        , null::integer as mp_id
-        , null::integer as p_mat_pk        
-        , mat_pk 
-        , 1 as lvl 
-        , "EffectiveDate"
-        -- ★ 순환 방지. PK·FK 가 로트번호를 공유하므로(공정도메인 §1)
-        --   산출 로트번호와 소비 로트번호가 같아지는 순간 자기를 다시 불러
-        --   무한 재귀가 된다. 지나온 로트를 배열로 들고 다니며 막는다.
-        -- ⚠ 원소를 text 로 캐스팅한다. 여기서 path 타입이 text[] 로 굳는데
-        --   "LotNumber" 는 varchar 라, 아래 재귀에서 ::text 없이 이어붙이면
-        --   「연산자 없음: text[] || character varying」 로 쿼리가 통째로 죽는다.
-        -- ★ 원소는 「로트|품목」이다. 로트번호만 넣으면 아래 node_key(로트|품목)와
-        --   기준이 어긋난다 — 2공장은 포장이 원 로트번호를 그대로 물려받아
-        --   (조립품 789 → 완제품 853, 번호 동일) 번호만 보는 차단이
-        --   품목이 다른 정상 가지를 순환으로 오인해 통째로 자른다.
-        --   품목까지 같아야 진짜 순환이므로 무한재귀 방어는 그대로다.
-        , array[concat(lot_number,'|',mat_pk)::text] as path
-        from P
-        union all 
-        select 
-        B.jr_id
-        , B."WorkOrderNumber" 
-        , T.lot_number as p_lot_number
-        , B.lot_number 
-        , B.mp_id
-        , T.mat_pk as p_mat_pk
-        , B.mat_pk as mat_pk
-        , t.lvl +1 as lvl
-        , B."EffectiveDate"
-        , T.path || concat(B.lot_number,'|',B.mat_pk)::text   -- ★ ::text 필수 (위 주석)
-        from T   
-          inner join B on B.p_lot_number  = T.lot_number 
-                      -- ★ 부모 품목도 맞춘다. 번호를 공유하는 로트에서
-                      --   완제품 가지와 조립품 가지가 서로 섞이는 것을 막는다.
-                      --   is null 을 여는 이유 : 구 데이터에 Material_id 가 없는
-                      --   차수가 있으면 조건 전체가 NULL 이 되어 조용히 사라진다
-                      and (B.p_mat_id is null or B.p_mat_id = T.mat_pk)
-         where not (concat(B.lot_number,'|',B.mat_pk)::text = any(T.path))   -- 순환 차단
-           and T.lvl < 20                               -- 깊이 상한(안전망)
-        )        
+
+            union all
+
+            -- 자식 : 부모 로트를 산출한 차수가 «소비한» 로트들
+            select
+              jr2.id
+            , jr2."WorkOrderNumber"
+            -- ★ 소비한 차수. 아래 lot_consume_qty · used_time 이 이 값으로 돈다
+            , mp2.id
+            , T.lot_number
+            , cl."LotNumber"
+            , T.mat_pk
+            , cl."Material_id"
+            , T.lvl + 1
+            , cl."EffectiveDate"
+            , T.path || concat(cl."LotNumber",'|',cl."Material_id")::text
+            from T
+            -- 부모 로트의 실물 행 → 그것을 만든 차수
+            --   ★ 품목까지 맞춘다. 번호를 공유하는 로트가 있으면 엉뚱한 차수로 건너뛴다.
+            inner join mat_lot pml on pml."LotNumber"        = T.lot_number
+                                  and pml."Material_id"      = T.mat_pk
+                                  and pml."SourceTableName"  = 'mat_produce'
+            inner join mat_produce mp2 on mp2.id = pml."SourceDataPk"
+            inner join job_res jr2 on jr2.id = mp2."JobResponse_id"
+            -- 그 차수가 소비한 로트
+            inner join mat_lot_cons mlc on mlc."SourceDataPk"    = mp2.id
+                                       and mlc."SourceTableName" = 'mat_produce'
+            inner join mat_lot cl on cl.id = mlc."MaterialLot_id"
+            where not (concat(cl."LotNumber",'|',cl."Material_id")::text = any(T.path))  -- 순환 차단
+              and T.lvl < 20                                                             -- 깊이 상한(안전망)
+        )
         -- ★ 같은 node_key(로트|품목)가 뿌리와 자식 양쪽에 생기는 것을 정리한다.
         --   2공장은 포장이 원 로트번호를 그대로 물려받으므로 조회한 번호로
         --   ① 조립품이 자기 뿌리로 한 번 ② 완제품의 자식으로 한 번, 두 번 나온다.
@@ -570,8 +550,10 @@ with recursive T as (
             sum(mlc."OutputQty")
             from mat_lot ml 
             inner join mat_lot_cons mlc on mlc."MaterialLot_id"=ml.id 
-            where T.mat_pk=ml."Material_id" and T.mp_id=mlc."SourceDataPk" and mlc."SourceTableName"='mat_produce'
-            group by ml."Material_id" 
+            -- ★ 로트번호까지 맞춘다. 품목+차수만 보면 같은 자재를 여러 로트로 나눠
+            --   투입했을 때(FIFO 로 흔하다) 모든 로트의 합이 각 줄에 똑같이 찍힌다.
+            where T.mat_pk=ml."Material_id" and T.lot_number=ml."LotNumber"
+              and T.mp_id=mlc."SourceDataPk" and mlc."SourceTableName"='mat_produce'
             ) as lot_consume_qty
         , T.mp_id
         , T.lvl
