@@ -256,13 +256,18 @@
         #tabSteril .work-table th, #tabSteril .work-table td { height:auto; padding:8px 10px; vertical-align:middle; word-break:keep-all; }
         #tabSteril .work-table thead th { height:42px; font-weight:700; }
         #tabSteril .work-table thead th { text-align:center; }          /* 헤더는 전부 가운데 */
-        #tabSteril .work-table th:nth-child(1), #tabSteril .work-table td:nth-child(1) { width:40px;  text-align:center; }
-        #tabSteril .work-table th:nth-child(2), #tabSteril .work-table td:nth-child(2) { width:88px;  text-align:center; }  /* 공정 단계 */
-        #tabSteril .work-table th:nth-child(3), #tabSteril .work-table td:nth-child(3) { width:150px; text-align:left;   }  /* 작업절차·기준 */
-        #tabSteril .work-table th:nth-child(4), #tabSteril .work-table td:nth-child(4) { width:150px; text-align:left;   }  /* 항목 */
-        #tabSteril .work-table th:nth-child(5), #tabSteril .work-table td:nth-child(5) { width:auto;  text-align:left;   }  /* 기록(입력) */
-        #tabSteril .work-table th:nth-child(6), #tabSteril .work-table td:nth-child(6) { width:80px;  text-align:center; }  /* 출처 */
-        #tabSteril .work-table th:nth-child(7), #tabSteril .work-table td:nth-child(7) { width:70px;  text-align:center; }  /* 규격 */
+        /* ★ nth-child 로 열을 잡으면 안 된다.
+             일지 표는 공정 단계마다 첫 행에만 번호·단계·기준 3칸을 rowspan 으로 낸다.
+             즉 둘째 행부터는 td 가 3개 적어서, 「항목」이 4번째가 아니라 1번째가 된다.
+             그래서 첫 행의 항목만 좌측, 나머지는 1번 열 규칙(가운데)을 물려받아
+             정렬이 뒤죽박죽으로 보였다. 열을 클래스로 지정해 행 구조와 무관하게 만든다. */
+        #tabSteril .work-table .c-no    { width:44px;  text-align:center; }
+        #tabSteril .work-table .c-step  { width:110px; text-align:center; }  /* 공정 단계 */
+        #tabSteril .work-table .c-crit  { width:210px; text-align:left;   }  /* 작업절차·기준 */
+        #tabSteril .work-table .c-item  { width:150px; text-align:left;   }  /* 항목 */
+        #tabSteril .work-table .c-rec   { width:auto;  text-align:left;   }  /* 기록(입력) */
+        #tabSteril .work-table .c-src   { width:80px;  text-align:center; }  /* 출처 */
+        #tabSteril .work-table .c-spec  { width:70px;  text-align:center; }  /* 규격 */
         #tabSteril .crit { font-size:.78rem; line-height:1.4; white-space:normal; }
         #tabSteril .rec { display:flex; flex-wrap:wrap; gap:6px 10px; align-items:center; }
         #tabSteril .rec > span { display:inline-flex; align-items:center; gap:5px; white-space:nowrap; margin:0 !important; font-size:.82rem; }
@@ -912,13 +917,13 @@
                 const _this = this;
                 // 양식 정의는 서버(steril_form)에서 받는다. 실패 시 아래 폴백 사용.
                 this.FORM = null;
-                this.sterilVals   = {};   // FieldKey → 담당자 확정값
-                this.sterilAuto   = {};   // FieldKey → 자동산출 결과
+                this.sterilVals = {};   // FieldKey → 담당자 확정값
+                this.sterilAuto = {};   // FieldKey → 자동산출 결과
                 this.sterilEdited = {};   // FieldKey → 담당자가 고친 값
-                this.sterilCtx    = null; // 엔진 컨텍스트(파싱 결과 + 구간)
-                this.sterilFiles  = [];   // 첨부 배정 결과
+                this.sterilCtx = null; // 엔진 컨텍스트(파싱 결과 + 구간)
+                this.sterilFiles = [];   // 첨부 배정 결과
                 this.sterilCharts = {};
-                this.activeSeg    = 'exposure';
+                this.activeSeg = 'exposure';
                 this._loadSterilForm();
                 this.sterilJudge = null;   // 판정은 기본정보 탭에서 (완료 후)
                 this.biLot = '';
@@ -940,14 +945,17 @@
                 $('#btnSterilPrint').on('click', () => _this.printSterilLog());
                 $('#btnSterilReset').on('click', () => {
                     Alert.confirm('', '담당자 수정값을 버리고 자동산출값으로 되돌립니다.', function () {
-                        _this.sterilEdited = {}; _this.recalcSteril();
+                        _this.sterilEdited = {};
+                        _this.recalcSteril();
                     });
                 });
                 // 구간선택 모달
                 $('#btnOpenChart').on('click', () => _this.openChartModal());
                 $('#btnChartClose, #btnChartDone').on('click', () => _this.closeChartModal());
                 $('#sterilChartModal .stlmodal-dim').on('click', () => _this.closeChartModal());
-                $('#chartTabs .ctab').on('click', function () { _this._selectChartTab(this.dataset.c); });
+                $('#chartTabs .ctab').on('click', function () {
+                    _this._selectChartTab(this.dataset.c);
+                });
                 // 일지 미리보기 모달
                 $('#btnPreviewClose, #btnPreviewCancel').on('click', () => _this.closeSterilPreview());
                 $('#sterilPreviewModal .stlmodal-dim').on('click', () => _this.closeSterilPreview());
@@ -969,14 +977,15 @@
                 if (!b) {
                     $('#strModel').text('배치를 선택하세요');
                     $('#strUdi').html('<strong class="muted">—</strong>');
-                    $('#strLot').html('—'); $('#strQty').text('0');
+                    $('#strLot').html('—');
+                    $('#strQty').text('0');
                     return;
                 }
                 const ls = this._lotsOf(b);
                 // 제품(코드)별 그룹
                 const groups = {};
                 ls.forEach(l => {
-                    (groups[l.mat] = groups[l.mat] || {mat:l.mat, matNm:l.matNm, qty:0, pk:[]});
+                    (groups[l.mat] = groups[l.mat] || {mat: l.mat, matNm: l.matNm, qty: 0, pk: []});
                     groups[l.mat].qty += (l.useQty != null ? l.useQty : l.qty);
                     groups[l.mat].pk.push(l.lot);
                 });
@@ -1017,32 +1026,43 @@
             // ── 양식 정의 로드 (steril_form) ──
             _loadSterilForm() {
                 let r = {};
-                try { r = this._api('/form_active', {}); } catch (e) { r = {}; }
-                if (r && r.success && r.data) { this.FORM = r.data; }
-                else {
+                try {
+                    r = this._api('/form_active', {});
+                } catch (e) {
+                    r = {};
+                }
+                if (r && r.success && r.data) {
+                    this.FORM = r.data;
+                } else {
                     if (typeof Notify !== 'undefined') Notify.warning('적용중인 멸균일지 양식을 불러오지 못했습니다.');
-                    this.FORM = { form_code:'F710-3', form_name:'멸균일지', revision:0, steps:[] };
+                    this.FORM = {form_code: 'F710-3', form_name: '멸균일지', revision: 0, steps: []};
                 }
                 this.FIELDS = [];
                 (this.FORM.steps || []).forEach(s => (s.fields || []).forEach(f => {
                     this.FIELDS.push({
-                        FieldKey:f.field_key, Label:f.label, Unit:f.unit, DataType:f.data_type,
-                        SpecLower:(f.spec_lower === null ? undefined : f.spec_lower),
-                        SpecUpper:(f.spec_upper === null ? undefined : f.spec_upper),
-                        SourceType:f.source_type, SourceRole:f.source_role, SourceCol:f.source_col,
-                        AggFunc:f.agg_func, SegmentKey:f.segment_key
+                        FieldKey: f.field_key, Label: f.label, Unit: f.unit, DataType: f.data_type,
+                        SpecLower: (f.spec_lower === null ? undefined : f.spec_lower),
+                        SpecUpper: (f.spec_upper === null ? undefined : f.spec_upper),
+                        SourceType: f.source_type, SourceRole: f.source_role, SourceCol: f.source_col,
+                        AggFunc: f.agg_func, SegmentKey: f.segment_key
                     });
                 }));
             }
-            _field(key) { return (this.FIELDS || []).filter(f => f.FieldKey === key)[0] || {}; }
+
+            _field(key) {
+                return (this.FIELDS || []).filter(f => f.FieldKey === key)[0] || {};
+            }
+
             _valOf(key) {
                 if (Object.prototype.hasOwnProperty.call(this.sterilEdited, key)) return this.sterilEdited[key];
                 const a = this.sterilAuto[key];
                 return (a && a.value !== null && a.value !== undefined) ? a.value : '';
             }
+
             _specOf(f, v) {
                 if (v === '' || v === null || v === undefined) return null;
-                const n = parseFloat(v); if (isNaN(n)) return null;
+                const n = parseFloat(v);
+                if (isNaN(n)) return null;
                 if (f.SpecLower === undefined && f.SpecUpper === undefined) return null;
                 let ok = true;
                 if (f.SpecLower !== undefined && f.SpecLower !== null && n < f.SpecLower) ok = false;
@@ -1055,7 +1075,9 @@
                 const cls = 'fsel' + (isEdit ? ' edited' : '');
                 // ⚠ 주의: '[' + '[' 인접(<script> 안의 [[ )은 Thymeleaf 인라인 표현식으로 오인되어
                 //   템플릿 파싱이 깨진다. 배열 대신 {value,label} 객체 배열로 만든다.
-                var O = function (val, label) { return {v: val, t: label}; };
+                var O = function (val, label) {
+                    return {v: val, t: label};
+                };
                 if (f.FieldKey === 'bi_result') {
                     return this._selectHtml(f.FieldKey, v, [O('', '선택'), O('PASS', 'PASS (합격)'), O('FAIL', 'FAIL (불합격)')], cls);
                 }
@@ -1067,18 +1089,23 @@
                 return '<input type="text" class="fval' + (isEdit ? ' edited' : '') + '" data-key="' + f.FieldKey +
                     '" value="' + String(v).replace(/"/g, '&quot;') + '" style="width:100%;">';
             }
+
             _selectHtml(key, v, opts, cls) {
                 return '<select class="' + cls + '" data-key="' + key + '" style="width:100%; height:34px;">' +
                     opts.map(o => '<option value="' + o.v + '"' + (String(v) === o.v ? ' selected' : '') + '>' +
                         o.t + '</option>').join('') + '</select>';
             }
+
             /** 판정 FAIL 또는 대조군 음성이면 비고(사유) 행을 표 아래에 노출 */
             _refreshBiNote() {
                 const bi = String(this._valOf('bi_result'));
                 const ctrl = String(this._valOf('control_result'));
                 const need = (bi === 'FAIL') || (ctrl === 'negative');
                 let $box = $('#biNoteBox');
-                if (!need) { $box.remove(); return; }
+                if (!need) {
+                    $box.remove();
+                    return;
+                }
                 const val = String(this._valOf('bi_note') || '').replace(/"/g, '&quot;');
                 const msg = bi === 'FAIL'
                     ? '판정이 <b>FAIL</b> 입니다. 조치·사유를 기록하세요.'
@@ -1090,7 +1117,9 @@
                     'placeholder="비고 / 조치 내용">' + val + '</textarea></div></div>';
                 if ($box.length) $box.replaceWith(html); else $('#strFormArea').after(html);
                 const _this = this;
-                $('#biNoteInput').off('input').on('input', function () { _this.sterilEdited['bi_note'] = this.value; });
+                $('#biNoteInput').off('input').on('input', function () {
+                    _this.sterilEdited['bi_note'] = this.value;
+                });
             }
 
             renderSterilForm() {
@@ -1120,25 +1149,25 @@
                             : sp === 'out' ? '<span class="sbadge out">이탈</span>' : '';
                         let head = '';
                         if (i === 0) {
-                            head = '<td rowspan="' + fs.length + '" style="text-align:center;">' + s.step_no + '</td>' +
-                                '<td rowspan="' + fs.length + '"><b>' + (s.step_name || '') + '</b></td>' +
-                                '<td rowspan="' + fs.length + '" class="crit">' + (s.criteria || '') + '</td>';
+                            head = '<td class="c-no"   rowspan="' + fs.length + '">' + s.step_no + '</td>' +
+                                '<td class="c-step" rowspan="' + fs.length + '"><b>' + (s.step_name || '') + '</b></td>' +
+                                '<td class="c-crit crit" rowspan="' + fs.length + '">' + (s.criteria || '') + '</td>';
                         }
                         const cell = _this._recordCell(f, v, isEdit);
                         return '<tr>' + head +
-                            '<td>' + (f.Label || '') + (f.Unit ? ' <span class="muted">(' + f.Unit + ')</span>' : '') + '</td>' +
-                            '<td>' + cell + '</td>' +
-                            '<td style="text-align:center;">' + src + '</td>' +
-                            '<td style="text-align:center;">' + spb + '</td></tr>';
+                            '<td class="c-item">' + (f.Label || '') + (f.Unit ? ' <span class="muted">(' + f.Unit + ')</span>' : '') + '</td>' +
+                            '<td class="c-rec">' + cell + '</td>' +
+                            '<td class="c-src">' + src + '</td>' +
+                            '<td class="c-spec">' + spb + '</td></tr>';
                     }).join('');
                 }).join('');
 
                 $('#strFormArea').html(
                     '<div class="insp-box">' +
                     '<div class="insp-scroll"><table class="work-table"><thead><tr>' +
-                    '<th style="width:44px;">번호</th><th style="width:110px;">공정 단계</th>' +
-                    '<th style="width:210px;">작업절차 및 기준</th><th style="width:150px;">항목</th>' +
-                    '<th>기록</th><th style="width:80px;">출처</th><th style="width:70px;">규격</th>' +
+                    '<th class="c-no">번호</th><th class="c-step">공정 단계</th>' +
+                    '<th class="c-crit">작업절차 및 기준</th><th class="c-item">항목</th>' +
+                    '<th class="c-rec">기록</th><th class="c-src">출처</th><th class="c-spec">규격</th>' +
                     '</tr></thead><tbody>' + rows + '</tbody></table></div>' +
                     '</div>');
 
@@ -1147,8 +1176,8 @@
                     _this.sterilEdited[this.dataset.key] = this.value;
                     _this._refreshBiNote();
                     const f = _this._field(this.dataset.key);
-                    const $tds = $(this).closest('tr').find('td');
-                    $tds.eq($tds.length - 2).html('<span class="sbadge edit">수정됨</span>');
+                    $(this).closest('tr').find('td.c-src')
+                        .html('<span class="sbadge edit">수정됨</span>');
                 });
                 this._refreshBiNote();
 
@@ -1165,11 +1194,11 @@
                     }
                     $(this).addClass('edited');
                     const f = _this._field(key);
-                    const $tds = $(this).closest('tr').find('td');
-                    $tds.eq($tds.length - 2).html(f.SourceType === 'manual'
+                    const $tr = $(this).closest('tr');
+                    $tr.find('td.c-src').html(f.SourceType === 'manual'
                         ? '<span class="sbadge man">수기</span>' : '<span class="sbadge edit">수정됨</span>');
                     const sp = _this._specOf(f, this.value);
-                    $tds.eq($tds.length - 1).html(sp === 'ok' ? '<span class="sbadge ok">적합</span>'
+                    $tr.find('td.c-spec').html(sp === 'ok' ? '<span class="sbadge ok">적합</span>'
                         : sp === 'out' ? '<span class="sbadge out">이탈</span>' : '');
                 });
             }
@@ -1206,8 +1235,10 @@
                 const t = parseFloat(this._valOf('eo_to'));
                 if (isNaN(f) || isNaN(t)) return;
                 const total = Math.round(Math.abs(f - t) * 10) / 10;
-                this.sterilAuto['eo_total'] = {key: 'eo_total', value: total, auto: true,
-                    source: 'derived', note: null};
+                this.sterilAuto['eo_total'] = {
+                    key: 'eo_total', value: total, auto: true,
+                    source: 'derived', note: null
+                };
             }
 
             // ── BI 판정 표시 (기본정보 탭) — 실제 판정은 '배치 상세'에서 수행 ──
@@ -1219,13 +1250,17 @@
                 $('#btnBiConfirm').off('click').on('click', function () {
                     if (typeof Notify !== 'undefined') Notify.warning('BI 판정은 목록 하단 [배치 상세]에서 진행합니다.');
                 });
-                $('#biLot').on('change', function () { _this.biLot = this.value; });
+                $('#biLot').on('change', function () {
+                    _this.biLot = this.value;
+                });
                 this.refreshBiEnabled();
             }
+
             isFinished() {
                 const b = this.curBatch;
                 return !!(b && (b.state === 'done' || b.state === 'scrapped'));
             }
+
             refreshBiEnabled() {
                 const b = this.curBatch;
                 $('#biPass, #biFail, #biLot, #btnBiConfirm').prop('disabled', true);
@@ -1236,12 +1271,14 @@
                     : '배치를 선택하세요.');
                 this.paintBiButtons();
             }
+
             paintBiButtons() {
                 $('#biPass').toggleClass('on', this.sterilJudge === 'PASS');
                 $('#biFail').toggleClass('on', this.sterilJudge === 'FAIL');
             }
+
             setBiJudge(v) {
-                if($('#biPass').prop('disabled')) return;  // 완료 전엔 무시
+                if ($('#biPass').prop('disabled')) return;  // 완료 전엔 무시
                 this.sterilJudge = v;
                 this.paintBiButtons();
                 const fail = v === 'FAIL';
@@ -1251,6 +1288,7 @@
                     .css({background: fail ? '#c62828' : '', color: fail ? '#fff' : ''});
                 this.refreshJudgeView();
             }
+
             refreshJudgeView() {
                 const v = this.sterilJudge;
                 $('#strJudgeView').text(v ? ('BI 판정: ' + v + (v === 'FAIL' ? ' (재멸균 불가·폐기)' : ' (멸균필)'))
@@ -1268,16 +1306,27 @@
                 $('#btnPaneToggle').text(on ? '›' : '‹')
                     .attr('title', on ? '목록 펼치기' : '목록 접기');
             }
+
             /** 접기/펴기 후 캔버스 폭이 바뀌므로 차트를 다시 맞춘다 */
             _resizeCharts() {
                 Object.keys(this.sterilCharts || {}).forEach(k => {
-                    try { this.sterilCharts[k].resize(); } catch (e) {}
+                    try {
+                        this.sterilCharts[k].resize();
+                    } catch (e) {
+                    }
                 });
             }
 
-            ROLE_LABEL() { return {sterilizer:'멸균기', precondition:'전조절', aeration:'통기',
-                bi_photo:'BI 사진', etc:'기타첨부'}; }
-            SEG_LABEL()  { return {vacuum:'진공', conditioning:'조절', exposure:'노출', flush:'공기정화'}; }
+            ROLE_LABEL() {
+                return {
+                    sterilizer: '멸균기', precondition: '전조절', aeration: '통기',
+                    bi_photo: 'BI 사진', etc: '기타첨부'
+                };
+            }
+
+            SEG_LABEL() {
+                return {vacuum: '진공', conditioning: '조절', exposure: '노출', flush: '공기정화'};
+            }
 
             /** 배치가 바뀔 때마다 업로더를 다시 만들고 첨부를 읽어온다 */
             _initSterilFiles() {
@@ -1296,10 +1345,10 @@
                     return;
                 }
                 const miss = [];
-                if (typeof SterilLog === 'undefined')           miss.push('sterilLogEngine.js');
-                if (typeof SterilFiles === 'undefined')         miss.push('sterilFileBridge.js');
-                if (typeof ax5FileUploadClass === 'undefined')  miss.push('ax5_uploader 프래그먼트');
-                if (typeof Chart === 'undefined')               miss.push('chart.js');
+                if (typeof SterilLog === 'undefined') miss.push('sterilLogEngine.js');
+                if (typeof SterilFiles === 'undefined') miss.push('sterilFileBridge.js');
+                if (typeof ax5FileUploadClass === 'undefined') miss.push('ax5_uploader 프래그먼트');
+                if (typeof Chart === 'undefined') miss.push('chart.js');
                 if (miss.length) {
                     hint('다음 모듈을 불러오지 못했습니다: <b>' + miss.join(', ') + '</b>', true);
                     return;
@@ -1319,7 +1368,9 @@
 
                 SterilFiles.loadBatch(b.id)
                     .then(assigned => _this._onSterilFiles(assigned))
-                    .catch(e => { if (typeof Notify !== 'undefined') Notify.warning(e.message); });
+                    .catch(e => {
+                        if (typeof Notify !== 'undefined') Notify.warning(e.message);
+                    });
             }
 
             _onSterilFiles(assigned) {
@@ -1356,12 +1407,15 @@
 
                 $('#sterilFileRows .fRole').off('change').on('change', function () {
                     const a = _this.sterilFiles[+this.dataset.fidx];
-                    a.role = this.value; a.detectedBy = 'manual';
-                    _this._syncSterilMeta(); _this.rebuildSteril();
+                    a.role = this.value;
+                    a.detectedBy = 'manual';
+                    _this._syncSterilMeta();
+                    _this.rebuildSteril();
                 });
                 $('#sterilFileRows .fCalc').off('change').on('change', function () {
                     _this.sterilFiles[+this.dataset.fidx].useForCalc = this.checked ? 'Y' : 'N';
-                    _this._syncSterilMeta(); _this.rebuildSteril();
+                    _this._syncSterilMeta();
+                    _this.rebuildSteril();
                 });
                 $('#sterilFileRows .fLabel').off('change').on('change', function () {
                     _this.sterilFiles[+this.dataset.fidx].loggerLabel = this.value;
@@ -1396,7 +1450,10 @@
                 $('#sterilActionBar').toggle(!!(this.FORM && (this.FORM.steps || []).length));
                 this.renderSegSummary();
                 // 차트는 모달을 열 때만 그린다(무거운 렌더를 미룬다)
-                if (this._chartOpen) { this.renderSegChips(); this.drawSterilCharts(); }
+                if (this._chartOpen) {
+                    this.renderSegChips();
+                    this.drawSterilCharts();
+                }
                 this.recalcSteril();
             }
 
@@ -1406,9 +1463,9 @@
                 const order = ['precond', 'vacuum', 'conditioning', 'exposure', 'flush', 'aeration'];
                 const NAME = Object.assign({precond: '전조절', aeration: '통기'}, S);
                 const html = order.filter(k => this.sterilCtx && (
-                    (k === 'precond'  && this.sterilCtx.precondition.length) ||
+                    (k === 'precond' && this.sterilCtx.precondition.length) ||
                     (k === 'aeration' && this.sterilCtx.aeration.length) ||
-                    (['vacuum','conditioning','exposure','flush'].includes(k) && this.sterilCtx.sterilizer.length)
+                    (['vacuum', 'conditioning', 'exposure', 'flush'].includes(k) && this.sterilCtx.sterilizer.length)
                 )).map(k => {
                     const g = seg[k];
                     return '<div class="segcard' + (g ? '' : ' empty') + '">' +
@@ -1431,18 +1488,25 @@
                 this.drawSterilCharts();
                 setTimeout(() => this._resizeCharts(), 30);
             }
+
             closeChartModal() {
                 this._chartOpen = false;
                 $('#sterilChartModal').hide();
                 this.renderSegSummary();     // 조정 결과를 요약에 반영
             }
+
             _selectChartTab(c) {
                 this._chartTab = c;
                 $('#chartTabs .ctab').removeClass('on').filter('[data-c="' + c + '"]').addClass('on');
                 $('#sterilChartModal .cpane').removeClass('on').filter('[data-c="' + c + '"]').addClass('on');
                 const id = {ster: 'cSter', pre: 'cPre', aer: 'cAer'}[c];
                 const ch = this.sterilCharts[id];
-                if (ch) setTimeout(() => { try { ch.resize(); } catch (e) {} }, 20);
+                if (ch) setTimeout(() => {
+                    try {
+                        ch.resize();
+                    } catch (e) {
+                    }
+                }, 20);
             }
 
             renderSegChips() {
@@ -1462,8 +1526,8 @@
                     if (_this.sterilCharts.cSter) _this.sterilCharts.cSter.update('none');
                 });
                 this._segHint('hSter', seg[this.activeSeg], S[this.activeSeg]);
-                this._segHint('hPre',  seg.precond,  '전조절');
-                this._segHint('hAer',  seg.aeration, '통기');
+                this._segHint('hPre', seg.precond, '전조절');
+                this._segHint('hAer', seg.aeration, '통기');
                 this.renderSegCtl('ctlSter', 'cSter', () => seg[_this.activeSeg],
                     g => _this._applySegment(_this.activeSeg, g, 'cSter'));
                 this.renderSegCtl('ctlPre', 'cPre', () => seg.precond,
@@ -1471,6 +1535,7 @@
                 this.renderSegCtl('ctlAer', 'cAer', () => seg.aeration,
                     g => _this._applySegment('aeration', g, 'cAer'));
             }
+
             _segHint(id, g, label) {
                 $('#' + id).html(g
                     ? ('선택 구간(' + label + '): <b>' + SterilLog._util.fmtDt(g.from) + ' ~ ' +
@@ -1484,19 +1549,29 @@
                 return (span > 86400000 ? ((d.getMonth() + 1) + '/' + d.getDate() + ' ') : '') +
                     p(d.getHours()) + ':' + p(d.getMinutes());
             }
+
             _mkChart(id, series, rows, segGetter) {
                 const _this = this;
-                if (this.sterilCharts[id]) { this.sterilCharts[id].destroy(); delete this.sterilCharts[id]; }
-                const cv = document.getElementById(id); if (!cv) return null;
-                if (!rows.length) { cv.getContext('2d').clearRect(0, 0, cv.width, cv.height); return null; }
+                if (this.sterilCharts[id]) {
+                    this.sterilCharts[id].destroy();
+                    delete this.sterilCharts[id];
+                }
+                const cv = document.getElementById(id);
+                if (!cv) return null;
+                if (!rows.length) {
+                    cv.getContext('2d').clearRect(0, 0, cv.width, cv.height);
+                    return null;
+                }
                 const span = rows[rows.length - 1].t - rows[0].t;
                 const ch = new Chart(cv, {
                     type: 'line',
-                    data: { datasets: series.map(s => ({
+                    data: {
+                        datasets: series.map(s => ({
                             label: s.label, borderColor: s.color, borderWidth: 1.2,
                             pointRadius: 0, tension: 0, spanGaps: true,
                             data: rows.map(r => ({x: +r.t, y: r[s.col]}))
-                        })) },
+                        }))
+                    },
                     options: {
                         responsive: true, maintainAspectRatio: false, animation: false,
                         parsing: false, normalized: true,
@@ -1507,8 +1582,12 @@
                             decimation: {enabled: true, algorithm: 'lttb', samples: 600}
                         },
                         scales: {
-                            x: {type: 'linear', ticks: {maxTicksLimit: 12, font: {size: 10},
-                                    callback: v => _this._fmtTick(v, span)}, grid: {color: '#eee'}},
+                            x: {
+                                type: 'linear', ticks: {
+                                    maxTicksLimit: 12, font: {size: 10},
+                                    callback: v => _this._fmtTick(v, span)
+                                }, grid: {color: '#eee'}
+                            },
                             y: {ticks: {font: {size: 10}}, grid: {color: '#eee'}}
                         }
                     }
@@ -1517,11 +1596,13 @@
                 this.sterilCharts[id] = ch;
                 return ch;
             }
+
             /** 차트 조작: 휠 줌 / 드래그 팬 / 클릭으로 시작·종료점 지정
              *  1분 단위 미세조정은 아래 datetime 입력으로 한다(클릭만으로는 정밀도가 부족). */
             _attachChartNav(chart, getSeg, setSeg) {
                 const _this = this, cv = chart.canvas;
-                chart.$get = getSeg; chart.$set = setSeg;
+                chart.$get = getSeg;
+                chart.$set = setSeg;
                 cv.style.cursor = 'pointer';
 
                 const xs = () => chart.scales.x;
@@ -1530,7 +1611,8 @@
                     return ds.length ? {min: ds[0].x, max: ds[ds.length - 1].x} : null;
                 };
                 const applyView = (min, max) => {
-                    const f = full(); if (!f) return;
+                    const f = full();
+                    if (!f) return;
                     const span = Math.max(max - min, 60000);          // 최소 1분
                     min = Math.max(f.min, Math.min(min, f.max - span));
                     max = Math.min(f.max, min + span);
@@ -1556,12 +1638,17 @@
                 cv.onmousedown = e => {
                     const a = chart.chartArea, r = cv.getBoundingClientRect(), x = e.clientX - r.left;
                     if (x < a.left || x > a.right) return;
-                    panFrom = {x: x, min: xs().min, max: xs().max}; moved = 0;
+                    panFrom = {x: x, min: xs().min, max: xs().max};
+                    moved = 0;
                 };
                 cv.onmousemove = e => {
-                    if (!panFrom) { cv.style.cursor = 'pointer'; return; }
+                    if (!panFrom) {
+                        cv.style.cursor = 'pointer';
+                        return;
+                    }
                     const r = cv.getBoundingClientRect(), x = e.clientX - r.left;
-                    const dx = x - panFrom.x; moved = Math.max(moved, Math.abs(dx));
+                    const dx = x - panFrom.x;
+                    moved = Math.max(moved, Math.abs(dx));
                     if (moved < 4) return;
                     cv.style.cursor = 'grabbing';
                     const a = chart.chartArea;
@@ -1571,32 +1658,50 @@
                 const endPan = e => {
                     if (!panFrom) return;
                     const wasClick = moved < 4;
-                    panFrom = null; cv.style.cursor = 'pointer';
+                    panFrom = null;
+                    cv.style.cursor = 'pointer';
                     if (!wasClick || !e) return;
                     // ── 클릭 = 가까운 쪽 경계를 그 지점으로 이동 ──
                     const a = chart.chartArea, r = cv.getBoundingClientRect(), x = e.clientX - r.left;
                     if (x < a.left || x > a.right) return;
-                    const g = chart.$get(); if (!g) return;
+                    const g = chart.$get();
+                    if (!g) return;
                     const s = xs();
                     const px1 = s.getPixelForValue(+g.from), px2 = s.getPixelForValue(+g.to);
                     const t = new Date(s.getValueForPixel(x));
                     let from = g.from, to = g.to;
                     if (Math.abs(x - px1) <= Math.abs(x - px2)) from = t; else to = t;
-                    if (from > to) { const tmp = from; from = to; to = tmp; }
+                    if (from > to) {
+                        const tmp = from;
+                        from = to;
+                        to = tmp;
+                    }
                     chart.$set({from: from, to: to});
                 };
                 cv.onmouseup = endPan;
-                cv.onmouseleave = () => { panFrom = null; cv.style.cursor = 'pointer'; };
-                cv.ondblclick = () => { const f = full(); if (f) applyView(f.min, f.max); };
+                cv.onmouseleave = () => {
+                    panFrom = null;
+                    cv.style.cursor = 'pointer';
+                };
+                cv.ondblclick = () => {
+                    const f = full();
+                    if (f) applyView(f.min, f.max);
+                };
 
-                chart.$resetView = () => { const f = full(); if (f) applyView(f.min, f.max); };
+                chart.$resetView = () => {
+                    const f = full();
+                    if (f) applyView(f.min, f.max);
+                };
             }
 
             /** 구간 편집 컨트롤 (시작/종료 datetime + 1분 단위 버튼) */
             renderSegCtl(ctlId, chartId, getSeg, setSeg) {
                 const _this = this, g = getSeg();
                 const $c = $('#' + ctlId);
-                if (!g) { $c.empty(); return; }
+                if (!g) {
+                    $c.empty();
+                    return;
+                }
                 const iso = d => {
                     const p = n => String(n).padStart(2, '0');
                     return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) +
@@ -1615,16 +1720,22 @@
                     '<span class="muted" style="margin-left:10px;">휠=확대/축소 · 드래그=이동 · 클릭=가까운 경계 이동 · 더블클릭=전체</span>');
 
                 $c.find('.segdt').off('change').on('change', function () {
-                    const cur = getSeg(); if (!cur) return;
+                    const cur = getSeg();
+                    if (!cur) return;
                     const v = new Date(this.value);
                     if (isNaN(+v)) return;
                     let from = this.dataset.w === 'from' ? v : cur.from;
-                    let to   = this.dataset.w === 'to'   ? v : cur.to;
-                    if (from > to) { const t = from; from = to; to = t; }
+                    let to = this.dataset.w === 'to' ? v : cur.to;
+                    if (from > to) {
+                        const t = from;
+                        from = to;
+                        to = t;
+                    }
                     setSeg({from: from, to: to});
                 });
                 $c.find('.segstep').off('click').on('click', function () {
-                    const cur = getSeg(); if (!cur) return;
+                    const cur = getSeg();
+                    if (!cur) return;
                     const d = +this.dataset.d * 60000;
                     let from = cur.from, to = cur.to;
                     if (this.dataset.w === 'from') from = new Date(+from + d); else to = new Date(+to + d);
@@ -1664,7 +1775,10 @@
 
                 const wire = (chartId, ctlId, segKeyFn) => {
                     const ch = _this.sterilCharts[chartId];
-                    if (!ch) { $('#' + ctlId).empty(); return; }
+                    if (!ch) {
+                        $('#' + ctlId).empty();
+                        return;
+                    }
                     const get = () => C.segments[segKeyFn()];
                     const set = g => _this._applySegment(segKeyFn(), g, chartId);
                     _this._attachChartNav(ch, get, set);
@@ -1672,24 +1786,24 @@
                 };
 
                 this._mkChart('cSter', [
-                    {label:'PS(kPa)', col:'PS', color:'#2e9e4f'},
-                    {label:'HUMI(%)', col:'HUMI', color:'#1976d2'},
-                    {label:'CHAMBER(℃)', col:'CHAMBER', color:'#d93b3b'},
-                    {label:'LL', col:'CHAMBER LL', color:'#e35fa0'},
-                    {label:'BS', col:'CHAMBER BS', color:'#e59a2e'},
-                    {label:'LH', col:'CHAMBER LH', color:'#8a5fd0'}
+                    {label: 'PS(kPa)', col: 'PS', color: '#2e9e4f'},
+                    {label: 'HUMI(%)', col: 'HUMI', color: '#1976d2'},
+                    {label: 'CHAMBER(℃)', col: 'CHAMBER', color: '#d93b3b'},
+                    {label: 'LL', col: 'CHAMBER LL', color: '#e35fa0'},
+                    {label: 'BS', col: 'CHAMBER BS', color: '#e59a2e'},
+                    {label: 'LH', col: 'CHAMBER LH', color: '#8a5fd0'}
                 ], P(C.sterilizer), () => C.segments[_this.activeSeg]);
                 wire('cSter', 'ctlSter', () => _this.activeSeg);
 
                 this._mkChart('cPre', [
-                    {label:'온도(℃)', col:'Celsius', color:'#d93b3b'},
-                    {label:'습도(%rh)', col:'Humidity', color:'#1976d2'},
-                    {label:'이슬점(℃)', col:'DewPoint', color:'#8bc34a'}
+                    {label: '온도(℃)', col: 'Celsius', color: '#d93b3b'},
+                    {label: '습도(%rh)', col: 'Humidity', color: '#1976d2'},
+                    {label: '이슬점(℃)', col: 'DewPoint', color: '#8bc34a'}
                 ], P(C.precondition), () => C.segments.precond);
                 wire('cPre', 'ctlPre', () => 'precond');
 
                 this._mkChart('cAer', [
-                    {label:'온도(℃)', col:'Celsius', color:'#d93b3b'}
+                    {label: '온도(℃)', col: 'Celsius', color: '#d93b3b'}
                 ], P(C.aeration), () => C.segments.aeration);
                 wire('cAer', 'ctlAer', () => 'aeration');
 
@@ -1708,49 +1822,103 @@
             //   배치(steril_batch) > 담긴 로트(steril_batch_item) + 멸균일지(steril_batch_log)
             //   대상 = 클린룸(5) SterilizationYN='Y' 로트, PASS→멸균창고(18) 이동, FAIL→폐기
             // ═══════════════════════════════════════════════════════════
-            get BASE() { return '/api/production/steril'; }
-            _sp() { return this.spjangcd || (typeof spjangcd !== 'undefined' ? spjangcd : null) || 'ZZ'; }
-            _api(path, params) {
-                try { return AjaxUtil.getSyncData(this.BASE + path, params || {}) || {}; }
-                catch (e) { return {}; }
+            get BASE() {
+                return '/api/production/steril';
             }
+
+            _sp() {
+                return this.spjangcd || (typeof spjangcd !== 'undefined' ? spjangcd : null) || 'ZZ';
+            }
+
+            _api(path, params) {
+                try {
+                    return AjaxUtil.getSyncData(this.BASE + path, params || {}) || {};
+                } catch (e) {
+                    return {};
+                }
+            }
+
             _post(path, params, cb) {
                 AjaxUtil.postAsyncData(this.BASE + path, params || {}, function (r) {
                     r = r || {};
-                    if (r.success === false) { if (typeof Notify !== 'undefined') Notify.warning(r.message || '처리에 실패했습니다.'); return; }
+                    if (r.success === false) {
+                        if (typeof Notify !== 'undefined') Notify.warning(r.message || '처리에 실패했습니다.');
+                        return;
+                    }
                     cb && cb(r);
                 });
             }
+
             _seedBatch() {
-                if (this._seeded) return; this._seeded = true;
+                if (this._seeded) return;
+                this._seeded = true;
                 this.STLAB = {wait: '대기', working: '작업중', done: '멸균완', scrapped: '폐기'};
-                this.BATCHES = []; this.WAIT = [];
+                this.BATCHES = [];
+                this.WAIT = [];
             }
-            _now() { const d = new Date(); const p = n => String(n).padStart(2, '0');
-                return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes()); }
-            _today() { return this._now().slice(0, 10); }
-            _num(v) { const n = parseFloat(v); return isNaN(n) ? 0 : n; }
-            _validTime(s) { return /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(String(s || '').trim()); }
+
+            _now() {
+                const d = new Date();
+                const p = n => String(n).padStart(2, '0');
+                return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+            }
+
+            _today() {
+                return this._now().slice(0, 10);
+            }
+
+            _num(v) {
+                const n = parseFloat(v);
+                return isNaN(n) ? 0 : n;
+            }
+
+            _validTime(s) {
+                return /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(String(s || '').trim());
+            }
+
             _username() {
-                try { if (typeof username !== 'undefined' && username) return username; } catch (e) {}
-                try { const v = sessionStorage.getItem('username'); if (v) return v; } catch (e) {}
-                try { if (typeof userid !== 'undefined' && userid) return userid; } catch (e) {}
+                try {
+                    if (typeof username !== 'undefined' && username) return username;
+                } catch (e) {
+                }
+                try {
+                    const v = sessionStorage.getItem('username');
+                    if (v) return v;
+                } catch (e) {
+                }
+                try {
+                    if (typeof userid !== 'undefined' && userid) return userid;
+                } catch (e) {
+                }
                 return '-';
             }
+
             /** 'yyyy-MM-dd HH:mm' → datetime-local 값('yyyy-MM-ddTHH:mm') */
-            _toLocal(v) { const s = String(v || '').trim(); return s ? s.replace(' ', 'T').slice(0, 16) : ''; }
+            _toLocal(v) {
+                const s = String(v || '').trim();
+                return s ? s.replace(' ', 'T').slice(0, 16) : '';
+            }
+
             /** datetime-local 값 → 'yyyy-MM-dd HH:mm' */
-            _fromLocal(v) { const s = String(v || '').trim(); return s ? s.replace('T', ' ').slice(0, 16) : ''; }
+            _fromLocal(v) {
+                const s = String(v || '').trim();
+                return s ? s.replace('T', ' ').slice(0, 16) : '';
+            }
 
             _equipOptions(selectedId) {
                 if (!this._equips) {
                     let wc = null;
-                    try { wc = (this._api('/context', {}).data || {}).work_center_id || null; } catch (e) {}
+                    try {
+                        wc = (this._api('/context', {}).data || {}).work_center_id || null;
+                    } catch (e) {
+                    }
                     let r = {};
                     try {
                         r = AjaxUtil.getSyncData('/api/common/combo',
                             {combo_type: 'equipment', cond1: '', cond2: '', cond3: wc || ''}) || {};
-                    } catch (e) { r = {}; }
+                    } catch (e) {
+                        r = {};
+                    }
                     this._equips = (r.data || []).map(x => ({value: x.value, text: x.text}));
                 }
                 const sel = (selectedId == null) ? '' : String(selectedId);
@@ -1759,10 +1927,22 @@
             }
 
             // 멸균일지 탭 호환 헬퍼 (curBatch = batch_detail 결과 + 매핑)
-            _lotsOf(b) { return (b && b.items) ? b.items : []; }
-            _qtyOf(b) { const _t = this; return this._lotsOf(b).reduce((a, l) => a + _t._num(l.qty), 0); }
-            _batchNum(b) { return (b && (b.batch_no || ('배치 ' + b.id))) || '-'; }
-            _batchById(id) { return this.BATCHES.filter(b => b.id == id)[0]; }
+            _lotsOf(b) {
+                return (b && b.items) ? b.items : [];
+            }
+
+            _qtyOf(b) {
+                const _t = this;
+                return this._lotsOf(b).reduce((a, l) => a + _t._num(l.qty), 0);
+            }
+
+            _batchNum(b) {
+                return (b && (b.batch_no || ('배치 ' + b.id))) || '-';
+            }
+
+            _batchById(id) {
+                return this.BATCHES.filter(b => b.id == id)[0];
+            }
 
             // ── 그리드: 멸균 배치 목록 ──
             initMainGrid() {
@@ -1784,7 +1964,8 @@
                     ],
                     itemFormatter: (p, row, col, cell) => {
                         if (p.cellType === wijmo.grid.CellType.Cell) {
-                            const it = p.rows[row].dataItem; if (!it) return;
+                            const it = p.rows[row].dataItem;
+                            if (!it) return;
                             cell.classList.remove('row-working', 'row-finished', 'row-stopped');
                             if (it.st === 'working') cell.classList.add('row-working');
                             if (it.st === 'done') cell.classList.add('row-finished');
@@ -1795,7 +1976,8 @@
                 this.grid.hostElement.addEventListener('click', (e) => {
                     const ht = _this.grid.hitTest(e);
                     if (ht.cellType !== wijmo.grid.CellType.Cell) return;
-                    const it = _this.grid.rows[ht.row] && _this.grid.rows[ht.row].dataItem; if (!it) return;
+                    const it = _this.grid.rows[ht.row] && _this.grid.rows[ht.row].dataItem;
+                    if (!it) return;
                     _this.openBatch(it.id);
                 });
                 $('#btnNewBatch').off('click').on('click', () => _this.createBatch());
@@ -1803,8 +1985,10 @@
                 // 좌측 대기/배치 탭
                 $('.lt-tab').off('click').on('click', function () {
                     const t = this.dataset.ltab;
-                    $('.lt-tab').removeClass('on'); $(this).addClass('on');
-                    $('#waitPane').toggle(t === 'wait'); $('#batchPane').toggle(t === 'batch');
+                    $('.lt-tab').removeClass('on');
+                    $(this).addClass('on');
+                    $('#waitPane').toggle(t === 'wait');
+                    $('#batchPane').toggle(t === 'batch');
                     if (t === 'wait') _this.renderWaitList();
                     else if (_this.grid) _this.grid.refresh();
                 });
@@ -1832,14 +2016,18 @@
             createFromWait() {
                 const _this = this;
                 const cks = Array.prototype.slice.call(document.querySelectorAll('#waitList input[data-wsel]:checked'));
-                if (!cks.length) { Alert.alert('', '멸균할 로트를 선택하세요.'); return; }
+                if (!cks.length) {
+                    Alert.alert('', '멸균할 로트를 선택하세요.');
+                    return;
+                }
                 const picks = cks.map(c => {
                     const id = +c.dataset.wsel;
                     const src = _this.WAIT.filter(x => x.mat_lot_id == id)[0] || {};
                     const qi = document.querySelector('#waitList input[data-wqty="' + id + '"]');
                     let q = qi ? parseInt(qi.value, 10) : _this._num(src.avail);
                     const av = _this._num(src.avail);
-                    if (isNaN(q) || q < 1) q = 1; if (q > av) q = av;
+                    if (isNaN(q) || q < 1) q = 1;
+                    if (q > av) q = av;
                     return {id: id, qty: q};
                 });
                 this._post('/batch_start', {date: this._today(), spjangcd: this._sp()}, function (r) {
@@ -1848,13 +2036,22 @@
                     (function addNext() {
                         if (i >= picks.length) {
                             if (typeof Notify !== 'undefined') Notify.success('멸균 작업 생성 · ' + picks.length + '개 로트 담김');
-                            $('.lt-tab').removeClass('on'); $('.lt-tab[data-ltab="batch"]').addClass('on');
-                            $('#waitPane').hide(); $('#batchPane').show();
-                            _this.searchMainData(); _this.renderWaitList(); _this.openBatch(batchId);
+                            $('.lt-tab').removeClass('on');
+                            $('.lt-tab[data-ltab="batch"]').addClass('on');
+                            $('#waitPane').hide();
+                            $('#batchPane').show();
+                            _this.searchMainData();
+                            _this.renderWaitList();
+                            _this.openBatch(batchId);
                             return;
                         }
                         const p = picks[i++];
-                        _this._post('/lot_add', {batch_id: batchId, mat_lot_id: p.id, qty: p.qty, spjangcd: _this._sp()}, addNext);
+                        _this._post('/lot_add', {
+                            batch_id: batchId,
+                            mat_lot_id: p.id,
+                            qty: p.qty,
+                            spjangcd: _this._sp()
+                        }, addNext);
                     })();
                 });
             }
@@ -1867,9 +2064,17 @@
                 const dt = $('#date_to').val() || this._today();
                 const r = this._api('/batch_list', {date_from: df, date_to: dt, spjangcd: this._sp()});
                 this.BATCHES = (r.data || []).map(b => ({
-                    id: b.batch_id, batch_no: b.batch_no, date: b.steril_date, state: b.state,
-                    machine: b.equip_name || '-', bi: b.bi_result, maker_lot_no: b.maker_lot_no,
-                    start: b.start_time, end: b.end_time, itemCnt: _this._num(b.item_cnt), totalQty: _this._num(b.total_qty)
+                    id: b.batch_id,
+                    batch_no: b.batch_no,
+                    date: b.steril_date,
+                    state: b.state,
+                    machine: b.equip_name || '-',
+                    bi: b.bi_result,
+                    maker_lot_no: b.maker_lot_no,
+                    start: b.start_time,
+                    end: b.end_time,
+                    itemCnt: _this._num(b.item_cnt),
+                    totalQty: _this._num(b.total_qty)
                 }));
                 const rows = this.BATCHES.map(b => ({
                     id: b.id, num: b.batch_no || ('배치 ' + b.id), date: b.date, machine: b.machine,
@@ -1884,16 +2089,21 @@
                     this.grid.itemsSource = new wijmo.collections.CollectionView(rows);
                 }
             }
-            showBasicInfo() { /* 배치 방식: renderBatchDetail 사용 */ }
+
+            showBasicInfo() { /* 배치 방식: renderBatchDetail 사용 */
+            }
 
             // ── 빈 배치 생성 ──
             createBatch() {
                 const _this = this;
                 this._post('/batch_start', {date: this._today(), spjangcd: this._sp()}, function (r) {
                     if (typeof Notify !== 'undefined') Notify.success('멸균 작업 생성');
-                    $('.lt-tab').removeClass('on'); $('.lt-tab[data-ltab="batch"]').addClass('on');
-                    $('#waitPane').hide(); $('#batchPane').show();
-                    _this.searchMainData(); _this.openBatch(r.data.batch_id);
+                    $('.lt-tab').removeClass('on');
+                    $('.lt-tab[data-ltab="batch"]').addClass('on');
+                    $('#waitPane').hide();
+                    $('#batchPane').show();
+                    _this.searchMainData();
+                    _this.openBatch(r.data.batch_id);
                 });
             }
 
@@ -1901,7 +2111,10 @@
             openBatch(batchId) {
                 const r = this._api('/batch_detail', {batch_id: batchId});
                 const d = r.data;
-                if (!d) { Alert.alert('', '배치를 찾을 수 없습니다.'); return; }
+                if (!d) {
+                    Alert.alert('', '배치를 찾을 수 없습니다.');
+                    return;
+                }
                 const _this = this;
                 const prev = (this.curBatch && this.curBatch.id == batchId) ? this.curBatch : null;
                 this.curBatch = {
@@ -1929,10 +2142,23 @@
                 this.sterilEdited = {};
                 let seg = null;
                 (b.log || []).forEach(row => {
-                    if (!seg && row.segment_json) { try { seg = JSON.parse(row.segment_json); } catch (e) {} }
+                    if (!seg && row.segment_json) {
+                        try {
+                            seg = JSON.parse(row.segment_json);
+                        } catch (e) {
+                        }
+                    }
                     let data = {}, auto = {};
-                    try { data = JSON.parse(row.data || '{}'); } catch (e) { data = {}; }
-                    try { auto = JSON.parse(row.auto_data || '{}'); } catch (e) { auto = {}; }
+                    try {
+                        data = JSON.parse(row.data || '{}');
+                    } catch (e) {
+                        data = {};
+                    }
+                    try {
+                        auto = JSON.parse(row.auto_data || '{}');
+                    } catch (e) {
+                        auto = {};
+                    }
                     Object.keys(data).forEach(k => {
                         const av = (auto[k] === undefined || auto[k] === null) ? '' : String(auto[k]);
                         if (String(data[k]) !== av) this.sterilEdited[k] = data[k];
@@ -1945,8 +2171,12 @@
 
             // ── 배치 상세 렌더 ──
             renderBatchDetail() {
-                const b = this.curBatch; const _this = this;
-                if (!b) { $('#batchDetail').html('<p class="muted" style="padding:16px;">배치를 선택하세요.</p>'); return; }
+                const b = this.curBatch;
+                const _this = this;
+                if (!b) {
+                    $('#batchDetail').html('<p class="muted" style="padding:16px;">배치를 선택하세요.</p>');
+                    return;
+                }
                 const st = b.state;
                 const editable = (st === 'wait' || st === 'working');   // 로트 담기/빼기 가능
                 const judged = (st === 'done' || st === 'scrapped');
@@ -1974,7 +2204,8 @@
                 h += '<div class="insp-secttitle" style="margin-top:12px;">멸균 대상 로트 <span class="muted" style="font-weight:400;">— 클린룸 재고 담기 (차수 생성 없음)</span></div>';
                 if (editable) h += '<div class="button-wrap" style="padding:8px 12px;"><button class="b-btn" data-act="pick" style="background:#1976d2;color:#fff;border-color:#1976d2;">＋ 클린룸 로트 담기</button></div>';
                 if (editable && this._pickOpen) {
-                    const inB = {}; ls.forEach(l => inB[l.matLotId] = 1);
+                    const inB = {};
+                    ls.forEach(l => inB[l.matLotId] = 1);
                     const cand = (this._api('/target_lots', {spjangcd: this._sp()}).data || []).filter(l => !inB[l.mat_lot_id]);
                     h += '<div style="padding:0 12px 8px;"><table class="work-table"><thead><tr><th style="width:40px;"></th><th>로트번호</th><th>품목</th><th style="width:90px;">가용수량</th><th style="width:110px;">담을 수량</th></tr></thead><tbody>' +
                         (cand.length ? cand.map(l => '<tr><td style="text-align:center;"><input type="checkbox" data-pk="' + l.mat_lot_id + '"></td><td>' + l.lot_no + '</td><td>' + l.mat_name + '</td><td style="text-align:right;">' + this._num(l.avail) + '</td><td style="text-align:center;"><input type="number" data-pkqty="' + l.mat_lot_id + '" value="' + this._num(l.avail) + '" min="1" max="' + this._num(l.avail) + '" style="width:78px;height:32px;text-align:right;"></td></tr>').join('')
@@ -2021,21 +2252,37 @@
 
             // ── 배치 액션 ──
             _batchAction(e) {
-                const t = e.target.closest('[data-act]'); if (!t) return;
-                const act = t.dataset.act, b = this.curBatch; if (!b) return;
+                const t = e.target.closest('[data-act]');
+                if (!t) return;
+                const act = t.dataset.act, b = this.curBatch;
+                if (!b) return;
                 const _this = this;
 
-                if (act === 'pick') { this._pickOpen = !this._pickOpen; this.renderBatchDetail(); return; }
+                if (act === 'pick') {
+                    this._pickOpen = !this._pickOpen;
+                    this.renderBatchDetail();
+                    return;
+                }
 
                 if (act === 'add') {
                     const cks = Array.prototype.slice.call(document.querySelectorAll('#batchDetail input[data-pk]:checked'));
-                    if (!cks.length) { Alert.alert('', '담을 로트를 선택하세요.'); return; }
+                    if (!cks.length) {
+                        Alert.alert('', '담을 로트를 선택하세요.');
+                        return;
+                    }
                     let i = 0;
                     (function next() {
-                        if (i >= cks.length) { _this._pickOpen = false; _this.openBatch(b.id); _this.searchMainData(); _this.renderWaitList(); return; }
+                        if (i >= cks.length) {
+                            _this._pickOpen = false;
+                            _this.openBatch(b.id);
+                            _this.searchMainData();
+                            _this.renderWaitList();
+                            return;
+                        }
                         const c = cks[i++], id = +c.dataset.pk;
                         const qi = document.querySelector('#batchDetail input[data-pkqty="' + id + '"]');
-                        let q = qi ? parseInt(qi.value, 10) : 0; if (isNaN(q) || q < 1) q = 1;
+                        let q = qi ? parseInt(qi.value, 10) : 0;
+                        if (isNaN(q) || q < 1) q = 1;
                         _this._post('/lot_add', {batch_id: b.id, mat_lot_id: id, qty: q, spjangcd: _this._sp()}, next);
                     })();
                     return;
@@ -2043,7 +2290,9 @@
 
                 if (act === 'rm') {
                     this._post('/lot_remove', {item_id: +t.dataset.id}, function () {
-                        _this.openBatch(b.id); _this.searchMainData(); _this.renderWaitList();
+                        _this.openBatch(b.id);
+                        _this.searchMainData();
+                        _this.renderWaitList();
                     });
                     return;
                 }
@@ -2053,7 +2302,8 @@
                         _this._post('/batch_delete', {batch_id: b.id}, function () {
                             _this.curBatch = null;
                             $('#batchDetail').html('<p class="muted" style="padding:16px;">멸균 작업을 선택하세요.</p>');
-                            _this.searchMainData(); _this.renderWaitList();
+                            _this.searchMainData();
+                            _this.renderWaitList();
                             if (typeof Notify !== 'undefined') Notify.success('멸균 작업 삭제 — 담긴 로트 대기 복귀');
                         });
                     });
@@ -2062,31 +2312,62 @@
 
                 if (act === 'start' || act === 'finish' || act === 'save') {
                     const eq = $('#batchEquip').val();
-                    if (!eq) { Alert.alert('', '멸균기를 선택하세요.'); return; }
+                    if (!eq) {
+                        Alert.alert('', '멸균기를 선택하세요.');
+                        return;
+                    }
                     let st = this._fromLocal($('#batchStart').val());
                     let en = this._fromLocal($('#batchEnd').val());
                     if (act === 'start') st = this._now();
                     if (act === 'finish') {
-                        if (!st) { Alert.alert('', '시작 시각이 없습니다. [시작]을 먼저 누르세요.'); return; }
+                        if (!st) {
+                            Alert.alert('', '시작 시각이 없습니다. [시작]을 먼저 누르세요.');
+                            return;
+                        }
                         en = this._now();
                     }
-                    if (st && !this._validTime(st)) { Alert.alert('', '시작 시각 형식이 올바르지 않습니다.'); return; }
-                    if (en && !this._validTime(en)) { Alert.alert('', '종료 시각 형식이 올바르지 않습니다.'); return; }
-                    if (st && en && en < st) { Alert.alert('', '종료 시각이 시작 시각보다 빠릅니다.'); return; }
-                    this._post('/batch_time', {batch_id: b.id, start_time: st, end_time: en, equipment_id: eq}, function () {
+                    if (st && !this._validTime(st)) {
+                        Alert.alert('', '시작 시각 형식이 올바르지 않습니다.');
+                        return;
+                    }
+                    if (en && !this._validTime(en)) {
+                        Alert.alert('', '종료 시각 형식이 올바르지 않습니다.');
+                        return;
+                    }
+                    if (st && en && en < st) {
+                        Alert.alert('', '종료 시각이 시작 시각보다 빠릅니다.');
+                        return;
+                    }
+                    this._post('/batch_time', {
+                        batch_id: b.id,
+                        start_time: st,
+                        end_time: en,
+                        equipment_id: eq
+                    }, function () {
                         if (typeof Notify !== 'undefined') Notify.success(act === 'start' ? '작업 시작' : (act === 'finish' ? '작업 종료' : '저장 완료'));
-                        _this.openBatch(b.id); _this.searchMainData();
+                        _this.openBatch(b.id);
+                        _this.searchMainData();
                     });
                     return;
                 }
 
                 if (act === 'pass') {
                     const maker = ($('#makerLotInput').val() || '').trim();
-                    if (!maker) { Alert.alert('', 'UDI 로트번호를 입력하세요.'); return; }
+                    if (!maker) {
+                        Alert.alert('', 'UDI 로트번호를 입력하세요.');
+                        return;
+                    }
                     Alert.confirm('', 'BI 합격 — 담긴 로트를 멸균창고로 이동(멸균필)합니다. UDI 로트번호: ' + maker, function () {
-                        _this._post('/bi_judge', {batch_id: b.id, result: 'pass', maker_lot_no: maker, spjangcd: _this._sp()}, function () {
+                        _this._post('/bi_judge', {
+                            batch_id: b.id,
+                            result: 'pass',
+                            maker_lot_no: maker,
+                            spjangcd: _this._sp()
+                        }, function () {
                             if (typeof Notify !== 'undefined') Notify.success('멸균 완료 · 멸균창고 이동 · 로트 ' + maker);
-                            _this.openBatch(b.id); _this.searchMainData(); _this.renderWaitList();
+                            _this.openBatch(b.id);
+                            _this.searchMainData();
+                            _this.renderWaitList();
                         });
                     });
                     return;
@@ -2096,7 +2377,9 @@
                     Alert.confirm('', 'BI 불합격 — 이 배치 전량을 폐기합니다. 계속할까요?', function () {
                         _this._post('/bi_judge', {batch_id: b.id, result: 'fail', spjangcd: _this._sp()}, function () {
                             if (typeof Notify !== 'undefined') Notify.warning('멸균 FAIL — 전량 폐기 처리');
-                            _this.openBatch(b.id); _this.searchMainData(); _this.renderWaitList();
+                            _this.openBatch(b.id);
+                            _this.searchMainData();
+                            _this.renderWaitList();
                         });
                     });
                     return;
@@ -2106,7 +2389,9 @@
                     Alert.confirm('', '판정을 취소하고 재고를 되돌립니다. 계속할까요?', function () {
                         _this._post('/bi_cancel', {batch_id: b.id}, function () {
                             if (typeof Notify !== 'undefined') Notify.success('판정취소 · 작업중 복귀 (재고 원복)');
-                            _this.openBatch(b.id); _this.searchMainData(); _this.renderWaitList();
+                            _this.openBatch(b.id);
+                            _this.searchMainData();
+                            _this.renderWaitList();
                         });
                     });
                     return;
@@ -2116,12 +2401,14 @@
             /** 인쇄용 데이터(값 + 그래프 이미지 + meta) 를 모은다 */
             _collectPrintData() {
                 const values = {};
-                (this.FIELDS || []).forEach(f => { values[f.FieldKey] = this._valOf(f.FieldKey); });
+                (this.FIELDS || []).forEach(f => {
+                    values[f.FieldKey] = this._valOf(f.FieldKey);
+                });
 
                 const titles = {
                     cSter: 'STERILIZATION 기록지',
-                    cPre:  '전조절 온·습도 기록지',
-                    cAer:  '통기(배출) 온도 기록지'
+                    cPre: '전조절 온·습도 기록지',
+                    cAer: '통기(배출) 온도 기록지'
                 };
                 // 그래프는 모달 안 canvas 라 숨겨져 있으면 0×0 → 화면 밖에 잠깐 펼쳐 캡처
                 const charts = [];
@@ -2129,20 +2416,25 @@
                 const wasHidden = $modal.css('display') === 'none';
                 if (this.sterilCtx) {
                     if (wasHidden) {
-                        $modal.css({display:'block', left:'-99999px', top:'0'});
+                        $modal.css({display: 'block', left: '-99999px', top: '0'});
                         $('#sterilChartModal .cpane').addClass('on');
                     }
                     this.drawSterilCharts();
                     ['cSter', 'cPre', 'cAer'].forEach(id => {
                         const ch = this.sterilCharts[id];
-                        if (ch) { try { ch.resize(); } catch (e) {} }
+                        if (ch) {
+                            try {
+                                ch.resize();
+                            } catch (e) {
+                            }
+                        }
                     });
                     ['cSter', 'cPre', 'cAer'].forEach(id => {
                         const ch = this.sterilCharts[id];
                         if (ch) charts.push({title: titles[id], dataUrl: ch.toBase64Image('image/png', 1)});
                     });
                     if (wasHidden) {
-                        $modal.css({display:'none', left:'', top:''});
+                        $modal.css({display: 'none', left: '', top: ''});
                         $('#sterilChartModal .cpane').removeClass('on')
                             .filter('[data-c="' + (this._chartTab || 'ster') + '"]').addClass('on');
                     }
@@ -2152,10 +2444,10 @@
                     values: values,
                     meta: {
                         sterilDate: ($('#strDate').val() || '').replace(/-/g, '. '),
-                        equipNo:    $('#strMachine').val() || '',
-                        actor:      $('#strWorker').val() || '',
-                        modelName:  $('#strModel').text() || '',
-                        qty:        $('#strQty').text() || ''
+                        equipNo: $('#strMachine').val() || '',
+                        actor: $('#strWorker').val() || '',
+                        modelName: $('#strModel').text() || '',
+                        qty: $('#strQty').text() || ''
                     },
                     charts: charts
                 };
@@ -2164,9 +2456,18 @@
             /** 일지 출력 → 미리보기 모달을 띄운다(바로 인쇄하지 않음) */
             printSterilLog() {
                 const b = this.curBatch;
-                if (!b) { Alert.alert('', '배치를 선택하세요.'); return; }
-                if (typeof SterilPrint === 'undefined') { Alert.alert('', '인쇄 모듈을 불러오지 못했습니다.'); return; }
-                if (!this.FORM || !(this.FORM.steps || []).length) { Alert.alert('', '양식이 없습니다.'); return; }
+                if (!b) {
+                    Alert.alert('', '배치를 선택하세요.');
+                    return;
+                }
+                if (typeof SterilPrint === 'undefined') {
+                    Alert.alert('', '인쇄 모듈을 불러오지 못했습니다.');
+                    return;
+                }
+                if (!this.FORM || !(this.FORM.steps || []).length) {
+                    Alert.alert('', '양식이 없습니다.');
+                    return;
+                }
 
                 const data = this._collectPrintData();
                 this._printData = data;
@@ -2188,7 +2489,10 @@
                     if (this._printData) SterilPrint.print(this._printData);
                 }
             }
-            closeSterilPreview() { $('#sterilPreviewModal').hide(); }
+
+            closeSterilPreview() {
+                $('#sterilPreviewModal').hide();
+            }
 
             /* ══════════════════════════════════════════════════════════
              *  양식 관리 (steril_form) — 모달
@@ -2199,17 +2503,21 @@
             //       화면에서 편집하지 않는다. 저장 시 원본 값 그대로 보존된다.
 
             openFormMgr() {
-                this.FM = { list: [], cur: null };
+                this.FM = {list: [], cur: null};
                 $('#formMgrModal').show();
                 this._fmLoadList();
             }
+
             closeFormMgr() {
                 $('#formMgrModal').hide();
                 // 현행 양식이 바뀌었을 수 있으니 일지 양식을 다시 읽는다
                 this._loadSterilForm();
                 this.recalcSteril();
             }
-            _fmRo() { return !this.FM.cur || this.FM.cur.state !== 'draft'; }
+
+            _fmRo() {
+                return !this.FM.cur || this.FM.cur.state !== 'draft';
+            }
 
             _fmLoadList(selectId) {
                 const _this = this;
@@ -2220,32 +2528,45 @@
                     (rows.filter(f => f.state === 'active')[0] || rows[0] || {}).id;
                 this._fmRenderList();
                 if (pickId) this._fmPick(pickId);
-                else { this.FM.cur = null; this._fmRenderEditor(); }
+                else {
+                    this.FM.cur = null;
+                    this._fmRenderEditor();
+                }
             }
+
             _fmRenderList() {
-                const _this = this, BADGE = {active:'<span class="fm-badge act">적용중</span>',
-                    draft:'<span class="fm-badge dr">초안</span>', obsolete:'<span class="fm-badge ob">폐기</span>'};
+                const _this = this, BADGE = {
+                    active: '<span class="fm-badge act">적용중</span>',
+                    draft: '<span class="fm-badge dr">초안</span>', obsolete: '<span class="fm-badge ob">폐기</span>'
+                };
                 $('#fmList').html(this.FM.list.map(f =>
                     '<tr class="' + (this.FM.cur && this.FM.cur.id === f.id ? 'on' : '') + '" data-id="' + f.id + '">' +
                     '<td>' + f.form_code + '</td><td>Rev.' + f.revision + '</td>' +
                     '<td>' + (BADGE[f.state] || f.state) + '</td></tr>').join(''));
-                $('#fmList tr').off('click').on('click', function () { _this._fmPick(parseInt(this.dataset.id, 10)); });
+                $('#fmList tr').off('click').on('click', function () {
+                    _this._fmPick(parseInt(this.dataset.id, 10));
+                });
 
                 const cur = this.FM.cur;
                 $('#btnFmRevise').prop('disabled', !cur || cur.state !== 'active');
-                $('#btnFmApply').prop('disabled',  !cur || cur.state !== 'draft');
-                $('#btnFmDrop').prop('disabled',   !cur || cur.state !== 'draft');
+                $('#btnFmApply').prop('disabled', !cur || cur.state !== 'draft');
+                $('#btnFmDrop').prop('disabled', !cur || cur.state !== 'draft');
                 $('#btnFmSave').prop('disabled', this._fmRo());
             }
+
             _fmPick(id) {
-                const r = this._api('/form_detail', { id: id });
-                if (!r || !r.success) { Alert.alert('', (r && r.message) || '양식을 불러오지 못했습니다.'); return; }
+                const r = this._api('/form_detail', {id: id});
+                if (!r || !r.success) {
+                    Alert.alert('', (r && r.message) || '양식을 불러오지 못했습니다.');
+                    return;
+                }
                 const meta = this.FM.list.filter(f => f.id === id)[0] || {};
                 r.data.used_count = meta.used_count;
                 this.FM.cur = r.data;
                 this._fmRenderList();
                 this._fmRenderEditor();
             }
+
             /** 항목 종류 판정
              *  auto       : 로그에서 자동산출 (엔진 코드와 짝) — 이름/매핑 잠금, 규격만 편집
              *  select     : 판정/대조군 등 코드로 옵션이 고정된 선택 항목 — 전체 잠금
@@ -2255,6 +2576,7 @@
                 if (f.field_key === 'bi_result' || f.field_key === 'control_result') return 'select';
                 return (f.source_type || 'manual') === 'manual' ? 'text' : 'auto';
             }
+
             _fmHelp(kind) {
                 if (kind === 'auto')
                     return '자동 항목입니다. 값은 시스템이 로그에서 계산합니다(이름·계산방식 잠금). ' +
@@ -2269,7 +2591,12 @@
 
             _fmRenderEditor() {
                 const _this = this, c = this.FM.cur;
-                if (!c) { $('#fmEditor').empty(); $('#fmTtl').text('양식을 선택하세요'); $('#fmLock').empty(); return; }
+                if (!c) {
+                    $('#fmEditor').empty();
+                    $('#fmTtl').text('양식을 선택하세요');
+                    $('#fmLock').empty();
+                    return;
+                }
                 $('#fmTtl').text(c.form_code + ' Rev.' + c.revision + ' — ' + c.form_name);
                 const ro = this._fmRo();
                 $('#fmLock').html(ro
@@ -2305,9 +2632,9 @@
                         const nameLock = ro || (kind !== 'text');            // 이름·단위 = 수기만 편집
                         const specLock = ro || (kind === 'select');          // 규격 = 자동·수기 편집
                         const help = esc(_this._fmHelp(kind));
-                        const badge = kind === 'text'   ? '<span class="fm-badge man2">수기</span>'
+                        const badge = kind === 'text' ? '<span class="fm-badge man2">수기</span>'
                             : kind === 'select' ? '<span class="fm-badge sel2">선택</span>'
-                                :                      '<span class="fm-badge auto2">자동</span>';
+                                : '<span class="fm-badge auto2">자동</span>';
                         html += '<tr class="k-' + kind + '">' +
                             '<td style="text-align:center; white-space:nowrap;">' + badge +
                             ' <span class="fm-help-ic" title="' + help + '">?</span></td>' +
@@ -2329,7 +2656,10 @@
 
                 $('#fmEditor input[data-sk], #fmEditor input[data-k]').off('input').on('input', function () {
                     const si = +this.dataset.si;
-                    if (this.dataset.sk) { _this.FM.cur.steps[si][this.dataset.sk] = this.value; return; }
+                    if (this.dataset.sk) {
+                        _this.FM.cur.steps[si][this.dataset.sk] = this.value;
+                        return;
+                    }
                     const fi = +this.dataset.fi, k = this.dataset.k;
                     let v = this.value;
                     if (k === 'spec_lower' || k === 'spec_upper') v = (v === '' ? null : parseFloat(v));
@@ -2344,39 +2674,46 @@
                 $('#fmEditor .fmDel').off('click').on('click', function () {
                     const si = +this.dataset.si, fi = +this.dataset.fi;
                     Alert.confirm('', '이 수기 항목을 삭제할까요?', function () {
-                        _this.FM.cur.steps[si].fields.splice(fi, 1); _this._fmRenderEditor();
+                        _this.FM.cur.steps[si].fields.splice(fi, 1);
+                        _this._fmRenderEditor();
                     });
                 });
             }
+
             _fmRevise() {
                 const _this = this;
-                this._postBody('/form_revise', { base_id: this.FM.cur.id }, function (d) {
-                    _this.FM.cur = null; _this._fmLoadList(d && d.id);
+                this._postBody('/form_revise', {base_id: this.FM.cur.id}, function (d) {
+                    _this.FM.cur = null;
+                    _this._fmLoadList(d && d.id);
                     if (typeof Notify !== 'undefined') Notify.success('Rev.' + '초안을 만들었습니다.');
                 });
             }
+
             _fmSave() {
                 const _this = this;
                 this._postBody('/form_save', this.FM.cur, function () {
                     if (typeof Notify !== 'undefined') Notify.success('초안을 저장했습니다.');
                 });
             }
+
             _fmApply() {
                 const _this = this;
                 Alert.confirm('', 'Rev.' + this.FM.cur.revision + ' 을 적용합니다.\n기존 적용본은 폐기되며 되돌릴 수 없습니다.\n\n※ 인쇄 레이아웃(sterilPrint.js)도 함께 확인하세요.', function () {
                     _this._postBody('/form_save', _this.FM.cur, function () {
-                        _this._postBody('/form_apply', { id: _this.FM.cur.id }, function () {
+                        _this._postBody('/form_apply', {id: _this.FM.cur.id}, function () {
                             if (typeof Notify !== 'undefined') Notify.success('적용되었습니다.');
                             _this._fmLoadList(_this.FM.cur.id);
                         });
                     });
                 });
             }
+
             _fmDrop() {
                 const _this = this;
                 Alert.confirm('', '이 초안을 삭제할까요?', function () {
-                    _this._postBody('/form_delete', { id: _this.FM.cur.id }, function () {
-                        _this.FM.cur = null; _this._fmLoadList();
+                    _this._postBody('/form_delete', {id: _this.FM.cur.id}, function () {
+                        _this.FM.cur = null;
+                        _this._fmLoadList();
                         if (typeof Notify !== 'undefined') Notify.success('삭제되었습니다.');
                     });
                 });
@@ -2403,8 +2740,14 @@
             /** 단계별 값 + 자동값 + 선택 구간을 한 번에 저장 */
             saveSteril() {
                 const b = this.curBatch, _this = this;
-                if (!b) { Alert.alert('', '배치를 선택하세요.'); return; }
-                if (!this.FORM || !(this.FORM.steps || []).length) { Alert.alert('', '양식이 없습니다.'); return; }
+                if (!b) {
+                    Alert.alert('', '배치를 선택하세요.');
+                    return;
+                }
+                if (!this.FORM || !(this.FORM.steps || []).length) {
+                    Alert.alert('', '양식이 없습니다.');
+                    return;
+                }
 
                 const steps = (this.FORM.steps || []).map(s => {
                     const data = {}, auto = {};
@@ -2414,8 +2757,10 @@
                         const a = _this.sterilAuto[k];
                         if (a && a.value !== null && a.value !== undefined) auto[k] = String(a.value);
                     });
-                    return {step_no: s.step_no, step_name: s.step_name,
-                        data: JSON.stringify(data), auto_data: JSON.stringify(auto)};
+                    return {
+                        step_no: s.step_no, step_name: s.step_name,
+                        data: JSON.stringify(data), auto_data: JSON.stringify(auto)
+                    };
                 });
 
                 const payload = {
