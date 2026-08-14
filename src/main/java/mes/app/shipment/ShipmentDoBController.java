@@ -167,13 +167,25 @@ public class ShipmentDoBController {
 
 		//validation check
 		for (int i = 0; i < items.size(); i++) {
-			Integer ml_id = (Integer) items.get(i).get("ml_id");
+			// ★ (Integer) 캐스팅을 걷어냈다 — 아래 asInt/asFloat 주석 참고
+			Integer ml_id = asInt(items.get(i).get("ml_id"));
+			if (ml_id == null) {
+				result.success = false;
+				result.message = "로트 정보가 비어 있습니다.";
+				return result;
+			}
 			Optional<MaterialLot> mat_lot = matLotRepository.findById(ml_id);
 
 			if(mat_lot.isPresent()){
 				MaterialLot materialLot = mat_lot.get();
-				Float quantity = Float.valueOf((String)items.get(i).get("quantity"));
+				Float quantity = asFloat(items.get(i).get("quantity"));
 				Float currentStock = materialLot.getCurrentStock();
+
+				if(quantity == null || quantity <= 0){
+					result.success = false;
+					result.message = "출고 수량이 올바르지 않습니다.";
+					return result;
+				}
 
 				if(quantity > currentStock){
 					result.success = false;
@@ -190,13 +202,12 @@ public class ShipmentDoBController {
 
 		this.transactionTemplate.executeWithoutResult(status->{
 			for (int i = 0; i < items.size(); i++) {
-				Integer ml_id = (Integer) items.get(i).get("ml_id");
+				Integer ml_id = asInt(items.get(i).get("ml_id"));
 
-
-				Float quantity = Float.valueOf((String)items.get(i).get("quantity"));
+				Float quantity = asFloat(items.get(i).get("quantity"));
 				Double doubleQty = Double.valueOf(String.format("%.2f", quantity));
 
-				Integer mlc_id = (Integer) items.get(i).get("mlc_id");
+				Integer mlc_id = asInt(items.get(i).get("mlc_id"));
 
 				MatLotCons matlotcons = null;
 
@@ -214,9 +225,15 @@ public class ShipmentDoBController {
 				matlotcons.set_audit(user);
 
 				this.matLotConsRepository.save(matlotcons);
-				//this.shipmentDoBService.updateShipmentQantityByLotConsume(sh_id, shipment_id, sourceData);
-				this.shipmentDoBService.updateShipmentAndHeadByLotConsume(sh_id, shipment_id, sourceData);
 			}
+
+			/*
+			 * ★ 집계는 저장이 «다 끝난 뒤 한 번» 만 돌린다.
+			 *   예전에는 반복문 안에 있어 항목이 5건이면 같은 집계를 5번 다시 계산했다.
+			 *   결과는 같지만 행이 늘수록 저장이 눈에 띄게 느려진다.
+			 */
+			//this.shipmentDoBService.updateShipmentQantityByLotConsume(sh_id, shipment_id, sourceData);
+			this.shipmentDoBService.updateShipmentAndHeadByLotConsume(sh_id, shipment_id, sourceData);
 		});
 
 		return result;
@@ -388,5 +405,48 @@ public class ShipmentDoBController {
 		}
 
 		return result;
+	}
+
+	// =========================================================================
+	// JSON 값 변환
+	//
+	//   ★ 예전에는 Q 항목을 필드마다 다르게 캐스팅했다 —
+	//       ml_id    → (Integer)
+	//       quantity → (String)
+	//     이건 «JSON 이 그 타입으로 들어온다» 는 가정이다. LOT지정 팝업은
+	//     그리드값(숫자) + input.val()(문자열) 조합이라 우연히 맞아떨어졌지만,
+	//     호출하는 화면이 하나만 늘어도 바로 ClassCastException 이 난다.
+	//     실제로 스캔 경로를 붙이자마자 양방향으로 터졌다 —
+	//       Integer → String (수량을 숫자로 보냈을 때)
+	//       String → Integer (로트 id 를 문자열로 보냈을 때)
+	//
+	//   값의 «의미» 는 정해져 있고 «표현» 만 다르다. 표현에 흔들리지 않게 받는다.
+	// =========================================================================
+
+	/** JSON 값 → Integer. 숫자든 문자열이든 받는다 */
+	private static Integer asInt(Object o) {
+		if (o == null) return null;
+		if (o instanceof Number) return ((Number) o).intValue();
+		String s = String.valueOf(o).trim();
+		if (s.isEmpty()) return null;
+		try {
+			return Integer.valueOf(s);
+		} catch (NumberFormatException e) {
+			// "3.0" 처럼 소수점이 붙어 오는 경우(그리드 편집값)
+			return (int) Double.parseDouble(s);
+		}
+	}
+
+	/** JSON 값 → Float. 위와 같은 이유 */
+	private static Float asFloat(Object o) {
+		if (o == null) return null;
+		if (o instanceof Number) return ((Number) o).floatValue();
+		String s = String.valueOf(o).trim();
+		if (s.isEmpty()) return null;
+		try {
+			return Float.valueOf(s);
+		} catch (NumberFormatException e) {
+			return null;
+		}
 	}
 }

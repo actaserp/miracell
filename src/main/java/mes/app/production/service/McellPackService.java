@@ -599,6 +599,17 @@ public class McellPackService {
                 """, p);
 	}
 
+	/**
+	 * 2공장 박스 라벨의 pack_label."LabelKind".
+	 *
+	 * ★ 1공장은 ckpk / inbox / carton 세 종류를 쓰지만 2공장은 박스 하나에 라벨 하나다.
+	 *   같은 테이블에 담되 종류를 갈라 둬야 조회에서 섞이지 않는다.
+	 * ⚠ varchar(10) 에 딱 10자다. 더 긴 이름으로 바꾸면 그대로 저장 오류가 난다.
+	 * ⚠ pack_label_kind_chk CHECK 제약에 이 값을 «먼저» 추가해야 한다
+	 *   (patch_pack_label_mcell.sql).
+	 */
+	private static final String LABEL_KIND_MCELL = "m-cell_box";
+
 	// =====================================================================
 	// 쓰기 — 포장
 	// =====================================================================
@@ -622,7 +633,7 @@ public class McellPackService {
 														 Integer actorId, Integer equipmentId,
 														 String startTime, String endTime,
 														 List<ProductionCreateService.BomInput> bomList,
-														 String spjangcd, User user) {
+														 String labelRaw, String spjangcd, User user) {
 		AjaxResult r = new AjaxResult();
 		r.success = true;
 
@@ -758,6 +769,39 @@ public class McellPackService {
                 UPDATE mat_lot SET "Description" = :memo
                  WHERE "SourceTableName"='mat_produce' AND "SourceDataPk"=:mpId
                 """, ds);
+
+		/* ── 4-2. pack_label 기록 ──
+		 *
+		 *   MakerLotNo 만으로는 «언제 무엇을 찍었는지» 가 남지 않는다. 값 하나가
+		 *   덮어써지면 끝이고, 스캔 원문·GTIN 같은 부속 정보도 담을 자리가 없다.
+		 *   1공장이 pack_label 에 남기는 것과 같은 이유다.
+		 *
+		 *   ★ 차수당 1행. ux_pack_label(MatProduce_id, LabelKind) 유니크가 그것을 강제한다.
+		 *     2공장은 「1대 = 1박스 = 1차수」라 이 제약과 정확히 맞는다.
+		 *     그래도 UPSERT 로 둔다 — 재시도·중복 호출에 INSERT 가 터지면
+		 *     그 위의 소비·입고까지 통째로 롤백되기 때문이다.
+		 *   ★ Qty 는 1 고정(박스 1개). LotNo 에 박스 라벨이 들어간다.
+		 *   ★ RawData 는 스캔 «원문». 화면이 GS1 에서 (10)만 뽑아 보내는 경우
+		 *     label 과 값이 달라진다 — 오인식을 되짚을 근거라 따로 남긴다.
+		 */
+		MapSqlParameterSource pl = new MapSqlParameterSource()
+																 .addValue("mpId", mpId)
+																 .addValue("kind", LABEL_KIND_MCELL)
+																 .addValue("lot", label)
+																 .addValue("raw", (labelRaw == null || labelRaw.isBlank()) ? label : labelRaw.trim())
+																 .addValue("spjangcd", spjangcd)
+																 .addValue("userId", user == null ? null : user.getId());
+		this.sqlRunner.execute("""
+                INSERT INTO pack_label
+                       ("MatProduce_id","LabelKind","LotNo","Qty","RawData",
+                        _status,_created,_creater_id,spjangcd)
+                VALUES (:mpId, :kind, :lot, 1, :raw,
+                        'a', now(), CAST(:userId AS integer), CAST(:spjangcd AS varchar))
+                ON CONFLICT ("MatProduce_id","LabelKind") DO UPDATE
+                   SET "LotNo"   = EXCLUDED."LotNo"
+                     , "Qty"     = EXCLUDED."Qty"
+                     , "RawData" = EXCLUDED."RawData"
+                """, pl);
 
 		// ── 5. 유닛 packed ──
 		MapSqlParameterSource up = new MapSqlParameterSource()
@@ -986,6 +1030,13 @@ public class McellPackService {
                     """, new MapSqlParameterSource()
 																												.addValue("mpId", mpId).addValue("mk", str(mk.get("mk"))));
 		}
+
+		/* ★ 라벨 행도 지운다. 안 지우면 pack_label."MatProduce_id" 가
+		     아래에서 _status='d' 로 닫히는 차수를 계속 물고 있어
+		     같은 유닛을 다시 포장할 때 유니크에 걸리거나 옛 라벨이 조회에 남는다.
+		     (mat_produce 행 자체는 지우지 않으므로 FK 위반은 아니다) */
+		this.sqlRunner.execute(
+			"DELETE FROM pack_label WHERE \"MatProduce_id\"=:mpId AND \"LabelKind\"='" + LABEL_KIND_MCELL + "'", p);
 
 		// 산출 정리
 		this.sqlRunner.execute("DELETE FROM mat_lot   WHERE \"SourceTableName\"='mat_produce' AND \"SourceDataPk\"=:mpId", p);

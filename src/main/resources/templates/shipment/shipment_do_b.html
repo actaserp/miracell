@@ -14,6 +14,114 @@
         .lotscan .msg.warn{color:#FFD5CE}
         .lotscan .camstop{position:absolute;right:8px;top:8px;height:32px;padding:0 12px;border-radius:8px;
             border:none;background:rgba(21,34,43,.72);color:#fff;font-weight:700;font-size:13px;cursor:pointer}
+
+        /* ── 레이아웃 ────────────────────────────────────────────────────── */
+        /* ★ «폭 기준» 이 아니라 «자리 기준» 으로 접는다.
+             미디어쿼리(max-width)는 브라우저 창 크기를 보는데, 이 화면은 탭·사이드바
+             안쪽에 들어 있어 실제로 쓸 수 있는 폭이 창보다 훨씬 좁다.
+             그래서 창이 1400px 이어도 내용 영역은 900px 뿐인 상황이 생기고,
+             미디어쿼리는 그걸 모르니 2단을 유지해 가로 스크롤이 났다.
+             flex-wrap + flex-basis 로 두면 «두 단이 들어갈 자리가 없을 때» 스스로 접힌다. */
+        /* ★ align-items 를 stretch(기본값)로 둔다.
+             flex-start 면 각 단이 «내용만큼만» 높이를 가져, 짧은 쪽 아래가 통째로 빈다.
+             stretch 면 두 단이 같은 높이가 되고, 그 안에서 그리드가 남는 공간을 채운다. */
+        .page-split { display: flex; flex-wrap: wrap; gap: 5px;
+            width: 100%; max-width: 100%; overflow-x: hidden; }
+        /* 640px : 이보다 좁으면 그리드 칸이 «판...» 처럼 잘려 읽을 수 없다.
+           둘이 못 들어가면 한 단으로 접혀 각 그리드가 폭을 다 쓴다. */
+        .page-split > .section { flex: 1 1 640px; min-width: 0; max-width: 100%;
+            display: flex; flex-direction: column; }
+        /* 섹션 안에서도 «남는 높이» 를 그리드 상자가 받아야 한다.
+           안 그러면 섹션만 늘어나고 그리드는 그대로라 빈칸이 그대로 남는다. */
+        .page-split > .section > form { flex: 0 0 auto; }
+        .page-split #divList { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; }
+        .page-split #divList > .container-fluid { flex: 1 1 auto; min-height: 0; display: flex; }
+        .page-split #theGrid { flex: 1 1 auto; min-height: 240px; }
+        /* 오른쪽 단도 같은 규칙 — 두 그리드가 높이를 나눠 갖는다 */
+        .page-split > .section > .section-top { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; }
+        /* ★ 인라인 style="flex:1" 이 다시 끼어들어도 지지 않게 못을 박는다.
+             인라인이 CSS 보다 세서 basis 가 0 이 되면 «아무리 좁아져도» 안 접힌다.
+             이 화면은 그 문제로 두 번 되돌아왔다. */
+        .page-split > .section[style] { flex: 1 1 640px !important; min-width: 0 !important; }
+        /* ★ min-width:0 이 핵심이다. flex 자식은 기본값이 min-width:auto 라
+             내용(그리드)보다 작아지지 못하고, 그만큼 부모를 밀어 가로 스크롤을 만든다. */
+        .page-split .container-fluid,
+        .page-split form,
+        .page-split .grid_box { min-width: 0; max-width: 100%; }
+        .layout-contents { min-width: 0; max-width: 100%; overflow-x: hidden; }
+        /* 그리드는 «자기 안에서» 스크롤한다. 페이지가 밀리지 않는다 */
+        #theGrid, #theGrid2, #theGrid3 { width: 100%; max-width: 100%; overflow: auto; }
+        /* 검색 폼도 좁아지면 접힌다 — 한 줄에 몰리면 폼이 페이지를 밀어낸다 */
+        .page-split .search-wrap { display: flex; flex-wrap: wrap; gap: 4px 10px; max-width: 100%; }
+        .page-split .search-wrap dl { min-width: 0; }
+        .page-split .title_box { flex-wrap: wrap; gap: 6px; }
+
+        /* ── 검색 조건 압축 ────────────────────────────────────────────────
+           라벨이 입력 «위» 에 얹혀 있어 한 줄이 두 줄 높이를 먹는다.
+           태블릿은 세로가 귀하다 — 라벨을 왼쪽으로 돌려 높이를 절반으로 줄이고,
+           칸 사이 여백도 좁힌다. 그래도 폭이 모자라면 알아서 다음 줄로 내려간다. */
+        .page-split .section-top { padding-top: 8px; padding-bottom: 8px; }
+        .page-split .search-wrap { gap: 6px 14px; align-items: center; }
+        .page-split .search-wrap dl {
+            display: flex; align-items: center; gap: 6px; margin: 0; }
+        .page-split .search-wrap dt { margin: 0; }
+        .page-split .search-wrap dt label {
+            margin: 0; font-size: 13px; white-space: nowrap; line-height: 1.2; }
+        .page-split .search-wrap dd { margin: 0; }
+        /* 입력·선택 높이를 맞춰 줄이 들쭉날쭉하지 않게 */
+        .page-split .search-wrap input[type=date],
+        .page-split .search-wrap input[type=text],
+        .page-split .search-wrap select { height: 34px; }
+        .page-split .search-wrap select { min-width: 110px; }
+        /* 검색 버튼은 같은 줄 끝에 붙인다 */
+        .page-split .search-wrap .btn-search,
+        .page-split .search-wrap button { height: 34px; }
+        /* 그리드 위 여백도 줄인다 */
+        .page-split .grid_box { margin-top: 4px; }
+        .page-split .title_box { margin: 4px 0; }
+
+
+        /* ── 태블릿 (≤1280px) ─────────────────────────────────────────────
+           세로로 세워 쓰는 태블릿이 기준이다. 좌우 2단은 폭이 모자라
+           그리드가 두어 칸만 보인다 — 위아래로 쌓는다.
+           ★ 손가락으로 누르는 화면이라 버튼·입력은 최소 44px 로 키운다. */
+        @media (max-width: 1280px) {
+            .page-split > .section { flex: 1 1 100%; }   /* 확실히 한 단으로 */
+
+            /* 한 화면에 세 그리드가 다 들어오도록 높이를 나눈다 */
+            #theGrid  { height: 24vh !important; }
+            #theGrid2 { height: 20vh !important; }
+            #theGrid3 { height: 24vh !important; }
+
+            /* 터치 타깃 — 다만 «검색 조건» 안의 컨트롤은 제외한다.
+               여기까지 44px 로 키우면 검색부가 다시 세로를 다 먹는다.
+               손이 자주 가는 것은 스캔·LOT 버튼과 그리드이지 검색 폼이 아니다. */
+            .btn-default, .btn-danger, .btn, .btn-popup {
+                min-height: 44px !important; padding: 0 14px !important; font-size: 15px !important; }
+            .page-split .search-wrap .btn-default,
+            .page-split .search-wrap button {
+                min-height: 36px !important; height: 36px !important; font-size: 14px !important; }
+            /* 16px 미만이면 iOS 가 입력할 때 화면을 확대한다 */
+            #LotNumber { width: 180px !important; height: 44px !important; font-size: 16px !important; }
+
+            /* 검색 폼이 한 줄에 몰려 잘리지 않게 */
+            .search-wrap { flex-wrap: wrap !important; }
+            .search-wrap dl { margin-bottom: 6px; }
+            .title_box { flex-wrap: wrap; gap: 6px; }
+
+            /* 스캔 영역은 가로를 다 쓴다 — 라벨을 크게 비출수록 잘 읽힌다 */
+            .lotscan { width: 100% !important; max-width: none !important; max-height: 32vh !important; }
+        }
+
+        /* ── 세로 태블릿 (≤900px) ── */
+        @media (max-width: 900px) {
+            #theGrid  { height: 22vh !important; }
+            #theGrid2 { height: 18vh !important; }
+            #theGrid3 { height: 22vh !important; }
+            /* 제목과 버튼이 한 줄에 안 들어가면 버튼 줄을 통째로 내린다 */
+            .title_box .right_align { width: 100%; }
+            #LotNumber { flex: 1 1 140px; width: auto !important; min-width: 140px; }
+        }
     </style>
     <div class="layout-contents">
         <div class="page-title-wrap">
@@ -29,8 +137,11 @@
                 <li>출고 지시 등록(LOT)</li>
             </ul>
         </div>
-        <div style="display: flex; gap: 5px;">
-            <section class="section" style="flex: 1;">
+        <!-- ★ 클래스를 준다. 예전엔 인라인 display:flex 뿐이라 미디어쿼리가
+             잡을 «손잡이» 가 없었고, 태블릿에서도 좌우 2단이 그대로 유지돼
+             가로 스크롤이 생겼다. -->
+        <div class="page-split">
+            <section class="section">
                 <form id="searchForm" autocomplete="off">
                     <div class="section-top">
                         <div class="search-wrap">
@@ -139,7 +250,7 @@
                 </div>
             </section>
 
-            <section class="section" style="flex: 1; min-width: 0;">
+            <section class="section">
                 <div class="section-top">
                     <div class="container-fluid">
                         <div class="title_box buttons">
@@ -257,6 +368,8 @@
 
 <th:block layout:fragment="scripts">
     <th:block th:replace="/common/columns_setting :: columns_setting"></th:block>
+    <!-- ★ 카메라 바코드 스캔 공통 모듈 — 세척·포장 화면과 같은 파일. -->
+    <script type="text/javascript" th:src="@{/js/barcode_cam.js}"></script>
     <script type="text/javascript">
 
         let gUrl = '/api/shipment/shipment_do_a';
@@ -283,23 +396,28 @@
 
         /* 가변길이 AI 의 끝. GS 가 없으면 뒤따르는 AI 를 추정해 끊는다 —
            GS 를 떨어뜨리는 스캐너에서 (10)로트가 뒤의 (30)(11)까지 삼켰다. */
-        function varEnd(s, i) {
+        function varEnd(s, i, curAi) {
             var GS = '\u001d';
             var g = s.indexOf(GS, i);
             if (g >= 0) return g;
-            for (var j = i + 1; j <= s.length - 3; j++) if (aiTailOk(s.substring(j))) return j;
+            for (var j = i + 1; j <= s.length - 3; j++) if (aiTailOk(s.substring(j), curAi)) return j;
             return s.length;
         }
         /* 남은 문자열이 AI 열로 온전히 읽히는가 — 가변 AI 는 되짚기로 푼다.
            (00)(01)(02)(20) 은 인정하지 않는다(맨 앞에만 오는 것들이라
            허용하면 로트 한복판 숫자를 GTIN 으로 오독해 로트가 짧게 잘린다). */
-        function aiTailOk(t) {
+        function aiTailOk(t, curAi) {
             var DATE = {'11':1,'12':1,'13':1,'15':1,'16':1,'17':1};
             var GS = '\u001d';
             function ok(k, seen) {
                 while (k < t.length && t[k] === GS) k++;
                 if (k >= t.length) return seen > 0;
                 var ai = t.substr(k, 2);
+                /* ★ 끊은 자리 바로 뒤에 «같은 AI» 가 또 나오는 절단은 버린다.
+                     GS1 은 같은 AI 를 한 번만 쓴다. 안 막으면 로트 안의 숫자를
+                     다음 AI 로 오인해 앞에서 잘린다 —
+                       (10)M2FJ109400 → 'M2FJ' + (10)'9400' 으로 읽혔다. */
+                if (seen === 0 && curAi && ai === curAi) return false;
                 if (DATE[ai]) {
                     var v = t.substr(k + 2, 6);
                     if (!/^\d{6}$/.test(v)) return false;
@@ -352,7 +470,7 @@
                 var flen = FIXED[ai];
                 if (flen != null) { i += flen; }
                 else {
-                    var end = varEnd(raw, i);
+                    var end = varEnd(raw, i, ai);
                     var v = raw.substring(i, end); i = end;
                     if (ai === '10') return v.trim();
                 }
@@ -360,24 +478,21 @@
             return raw;
         }
 
-        /* ── 카메라 스캔 ────────────────────────────────────────────────
-           스캐너(키보드 웨지)를 대체하지 않는다. 둘 다 «입력칸에 값을 넣는» 것으로
-           끝나고, 그 뒤 흐름(Enter → 팝업 → 자동확정)은 완전히 같다.
-           덕분에 어느 쪽으로 찍든 결과가 갈리지 않는다.
+        /* ── 카메라 스캔 — 공통 모듈(BarcodeCam) ──────────────
+           세척·포장 화면이 쓰는 /js/barcode_cam.js 를 그대로 이식했다.
+           카메라를 여는 일(해상도 단계 재시도·초점·감지루프)은 전부 모듈이 맡고,
+           이 화면은 «읽은 값을 어떻게 해석할지» 만 가진다.
 
-           ★ BarcodeDetector 는 Android Chrome·ChromeOS 에서만 동작한다.
-             데스크톱 Chrome·iOS 에는 없다 — 그 환경에서는 버튼을 눌러도
-             사유를 문구로 남기고 스캐너·직접입력으로 넘어간다.
-           ★ 형식은 code_128 하나만 연다. itf 를 열면 Code128 의 굵기 패턴 일부를
-             자기 코드로 착각해 「151557842676」 같은 값을 만들어 낸다. */
-        var lotCamStream = null, lotCamDet = null, lotCamTimer = null, lotCamBusy = false;
+           스캐너(키보드 웨지)를 대체하지 않는다 — 둘 다 같은 경로로 흘러간다. */
+        var lotCam = null;                 // BarcodeCam 인스턴스
+        var lotCamOn = false;              // 렌즈가 켜져 있는가
         var lotCamLast = '', lotCamLastAt = 0;
 
         function lotCamReason() {
-            if (!window.isSecureContext) return 'HTTPS 접속이 아니라 카메라를 쓸 수 없습니다. 스캐너나 직접 입력을 사용하세요.';
-            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return '이 브라우저는 카메라를 지원하지 않습니다.';
-            if (typeof window.BarcodeDetector === 'undefined') return '이 브라우저는 바코드 인식을 지원하지 않습니다. 스캐너나 직접 입력을 사용하세요.';
-            return null;
+            if (typeof BarcodeCam === 'undefined')
+                return '바코드 모듈(barcode_cam.js)을 불러오지 못했습니다. 스캐너나 직접 입력을 사용하세요.';
+            var c = BarcodeCam.check();
+            return c.ok ? null : String(c.msg || '카메라를 쓸 수 없습니다').split('\n')[0];
         }
         function lotCamMsg(msg, warn) {
             var m = document.getElementById('lotScanMsg');
@@ -386,10 +501,8 @@
             m.textContent = msg || '';
         }
         function lotCamStop() {
-            clearTimeout(lotCamTimer); lotCamTimer = null;
-            if (lotCamStream) { lotCamStream.getTracks().forEach(function (t) { t.stop(); }); lotCamStream = null; }
-            var v = document.getElementById('lotScanVideo');
-            if (v) v.srcObject = null;
+            if (lotCam) lotCam.stop();
+            lotCamOn = false;
             var w = document.getElementById('lotScanWrap');
             if (w) w.classList.remove('on');
             lotCamLast = '';
@@ -398,38 +511,27 @@
         document.addEventListener('visibilitychange', function () { if (document.hidden) lotCamStop(); });
 
         async function lotCamStart() {
-            var why = lotCamReason();
             var w = document.getElementById('lotScanWrap');
-            if (why) { if (w) w.classList.add('on'); lotCamMsg(why, true); return; }
-            if (w) w.classList.add('on');
+            var why = lotCamReason();
+            if (w) w.classList.add('on');   // 사유를 보여 주어야 하므로 안 될 때도 펌다
+            if (why) { lotCamMsg(why, true); return; }
             lotCamMsg('카메라 준비 중…');
+            if (!lotCam) {
+                lotCam = BarcodeCam.create({
+                    video: document.getElementById('lotScanVideo'),
+                    /* ★ 출고 라벨은 사내 GS1-128 뿐이다. itf 를 열면 Code128 의 굵기
+                         패턴 일부를 자기 코드로 착각해 「151557842676」 같은 값을 만든다. */
+                    formats: ['code_128'],
+                    continuous: true,       // 박스를 연달아 찍는다
+                    onScan: onLotCamScan,
+                    onStatus: function (m) { lotCamMsg(m); },
+                    onError: function (m) { lotCamOn = false; lotCamMsg(String(m || '').split('\n')[0], true); }
+                });
+            }
             try {
-                if (!lotCamDet) {
-                    try { lotCamDet = new window.BarcodeDetector({formats: ['code_128']}); }
-                    catch (e0) { lotCamDet = new window.BarcodeDetector(); }
-                }
-                /* 해상도는 단계적으로 요청한다. min 같은 하드 제약을 걸면
-                   못 맞추는 기기에서 OverconstrainedError 로 아예 안 열린다. */
-                var TRY = [
-                    {facingMode:'environment', width:{ideal:1920}, height:{ideal:1080}},
-                    {facingMode:'environment', width:{ideal:1280}},
-                    true
-                ];
-                for (var ti = 0; ti < TRY.length; ti++) {
-                    try { lotCamStream = await navigator.mediaDevices.getUserMedia({video: TRY[ti], audio: false}); break; }
-                    catch (eT) { if (ti === TRY.length - 1) throw eT; }
-                }
-                try {
-                    var tr = lotCamStream.getVideoTracks()[0];
-                    var cap = tr.getCapabilities ? tr.getCapabilities() : {};
-                    if (cap.focusMode && cap.focusMode.indexOf('continuous') >= 0)
-                        await tr.applyConstraints({advanced: [{focusMode: 'continuous'}]});
-                } catch (eF) {}
-                var v = document.getElementById('lotScanVideo');
-                v.srcObject = lotCamStream;
-                await v.play();
+                await lotCam.start();
+                lotCamOn = true;
                 lotCamMsg('라벨을 비추세요');
-                lotCamLoop();
             } catch (e) {
                 lotCamStop();
                 if (w) w.classList.add('on');
@@ -437,22 +539,6 @@
                     ? '권한이 거부되었습니다. 브라우저 설정에서 카메라를 허용하세요.'
                     : (e && e.message || e)), true);
             }
-        }
-
-        /* setInterval 을 쓰지 않는다 — detect() 가 간격보다 오래 걸리면 호출이 겹쳐 쌓인다.
-           한 번 끝난 뒤 다음을 예약하므로 절대 겹치지 않는다. */
-        function lotCamLoop() {
-            clearTimeout(lotCamTimer);
-            lotCamTimer = setTimeout(async function () {
-                var w = document.getElementById('lotScanWrap');
-                if (!w || !w.classList.contains('on')) return;   // 닫혔으면 멈춘다
-                if (!lotCamBusy) {
-                    lotCamBusy = true;
-                    try { await lotCamTick(); } catch (e) {}
-                    lotCamBusy = false;
-                }
-                lotCamLoop();
-            }, 220);
         }
 
         function lotCamFlash() {
@@ -473,33 +559,33 @@
             } catch (e) {}
         }
 
-        async function lotCamTick() {
-            var v = document.getElementById('lotScanVideo');
-            if (!lotCamDet || !v || v.readyState < 2) return;
-            var found;
-            try { found = await lotCamDet.detect(v); } catch (e) { return; }
-            if (!found || !found.length) return;
-            /* 라벨 한 장에 바코드가 여럿이면 (10)이 풀리는 쪽을 고른다 —
-               found[0] 은 기기·각도마다 달라져 「찍을 때마다 다르게 인식」된다. */
-            var raw = '', best = -1;
-            for (var fi = 0; fi < found.length; fi++) {
-                var cand = String(found[fi].rawValue || '').trim();
-                if (!cand) continue;
-                var sc = (pickLot(cand) !== normRaw(cand)) ? 1 : 0;
-                if (sc > best) { best = sc; raw = cand; }
-            }
+        /* ★ 감지 루프는 모듈이 돌린다 — 여기는 «읽힌 값 한 개» 를 받아 해석만 한다.
+           같은 값 2.5초 무시는 그대로 남긴다 — 같은 박스를 계속 비추고 있을 때
+           목록에 중복으로 담기지 않게 막는 자리다. */
+        function onLotCamScan(raw) {
+            raw = String(raw || '').trim();
             if (!raw) return;
+            var w = document.getElementById('lotScanWrap');
+            if (!w || !w.classList.contains('on')) return;   // 접혔으면 무시
+
             var now = Date.now();
-            if (raw === lotCamLast && now - lotCamLastAt < 2500) return;   // 같은 값 2.5초 무시
+            if (raw === lotCamLast && now - lotCamLastAt < 2500) return;
             lotCamLast = raw; lotCamLastAt = now;
+
             lotCamBeep(); lotCamFlash();
             lotCamMsg('읽었습니다 — ' + raw);
-            /* ★ 스캐너와 «같은 자리»로 흘려보낸다. 입력칸에 값을 넣고
-               Enter 를 흉내 내면 이후 로직이 하나뿐이라 두 경로가 갈릴 수 없다. */
+            /* ★ 카메라는 «팝업을 열지 않는다» — 바로 목록에 담는다.
+               박스를 연달아 찍는 흐름이라 매번 팝업이 뜨면 손이 두 번 더 간다.
+               후보가 애매할 때만 quickShipByScan 이 팝업으로 넘긴다. */
             var $in = $('#LotNumber');
             if ($in.is(':disabled')) { lotCamMsg('출하 항목을 먼저 선택하세요.', true); return; }
-            $in.val(pickLot(raw));
-            $in.trigger($.Event('keypress', {keyCode: 13, which: 13}));
+            var key = pickLot(raw);
+            $in.val(key);
+            if (window.__shipPage && typeof window.__shipPage.quickShipByScan === 'function') {
+                window.__shipPage.quickShipByScan(key);
+            } else {
+                $in.trigger($.Event('keypress', {keyCode: 13, which: 13}));
+            }
         }
 
 
@@ -547,10 +633,63 @@
                     $cboCompany.attr('title', $('#cboCompany option:checked').text());
                 });
 
+                /* ★ wijmo 그리드는 컨테이너 폭이 바뀌어도 스스로 다시 재지 않는다.
+                     레이아웃이 접히거나(2단→1단) 태블릿을 돌리면 옛 폭 그대로 남아
+                     칸이 잘려 보인다 — 창 크기가 바뀌면 세 그리드를 다시 그린다. */
+                let _rzTimer = null;
+                window.addEventListener('resize', () => {
+                    clearTimeout(_rzTimer);
+                    _rzTimer = setTimeout(() => {
+                        this.applyCompactColumns();
+                        [this.shipmentHeaderGrid, this.shipmentListGrid, this.lotListGrid]
+                        .forEach(g => { try { if (g) g.invalidate(true); } catch (e) {} });
+                    }, 150);
+                });
+
                 this.initShipmentHeader();
                 this.initShipmentList();
                 this.initLotList();
+                this.applyCompactColumns();   // 첫 진입에도 폭에 맞춰 접어 둔다
+                /* ★ 그리드 높이가 flex 로 «나중에» 정해진다.
+                     생성 시점엔 부모 높이가 0 이라 wijmo 가 옛 크기로 그려 둔다 —
+                     레이아웃이 잡힌 뒤 한 번 다시 그린다. */
+                setTimeout(() => {
+                    [this.shipmentHeaderGrid, this.shipmentListGrid, this.lotListGrid]
+                    .forEach(g => { try { if (g) g.invalidate(true); } catch (e) {} });
+                }, 0);
 
+            }
+
+            /* 폭이 좁으면 «부차 컬럼» 을 접는다.
+             *
+             *   칸을 다 띄우면 제목이 「판...」 「출...」 로 잘려 아무것도 못 읽는다.
+             *   이 화면에서 «보기만» 하는 값(금액·부가세)을 먼저 감추고,
+             *   식별·수량처럼 작업에 필요한 칸을 남긴다.
+             *   ★ 감추는 것이지 지우는 것이 아니다 — 넓어지면 그대로 돌아온다.
+             *   ★ 기준은 «그리드 한 칸이 실제로 쓰는 폭» 이다. 2단이면 절반씩
+             *     나눠 쓰므로 페이지가 넓어도 각 칸은 좁다.
+             */
+            applyCompactColumns() {
+                let wrap = document.querySelector('.page-split');
+                let w = wrap ? wrap.clientWidth : 0;
+                let twoCol = w >= 640 * 2 + 5;          // 두 단이 들어가는가
+                let colW = twoCol ? (w - 5) / 2 : w;    // 그리드 한 칸이 쓰는 폭
+                let narrow = colW < 900;
+
+                let hide = function (grid, names, on) {
+                    if (!grid || !grid.columns) return;
+                    names.forEach(function (n) {
+                        let c = grid.columns.getColumn(n);
+                        if (c) c.visible = !on;
+                    });
+                };
+                // 출고 지시 목록 — 금액 계열은 여기서 쓰지 않는다
+                hide(this.shipmentHeaderGrid, ['total_price', 'total_vat', 'description'], narrow);
+                // 출하상세 — 단가·공급가·부가세는 등록 화면에서 참고값이다
+                hide(this.shipmentListGrid,
+                    ['unit_price', 'price', 'vat', 'invat_yn', 'total_price', 'standard', 'mat_grp_name'], narrow);
+                // LOT상세 — 유효기간은 접어도 작업에 지장이 없다
+                hide(this.lotListGrid, ['EffectiveDate'], narrow);
             }
 
             initShipmentHeader() {
@@ -571,7 +710,7 @@
                         {binding: 'item_count', header: '품목건수', width: '*', align: 'right', isReadOnly: true},
                         {binding: 'total_price', header: '총공급가', width: '*', align: 'right', isReadOnly: true},
                         {binding: 'total_vat', header: '총부가세', width: '*', align: 'center', isReadOnly: true},
-                        {binding: 'state_id', header: 'State id', width: '*', align: 'left', isReadOnly: true},
+                        {binding: 'state_id', header: 'State id', width: '*', align: 'left', isReadOnly: true, visible: false},   // 내부 코드값 — 현장에 보일 이유가 없다
                         {binding: 'state_name', header: '상태', width: '*', align: 'center', isReadOnly: true},
                         {binding: 'description', header: '비고', width: '*', align: 'left', isReadOnly: false},
 
@@ -642,6 +781,134 @@
 
                 new FlexGridContextMenu(this.shipmentHeaderGrid);
                 this.shipmentHeaderGrid.downloadFileName = '출고지시';
+            }
+
+            /* ★ 스캔 한 번으로 «팝업 없이» 목록에 담는다.
+               카메라로 찍을 때마다 팝업이 뜨면 박스 4개를 연달아 찍는 흐름이 끊긴다.
+               후보가 하나로 떨어질 때만 바로 담고, 애매하면 예전처럼 팝업을 연다 —
+               사람이 골라야 할 상황에서 임의로 정하면 엉뚱한 박스가 나간다.
+
+               담을 수 있는 조건
+                 · 출고 지시(헤더)와 품목(theGrid2) 이 선택돼 있을 것
+                 · 후보가 카톤 1건이거나, 카톤이 없으면 로트 1건일 것
+                 · 이미 출고된 박스가 아닐 것                                   */
+            quickShipByScan(key) {
+                let _this = this;
+                if (!key) return;
+
+                let headerItems = this.shipmentHeaderGrid.selectedItems;
+                let shipmentItems = this.shipmentListGrid.selectedItems;
+                if (!headerItems || headerItems.length === 0) {
+                    Alert.alert('스캔 오류', '출고 지시 항목을 먼저 선택해 주세요.');
+                    return;
+                }
+                /* 품목이 한 줄뿐이면 굳이 고르게 하지 않는다 —
+                   태블릿에서 작은 행을 짚는 동작이 스캔 흐름을 끊는다. */
+                if ((!shipmentItems || shipmentItems.length === 0)
+                    && this.shipmentListGrid.rows && this.shipmentListGrid.rows.length === 1) {
+                    this.shipmentListGrid.select(0, 0);
+                    shipmentItems = this.shipmentListGrid.selectedItems;
+                }
+                if (!shipmentItems || shipmentItems.length === 0) {
+                    Alert.alert('스캔 오류', '출하상세(품목)를 먼저 선택해 주세요.');
+                    return;
+                }
+
+                let sh_id = headerItems[0].id;
+                let shipment_id = shipmentItems[0].shipment_id;
+                let material_id = shipmentItems[0].Material_id;
+
+                let res = AjaxUtil.getSyncData(this.url + '/mat_lot_search', {
+                    material_id: material_id, sh_id: sh_id, lot_number: key
+                });
+                let rows = (res && res.data) || [];
+                if (rows.length === 0) {
+                    this.scanToast('찾을 수 없는 라벨입니다 — ' + key, true);
+                    return;
+                }
+
+                /* ★ «가득 찬 박스» 만 자동으로 담는다. 잔여 박스는 인박스 낱개로
+                   펼쳐져 여러 줄이 되므로 몇 개를 낼지 사람이 골라야 한다. */
+                let cartons = rows.filter(function (r) { return r.unit_kind === 'carton'; });
+                let pick = (cartons.length === 1) ? cartons[0]
+                    : (cartons.length === 0 && rows.length === 1) ? rows[0] : null;
+
+                if (!pick) {
+                    // 후보가 여럿 — 사람이 골라야 한다. 예전 흐름(팝업)으로 넘긴다.
+                    this.$LotNumber.val(key);
+                    this.scanToast('후보가 ' + rows.length + '건입니다 — 목록에서 선택하세요');
+                    this.showLotSelectPopup();
+                    return;
+                }
+                if (String(pick.carton_state) === 'shipped') {
+                    this.scanToast('이미 출고된 박스입니다 — ' + (pick.carton_lot_no || key), true);
+                    return;
+                }
+                if (Number(pick.CurrentStock) <= 0) {
+                    this.scanToast('재고가 없는 로트입니다 — ' + (pick.LotNumber || key), true);
+                    return;
+                }
+
+                // 카톤이면 박스 수량 그대로, 아니면 남은 지시수량만큼
+                // 서버가 줄마다 «나갈 수량(ship_qty)» 을 정해 내려준다
+                let qty = Number(pick.ship_qty != null ? pick.ship_qty : pick.carton_qty);
+                if (!(qty > 0)) qty = 1;
+
+                /* ★ 값을 «문자열» 로 보낸다.
+                     컨트롤러(saveMatLotCons)가 Q 의 항목을 (String) 으로 캐스팅한다 —
+                     팝업 경로는 input.val() 이라 원래 문자열이었고, 여기서만 숫자를
+                     보내 ClassCastException(Integer→String) 으로 터졌다.
+                   ★ shipment_id 는 mat_lot_search 가 내려주지 않는다.
+                     선택한 출하상세 행의 값(위에서 잡은 shipment_id)을 쓴다. */
+                /* ★ 타입을 «팝업 경로와 똑같이» 맞춘다.
+                     컨트롤러 saveMatLotCons 가 필드마다 다르게 캐스팅한다 —
+                       ml_id   → (Integer)   숫자로 보내야 한다
+                       quantity→ (String)    문자열로 보내야 한다
+                     팝업은 그리드값(숫자) + input.val()(문자열) 조합이라 우연히 맞았고,
+                     여기서만 어긋나 ClassCastException 이 났다.
+                   ★ shipment_id 는 mat_lot_search 가 안 내려준다 —
+                     선택한 출하상세 행의 값을 쓴다. */
+                let items = [{
+                    ml_id: Number(pick.ml_id),
+                    material_id: Number(pick.Material_id),
+                    quantity: String(qty),
+                    shipment_id: Number(pick.shipment_id != null ? pick.shipment_id : shipment_id)
+                }];
+
+                AjaxUtil.postAsyncData(this.url + '/save_mat_lot_cons', {
+                    sh_id: sh_id, shipment_id: shipment_id, Q: JSON.stringify(items)
+                }, function (result) {
+                    if (!result || result.success === false) {
+                        _this.scanToast('등록 실패 — ' + ((result && result.message) || ''), true);
+                        return;
+                    }
+                    /* 카톤은 박스 단위로 출고 표시한다. 서버가 조건부 UPDATE 라
+                       두 단말이 같은 박스를 동시에 찍어도 한 쪽만 통과한다. */
+                    /* 낱개(인박스) 줄에서는 부르지 않는다 — 박스가 통째로 나간 게
+                       아닌데 shipped 로 닫으면 나머지 낱개를 영영 못 낸다. */
+                    if (pick.unit_kind === 'carton') {
+                        AjaxUtil.postAsyncData(_this.url + '/carton_ship', {
+                            carton_id: pick.carton_id, shipment_id: shipment_id
+                        }, function (r2) {
+                            if (r2 && r2.success === false)
+                                Alert.alert('카톤 출고 표시 실패', r2.message || '');
+                        });
+                    }
+                    _this.scanToast('담았습니다 — ' + (pick.carton_lot_no || pick.LotNumber) + ' · ' + qty);
+                    _this.$LotNumber.val('');
+                    _this.showShipmentList();
+                    _this.showMatLotConsumeList();
+                    _this.focusLotInput();
+                });
+            }
+
+            /* 스캔 결과는 카메라 화면 안 문구로 알린다 —
+               연달아 찍는 중에 확인 버튼을 누르게 하면 흐름이 끊긴다. */
+            scanToast(msg, warn) {
+                if (typeof lotCamMsg === 'function') lotCamMsg(msg, warn);
+                if (typeof Notify !== 'undefined' && Notify) {
+                    try { warn ? Notify.error(msg) : Notify.success(msg); } catch (e) {}
+                }
             }
 
             /* LOT 입력칸으로 커서를 옮긴다.
@@ -792,10 +1059,15 @@
                    열자마자 켜면 쓰지도 않는 렌즈가 계속 돈다. */
                 $('#btnLotCam').click(function () {
                     var w = document.getElementById('lotScanWrap');
-                    if (w && w.classList.contains('on')) { lotCamStop(); return; }
+                    if (w && w.classList.contains('on')) {
+                        lotCamStop();
+                        return;
+                    }
                     lotCamStart();
                 });
-                $('#btnLotCamStop').click(function () { lotCamStop(); });
+                $('#btnLotCamStop').click(function () {
+                    lotCamStop();
+                });
 
                 this.$btnLOTSelectCancel.click(function (e) {
                     let lotItems = _this.lotListGrid.selectedItems;
@@ -843,7 +1115,14 @@
                             return;
                         }
 
-                        _this.showLotSelectPopup();
+                        /* ★ 스캐너(키보드 웨지)·직접입력도 카메라와 «같은 경로» 로 보낸다.
+                           예전에는 여기서 곧바로 팝업을 열었다 — 박스를 4개 찍는데
+                           매번 팝업을 띄우고 확인을 누르면 스캔의 의미가 없다.
+                           quickShipByScan 이 후보 1건이면 바로 담고,
+                           애매할 때(여러 박스·잔여 낱개)만 팝업으로 넘긴다. */
+                        let key = pickLot(lot_number);
+                        _this.$LotNumber.val(key);
+                        _this.quickShipByScan(key);
                     }
                 });
             }
@@ -1034,7 +1313,11 @@
                 let $content = $(content);
 
                 let modalContainer = new PopupDraggable('LOT지정');
-                modalContainer.open({width: 800, height: 600, $content});
+                /* ★ 화면보다 큰 팝업은 태블릿에서 잘린다 — 화면에 맞춘다.
+                     800 은 데스크톱 기준값이라 1024 태블릿에서도 여백이 거의 없다. */
+                let popW = Math.min(800, Math.round(window.innerWidth * 0.94));
+                let popH = Math.min(600, Math.round(window.innerHeight * 0.86));
+                modalContainer.open({width: popW, height: popH, $content});
                 let $lotForm = $content.find('#lotForm');
 
                 let lotSearchGrid = null;
@@ -1055,6 +1338,7 @@
                         {binding: 'mat_grp_name', header: '품목그룹', width: 80, align: 'left'},
                         {binding: 'mat_code', header: '품목코드', width: 80, align: 'center'},
                         {binding: 'mat_name', header: '품목', width: 120, align: 'left'},
+                        {binding: 'unit_label', header: '포장단위', width: 190, isReadOnly: true},
                         {binding: 'carton_lot_no', header: '카톤(박스)', width: 80, align: 'center'},
                         /* 이 국가로 아직 안 나간 박스 수. 몇 번 더 찍어야 하는지 바로 보인다 */
                         {binding: 'carton_remain', header: '남은박스', width: 80, align: 'right'},
@@ -1127,8 +1411,11 @@
                            대표번호(C-20260810-0010)는 한 차수의 모든 박스가 같은 번호를 달아서
                            국가별로 여러 줄이 걸린다 — 그때는 사람이 골라야 하므로 자동으로 정하면 안 된다. */
                         let rows = result.data || [];
+                        /* ★ 자동확정은 «가득 찬 박스» 한 줄일 때만 한다.
+                           잔여 박스는 인박스 낱개로 펼쳐져 여러 줄이 되므로
+                           몇 개를 낼지 사람이 골라야 한다. */
                         let cartonRows = rows.filter(function (r) {
-                            return r.carton_id;
+                            return r.unit_kind === 'carton';
                         });
                         let hit = (cartonRows.length === 1) ? cartonRows[0] : null;
                         if (cartonRows.length > 1) {
@@ -1204,15 +1491,21 @@
                                    박스 하나가 한 건이므로 더 고를 것이 없고,
                                    열어 두면 다음 박스를 찍을 입력칸이 가려진다.
                                    목록에서 손으로 고른 경우는 그대로 둔다(여러 로트를 나눠 담는 흐름). */
-                                let wasCarton = !!(selectedItem && selectedItem.carton_id);
+                                let wasCarton = !!(selectedItem && selectedItem.unit_kind === 'carton');
                                 if (wasCarton) {
-                                    try { modalContainer.close(); } catch (e2) {}
+                                    try {
+                                        modalContainer.close();
+                                    } catch (e2) {
+                                    }
                                     _this.focusLotInput();
                                 }
                                 /* ★ 카톤으로 담았으면 그 박스를 출고 표시한다.
                                    서버가 조건부 UPDATE 라 이미 나간 박스면 실패로 돌아온다 —
                                    두 단말이 같은 박스를 동시에 찍어도 한 쪽만 통과한다. */
-                                if (selectedItem && selectedItem.carton_id) {
+                                /* ★ 낱개(인박스) 줄에서는 부르지 않는다 —
+                                   박스가 통째로 나간 게 아닌데 shipped 로 닫으면
+                                   같은 박스의 나머지 낱개를 영영 못 낸다. */
+                                if (selectedItem && selectedItem.unit_kind === 'carton') {
                                     AjaxUtil.postAsyncData(_this.url + '/carton_ship', {
                                         carton_id: selectedItem.carton_id,
                                         shipment_id: shipment_id
@@ -1435,6 +1728,9 @@
 
         $(document).ready(function (e) {
             page = new ShipmentProcessPage();
+            /* 카메라 인식 콜백은 클래스 밖(전역 함수)에서 돈다 —
+               페이지 인스턴스를 잡을 통로가 필요하다. */
+            window.__shipPage = page;
 
             $('#srchStartDt').val(CommonUtil.getYYYYMMDD(-7));
             $('#srchEndDt').val(CommonUtil.getYYYYMMDD());

@@ -170,11 +170,14 @@ public class McellPackController {
 		@RequestParam(value = "start_time", required = false) String startTime,
 		@RequestParam(value = "end_time", required = false) String endTime,
 		@RequestParam(value = "bom_json", required = false) String bomJson,
+		// ★ 스캔 원문. 화면이 GS1 에서 (10)만 뽑아 maker_lot_no 로 보내므로
+		//   원문은 따로 받아 pack_label."RawData" 에 남긴다. 없으면 라벨값을 그대로 쓴다.
+		@RequestParam(value = "label_raw", required = false) String labelRaw,
 		@RequestParam(value = "spjangcd", defaultValue = "ZZ") String spjangcd,
 		Authentication auth) {
 		return this.mcellPackService.packUnit(jobResId, packMatId, matLotId, makerLotNo,
 			actorId, equipmentId, startTime, endTime,
-			parseBom(bomJson), spjangcd, (User) auth.getPrincipal());
+			parseBom(bomJson), labelRaw, spjangcd, (User) auth.getPrincipal());
 	}
 
 	/** 「작업 추가」 = 포장 작업 시작. 작지를 working 으로 올린다 */

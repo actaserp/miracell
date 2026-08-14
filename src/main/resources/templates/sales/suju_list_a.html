@@ -324,7 +324,7 @@
                             </a>
                         </td>
                         <th style="text-align: center">
-                            <label for="delivery">납품처<span class="eq">*</span></label>
+                            <label for="delivery">납품처</label>
                         </th>
                         <td colspan="3">
                             <input class="form-control2" type="text" id="DeliveryName" name="DeliveryName" placeholder="납품처"/>
@@ -1358,10 +1358,6 @@
 
           if (!$('#SuJuOrderName').val()) {
             Alert.alert('', '수주처를 선택하세요.');
-            return;
-          }
-          if (!$('#DeliveryName').val()) {
-            Alert.alert('', '납품처를 입력하세요.');
             return;
           }
           if (!$('#cboCompany').val()) {

@@ -2631,6 +2631,21 @@
                                 e.cell.style.color = '#5567ff'; // 글자 색깔 변경
                             }
                         }
+                        /* 실물 라벨 칸 — 비어 있으면 «출력 필요» 로 바꿔 보여준다.
+                           빈칸으로 두면 «값이 없구나» 로 지나쳐 붙이는 절차를 놓친다.
+                           이 표시가 곧 «이 상자에 로트번호가 붙어 있는가» 다. */
+                        if (e.panel.cellType === wijmo.grid.CellType.Cell
+                            && sender.columns[e.col].binding === 'MakerLotNo') {
+                            const it = sender.rows[e.row].dataItem;
+                            if (it && !it.MakerLotNo) {
+                                e.cell.textContent = '바코드 출력 필요';
+                                e.cell.style.color = '#C0392B';
+                                e.cell.style.fontWeight = '700';
+                            } else {
+                                e.cell.style.color = '';
+                                e.cell.style.fontWeight = '';
+                            }
+                        }
                     },
                     columns: [
                         {binding: 'LotNumber', header: '로트번호', width: 120, align: 'center', isReadOnly: true},
@@ -2638,6 +2653,13 @@
                         {binding: 'InputDateTime', header: '입고일시', width: 120, align: 'center', isReadOnly: true},
                         {binding: 'EffectiveDate', header: '유효일시', width: 120, align: 'center', isReadOnly: true},
                         {binding: 'InputQty', header: '수량', width: 100, align: 'right', isReadOnly: true},
+                        /* ★ 실물 상자에 «로트가 붙어 있는가» 를 한 칸으로 보여준다.
+                             MakerLotNo 가 차 있으면 매입처 라벨의 (10) 로트를 그대로 쓴 것이라
+                             그 라벨로 계속 스캔하면 된다 — 바코드를 뽑을 이유가 없다.
+                             비어 있으면 EAN-13·무지 자재라 실물에 로트번호가 «없다».
+                             그대로 두면 이 재고는 이후 스캔으로 특정할 수 없으므로
+                             입고 직후 바코드를 출력해 붙여야 한다. */
+                        {binding: 'MakerLotNo', header: '실물 라벨', width: 140, align: 'center', isReadOnly: true},
                         {binding: 'Description', header: '비고', width: 200, align: 'left', isReadOnly: false}
                     ],
                     itemsSource: new wijmo.collections.CollectionView([])
@@ -2676,11 +2698,36 @@
                     $EffectiveDate.val(CommonUtil.getYYYYMMDD());
                 }
 
+                /* 이 입고건에 «이미 저장된» 로트와, 그중 쓰인 것이 있는지.
+                   계산·저장 버튼이 이 값을 보고 갈린다. */
+                let savedLots = [];
+                let usedLots  = [];
+                /* 사용 판정 : 서버가 내려주는 값 중 하나라도 «쓴 흔적» 을 말하면 사용으로 본다.
+                   ★ CurrentStock 이 InputQty 보다 적으면 어딘가로 빠져나간 것이다.
+                     used_qty / cons_cnt 를 내려주는 서버라면 그 값이 더 정확하다. */
+                let isUsedLot = function (r) {
+                    if (!r) return false;
+                    if (Number(r.used_qty) > 0) return true;
+                    if (Number(r.cons_cnt) > 0) return true;
+                    if (r.CurrentStock != null && r.InputQty != null
+                        && Number(r.CurrentStock) < Number(r.InputQty)) return true;
+                    return false;
+                };
+
                 let fnLoadLotList = function (mio_pk) {
                     let fnsuccess = function (result) {
-                        if (result.data.length > 0) {
-                            //$btnLotSave.prop('disabled', 'disabled');
-                            $btnLotCalc.prop('disabled', 'disabled');
+                        savedLots = result.data || [];
+                        usedLots  = savedLots.filter(isUsedLot);
+                        /* ★ 예전에는 로트가 있기만 하면 계산을 막았다.
+                             그런데 스캔 입고로 만들어진 로트가 남아 있으면 다시 계산할 방법이
+                             없어, 사람이 그 위에 계산 결과를 얹어 «중복 입고» 가 생겼다
+                             (스캔 33×3 + 계산 99 = 198). 이제는 «쓰인 로트가 있을 때만» 막는다. */
+                        if (usedLots.length > 0) {
+                            $btnLotCalc.prop('disabled', true);
+                            $btnLotSave.prop('disabled', true);
+                        } else {
+                            $btnLotCalc.prop('disabled', false);
+                            $btnLotSave.prop('disabled', false);
                         }
                         _this.matLotGrid.itemsSource = new wijmo.collections.CollectionView(result.data);
                     };
@@ -2694,8 +2741,28 @@
 
                 fnLoadLotList(item.mio_pk);
 
+                /* 저장할 때 «기존 로트를 갈아끼울지» 여부. 계산 버튼에서 정해진다. */
+                let replaceMode = false;
+
                 // 로트계산버튼 클릭
                 $btnLotCalc.click(function (e) {
+                    /* ★ 쓰인 로트가 하나라도 있으면 손대지 않는다.
+                         이미 소비·출고된 로트를 지우면 그 이력이 매달릴 곳을 잃는다. */
+                    if (usedLots.length > 0) {
+                        Alert.alert('로트계산 불가',
+                            '이미 사용된 로트가 있습니다 (' + usedLots.length + '건).\n'
+                            + '사용 이력이 있는 로트는 다시 발번할 수 없습니다.');
+                        return;
+                    }
+                    /* 저장된 로트가 있으면 «지우고 새로» 라는 뜻이다 — 사람에게 먼저 확인한다.
+                       예전에는 조용히 위에 얹혀 중복 입고가 됐다. */
+                    if (savedLots.length > 0 && !replaceMode) {
+                        Alert.confirm('로트 재발번',
+                            '이미 저장된 로트 ' + savedLots.length + '건이 있습니다.\n'
+                            + '기존 로트를 지우고 새로 발번합니다. 계속할까요?',
+                            function () { replaceMode = true; $btnLotCalc.click(); });
+                        return;
+                    }
                     _this.matLotGrid.itemsSource.sourceCollection = [];
 
                     if ($EffectiveDate.val() === '' || $EffectiveDate.val() == null) {
@@ -2758,16 +2825,30 @@
                     if (lotItems.length == 0) {
                         return;
                     }
+                    /* ★ «실물에 로트가 없는» 것만 뽑는다.
+                         MakerLotNo 가 차 있으면 매입처 라벨의 (10) 로트를 그대로 쓰고 있어
+                         이미 상자에 번호가 붙어 있다 — 우리 번호를 또 붙이면
+                         한 상자에 로트번호가 둘이 되어 어느 쪽을 찍어야 할지 갈린다. */
                     let barcodeItems = [];
+                    let skipped = 0;
                     $.each(lotItems, function (idx, lotItem) {
-                        if (lotItem.LotNumber) {
-                            barcodeItems.push(lotItem);
-                        }
+                        if (!lotItem.LotNumber) return;
+                        if (lotItem.MakerLotNo) { skipped++; return; }   // 라벨 있음 — 출력 안 함
+                        barcodeItems.push(lotItem);
                     });
 
-                    if (barcodeItems.length > 0) {
-                        _this.showBarcodePrint(barcodeItems);
+                    if (barcodeItems.length === 0) {
+                        Alert.alert('바코드 출력',
+                            skipped > 0
+                                ? '모든 로트에 매입처 라벨이 있어 출력할 것이 없습니다.\n'
+                                + '그 라벨을 그대로 스캔하시면 됩니다.'
+                                : '출력할 로트가 없습니다.');
+                        return;
                     }
+                    if (skipped > 0) {
+                        Notify.success('매입처 라벨이 있는 ' + skipped + '건은 제외했습니다.');
+                    }
+                    _this.showBarcodePrint(barcodeItems);
                 });
 
                 // 로트저장
@@ -2787,10 +2868,21 @@
                     let qty = Number($InputQty.val());
                     let strLots = JSON.stringify(lotItems);
                     let url = _this.url + '/lot_save';
+                    /* ★ 저장 직전에 한 번 더 막는다.
+                         목록을 불러온 뒤 다른 사람이 그 로트를 써버렸을 수 있다.
+                         최종 판정은 서버 몫이지만, 화면에서 걸러지는 것은 걸러 둔다. */
+                    if (usedLots.length > 0) {
+                        Alert.alert('로트저장 불가',
+                            '이미 사용된 로트가 있습니다 (' + usedLots.length + '건).');
+                        return;
+                    }
                     let sendData = {
                         mio_id: item.mio_pk,
                         Material_id: item.Material_id,
                         StoreHouse_id: item.StoreHouse_id,
+                        /* Y 면 이 입고건의 기존 로트를 지우고 새로 발번한다.
+                           서버는 «쓰인 로트가 하나라도 있으면» 거절해야 한다. */
+                        replace_yn: replaceMode ? 'Y' : 'N',
                         Q: strLots
                     };
 
@@ -3079,6 +3171,14 @@
 
                 // 입고창고 옵션 채우기
                 AjaxUtil.fillSelectOptions($content.find('#scanStoreHouse'), 'store_house', 'choose', '3'); //자재 창고가 기본
+
+                /* ★ 기본 유효기간을 «오늘» 로 채워 둔다.
+                     비워 두면 라벨에 (17)이 없는 자재(EAN-13·무지)에서 유효기간이
+                     빈칸으로 남고, 저장할 때 「YYYY-MM-DD로 입력하세요」로 막힌다 —
+                     그때서야 값을 채우느라 스캔 흐름이 끊긴다.
+                   ★ 실제 기간이 다르면 이 칸을 고치고 「빈 행 일괄적용」을 누르면 된다.
+                     라벨에 (17)이 있는 자재는 그 값이 우선이라 여기 값과 무관하다. */
+                $content.find('#scanHeaderExp').val(CommonUtil.getYYYYMMDD());
 
                 // 스캔 결과 그리드 생성
                 this.scanResultGrid = new wijmo.grid.FlexGrid('#scan-result-grid', {
@@ -3648,27 +3748,63 @@
                         return;
                     }
 
-                    /* ★ 1스캔 = pack_qty 개. 인박스 바코드를 낱개로 세면 수량이 크게 틀어진다 */
-                    const step = Number(d.pack_qty) || 1;
-                    const next = (Number(line.inputQty) || 0) + step;
-                    if (next > Number(line.remainQty)) {
-                        fail('미입고수량(' + line.remainQty + ')을 초과합니다 · ' + line.materialName);
-                        return;
-                    }
-                    line.inputQty = next;
-                    line.confirmed = true;
-                    line.statusText = '확인 ' + next + '/' + line.remainQty;
+                    /* ★ 수량은 «발주 미입고수량» 을 기본으로 채운다.
+                         예전에는 1스캔 = pack_qty 로 «누적» 했다. 33개들이 3박스면
+                         세 번 찍어야 99가 되는데, 실제로는 박스마다 로트가 같아
+                         나눠 세는 의미가 없으면서 손만 세 번 갔다.
+                         더구나 자체 출력 바코드는 GS1 이 아니라 pack_qty 가 1 이어서
+                         99개짜리 로트를 찍어도 1개로 잡혔다.
 
-                    /* ★ 제조사 로트는 사내 로트번호 칸에 넣지 않는다.
-                         LotNumber 는 우리가 채번하는 사내 번호(비우면 서버가 자동 발번),
-                         MakerLotNo 는 바코드 (10) 에서 읽은 외부 번호다.
-                         한 칸에 섞으면 사내 번호 체계가 매입처마다 제각각이 된다. */
-                    if (parsed.lot && !line.makerLotNo) line.makerLotNo = parsed.lot;
-                    if (d.effective_date && !line.effectiveDate) line.effectiveDate = d.effective_date;
+                         이제 첫 스캔에서 미입고수량을 통째로 채우고, 다르면 사람이 고친다.
+                         그리드의 «입고수량» 칸은 편집 가능하다.
+                       ★ 두 번째 스캔부터는 수량을 건드리지 않는다 —
+                         사람이 고쳐 둔 값을 스캔 한 번에 되돌려 놓으면 안 된다. */
+                    const remain = Number(line.remainQty) || 0;
+                    if (!line.confirmed) {
+                        line.inputQty = remain;                       // 발주 잔량이 기본값
+                        line.statusText = '확인 ' + remain + '/' + remain + ' (수정 가능)';
+                    } else {
+                        /* 이미 확정된 줄을 다시 찍었다 — 수량은 그대로 두고 재확인만 알린다.
+                           박스를 여러 번 찍는 현장 습관을 수량 오류로 만들지 않는다. */
+                        const cur = Number(line.inputQty) || 0;
+                        line.statusText = '재확인 ' + cur + '/' + remain;
+                    }
+                    line.confirmed = true;
+
+                    /* ★ 바코드에 (10) 로트가 있으면 «그 번호를 그대로» 사내 로트로 쓴다.
+                         없을 때만 서버가 자체 번호(LI-…)를 발번한다.
+
+                         원래는 사내/외부를 나눠 두 칸에 담았는데, 실물에 붙어 있는 것은
+                         매입처 번호 하나뿐이라 현장에서 «화면의 LI-… 번호» 로는 물건을
+                         찾을 수 없었다. 실물에 있는 번호를 그대로 쓰는 편이 추적이 산다.
+                       ★ MakerLotNo 에도 같은 값을 남긴다 — 이 번호가 «외부에서 온 것» 이라는
+                         사실은 따로 알아야 한다(자체 발번과 구분). */
+                    if (parsed.lot) {
+                        if (!line.makerLotNo) line.makerLotNo = parsed.lot;
+                        if (!line.lotNumber)  line.lotNumber  = parsed.lot;
+                    }
+                    /* ★ 유효기간은 «라벨의 (17)» 이 먼저다.
+                         예전에는 서버가 준 effective_date 만 썼는데, 그 값은
+                         품목의 ValidDays 로 계산한 «우리 추정치» 다.
+                         매입처가 정한 기간이 라벨에 찍혀 있는데 그걸 버리고
+                         우리 계산을 쓰면 실물과 시스템이 어긋난다 —
+                         (17)281231 라벨을 찍었는데 2026-08-17 이 들어갔다.
+                       ★ 라벨에 (17)이 없을 때만(EAN-13 등) 서버 값으로 떨어진다. */
+                    const labelExp = parsed && parsed.expDate ? parsed.expDate : '';
+                    if (labelExp) {
+                        line.effectiveDate = labelExp;          // 라벨 값이 최우선 — 덮어쓴다
+                    } else if (d.effective_date && !line.effectiveDate) {
+                        line.effectiveDate = d.effective_date;
+                    }
 
                     cv.refresh();
                     _this.updateScanSummary($content);
-                    if (cb) cb(true, line.materialName + ' · ' + next + '/' + line.remainQty);
+                    /* ★ next 는 예전 «pack_qty 누적» 시절의 변수였다.
+                         수량 기본값을 발주 잔량으로 바꾸면서 그 변수가 사라졌는데
+                         이 줄만 남아 있었다 — 카메라 경로(cb 있음)에서만 도는 줄이라
+                         스캐너로 찍을 때는 멀쩡하고 카메라로 찍을 때만 ReferenceError 가 났다. */
+                    if (cb) cb(true, line.materialName + ' · ' + (Number(line.inputQty) || 0)
+                        + '/' + line.remainQty);
                     $content.find('#scanBarcode').focus();
                 });
             }

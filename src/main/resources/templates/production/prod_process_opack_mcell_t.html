@@ -382,6 +382,8 @@
   <!-- ★ 바코드 라이브러리 — prod_result_lot 과 같은 파일.
        CDN 이 아니라 프로젝트 안에 있어 현장망에서도 로드된다. -->
   <script type="text/javascript" th:src="@{/resource/jsBarcode/JsBarcode.all.min.js}"></script>
+  <!-- ★ 카메라 바코드 스캔 공통 모듈 — 세척 화면(prod_process_wash_t.html)과 같은 파일. -->
+  <script type="text/javascript" th:src="@{/js/barcode_cam.js}"></script>
   <script th:inline="none">
    /* ══ 높이 자동 맞춤 (세척·조립 화면과 동일) ══ */
    (function () {
@@ -622,12 +624,12 @@
       ★ 현장 스캐너가 GS 를 떨어뜨리고 주는 일이 잦은데, 그러면 (10)로트가
         뒤의 (17)(30)(11) 까지 통째로 삼킨다 — 실제로
         (01)…(10)BMJ20220120(30)1(11)220120 이 「BMJ20220120301」 로 잘렸다. */
-   function varEnd(s, i) {
+   function varEnd(s, i, curAi) {
     var GS = '\u001d';
     var g = s.indexOf(GS, i);
     if (g >= 0) return g;
     for (var j = i + 1; j <= s.length - 3; j++) {
-     if (aiTailOk(s.substring(j))) return j;
+     if (aiTailOk(s.substring(j), curAi)) return j;
     }
     return s.length;
    }
@@ -635,7 +637,7 @@
    /* 남은 문자열이 AI 열로 끝까지 읽히는가 — 가변 AI 는 되짚기로 푼다.
       ★ (00)(01)(02)(20) 은 «인정하지 않는다». 라벨 맨 앞에만 오는 것들이라
         허용하면 로트 한복판의 숫자를 GTIN 으로 오독해 로트가 짧게 잘린다. */
-   function aiTailOk(t) {
+   function aiTailOk(t, curAi) {
     var DATE = {'11': 1, '12': 1, '13': 1, '15': 1, '16': 1, '17': 1};
     var GS = '\u001d';
 
@@ -643,6 +645,11 @@
      while (k < t.length && t[k] === GS) k++;
      if (k >= t.length) return seen > 0;
      var ai = t.substr(k, 2);
+     /* ★ 끊은 자리 바로 뒤에 «같은 AI» 가 또 나오는 절단은 버린다.
+          GS1 은 같은 AI 를 한 번만 쓴다. 이걸 안 막으면 로트 안의 숫자를
+          다음 AI 로 오인해 앞에서 잘린다 —
+            (10)M2FJ109400 → 'M2FJ' + (10)'9400' 으로 읽혀 로트가 M2FJ 가 됐다. */
+     if (seen === 0 && curAi && ai === curAi) return false;
      if (DATE[ai]) {
       var v = t.substr(k + 2, 6);
       if (!/^\d{6}$/.test(v)) return false;
@@ -679,43 +686,57 @@
    /* GS1-128 → (10) 로트. 괄호표기 / 원시 element string 둘 다.
       ★ 포장(BSC)·트래킹 화면과 같은 규칙이어야 한다 — 같은 바코드를
         여러 화면에서 찍기 때문에 파싱이 어긋나면 한쪽만 조회된다. */
-   function pickLot(raw) {
+   /* 스캔값을 AI 목록으로 푼다 — [{ai,v}, …], GS1 이 아니면 빈 배열.
+      ★ 판별 근거는 «구조» 뿐이다 : FNC1(GS)이 있거나 (01)GTIN 으로 시작하거나.
+        무조건 파싱하면 평범한 로트번호가 AI 열로 «읽혀» 잘린다 —
+          M2FJ109393 → 'M2' 를 가변 AI 로 보고 'FJ' 까지 삼킨 뒤
+                       한복판의 '10' 을 로트 AI 로 잡아 「9393」 이 나온다. */
+   function parseAis(raw) {
+    var out = [];
     raw = normRaw(raw);
-    if (!raw) return '';
-    var m;
+    if (!raw) return out;
     if (raw.indexOf('(') >= 0) {
-     if ((m = raw.match(/\(10\)([^()\u001d]+)/))) return m[1].trim();
-     return raw;
+     var re = /\((\d{2,4})\)([^(]*)/g, g;
+     while ((g = re.exec(raw)) !== null) {
+      var v0 = g[2].replace(/\u001d/g, '').trim();
+      if (v0) out.push({ai: g[1], v: v0});
+     }
+     return out;
     }
     var GS = '\u001d';
-    /* ★★ GS1 형태일 때만 파싱한다.
-         무조건 파싱하면 평범한 로트번호가 AI 열로 «읽혀» 잘린다 —
-           M2FJ109393 → 'M2' 를 가변 AI 로 보고 'FJ' 까지 삼킨 뒤
-                        한복판의 '10' 을 로트 AI 로 잡아 「9393」 이 나온다.
-         2공장 박스 라벨은 GS1 이 아니라 로트 문자열 그대로다.
-         판별 근거는 «구조» 뿐이다 — FNC1(GS)이 있거나 (01)GTIN 으로 시작하거나. */
-    var isGs1 = raw.indexOf(GS) >= 0 || /^01\d{14}/.test(raw);
-    if (!isGs1) return raw;
-    var FIXED = {'00': 18, '01': 14, '02': 14, '11': 6, '12': 6, '13': 6, '15': 6, '16': 6, '17': 6, '20': 2};
+    if (!(raw.indexOf(GS) >= 0 || /^01\d{14}/.test(raw))) return out;   // GS1 아님
+    var FIXED = {'00':18,'01':14,'02':14,'11':6,'12':6,'13':6,'15':6,'16':6,'17':6,'20':2};
     var i = 0;
     while (i < raw.length) {
-     if (raw[i] === GS) {
-      i++;
-      continue;
-     }
-     var ai = raw.substr(i, 2);
-     i += 2;
-     var flen = FIXED[ai];
-     if (flen != null) {
-      i += flen;
-     } else {
-      var end = varEnd(raw, i);
-      var v = raw.substring(i, end);
-      i = end;
-      if (ai === '10') return v.trim();
-     }
+     if (raw[i] === GS) { i++; continue; }
+     var ai = raw.substr(i, 2); i += 2;
+     var flen = FIXED[ai], v;
+     if (flen != null) { v = raw.substr(i, flen); i += flen; }
+     else { var end = varEnd(raw, i, ai); v = raw.substring(i, end); i = end; }
+     v = (v || '').trim();
+     if (v) out.push({ai: ai, v: v});
     }
-    return raw;
+    return out;
+   }
+
+   /* GS1-128 → (10) 로트. GS1 이 아니면 원문 그대로 */
+   function pickLot(raw) {
+    var ais = parseAis(raw);
+    for (var i = 0; i < ais.length; i++) if (ais[i].ai === '10') return ais[i].v;
+    return normRaw(raw);
+   }
+
+   /* 저장용 문자열 — 라벨에 «인쇄된 그대로»의 괄호 표기.
+      바코드 안에는 괄호가 없다. 스캐너는 010880…10M2FJ…<GS>301<GS>11260813 처럼
+      FNC1 로 구분된 element string 을 준다 — 괄호는 사람이 읽으라고 인쇄된 글자다.
+      pack_label."RawData" 에는 라벨 인쇄본과 같은 모양으로 넣는다(1공장과 동일 규칙).
+      ★ 읽은 «순서 그대로» 되돌린다. (17)(21) 처럼 이 화면이 쓰지 않는 AI 도
+        라벨에 있었다면 그대로 실린다 — 저장값은 라벨의 사본이어야 한다.
+      ★ GS1 이 아니면(로트 문자열만 있는 구형 라벨) 원문을 그대로 둔다. */
+   function gs1Text(raw) {
+    var ais = parseAis(raw);
+    if (!ais.length) return normRaw(raw);
+    return ais.map(function (a) { return '(' + a.ai + ')' + a.v; }).join('');
    }
 
    /* ══ 상태 ══
@@ -729,6 +750,7 @@
    let SESSIONS = [], LOCAL = [], SESS = null;   // SESS = 지금 열려 있는 작업
    let curUnit = null;      // 이번 박스에 담을 검사 합격 유닛
    let curLabel = '';       // 이번 박스의 실물 라벨 (필수)
+   let curLabelRaw = '';    // 그 라벨의 «스캔 원문» — GS1 이면 (10)만 뽑은 값과 다르다
    let curDone = null;      // 상세 시트에 띄운 포장 완료 건
    let matQty = {};         // matId → 투입수량
    let WORKERS = [], EQUIPS = [];
@@ -1072,6 +1094,7 @@
    function resetBox() {
     curUnit = null;
     curLabel = '';
+    curLabelRaw = '';
     curDone = null;
     resetMat();
    }
@@ -1320,6 +1343,7 @@
     post(API + '/pack_unit', oParam({
      mat_lot_id: curUnit.mat_lot_id,
      maker_lot_no: curLabel,
+     label_raw: curLabelRaw,
      actor_id: SESS.actor_id,
      equipment_id: SESS.equipment_id == null ? '' : SESS.equipment_id,
      start_time: SESS.start_time || nowHM(),
@@ -1347,46 +1371,42 @@
 
    /* ══ 박스 라벨 스캔 ══ */
    let scanTimer = null, scanVal = '';
+   /* ★ 스캔 «원문». scanVal 은 pickLot 이 (10)만 뽑은 값이라 GS1 라벨에서는 둘이 다르다.
+        pack_label."RawData" 에 원문을 남겨야 오인식을 나중에 되짚을 수 있다. */
+   let scanRawVal = '';
 
-   /* ── 카메라 스캔 ──
-      BarcodeDetector(크롬/안드로이드 WebView 내장)를 쓴다. 외부 라이브러리를 안 붙이는 이유는
-      공장 태블릿이 오프라인일 때 CDN 이 안 잡히면 화면이 통째로 멈추기 때문.
-      쓸 수 없는 환경이면 조용히 죽지 않고 사유를 문구로 남기고, 스캐너·수동입력으로 넘어간다.
+   /* ── 카메라 스캔 — 공통 모듈(BarcodeCam) ──
+      세척 화면이 쓰는 /js/barcode_cam.js 를 그대로 이식했다.
+      예전에는 getUserMedia·BarcodeDetector·감지루프를 이 파일 안에 직접 적었다 —
+      같은 코드가 세척·포장(BSC)·포장(M-CELL) 세 곳에 복사되어 있어
+      한 곳을 고쳐도 나머지가 그대로 남았다. 이제 카메라는 모듈이,
+      «읽은 값을 어떻게 해석할지» 만 이 화면이 맡는다. */
+   var scanCam = null;            // BarcodeCam 인스턴스
+   var camOn   = false;           // 렌즈가 켜져 있는가
+   var camLock = null;            // 화면 꺼짐 방지
 
-      ★ getUserMedia 는 보안 컨텍스트(HTTPS 또는 localhost)에서만 동작한다.
-        http:// 로 접속하면 권한 요청 자체가 안 뜬다. */
-   let camStream = null, camTimer = null, camDet = null, camLock = null;
-
-   /* 화면 꺼짐 방지 — 스캔 시트를 열어둔 채 손을 놓으면 태블릿이 잠긴다.
-      지원 안 하는 기기에서는 조용히 넘어간다. */
+   /* 화면 꺼짐 방지 — 스캔 시트를 열어둔 채 손을 놓으면 태블릿이 잠긴다. */
    async function wakeOn() {
     try {
      if (!navigator.wakeLock || camLock) return;
      camLock = await navigator.wakeLock.request('screen');
-     camLock.addEventListener('release', function () {
-      camLock = null;
-     });
-    } catch (e) {
-    }
+     camLock.addEventListener('release', function () { camLock = null; });
+    } catch (e) {}
    }
-
    function wakeOff() {
-    try {
-     if (camLock) camLock.release();
-    } catch (e) {
-    }
+    try { if (camLock) camLock.release(); } catch (e) {}
     camLock = null;
    }
 
+   /* 쓸 수 있는 환경인가 — 판단은 모듈에 맡긴다(HTTPS·BarcodeDetector·getUserMedia). */
    function camReason() {
-    if (!window.isSecureContext) return 'HTTPS 접속이 아니라 카메라를 쓸 수 없습니다. 스캐너나 직접 입력을 사용하세요.';
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return '이 브라우저는 카메라를 지원하지 않습니다.';
-    if (typeof window.BarcodeDetector === 'undefined') return '이 브라우저는 바코드 인식을 지원하지 않습니다. 스캐너나 직접 입력을 사용하세요.';
-    return null;
+    if (typeof BarcodeCam === 'undefined')
+     return '바코드 모듈(barcode_cam.js)을 불러오지 못했습니다. 스캐너나 직접 입력을 사용하세요.';
+    var c = BarcodeCam.check();
+    return c.ok ? null : String(c.msg || '카메라를 쓸 수 없습니다').split('\n')[0];
    }
 
-   /* 카메라가 켜져 있으면 화면 안(.msg) — 눈이 렌즈를 떠나지 않는다.
-      꺼져 있으면(미지원·권한거부) 바깥(.camnote) — 뷰 자체가 안 보이므로. */
+   /* 카메라가 켜져 있으면 화면 안(.msg), 꺼져 있으면 바깥(.camnote). */
    function setCamNote(msg, warn) {
     var m = document.getElementById('scanMsg');
     if (m) {
@@ -1396,115 +1416,54 @@
     }
     var n = document.getElementById('camNote');
     if (!n) return;
-    var on = document.getElementById('scanWrap').classList.contains('on');
     n.className = 'camnote' + (warn ? ' warn' : '');
-    n.textContent = on ? '' : (msg || '');
+    n.textContent = camOn ? '' : (msg || '');
    }
 
    function stopCam() {
-    clearInterval(camTimer);
-    camTimer = null;
-    if (camStream) {
-     camStream.getTracks().forEach(function (t) {
-      t.stop();
-     });
-     camStream = null;
-    }
-    var v = document.getElementById('scanVideo');
-    if (v) v.srcObject = null;
-    document.getElementById('scanWrap').classList.remove('on');
+    if (scanCam) scanCam.stop();
+    camOn = false;
+    var w = document.getElementById('scanWrap');
+    if (w) w.classList.remove('on');
     wakeOff();
    }
-
    // 탭을 벗어나면 카메라·화면잠금을 놓는다. 안 놓으면 렌즈가 켜진 채 남는다.
-   document.addEventListener('visibilitychange', function () {
-    if (document.hidden) stopCam();
-   });
+   document.addEventListener('visibilitychange', function () { if (document.hidden) stopCam(); });
 
    async function startCam() {
     var why = camReason();
-    if (why) {
-     setCamNote(why, true);
-     return;
-    }
+    if (why) { setCamNote(why, true); return; }
     setCamNote('카메라 준비 중…');
+    if (!scanCam) {
+     scanCam = BarcodeCam.create({
+      video: document.getElementById('scanVideo'),
+      /* ★ 박스 라벨은 GS1-128 뿐이다. itf 를 열어 두면 Code 128 의 굵기 패턴
+           일부를 자기 코드로 착각해 12자리 숫자를 지어낸다. */
+      formats: ['code_128'],
+      continuous: true,          // 박스를 연달아 포장한다 — 한 장 읽고 렌즈를 끄지 않는다
+      onScan: onCamScan,
+      onStatus: function (m) { setCamNote(m); },
+      onError: function (m) {
+       camOn = false;
+       var w = document.getElementById('scanWrap');
+       if (w) w.classList.remove('on');
+       setCamNote(String(m || '').split('\n')[0], true);
+      }
+     });
+    }
     try {
-     if (!camDet) {
-      /* ★ 형식은 «code_128 하나만» 둔다. 박스 라벨은 GS1-128 뿐이다.
-         ★ 특히 itf(Interleaved 2 of 5)를 반드시 빼야 한다 —
-           시작·정지 패턴이 단순해서 «Code 128 바코드의 굵기 패턴 일부»를
-           자기 코드로 착각해 읽는다. 실제 GS1-128 라벨을 비췄더니
-           「151557842676」(12자리 짝수 = 전형적인 ITF 오인식)이 나왔다.
-           ean_13/code_39 도 라벨에 없는 형식이라 오인식만 늘린다.
-         ★ getSupportedFormats 는 부르지 않는다. 실패하면 예전 코드가 목록을
-           «그대로» 넘겨 생성자가 TypeError 를 던졌고, 바깥 catch 가 그걸
-           「카메라를 열 수 없습니다」로 삼켜 원인이 안 보였다. */
-      try {
-       camDet = new window.BarcodeDetector({formats: ['code_128']});
-      } catch (e0) {
-       try {
-        camDet = new window.BarcodeDetector();
-       } catch (e1) {
-        setCamNote('바코드 엔진을 만들 수 없습니다.', true);
-        return;
-       }
-      }
-     }
-     /* ★ 해상도를 «단계적으로» 요청한다. 바가 가늘면 1280 에서는 조금만 멀어도
-          뭉개져 못 읽는다. 다만 min 같은 하드 제약을 걸면 못 맞추는 기기에서
-          OverconstrainedError 로 카메라가 «아예» 안 열린다 — 전부 ideal 로 두고
-          실패하면 낮춰 재시도한다. */
-     var TRY = [
-      {facingMode: 'environment', width: {ideal: 1920}, height: {ideal: 1080}, frameRate: {ideal: 30}},
-      {facingMode: 'environment', width: {ideal: 1280}},
-      true
-     ];
-     for (var ti = 0; ti < TRY.length; ti++) {
-      try {
-       camStream = await navigator.mediaDevices.getUserMedia({video: TRY[ti], audio: false});
-       break;
-      } catch (eT) {
-       if (ti === TRY.length - 1) throw eT;
-      }
-     }
-     // ★ 라벨을 가까이 대고 찍으므로 초점이 핵심이다. 고정초점이면 인식이 아예 안 된다.
-     //   지원 여부가 기기마다 달라 getCapabilities 로 확인한 뒤에만 건다.
-     try {
-      var track = camStream.getVideoTracks()[0];
-      var caps = track.getCapabilities ? track.getCapabilities() : {};
-      var adv = [];
-      if (caps.focusMode && caps.focusMode.indexOf('continuous') >= 0) adv.push({focusMode: 'continuous'});
-      if (adv.length) await track.applyConstraints({advanced: adv});
-     } catch (e) {
-     }
-     var v = document.getElementById('scanVideo');
-     v.srcObject = camStream;
-     await v.play();
-     wakeOn();
+     await scanCam.start();
+     camOn = true;
      document.getElementById('scanWrap').classList.add('on');
+     wakeOn();
      setCamNote('라벨을 비추세요');
-     // 프레임마다 돌리면 태블릿이 뜨겁고 느려진다. 250ms 간격이면 충분히 즉각적이다.
-     camLoop();
     } catch (e) {
      stopCam();
      setCamNote('카메라를 열 수 없습니다 — ' + (e && e.name === 'NotAllowedError'
       ? '권한이 거부되었습니다. 브라우저 설정에서 카메라를 허용하세요.'
-      : (e.message || e)), true);
+      : ((e && e.message) || e)), true);
     }
    }
-
-   /* ★ 연속 촬영 — 한 장 읽고 렌즈를 끄지 않는다.
-        박스를 여러 개 연달아 포장하는데 매번 카메라를 다시 켜면
-        켜지는 데 1초 넘게 걸려 현장에서 못 쓴다.
-      ★ 중복 인식은 «같은 값 + 2.5초» 하나로만 막는다 (세척 화면과 동일).
-        예전엔 두 가지를 썼다 —
-          · camLast : 같은 값을 «영구히» 막아 단계전환·재시도·실패 때마다
-                      손으로 풀어 줘야 했다. 한 군데라도 빠뜨리면 라벨을
-                      다시 비춰도 반응이 없어 카메라가 죽은 것처럼 보인다.
-          · camHold : 인식 직후 1.2초간 «모든» 값을 막았다. 같은 값만 막으면
-                      충분한데, 이건 바로 다음 «다른» 라벨까지 못 읽게 한다.
-        시간창 하나로 바꾸면 풀어 줄 자리가 사라진다 — 못 푸는 버그도 사라진다. */
-   var camLast = '', camLastAt = 0;
 
    /* 인식 순간을 몸으로 알려준다. 화면을 안 보고 라벨만 보며 찍기 때문에
       소리·진동이 없으면 읽혔는지 몰라 같은 라벨을 계속 들이댄다. */
@@ -1566,64 +1525,29 @@
     }
    }
 
-   /* ★ setInterval 을 쓰지 않는다.
-        detect() 가 간격보다 오래 걸리면 호출이 겹쳐 쌓이고, 태블릿이 느릴수록 심해진다.
-        한 번 끝난 뒤 다음을 예약하는 방식이라 절대 겹치지 않는다(세척 화면과 동일).
-      ★ 시트가 닫히면 스스로 멈춘다 — 타이머를 따로 지우지 않아도 새지 않는다. */
-   var camBusy = false;
+   /* ★ 감지 루프는 모듈이 돌린다(setTimeout 체인·겹침 방지 포함).
+        여기는 «읽힌 값 한 개» 를 받아 해석만 한다.
+      ★ 중복 인식은 «같은 값 + 2.5초» 하나로만 막는다(세척 화면과 동일).
+        시간창 하나라 풀어 줄 자리가 없다 — 못 푸는 버그도 없다. */
+   var camLast = '', camLastAt = 0;
 
-   function camLoop() {
-    clearTimeout(camTimer);
-    camTimer = setTimeout(async function () {
-     var m = document.getElementById('scanMask');
-     if (!m || !m.classList.contains('show')) return;   // 닫혔으면 멈춘다
-     if (!camBusy) {
-      camBusy = true;
-      try {
-       await camTick();
-      } catch (e) {
-      }
-      camBusy = false;
-     }
-     camLoop();
-    }, 220);
-   }
-
-   async function camTick() {
-    var v = document.getElementById('scanVideo');
-    if (!camDet || !v || v.readyState < 2) return;
-    var found;
-    try {
-     found = await camDet.detect(v);
-    } catch (e) {
-     return;
-    }
-    if (!found || !found.length) return;
-    /* ★ 라벨 한 장에 바코드가 여러 개일 수 있다(GS1-128 + EAN-13 + QR).
-         found[0] 을 그냥 쓰면 어느 게 첫 번째인지가 기기·각도마다 달라
-         «찍을 때마다 다르게 인식» 된다. (10)로트가 풀리는 쪽을 고른다. */
-    var raw = '', bestSc = -1;
-    for (var fi = 0; fi < found.length; fi++) {
-     var cand = String(found[fi].rawValue || '').trim();
-     if (!cand) continue;
-     var sc = (pickLot(cand) !== normRaw(cand)) ? 1 : 0;   // GS1 로 풀리면 우선
-     if (sc > bestSc) {
-      bestSc = sc;
-      raw = cand;
-     }
-    }
+   function onCamScan(raw) {
+    raw = String(raw || '').trim();
     if (!raw) return;
-    /* 같은 값이 연속으로 잡힌다 — 2.5초는 무시한다 (세척 화면과 동일) */
+    var m = document.getElementById('scanMask');
+    if (!m || !m.classList.contains('show')) return;   // 시트가 닫혔으면 무시
+
     var now = Date.now();
     if (raw === camLast && now - camLastAt < 2500) return;
     camLast = raw;
     camLastAt = now;
+
     camBeep();
     camFlash();
     setCamNote('읽었습니다 — ' + raw);
     var key = pickLot(raw);
     document.getElementById('scanKey').value = key;
-    checkLabel(key, true);      // 카메라로 읽은 것 → 확인 버튼 없이 확정(세척 화면과 같은 흐름)
+    checkLabel(key, true, raw);   // 카메라로 읽은 것 → 확인 버튼 없이 확정(세척 화면과 같은 흐름)
    }
 
    document.getElementById('camOpen').onclick = function () {
@@ -1674,14 +1598,14 @@
          250ms 만에 「사용 가능」이 되므로 자동 확정하면 다 치기도 전에 시트가 닫힌다.
          블루투스 스캐너(키보드 웨지)는 마지막에 Enter 를 보내므로 그쪽에서 확정된다. */
     scanTimer = setTimeout(function () {
-     checkLabel(pickLot(raw), false);
+     checkLabel(pickLot(raw), false, raw);
     }, 250);
    });
    document.getElementById('scanKey').addEventListener('keydown', function (e) {
     if (e.key === 'Enter') {
      e.preventDefault();
      clearTimeout(scanTimer);
-     checkLabel(pickLot(this.value), true);
+     checkLabel(pickLot(this.value), true, this.value);
     }
    });
 
@@ -1697,13 +1621,13 @@
     box.textContent = msg;
     camBeepNg();
     setCamNote(msg, true);
-    scanVal = '';
+    scanVal = ''; scanRawVal = '';
     document.getElementById('scanOk').disabled = true;
    }
 
    /* auto=true 는 카메라·스캐너가 읽어 스스로 부른 것, false 는 타이핑 중 검사.
       검사 내용은 같고 «확정까지 갈지» 만 다르다. */
-   function checkLabel(key, auto) {
+   function checkLabel(key, auto, raw) {
     var box = document.getElementById('scanRes');
     if (!key) return;
     var dup = PACKED.filter(function (p) {
@@ -1722,6 +1646,7 @@
      box.className = 'scanres ok';
      box.textContent = key + ' · 사용 가능';
      scanVal = key;
+     scanRawVal = gs1Text(raw || key);   // ★ 괄호 표기로 — pack_label.RawData 로 간다
      document.getElementById('scanOk').disabled = false;
 
      /* ★ 세척 화면과 같은 흐름 — 확인 버튼을 기다리지 않는다.
@@ -1741,6 +1666,3663 @@
     clearTimeout(autoOkTimer);
     if (!scanVal) return;
     curLabel = scanVal;
+    curLabelRaw = scanRawVal || scanVal;   // 원문은 pack_label.RawData 로 간다
+    stopCam();
+    hideMask('scanMask');
+    renderCBody();
+    renderCAction();
+   }
+
+   document.getElementById('scanOk').onclick = applyLabel;
+
+   /* ── 바코드 ──
+      ★ 자작 인코더를 쓰지 않는다. 프로젝트에 JsBarcode 가 이미 들어 있고
+        (resource/jsBarcode/JsBarcode.all.min.js — CDN 아님, 현장망에서도 동작)
+        prod_result_lot 화면이 같은 방식으로 LOT 바코드를 뽑고 있다.
+        직접 인코딩하면 quiet zone(양옆 흰 여백) 같은 규격을 놓쳐 스캐너가 못 읽는다. */
+   var GS1 = (function () {
+    /** 괄호 표기에서 값 없는 AI 를 뺀다.
+     (01) 뒤가 비면 스캐너가 GTIN 14자리를 읽으려다 뒤 데이터를 삼킨다. */
+    function clean(hri) {
+     hri = String(hri || '');
+     if (hri.indexOf('(') < 0) return hri;
+     var out = '', re = /\((\d{2,4})\)([^(]*)/g, m;
+     while ((m = re.exec(hri))) {
+      if (m[2]) out += '(' + m[1] + ')' + m[2];
+     }
+     return out;
+    }
+
+    /** 괄호를 걷어낸 로트 — GS1 포맷을 못 쓸 때 폴백용 */
+    function plainLot(hri) {
+     var m = String(hri || '').match(/\(10\)([^(]*)/);
+     return m ? m[1] : String(hri || '').replace(/\([0-9]{2,4}\)/g, '');
+    }
+
+    /**
+     * ★ FNC1 문자를 직접 넣지 않는다. JsBarcode 는 그런 표기를 CODE128 입력으로
+     *   받지 않아 "is not a valid input" 으로 죽는다(실제로 그렇게 실패했다).
+     *   GS1-128 포맷에 괄호 표기를 그대로 넘겨 라이브러리가 FNC1 을 처리하게 한다.
+     * ★ 그 포맷이 없는 빌드도 있어 실패하면 로트만 CODE128 로 그린다.
+     *   출고 스캔은 (10) 로트만 쓰므로 폴백으로도 현장은 돌아간다.
+     * ★ margin 은 quiet zone(양옆 흰 여백)이다 — 없으면 스캐너가 시작점을 못 잡는다.
+     */
+    function draw(el, hri, opt) {
+     if (typeof JsBarcode === 'undefined' || !el) return false;
+     var base = Object.assign({
+      width: 2, height: 60, displayValue: false,
+      margin: 10, background: '#fff', lineColor: '#000'
+     }, opt || {});
+     var tries = [
+      {format: 'GS1-128', value: clean(hri)},
+      {format: 'gs1-128', value: clean(hri)},
+      {format: 'CODE128', value: plainLot(hri)}
+     ];
+     for (var i = 0; i < tries.length; i++) {
+      try {
+       JsBarcode(el, tries[i].value, Object.assign({}, base, {format: tries[i].format}));
+       return true;
+      } catch (e) {
+       if (i === tries.length - 1) console.error('barcode render failed', hri, e);
+      }
+     }
+     return false;
+    }
+
+    return {clean: clean, plainLot: plainLot, draw: draw};
+   })();
+
+
+   /** labels = [{line:'(10)LOT…', sub:'설명', copies:n}] */
+   function openBarcode(title, labels) {
+    if (!labels || !labels.length) {
+     flash('출력할 바코드가 없습니다');
+     return;
+    }
+    document.getElementById('bcTitle').textContent = title;
+    /* JsBarcode 는 DOM 요소에 그린다 — svg 자리를 먼저 만들고 붙인 뒤 렌더한다 */
+    /* ★ 클래스(.bc-card)가 상위 레이아웃 규칙에 덮여 테두리·가운데정렬이 안 먹었다.
+        인쇄 문서와 똑같이 인라인으로 박아 어느 화면에서든 같게 보이게 한다. */
+    document.getElementById('bcList').innerHTML = labels.map(function (l, i) {
+     return '<div style="border:1px dashed #999;border-radius:12px;padding:14px 16px;' +
+      'margin:0 0 10px;background:#fff;text-align:center">' +
+      '<div style="display:flex;justify-content:center;margin-bottom:8px">' +
+      '<svg id="bcSvg' + i + '"></svg></div>' +
+      '<div style="font-size:13px;font-weight:700;word-break:break-all">' + esc(l.line) + '</div>' +
+      (l.sub ? '<div style="font-size:12px;color:#5A6B76;font-weight:700;margin-top:2px">'
+       + esc(l.sub) + '</div>' : '') +
+      '</div>';
+    }).join('');
+    labels.forEach(function (l, i) {
+     GS1.draw(document.getElementById('bcSvg' + i), l.line, {height: 56});
+    });
+    window.__printLabels = labels;
+    showMask('bcMask');
+   }
+
+   /**
+    * 라벨 인쇄 — 숨긴 iframe 에 독립 문서를 만들어 그것만 인쇄한다.
+    *
+    * ★ 화면 CSS 와 싸우지 않는 게 핵심이다.
+    *   @media print 로 화면을 숨기는 방식은 레이아웃 컨테이너(height·flex·overflow)나
+    *   상위 레이아웃의 규칙에 계속 걸린다. 실제로 1공장은 화면 내용이 함께 인쇄됐다.
+    *   iframe 은 문서가 통째로 분리돼 있어 그런 간섭이 원천적으로 없다.
+    *
+    * ★ JsBarcode 는 DOM 요소에 그린다. iframe 안에는 라이브러리가 없으므로
+    *   부모 문서에서 그린 뒤 SVG 를 문자열로 옮겨 넣는다.
+    */
+   document.getElementById('bcPrint').onclick = function () {
+    var labels = window.__printLabels || [];
+    if (!labels.length) {
+     flash('출력할 바코드가 없습니다');
+     return;
+    }
+    var title = document.getElementById('bcTitle').textContent;
+
+    // 1) 부모 문서에서 화면 밖에 그린다 — 여기서 그려야 JsBarcode 를 쓸 수 있다
+    var stage = document.createElement('div');
+    stage.style.cssText = 'position:absolute;left:-99999px;top:0;width:760px';
+    document.body.appendChild(stage);
+
+    var html = '', idx = 0, ids = [];
+    labels.forEach(function (l) {
+     var n = l.copies || 1;
+     for (var i = 0; i < n; i++) {
+      /* ★ 한 줄에 한 장, 가로 전체. 옆으로 붙이면 바가 좁아져 인식률이 떨어진다.
+         ★ 테두리는 「여기서 자르세요」 선 — quiet zone 을 침범하지 않게 padding 을 둔다. */
+      var id = 'prSvg' + (idx++);
+      ids.push({id: id, line: l.line});
+      html += '<div class="lb">' +
+       '<div class="bars"><svg id="' + id + '"></svg></div>' +
+       '<div class="d1">' + esc(l.line) + '</div>' +
+       (l.sub ? '<div class="d2">' + esc(l.sub) + '</div>' : '') +
+       '</div>';
+     }
+    });
+    stage.innerHTML = html;
+    ids.forEach(function (o) {
+     GS1.draw(stage.querySelector('#' + o.id), o.line, {height: 64});
+    });
+
+    // 2) 그려진 결과를 독립 문서로 옮긴다
+    var body = stage.innerHTML;
+    document.body.removeChild(stage);
+
+    var fr = document.getElementById('printFrame');
+    if (!fr) {
+     fr = document.createElement('iframe');
+     fr.id = 'printFrame';
+     fr.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden';
+     document.body.appendChild(fr);
+    }
+    var doc = fr.contentWindow.document;
+    doc.open();
+    doc.write('<!doctype html><html><head><meta charset="utf-8"><title>' + esc(title) + '</title>' +
+     '<style>' +
+     '*{box-sizing:border-box}' +
+     'body{margin:0;padding:16px;background:#fff;' +
+     "font-family:'Noto Sans KR',-apple-system,system-ui,sans-serif;color:#000}" +
+     'h3{margin:0 0 10px;font-size:15px}' +
+     '.lb{border:1px dashed #999;padding:14px 16px;margin:0 0 10px;text-align:center;' +
+     'page-break-inside:avoid;break-inside:avoid}' +
+     '.bars{display:flex;justify-content:center;margin-bottom:8px}' +
+     '.bars svg{display:block;max-width:100%;height:auto}' +
+     '.d1{font-size:13px;font-weight:700}' +
+     '.d2{font-size:12px;color:#5A6B76;font-weight:700;margin-top:2px}' +
+     '@page{margin:10mm}' +
+     '</style></head><body><h3>' + esc(title) + '</h3>' + body + '</body></html>');
+    doc.close();
+
+    hideMask('bcMask');
+    // 문서가 그려질 틈을 준다. 바로 print() 하면 빈 페이지가 나오는 기기가 있다
+    setTimeout(function () {
+     try {
+      fr.contentWindow.focus();
+      fr.contentWindow.print();
+     } catch (e) {
+      flash('인쇄를 시작할 수 없습니다');
+     }
+    }, 250);
+   };
+
+   /** 포장 완료 건 → 라벨.
+    ★ 2공장은 카톤이 없다. 인쇄 대상은 완제품 로트(mat_lot."LotNumber") 다 —
+    출고 스캔이 그 값으로 잡는다. 박스에 붙은 외부 라벨(MakerLotNo)은
+    우리가 뽑는 게 아니라 받아 적는 값이라 인쇄 대상이 아니다. */
+   function boxLabel(p) {
+    return {
+     line: '(10)' + (p.lot_number || ''),
+     sub: (curO && curO.mat_name ? curO.mat_name + ' · ' : '') +
+      (p.maker_lot_no ? '박스라벨 ' + p.maker_lot_no : '박스라벨 없음'),
+     copies: 1
+    };
+   }
+
+   /* ══ 포장 완료 박스 상세 ══ */
+   function openDone(mpId, from) {
+    var src = from || SESS.boxes;
+    curDone = src.filter(function (x) {
+     return String(x.mp_id) === String(mpId);
+    })[0];
+    if (!curDone) return;
+    document.getElementById('doneBody').innerHTML =
+     '<div class="dhead"><span class="dlot">' + esc(curDone.lot_number) + '</span>' +
+     '<span class="badge done" style="padding:6px 12px;border-radius:999px;font-size:13px;font-weight:800;' +
+     'background:var(--green-bg);color:var(--green)">포장 완료</span></div>' +
+     '<div class="drows">' +
+     '<div class="drow"><span class="k">박스 라벨</span><span class="v num' +
+     (curDone.maker_lot_no ? '' : ' muted') + '">' + esc(curDone.maker_lot_no || '기록 없음') + '</span></div>' +
+     '<div class="drow"><span class="k">차수</span><span class="v num">' + esc(curDone.chasu || '-') + '</span></div>' +
+     '<div class="drow"><span class="k">작업자</span><span class="v">' + esc(curDone.actor_name || '-') +
+     (curDone.equipment_name ? ' <span class="v muted" style="font-size:14px">· ' + esc(curDone.equipment_name) + '</span>' : '') +
+     '</span></div>' +
+     '</div>' +
+     '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">' +
+     '<div class="infopill tap" data-time="start"><span>시작</span><b>' + pill(curDone.start_time) + '</b></div>' +
+     '<div class="infopill tap" data-time="end"><span>종료</span><b>' + pill(curDone.end_time) + '</b></div></div>' +
+     '<div class="emptysess" style="text-align:left;margin-top:14px;padding:16px">포장 취소를 누르면 완제품 로트가 ' +
+     '제거되고 유닛이 검사완료창고의 포장 대기로 돌아갑니다. 이미 출고된 로트는 취소할 수 없습니다.</div>';
+    showMask('doneMask');
+   }
+
+   document.getElementById('doneBody').addEventListener('click', function (e) {
+    var t = e.target.closest('[data-time]');
+    if (t) openTime(t.dataset.time);
+   });
+   document.getElementById('donePrint').onclick = function () {
+    if (!curDone) return;
+    hideMask('doneMask');
+    openBarcode('완제품 로트 바코드', [boxLabel(curDone)]);
+   };
+   document.getElementById('doneCancel').onclick = function () {
+
+    if (!curDone) return;
+    var d = curDone;
+    hideMask('doneMask');
+    uiConfirm('포장 취소', '완료 취소하시겠습니까?', function () {
+     post(API + '/pack_cancel', {mat_produce_id: d.mp_id}, function (r) {
+      if (r === null) return;
+      curDone = null;
+      loadB(function () {
+       loadQueue();
+       if (!SESS) return;                       // B화면에서 취소한 경우
+       var s = SESSIONS.filter(function (x) {
+        return x.key === SESS.key;
+       })[0];
+       if (s) SESS = s; else SESS.boxes = [];
+       renderC();
+      });
+     });
+    });
+   };
+
+   /* ══ 작업자 · 설비 시트 ══ */
+   function openPicker() {
+    document.getElementById('startTitle').textContent =
+     (pickMode === 'new') ? '작업 추가 · 새 작업자' : '작업자 · 설비 변경';
+    document.getElementById('startOk').textContent = (pickMode === 'new') ? '작업 시작' : '변경';
+    var need = [];
+    if (!WORKERS.length) need.push('w');
+    if (!EQUIPS.length) need.push('e');
+    if (!need.length) {
+     paintPicker();
+     showMask('startMask');
+     return;
+    }
+    /* 작업자 = 소속 공장(2공장) 인원만. 공용 콤보가 진실이므로 서버 /workers 로 덮지 않는다 */
+    WORKERS = fetchWorkersActor();
+    // 설비는 워크센터 + 설비그룹으로 서버가 좁혀 내려준다 (조립 화면과 동일)
+    get(API + '/equipments', {workcenter_id: WC_ID}, function (d2) {
+     if (d2) EQUIPS = d2;
+     paintPicker();
+     showMask('startMask');
+    });
+   }
+
+   function paintPicker() {
+    // 새 작업이고 작업자가 아직 설비를 건드리지 않았으면 기본 설비를 미리 골라 준다
+    if (pickMode === 'new' && !eqTouched && pick.equipment_id == null && CTX.default_equipment_id != null) {
+     var dq = EQUIPS.filter(function (q) {
+      return String(q.equipment_id) === String(CTX.default_equipment_id);
+     })[0];
+     if (dq) {
+      pick.equipment_id = dq.equipment_id;
+      pick.equipment_name = dq.equipment_name;
+     }
+    }
+    document.getElementById('workerOpts').innerHTML = WORKERS.length ? WORKERS.map(function (w) {
+     return '<button class="opt' + (pick.actor_id === w.actor_id ? ' sel' : '') + '" data-w="' + w.actor_id +
+      '" data-nm="' + esc(w.actor_name) + '">' + esc(w.actor_name) + '</button>';
+    }).join('') : '<div class="emptysess">등록된 작업자가 없습니다.</div>';
+    document.getElementById('equipOpts').innerHTML =
+     '<button class="opt' + (pick.equipment_id == null ? ' sel' : '') + '" data-e="">미지정</button>' +
+     EQUIPS.map(function (q) {
+      return '<button class="opt' + (pick.equipment_id === q.equipment_id ? ' sel' : '') +
+       '" data-e="' + q.equipment_id + '" data-nm="' + esc(q.equipment_name) + '">' + esc(q.equipment_name) +
+       ' <span class="sub">' + esc(q.equipment_code || '') + '</span></button>';
+     }).join('') +
+     (EQUIPS.length ? '' : '<div class="optsep">등록된 포장 설비가 없습니다. 미지정으로 진행할 수 있습니다.</div>');
+    document.getElementById('startOk').disabled = !pick.actor_id;
+   }
+
+   document.getElementById('workerOpts').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-w]');
+    if (!b) return;
+    pick.actor_id = +b.dataset.w;
+    pick.actor_name = b.dataset.nm;
+    paintPicker();
+   });
+   document.getElementById('equipOpts').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-e]');
+    if (!b) return;
+    eqTouched = true;
+    pick.equipment_id = b.dataset.e ? +b.dataset.e : null;
+    pick.equipment_name = b.dataset.e ? b.dataset.nm : null;
+    paintPicker();
+   });
+   document.getElementById('startOk').onclick = function () {
+    if (!pick.actor_id) {
+     flash('작업자를 선택하세요');
+     return;
+    }
+    hideMask('startMask');
+    if (pickMode === 'new') {
+     createSess();
+     return;
+    }
+    // 변경 — 이미 포장한 박스의 실적은 그대로 두고, 이후 박스부터 적용된다
+    if (SESS.boxes.length) {
+     var s = {
+      actor_id: pick.actor_id, actor_name: pick.actor_name,
+      equipment_id: pick.equipment_id, equipment_name: pick.equipment_name,
+      work_date: fmtDate(new Date()), start_time: nowHM(), boxes: [], local: true
+     };
+     s.key = sessKey(s);
+     var ex = SESSIONS.filter(function (x) {
+      return x.key === s.key;
+     })[0];
+     if (ex) {
+      SESS = ex;
+     } else {
+      LOCAL.push(s);
+      buildSessions();
+      SESS = s;
+     }
+     flash('작업자·설비가 바뀌어 새 작업으로 넘어갑니다 (이전 실적은 그대로).');
+    } else {
+     SESS.actor_id = pick.actor_id;
+     SESS.actor_name = pick.actor_name;
+     SESS.equipment_id = pick.equipment_id;
+     SESS.equipment_name = pick.equipment_name;
+     var old = SESS.key;
+     SESS.key = sessKey(SESS);
+     LOCAL.forEach(function (x) {
+      if (x.key === old) {
+       x.key = SESS.key;
+      }
+     });
+     buildSessions();
+    }
+    renderC();
+    renderB();
+   };
+
+   /* ══ 넘패드 ══ */
+   let padVal = '', padMatId = null;
+
+   function openPadMat(matId) {
+    padMatId = matId;
+    padVal = String(num(matQty[matId]));
+    var mo = MATS.filter(function (x) {
+     return String(x.mat_id) === String(matId);
+    })[0];
+    document.getElementById('padLab').textContent = mo ? mo.mat_name : '자재 수량';
+    document.getElementById('padDisp').textContent = padVal;
+    showMask('padMask');
+   }
+
+   document.querySelector('#padMask .keys').addEventListener('click', function (e) {
+    var k = e.target.dataset.k;
+    if (!k) return;
+    if (k === 'C') padVal = '';
+    else if (k === 'OK') {
+     matQty[padMatId] = parseInt(padVal || '0', 10);
+     hideMask('padMask');
+     renderCBody();
+     renderCAction();
+     return;
+    } else padVal = (padVal === '0' ? '' : padVal) + k;
+    document.getElementById('padDisp').textContent = padVal || '0';
+   });
+
+   /* ══ 시간 시트 ══
+      sess  = 이 작업의 시작시각(화면 값. 다음 박스 실적에 실린다)
+      start / end = 이미 만들어진 차수의 시각 → 서버(/pack_time) */
+   let timeWhich = 'sess', editDate = new Date();
+
+   function openTime(which) {
+    timeWhich = which;
+    document.getElementById('timeTitle').textContent =
+     (which === 'sess' ? '작업 시작' : (which === 'start' ? '시작' : '종료')) + ' 일시';
+    var saved = (which === 'sess') ? (SESS && SESS.start_time)
+     : (curDone ? (which === 'start' ? curDone.start_time : curDone.end_time) : null);
+    if (saved && saved.indexOf(' ') >= 0) {
+     var a = saved.split(' ');
+     editDate = new Date(a[0] + 'T' + a[1]);
+    } else editDate = new Date();
+    document.getElementById('tDate').textContent = fmtDate(editDate) + ' (' + WD[editDate.getDay()] + ')';
+    document.getElementById('tH').textContent = String(editDate.getHours()).padStart(2, '0');
+    document.getElementById('tM').textContent = String(editDate.getMinutes()).padStart(2, '0');
+    showMask('timeMask');
+   }
+
+   document.querySelector('#timeMask .dateedit').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-d]');
+    if (!b) return;
+    editDate.setDate(editDate.getDate() + (+b.dataset.d));
+    document.getElementById('tDate').textContent = fmtDate(editDate) + ' (' + WD[editDate.getDay()] + ')';
+   });
+   document.querySelector('#timeMask .timeedit').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-t]');
+    if (!b) return;
+    var H = document.getElementById('tH'), M = document.getElementById('tM');
+    var h = +H.textContent, m = +M.textContent;
+    if (b.dataset.t === 'h+') h = (h + 1) % 24;
+    if (b.dataset.t === 'h-') h = (h + 23) % 24;
+    if (b.dataset.t === 'm+') m = (m + 1) % 60;
+    if (b.dataset.t === 'm-') m = (m + 59) % 60;
+    H.textContent = String(h).padStart(2, '0');
+    M.textContent = String(m).padStart(2, '0');
+   });
+   document.getElementById('timeOk').onclick = function () {
+    var v = fmtDate(editDate) + ' ' + document.getElementById('tH').textContent + ':' + document.getElementById('tM').textContent;
+    hideMask('timeMask');
+    if (timeWhich === 'sess') {
+     SESS.start_time = v;
+     renderCHead();
+     return;
+    }
+    if (!curDone) return;
+    var d = curDone;
+    post(API + '/pack_time', {mat_produce_id: d.mp_id, which: timeWhich, value: v}, function (r) {
+     if (r === null) return;
+     if (timeWhich === 'start') d.start_time = v; else d.end_time = v;
+     openDone(d.mp_id);
+     loadB(function () {
+      var s = SESSIONS.filter(function (x) {
+       return x.key === SESS.key;
+      })[0];
+      if (s) SESS = s;
+      renderCBody();
+     });
+    });
+   };
+
+   /* ══ 부팅 ══
+      공용 스크립트가 늦게 올라올 수 있어 잠깐 기다린다.
+      끝내 못 찾으면 조용히 죽지 않고 화면에 문구를 남긴다. */
+   (function boot(tries) {
+    tries = tries || 0;
+    if (hasAjax() && AjaxUtil.getSyncData) {
+     loadContext(loadQueue);
+     return;
+    }
+    if (tries > 100) {
+     bootFail('AjaxUtil 을 불러오지 못했습니다. 페이지를 새로고침하세요.');
+     return;
+    }
+    setTimeout(function () {
+     boot(tries + 1);
+    }, 50);
+   })();
+
+   /* ══════════════════════════════════════════════════════════════════
+      [공통 추가] ① 작업자 = 소속 공장 인원만  ② 재고 새로고침
+      - ①은 포장공정(prod_process_opack_bsc_t) 규약과 통일한다.
+        포장은 /workers 를 factory_id 와 함께 부른다. 다른 공정도 같게 맞췄다.
+        ★ 서버가 이 엔드포인트를 아직 안 열었으면 공용 콤보로 폴백한다
+          (그 경우 콘솔에 경고가 남는다 — 전사 인원이 다 뜬다는 뜻).
+      - ②는 "화면을 다시 그리는" 것이 아니라 지금 보고 있는 자리는 그대로 두고
+        재고 수치만 서버에서 다시 읽는다. 앞 공정이 방금 만든 재고를 받는 용도.
+      ══════════════════════════════════════════════════════════════════ */
+   var WORKER_API = '/api/production/mcell/pack/workers';
+   var WORKER_FACTORY_ID = 2;
+
+   /* 공용 콤보를 직접 부른다 — 화면마다 combo() 유무가 달라 여기서 자체 호출한다.
+      cond1 = 공장(Factory_id). ComboService.person 이 이 조건을 받는다.
+      서버는 퇴사자(_status·Exitdate)도 함께 걸러 내려준다. */
+   function comboPerson(factoryId) {
+    if (typeof AjaxUtil === 'undefined' || !AjaxUtil.getSyncData) return [];
+    var r = AjaxUtil.getSyncData('/api/common/combo', {
+     combo_type: 'person',
+     cond1: (factoryId == null ? '' : String(factoryId)),
+     cond2: '', cond3: ''
+    }) || {};
+    return (r.data || []).map(function (x) {
+     return {
+      value: x.value,
+      text: x.text,
+      code: x.code || x.Code || '',
+      factory: String(x.Factory_id != null ? x.Factory_id
+       : (x.factory_id != null ? x.factory_id : ''))
+     };
+    }).filter(function (w) {
+     return w.value != null && w.text;
+    });
+   }
+
+   function fetchWorkerRows() {
+    if (typeof AjaxUtil === 'undefined' || !AjaxUtil.getSyncData) return [];
+
+    /* ① 공용 콤보 (기본 경로) */
+    var list = [];
+    try {
+     list = comboPerson(WORKER_FACTORY_ID);
+    } catch (e) {
+     list = [];
+    }
+
+    /* ② 콤보가 비면 공정 전용 /workers 로 폴백 (포장처럼 자체 엔드포인트가 있는 화면용) */
+    if (!list.length) {
+     var rows = [];
+     try {
+      var r = AjaxUtil.getSyncData(WORKER_API, {
+       factory_id: WORKER_FACTORY_ID,
+       spjangcd: (typeof CTX !== 'undefined' && CTX && CTX.spjangcd) ? CTX.spjangcd : 'ZZ'
+      }) || {};
+      rows = r.data || (Array.isArray(r) ? r : []);
+     } catch (e2) {
+      rows = [];
+     }
+     if (!Array.isArray(rows)) rows = [];
+     list = rows.map(function (w) {
+      var id = (w.worker_id != null) ? w.worker_id
+       : (w.actor_id != null) ? w.actor_id
+        : (w.person_id != null) ? w.person_id
+         : (w.id != null) ? w.id : w.value;
+      return {
+       value: id,
+       text: w.name || w.actor_name || w.text || '',
+       code: w.code || '',
+       factory: String(w.factory_id != null ? w.factory_id
+        : (w.Factory_id != null ? w.Factory_id : ''))
+      };
+     }).filter(function (w) {
+      return w.value != null && w.text;
+     });
+     if (list.length) console.warn('[workers] 공용 콤보가 비어 ' + WORKER_API + ' 로 폴백했습니다.');
+    }
+
+    /* ③ 응답에 공장이 실려 있으면 화면에서 한 번 더 거른다 (2차 방어).
+          공장 미지정자는 어느 화면에서도 보이도록 남긴다 — 서버 조건과 같은 방침. */
+    var f = list.filter(function (w) {
+     return !w.factory || w.factory === String(WORKER_FACTORY_ID);
+    });
+    if (f.length) list = f;
+    return list;
+   }
+
+   /* {value,text,code} 형태로 쓰는 화면용 */
+   function fetchWorkers() {
+    return fetchWorkerRows();
+   }
+
+   /* {actor_id,actor_name} 형태로 쓰는 화면용 */
+   function fetchWorkersActor() {
+    return fetchWorkerRows().map(function (w) {
+     return {actor_id: w.value, actor_name: w.text, code: w.code};
+    });
+   }
+
+   /* ── 새로고침 버튼 : 각 화면 헤더(qhead / topbar2) 우측에 붙인다 ──
+      목록·액션바는 다시 그려지고 스크롤도 타서 고정 자리를 잡기 어렵다.
+      헤더는 화면당 하나씩 고정이라 겹칠 일이 없다. */
+   (function () {
+    var root = document.querySelector('.ms-wash-root, .ms-pack-root') || document;
+    var heads = root.querySelectorAll('.qhead, .topbar2');
+    if (!heads.length) return;
+    var busy = false;
+
+    function run(b) {
+     if (busy) return;
+     busy = true;
+     var t = b.innerHTML;
+     b.innerHTML = '…';
+     b.disabled = true;
+     b.style.opacity = '.5';
+     setTimeout(function () {
+      try {
+       stockRefresh();
+       if (typeof flash === 'function') flash('새로 불러왔습니다');
+      } catch (e) {
+       console.error('[stockRefresh]', e);
+       if (typeof flash === 'function') flash('불러오지 못했습니다');
+      }
+      b.innerHTML = t;
+      b.disabled = false;
+      b.style.opacity = '';
+      busy = false;
+     }, 0);
+    }
+
+    Array.prototype.forEach.call(heads, function (h) {
+     if (h.querySelector('.msRefreshBtn')) return;
+     var b = document.createElement('button');
+     b.type = 'button';
+     b.className = 'msRefreshBtn';
+     b.title = '새로고침';
+     b.setAttribute('aria-label', '새로고침');
+     b.innerHTML = '⟳';
+     /* 헤더에 이미 오른쪽으로 미는 요소(.qfilter 의 margin-left:auto,
+        .htitle 의 flex:1)가 있으면 auto 를 또 주면 안 된다.
+        남은 공간이 둘로 나뉘어 앞 요소가 가운데로 밀려난다. */
+     var pushed = Array.prototype.some.call(h.children, function (c) {
+      var cs = getComputedStyle(c);
+      return cs.marginLeft === 'auto' || parseFloat(cs.flexGrow) > 0;
+     });
+     b.style.cssText = (pushed ? '' : '') + 'flex:0 0 auto;align-self:center;'
+      + 'width:40px;height:40px;border-radius:12px;'
+      + 'border:1px solid var(--line,#dfe3e8);background:var(--surface,#fff);'
+      + 'color:var(--ink-2,#5b6570);font-size:19px;font-weight:800;line-height:1;'
+      + 'cursor:pointer;touch-action:manipulation;'
+      + '-webkit-user-select:none;user-select:none';
+     b.addEventListener('click', function () {
+      run(b);
+     });
+     h.appendChild(b);
+    });
+   })();
+
+   function scOn(id) {
+    var el = document.getElementById(id);
+    return !!el && !el.classList.contains('hide');
+   }
+
+   function maskOn(id) {
+    var el = document.getElementById(id);
+    return !!el && el.classList.contains('show');
+   }
+
+   /* ── 재고 새로고침 ── (포장 자재 = 생산창고 17 실재고) */
+   function stockRefresh() {
+    WORKERS = [];                        /* 다음에 시트를 열 때 다시 읽는다 */
+    if (scOn('scC') && SESS) {
+     get(API + '/pack_materials', oParam(), function (d) {
+      var keep = matQty || {};
+      MATS = d || [];
+      matQty = {};
+      MATS.forEach(function (m) {
+       matQty[m.mat_id] = (keep[m.mat_id] != null) ? keep[m.mat_id] : num(m.default_qty);
+      });
+      renderC();
+     });
+    } else if (scOn('scB') && curO) {
+     MATS = [];
+     loadB();
+    } else {
+     MATS = [];
+     loadQueue();
+    }
+   }
+
+  </script>
+
+  <!-- 스테퍼 길게 누르기 (조립·수리 화면과 동일) -->
+  <style>
+      .mstep button, .dateedit button, .timeedit button {
+          touch-action: manipulation;
+          -webkit-user-select: none;
+          user-select: none;
+          -webkit-touch-callout: none;
+      }
+  </style>
+  <script>
+   (function () {
+    var SEL = '.mstep button, .dateedit button, .timeedit button';
+    var holdTimer = null, repeatTimer = null, maxTimer = null, curBtn = null;
+    var END_EVENTS = ['pointerup', 'pointercancel', 'lostpointercapture', 'touchend', 'touchcancel', 'mouseup'];
+
+    function stop() {
+     clearTimeout(holdTimer);
+     clearInterval(repeatTimer);
+     clearTimeout(maxTimer);
+     holdTimer = repeatTimer = maxTimer = null;
+     if (curBtn) {
+      END_EVENTS.forEach(function (ev) {
+       curBtn.removeEventListener(ev, stop);
+      });
+      curBtn = null;
+     }
+    }
+
+    function tick(x, y) {
+     var el = document.elementFromPoint(x, y);
+     var b = (el && el.closest) ? el.closest(SEL) : null;
+     if (!b) {
+      stop();
+      return;
+     }
+     b.click();
+    }
+
+    document.addEventListener('pointerdown', function (e) {
+     if (e.button != null && e.button > 0) return;
+     var btn = e.target.closest ? e.target.closest(SEL) : null;
+     if (!btn) return;
+     var x = e.clientX, y = e.clientY;
+     stop();
+     curBtn = btn;
+     END_EVENTS.forEach(function (ev) {
+      btn.addEventListener(ev, stop);
+     });
+     holdTimer = setTimeout(function () {
+      repeatTimer = setInterval(function () {
+       tick(x, y);
+      }, 90);
+      maxTimer = setTimeout(stop, 8000);
+     }, 400);
+     window.addEventListener('pointerup', stop, {once: true, capture: true});
+     window.addEventListener('touchend', stop, {once: true, capture: true});
+    });
+    window.addEventListener('blur', stop);
+    document.addEventListener('visibilitychange', function () {
+     if (document.hidden) stop();
+    });
+   })();
+  </script>
+</th:block>
+
+</html>
+<html layout:decorate="~{layout_page}">
+
+<th:block layout:fragment="content">
+  <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css"
+        rel="stylesheet"/>
+  <style>
+      :root {
+          --bg: #E9EEF1;
+          --surface: #FFF;
+          --surface-2: #F4F7F9;
+          --ink: #15222B;
+          --ink-2: #5A6B76;
+          --line: #D8E0E5;
+          --teal: #0E7C86;
+          --teal-d: #0A5C64;
+          --teal-bg: #E2F1F2;
+          --green: #1E9D58;
+          --green-bg: #E4F4EA;
+          --amber: #C77A00;
+          --amber-bg: #FBEFD8;
+          --red: #C8483B;
+          --red-bg: #F7E4E1;
+          --purple: #6B3FA0;
+          --purple-bg: #EEE7FA;
+          --r: 18px;
+          --tap: 60px;
+          --shadow: 0 1px 0 rgba(21, 34, 43, .04), 0 8px 24px -16px rgba(21, 34, 43, .28)
+      }
+
+      * {
+          box-sizing: border-box;
+          -webkit-tap-highlight-color: transparent
+      }
+
+      .ms-pack-root {
+          font-family: "Pretendard", "Noto Sans KR", -apple-system, sans-serif;
+          color: var(--ink);
+          font-size: 17px;
+          line-height: 1.45;
+          -webkit-font-smoothing: antialiased;
+          flex: 1 1 auto;
+          min-height: 0;
+          height: var(--wash-h, 100%);
+          max-height: var(--wash-h, none);
+          display: flex;
+          flex-direction: column;
+          position: relative
+      }
+
+      .ms-pack-root .app {
+          flex: 1 1 auto;
+          min-height: 0;
+          display: flex;
+          flex-direction: column;
+          background: var(--bg);
+          border-radius: 12px;
+          overflow: hidden
+      }
+
+      .screen {
+          flex: 1 1 auto;
+          min-height: 0;
+          display: flex;
+          flex-direction: column;
+          overflow: hidden
+      }
+
+      .screen.hide {
+          display: none
+      }
+
+      .wrap {
+          padding: 22px 20px 28px;
+          max-width: 1180px;
+          margin: 0 auto;
+          width: 100%;
+          overflow: auto;
+          -webkit-overflow-scrolling: touch;
+          flex: 1 1 auto;
+          min-height: 0
+      }
+
+      .qhead {
+          display: flex;
+          align-items: baseline;
+          gap: 12px;
+          margin: 2px 2px 18px
+      }
+
+      .qhead h1 {
+          font-size: 26px;
+          font-weight: 800;
+          letter-spacing: -.03em;
+          margin: 0
+      }
+
+      .qhead .cnt {
+          color: var(--ink-2);
+          font-weight: 700
+      }
+
+      .qfilter {
+          display: flex;
+          gap: 8px;
+          margin-left: auto
+      }
+
+      .qfilter button {
+          min-height: 44px;
+          padding: 0 16px;
+          border-radius: 999px;
+          border: 1px solid var(--line);
+          background: var(--surface);
+          color: var(--ink-2);
+          font-weight: 700;
+          font-size: 15px;
+          cursor: pointer
+      }
+
+      .qfilter button.on {
+          background: var(--ink);
+          color: #fff;
+          border-color: var(--ink)
+      }
+
+      .searchbar {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          flex-wrap: wrap;
+          margin: 0 2px 18px;
+          background: var(--surface);
+          border: 1px solid var(--line);
+          border-radius: 14px;
+          padding: 12px 14px;
+          box-shadow: var(--shadow)
+      }
+
+      .searchbar .slab {
+          font-weight: 800;
+          color: var(--ink-2);
+          font-size: 14px
+      }
+
+      .dinput {
+          height: 48px;
+          border: 1px solid var(--line);
+          border-radius: 12px;
+          padding: 0 12px;
+          font-size: 16px;
+          font-weight: 700;
+          color: var(--ink);
+          background: var(--surface-2);
+          font-variant-numeric: tabular-nums;
+          min-width: 150px
+      }
+
+      .sbtn {
+          height: 48px;
+          padding: 0 22px;
+          border: none;
+          border-radius: 12px;
+          background: var(--teal);
+          color: #fff;
+          font-weight: 800;
+          font-size: 16px;
+          cursor: pointer;
+          margin-left: auto
+      }
+
+      .sbtn:active {
+          background: var(--teal-d)
+      }
+
+      .qgrid {
+          display: grid;
+          grid-template-columns:repeat(3, minmax(0, 1fr));
+          gap: 12px
+      }
+
+      .wo {
+          background: var(--surface);
+          border: 1px solid var(--line);
+          border-radius: var(--r);
+          padding: 15px 16px;
+          cursor: pointer;
+          box-shadow: var(--shadow);
+          transition: transform .12s ease;
+          position: relative;
+          overflow: hidden
+      }
+
+      .wo:active {
+          transform: scale(.985)
+      }
+
+      .wo .edge {
+          position: absolute;
+          left: 0;
+          top: 0;
+          bottom: 0;
+          width: 6px;
+          background: var(--line)
+      }
+
+      .wo[data-st="working"] .edge {
+          background: var(--teal)
+      }
+
+      .wo[data-st="wait"] .edge {
+          background: var(--amber)
+      }
+
+      .wo[data-st="done"] .edge {
+          background: var(--green)
+      }
+
+      .wo .row1 {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-bottom: 6px;
+          flex-wrap: wrap
+      }
+
+      .wo .wono {
+          font-weight: 800;
+          font-size: 14px;
+          color: var(--ink-2)
+      }
+
+      .chip {
+          margin-left: auto;
+          padding: 4px 10px;
+          border-radius: 999px;
+          font-size: 12px;
+          font-weight: 800
+      }
+
+      .chip.working {
+          background: var(--teal-bg);
+          color: var(--teal-d)
+      }
+
+      .chip.wait {
+          background: var(--amber-bg);
+          color: var(--amber)
+      }
+
+      .chip.done {
+          background: var(--green-bg);
+          color: var(--green)
+      }
+
+      .wo .name {
+          font-size: 17px;
+          font-weight: 800;
+          letter-spacing: -.02em;
+          line-height: 1.3;
+          margin: 2px 0 12px
+      }
+
+      .wo .meta {
+          display: flex;
+          gap: 12px;
+          align-items: flex-end;
+          flex-wrap: wrap
+      }
+
+      .wo .meta .blk {
+          display: flex;
+          flex-direction: column;
+          gap: 1px
+      }
+
+      .wo .meta .lab {
+          font-size: 11.5px;
+          color: var(--ink-2);
+          font-weight: 700
+      }
+
+      .wo .meta .val {
+          font-size: 17px;
+          font-weight: 800
+      }
+
+      .wo .prog {
+          margin-left: auto;
+          text-align: right
+      }
+
+      .wo .bar {
+          height: 6px;
+          width: 78px;
+          background: var(--surface-2);
+          border-radius: 999px;
+          overflow: hidden;
+          margin-top: 5px
+      }
+
+      .wo .bar > i {
+          display: block;
+          height: 100%;
+          background: var(--teal);
+          border-radius: 999px
+      }
+
+      .topbar2 {
+          flex: 0 0 auto;
+          background: var(--surface);
+          border-bottom: 1px solid var(--line);
+          padding: 12px 18px;
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          box-shadow: var(--shadow);
+          z-index: 2;
+          flex-wrap: wrap
+      }
+
+      .back {
+          width: 48px;
+          height: 48px;
+          border-radius: 14px;
+          border: 1px solid var(--line);
+          background: var(--surface-2);
+          display: grid;
+          place-items: center;
+          cursor: pointer;
+          font-size: 22px;
+          flex: 0 0 auto
+      }
+
+      .back:active {
+          background: var(--line)
+      }
+
+      .htitle {
+          min-width: 0;
+          flex: 1
+      }
+
+      .htitle .t {
+          font-size: 18px;
+          font-weight: 800;
+          letter-spacing: -.02em;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis
+      }
+
+      .htitle .s {
+          font-size: 13.5px;
+          color: var(--ink-2);
+          font-weight: 700;
+          margin-top: 1px
+      }
+
+      .col-stack {
+          display: flex;
+          flex-direction: column;
+          flex: 1 1 auto;
+          min-height: 0;
+          height: 100%
+      }
+
+      .bscroll {
+          flex: 1 1 auto;
+          min-height: 0;
+          overflow: auto;
+          -webkit-overflow-scrolling: touch;
+          padding: 18px
+      }
+
+      .bgrid {
+          max-width: 1000px;
+          margin: 0 auto;
+          display: flex;
+          flex-direction: column;
+          gap: 14px
+      }
+
+      .ovbox {
+          display: flex;
+          gap: 12px;
+          flex-wrap: wrap
+      }
+
+      .ov {
+          flex: 1;
+          min-width: 130px;
+          background: var(--surface);
+          border: 1px solid var(--line);
+          border-radius: var(--r);
+          padding: 14px 16px;
+          box-shadow: var(--shadow)
+      }
+
+      .ov .l {
+          font-size: 13px;
+          color: var(--ink-2);
+          font-weight: 700
+      }
+
+      .ov .v {
+          font-size: 28px;
+          font-weight: 800;
+          font-variant-numeric: tabular-nums;
+          letter-spacing: -.02em
+      }
+
+      .ov.left .v {
+          color: var(--teal-d)
+      }
+
+      .secline {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin: 6px 2px 0;
+          color: var(--ink-2);
+          font-weight: 800;
+          font-size: 14px
+      }
+
+      .secline .ln {
+          flex: 1;
+          height: 1px;
+          background: var(--line)
+      }
+
+      .unit {
+          background: var(--surface);
+          border: 1px solid var(--line);
+          border-radius: var(--r);
+          padding: 16px;
+          box-shadow: var(--shadow);
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          position: relative;
+          overflow: hidden;
+          transition: transform .12s ease;
+          flex-wrap: wrap;
+          margin-bottom: 10px
+      }
+
+      .unit:active {
+          transform: scale(.99)
+      }
+
+      .unit .edge {
+          position: absolute;
+          left: 0;
+          top: 0;
+          bottom: 0;
+          width: 5px;
+          background: var(--amber)
+      }
+
+      .unit.packed .edge {
+          background: var(--green)
+      }
+
+      .unit.sess .edge {
+          background: var(--teal)
+      }
+
+      .unit.sess.closed .edge {
+          background: var(--green)
+      }
+
+      .unit .who {
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+          min-width: 200px;
+          flex: 1
+      }
+
+      .unit .lot {
+          font-size: 17px;
+          font-weight: 800;
+          font-variant-numeric: tabular-nums;
+          word-break: break-all
+      }
+
+      .unit .sub {
+          font-size: 12.5px;
+          color: var(--ink-2);
+          font-weight: 700
+      }
+
+      .unit .badge {
+          padding: 6px 12px;
+          border-radius: 999px;
+          font-size: 13px;
+          font-weight: 800;
+          flex: 0 0 auto
+      }
+
+      .unit .badge.wait {
+          background: var(--amber-bg);
+          color: var(--amber)
+      }
+
+      .unit .badge.done {
+          background: var(--green-bg);
+          color: var(--green)
+      }
+
+      .unit .badge.work {
+          background: var(--teal-bg);
+          color: var(--teal-d)
+      }
+
+      .unit .go {
+          font-size: 24px;
+          color: var(--ink-2);
+          flex: 0 0 auto;
+          line-height: 1
+      }
+
+      /* 선택형(포장 대상 고르기) */
+      .unit.pick {
+          padding: 14px 16px
+      }
+
+      .unit.pick .tick {
+          width: 34px;
+          height: 34px;
+          border-radius: 10px;
+          border: 2px solid var(--line);
+          display: grid;
+          place-items: center;
+          font-size: 19px;
+          font-weight: 800;
+          color: transparent;
+          flex: 0 0 auto;
+          background: var(--surface-2)
+      }
+
+      .unit.pick.sel {
+          border-color: var(--teal);
+          background: linear-gradient(180deg, var(--teal-bg), #FFF)
+      }
+
+      .unit.pick.sel .tick {
+          border-color: var(--teal);
+          background: var(--teal);
+          color: #fff
+      }
+
+      .unit.readonly {
+          cursor: default
+      }
+
+      .rbadge {
+          padding: 4px 10px;
+          border-radius: 999px;
+          font-size: 12px;
+          font-weight: 800;
+          background: var(--purple-bg);
+          color: var(--purple)
+      }
+
+      .emptysess {
+          text-align: center;
+          color: var(--ink-2);
+          font-weight: 700;
+          padding: 30px;
+          border: 1.5px dashed var(--line);
+          border-radius: var(--r)
+      }
+
+      .infopill {
+          display: flex;
+          gap: 7px;
+          align-items: center;
+          background: var(--surface-2);
+          border: 1px solid var(--line);
+          border-radius: 12px;
+          padding: 8px 12px;
+          font-size: 13px;
+          font-weight: 700;
+          color: var(--ink-2)
+      }
+
+      .infopill b {
+          color: var(--ink);
+          font-variant-numeric: tabular-nums
+      }
+
+      .infopill.tap {
+          cursor: pointer
+      }
+
+      .infopill.tap:active {
+          background: var(--line)
+      }
+
+      .infopill.tap b {
+          color: var(--teal-d);
+          text-decoration: underline dotted
+      }
+
+      .sstate {
+          padding: 8px 14px;
+          border-radius: 999px;
+          font-weight: 800;
+          font-size: 14px
+      }
+
+      .sstate.wait {
+          background: var(--amber-bg);
+          color: var(--amber)
+      }
+
+      .sstate.work {
+          background: var(--teal-bg);
+          color: var(--teal-d)
+      }
+
+      .sstate.done {
+          background: var(--green-bg);
+          color: var(--green)
+      }
+
+      .part {
+          background: var(--surface);
+          border: 1px solid var(--line);
+          border-radius: var(--r);
+          padding: 14px 16px;
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          box-shadow: var(--shadow);
+          flex-wrap: wrap
+      }
+
+      .part.ok {
+          border-color: var(--green);
+          background: linear-gradient(180deg, #F2FBF5, #FFF)
+      }
+
+      .part.need {
+          border-color: var(--amber);
+          background: linear-gradient(180deg, #FEF8EC, #FFF)
+      }
+
+      .part .id {
+          display: flex;
+          flex-direction: column;
+          min-width: 0;
+          flex: 1
+      }
+
+      .part .pn {
+          font-size: 18px;
+          font-weight: 800;
+          letter-spacing: -.02em;
+          word-break: break-all
+      }
+
+      .part .pc {
+          font-size: 13px;
+          color: var(--ink-2);
+          font-weight: 700
+      }
+
+      .done-tag {
+          padding: 7px 14px;
+          border-radius: 999px;
+          background: var(--green-bg);
+          color: var(--green);
+          font-weight: 800;
+          font-size: 14px
+      }
+
+      .req {
+          padding: 4px 9px;
+          border-radius: 999px;
+          background: var(--red-bg);
+          color: var(--red);
+          font-size: 12px;
+          font-weight: 800
+      }
+
+      .mat {
+          background: var(--surface);
+          border: 1px solid var(--line);
+          border-radius: 14px;
+          padding: 12px 14px;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          box-shadow: var(--shadow);
+          margin-bottom: 10px;
+          flex-wrap: wrap
+      }
+
+      .mat.on {
+          border-color: var(--green);
+          background: linear-gradient(180deg, #F2FBF5, #FFF)
+      }
+
+      .mat.short {
+          border-color: var(--red);
+          background: linear-gradient(180deg, #FDF3F1, #FFF)
+      }
+
+      .mat .chk {
+          width: 34px;
+          height: 34px;
+          border-radius: 10px;
+          border: 2px solid var(--line);
+          display: grid;
+          place-items: center;
+          font-size: 19px;
+          font-weight: 800;
+          color: transparent;
+          flex: 0 0 auto;
+          background: var(--surface-2)
+      }
+
+      .mat.on .chk {
+          border-color: var(--green);
+          background: var(--green);
+          color: #fff
+      }
+
+      .mat .mid {
+          flex: 1;
+          min-width: 0
+      }
+
+      .mat .mn {
+          font-size: 16px;
+          font-weight: 800;
+          line-height: 1.3
+      }
+
+      .mat .mc {
+          font-size: 12.5px;
+          color: var(--ink-2);
+          font-weight: 700;
+          font-variant-numeric: tabular-nums
+      }
+
+      .mat .mc .warn {
+          color: var(--red)
+      }
+
+      .mat .mstep {
+          display: flex;
+          align-items: center;
+          flex: 0 0 auto
+      }
+
+      .mat .mstep button {
+          width: 44px;
+          height: 48px;
+          border: 1px solid var(--line);
+          background: var(--surface-2);
+          font-size: 22px;
+          font-weight: 700;
+          cursor: pointer
+      }
+
+      .mat .mstep button:first-child {
+          border-radius: 12px 0 0 12px
+      }
+
+      .mat .mstep button:last-child {
+          border-radius: 0 12px 12px 0
+      }
+
+      .mat .mstep .n {
+          width: 58px;
+          height: 48px;
+          display: grid;
+          place-items: center;
+          border-top: 1px solid var(--line);
+          border-bottom: 1px solid var(--line);
+          font-weight: 800;
+          font-variant-numeric: tabular-nums;
+          background: #FFFDF4;
+          cursor: pointer
+      }
+
+      .actionbar {
+          flex: 0 0 auto;
+          background: var(--surface);
+          border-top: 1px solid var(--line);
+          padding: 14px 18px calc(14px + env(safe-area-inset-bottom));
+          display: flex;
+          gap: 12px;
+          align-items: center;
+          box-shadow: 0 -8px 24px -18px rgba(21, 34, 43, .4);
+          flex-wrap: wrap
+      }
+
+      .actionbar .actsum {
+          display: flex;
+          flex-direction: column;
+          margin-right: auto
+      }
+
+      .actionbar .actsum .l {
+          font-size: 12.5px;
+          color: var(--ink-2);
+          font-weight: 700
+      }
+
+      .actionbar .actsum .v {
+          font-size: 21px;
+          font-weight: 800;
+          font-variant-numeric: tabular-nums
+      }
+
+      .btn {
+          min-height: var(--tap);
+          padding: 0 24px;
+          border-radius: 16px;
+          border: none;
+          cursor: pointer;
+          font-size: 18px;
+          font-weight: 800;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px
+      }
+
+      .btn.ghost {
+          background: var(--surface-2);
+          color: var(--ink-2);
+          border: 1px solid var(--line)
+      }
+
+      .btn.ghost:active {
+          background: var(--line)
+      }
+
+      .btn.primary {
+          background: var(--teal);
+          color: #fff;
+          padding: 0 36px;
+          box-shadow: 0 8px 18px -8px rgba(14, 124, 134, .7)
+      }
+
+      .btn.primary:active {
+          background: var(--teal-d)
+      }
+
+      .btn.primary:disabled {
+          background: var(--line);
+          color: var(--ink-2);
+          box-shadow: none;
+          cursor: default
+      }
+
+      .btn.start {
+          background: var(--teal);
+          color: #fff;
+          flex: 1;
+          justify-content: center;
+          font-size: 20px
+      }
+
+      .btn.danger {
+          background: var(--red-bg);
+          color: var(--red)
+      }
+
+      .btn.sm {
+          min-height: 44px;
+          padding: 0 16px;
+          font-size: 15px;
+          border-radius: 12px
+      }
+
+      /* ★ .mask 는 fixed 가 아니라 root 기준 absolute (--wash-h 로 높이를 직접 계산하므로) */
+      .mask {
+          position: absolute;
+          inset: 0;
+          background: rgba(21, 34, 43, .42);
+          display: none;
+          z-index: 40;
+          align-items: flex-end
+      }
+
+      .mask.show {
+          display: flex
+      }
+
+      .sheet {
+          width: 100%;
+          background: var(--surface);
+          border-radius: 24px 24px 0 0;
+          padding: 20px 20px calc(30px + env(safe-area-inset-bottom));
+          box-shadow: 0 -20px 40px -20px rgba(0, 0, 0, .4);
+          max-height: 92%;
+          overflow: auto
+      }
+
+      .sheet .sh {
+          display: flex;
+          align-items: center;
+          margin-bottom: 16px
+      }
+
+      .sheet .sh h3 {
+          font-size: 20px;
+          font-weight: 800;
+          margin: 0;
+          letter-spacing: -.02em
+      }
+
+      .sheet .sh .x {
+          margin-left: auto;
+          width: 44px;
+          height: 44px;
+          border-radius: 12px;
+          border: 1px solid var(--line);
+          background: var(--surface-2);
+          font-size: 20px;
+          cursor: pointer
+      }
+
+      .sheet .body {
+          max-width: 640px;
+          margin: 0 auto
+      }
+
+      .fieldlab {
+          font-size: 14px;
+          font-weight: 800;
+          color: var(--ink-2);
+          margin: 14px 2px 8px
+      }
+
+      .opts {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 10px
+      }
+
+      .opt {
+          min-height: 54px;
+          padding: 0 18px;
+          border-radius: 14px;
+          border: 1.5px solid var(--line);
+          background: var(--surface);
+          font-weight: 800;
+          font-size: 16px;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px
+      }
+
+      .opt:active {
+          background: var(--surface-2)
+      }
+
+      .opt.sel {
+          border-color: var(--teal);
+          background: var(--teal-bg);
+          color: var(--teal-d)
+      }
+
+      .opt .sub {
+          font-size: 12.5px;
+          color: var(--ink-2);
+          font-weight: 700
+      }
+
+      .optsep {
+          flex: 0 0 100%;
+          font-size: 13px;
+          font-weight: 800;
+          color: var(--ink-2);
+          margin: 6px 2px -2px
+      }
+
+      .sheet .ok {
+          width: 100%;
+          margin-top: 20px;
+          background: var(--teal);
+          color: #fff;
+          min-height: var(--tap);
+          border: none;
+          border-radius: 16px;
+          font-size: 19px;
+          font-weight: 800;
+          cursor: pointer
+      }
+
+      .sheet .ok:disabled {
+          background: var(--line);
+          color: var(--ink-2)
+      }
+
+      .txin {
+          width: 100%;
+          height: 56px;
+          border: 1px solid var(--line);
+          border-radius: 14px;
+          padding: 0 14px;
+          font-size: 18px;
+          font-weight: 800;
+          background: var(--surface-2);
+          font-variant-numeric: tabular-nums
+      }
+
+      .scanres {
+          margin-top: 14px;
+          padding: 14px;
+          border-radius: 14px;
+          border: 1px solid var(--line);
+          background: var(--surface-2);
+          font-size: 14px;
+          font-weight: 700
+      }
+
+      .scanres.ok {
+          border-color: var(--green);
+          background: var(--green-bg);
+          color: var(--green)
+      }
+
+      .scanres.ng {
+          border-color: var(--red);
+          background: var(--red-bg);
+          color: var(--red)
+      }
+
+      /* 카메라 스캔 — 세척 화면(prod_process_wash_t.html)의 .scanwrap 과 동일 구조 */
+      .scanwrap {
+          display: none;
+          position: relative;
+          border-radius: 16px;
+          overflow: hidden;
+          background: #0d1417;
+          aspect-ratio: 4/3;
+          max-height: 38dvh;
+          margin-top: 6px;
+          margin-bottom: 14px
+      }
+
+      .scanwrap.on {
+          display: block
+      }
+
+      .scanwrap video {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block
+      }
+
+      .scanwrap .frame {
+          position: absolute;
+          inset: 14% 8%;
+          border: 3px solid rgba(255, 255, 255, .85);
+          border-radius: 12px;
+          box-shadow: 0 0 0 100vmax rgba(0, 0, 0, .28);
+          pointer-events: none
+      }
+
+      /* 인식 순간 테두리를 초록으로 — 소리를 못 듣는 현장의 유일한 피드백이다 */
+      .scanwrap .frame.hit {
+          border-color: #31C48D
+      }
+
+      .scanwrap .msg {
+          position: absolute;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          padding: 10px 14px;
+          background: rgba(13, 20, 23, .72);
+          color: #fff;
+          font-weight: 800;
+          font-size: 13.5px;
+          text-align: center
+      }
+
+      .scanwrap .msg.warn {
+          color: #FFD5CE
+      }
+
+      .scanwrap .camstop {
+          position: absolute;
+          right: 12px;
+          top: 12px;
+          min-height: 44px;
+          padding: 0 16px;
+          border-radius: 12px;
+          border: none;
+          background: rgba(21, 34, 43, .72);
+          color: #fff;
+          font-weight: 800;
+          font-size: 14px;
+          cursor: pointer
+      }
+
+      .camnote {
+          font-size: 13px;
+          font-weight: 700;
+          color: var(--ink-2);
+          margin: 0 2px 4px;
+          line-height: 1.5
+      }
+
+      .camnote.warn {
+          color: var(--red)
+      }
+
+      .pad .disp {
+          margin-left: auto;
+          min-width: 140px;
+          text-align: right;
+          font-size: 30px;
+          font-weight: 800;
+          font-variant-numeric: tabular-nums;
+          background: var(--surface-2);
+          border: 1px solid var(--line);
+          border-radius: 14px;
+          padding: 8px 16px
+      }
+
+      .keys {
+          display: grid;
+          grid-template-columns:repeat(3, 1fr);
+          gap: 10px;
+          max-width: 520px;
+          margin: 6px auto 0
+      }
+
+      .keys button {
+          height: 62px;
+          border-radius: 14px;
+          border: 1px solid var(--line);
+          background: var(--surface);
+          font-size: 25px;
+          font-weight: 800;
+          cursor: pointer;
+          font-variant-numeric: tabular-nums
+      }
+
+      .keys button.ok {
+          background: var(--teal);
+          color: #fff;
+          border-color: var(--teal);
+          margin-top: 0;
+          min-height: 0;
+          height: 62px;
+          width: auto
+      }
+
+      .keys button.clr {
+          color: var(--red)
+      }
+
+      .dateedit {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 14px;
+          margin: 4px 0 10px
+      }
+
+      .dateedit .dbtn {
+          width: 56px;
+          height: 52px;
+          border-radius: 14px;
+          border: 1px solid var(--line);
+          background: var(--surface-2);
+          font-size: 22px;
+          font-weight: 700;
+          cursor: pointer
+      }
+
+      .dateedit .dval {
+          min-width: 200px;
+          text-align: center;
+          font-size: 22px;
+          font-weight: 800;
+          font-variant-numeric: tabular-nums
+      }
+
+      .timeedit {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          margin: 8px 0
+      }
+
+      .tcol {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 8px
+      }
+
+      .tcol button {
+          width: 84px;
+          height: 52px;
+          border-radius: 14px;
+          border: 1px solid var(--line);
+          background: var(--surface-2);
+          font-size: 24px;
+          font-weight: 700;
+          cursor: pointer
+      }
+
+      .tcol .tv {
+          font-size: 42px;
+          font-weight: 800;
+          font-variant-numeric: tabular-nums;
+          width: 84px;
+          text-align: center
+      }
+
+      .tsep {
+          font-size: 40px;
+          font-weight: 800;
+          padding-bottom: 4px
+      }
+
+      .form-tbl {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 13.5px
+      }
+
+      .form-tbl th, .form-tbl td {
+          border: 1px solid var(--line);
+          padding: 9px 10px;
+          text-align: left
+      }
+
+      .form-tbl th {
+          background: var(--surface-2);
+          font-weight: 800
+      }
+
+      .form-tbl td.num {
+          font-variant-numeric: tabular-nums;
+          word-break: break-all
+      }
+
+      /* ★ 레이아웃 전역에 .num 이 알약(민트 배경 + 흰 글자)으로 정의돼 있다.
+         이 화면은 .num 을 '숫자 정렬' 용도로만 쓰므로 root 안에서만 되돌린다.
+         전역 파일을 고치면 그 클래스를 쓰는 다른 화면이 같이 바뀐다. */
+      .ms-pack-root .num {
+          display: inline;
+          justify-content: initial;
+          text-align: inherit;
+          padding: 0;
+          background-color: transparent;
+          border-radius: 0;
+          font-size: inherit;
+          color: inherit
+      }
+
+      /* 포장 완료 박스 상세 — 레이아웃 전역 CSS 가 table 셀을 건드려서 div 로 짠다 */
+      .dhead {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          flex-wrap: wrap;
+          background: var(--surface-2);
+          border: 1px solid var(--line);
+          border-radius: 16px;
+          padding: 14px 16px
+      }
+
+      .dhead .dlot {
+          font-size: 20px;
+          font-weight: 800;
+          font-variant-numeric: tabular-nums;
+          letter-spacing: -.02em;
+          word-break: break-all;
+          flex: 1;
+          min-width: 0
+      }
+
+      .drows {
+          margin-top: 12px;
+          border: 1px solid var(--line);
+          border-radius: 16px;
+          overflow: hidden
+      }
+
+      .drow {
+          display: flex;
+          align-items: baseline;
+          gap: 14px;
+          padding: 12px 16px;
+          border-bottom: 1px solid var(--line)
+      }
+
+      .drow:last-child {
+          border-bottom: none
+      }
+
+      .drow > .k {
+          flex: 0 0 96px;
+          font-size: 13px;
+          font-weight: 800;
+          color: var(--ink-2)
+      }
+
+      .drow > .v {
+          flex: 1;
+          min-width: 0;
+          font-size: 16px;
+          font-weight: 800;
+          word-break: break-all
+      }
+
+      .drow > .v.num {
+          font-variant-numeric: tabular-nums
+      }
+
+      .drow > .v.muted {
+          color: var(--ink-2);
+          font-weight: 700
+      }
+
+      /* ── 바코드 출력 (1공장과 같은 방식) ── */
+      .bc-card {
+          border: 1px solid var(--line);
+          border-radius: 14px;
+          padding: 16px;
+          background: #fff;
+          text-align: center;
+          margin-bottom: 12px
+      }
+
+      /* ★ 높이를 고정하지 않는다 — SVG 가 비율을 지키며 줄어들 수 있게 */
+      .bc-bars {
+          background: #fff;
+          margin-bottom: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center
+      }
+
+      .bc-bars svg {
+          display: block
+      }
+
+      .bc-data {
+          font-size: 13px;
+          font-weight: 700;
+          font-variant-numeric: tabular-nums;
+          word-break: break-all
+      }
+
+      .bc-sub {
+          font-size: 12px;
+          color: var(--ink-2);
+          font-weight: 700;
+          margin-top: 2px
+      }
+
+      /* 인쇄는 숨긴 iframe(#printFrame)에서 한다 — 화면 CSS 와 분리되어
+         @media print 로 화면을 숨길 필요가 없다. #printArea 도 더 쓰지 않는다. */
+      @media (max-width: 1100px) {
+          .qgrid {
+              grid-template-columns:repeat(2, minmax(0, 1fr))
+          }
+      }
+
+      @media (max-width: 680px) {
+          .qgrid {
+              grid-template-columns:1fr
+          }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+          * {
+              animation: none !important;
+              transition: none !important
+          }
+      }
+  </style>
+
+  <div class="ms-pack-root">
+    <div class="app">
+
+      <!-- A. 포장 작지 큐 -->
+      <div class="screen" id="scA">
+        <div class="wrap">
+          <div class="qhead"><h1>2공장 포장 공정</h1><span class="cnt" id="qcnt"></span>
+            <div class="qfilter">
+              <button class="on" data-f="all">전체</button>
+              <button data-f="wait">대기</button>
+              <button data-f="working">작업중</button>
+              <button data-f="done">완료</button>
+            </div>
+          </div>
+          <div class="searchbar">
+            <span class="slab">작업지시일</span>
+            <input type="date" id="dFrom" class="dinput"/>
+            <span style="font-weight:800;color:var(--ink-2)">~</span>
+            <input type="date" id="dTo" class="dinput"/>
+            <button class="sbtn" id="btnSearch">조회</button>
+          </div>
+          <div class="qgrid" id="qgrid"></div>
+        </div>
+      </div>
+
+      <!-- B. 작업(작업자·설비) 목록 -->
+      <div class="screen hide" id="scB">
+        <div class="col-stack">
+          <div class="topbar2">
+            <button class="back" data-back="A">‹</button>
+            <div class="htitle">
+              <div class="t" id="bName">—</div>
+              <div class="s" id="bSub">—</div>
+            </div>
+          </div>
+          <div class="bscroll">
+            <div class="bgrid">
+              <div class="ovbox" id="ovbox"></div>
+              <div class="secline">작업 <span class="ln"></span><span id="sessCnt"></span></div>
+              <div id="sessList"></div>
+              <div class="secline">포장 대기 (검사 합격) <span class="ln"></span><span id="readyCnt"></span></div>
+              <div id="readyList"></div>
+              <div class="secline">포장 완료 <span class="ln"></span><span id="packedCnt"></span>
+                <button class="btn ghost sm" id="btnPrintAll" style="margin-left:8px">⏹ 바코드 일괄 출력</button>
+              </div>
+              <div id="packedList"></div>
+            </div>
+          </div>
+          <div class="actionbar">
+            <div class="actsum"><span class="l">작업 1건 = 작업자·설비 1조 · 박스 연속 포장</span></div>
+            <button class="btn start" id="btnAddWork">＋ 작업 추가 · 새 작업자</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- C. 작업 (박스 연속 포장) -->
+      <div class="screen hide" id="scC">
+        <div class="col-stack">
+          <div class="topbar2">
+            <button class="back" data-back="B">‹</button>
+            <div class="htitle">
+              <div class="t" id="cName">—</div>
+              <div class="s" id="cSub">—</div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap" id="cHead"></div>
+          </div>
+          <div class="bscroll">
+            <div class="bgrid" id="cBody"></div>
+          </div>
+          <div class="actionbar" id="cAction"></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- 작업 추가 · 작업자/설비 시트 -->
+    <div class="mask" id="startMask">
+      <div class="sheet">
+        <div class="body">
+          <div class="sh"><h3 id="startTitle">작업 추가 · 새 작업자</h3>
+            <button class="x" data-close>✕</button>
+          </div>
+          <div class="fieldlab">작업자</div>
+          <div class="opts" id="workerOpts"></div>
+          <div class="fieldlab">설비 <span style="font-weight:700;color:var(--ink-2)">(선택)</span></div>
+          <div class="opts" id="equipOpts"></div>
+          <button class="ok" id="startOk" disabled>작업 시작</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 박스 라벨 스캔 시트 -->
+    <div class="mask" id="scanMask">
+      <div class="sheet">
+        <div class="body">
+          <div class="sh"><h3>박스 라벨 스캔</h3>
+            <button class="x" data-close>✕</button>
+          </div>
+          <div class="scanwrap" id="scanWrap">
+            <video id="scanVideo" playsinline muted></video>
+            <div class="frame" id="scanFrame"></div>
+            <div class="msg" id="scanMsg">이 브라우저는 카메라 인식을 지원하지 않습니다 — 아래에 직접 입력하세요</div>
+            <button class="camstop" id="camStop">카메라 끄기</button>
+          </div>
+          <div id="camNote" class="camnote"></div>
+          <div class="fieldlab">박스 실물 라벨 (필수)</div>
+          <div style="display:flex;gap:10px;align-items:center">
+            <input class="txin" id="scanKey" placeholder="스캔하거나 직접 입력" autocomplete="off" style="flex:1"/>
+            <button class="btn primary sm" id="camOpen" style="flex:0 0 auto;padding:0 18px;height:56px">📷 카메라</button>
+          </div>
+          <div class="fieldlab" style="margin-top:10px">GS1-128 전체를 스캔해도 (10) 로트만 추출합니다</div>
+          <div id="scanRes"></div>
+          <div style="margin-top:8px;font-size:12.5px;color:var(--ink-2);font-weight:700;text-align:center">
+            인식되면 확인 없이 자동으로 확정됩니다 · 중복이면 소리로 알립니다
+          </div>
+          <button class="ok" id="scanOk" disabled>이 라벨로 확정</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 포장 완료 박스 상세 시트 -->
+    <div class="mask" id="doneMask">
+      <div class="sheet">
+        <div class="body">
+          <div class="sh"><h3>포장 완료 박스</h3>
+            <button class="x" data-close>✕</button>
+          </div>
+          <div id="doneBody"></div>
+          <div style="display:flex;gap:10px;margin-top:20px">
+            <button class="btn ghost" style="flex:1;justify-content:center" data-close>닫기</button>
+            <button class="btn primary" style="flex:1;justify-content:center" id="donePrint">⏹ 바코드 출력</button>
+            <button class="btn danger" style="flex:1;justify-content:center" id="doneCancel">포장 취소</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 시간 시트 -->
+    <div class="mask" id="timeMask">
+      <div class="sheet">
+        <div class="body">
+          <div class="sh"><h3 id="timeTitle">시작 일시</h3>
+            <button class="x" data-close>✕</button>
+          </div>
+          <div class="dateedit">
+            <button class="dbtn" data-d="-1">◀</button>
+            <div class="dval" id="tDate">—</div>
+            <button class="dbtn" data-d="1">▶</button>
+          </div>
+          <div class="timeedit">
+            <div class="tcol">
+              <button data-t="h+">▲</button>
+              <div class="tv" id="tH">09</div>
+              <button data-t="h-">▼</button>
+            </div>
+            <div class="tsep">:</div>
+            <div class="tcol">
+              <button data-t="m+">▲</button>
+              <div class="tv" id="tM">00</div>
+              <button data-t="m-">▼</button>
+            </div>
+          </div>
+          <button class="ok" id="timeOk">저장</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 넘패드 -->
+    <div class="mask" id="padMask">
+      <div class="sheet pad">
+        <div class="body">
+          <div class="sh"><h3 id="padLab">수량</h3><span class="disp" id="padDisp" style="margin-left:auto">0</span></div>
+          <div class="keys">
+            <button data-k="1">1</button>
+            <button data-k="2">2</button>
+            <button data-k="3">3</button>
+            <button data-k="4">4</button>
+            <button data-k="5">5</button>
+            <button data-k="6">6</button>
+            <button data-k="7">7</button>
+            <button data-k="8">8</button>
+            <button data-k="9">9</button>
+            <button class="clr" data-k="C">C</button>
+            <button data-k="0">0</button>
+            <button class="ok" data-k="OK">확인</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 바코드 출력 -->
+    <div class="mask" id="bcMask">
+      <div class="sheet">
+        <div class="body">
+          <div class="sh"><h3 id="bcTitle">바코드 출력</h3>
+            <button class="x" data-close>✕</button>
+          </div>
+          <div id="bcList"></div>
+          <button class="ok" id="bcPrint">출력 (인쇄)</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 확인 시트 (네이티브 confirm 대신) -->
+    <div class="mask" id="confMask">
+      <div class="sheet">
+        <div class="body">
+          <div class="sh"><h3 id="confTitle">확인</h3>
+            <button class="x" data-close>✕</button>
+          </div>
+          <div id="confBody" style="font-weight:700;line-height:1.6"></div>
+          <div style="display:flex;gap:10px;margin-top:20px">
+            <button class="btn ghost" style="flex:1;justify-content:center" data-close>취소</button>
+            <button class="btn primary" style="flex:1;justify-content:center" id="confOk">확인</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</th:block>
+
+<th:block layout:fragment="scripts">
+  <!-- ★ 바코드 라이브러리 — prod_result_lot 과 같은 파일.
+       CDN 이 아니라 프로젝트 안에 있어 현장망에서도 로드된다. -->
+  <script type="text/javascript" th:src="@{/resource/jsBarcode/JsBarcode.all.min.js}"></script>
+  <!-- ★ 카메라 바코드 스캔 공통 모듈 — 세척 화면(prod_process_wash_t.html)과 같은 파일. -->
+  <script type="text/javascript" th:src="@{/js/barcode_cam.js}"></script>
+  <script th:inline="none">
+   /* ══ 높이 자동 맞춤 (세척·조립 화면과 동일) ══ */
+   (function () {
+    const root = document.querySelector('.ms-pack-root');
+    if (!root) return;
+
+    function localBelow() {
+     let below = 0, node = root;
+     while (node && node !== document.body) {
+      let sib = node.nextElementSibling;
+      while (sib) {
+       const r = sib.getBoundingClientRect();
+       if (r.height > 0 && getComputedStyle(sib).position !== 'fixed') below += r.height;
+       sib = sib.nextElementSibling;
+      }
+      node = node.parentElement;
+     }
+     let fx = 0;
+     document.querySelectorAll('body *').forEach(el => {
+      if (root.contains(el)) return;
+      const cs = getComputedStyle(el);
+      if (cs.position !== 'fixed' && cs.position !== 'sticky') return;
+      const r = el.getBoundingClientRect();
+      if (r.height > 0 && r.height < innerHeight * 0.5 && r.bottom > innerHeight - 2) fx = Math.max(fx, r.height);
+     });
+     return Math.max(below, fx);
+    }
+
+    function availBottom() {
+     let bottom = window.innerHeight;
+     try {
+      const fe = window.frameElement;
+      if (fe) {
+       const pWin = window.parent, pDoc = pWin.document;
+       const feTop = fe.getBoundingClientRect().top;
+       let flow = 0, node = fe;
+       while (node && node !== pDoc.body) {
+        let sib = node.nextElementSibling;
+        while (sib) {
+         const cs = pWin.getComputedStyle(sib), r = sib.getBoundingClientRect();
+         if (r.height > 0 && cs.position !== 'fixed' && cs.position !== 'absolute') flow += r.height;
+         sib = sib.nextElementSibling;
+        }
+        node = node.parentElement;
+       }
+       let fx = 0;
+       pDoc.querySelectorAll('body *').forEach(el => {
+        if (el === fe || el.contains(fe)) return;
+        const cs = pWin.getComputedStyle(el);
+        if (cs.position !== 'fixed' && cs.position !== 'sticky' && cs.position !== 'absolute') return;
+        const r = el.getBoundingClientRect();
+        if (r.height > 0 && r.height <= 160 && r.top > feTop && r.bottom > pWin.innerHeight - 40)
+         fx = Math.max(fx, r.bottom - r.top);
+       });
+       bottom = Math.min(bottom, (pWin.innerHeight - Math.max(flow, fx)) - feTop);
+      }
+     } catch (e) {
+     }
+     return bottom;
+    }
+
+    function fit() {
+     const top = root.getBoundingClientRect().top;
+     root.style.setProperty('--wash-h', Math.max(320, Math.floor(availBottom() - top - localBelow())) + 'px');
+    }
+
+    window.addEventListener('resize', fit);
+    window.addEventListener('orientationchange', fit);
+    try {
+     window.parent.addEventListener('resize', fit);
+    } catch (e) {
+    }
+    fit();
+    requestAnimationFrame(fit);
+    setTimeout(fit, 200);
+    setTimeout(fit, 600);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
+   })();
+
+   /* ══ 공통 ══ */
+   const CTX = Object.assign({spjangcd: 'ZZ', process_code: 'mc03', factory_id: 2},
+    (typeof window.PACK_CTX !== 'undefined' ? window.PACK_CTX : {}));
+   const API = '/api/production/mcell/pack';
+   const WD = ['일', '월', '화', '수', '목', '금', '토'];
+
+   // ★ AjaxUtil 은 window 프로퍼티가 아니다. typeof 로 확인한다.
+   //   메서드명을 조건에 걸지 않는다(getJson 같은 건 존재하지 않는다).
+   function hasAjax() {
+    return (typeof AjaxUtil !== 'undefined' && AjaxUtil);
+   }
+
+   function bootFail(msg) {
+    var g = document.getElementById('qgrid');
+    if (g) g.innerHTML = '<div class="emptysess">' + msg + '</div>';
+   }
+
+   // 빈 값은 아예 보내지 않는다 — CAST(:x AS date) 에 '' 이 들어가면 서버에서 터진다
+   function clean(o) {
+    var p = {};
+    Object.keys(o || {}).forEach(function (k) {
+     if (o[k] !== null && o[k] !== undefined && o[k] !== '') p[k] = o[k];
+    });
+    return p;
+   }
+
+   /* ★ AjaxUtil.getSyncData 는 동기 함수다 — 콜백을 받지 않고 결과를 그대로 반환한다.
+        (검사 화면과 동일) 콜백을 넘기면 아무 일도 일어나지 않아 요청 자체가 안 나간다. */
+   function get(url, param, cb) {
+    if (!hasAjax()) {
+     bootFail('AjaxUtil 로드 실패 — 화면을 새로고침하세요.');
+     return;
+    }
+    var res;
+    try {
+     res = AjaxUtil.getSyncData(url, clean(param)) || {};
+    } catch (e) {
+     flash('조회 오류 : ' + (e.message || e));
+     console.error('[pack]', url, e);
+     cb(null);
+     return;
+    }
+    if (res.success === false) {
+     flash(res.message || '조회 실패');
+     cb(null);
+     return;
+    }
+    cb(res.data == null ? null : res.data);
+   }
+
+   /* 있으면 쓰고 없으면 조용히 넘어가는 조회.
+      /label_check 처럼 서버에 아직 없을 수 있는 보조 API 전용 — 토스트를 띄우지 않는다. */
+   function getSoft(url, param, cb) {
+    if (!hasAjax()) {
+     cb(null);
+     return;
+    }
+    try {
+     var res = AjaxUtil.getSyncData(url, clean(param)) || {};
+     cb(res.success === false ? null : (res.data == null ? null : res.data));
+    } catch (e) {
+     cb(null);
+    }
+   }
+
+   // postAsyncData 는 콜백 방식이 맞다
+   function post(url, param, cb) {
+    if (!hasAjax()) {
+     flash('AjaxUtil 로드 실패');
+     return;
+    }
+    AjaxUtil.postAsyncData(url, clean(param), function (res) {
+     if (!res || res.success === false) {
+      flash((res && res.message) || '처리 실패');
+      if (cb) cb(null, res);
+      return;
+     }
+     if (res.message) flash(res.message);
+     if (cb) cb(res.data || {}, res);
+    });
+   }
+
+   let tT;
+
+   function flash(m) {
+    var t = document.getElementById('packToast');
+    if (!t) {
+     t = document.createElement('div');
+     t.id = 'packToast';
+     t.style.cssText = 'position:fixed;left:50%;bottom:110px;transform:translateX(-50%);background:#15222B;color:#fff;' +
+      'padding:14px 22px;border-radius:14px;font-weight:700;z-index:60;max-width:80vw;text-align:center;' +
+      'box-shadow:0 12px 30px -10px rgba(0,0,0,.5);transition:opacity .3s';
+     document.body.appendChild(t);
+    }
+    t.textContent = m;
+    t.style.opacity = '1';
+    clearTimeout(tT);
+    tT = setTimeout(function () {
+     t.style.opacity = '0';
+    }, 2200);
+   }
+
+   // uiConfirm 은 레이아웃 전역이 아니다 — 이 화면이 자기 것을 쓴다
+   let confCb = null;
+
+   function uiConfirm(title, body, cb) {
+    document.getElementById('confTitle').textContent = title;
+    document.getElementById('confBody').textContent = body;
+    confCb = cb;
+    showMask('confMask');
+   }
+
+   document.getElementById('confOk').onclick = function () {
+    hideMask('confMask');
+    var c = confCb;
+    confCb = null;
+    if (c) c();
+   };
+
+   function showMask(id) {
+    document.getElementById(id).classList.add('show');
+   }
+
+   function hideMask(id) {
+    document.getElementById(id).classList.remove('show');
+   }
+
+   document.querySelectorAll('.mask').forEach(function (m) {
+    m.addEventListener('click', function (e) {
+     if (e.target === m || (e.target.closest && e.target.closest('[data-close]'))) m.classList.remove('show');
+    });
+   });
+
+   function fmtDate(d) {
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+   }
+
+   function nowHM() {
+    var d = new Date();
+    return fmtDate(d) + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+   }
+
+   function pill(v) {
+    if (!v) return '--:--';
+    return (v.indexOf(' ') >= 0) ? (v.split(' ')[0].slice(5) + ' ' + v.split(' ')[1]) : v;
+   }
+
+   function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+     return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c];
+    });
+   }
+
+   function num(v) {
+    return (v == null || v === '') ? 0 : Number(v);
+   }
+
+   /* GS1-128 → (10) 로트 추출. 괄호표기 / 원시 element string 둘 다.
+      스캐너가 전체 데이터를 던져도 서버엔 라벨 문자열만 보낸다. */
+   /* ★ 스캐너·카메라마다 같은 라벨을 다르게 토해낸다.
+        심볼로지 식별자(]C1 ]d2 …), FNC1 대체문자(| ~ ^ <GS>), 공백·개행을
+        한 형태로 다림질한 뒤 파서에 넘긴다. */
+   function normRaw(raw) {
+    var s = String(raw == null ? '' : raw);
+    s = s.replace(/^\](?:C1|d2|Q3|e0|E0|C0)/i, '');
+    s = s.replace(/<GS>|\u241D|\u001d/gi, '\u001d');
+    s = s.replace(/[|~^]/g, '\u001d');
+    return s.replace(/\s+/g, '').trim();
+   }
+
+   /* 가변길이 AI 의 끝. GS(FNC1)가 있으면 거기, 없으면 뒤따르는 AI 를 추정한다.
+      ★ 현장 스캐너가 GS 를 떨어뜨리고 주는 일이 잦은데, 그러면 (10)로트가
+        뒤의 (17)(30)(11) 까지 통째로 삼킨다 — 실제로
+        (01)…(10)BMJ20220120(30)1(11)220120 이 「BMJ20220120301」 로 잘렸다. */
+   function varEnd(s, i, curAi) {
+    var GS = '\u001d';
+    var g = s.indexOf(GS, i);
+    if (g >= 0) return g;
+    for (var j = i + 1; j <= s.length - 3; j++) {
+     if (aiTailOk(s.substring(j), curAi)) return j;
+    }
+    return s.length;
+   }
+
+   /* 남은 문자열이 AI 열로 끝까지 읽히는가 — 가변 AI 는 되짚기로 푼다.
+      ★ (00)(01)(02)(20) 은 «인정하지 않는다». 라벨 맨 앞에만 오는 것들이라
+        허용하면 로트 한복판의 숫자를 GTIN 으로 오독해 로트가 짧게 잘린다. */
+   function aiTailOk(t, curAi) {
+    var DATE = {'11': 1, '12': 1, '13': 1, '15': 1, '16': 1, '17': 1};
+    var GS = '\u001d';
+
+    function ok(k, seen) {
+     while (k < t.length && t[k] === GS) k++;
+     if (k >= t.length) return seen > 0;
+     var ai = t.substr(k, 2);
+     /* ★ 끊은 자리 바로 뒤에 «같은 AI» 가 또 나오는 절단은 버린다.
+          GS1 은 같은 AI 를 한 번만 쓴다. 이걸 안 막으면 로트 안의 숫자를
+          다음 AI 로 오인해 앞에서 잘린다 —
+            (10)M2FJ109400 → 'M2FJ' + (10)'9400' 으로 읽혀 로트가 M2FJ 가 됐다. */
+     if (seen === 0 && curAi && ai === curAi) return false;
+     if (DATE[ai]) {
+      var v = t.substr(k + 2, 6);
+      if (!/^\d{6}$/.test(v)) return false;
+      var mm = +v.substr(2, 2), dd = +v.substr(4, 2);
+      if (mm < 1 || mm > 12 || dd > 31) return false;
+      return ok(k + 8, seen + 1);
+     }
+     if (ai === '30' || ai === '37') {
+      var g2 = t.indexOf(GS, k + 2);
+      if (g2 >= 0) {
+       if (!/^\d{1,8}$/.test(t.substring(k + 2, g2))) return false;
+       return ok(g2, seen + 1);
+      }
+      for (var n = 1; n <= 8 && k + 2 + n <= t.length; n++) {
+       if (!/^\d+$/.test(t.substr(k + 2, n))) break;
+       if (ok(k + 2 + n, seen + 1)) return true;
+      }
+      return false;
+     }
+     if (ai === '10' || ai === '21') {
+      var g3 = t.indexOf(GS, k + 2);
+      if (g3 >= 0) return g3 > k + 2 && ok(g3, seen + 1);
+      for (var n2 = 1; k + 2 + n2 <= t.length; n2++) {
+       if (ok(k + 2 + n2, seen + 1)) return true;
+      }
+      return false;
+     }
+     return false;
+    }
+
+    return ok(0, 0);
+   }
+
+   /* GS1-128 → (10) 로트. 괄호표기 / 원시 element string 둘 다.
+      ★ 포장(BSC)·트래킹 화면과 같은 규칙이어야 한다 — 같은 바코드를
+        여러 화면에서 찍기 때문에 파싱이 어긋나면 한쪽만 조회된다. */
+   /* 스캔값을 AI 목록으로 푼다 — [{ai,v}, …], GS1 이 아니면 빈 배열.
+      ★ 판별 근거는 «구조» 뿐이다 : FNC1(GS)이 있거나 (01)GTIN 으로 시작하거나.
+        무조건 파싱하면 평범한 로트번호가 AI 열로 «읽혀» 잘린다 —
+          M2FJ109393 → 'M2' 를 가변 AI 로 보고 'FJ' 까지 삼킨 뒤
+                       한복판의 '10' 을 로트 AI 로 잡아 「9393」 이 나온다. */
+   function parseAis(raw) {
+    var out = [];
+    raw = normRaw(raw);
+    if (!raw) return out;
+    if (raw.indexOf('(') >= 0) {
+     var re = /\((\d{2,4})\)([^(]*)/g, g;
+     while ((g = re.exec(raw)) !== null) {
+      var v0 = g[2].replace(/\u001d/g, '').trim();
+      if (v0) out.push({ai: g[1], v: v0});
+     }
+     return out;
+    }
+    var GS = '\u001d';
+    if (!(raw.indexOf(GS) >= 0 || /^01\d{14}/.test(raw))) return out;   // GS1 아님
+    var FIXED = {'00': 18, '01': 14, '02': 14, '11': 6, '12': 6, '13': 6, '15': 6, '16': 6, '17': 6, '20': 2};
+    var i = 0;
+    while (i < raw.length) {
+     if (raw[i] === GS) {
+      i++;
+      continue;
+     }
+     var ai = raw.substr(i, 2);
+     i += 2;
+     var flen = FIXED[ai], v;
+     if (flen != null) {
+      v = raw.substr(i, flen);
+      i += flen;
+     } else {
+      var end = varEnd(raw, i, ai);
+      v = raw.substring(i, end);
+      i = end;
+     }
+     v = (v || '').trim();
+     if (v) out.push({ai: ai, v: v});
+    }
+    return out;
+   }
+
+   /* GS1-128 → (10) 로트. GS1 이 아니면 원문 그대로 */
+   function pickLot(raw) {
+    var ais = parseAis(raw);
+    for (var i = 0; i < ais.length; i++) if (ais[i].ai === '10') return ais[i].v;
+    return normRaw(raw);
+   }
+
+   /* 저장용 문자열 — 라벨에 «인쇄된 그대로»의 괄호 표기.
+      바코드 안에는 괄호가 없다. 스캐너는 010880…10M2FJ…<GS>301<GS>11260813 처럼
+      FNC1 로 구분된 element string 을 준다 — 괄호는 사람이 읽으라고 인쇄된 글자다.
+      pack_label."RawData" 에는 라벨 인쇄본과 같은 모양으로 넣는다(1공장과 동일 규칙).
+      ★ 읽은 «순서 그대로» 되돌린다. (17)(21) 처럼 이 화면이 쓰지 않는 AI 도
+        라벨에 있었다면 그대로 실린다 — 저장값은 라벨의 사본이어야 한다.
+      ★ GS1 이 아니면(로트 문자열만 있는 구형 라벨) 원문을 그대로 둔다. */
+   function gs1Text(raw) {
+    var ais = parseAis(raw);
+    if (!ais.length) return normRaw(raw);
+    return ais.map(function (a) {
+     return '(' + a.ai + ')' + a.v;
+    }).join('');
+   }
+
+   /* ══ 상태 ══
+      작업(세션)은 별도 테이블이 없다. v3 §5.1 과 같은 방식으로
+      (작업일자 · 작업자 · 설비) 로 mat_produce 를 묶어 파생시킨다.
+      아직 한 박스도 포장하지 않은 새 작업만 화면 메모리(LOCAL)에 들고 있다가
+      첫 박스가 붙는 순간 서버 파생 세션과 같은 키로 합류한다. */
+   let PROCESS_ID = null, WC_ID = null;
+   let ORDERS = [], curO = null, filter = 'all';
+   let READY = [], PACKED = [], MATS = [];
+   let SESSIONS = [], LOCAL = [], SESS = null;   // SESS = 지금 열려 있는 작업
+   let curUnit = null;      // 이번 박스에 담을 검사 합격 유닛
+   let curLabel = '';       // 이번 박스의 실물 라벨 (필수)
+   let curLabelRaw = '';    // 그 라벨의 «스캔 원문» — GS1 이면 (10)만 뽑은 값과 다르다
+   let curDone = null;      // 상세 시트에 띄운 포장 완료 건
+   let matQty = {};         // matId → 투입수량
+   let WORKERS = [], EQUIPS = [];
+   let pick = {actor_id: null, actor_name: null, equipment_id: null, equipment_name: null};
+   let pickMode = 'new';    // new = 작업 추가 / edit = 현재 작업의 작업자·설비 변경
+   let eqTouched = false;   // 작업자가 설비를 직접 골랐는가 (기본 설비 자동선택 억제)
+
+   const SC = {A: document.getElementById('scA'), B: document.getElementById('scB'), C: document.getElementById('scC')};
+
+   function show(k) {
+    for (var x in SC) SC[x].classList.toggle('hide', x !== k);
+   }
+
+   /* ══ A. 큐 ══ */
+   function loadContext(cb) {
+    get(API + '/context', {process_code: CTX.process_code, factory_id: CTX.factory_id}, function (d) {
+     if (!d || !d.process_id) {
+      bootFail('포장 공정(mc03) 정보를 찾을 수 없습니다.');
+      return;
+     }
+     PROCESS_ID = d.process_id;
+     WC_ID = d.workcenter_id;
+     // 포장 워크센터(56)에 설비가 둘 이상 붙어 있어 기본값을 서버가 지정한다.
+     // PACK_CTX 로 덮어쓸 수 있다. 없으면 '미지정' 으로 시작한다.
+     if (d.default_equipment_id != null && CTX.default_equipment_id == null)
+      CTX.default_equipment_id = d.default_equipment_id;
+     if (d.out_store_id != 4) flash('경고 : 포장 워크센터 산출창고가 제품창고(4)가 아닙니다 — ' + d.out_store_id);
+     cb();
+    });
+   }
+
+   function loadQueue() {
+    if (PROCESS_ID == null) return;
+    get(API + '/wo_queue', {
+     process_id: PROCESS_ID, spjangcd: CTX.spjangcd,
+     date_from: document.getElementById('dFrom').value,
+     date_to: document.getElementById('dTo').value
+    }, function (d) {
+     ORDERS = d || [];
+     renderQueue();
+    });
+   }
+
+   /** 카드 키 — 작지가 있으면 작지, 없으면(수리·구형 유입) 완제품 품목이 카드 1장 */
+   function oKey(o) {
+    return (o.job_res_id != null) ? ('jr' + o.job_res_id) : ('mat' + o.pack_mat_id);
+   }
+
+   /** 하위 조회·등록에 실을 식별자. 작지 없는 카드는 품목으로 붙는다 */
+   function oParam(extra) {
+    var p = (curO.job_res_id != null) ? {job_res_id: curO.job_res_id} : {pack_mat_id: curO.pack_mat_id};
+    return Object.assign(p, extra || {});
+   }
+
+   function renderQueue() {
+    var list = ORDERS.filter(function (o) {
+     return filter === 'all' || o.state === filter;
+    });
+    document.getElementById('qcnt').textContent = list.length + '건';
+    var STLAB = {working: '작업중', wait: '대기', done: '완료'};
+    document.getElementById('qgrid').innerHTML = list.length ? list.map(function (o) {
+     var noJr = (o.job_res_id == null);
+     var plan = num(o.plan_qty), done = num(o.done_qty);
+     var pct = plan ? Math.min(100, Math.round(done / plan * 100)) : 0;
+     return '<div class="wo" data-st="' + o.state + '" data-k="' + esc(oKey(o)) + '"><div class="edge"></div>' +
+      '<div class="row1"><span class="wono">' + esc(noJr ? '작지 없음' : o.order_num) + '</span>' +
+      (noJr ? '' : '<span style="font-size:13px;color:var(--ink-2);font-weight:700">' + esc(o.plan_date) + '</span>') +
+      '<span class="chip ' + o.state + '">' + STLAB[o.state] + '</span></div>' +
+      '<div class="name">' + esc(o.mat_name) + '</div>' +
+      '<div class="meta">' +
+      (noJr ? '' : '<div class="blk"><span class="lab">지시</span><span class="val">' + plan + '</span></div>') +
+      '<div class="blk"><span class="lab">포장대기</span><span class="val">' + num(o.ready_qty) + '</span></div>' +
+      '<div class="blk"><span class="lab">완료</span><span class="val">' + done + '</span></div>' +
+      (noJr ? '' : '<div class="prog"><span class="lab">' + (done ? '진행 ' + pct + '%' : '미시작') + '</span>' +
+       '<div class="bar"><i style="width:' + pct + '%"></i></div></div>') +
+      '</div></div>';
+    }).join('') : '<div class="emptysess">해당 기간에 포장 작업지시가 없습니다.</div>';
+   }
+
+   document.getElementById('qgrid').addEventListener('click', function (e) {
+    var c = e.target.closest('.wo');
+    if (c) openOrder(c.dataset.k);
+   });
+   document.querySelectorAll('.qfilter button').forEach(function (b) {
+    b.addEventListener('click', function () {
+     document.querySelectorAll('.qfilter button').forEach(function (x) {
+      x.classList.remove('on');
+     });
+     b.classList.add('on');
+     filter = b.dataset.f;
+     renderQueue();
+    });
+   });
+   document.getElementById('btnSearch').addEventListener('click', loadQueue);
+   (function () {
+    // 기본 조회기간 = 이번 달 1일 ~ 오늘
+    var t = new Date();
+    var f = new Date(t.getFullYear(), t.getMonth(), 1);
+    document.getElementById('dFrom').value = fmtDate(f);
+    document.getElementById('dTo').value = fmtDate(t);
+   })();
+   document.querySelectorAll('[data-back]').forEach(function (b) {
+    b.addEventListener('click', function () {
+     if (b.dataset.back === 'A') {
+      SESS = null;
+      loadQueue();
+      show('A');
+     } else {
+      SESS = null;
+      loadB();
+      show('B');
+     }
+    });
+   });
+
+   /* ══ B. 작업 목록 ══ */
+   function openOrder(key) {
+    curO = ORDERS.filter(function (x) {
+     return oKey(x) === key;
+    })[0];
+    if (!curO) return;
+    LOCAL = [];
+    SESS = null;
+    document.getElementById('bName').textContent = curO.mat_name || '';
+    document.getElementById('bSub').textContent = (curO.job_res_id != null)
+     ? ((curO.order_num || '') + ' · ' + (curO.mat_code || '') + ' · 지시 ' + num(curO.plan_qty))
+     : (curO.mat_code || '');
+    loadB();
+    show('B');
+   }
+
+   /** 작업 키 — 서버 파생 건과 화면 로컬 건이 같은 문자열을 내야 한다.
+    packed_list 가 actor_id / equipment_id 를 내려주면 그것으로, 없으면 이름으로 묶는다. */
+   function sessKey(o) {
+    var d = (o.work_date || (o.start_time || '').split(' ')[0] || '');
+    var a = (o.actor_id != null && o.actor_id !== '') ? ('#' + o.actor_id) : (o.actor_name || '-');
+    var e = (o.equipment_id != null && o.equipment_id !== '') ? ('#' + o.equipment_id) : (o.equipment_name || '-');
+    return d + '|' + a + '|' + e;
+   }
+
+   /** 작업 소요시간(분). 종료가 없으면(작업중) null — 「0분」으로 보이면 안 끝난 걸 끝난 걸로 읽는다 */
+   function workMin(s) {
+    if (!s.start_time || !s.end_time) return null;
+    var a = new Date(String(s.start_time).replace(' ', 'T'));
+    var b = new Date(String(s.end_time).replace(' ', 'T'));
+    if (isNaN(a) || isNaN(b)) return null;
+    var m = Math.round((b - a) / 60000);
+    return (m < 0) ? null : m;
+   }
+
+   function buildSessions() {
+    var map = {};
+    SESSIONS = [];
+    PACKED.forEach(function (p) {
+     var k = sessKey(p);
+     if (!map[k]) {
+      map[k] = {
+       key: k, actor_id: p.actor_id, actor_name: p.actor_name,
+       equipment_id: p.equipment_id, equipment_name: p.equipment_name,
+       work_date: (p.start_time || '').split(' ')[0],
+       start_time: p.start_time, end_time: p.end_time, boxes: []
+      };
+      SESSIONS.push(map[k]);
+     }
+     var s = map[k];
+     s.boxes.push(p);
+     /* ★ 작업 = 그 작업자가 포장한 박스들의 「첫 시작 ~ 마지막 종료」다.
+          박스마다 시작·종료가 이미 정확히 남는데(1대=1박스라 몇 분이면 끝난다)
+          화면이 시작만 보여줘서 작업자가 얼마나 일했는지 알 수 없었다. */
+     if (p.start_time && (!s.start_time || p.start_time < s.start_time)) s.start_time = p.start_time;
+     if (p.end_time && (!s.end_time || p.end_time > s.end_time)) s.end_time = p.end_time;
+    });
+    // 아직 박스가 없는 새 작업
+    LOCAL.forEach(function (s) {
+     if (map[s.key]) {
+      map[s.key].local = true;
+      return;
+     }
+     s.boxes = [];
+     map[s.key] = s;
+     SESSIONS.push(s);
+    });
+    SESSIONS.sort(function (a, b) {
+     return String(b.start_time || '') < String(a.start_time || '') ? -1 : 1;
+    });
+   }
+
+   function loadB(cb) {
+    if (!curO) return;
+    get(API + '/ready_units', oParam(), function (d) {
+     READY = d || [];
+     get(API + '/packed_list', oParam(), function (d2) {
+      PACKED = (d2 || []).filter(function (x) {
+       return x.lot_number;
+      });
+      buildSessions();
+      if (SESS) SESS = SESSIONS.filter(function (s) {
+       return s.key === SESS.key;
+      })[0] || SESS;
+      renderB();
+      if (cb) cb();
+     });
+    });
+   }
+
+   function renderB() {
+    document.getElementById('ovbox').innerHTML =
+     (curO.job_res_id != null
+      ? '<div class="ov"><div class="l">지시</div><div class="v">' + num(curO.plan_qty) + '</div></div>'
+      : '') +
+     '<div class="ov left"><div class="l">포장 대기</div><div class="v">' + READY.length + '</div></div>' +
+     '<div class="ov"><div class="l">포장 완료</div><div class="v">' + PACKED.length + '</div></div>';
+
+    document.getElementById('sessCnt').textContent = SESSIONS.length + '건';
+    document.getElementById('sessList').innerHTML = SESSIONS.length ? SESSIONS.map(function (s) {
+     var n = s.boxes.length;
+     return '<div class="unit sess' + (n ? '' : ' closed') + '" data-k="' + esc(s.key) + '"><div class="edge"></div>' +
+      '<div class="who"><span class="lot">' + esc(s.actor_name || '작업자 미지정') + '</span>' +
+      '<span class="sub">' + esc(s.work_date || '') +
+      ' · 설비 ' + esc(s.equipment_name || '미지정') +
+      (s.start_time ? ' · ' + pill(s.start_time) + ' ~ ' + (s.end_time ? pill(s.end_time) : '작업중')
+       + (workMin(s) != null ? ' (' + workMin(s) + '분)' : '') : '') + '</span></div>' +
+      /* ★ 한 박스라도 포장했으면 「완료」다.
+           세션 키가 작업자+설비+날짜라, 같은 사람이 다른 날 또 하면 새 카드가 생긴다.
+           즉 이 카드는 「그날 그 사람의 작업」이고 박스를 담은 순간 결과가 남는다.
+           지시 5대 중 2대만 했어도 이 사람의 그날 작업은 끝난 것으로 본다 —
+           남은 3대는 다른 날 다른 작업자가 이어서 한다.
+         ★ 박스가 0이면 아직 시작만 한 상태라 「작업중」. */
+      '<span class="badge ' + (n ? 'done' : 'wait') + '">' +
+      (n ? '완료 · ' + n + '대' : '작업중') + '</span></div>';
+    }).join('') : '<div class="emptysess">아직 작업이 없습니다. 아래 「작업 추가」로 작업자를 지정하세요.</div>';
+
+    document.getElementById('readyCnt').textContent = READY.length + '대';
+    document.getElementById('readyList').innerHTML = READY.length ? READY.map(function (u) {
+     return '<div class="unit readonly"><div class="edge"></div>' +
+      '<div class="who"><span class="lot">' + esc(u.lot_number) + '</span>' +
+      '<span class="sub">' + esc(u.unit_mat_code) +
+      (u.unit_no ? ' · #' + esc(u.unit_no) : ' · 조립이력 없음') +
+      (u.assy_order_num ? ' · ' + esc(u.assy_order_num) : '') +
+      (u.maker_lot_no ? ' · 라벨 ' + esc(u.maker_lot_no) : '') + '</span>' +
+      (u.src_lot ? '<span class="sub">원 로트 ' + esc(u.src_lot) + '</span>' : '') + '</div>' +
+      (u.repair_id ? '<span class="rbadge">수리 · ' + (u.repair_cat === 'spec' ? '사양변경' : '반품') + '</span>' : '') +
+      '<span class="badge wait">포장 대기</span></div>';
+    }).join('') : '<div class="emptysess">검사 합격 후 검사완료창고에 있는 유닛이 없습니다.</div>';
+
+    // 포장 완료 — 탭하면 상세 시트에서 「포장 취소」를 할 수 있다.
+    // C화면(작업 안)에만 두면 작업을 끝내고 나온 뒤에는 닿을 길이 없다.
+    document.getElementById('packedCnt').textContent = PACKED.length + '건';
+    document.getElementById('packedList').innerHTML = PACKED.length ? PACKED.map(function (p) {
+     return '<div class="unit packed" data-mp="' + p.mp_id + '"><div class="edge"></div>' +
+      '<div class="who"><span class="lot">' + esc(p.lot_number) + '</span>' +
+      '<span class="sub">라벨 ' + esc(p.maker_lot_no || '-') + ' · ' + esc(p.actor_name || '-') +
+      (p.equipment_name ? ' · ' + esc(p.equipment_name) : '') + '</span>' +
+      '<span class="sub">' + pill(p.start_time) + ' ~ ' + pill(p.end_time) + '</span></div>' +
+      '<span class="badge done">포장 완료</span><span class="go">›</span></div>';
+    }).join('') : '<div class="emptysess">아직 포장한 박스가 없습니다.</div>';
+   }
+
+   document.getElementById('btnPrintAll').onclick = function () {
+    /* 이 작지에서 포장한 박스 전체. 한 장씩 눌러 뽑으면 12박스에 12번이라 못 쓴다 */
+    openBarcode('완제품 로트 바코드 · ' + (curO ? (curO.mat_name || '') : ''), PACKED.map(boxLabel));
+   };
+   document.getElementById('packedList').addEventListener('click', function (e) {
+
+    var c = e.target.closest('[data-mp]');
+    if (c) openDone(c.dataset.mp, PACKED);
+   });
+
+   document.getElementById('sessList').addEventListener('click', function (e) {
+    var c = e.target.closest('.unit');
+    if (!c) return;
+    var s = SESSIONS.filter(function (x) {
+     return x.key === c.dataset.k;
+    })[0];
+    if (s) openSess(s);
+   });
+
+   /* ══ 작업 추가 ══ */
+   document.getElementById('btnAddWork').onclick = function () {
+    pickMode = 'new';
+    eqTouched = false;
+    pick = {actor_id: null, actor_name: null, equipment_id: null, equipment_name: null};
+    openPicker();
+   };
+
+   function createSess() {
+    var s = {
+     actor_id: pick.actor_id, actor_name: pick.actor_name,
+     equipment_id: pick.equipment_id, equipment_name: pick.equipment_name,
+     work_date: fmtDate(new Date()), start_time: nowHM(), boxes: [], local: true
+    };
+    s.key = sessKey(s);
+    if (SESSIONS.filter(function (x) {
+     return x.key === s.key;
+    })[0]) {
+     flash('같은 작업자·설비의 작업이 이미 있습니다. 그 작업으로 들어갑니다.');
+     openSess(SESSIONS.filter(function (x) {
+      return x.key === s.key;
+     })[0]);
+     return;
+    }
+    LOCAL.push(s);
+    // 작업 추가 = 포장 시작. 작지를 working 으로 올린다(차수는 아직 없다).
+    post(API + '/work_start', {
+     job_res_id: curO.job_res_id, actor_id: s.actor_id, start_time: s.start_time
+    }, function () {
+     loadQueue();
+    });
+    buildSessions();
+    renderB();
+    openSess(s);
+   }
+
+   /* ══ C. 작업 (박스 연속 포장) ══ */
+   function openSess(s) {
+    SESS = s;
+    resetBox();
+    document.getElementById('cName').textContent = (s.actor_name || '작업자') + ' 작업';
+    document.getElementById('cSub').textContent =
+     (curO.mat_code || '') + ' · ' + (curO.mat_name || '');
+    if (MATS.length) {
+     renderC();
+     show('C');
+     return;
+    }
+    get(API + '/pack_materials', oParam(), function (d) {
+     MATS = d || [];
+     resetMat();
+     renderC();
+     show('C');
+    });
+   }
+
+   function resetMat() {
+    matQty = {};
+    MATS.forEach(function (m) {
+     matQty[m.mat_id] = num(m.default_qty);
+    });
+   }
+
+   function resetBox() {
+    curUnit = null;
+    curLabel = '';
+    curLabelRaw = '';
+    curDone = null;
+    resetMat();
+   }
+
+   function renderC() {
+    renderCHead();
+    renderCBody();
+    renderCAction();
+   }
+
+   function renderCHead() {
+    document.getElementById('cHead').innerHTML =
+     '<div class="infopill tap" id="pickWorker"><span>작업자</span><b>' + esc(SESS.actor_name || '선택') + '</b></div>' +
+     '<div class="infopill tap" id="pickEquip"><span>설비</span><b>' + esc(SESS.equipment_name || '미지정') + '</b></div>' +
+     '<div class="infopill tap" data-time="sess"><span>시작</span><b>' + pill(SESS.start_time) + '</b></div>' +
+     '<div class="infopill"><span>종료</span><b>' + (SESS.end_time ? pill(SESS.end_time) : '작업중') + '</b></div>' +
+     '<span class="sstate ' + (SESS.boxes.length ? 'work' : 'wait') + '">포장 ' + SESS.boxes.length + '대</span>';
+   }
+
+   function matOk() {
+    for (var i = 0; i < MATS.length; i++) {
+     var m = MATS[i];
+     if (num(matQty[m.mat_id]) > num(m.stock)) return false;
+     if (m.store_id != null && num(m.store_id) !== 17 && num(matQty[m.mat_id]) > 0) return false;
+    }
+    return true;
+   }
+
+   function packReady() {
+    return !!(curUnit && curLabel && matOk());
+   }
+
+   function renderCBody() {
+    var html = '';
+
+    // ① 포장 대상 유닛
+    html += '<div class="secline">① 포장 대상 (검사 합격 유닛) <span class="ln"></span><span>1대 = 1박스 · ' + READY.length + '대 대기</span></div>';
+    if (!READY.length) {
+     html += '<div class="emptysess">검사완료창고에 포장할 유닛이 없습니다. 검사 화면에서 합격 처리하면 여기에 올라옵니다.</div>';
+    } else {
+     READY.forEach(function (u) {
+      var on = curUnit && String(curUnit.mat_lot_id) === String(u.mat_lot_id);
+      html += '<div class="unit pick' + (on ? ' sel' : '') + '" data-u="' + u.mat_lot_id + '"><div class="edge"></div>' +
+       '<div class="tick">' + (on ? '✓' : '') + '</div>' +
+       '<div class="who"><span class="lot">' + esc(u.lot_number) + '</span>' +
+       '<span class="sub">' + esc(u.unit_mat_code) +
+       (u.unit_no ? ' · #' + esc(u.unit_no) : ' · 조립이력 없음') +
+       (u.assy_order_num ? ' · ' + esc(u.assy_order_num) : '') + '</span>' +
+       (u.src_lot ? '<span class="sub">원 로트 ' + esc(u.src_lot) + '</span>' : '') + '</div>' +
+       (u.repair_id ? '<span class="rbadge">수리 · ' + (u.repair_cat === 'spec' ? '사양변경' : '반품') + '</span>' : '') + '</div>';
+     });
+    }
+
+    // ② 포장 자재 — 국내/해외는 작지 산출품목이 이미 가른다
+    var short = MATS.filter(function (m) {
+     return num(matQty[m.mat_id]) > num(m.stock);
+    }).length;
+    var isFb = MATS.length > 0 && MATS[0].fallback === 'Y';
+    html += '<div class="secline" style="margin-top:14px">② 포장 자재 <span class="ln"></span>' +
+     '<span>' + MATS.length + '종' + (isFb ? ' · 전체 자재' : '') + (short ? ' · 재고부족 ' + short : '') + '</span></div>';
+    html += '<div class="part' + (isFb ? ' need' : '') + '"><div class="id"><span class="pn">' + esc(curO.mat_name || '') + '</span>' +
+     '<span class="pc">' + esc(curO.mat_code || '') +
+     (isFb ? ' · 완제품 BOM에 포장 자재가 없어 생산창고 재고 전체를 띄웁니다. 담을 것만 수량을 올리세요.'
+      : ' · 이 완제품 BOM 기준 · 수량 수정 가능') + '</span></div></div>';
+    if (!MATS.length) {
+     html += '<div class="emptysess" style="margin-top:10px">생산창고(17)에 재고가 있는 자재가 없습니다. ' +
+      '자재 없이도 포장을 완료할 수 있습니다.</div>';
+    }
+    MATS.forEach(function (m) {
+     var q = num(matQty[m.mat_id]), stock = num(m.stock);
+     var over = q > stock, ok = q > 0 && !over;
+     // 서버가 판정한 소스창고를 그대로 드러낸다. 17 이 아니면 resolveSourceStore 가
+     // Factory_id / MaterialType 때문에 다른 창고로 흘렀다는 뜻이라 조용히 넘기지 않는다.
+     var st = (m.store_id == null) ? null : num(m.store_id);
+     var badStore = (st != null && st !== 17);
+     html += '<div class="mat ' + (over || badStore ? 'short' : (ok ? 'on' : '')) + '" style="margin-top:10px">' +
+      '<div class="chk">' + (ok && !badStore ? '✓' : '') + '</div>' +
+      '<div class="mid"><div class="mn">' + esc(m.mat_name) + '</div>' +
+      '<div class="mc">' + esc(m.mat_code) + ' · BOM ' + num(m.per) + ' /대 · ' +
+      esc(m.store_name || '생산창고') + ' 재고 ' +
+      '<b class="' + (over ? 'warn' : '') + '">' + stock + '</b>' +
+      (over ? ' <span class="warn">— 재고 부족</span>' : '') +
+      (badStore ? ' <span class="warn">— 소스창고가 생산창고(17)가 아닙니다 (' + st + ')</span>' : '') +
+      '</div></div>' +
+      '<div class="mstep"><button data-mminus="' + m.mat_id + '">−</button>' +
+      '<div class="n" data-mpad="' + m.mat_id + '">' + q + '</div>' +
+      '<button data-mplus="' + m.mat_id + '">＋</button></div></div>';
+    });
+
+    // ③ 박스 라벨 스캔 (필수)
+    html += '<div class="secline" style="margin-top:14px">③ 박스 라벨 스캔 <span class="ln"></span>' +
+     (curLabel ? '<span>확정됨</span>' : '<span class="req">필수</span>') + '</div>';
+    html += '<div class="part ' + (curLabel ? 'ok' : 'need') + '">' +
+     '<div class="id"><span class="pn">' + (curLabel ? esc(curLabel) : '미스캔') + '</span>' +
+     '<span class="pc">' + (curLabel ? '완제품 로트의 외부 라벨(MakerLotNo)로 기록됩니다'
+      : '박스에 붙은 실물 라벨을 스캔해야 포장을 완료할 수 있습니다') + '</span></div>' +
+     '<button class="btn primary sm" id="btnScan" style="padding:0 20px">📷 ' + (curLabel ? '다시 스캔' : '스캔') + '</button></div>';
+
+    // 이 작업에서 포장한 박스
+    html += '<div class="secline" style="margin-top:14px">이 작업에서 포장한 박스 <span class="ln"></span>' +
+     '<span>' + SESS.boxes.length + '건</span></div>';
+    if (!SESS.boxes.length) {
+     html += '<div class="emptysess">아직 포장한 박스가 없습니다.</div>';
+    } else {
+     SESS.boxes.forEach(function (p) {
+      html += '<div class="unit packed" data-mp="' + p.mp_id + '"><div class="edge"></div>' +
+       '<div class="who"><span class="lot">' + esc(p.lot_number) + '</span>' +
+       '<span class="sub">라벨 ' + esc(p.maker_lot_no || '-') +
+       (p.chasu ? ' · ' + p.chasu + '차수' : '') + ' · ' + pill(p.start_time) + ' ~ ' + pill(p.end_time) + '</span>' +
+       '<span class="sub">눌러서 상세 · 포장 취소</span></div>' +
+       '<span class="badge done">포장 완료</span><span class="go">›</span></div>';
+     });
+    }
+
+    document.getElementById('cBody').innerHTML = html;
+   }
+
+   function renderCAction() {
+    var bar = document.getElementById('cAction');
+    var badStore = MATS.filter(function (m) {
+     return m.store_id != null && num(m.store_id) !== 17 && num(matQty[m.mat_id]) > 0;
+    }).length;
+    var need = !curUnit ? '유닛을 선택하세요' : (!curLabel ? '박스 라벨을 스캔하세요'
+     : (badStore ? '소스창고가 생산창고(17)가 아닌 자재가 있습니다'
+      : (!matOk() ? '재고보다 많은 자재가 있습니다' : '')));
+    bar.innerHTML =
+     '<div class="actsum"><span class="l">' + (need || '박스 1개 준비됨') + '</span>' +
+     '<span class="v">이 작업 ' + SESS.boxes.length + '대</span></div>' +
+     '<button class="btn ghost" id="cEnd">작업 종료</button>' +
+     '<button class="btn primary" id="cFinish"' + (packReady() ? '' : ' disabled') + '>포장 완료</button>';
+    document.getElementById('cEnd').onclick = function () {
+     var n = SESS.boxes.length;
+     var who = SESS.actor_name || '작업자';
+     uiConfirm('작업 종료',
+      n ? (who + ' 작업을 종료합니다. 포장 ' + n + '대는 그대로 남고, 남은 유닛은 다른 작업에서 이어서 포장할 수 있습니다.')
+       : (who + ' 작업을 종료합니다. 포장한 박스가 없어 이 작업은 기록되지 않습니다.'),
+      function () {
+       SESS = null;
+       // 한 박스도 안 했으면 작지를 원래대로 되돌린다.
+       // 화면 판단만 믿지 않는다 — 그 사이 다른 태블릿이 같은 작지에 박스를 넣었을 수 있다.
+       if (!n) post(API + '/work_end', {job_res_id: curO.job_res_id}, function () {
+        loadB();
+        loadQueue();
+        show('B');
+       });
+       else {
+        flash(who + ' 작업 종료 · 포장 ' + n + '대');
+        loadB();
+        loadQueue();
+        show('B');
+       }
+      });
+    };
+    document.getElementById('cFinish').onclick = doPack;
+   }
+
+   /* 본문 클릭 — 유닛 선택 / 자재 스테퍼 / 스캔 / 완료건 상세 */
+   document.getElementById('cBody').addEventListener('click', function (e) {
+    var u = e.target.closest('[data-u]');
+    if (u) {
+     var lot = READY.filter(function (x) {
+      return String(x.mat_lot_id) === u.dataset.u;
+     })[0];
+     curUnit = (curUnit && String(curUnit.mat_lot_id) === u.dataset.u) ? null : lot;
+     renderCBody();
+     renderCAction();
+     return;
+    }
+    if (e.target.closest('#btnScan')) {
+     openScan();
+     return;
+    }
+    var mp = e.target.closest('[data-mplus]');
+    if (mp) {
+     var a = mp.dataset.mplus;
+     matQty[a] = num(matQty[a]) + 1;
+     renderCBody();
+     renderCAction();
+     return;
+    }
+    var mm = e.target.closest('[data-mminus]');
+    if (mm) {
+     var b = mm.dataset.mminus;
+     matQty[b] = Math.max(0, num(matQty[b]) - 1);
+     renderCBody();
+     renderCAction();
+     return;
+    }
+    var pd = e.target.closest('[data-mpad]');
+    if (pd) {
+     openPadMat(pd.dataset.mpad);
+     return;
+    }
+    var dn = e.target.closest('[data-mp]');
+    if (dn) {
+     openDone(dn.dataset.mp);
+     return;
+    }
+   });
+   document.getElementById('cHead').addEventListener('click', function (e) {
+    if (e.target.closest('#pickWorker')) {
+     pickMode = 'edit';
+     pick = {
+      actor_id: SESS.actor_id, actor_name: SESS.actor_name,
+      equipment_id: SESS.equipment_id, equipment_name: SESS.equipment_name
+     };
+     openPicker();
+     return;
+    }
+    if (e.target.closest('#pickEquip')) {
+     pickMode = 'edit';
+     pick = {
+      actor_id: SESS.actor_id, actor_name: SESS.actor_name,
+      equipment_id: SESS.equipment_id, equipment_name: SESS.equipment_name
+     };
+     openPicker();
+     return;
+    }
+    var t = e.target.closest('[data-time]');
+    if (t) openTime(t.dataset.time);
+   });
+
+   /* ══ 포장 완료 ══ */
+   function doPack() {
+    if (!curUnit) {
+     flash('포장할 유닛을 선택하세요');
+     return;
+    }
+    if (!curLabel) {
+     flash('박스 라벨을 스캔하세요');
+     openScan();
+     return;
+    }
+    if (!matOk()) {
+     flash('재고보다 많은 자재가 있습니다. 수량을 조정하세요.');
+     return;
+    }
+    var bom = MATS.filter(function (m) {
+     return num(matQty[m.mat_id]) > 0;
+    })
+    .map(function (m) {
+     return {matId: m.mat_id, qty: num(matQty[m.mat_id])};
+    });
+    var btn = document.getElementById('cFinish');
+    if (btn) btn.disabled = true;
+    post(API + '/pack_unit', oParam({
+     mat_lot_id: curUnit.mat_lot_id,
+     maker_lot_no: curLabel,
+     label_raw: curLabelRaw,
+     actor_id: SESS.actor_id,
+     equipment_id: SESS.equipment_id == null ? '' : SESS.equipment_id,
+     start_time: SESS.start_time || nowHM(),
+     end_time: nowHM(),
+     bom_json: JSON.stringify(bom),
+     spjangcd: CTX.spjangcd
+    }), function (d) {
+     if (d === null) {
+      if (btn) btn.disabled = false;
+      return;
+     }
+     var lot = curUnit.lot_number;
+     resetBox();                       // 다음 박스로 이어간다 — 작업자·설비는 유지
+     loadB(function () {
+      // 첫 박스가 붙으면 로컬 작업이 서버 파생 작업과 합류한다
+      var s = SESSIONS.filter(function (x) {
+       return x.key === SESS.key;
+      })[0];
+      if (s) SESS = s;
+      renderC();
+      flash(lot + ' 포장 완료 — 다음 박스를 준비하세요');
+     });
+    });
+   }
+
+   /* ══ 박스 라벨 스캔 ══ */
+   let scanTimer = null, scanVal = '';
+   /* ★ 스캔 «원문». scanVal 은 pickLot 이 (10)만 뽑은 값이라 GS1 라벨에서는 둘이 다르다.
+        pack_label."RawData" 에 원문을 남겨야 오인식을 나중에 되짚을 수 있다. */
+   let scanRawVal = '';
+
+   /* ── 카메라 스캔 — 공통 모듈(BarcodeCam) ──
+      세척 화면이 쓰는 /js/barcode_cam.js 를 그대로 이식했다.
+      예전에는 getUserMedia·BarcodeDetector·감지루프를 이 파일 안에 직접 적었다 —
+      같은 코드가 세척·포장(BSC)·포장(M-CELL) 세 곳에 복사되어 있어
+      한 곳을 고쳐도 나머지가 그대로 남았다. 이제 카메라는 모듈이,
+      «읽은 값을 어떻게 해석할지» 만 이 화면이 맡는다. */
+   var scanCam = null;            // BarcodeCam 인스턴스
+   var camOn   = false;           // 렌즈가 켜져 있는가
+   var camLock = null;            // 화면 꺼짐 방지
+
+   /* 화면 꺼짐 방지 — 스캔 시트를 열어둔 채 손을 놓으면 태블릿이 잠긴다. */
+   async function wakeOn() {
+    try {
+     if (!navigator.wakeLock || camLock) return;
+     camLock = await navigator.wakeLock.request('screen');
+     camLock.addEventListener('release', function () { camLock = null; });
+    } catch (e) {}
+   }
+   function wakeOff() {
+    try { if (camLock) camLock.release(); } catch (e) {}
+    camLock = null;
+   }
+
+   /* 쓸 수 있는 환경인가 — 판단은 모듈에 맡긴다(HTTPS·BarcodeDetector·getUserMedia). */
+   function camReason() {
+    if (typeof BarcodeCam === 'undefined')
+     return '바코드 모듈(barcode_cam.js)을 불러오지 못했습니다. 스캐너나 직접 입력을 사용하세요.';
+    var c = BarcodeCam.check();
+    return c.ok ? null : String(c.msg || '카메라를 쓸 수 없습니다').split('\n')[0];
+   }
+
+   /* 카메라가 켜져 있으면 화면 안(.msg), 꺼져 있으면 바깥(.camnote). */
+   function setCamNote(msg, warn) {
+    var m = document.getElementById('scanMsg');
+    if (m) {
+     m.className = 'msg' + (warn ? ' warn' : '');
+     m.textContent = msg || '';
+     m.style.display = msg ? '' : 'none';
+    }
+    var n = document.getElementById('camNote');
+    if (!n) return;
+    n.className = 'camnote' + (warn ? ' warn' : '');
+    n.textContent = camOn ? '' : (msg || '');
+   }
+
+   function stopCam() {
+    if (scanCam) scanCam.stop();
+    camOn = false;
+    var w = document.getElementById('scanWrap');
+    if (w) w.classList.remove('on');
+    wakeOff();
+   }
+   // 탭을 벗어나면 카메라·화면잠금을 놓는다. 안 놓으면 렌즈가 켜진 채 남는다.
+   document.addEventListener('visibilitychange', function () { if (document.hidden) stopCam(); });
+
+   async function startCam() {
+    var why = camReason();
+    if (why) { setCamNote(why, true); return; }
+    setCamNote('카메라 준비 중…');
+    if (!scanCam) {
+     scanCam = BarcodeCam.create({
+      video: document.getElementById('scanVideo'),
+      /* ★ 박스 라벨은 GS1-128 뿐이다. itf 를 열어 두면 Code 128 의 굵기 패턴
+           일부를 자기 코드로 착각해 12자리 숫자를 지어낸다. */
+      formats: ['code_128'],
+      continuous: true,          // 박스를 연달아 포장한다 — 한 장 읽고 렌즈를 끄지 않는다
+      onScan: onCamScan,
+      onStatus: function (m) { setCamNote(m); },
+      onError: function (m) {
+       camOn = false;
+       var w = document.getElementById('scanWrap');
+       if (w) w.classList.remove('on');
+       setCamNote(String(m || '').split('\n')[0], true);
+      }
+     });
+    }
+    try {
+     await scanCam.start();
+     camOn = true;
+     document.getElementById('scanWrap').classList.add('on');
+     wakeOn();
+     setCamNote('라벨을 비추세요');
+    } catch (e) {
+     stopCam();
+     setCamNote('카메라를 열 수 없습니다 — ' + (e && e.name === 'NotAllowedError'
+      ? '권한이 거부되었습니다. 브라우저 설정에서 카메라를 허용하세요.'
+      : ((e && e.message) || e)), true);
+    }
+   }
+
+   /* 인식 순간을 몸으로 알려준다. 화면을 안 보고 라벨만 보며 찍기 때문에
+      소리·진동이 없으면 읽혔는지 몰라 같은 라벨을 계속 들이댄다. */
+   /* 인식 순간 테두리를 번쩍인다. 소리를 못 듣는 현장(귀마개·소음)에서는
+      이게 유일한 피드백이라 없으면 같은 라벨을 계속 들이대게 된다. */
+   function camFlash() {
+    var fr = document.getElementById('scanFrame');
+    if (!fr) return;
+    fr.classList.add('hit');
+    setTimeout(function () {
+     fr.classList.remove('hit');
+    }, 350);
+   }
+
+   function camBeep() {
+
+    try {
+     if (navigator.vibrate) navigator.vibrate(60);
+    } catch (e) {
+    }
+    try {
+     var C = window.AudioContext || window.webkitAudioContext;
+     if (!C) return;
+     var ac = new C(), o = ac.createOscillator(), g = ac.createGain();
+     o.frequency.value = 1760;
+     g.gain.value = 0.05;
+     o.connect(g);
+     g.connect(ac.destination);
+     o.start();
+     setTimeout(function () {
+      o.stop();
+      ac.close();
+     }, 90);
+    } catch (e) {
+    }
+   }
+
+   /* 실패음 — 성공음만 있으면 «읽혔는데 왜 안 넘어가지» 를 화면을 봐야만 안다.
+      낮은 음 + 두 번 진동이라 장갑을 끼고도 구분된다. */
+   function camBeepNg() {
+    try {
+     if (navigator.vibrate) navigator.vibrate([60, 60, 60]);
+    } catch (e) {
+    }
+    try {
+     var C = window.AudioContext || window.webkitAudioContext;
+     if (!C) return;
+     var ac = new C(), o = ac.createOscillator(), g = ac.createGain();
+     o.frequency.value = 320;
+     g.gain.value = 0.06;
+     o.connect(g);
+     g.connect(ac.destination);
+     o.start();
+     setTimeout(function () {
+      o.stop();
+      ac.close();
+     }, 220);
+    } catch (e) {
+    }
+   }
+
+   /* ★ 감지 루프는 모듈이 돌린다(setTimeout 체인·겹침 방지 포함).
+        여기는 «읽힌 값 한 개» 를 받아 해석만 한다.
+      ★ 중복 인식은 «같은 값 + 2.5초» 하나로만 막는다(세척 화면과 동일).
+        시간창 하나라 풀어 줄 자리가 없다 — 못 푸는 버그도 없다. */
+   var camLast = '', camLastAt = 0;
+
+   function onCamScan(raw) {
+    raw = String(raw || '').trim();
+    if (!raw) return;
+    var m = document.getElementById('scanMask');
+    if (!m || !m.classList.contains('show')) return;   // 시트가 닫혔으면 무시
+
+    var now = Date.now();
+    if (raw === camLast && now - camLastAt < 2500) return;
+    camLast = raw;
+    camLastAt = now;
+
+    camBeep();
+    camFlash();
+    setCamNote('읽었습니다 — ' + raw);
+    var key = pickLot(raw);
+    document.getElementById('scanKey').value = key;
+    checkLabel(key, true, raw);   // 카메라로 읽은 것 → 확인 버튼 없이 확정(세척 화면과 같은 흐름)
+   }
+
+   document.getElementById('camOpen').onclick = function () {
+    startCam();
+   };
+   document.getElementById('camStop').onclick = function () {
+    stopCam();
+    setCamNote('');
+    camLast = '';
+   };
+   // 시트를 닫을 때 카메라도 반드시 끈다 (안 끄면 렌즈가 계속 켜져 있다)
+   document.getElementById('scanMask').addEventListener('click', function (e) {
+    if (e.target === this || (e.target.closest && e.target.closest('[data-close]'))) stopCam();
+   });
+
+   function openScan() {
+    clearTimeout(autoOkTimer);
+    scanVal = '';
+    // 시트를 다시 열면 같은 라벨도 새로 읽을 수 있어야 한다
+    camLast = '';
+    document.getElementById('scanKey').value = '';
+    document.getElementById('scanRes').innerHTML = '';
+    document.getElementById('scanOk').disabled = true;
+    setCamNote('');
+    showMask('scanMask');
+    // 태블릿은 카메라가 기본 경로다. 열자마자 켜서 한 손으로 끝나게 한다.
+    if (!camReason()) {
+     startCam();
+    } else {
+     document.getElementById('scanWrap').classList.remove('on');   // 세척과 동일
+     setCamNote(camReason(), true);
+    }
+    setTimeout(function () {
+     document.getElementById('scanKey').focus();
+    }, 120);
+   }
+
+   document.getElementById('scanKey').addEventListener('input', function () {
+    clearTimeout(scanTimer);
+    var raw = this.value;
+    if (!raw.trim()) {
+     document.getElementById('scanRes').innerHTML = '';
+     document.getElementById('scanOk').disabled = true;
+     scanVal = '';
+     return;
+    }
+    /* ★ 타이핑 중간값은 «검사만» 한다(auto=false).
+         250ms 만에 「사용 가능」이 되므로 자동 확정하면 다 치기도 전에 시트가 닫힌다.
+         블루투스 스캐너(키보드 웨지)는 마지막에 Enter 를 보내므로 그쪽에서 확정된다. */
+    scanTimer = setTimeout(function () {
+     checkLabel(pickLot(raw), false, raw);
+    }, 250);
+   });
+   document.getElementById('scanKey').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') {
+     e.preventDefault();
+     clearTimeout(scanTimer);
+     checkLabel(pickLot(this.value), true, this.value);
+    }
+   });
+
+   /* 검사에 걸렸을 때 되돌리는 자리 — 한 곳에서만 처리한다.
+      ★ 중복차단을 손으로 풀지 않는다 — 2.5초 시간창이라 저절로 풀린다.
+        같은 라벨을 계속 비추고 있으면 2.5초마다 다시 알린다. */
+   var autoOkTimer = null;
+
+   function labelFail(msg) {
+    clearTimeout(autoOkTimer);
+    var box = document.getElementById('scanRes');
+    box.className = 'scanres ng';
+    box.textContent = msg;
+    camBeepNg();
+    setCamNote(msg, true);
+    scanVal = '';
+    scanRawVal = '';
+    document.getElementById('scanOk').disabled = true;
+   }
+
+   /* auto=true 는 카메라·스캐너가 읽어 스스로 부른 것, false 는 타이핑 중 검사.
+      검사 내용은 같고 «확정까지 갈지» 만 다르다. */
+   function checkLabel(key, auto, raw) {
+    var box = document.getElementById('scanRes');
+    if (!key) return;
+    var dup = PACKED.filter(function (p) {
+     return String(p.maker_lot_no || '').toUpperCase() === key.toUpperCase();
+    })[0];
+    if (dup) {
+     labelFail('이미 사용된 라벨입니다 — ' + dup.lot_number + ' (' + (dup.actor_name || '') + ')');
+     return;
+    }
+    // 서버 중복검사가 있으면 쓰고, 없으면 화면 검사만으로 넘어간다
+    getSoft(API + '/label_check', oParam({key: key}), function (d) {
+     if (d && d.dup) {
+      labelFail(d.note || '이미 등록된 라벨입니다.');
+      return;
+     }
+     box.className = 'scanres ok';
+     box.textContent = key + ' · 사용 가능';
+     scanVal = key;
+     scanRawVal = gs1Text(raw || key);   // ★ 괄호 표기로 — pack_label.RawData 로 간다
+     document.getElementById('scanOk').disabled = false;
+
+     /* ★ 세척 화면과 같은 흐름 — 확인 버튼을 기다리지 않는다.
+          350ms 는 읽힌 값을 눈으로 확인할 최소한의 틈. 0 이면 무엇이
+          지나갔는지 모른 채 시트가 닫힌다.
+          확정 버튼은 남겨 둔다(자동이 막혔을 때의 손잡이). */
+     if (auto) {
+      clearTimeout(autoOkTimer);
+      autoOkTimer = setTimeout(function () {
+       if (scanVal === key) applyLabel();
+      }, 350);
+     }
+    });
+   }
+
+   function applyLabel() {
+    clearTimeout(autoOkTimer);
+    if (!scanVal) return;
+    curLabel = scanVal;
+    curLabelRaw = scanRawVal || scanVal;   // 원문은 pack_label.RawData 로 간다
     stopCam();
     hideMask('scanMask');
     renderCBody();

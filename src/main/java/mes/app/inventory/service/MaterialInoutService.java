@@ -446,7 +446,21 @@ public class MaterialInoutService {
             , to_char(ml."EffectiveDate",'yyyy-MM-dd') as "EffectiveDate"
             , ml."Description"
             , ml."StoreHouse_id" as store_house_id
+            , ml."MakerLotNo"
+            , ml."CurrentStock"
+            /* ★ 이 로트가 «쓰였는가».
+                 화면(rp_input)이 로트 재발번을 막을 때 이 값을 본다.
+                 예전에는 CurrentStock 과 InputQty 를 견주어 «추정» 했는데,
+                 부분 소비 뒤 되돌린 경우처럼 두 값이 같아도 이력이 남는 일이 있어
+                 mat_lot_cons 를 직접 세는 편이 정확하다. */
+            , coalesce(mlc.cons_cnt, 0) as cons_cnt
+            , coalesce(mlc.used_qty, 0) as used_qty
             from mat_lot ml  
+                left join lateral (
+                    select count(*) as cons_cnt, coalesce(sum(c."OutputQty"),0) as used_qty
+                      from mat_lot_cons c
+                     where c."MaterialLot_id" = ml.id
+                ) mlc on true
                 left join material m on m.id = ml."Material_id"
                 left join mat_grp mg on mg.id = m."MaterialGroup_id" 
                 left join unit u on u.id = m."Unit_id" 
@@ -456,6 +470,55 @@ public class MaterialInoutService {
 
 		List<Map<String, Object>> items = this.sqlRunner.getRows(sql, param);
 		return items;
+	}
+
+	/**
+	 * 이 입고건의 로트 중 «이미 쓰인» 것들. 재발번 전에 확인한다.
+	 *
+	 * ★ 소비 이력(mat_lot_cons)이 있으면 무조건 사용으로 본다.
+	 *   재고가 그대로여도(부분 소비 후 되돌린 경우) 이력은 남아 있고,
+	 *   그 로트를 지우면 이력이 매달릴 곳을 잃는다.
+	 * ★ 다른 곳에서 이 로트를 산출 근거로 물고 있는 경우도 함께 본다 —
+	 *   포장·생산이 이 로트를 투입해 만든 로트가 있으면 손대면 안 된다.
+	 */
+	public List<Map<String, Object>> findUsedLotsByMio(Integer mioId) {
+		MapSqlParameterSource param = new MapSqlParameterSource();
+		param.addValue("mioId", mioId);
+		return this.sqlRunner.getRows("""
+            select ml.id as ml_id, ml."LotNumber"
+                 , coalesce(c.cnt,0) as cons_cnt
+                 , coalesce(ml."InputQty",0) - coalesce(ml."CurrentStock",0) as diff_qty
+              from mat_lot ml
+              left join lateral (
+                  select count(*) as cnt from mat_lot_cons mlc
+                   where mlc."MaterialLot_id" = ml.id
+              ) c on true
+             where ml."SourceTableName" = 'mat_inout'
+               and ml."SourceDataPk"    = :mioId
+               and ( coalesce(c.cnt,0) > 0
+                     or coalesce(ml."InputQty",0) <> coalesce(ml."CurrentStock",0) )
+             order by ml.id
+            """, param);
+	}
+
+	/**
+	 * 이 입고건이 만든 로트를 지운다. 재발번 직전에만 부른다.
+	 *
+	 * ★ findUsedLotsByMio 로 «쓰인 것이 없음» 을 확인한 뒤에 부를 것.
+	 *   그 검사 없이 부르면 소비 이력이 있는 로트를 지워 FK 가 깨진다.
+	 * ★ mat_inout(입고) 행은 건드리지 않는다. 입고 자체는 그대로 두고
+	 *   그 아래 로트만 다시 나누는 것이 이 기능의 목적이다.
+	 */
+	public int deleteLotsByMio(Integer mioId) {
+		MapSqlParameterSource param = new MapSqlParameterSource();
+		param.addValue("mioId", mioId);
+		return this.sqlRunner.execute("""
+            delete from mat_lot
+             where "SourceTableName" = 'mat_inout'
+               and "SourceDataPk"    = :mioId
+               and not exists (select 1 from mat_lot_cons mlc
+                                where mlc."MaterialLot_id" = mat_lot.id)
+            """, param);
 	}
 
 	public List<Map<String, Object>> mioTestList(Integer mioId, Integer testResultId) {

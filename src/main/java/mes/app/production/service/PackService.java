@@ -455,8 +455,23 @@ public class PackService {
             SELECT jr.id                        AS id
                  , jr."WorkOrderNumber"         AS order_num
                  , jr."State"                   AS state
-                 , jr."OrderQty"                AS order_qty
-                 , jr."GoodQty"                 AS good_qty
+                 /* ★ 지시량은 «완제품 단위» 다.
+                      jr 은 포장 자식 작지이고 그 Material_id 는 CK 반제품이라,
+                      OrderQty 도 CK 낱개(= 완제품 × ck_per)로 들어 있다.
+                      그대로 쓰면 완제품 11개 지시가 카드에 «33» 으로 뜬다.
+                      부모(완제품 헤더)의 지시량이 곧 완제품 수량이므로 그쪽을 쓴다.
+                    ★ ckstock(CK 자체재고) 지시는 부모가 없다 — 그때는 CK 가 산출물
+                      자체라 jr 값이 맞는다. COALESCE 가 두 경우를 함께 받는다. */
+                 , COALESCE(hdr."OrderQty", jr."OrderQty") AS order_qty
+                 /* ★ 완료 수량은 «차수 합계» 를 쓴다(아래 s.units).
+                      jr."GoodQty" 는 recalcJobRes 가 채우는 «집계 결과» 인데,
+                      부모·자식 작지가 서로를 갱신하는 경로가 겹치면 두 번 더해진다 —
+                      카드엔 20, 상세엔 10 으로 갈렸다(같은 차수 1건짜리 작지에서).
+                      상세 화면(getSessionList)은 차수를 직접 세므로,
+                      카드도 같은 출처를 봐야 두 화면이 어긋나지 않는다.
+                    ★ s 는 아래 LATERAL 에서 세션 차수만 골라 합산한다
+                      (LastProcessYN='Y' + 산출품 일치) — 국가별 CK 산출 차수는 빠진다. */
+                 , COALESCE(s.units, 0)         AS good_qty
                  , jr."DefectQty"               AS defect_qty
                  , jr."ProductionDate"          AS prod_date
                  , jr."Material_id"             AS wip_material_id   -- 이 공정 WIP(=CK)
@@ -893,7 +908,8 @@ public class PackService {
                  , mp."Material_id" AS product_mat_id
                  , ROUND(COALESCE(mp."GoodQty",0)::numeric,0) AS units
                  , mp."JobResponse_id" AS jr_pk
-                 , jr."OrderQty" AS order_qty
+                 -- 목록과 같은 이유로 부모(완제품) 지시량을 쓴다. §getOrderList 주석 참고
+                 , COALESCE(hdr."OrderQty", jr."OrderQty") AS order_qty
                  , to_char(mp."StartTime",'YYYY-MM-DD HH24:MI') AS start_time
                  , to_char(mp."EndTime",  'YYYY-MM-DD HH24:MI') AS end_time
                  , (__PHASE__) AS phase

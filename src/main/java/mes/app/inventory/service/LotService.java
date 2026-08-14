@@ -323,6 +323,28 @@ public class LotService {
                                 where pc."MatProduce_id" = k.mp_id
                                   and coalesce(pc._status,'a') = 'a')
             )
+            /* ★ 차수 하나가 «같은 로트번호의 mat_lot 행» 을 여럿 물 수 있다.
+             *   2공장은 포장이 원 로트번호를 그대로 물려받아(조립 재공품 → 완제품 동일 번호)
+             *   MC4144-260813-001 하나에 조립 산출·검사 이동·포장 산출 행이 함께 걸린다.
+             *   그대로 두면 아래 ③ 투입 줄이 mp_id 로만 조인하므로 «같은 투입이
+             *   행 수만큼 복사» 된다 — 화면에 똑같은 줄이 5~6개 찍히던 원인.
+             *   차수당 한 줄만 남긴다. 고르는 기준은 «카톤이 달린 행» 우선 —
+             *   그래야 아래 카톤 줄(MatLot_id 대조)이 살아남는다.
+             *   ※ 1공장은 한 차수가 국가별로 «다른 번호» 를 내므로(P-…-KR / -JP)
+             *     애초에 조회 로트번호로 갈려 여기서 줄어들 것이 없다. */
+            , mp_rank as (
+                select k.*
+                     , (select count(*) from pack_carton pc2
+                         where pc2."MatProduce_id" = k.mp_id
+                           and pc2."MatLot_id"     = k.prod_lot_id
+                           and coalesce(pc2._status,'a') = 'a') as carton_cnt
+                  from mp_pack k
+            )
+            , mp_uniq as (
+                select distinct on (mp_id) mp_id, prod_lot_id, prod_lot, maker_lot
+                  from mp_rank
+                 order by mp_id, carton_cnt desc, prod_lot_id
+            )
             , pr as (
                 -- ★ 라벨·카톤·투입은 모두 차수에 1:N 이다. 한 조인에 섞으면 서로 곱해져
                 --   CK 48 한 건이 라벨 3장 때문에 3줄로 복사된다(합계 144).
@@ -348,7 +370,7 @@ public class LotService {
                      , null::text  as src_lot
                      , null::float as src_qty
                      , '1' || coalesce(pl."LabelKind",'zz') as sort_key
-                  from mp_pack k
+                  from mp_uniq k
                   left join pack_label pl on pl."MatProduce_id" = k.mp_id
                                          and coalesce(pl._status,'a') = 'a'
 
@@ -368,7 +390,7 @@ public class LotService {
                      , pc."ShipState"
                      , null::text, null::text, null::float
                      , '2' || lpad(pc."CartonNo"::text, 4, '0')
-                  from mp_pack k
+                  from mp_uniq k
                   join pack_carton pc on pc."MatProduce_id" = k.mp_id
                                      and coalesce(pc._status,'a') = 'a'
                                      and (pc."MatLot_id" is null
@@ -386,7 +408,7 @@ public class LotService {
                      , ml."LotNumber"
                      , mlc."OutputQty"::float
                      , '3' || m2."Name"
-                  from mp_pack k
+                  from mp_uniq k
                   join mat_lot_cons mlc on mlc."SourceDataPk"    = k.mp_id
                                        and mlc."SourceTableName" = 'mat_produce'
                   join mat_lot ml on ml.id = mlc."MaterialLot_id"
@@ -765,6 +787,26 @@ with recursive T as (
               from mat_lot ml
              where ml."SourceTableName" = 'wash_work_item'
                and ml."LotNumber" = :lotNumber
+
+            union all
+
+            /* ★ «입고 로트 자신» 도 뿌리로 받는다.
+                 위 두 갈래는 생산 산출(mat_produce)·세척(wash_work_item)만 앵커로 잡는다.
+                 그래서 생산품을 찍으면 그 아래 원재료가 보이는데,
+                 정작 «원재료를 직접 찍으면» P 가 0건이 되어 탭이 통째로 비었다
+                 (LI-20260814-0003 처럼 입고로 만들어진 로트).
+                 자기 자신을 한 줄 실어 주면 아래 LL → mat_lot 조인에서
+                 그 로트의 입고 이력이 그대로 나온다.
+               ★ 조건은 맨 아래 where 절과 «같은 식» 이다 —
+                 출처가 mat_inout 이거나, 비어 있으면(초기 시드) 외부 입고로 본다.
+                 두 곳이 갈리면 뿌리에는 잡히는데 결과에서 걸러지는 일이 생긴다. */
+            select null::integer   as mp_id
+                 , ''::text        as p_lot_number
+                 , ml."LotNumber"  as lot_number
+                 , ml."Material_id" as mat_pk
+              from mat_lot ml
+             where ml."LotNumber" = :lotNumber
+               and coalesce(nullif(ml."SourceTableName",''),'mat_inout') = 'mat_inout'
          ) 
          ,A as(
           select 

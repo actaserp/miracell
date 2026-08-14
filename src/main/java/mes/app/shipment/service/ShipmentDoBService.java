@@ -224,90 +224,147 @@ public class ShipmentDoBService {
 	 *   로트가 이미 국가별로 갈려 있으므로(P-…-KR) 박스를 안 찍고 로트를 직접 골라도
 	 *   국가는 보여야 한다. 2공장(M-CELL)은 배분이 없어 빈칸이고, 그게 정상이다.
 	 */
+	/**
+	 * 출고에 담을 후보 목록 — «박스(카톤) 한 개당 한 줄» + 박스로 안 묶인 잔여.
+	 *
+	 * ═══ 왜 다시 썼나 (2026-08) ═══
+	 *   ① unit_kind 를 안 내려줬다.
+	 *      화면은 r.unit_kind === 'carton' 으로 박스 줄을 가르는데 그 컬럼이 없어
+	 *      필터가 항상 0건이 됐다 — 카톤을 찍어도 «후보 없음» 으로 팝업이 열렸다.
+	 *   ② distinct on ("MatLot_id") 로 박스를 «한 줄» 로 접었다.
+	 *      로트 하나에 박스가 3개면 3줄이 나와야 한다. 접어 버리면
+	 *      C-…-KR-01 만 보이고 -02 · -03 은 존재하지 않는 것처럼 된다.
+	 *   ③ UDI(외부 라벨)로 못 찾았다.
+	 *      mat_lot."MakerLotNo" 를 조건에 안 넣어 박스라벨 스캔이 빗나갔다.
+	 *
+	 * ═══ 돌려주는 줄 ═══
+	 *   unit_kind='carton' 아직 안 나간 박스 하나 = 한 줄. ship_qty = 그 박스 수량
+	 *   unit_kind='lot'    박스로 안 묶인 잔여 재고. ship_qty = 그 잔여
+	 *     └ 박스 합계가 재고를 다 덮으면 이 줄은 «안 나온다» — 안 그러면
+	 *       같은 물건이 박스 줄과 낱개 줄로 두 번 세어진다.
+	 *
+	 * @param lot_number 사내 로트 / 외부 UDI / 카톤 개체번호 / 카톤 대표번호.
+	 *                   비면 material_id 로 전체를 훑는다(팝업 목록).
+	 */
 	public List<Map<String, Object>> getMatLotSearch (Integer sh_id, Integer material_id, String lot_number) {
 
 		MapSqlParameterSource paramMap = new MapSqlParameterSource();
 		paramMap.addValue("material_id", material_id);
-		paramMap.addValue("lot_number", lot_number);
+		paramMap.addValue("lot_number", StringUtils.isEmpty(lot_number) ? null : lot_number.trim());
 
 		String sql = """
             with k as (
                 select nullif(trim(cast(:lot_number as varchar)),'') as skey
             )
-            , cart as (
-                -- ② 카톤 개체 바코드
-                select pc.* from pack_carton pc cross join k
-                 where coalesce(pc._status,'a') = 'a'
-                   and k.skey is not null
-                   and pc."CartonLotNo" = k.skey
-                union all
-                -- ③ 카톤 대표번호 (pack_label 의 carton 행)
+            /* 조회 대상 완제품 로트.
+               스캔 키는 네 갈래로 들어온다 — 어느 쪽이든 같은 로트에 닿아야 한다. */
+            , base as (
+                select ml.*
+                  from mat_lot ml cross join k
+                 where coalesce(ml."CurrentStock",0) > 0
+                   and (cast(:material_id as integer) is null
+                        or ml."Material_id" = cast(:material_id as integer))
+                   and (k.skey is null
+                        or ml."LotNumber"  = k.skey          -- 사내 로트
+                        or ml."MakerLotNo" = k.skey          -- ★ 외부 UDI(박스라벨)
+                        or exists (                          -- 카톤 개체번호
+                              select 1 from pack_carton pc0
+                               where pc0."MatLot_id" = ml.id
+                                 and coalesce(pc0._status,'a') = 'a'
+                                 and pc0."CartonLotNo" = k.skey)
+                        or exists (                          -- 카톤 대표번호(pack_label)
+                              select 1
+                                from pack_label pl
+                                join pack_carton pc1 on pc1."MatProduce_id" = pl."MatProduce_id"
+                                                    and pc1."MatLot_id"     = ml.id
+                                                    and coalesce(pc1._status,'a') = 'a'
+                               where pl."LabelKind" = 'carton'
+                                 and coalesce(pl._status,'a') = 'a'
+                                 and pl."LotNo" = k.skey)
+                       )
+            )
+            -- 아직 안 나간 박스. 여기 있는 행 «하나하나» 가 화면의 한 줄이 된다
+            , box as (
                 select pc.*
-                  from pack_label pl
-                  join pack_carton pc on pc."MatProduce_id" = pl."MatProduce_id"
-                                     and coalesce(pc._status,'a') = 'a'
+                  from pack_carton pc
+                  join base b on b.id = pc."MatLot_id"
                  cross join k
-                 where pl."LabelKind" = 'carton'
-                   and coalesce(pl._status,'a') = 'a'
-                   and k.skey is not null
-                   and pl."LotNo" = k.skey
+                 where coalesce(pc._status,'a') = 'a'
+                   and coalesce(pc."ShipState",'') <> 'shipped'
+                   /* ★ «박스 하나» 를 찍었으면 그 박스만 돌려준다.
+                        안 그러면 C-…-KR-01 을 찍어도 같은 로트의 -02 · -03 이
+                        함께 올라와 후보가 3건이 되고, 화면이 자동등록을 포기하고
+                        팝업을 연다(자동 담기의 조건은 «후보 1건»). */
+                   and (k.skey is null
+                        or pc."CartonLotNo" = k.skey
+                        or not exists (select 1 from pack_carton pc9
+                                        where pc9."CartonLotNo" = k.skey
+                                          and coalesce(pc9._status,'a') = 'a'))
             )
-            , pick as (
-                -- 국가(= 완제품 로트)별로 아직 안 나간 다음 박스 하나
-                select distinct on ("MatLot_id") *
-                  from cart
-                 where coalesce("ShipState",'') <> 'shipped'
-                 order by "MatLot_id", "CartonNo"
+            , box_sum as (
+                select "MatLot_id", count(*) as cnt, sum("Qty") as qty
+                  from box group by "MatLot_id"
             )
-            , remain as (
-                select "MatLot_id", count(*) as cnt
-                  from cart
-                 where coalesce("ShipState",'') <> 'shipped'
-                 group by "MatLot_id"
-            )
-            select
-                     ml.id as ml_id
-                    , ml."LotNumber"
-                    , ROUND(ml."InputQty"::numeric, 2) as "InputQty"
-                    , ROUND(ml."CurrentStock"::numeric, 2) as "CurrentStock"
-                    , ml."Material_id"
-                    , u."Name" as unit_name
-                    , m."Code" as mat_code
-                    , m."Name" as mat_name
-                    , mg."Name" as mat_grp_name
-                    , to_char(ml."EffectiveDate", 'YYYY-MM-DD HH24:MI:SS') as "EffectiveDate"
-                    , to_char(ml."InputDateTime", 'YYYY-MM-DD HH24:MI:SS') as "InputDateTime"
-                    , pk.id            as carton_id
-                    , pk."CartonLotNo" as carton_lot_no
-                    , pk."CartonNo"    as carton_no
-                    , pk."Qty"         as carton_qty
-                    , coalesce(pk."CountryCode", pa."CountryCode") as carton_country
-                    , pk."ShipState"   as carton_state
-                    , rm.cnt           as carton_remain
-            from mat_lot ml
-                inner join material m on m.id = ml."Material_id"
-                left join mat_grp mg on mg.id = m."MaterialGroup_id"
-                left join unit u on u.id = m."Unit_id"
-                left join pack_alloc pa on pa."MatLot_id" = ml.id
-                                       and coalesce(pa._status,'a') = 'a'
-                left join pick   pk on pk."MatLot_id" = ml.id
-                left join remain rm on rm."MatLot_id" = ml.id
-            where ml."CurrentStock" > 0
-		        		 """;
-		if (material_id != null) {
-			sql += " and ml.\"Material_id\" = :material_id ";
-		}
+            -- ① 박스 줄
+            select 'carton'::text          as unit_kind
+                 , ml.id                   as ml_id
+                 , ml."LotNumber"
+                 , ROUND(ml."InputQty"::numeric, 2)     as "InputQty"
+                 , ROUND(ml."CurrentStock"::numeric, 2) as "CurrentStock"
+                 , ml."MakerLotNo"         as maker_lot_no
+                 , ml."Material_id"
+                 , u."Name"  as unit_name
+                 , m."Code"  as mat_code
+                 , m."Name"  as mat_name
+                 , mg."Name" as mat_grp_name
+                 , to_char(ml."EffectiveDate",'YYYY-MM-DD HH24:MI:SS') as "EffectiveDate"
+                 , to_char(ml."InputDateTime",'YYYY-MM-DD HH24:MI:SS') as "InputDateTime"
+                 , bx.id            as carton_id
+                 , bx."CartonLotNo" as carton_lot_no
+                 , bx."CartonNo"    as carton_no
+                 , bx."Qty"         as carton_qty
+                 , coalesce(bx."CountryCode", pa."CountryCode") as carton_country
+                 , bx."ShipState"   as carton_state
+                 , bs.cnt           as carton_remain
+                 , bx."Qty"         as ship_qty          -- 박스는 통째로 나간다
+              from box bx
+              join base ml   on ml.id = bx."MatLot_id"
+              join material m on m.id = ml."Material_id"
+              left join mat_grp mg on mg.id = m."MaterialGroup_id"
+              left join unit u     on u.id  = m."Unit_id"
+              left join box_sum bs on bs."MatLot_id" = ml.id
+              left join pack_alloc pa on pa."MatLot_id" = ml.id
+                                     and coalesce(pa._status,'a') = 'a'
 
-		if (StringUtils.isEmpty(lot_number) == false) {
-			// 사내 로트번호 또는 카톤(개체·대표) 바코드
-			sql += " and (ml.\"LotNumber\" = :lot_number or pk.id is not null) ";
-		}
+            union all
 
-		sql += " order by ml.\"LotNumber\" ";
+            -- ② 박스로 안 묶인 잔여 (박스가 재고를 다 덮으면 이 줄은 안 나온다)
+            select 'lot'::text
+                 , ml.id
+                 , ml."LotNumber"
+                 , ROUND(ml."InputQty"::numeric, 2)
+                 , ROUND(ml."CurrentStock"::numeric, 2)
+                 , ml."MakerLotNo"
+                 , ml."Material_id"
+                 , u."Name", m."Code", m."Name", mg."Name"
+                 , to_char(ml."EffectiveDate",'YYYY-MM-DD HH24:MI:SS')
+                 , to_char(ml."InputDateTime",'YYYY-MM-DD HH24:MI:SS')
+                 , null::integer, null::varchar, null::integer, null::float8
+                 , pa."CountryCode", null::varchar, 0
+                 , ROUND((ml."CurrentStock" - coalesce(bs.qty,0))::numeric, 2)
+              from base ml
+              join material m on m.id = ml."Material_id"
+              left join mat_grp mg on mg.id = m."MaterialGroup_id"
+              left join unit u     on u.id  = m."Unit_id"
+              left join box_sum bs on bs."MatLot_id" = ml.id
+              left join pack_alloc pa on pa."MatLot_id" = ml.id
+                                     and coalesce(pa._status,'a') = 'a'
+             where ml."CurrentStock" - coalesce(bs.qty,0) > 0
 
-		List<Map<String, Object>> items = this.sqlRunner.getRows(sql, paramMap);
+             order by 3, 16 nulls last          -- LotNumber, CartonNo
+            """;
 
-		return items;
+		return this.sqlRunner.getRows(sql, paramMap);
 	}
 
 	/**

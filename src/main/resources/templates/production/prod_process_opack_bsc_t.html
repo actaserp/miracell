@@ -498,6 +498,9 @@
   <!-- ★ 바코드 라이브러리 — prod_result_lot 과 같은 파일.
        CDN 이 아니라 프로젝트 안에 있어 현장망에서도 로드된다. -->
   <script type="text/javascript" th:src="@{/resource/jsBarcode/JsBarcode.all.min.js}"></script>
+  <!-- ★ 카메라 바코드 스캔 공통 모듈 — 세척 화면(prod_process_wash_t.html)과 같은 파일.
+       카메라 열기/닫기·해상도·초점·줌·토치·감지루프를 이 모듈이 전부 맡는다. -->
+  <script type="text/javascript" th:src="@{/js/barcode_cam.js}"></script>
   <script th:inline="none">
    /* ── 높이 자동 맞춤 (세척·멸균 화면과 동일) ── */
    (function () {
@@ -2419,7 +2422,7 @@
    }
 
    /* 가변길이 AI 의 끝 위치. GS(FNC1)가 있으면 거기, 없으면 뒤따르는 AI 추정 */
-   function varEnd(s, i) {
+   function varEnd(s, i, curAi) {
     var GS = '\u001d';
     var g = s.indexOf(GS, i);
     if (g >= 0) return g;
@@ -2427,12 +2430,12 @@
        그래서 «그 지점부터 끝까지가 온전한 AI 열로 읽히는지» 를 함께 본다 —
        날짜(YYMMDD)의 월·일 범위까지 확인해야 오절단이 안 난다. */
     for (var j = i + 1; j <= s.length - 3; j++) {
-     if (aiTailOk(s.substring(j))) return j;
+     if (aiTailOk(s.substring(j), curAi)) return j;
     }
     return s.length;
    }
    /* 남은 문자열이 AI 열로 끝까지 깔끔히 읽히는가 */
-   function aiTailOk(t) {
+   function aiTailOk(t, curAi) {
     var DATE = {'11':1,'12':1,'13':1,'15':1,'16':1,'17':1};
     /* ★ 여기서는 (00)(01)(02)(20) 을 «인정하지 않는다».
          이 판정은 «가변 AI 뒤에 무엇이 오는가» 만 보는 자리인데,
@@ -2452,6 +2455,12 @@
      while (k < t.length && t[k] === GS) k++;
      if (k >= t.length) return seen > 0;
      var ai = t.substr(k, 2);
+     /* ★ 끊은 자리 바로 뒤에 «같은 AI» 가 또 나오는 절단은 버린다.
+          GS1 은 같은 AI 를 한 번만 쓴다. 이걸 안 막으면 로트 «안» 의 숫자를
+          다음 AI 로 오인해 앞에서 잘린다 —
+            (10)M2FJ109400 → 'M2FJ' + (10)'9400' 으로 읽혀 로트가 M2FJ 가 됐다.
+          2공장 라벨(M2FJ1094xx)이 전부 이 함정에 걸린다. */
+     if (seen === 0 && curAi && ai === curAi) return false;
      if (DATE[ai]) {
       var v = t.substr(k + 2, 6);
       if (!/^\d{6}$/.test(v)) return false;
@@ -2484,28 +2493,48 @@
     return ok(0, 0);
    }
 
+   /* AI 하나를 알려진 필드에 꽂는다. 모르는 AI 는 ais 에만 남는다 —
+      화면·검증은 안 쓰지만 저장 문자열에는 그대로 실린다. */
+   function assignAi(out, ai, v) {
+    if (ai === '01') out.gtin = v;
+    else if (ai === '10') out.lot = v;
+    else if (ai === '11') out.date = v;
+    else if (ai === '17') out.expiry = v;
+    else if (ai === '30') out.qty = parseInt(v, 10);
+   }
    function parseGs1(raw) {
     raw = normRaw(raw);
-    var out = {raw:raw, gtin:null, lot:null, date:null, expiry:null, qty:null}, m;
+    /* ★ ais : 읽은 «순서 그대로» 의 AI 목록 [{ai,v}, …].
+         저장용 괄호 표기를 여기서 만든다 — 아는 AI 5개만 골라 정해진 순서로
+         다시 늘어놓으면, 라벨에 (17)(21) 이 있어도 사라지거나 자리가 바뀐다.
+         찍힌 대로 남기는 것이 원칙이다. */
+    var out = {raw:raw, gtin:null, lot:null, date:null, expiry:null, qty:null, ais:[]}, m;
     if (raw.indexOf('(') >= 0) {
-     if ((m = raw.match(/\(01\)(\d+)/))) out.gtin = m[1];
-     if ((m = raw.match(/\(10\)([^()\u001d]+)/))) out.lot = m[1].trim();
-     if ((m = raw.match(/\(11\)(\d{6})/))) out.date = m[1];
-     if ((m = raw.match(/\(17\)(\d{6})/))) out.expiry = m[1];
-     if ((m = raw.match(/\(30\)(\d+)/))) out.qty = parseInt(m[1], 10);
+     var re = /\((\d{2,4})\)([^(]*)/g, g;
+     while ((g = re.exec(raw)) !== null) {
+      var v0 = g[2].replace(/\u001d/g, '').trim();
+      if (!v0) continue;
+      out.ais.push({ai:g[1], v:v0});
+      assignAi(out, g[1], v0);
+     }
      if (!out.gtin && !out.lot) out.lot = raw.trim();
      return out;
     }
     var GS = '\u001d';
     var s = raw.replace(/^\]C1/, '').replace(/^\u001d/, '');
+    /* ★★ GS1 형태일 때만 AI 로 파싱한다.
+         무조건 파싱하면 평범한 로트번호가 AI 열로 «읽혀» 잘린다 —
+           M2FJ109393 → 'M2' 를 가변 AI 로 보고 'FJ' 까지 삼킨 뒤
+                        한복판의 '10' 을 로트 AI 로 잡아 「9393」 이 된다.
+         2공장 박스 라벨처럼 GS1 이 아닌 라벨이 실제로 있으므로 반드시 막는다.
+         판별 근거는 «구조» 뿐이다 — FNC1(GS)이 있거나 (01)GTIN 으로 시작하거나. */
+    if (!(s.indexOf(GS) >= 0 || /^01\d{14}/.test(s))) { out.lot = s.trim(); return out; }
     var FIXED = {'00':18,'01':14,'02':14,'11':6,'12':6,'13':6,'15':6,'16':6,'17':6,'20':2};
     var i = 0;
     function assign(ai, v) {
-     if (ai === '01') out.gtin = v;
-     else if (ai === '10') out.lot = v;
-     else if (ai === '11') out.date = v;
-     else if (ai === '17') out.expiry = v;
-     else if (ai === '30') out.qty = parseInt(v, 10);
+     if (v == null || v === '') return;
+     out.ais.push({ai:ai, v:v});      // ★ 읽은 순서를 그대로 쌓는다
+     assignAi(out, ai, v);
     }
     while (i < s.length) {
      if (s[i] === GS) { i++; continue; }
@@ -2519,21 +2548,39 @@
            달라붙었다 — "GS1 전체를 스캔하면 로트가 이상하다" 의 원인.
            GS 가 없으면 뒤에 오는 «날짜형 AI»(11/13/15/17 + 숫자6)나
            (30)수량 자리를 찾아 그 앞에서 끊는다. */
-      var end = varEnd(s, i);
+      var end = varEnd(s, i, ai);
       assign(ai, s.substring(i, end)); i = end;
      }
     }
     if (!out.gtin && !out.lot && s) out.lot = s.trim();
     return out;
    }
+   /* 파싱 결과를 «라벨에 인쇄된 그대로»의 괄호 표기로 되돌린다.
+      AI 순서는 실물 라벨과 맞춘다 : (01) → (10) → (17) → (30) → (11)
+
+      ★ 화면 표시뿐 아니라 pack_label."RawData" 에 저장할 값도 이것이다.
+        바코드 안에는 괄호가 없다 — 스캐너는 010880…10BMJ…<GS>11260813 처럼
+        FNC1 로 구분된 element string 을 준다. 괄호는 사람이 읽으라고
+        라벨에 «인쇄된 글자» 일 뿐이다. 그대로 저장하면 조회할 때 읽기 어려워
+        라벨 인쇄본과 같은 모양으로 되돌려 넣는다.
+
+      ⚠ 대신 스캐너 «원문» 은 남지 않는다. 파서가 잘못 읽으면 이 값도 함께
+        틀리는데 대조할 원본이 없다(ITF 오인식 151557842676 을 잡아냈던 것이
+        원문 덕이었다). 파싱이 하나도 안 되면 원문을 그대로 둔다 — 최소한
+        「무엇을 찍었는지」는 남겨야 하기 때문이다. */
    function gs1Line(d) {
     if (!d) return '-';
-    var s = '';
-    if (d.gtin) s += '(01)' + d.gtin;
-    if (d.lot) s += '(10)' + d.lot;
-    if (d.qty != null) s += '(30)' + d.qty;
-    if (d.date) s += '(11)' + d.date;
-    return s || (d.raw || '-');
+    /* 읽은 순서 그대로 되돌린다. (17)(21) 처럼 이 화면이 «쓰지 않는» AI 도
+       라벨에 있었다면 그대로 실린다 — 저장값은 라벨의 사본이어야 한다. */
+    if (d.ais && d.ais.length)
+     return d.ais.map(function (a) { return '(' + a.ai + ')' + a.v; }).join('');
+    return d.raw || '-';
+   }
+   /* 저장용 — 표시와 같은 값이되, 아무것도 못 읽었으면 원문을 남긴다 */
+   function rawForSave(d) {
+    if (!d) return null;
+    var line = gs1Line(d);
+    return (line && line !== '-') ? line : (d.raw || null);
    }
    function renderScanSteps() {
     document.getElementById('scanSteps').innerHTML = SCAN_STEPS.map(function (s, i) {
@@ -2542,19 +2589,22 @@
       '<div class="pstep ' + cls + '"><span class="pn2">' + (i+1) + '</span>' + s.label + '</div>';
     }).join('');
    }
-   /* ── 카메라 스캔 ──
-      BarcodeDetector(크롬/안드로이드 WebView 내장)를 쓴다. 외부 라이브러리를 안 붙이는 이유는
-      공장 태블릿이 오프라인일 때 CDN 이 안 잡히면 화면이 통째로 멈추기 때문.
-      쓸 수 없는 환경이면 조용히 죽지 않고 사유를 문구로 남기고, 스캐너·수동입력으로 넘어간다.
+   /* ── 카메라 스캔 — 공통 모듈(BarcodeCam) ──
+      세척 화면이 쓰는 /js/barcode_cam.js 를 그대로 이식했다.
+      예전에는 이 파일 안에 getUserMedia·BarcodeDetector·감지루프를 직접 적었다 —
+      같은 코드가 세척·포장(BSC)·포장(M-CELL) 세 곳에 복사되어 있어
+      한 곳을 고치면 나머지 두 곳이 그대로 남았다(해상도·초점 설정이 실제로 갈라졌다).
+      이제 카메라는 모듈이, «읽은 값을 어떻게 해석할지» 만 이 화면이 맡는다.
 
-      ★ getUserMedia 는 보안 컨텍스트(HTTPS 또는 localhost)에서만 동작한다.
-        http:// 로 접속하면 권한 요청 자체가 안 뜬다. */
-   let camStream = null, camTimer = null, camDet = null, camLock = null;
-   /* 진단값 — 「인식이 안 된다」 를 눈으로 가릴 수 있게 화면에 그대로 뿌린다 */
-   var camFmts = '?', camTries = 0, camHits = 0, camErr = '';
+      ★ 모듈이 없으면(배포 누락 등) 조용히 죽지 않고 사유를 문구로 남기고
+        스캐너·수동입력으로 넘긴다 — 예전 camReason() 과 같은 자리다. */
+   var scanCam = null;            // BarcodeCam 인스턴스
+   var camHits = 0;               // 진단용 인식 횟수
+   var camOn   = false;           // 렌즈가 켜져 있는가
+   var camLock = null;            // 화면 꺼짐 방지
+   var camNoteLast = '';          // 진단줄에 뿌릴 마지막 상태
 
-   /* 화면 꺼짐 방지 — 스캔 시트를 열어둔 채 손을 놓으면 태블릿이 잠긴다.
-      지원 안 하는 기기에서는 조용히 넘어간다. */
+   /* 화면 꺼짐 방지 — 스캔 시트를 열어둔 채 손을 놓으면 태블릿이 잠긴다. */
    async function wakeOn() {
     try {
      if (!navigator.wakeLock || camLock) return;
@@ -2567,17 +2617,19 @@
     camLock = null;
    }
 
+   /* 쓸 수 있는 환경인가 — 판단은 모듈에 맡긴다(HTTPS·BarcodeDetector·getUserMedia). */
    function camReason() {
-    if (!window.isSecureContext) return 'HTTPS 접속이 아니라 카메라를 쓸 수 없습니다. 스캐너나 직접 입력을 사용하세요.';
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return '이 브라우저는 카메라를 지원하지 않습니다.';
-    if (typeof window.BarcodeDetector === 'undefined') return '이 브라우저는 바코드 인식을 지원하지 않습니다. 스캐너나 직접 입력을 사용하세요.';
-    return null;
+    if (typeof BarcodeCam === 'undefined')
+     return '바코드 모듈(barcode_cam.js)을 불러오지 못했습니다. 스캐너나 직접 입력을 사용하세요.';
+    var c = BarcodeCam.check();
+    return c.ok ? null : String(c.msg || '카메라를 쓸 수 없습니다').split('\n')[0];
    }
 
    /* 안내는 두 곳에 같이 쓴다.
       - 카메라가 켜져 있으면 화면 안(.msg) — 눈이 렌즈를 떠나지 않는다
       - 꺼져 있으면(미지원·권한거부) 바깥(.camnote) — 뷰 자체가 안 보이므로 */
    function setCamNote(msg, warn) {
+    camNoteLast = msg || '';
     var m = document.getElementById('scanMsg');
     if (m) {
      m.className = 'msg' + (warn ? ' warn' : '');
@@ -2585,18 +2637,18 @@
      m.style.display = msg ? '' : 'none';
     }
     var n = document.getElementById('camNote');
-    var camOn = document.getElementById('scanWrap').classList.contains('on');
+    if (!n) return;
     n.className = 'camnote' + (warn ? ' warn' : '');
     n.textContent = camOn ? '' : (msg || '');
    }
 
    function stopCam() {
-    clearInterval(camTimer); camTimer = null;
-    if (camStream) { camStream.getTracks().forEach(function (t) { t.stop(); }); camStream = null; }
-    var v = document.getElementById('scanVideo');
-    if (v) v.srcObject = null;
-    document.getElementById('scanWrap').classList.remove('on');
+    if (scanCam) scanCam.stop();
+    camOn = false;
+    var w = document.getElementById('scanWrap');
+    if (w) w.classList.remove('on');
     wakeOff();
+    camDiag();
    }
    // 탭을 벗어나면 카메라·화면잠금을 놓는다. 안 놓으면 렌즈가 켜진 채 남는다.
    document.addEventListener('visibilitychange', function () { if (document.hidden) stopCam(); });
@@ -2605,77 +2657,40 @@
     var why = camReason();
     if (why) { setCamNote(why, true); return; }
     setCamNote('카메라 준비 중…');
+    if (!scanCam) {
+     scanCam = BarcodeCam.create({
+      video: document.getElementById('scanVideo'),
+      /* ★ 포장 라벨은 GS1-128 전용이다. itf(Interleaved 2 of 5)를 열어 두면
+           Code 128 의 굵기 패턴 일부를 자기 코드로 착각해 읽는다
+           (실제로 「151557842676」 같은 12자리 오인식이 나왔다).
+           모듈이 formats 을 무시하더라도 아래 onScan 의 GS1 검사가 한 번 더 거른다. */
+      formats: ['code_128'],
+      continuous: true,          // 라벨을 연달아 찍는다 — 한 장 읽고 렌즈를 끄지 않는다
+      onScan: onCamScan,
+      onStatus: function (m) { setCamNote(m); camDiag(); },
+      onError: function (m) {
+       camOn = false;
+       var w = document.getElementById('scanWrap');
+       if (w) w.classList.remove('on');
+       setCamNote(String(m || '').split('\n')[0], true);
+       camDiag();
+      }
+     });
+    }
     try {
-     /* ★ 세척 화면(prod_process_wash_t.html)과 «완전히 동일한» 설정.
-          앞서 여기에 얹었던 것들 — 형식 12종·getSupportedFormats·해상도 1920·
-          focusMode 제약 — 이 오히려 카메라를 못 열게 만들었다.
-          세척은 현장에서 도는 구성이므로 그대로 맞춘다. */
-     if (!camDet) {
-      /* ★ 형식은 «code_128 하나만» 둔다. 세척 화면은 7종을 열어 두지만,
-           그건 사내 로트 라벨(다양한 형식)을 받기 때문이고 포장은 GS1-128 전용이다.
-         ★ 특히 itf(Interleaved 2 of 5)를 반드시 빼야 한다.
-           ITF 는 시작·정지 패턴이 단순해서 «Code 128 바코드의 굵기 패턴 일부»를
-           자기 코드로 착각해 읽는다. 실제로 GS1-128 라벨
-             (01)08809286200461(10)BMJ20220120(30)1(11)220120
-           을 비췄더니 「151557842676」(12자리 짝수 = 전형적인 ITF 오인식)이 나왔다.
-           ean_13/ean_8/code_39 도 같은 이유로 뺀다 — 라벨에 없는 형식이라
-           얻을 것은 없고 오인식만 늘린다. */
-      camDet = new window.BarcodeDetector({formats: ['code_128']});
-     }
-     /* ★ 해상도를 «단계적으로» 요청한다.
-          바코드는 가는 바 하나가 최소 2픽셀은 되어야 읽힌다 — 1280 에서는
-          라벨을 조금만 멀리 들어도 바가 뭉개져 못 읽는다.
-          다만 min 같은 하드 제약을 걸면 못 맞추는 기기에서 OverconstrainedError 로
-          카메라가 «아예» 안 열린다. 그래서 전부 ideal 로 두고, 실패하면 낮춰 재시도한다.
-          1080p 를 못 주는 기기는 알아서 그 아래를 물려 주므로 손해가 없다. */
-     var TRY = [
-      {facingMode:'environment', width:{ideal:1920}, height:{ideal:1080}, frameRate:{ideal:30}},
-      {facingMode:'environment', width:{ideal:1280}},
-      true
-     ];
-     for (var ti = 0; ti < TRY.length; ti++) {
-      try { camStream = await navigator.mediaDevices.getUserMedia({video: TRY[ti]}); break; }
-      catch (eT) { if (ti === TRY.length - 1) throw eT; }
-     }
-     var v = document.getElementById('scanVideo');
-     v.srcObject = camStream;
-     await v.play();
-     /* 초점 — 라벨을 가까이 대므로 고정초점이면 그대로 흐려진다.
-        지원 여부가 기기마다 달라 «있을 때만» 건다. 실패해도 무시. */
-     try {
-      var tr = camStream.getVideoTracks()[0];
-      var cap = tr.getCapabilities ? tr.getCapabilities() : {};
-      var adv = [];
-      if (cap.focusMode && cap.focusMode.indexOf('continuous') >= 0) adv.push({focusMode:'continuous'});
-      if (adv.length) await tr.applyConstraints({advanced: adv});
-     } catch (eF) {}
-     wakeOn();
+     await scanCam.start();
+     camOn = true;
      document.getElementById('scanWrap').classList.add('on');
+     wakeOn();
      setCamNote('라벨을 비추세요');
-     camTries = 0; camHits = 0; camErr = '';
      setTimeout(camDiag, 300);   // videoWidth 는 재생이 안정된 뒤에야 채워진다
-     // 프레임마다 돌리면 태블릿이 뜨겁고 느려진다. 250ms 간격이면 충분히 즉각적이다.
-     camLoop();
     } catch (e) {
      stopCam();
      setCamNote('카메라를 열 수 없습니다 — ' + (e && e.name === 'NotAllowedError'
       ? '권한이 거부되었습니다. 브라우저 설정에서 카메라를 허용하세요.'
-      : (e.message || e)), true);
+      : ((e && e.message) || e)), true);
     }
    }
-
-   /* ★ 연속 촬영 — 한 장 읽고 렌즈를 끄지 않는다.
-        라벨을 2회(CK·PK → 인박스) 찍어야 하는데 매번 카메라를 다시 켜면
-        켜지는 데 1초 넘게 걸려 현장에서 못 쓴다.
-      ★ 중복 인식은 «같은 값 + 2.5초» 하나로만 막는다 (세척 화면과 동일).
-        예전엔 두 가지를 썼다 —
-          · camLast : 같은 값을 «영구히» 막아 단계전환·재시도·실패 때마다
-                      손으로 풀어 줘야 했다. 한 군데라도 빠뜨리면 라벨을
-                      다시 비춰도 반응이 없어 카메라가 죽은 것처럼 보인다.
-          · camHold : 인식 직후 1.2초간 «모든» 값을 막았다. 같은 값만 막으면
-                      충분한데, 이건 바로 다음 «다른» 라벨까지 못 읽게 한다.
-        시간창 하나로 바꾸면 풀어 줄 자리가 사라진다 — 못 푸는 버그도 사라진다. */
-   var camLast = '', camLastAt = 0;
 
    /* 인식 순간을 몸으로 알려준다. 화면을 안 보고 라벨만 보며 찍기 때문에
       소리·진동이 없으면 읽혔는지 몰라 같은 라벨을 계속 들이댄다. */
@@ -2738,63 +2753,36 @@
     document.getElementById('scanApply').disabled = true;
    }
 
-   /* ★ setInterval 을 쓰지 않는다.
-        detect() 가 간격보다 오래 걸리면 호출이 겹쳐 쌓이고, 태블릿이 느릴수록 심해진다.
-        한 번 끝난 뒤 다음을 예약하는 방식이라 절대 겹치지 않는다(세척 화면과 동일).
-      ★ 시트가 닫히면 스스로 멈춘다 — 타이머를 따로 지우지 않아도 새지 않는다. */
-   var camBusy = false;
-   function camLoop() {
-    clearTimeout(camTimer);
-    camTimer = setTimeout(async function () {
-     var m = document.getElementById('scanMask');
-     if (!m || !m.classList.contains('show')) return;   // 닫혔으면 멈춘다
-     if (!camBusy) {
-      camBusy = true;
-      try { await camTick(); } catch (e) {}
-      camBusy = false;
-     }
-     camLoop();
-    }, 220);   // 세척 화면과 동일
-   }
+   /* ★ 감지 루프는 모듈이 돌린다(setTimeout 체인·겹침 방지 포함).
+        여기는 «읽힌 값 한 개» 를 받아 해석만 한다.
+      ★ 중복 인식은 «같은 값 + 2.5초» 하나로만 막는다(세척 화면과 동일).
+        모듈이 자체 억제를 하더라도 이 가드는 남겨 둔다 — 중복 확정이 단계를
+        두 칸씩 넘기는 사고가 모듈 동작에 따라 생길 수 있기 때문이다. */
+   var camLast = '', camLastAt = 0;
 
-   async function camTick() {
-    var v = document.getElementById('scanVideo');
-    if (!camDet || !v || v.readyState < 2) return;
-    camTries++;
-    if (camTries % 5 === 0) camDiag();
-    var found;
-    try { found = await camDet.detect(v); }
-    catch (e) { camErr = (e && (e.name || e.message)) || 'detect 실패'; return; }
-    if (!found || !found.length) return;
-    camHits++; camDiag();
-    /* 한 화면에 바코드가 둘 이상 잡히면 «GS1 로 읽히는 것»을 고른다.
-       라벨 위아래에 다른 바코드가 함께 있을 때 엉뚱한 쪽을 집지 않도록. */
-    var raw = '', bestSc = -1;
-    for (var fi = 0; fi < found.length; fi++) {
-     var cand = String(found[fi].rawValue || '').trim();
-     if (!cand) continue;
-     var pd = parseGs1(cand);
-     var sc = (pd.gtin ? 2 : 0) + (pd.lot ? 1 : 0);
-     if (sc > bestSc) { bestSc = sc; raw = cand; }
-    }
+   function onCamScan(raw) {
+    raw = String(raw || '').trim();
     if (!raw) return;
-    /* 같은 값이 연속으로 잡힌다 — 2.5초는 무시한다 (세척 화면과 동일) */
+    var m = document.getElementById('scanMask');
+    if (!m || !m.classList.contains('show')) return;   // 시트가 닫혔으면 무시
+
     var now = Date.now();
     if (raw === camLast && now - camLastAt < 2500) return;
     camLast = raw;
     camLastAt = now;
+
+    camHits++; camDiag();
     camBeep();
     camFlash();
     setCamNote('읽었습니다 — ' + raw);
     /* ★ 읽은 원문을 그대로 GS1 파서에 넘긴다.
-         예전 scanCapture 는 sample() 로 예상값을 지어내 항상 성공했다 —
-         라벨이 잘못 붙어 있어도 통과해서 검증 역할을 못 했다.
-         이제 실물에서 읽은 값만 들어가므로 뒤이은 대조(GTIN·로트)가 의미를 갖는다. */
-    scanRecognize(parseGs1(raw), false);   // 입력칸 채우기는 scanRecognize 가 맡는다
+         예전 scanCapture 는 예상값을 지어내 항상 성공했다 — 라벨이 잘못 붙어
+         있어도 통과해서 검증 역할을 못 했다. 실물에서 읽은 값만 들어간다. */
+    scanRecognize(parseGs1(raw), false);
    }
 
    document.getElementById('camOpen').onclick = function () { startCam(); };
-   document.getElementById('camStop').onclick = function () { stopCam(); setCamNote(''); };
+   document.getElementById('camStop').onclick = function () { stopCam(); setCamNote(''); camLast = ''; };
    // 시트를 닫을 때 카메라도 반드시 끈다 (안 끄면 렌즈가 계속 켜져 있다)
    document.getElementById('scanMask').addEventListener('click', function (e) {
     if (e.target === this || (e.target.closest && e.target.closest('[data-close]'))) stopCam();
@@ -2807,9 +2795,10 @@
     if (!el) return;
     var v = document.getElementById('scanVideo');
     var res = (v && v.videoWidth) ? (v.videoWidth + '×' + v.videoHeight) : '—';
-    var eng = (typeof window.BarcodeDetector === 'undefined') ? '엔진 없음' : ('엔진 OK · ' + camFmts);
-    el.textContent = eng + ' | 해상도 ' + res + ' | 시도 ' + camTries + ' · 인식 ' + camHits +
-     (camErr ? ' | 오류 ' + camErr : '');
+    var eng = (typeof BarcodeCam === 'undefined') ? '모듈 없음'
+     : (BarcodeCam.check().ok ? ('BarcodeCam · ' + (camOn ? '작동' : '꺼짐')) : '엔진 없음');
+    el.textContent = eng + ' | 해상도 ' + res + ' | 인식 ' + camHits +
+     (camNoteLast ? ' | ' + camNoteLast : '');
    }
 
    function scanReset() {
@@ -2824,7 +2813,7 @@
     document.getElementById('camOpen').style.display = '';
     document.getElementById('camOpen').disabled = false;
     // 카메라는 끄지 않는다 — 연속 촬영을 위해 켠 채로 다음 단계를 받는다
-    setCamNote(camStream ? st.hint : '');
+    setCamNote(camOn ? st.hint : '');
     document.getElementById('scanRetry').style.display = 'none';
     document.getElementById('scanApply').disabled = true;
     document.getElementById('scanTitle').textContent = st.title;
@@ -2880,7 +2869,7 @@
    document.getElementById('scanRetry').onclick = function () {
     camLast = '';   // 「다시 스캔」은 기다리지 않고 곧바로 같은 라벨을 받는다
     scanReset();
-    if (!camStream && !camReason()) startCam();
+    if (!camOn && !camReason()) startCam();
    };
    document.getElementById('scanManualBtn').onclick = function () {
     var v = (document.getElementById('scanManual').value || '').trim();
@@ -2931,7 +2920,7 @@
           그대로 두면 2.5초 시간창이 그 구간을 덮어 준다 — 라벨을 바꿔 드는 데
           그보다 오래 걸리는 일은 없다. 인박스는 (30) 이 붙어 원문이 다르므로
           같은 로트라도 곧바로 읽힌다. */
-     if (!camStream && !camReason()) startCam();
+     if (!camOn && !camReason()) startCam();
      return;
     }
     var a = scanState.buf.ckpk, b = scanState.buf.inbox;
@@ -2939,8 +2928,9 @@
        두 값은 아래 labels 로 각각 그대로 저장되므로 서버·조회 화면에서 대조할 수 있다. */
 
     var labels = [
-     {kind:'ckpk',  gtin:a.gtin, lot:a.lot, date:a.date, expiry:a.expiry, qty:a.qty, raw:a.raw},
-     {kind:'inbox', gtin:b.gtin, lot:b.lot, date:b.date, expiry:b.expiry, qty:b.qty, raw:b.raw}
+     // raw 는 «괄호 표기» 로 보낸다 — pack_label."RawData" 에 그대로 들어간다
+     {kind:'ckpk',  gtin:a.gtin, lot:a.lot, date:a.date, expiry:a.expiry, qty:a.qty, raw:rawForSave(a)},
+     {kind:'inbox', gtin:b.gtin, lot:b.lot, date:b.date, expiry:b.expiry, qty:b.qty, raw:rawForSave(b)}
     ];
     stopCam();          // 단계가 끝나면 렌즈를 놓는다
     /* ★ 예전엔 여기서 곧바로 hideMask 를 불렀다 — 응답을 «기다리지 않고» 닫은 것이다.

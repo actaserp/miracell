@@ -702,6 +702,10 @@ public class MaterialInoutController {
 		@RequestParam("Material_id") String materialId,
 		@RequestParam("StoreHouse_id") Integer storeHouseId,
 		@RequestParam("mio_id") String mioId,
+		/* Y = 이 입고건의 «기존 로트를 지우고» 새로 발번한다.
+		   스캔 입고로 이미 로트가 깔린 건에 로트계산을 다시 돌리면
+		   예전에는 그 위에 얹혀 중복 입고가 됐다(스캔 33×3 + 계산 99 = 198). */
+		@RequestParam(value = "replace_yn", required = false, defaultValue = "N") String replaceYn,
 		@RequestParam("spjangcd") String spjangcd,
 		HttpServletRequest request,
 		Authentication auth) {
@@ -713,6 +717,31 @@ public class MaterialInoutController {
 		Timestamp today = new Timestamp(System.currentTimeMillis());
 
 		List<Map<String, Object>> data = CommonUtil.loadJsonListMap(Q.getFirst("Q").toString());
+
+		Integer mioPk = Integer.parseInt(mioId);
+
+		/*
+		 * ★ 재발번 — 지우기 «전» 에 쓰인 로트가 있는지 본다.
+		 *
+		 *   화면도 같은 검사를 하지만 그건 목록을 불러온 «그 시점» 기준이다.
+		 *   그 사이 다른 사람이 로트를 소비했을 수 있고, 소비된 로트를 지우면
+		 *   mat_lot_cons 가 매달릴 곳을 잃는다. 최종 판정은 여기서 한다.
+		 */
+		if ("Y".equalsIgnoreCase(replaceYn)) {
+			List<Map<String, Object>> used = this.materialInoutService.findUsedLotsByMio(mioPk);
+			if (used != null && !used.isEmpty()) {
+				StringBuilder sb = new StringBuilder();
+				for (Map<String, Object> u : used) {
+					if (sb.length() > 0) sb.append(", ");
+					sb.append(String.valueOf(u.get("LotNumber")));
+				}
+				result.success = false;
+				result.message = "이미 사용된 로트가 있어 다시 발번할 수 없습니다 — " + sb;
+				return result;
+			}
+			// 안 쓰인 로트만 남아 있다 — 지우고 새로 만든다
+			this.materialInoutService.deleteLotsByMio(mioPk);
+		}
 
 		result.success = false;
 		for (int i=0; i < data.size(); i++) {
@@ -737,7 +766,7 @@ public class MaterialInoutController {
 				ml.setInputDateTime(today);
 				ml.setEffectiveDate(Timestamp.valueOf(effectiveDate));
 				ml.setSourceTableName("mat_inout");
-				ml.setSourceDataPk(Integer.parseInt(mioId));
+				ml.setSourceDataPk(mioPk);
 				if (data.get(i).get("Description") != null) {
 					ml.setDescription(data.get(i).get("Description").toString());
 				}
