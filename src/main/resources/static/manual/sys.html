@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>시스템 매뉴얼 · 미라셀 MES</title>
+  <link rel="stylesheet" href="manual.css">
+</head>
+<body data-factory="sys">
+
+<header class="mhead">
+  <div class="mhead-top">
+    <button class="mbtn navToggle" style="display:none">목차</button>
+    <span class="mhead-mark">MIRACELL MES</span>
+    <span class="mhead-title">시스템</span>
+    <span class="mhead-sub">기준정보 · 사용자</span>
+    <span class="mhead-spacer"></span>
+    <nav class="fswitch" aria-label="매뉴얼 선택">
+      <a href="biz.html">업무</a>
+      <a href="f1.html">1공장</a>
+      <a href="f2.html">2공장</a>
+      <a href="sys.html" aria-current="page">시스템</a>
+    </nav>
+    <button class="mbtn" data-act="print">인쇄</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <nav class="mnav" aria-label="목차">
+    <input class="mnav-search" type="search" placeholder="목차 검색" aria-label="목차 검색">
+    <div class="mnav-grp">목차</div>
+    <ol></ol>
+  </nav>
+
+  <main>
+
+    <h1>시스템 매뉴얼</h1>
+    <p class="lede">기준정보와 사용자 설정에 어떤 값이 들어 있는지 정리했습니다.
+      화면에서 마주쳤을 때 무엇인지 알아보시는 데 쓰시면 됩니다.</p>
+
+    <h2 id="s-mat"><span class="hn">01</span>품목 정보 — 공정을 결정하는 세 가지</h2>
+
+    <dl class="where"><dt>화면</dt><dd>기준정보 › 품목</dd></dl>
+
+    <p>품목 등록 화면에는 항목이 많지만, <b>공정 흐름을 실제로 바꾸는 것은 체크박스 세 개</b>입니다.
+      이 셋이 "그 물건이 어느 창고에서 나오고 어느 화면에 뜨는지"를 정합니다.
+      나머지 항목은 건드리지 마세요.</p>
+
+    <table>
+      <thead><tr><th style="width:18%">항목</th><th>켜면 무슨 일이 생기나</th></tr></thead>
+      <tbody>
+      <tr><td><span class="ui">세척여부</span></td>
+        <td><b>세척 공정을 거치는 부품</b>이 됩니다.
+          세척 화면의 대상 후보로 뜨고, 조립이 이 자재를 <b>클린룸에서</b> 꺼내 씁니다.
+          <br>1공장 용기 부품이 여기에 해당합니다.</td></tr>
+      <tr><td><span class="ui">멸균여부</span></td>
+        <td><b>멸균 대상</b>이 됩니다. 멸균 화면의 대상 로트로 뜨고,
+          포장이 이 자재를 <b>멸균창고에서</b> 꺼내 씁니다.
+          <br>1공장 PK · 필터팩이 여기에 해당합니다.</td></tr>
+      <tr><td><span class="ui">검사여부</span></td>
+        <td><b>검사를 거치는 품목</b>이 됩니다. 2공장에서 합격한 것이
+          <b>검사완료창고</b>로 가고, 포장이 거기서 꺼내 씁니다.
+          <br>또한 부적합 등록과 조립 투입 자재 후보에서 <b>제외</b>됩니다 —
+          M-CELL 본체가 부품 목록에 섞이지 않게 하려는 것입니다.</td></tr>
+      </tbody>
+    </table>
+
+    <div class="note warn">
+      <span class="nt">이 셋이 창고를 정합니다</span>
+      <p>시스템은 자재를 꺼낼 때 <b>공정이 아니라 자재 하나하나를</b> 이 순서로 판단합니다.</p>
+      <ol>
+        <li>2공장 품목인가 → 검사여부에 따라 검사완료창고 또는 생산창고</li>
+        <li><b>멸균여부</b>가 켜져 있는가 → 멸균창고</li>
+        <li>반제품 · 완제품인가 → 클린룸</li>
+        <li><b>세척여부</b>가 켜져 있는가 → 클린룸</li>
+        <li>그 밖에는 → 생산창고</li>
+      </ol>
+      <p>그래서 체크 하나를 잘못 켜면 <b>그 자재가 엉뚱한 창고에서 나오게 되어</b>
+        공정 화면에서 "재고가 있는데 안 뜬다"가 됩니다.
+        자세한 것은 <a href="f1.html#s-flow-store">1공장 매뉴얼의 창고 규칙</a>을 보세요.</p>
+    </div>
+
+    <h2 id="s-ref"><span class="hn">02</span>그 밖의 기준정보 <span class="tag opt">참고</span></h2>
+
+    <p>각 화면이 무엇을 담고 있고, 값이 바뀌면 어디에 영향이 가는지 정리했습니다.</p>
+
+    <table>
+      <thead><tr><th style="width:20%">화면</th><th>담고 있는 것</th><th style="width:30%">바꾸면 생기는 일</th></tr></thead>
+      <tbody>
+      <tr><td><b>BOM</b></td>
+        <td>무엇으로 무엇을 만드는지. 산출 하나에 투입 자재와 수량이 붙습니다</td>
+        <td>공정 화면의 <b>투입 자재 기본값</b>이 통째로 바뀝니다. 이미 만든 실적에는 영향이 없습니다</td></tr>
+      <tr><td><b>라우팅</b></td>
+        <td>어떤 순서로 어느 공정을 거치는지</td>
+        <td>수주로 작업지시를 내릴 때 <b>어떤 반제품 작지가 함께 깔리는지</b>가 바뀝니다</td></tr>
+      <tr><td><b>공정</b></td>
+        <td>세척 · 조립 · 블리스터 · 멸균 · 융착 · 포장 등의 정의</td>
+        <td>공정 코드를 바꾸면 라우팅 · 워크센터 · 부적합 유형이 <b>전부 딸려 갑니다</b></td></tr>
+      <tr><td><b>워크센터</b></td>
+        <td>공정이 실제로 일어나는 자리. <b>산출 창고</b>가 여기 붙어 있습니다</td>
+        <td>산출 창고를 바꾸면 만든 물건이 <b>다른 창고로 들어가</b> 다음 공정에서 안 보입니다</td></tr>
+      <tr><td><b>창고</b></td>
+        <td>자재 · 제품 · 클린룸 · 생산 · 멸균 · 부적합 · 수리대기 · 검사완료</td>
+        <td>공정 흐름의 <b>경계</b>입니다. 건드리지 마세요</td></tr>
+      <tr><td><b>설비</b></td>
+        <td>세척기 · 조립 설비 · 멸균기 등. 공정 화면에서 고르는 목록</td>
+        <td>설비가 늘거나 바뀔 때 등록이 필요합니다. <b>실무에서 요청이 가장 잦은 자리</b>입니다</td></tr>
+      <tr><td><b>거래처</b></td>
+        <td>수주처 · 구매처 · 납품처</td>
+        <td>새 거래처가 생기면 등록이 필요합니다</td></tr>
+      <tr><td><b>사원</b></td>
+        <td>작업자 목록. 공정 화면의 작업자 선택에 나옵니다</td>
+        <td>입·퇴사가 있을 때 갱신이 필요합니다</td></tr>
+      <tr><td><b>부적합 유형</b></td>
+        <td>공정별로 고를 수 있는 불량 유형</td>
+        <td>유형을 지우면 <b>과거 등록 건의 표시가 깨질 수 있습니다</b></td></tr>
+      </tbody>
+    </table>
+
+    <div class="note">
+      <span class="nt">추가·변경이 필요할 때</span>
+      <ul>
+        <li><b>설비 추가</b> — 설비 이름, 어느 공정에서 쓰는지, 어느 공장인지</li>
+        <li><b>거래처 추가</b> — 상호, 사업자번호, 수주처인지 구매처인지</li>
+        <li><b>사원 추가·삭제</b> — 이름, 소속, 어느 공정에서 작업하는지</li>
+        <li><b>품목 추가</b> — 품목명, 규격, 단위, 세척 · 멸균 · 검사 여부, BOM이 필요한지</li>
+      </ul>
+    </div>
+
+    <h2 id="s-user"><span class="hn">03</span>사용자와 권한</h2>
+
+    <dl class="where"><dt>화면</dt><dd>시스템 › 사용자 · 사용자그룹 · 그룹메뉴</dd></dl>
+
+    <p>사람이 들어오고 나갈 때 손대는 자리입니다.
+      기준정보와 달리 운영 중에 자주 바뀌는 값이라 흐름을 알아 두시면 편합니다.</p>
+
+    <div class="dgm">
+      <div class="drow">
+        <div class="dnode"><span class="dt">사용자그룹</span>
+          <span class="ds">역할을 만든다 — 생산 · 품질 · 자재 · 관리자</span></div>
+        <div class="dar"></div>
+        <div class="dnode"><span class="dt">그룹메뉴</span>
+          <span class="ds">그 역할이 어느 메뉴를 볼지 정한다</span></div>
+        <div class="dar"></div>
+        <div class="dnode hi"><span class="dt">사용자</span>
+          <span class="ds">사람을 그룹에 넣는다</span></div>
+      </div>
+    </div>
+
+    <p>권한은 <b>사람이 아니라 그룹에 붙습니다.</b>
+      그래서 새 직원이 들어오면 계정을 만들어 <b>해당 그룹에 넣기만</b> 하면 됩니다.
+      메뉴를 하나하나 지정할 필요가 없습니다.</p>
+
+    <div class="note warn">
+      <span class="nt">그룹 메뉴를 바꾸면 그 그룹 전원이 바뀝니다</span>
+      <p>한 사람에게만 메뉴를 열어 주고 싶다고 그룹 설정을 바꾸면
+        <b>같은 그룹 사람 전부</b>가 그 메뉴를 보게 됩니다.
+        한 명만 다르게 해야 한다면 그룹을 새로 만드는 편이 낫습니다.</p>
+    </div>
+
+    <div class="note">
+      <span class="nt">퇴사자 처리</span>
+      <p>계정을 <b>지우지 말고 사용 중지</b>로 두세요.
+        지우면 그 사람이 남긴 <b>과거 실적의 작업자 이름이 표시되지 않습니다.</b>
+        작업일보를 나중에 다시 뽑을 때 빈칸이 됩니다.</p>
+    </div>
+
+  </main>
+</div>
+
+<button class="toTop" aria-label="맨 위로">↑</button>
+<script src="manual.js"></script>
+</body>
+</html>

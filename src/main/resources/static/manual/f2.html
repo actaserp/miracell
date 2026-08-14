@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>2공장 매뉴얼 · 미라셀 MES</title>
+  <link rel="stylesheet" href="manual.css">
+</head>
+<body data-factory="2">
+
+<header class="mhead">
+  <div class="mhead-top">
+    <button class="mbtn navToggle" style="display:none">목차</button>
+    <span class="mhead-mark">MIRACELL MES</span>
+    <span class="mhead-title">2공장 · M-CELL</span>
+    <span class="mhead-sub">원심분리기 본체</span>
+    <span class="mhead-spacer"></span>
+    <nav class="fswitch" aria-label="매뉴얼 선택">
+      <a href="biz.html">업무</a>
+      <a href="f1.html">1공장</a>
+      <a href="f2.html" aria-current="page">2공장</a>
+      <a href="sys.html">시스템</a>
+    </nav>
+    <button class="mbtn" data-act="print">인쇄</button>
+  </div>
+  <nav class="rail" aria-label="공정 흐름">
+    <a href="#s-asm"><span class="rn">01</span>조립</a>
+    <a href="#s-insp"><span class="rn">02</span>검사</a>
+    <a href="#s-repair"><span class="rn">03</span>수리</a>
+    <a href="#s-pack"><span class="rn">04</span>포장</a>
+    <a href="#s-defect"><span class="rn">05</span>부적합</a>
+    <a href="#s-status"><span class="rn">06</span>실적·일보</a>
+  </nav>
+</header>
+
+<div class="wrap">
+  <nav class="mnav" aria-label="목차">
+    <input class="mnav-search" type="search" placeholder="목차 검색" aria-label="목차 검색">
+    <div class="mnav-grp">목차</div>
+    <ol></ol>
+  </nav>
+
+  <main>
+
+    <h1>2공장 사용 매뉴얼</h1>
+    <p class="lede">M-CELL 본체를 만드는 <b>공정 화면</b>을 조립부터 포장까지 순서대로 정리했습니다.
+      2공장은 <b>한 대가 곧 로트 하나</b>입니다. 이 한 가지만 붙잡고 있으면 나머지 화면이 전부 설명됩니다.</p>
+    <p class="lede">수주 · 작업지시 · 구매 · 자재 입출고 · 출고 · UDI는
+      <a href="biz.html">업무 매뉴얼</a>에 있습니다.</p>
+
+    <!-- ================================================================= -->
+    <h2 id="s-start"><span class="hn">00</span>시작하기 전에</h2>
+
+    <h3 id="s-start-unit">1대 = 로트 1개 = 시리얼 1개</h3>
+
+    <p>1공장은 한 조가 한 번에 여러 개를 만들지만, 2공장은 <b>한 대씩</b> 만듭니다.
+      그래서 모든 화면이 <b>유닛(대) 단위</b>로 돌아갑니다. 조립 화면의 카드 한 장,
+      검사 목록의 한 줄, 수리 큐의 한 장이 전부 <b>M-CELL 한 대</b>입니다.</p>
+
+    <div class="dgm">
+      <div class="drow" style="margin-bottom:16px">
+        <div class="dnode"><span class="dt">생산 계획</span></div>
+        <div class="dar"></div>
+        <div class="dnode hi"><span class="dt">유닛 1대</span></div>
+        <div class="dar"></div>
+        <div class="dnode"><span class="dt">로트번호 발번</span>
+          <span class="ds">조립 첫 스텝을 시작할 때</span></div>
+        <div class="dar"></div>
+        <div class="dnode"><span class="dt">시리얼</span></div>
+      </div>
+      <div class="dnode mute">
+        <span class="dk">한 대 안에서</span>
+        <span class="ds">조립 스텝 ① 본체 모듈 → ② ⋯ → ⑬ 최상위 <b>= 완성</b><br>
+      스텝은 BOM 계층을 따르고, 며칠에 걸쳐 진행됩니다.</span>
+      </div>
+    </div>
+
+    <h3 id="s-start-rule">공정 화면 공통 규칙</h3>
+
+    <table>
+      <thead><tr><th style="width:22%">항목</th><th>내용</th></tr></thead>
+      <tbody>
+      <tr><td><b>조회</b></td><td>날짜나 조건을 바꾼 뒤에는 <span class="ui">조회</span>를 눌러 주세요.</td></tr>
+      <tr><td><b>시작 → 완료</b></td><td><span class="ui">작업 시작</span> 없이는 완료할 수 없습니다.</td></tr>
+      <tr><td><b>완료취소</b></td><td>되돌리면 투입 자재도 재고로 돌아옵니다. 되돌린 뒤 다시 완료하세요.</td></tr>
+      <tr><td><b>시작 일시 수정</b></td><td>실제 시각과 다르게 눌렀을 때 고칩니다. 작업일보에 그대로 찍힙니다.</td></tr>
+      <tr><td><b>실적이 잡히는 날</b></td><td>계획일이 아니라 <b>완료를 누른 날</b>입니다.</td></tr>
+      <tr><td><b>로트번호</b></td><td>조립 첫 스텝을 시작할 때 발번됩니다. 그 전에는 <span class="ui">발번 전</span>으로 보입니다.</td></tr>
+      <tr><td><b>태블릿</b></td><td>공정 실적 입력은 <b>모두 태블릿에서</b> 합니다. 수량 칸은 눌러서 숫자판으로 입력합니다.</td></tr>
+      <tr><td><b>새로고침</b></td><td>화면 우측 상단에 있습니다. 아래 설명을 참고하세요.</td></tr>
+      </tbody>
+    </table>
+
+    <h3 id="s-start-refresh">새로고침 버튼</h3>
+
+    <p>각 공정 화면 <b>우측 상단</b>에 <span class="ui">새로고침</span>이 있습니다.
+      누르면 <b>재고와 작업지시를 서버에서 다시 불러옵니다.</b>
+      화면 전체를 다시 여는 것이 아니라서, <b>지금 하던 작업은 그대로 남습니다.</b>
+      담아 둔 자재나 입력한 수량이 지워지지 않으니 안심하고 눌러도 됩니다.</p>
+
+    <p>태블릿은 화면을 하루 종일 켜 둔 채로 씁니다. 그 사이에 다른 사람이 앞 공정을 끝내거나
+      새 작업지시가 내려가도 <b>내 화면은 열었을 때 상태 그대로입니다.</b>
+      아래 상황에서는 먼저 이 버튼을 누르세요.</p>
+
+    <ul>
+      <li>앞 공정이 방금 끝났다고 들었는데 <b>내 화면에 그 유닛이 없을 때</b></li>
+      <li>새 작업지시가 내려갔는데 <b>목록에 안 보일 때</b></li>
+      <li>재고가 분명히 있는데 <b>「재고 부족」이 뜰 때</b></li>
+      <li>작업을 시작하기 전, 화면을 오래 켜 두었을 때</li>
+    </ul>
+
+    <div class="note warn">
+      <span class="nt">2공장에 없는 것</span>
+      <p>클린룸 · 멸균 · 세척 공정이 <b>없습니다.</b> 메뉴에 그 화면이 보이더라도 1공장 것입니다.
+        2공장 물건은 그 화면에 뜨지 않습니다.</p>
+    </div>
+
+    <!-- ================================================================= -->
+    <h2 id="s-flow"><span class="hn">01</span>전체 흐름</h2>
+
+    <div class="dgm">
+      <div class="drow" style="margin-bottom:18px">
+        <div class="dnode"><span class="dt">수주 등록</span></div>
+        <div class="dar"></div>
+        <div class="dnode"><span class="dt">생산 계획</span></div>
+        <div class="dar"></div>
+        <div class="dnode hi"><span class="dt">작업지시</span></div>
+      </div>
+
+      <div class="dcol">
+        <div class="dnode"><span class="dt">조립</span>
+          <span class="ds">BOM 계층 스텝을 하나씩 완료 · 최상위가 끝나면 한 대 완성</span>
+          <span class="dstore">생산창고 ▸ 생산창고</span></div>
+        <div class="dar"></div>
+        <div class="dnode"><span class="dt">검사</span>
+          <span class="ds">ROTOR · BASKET 양식으로 판정</span>
+          <span class="dstore">합격 ▸ 검사완료창고</span></div>
+      </div>
+
+      <div class="dsplit" style="margin-top:14px">
+        <div class="dcol">
+          <div class="dsplit-head">불합격이면</div>
+          <div class="dnode"><span class="dt">조립 복귀</span>
+            <span class="ds">귀책 모듈을 고쳐 재검사</span></div>
+          <div class="dar"></div>
+          <div class="dnode"><span class="dt">수리</span>
+            <span class="ds">반품 · 사양변경도 여기로 들어옵니다</span>
+            <span class="dstore">수리대기창고 ▸ 생산창고</span></div>
+          <div class="dar lbl">다시 검사로</div>
+        </div>
+        <div class="dcol">
+          <div class="dsplit-head">합격이면</div>
+          <div class="dnode"><span class="dt">포장</span>
+            <span class="ds">박스 라벨 스캔 · 여기서 완제품이 됩니다</span>
+            <span class="dstore">검사완료창고 ▸ 제품창고</span></div>
+        </div>
+      </div>
+
+      <div class="dmerge">
+        <div class="drow">
+          <div class="dnode"><span class="dt">출하출고</span></div>
+          <div class="dar"></div>
+          <div class="dnode"><span class="dt">UDI 보고</span></div>
+        </div>
+      </div>
+    </div>
+
+    <h3 id="s-flow-store">창고</h3>
+    <table>
+      <thead><tr><th style="width:22%">단계</th><th style="width:38%">꺼내는 곳</th><th>넣는 곳</th></tr></thead>
+      <tbody>
+      <tr><td>조립</td><td>생산창고 (부품)</td><td>생산창고 — 재공품</td></tr>
+      <tr><td>검사 합격</td><td>생산창고</td><td>검사완료창고</td></tr>
+      <tr><td>수리 접수</td><td>—</td><td>수리대기창고</td></tr>
+      <tr><td>수리 완료</td><td>수리대기창고 + 생산창고 (교체 부품)</td><td>생산창고 → 다시 검사로</td></tr>
+      <tr><td>포장</td><td>검사완료창고 + 생산창고 (포장 자재)</td><td>제품창고 — 완제품</td></tr>
+      </tbody>
+    </table>
+
+    <div class="note">
+      <span class="nt">수리품이 조립품과 같은 자리로 갑니다</span>
+      <p>수리를 끝낸 유닛도 <b>생산창고</b>로 나옵니다. 새로 조립한 것과 같은 자리입니다.
+        그래서 검사·포장은 조립품인지 수리품인지 신경 쓰지 않고 똑같이 처리하면 됩니다.</p>
+    </div>
+
+    <!-- ================================================================= -->
+    <h2 id="s-asm"><span class="hn">02</span>조립</h2>
+
+    <dl class="where">
+      <dt>화면</dt><dd>M-CELL 조립</dd>
+      <dt>창고</dt><dd>생산창고 ▸ 생산창고 (재공품)</dd>
+    </dl>
+
+    <p>한 대가 <b>여러 스텝</b>으로 나뉘어 있고, 스텝은 BOM 계층을 따릅니다.
+      하위 모듈을 먼저 만들고 그 위 모듈을 만드는 식입니다.
+      <b>최상위 스텝이 끝나야 한 대가 완성됩니다.</b></p>
+
+    <h3 id="s-asm-run">순서</h3>
+
+    <ol class="steps">
+      <li><span class="st-t">계획일로 조회하고 유닛을 고릅니다</span>
+        <p>카드 한 장이 한 대입니다. <span class="ui">진행률</span>로 어디까지 왔는지 보입니다.</p></li>
+      <li><span class="st-t">작업자와 조립 설비를 지정하고 시작합니다</span>
+        <p><span class="ui">작업 시작</span>을 누르는 순간 <b>로트번호가 발번됩니다.</b></p></li>
+      <li><span class="st-t">스텝을 하나 고릅니다</span>
+        <p>상위 모듈이 <code>→ 본체 모듈</code>처럼 붙어 있어 어디에 들어가는 것인지 알 수 있습니다.</p></li>
+      <li><span class="st-t">투입 자재를 확정합니다</span>
+        <p>BOM대로 잡히지만 실제와 다르면 <span class="ui">투입자재 추가</span>로 넣거나
+          <span class="ui">투입 대체</span>로 바꿉니다. 그 다음 <span class="ui">확정 · 투입</span>.
+          잘못했으면 <span class="ui">확정취소</span>.</p></li>
+      <li><span class="st-t">스텝을 완료합니다</span>
+        <p>같은 계층을 한 번에 끝낼 때는 <span class="ui">이 레벨 완료</span>를 씁니다.</p></li>
+      <li><span class="st-t">최상위 스텝까지 끝내면 완성입니다</span>
+        <p>상태가 <span class="ui">조립완료</span>가 되고 <span class="ui">검사 대기 중</span>으로 넘어갑니다.</p></li>
+    </ol>
+
+    <h3 id="s-asm-stock">이미 만들어 둔 모듈을 쓸 때</h3>
+    <p>하위 모듈을 재고에서 꺼내 쓸 수 있습니다. <span class="ui">재고 로트 선택</span>으로 고르면
+      그 스텝은 <b>「재고 투입」으로 구분되어</b> 기록됩니다.
+      실제로 조립한 것과 창고에서 꺼내 쓴 것이 실적에서 섞이지 않도록 나눠 둔 것입니다.</p>
+
+    <h3 id="s-asm-undo">되돌리기 — 분해와 재작업</h3>
+    <table>
+      <thead><tr><th style="width:20%">버튼</th><th>쓰는 때</th><th style="width:26%">로트번호</th></tr></thead>
+      <tbody>
+      <tr><td><span class="ui">완료취소</span></td><td>방금 완료한 스텝이 잘못됐을 때</td><td>그대로</td></tr>
+      <tr><td><span class="ui">분해</span></td><td>조립한 것을 풀어 다시 만들어야 할 때</td><td><b>그대로 유지</b></td></tr>
+      <tr><td><span class="ui">작업 삭제</span></td><td>시작 자체를 잘못했을 때 (실적 없음)</td><td>회수됨</td></tr>
+      </tbody>
+    </table>
+    <p><b>분해해도 로트번호는 바뀌지 않습니다.</b> 같은 물건을 다시 조립하는 것이기 때문입니다.
+      새 번호를 받고 싶어 분해를 반복하지 마세요 — 번호만 비고 이력이 지저분해집니다.</p>
+
+    <div class="note check">
+      <span class="nt">여기까지 하고 확인</span>
+      <ul class="chk">
+        <li>유닛 상태가 <span class="ui">조립완료</span>입니다.</li>
+        <li>검사 화면의 <span class="ui">검사대기</span>에 이 로트가 떠 있습니다.</li>
+      </ul>
+    </div>
+
+    <!-- ================================================================= -->
+    <h2 id="s-insp"><span class="hn">03</span>검사</h2>
+
+    <dl class="where">
+      <dt>화면</dt><dd>M-CELL 검사</dd>
+      <dt>창고</dt><dd>합격 시 생산창고 ▸ 검사완료창고</dd>
+    </dl>
+
+    <p>조립이 끝난 유닛을 <b>양식</b>에 따라 검사합니다.
+      양식은 <b>ROTOR</b>와 <b>BASKET</b> 두 가지가 있고, 각각 항목별로 규격과 측정값을 기록합니다.</p>
+
+    <h3 id="s-insp-run">순서</h3>
+
+    <ol class="steps">
+      <li><span class="st-t">검사대기 목록에서 유닛을 고릅니다</span>
+        <p><span class="ui">검사도착</span> · <span class="ui">검사중</span>으로 상태가 나뉩니다.</p></li>
+      <li><span class="st-t">검사자를 배정합니다</span>
+        <p><span class="ui">검사자 배정</span> → <span class="ui">배정</span>.</p></li>
+      <li><span class="st-t">양식을 고르고 항목을 측정합니다</span>
+        <p><span class="ui">검사 양식</span>(ROTOR / BASKET)을 고르면 <span class="ui">검사 항목</span>이 펼쳐집니다.
+          항목마다 <span class="ui">하한</span> · <span class="ui">상한</span> · <span class="ui">단위</span>가 있고
+          <span class="ui">측정값</span>을 넣으면 <span class="ui">합/불</span>이 표시됩니다.</p></li>
+      <li><span class="st-t">이 검사를 확정합니다</span>
+        <p><span class="ui">이 검사 확정</span>. 양식이 둘이면 각각 확정합니다.</p></li>
+      <li><span class="st-t">최종 판정을 냅니다</span>
+        <p>모두 통과했으면 <span class="ui">합격</span> — 유닛이 <b>검사완료창고</b>로 갑니다.</p></li>
+    </ol>
+
+    <h3 id="s-insp-fail">불합격일 때</h3>
+
+    <ol class="steps">
+      <li><span class="st-t">불합격 사유를 적습니다</span>
+        <p><span class="ui">불합격 사유</span>는 <b>반드시 채우세요.</b>
+          조립·수리 담당자가 이 문장 하나만 보고 무엇을 고쳐야 할지 판단합니다.</p></li>
+      <li><span class="st-t">귀책 모듈을 지정합니다</span>
+        <p>어느 모듈 때문인지 고르면 조립 쪽에서 그 모듈만 다시 볼 수 있습니다.</p></li>
+      <li><span class="st-t">불합격 · 조립 복귀로 넘깁니다</span>
+        <p><span class="ui">불합격 확정</span> → <span class="ui">조립복귀</span>.
+          조립 화면에 <span class="ui">재작업 대상</span>으로 뜹니다.</p></li>
+      <li><span class="st-t">고친 뒤 다시 검사합니다</span>
+        <p><span class="ui">재검사</span>로 다음 회차를 만듭니다. 회차는 계속 쌓입니다.</p></li>
+    </ol>
+
+    <div class="note warn">
+      <span class="nt">회차를 어떻게 읽나</span>
+      <p>한 대가 3회차까지 갔다면, 그 대의 상태는 <b>마지막 회차</b>입니다.
+        1·2회차 불합격 뒤 3회차 합격이면 <b>그 대는 합격</b>입니다.
+        앞 회차는 이력일 뿐 현재 상태가 아닙니다.
+        화면에는 「불합격 2회 후 통과」처럼 이력이 함께 표시됩니다.</p>
+      <p>합격률도 <b>회차가 아니라 대수 기준</b>으로 계산됩니다.
+        재검사한 대가 여러 번 세어지지 않도록 한 것입니다.</p>
+    </div>
+
+    <div class="note stop">
+      <span class="nt">본체 불량은 부적합 등록에 올리지 않습니다</span>
+      <p>M-CELL 본체의 불량은 <b>검사 화면의 불합격 사유</b>가 기록입니다.
+        부적합 등록에 또 올리면 같은 불량이 두 번 계상됩니다.
+        부적합 등록은 <b>부품·자재</b> 불량에 씁니다.</p>
+    </div>
+
+    <h3 id="s-insp-form">검사 양식 설정</h3>
+    <p><span class="ui">양식 설정</span>에서 항목을 관리합니다.
+      <span class="ui">사용</span> / <span class="ui">미사용</span>, <span class="ui">하한</span> ·
+      <span class="ui">상한</span> · <span class="ui">단위</span> · <span class="ui">반복</span> ·
+      <span class="ui">사용공구</span>를 정합니다.</p>
+    <div class="note">
+      <span class="nt">권한</span>
+      <p>양식을 바꾸면 <b>그 뒤 검사 전체</b>가 바뀝니다.
+        작업자가 그때그때 고치는 자리가 아니라 품질 담당이 관리하는 자리입니다.
+        규격이 바뀌었다면 담당자에게 요청하세요.</p>
+    </div>
+
+    <!-- ================================================================= -->
+    <h2 id="s-repair"><span class="hn">04</span>수리</h2>
+
+    <dl class="where">
+      <dt>화면</dt><dd>M-CELL 수리</dd>
+      <dt>창고</dt><dd>수리대기창고 ▸ 생산창고 (다시 검사로)</dd>
+    </dl>
+
+    <p>이미 나간 물건이 <b>반품</b>되어 돌아왔거나, <b>사양변경</b>이 필요할 때 씁니다.
+      수리 화면이 <b>반품 입고를 겸합니다</b> — 별도 입고 화면이 없습니다.</p>
+
+    <h3 id="s-repair-can">접수할 수 있는 것 / 없는 것</h3>
+
+    <table>
+      <thead><tr><th>원 유닛의 상태</th><th style="width:14%">반품</th><th style="width:14%">사양변경</th></tr></thead>
+      <tbody>
+      <tr><td>출하되어 재고가 없음</td><td>○</td><td>○</td></tr>
+      <tr><td>제품창고에 있음 (포장까지 끝)</td><td>○</td><td>○</td></tr>
+      <tr><td>검사완료창고에 있음 (검사까지 끝)</td><td>○</td><td>○</td></tr>
+      <tr><td>생산창고에 있음 (검사 전)</td><td>✕</td><td>○</td></tr>
+      <tr><td>조립 중 · 검사 대기 · 불합격 상태</td><td>✕</td><td>✕</td></tr>
+      <tr><td>시스템에 이력이 없는 구형 · 외부 유입</td><td>○</td><td>○</td></tr>
+      </tbody>
+    </table>
+
+    <div class="note stop">
+      <span class="nt">작업 중인 물건은 수리로 빼지 마세요</span>
+      <p>접수는 원 유닛을 옮겨오는 것이 아니라 <b>수리용 유닛을 새로 만듭니다.</b>
+        그래서 작업 중인 유닛을 수리로 빼면 원 유닛이 그 상태로 영원히 남아
+        검사 큐에 유령처럼 계속 떠 있게 됩니다.</p>
+      <p>검사 대기 중인 물건이라면 <b>먼저 검사를 합격시킨 뒤</b> 접수하거나,
+        조립 화면에서 분해해 작업지시를 조정하세요.
+        화면이 <span class="ui">접수 불가</span>와 함께 어떻게 하면 되는지 안내를 띄웁니다.</p>
+    </div>
+
+    <h3 id="s-repair-run">접수</h3>
+
+    <ol class="steps">
+      <li><span class="st-t">원 M-CELL 로트를 찾습니다</span>
+        <p>사내 로트번호와 외부 라벨 어느 쪽으로도 찾을 수 있습니다.
+          바코드가 있으면 <span class="ui">라벨을 비추세요</span>로 스캔합니다.</p></li>
+      <li><span class="st-t">화면에 뜨는 태그를 확인합니다</span>
+        <p>찾은 결과에 따라 처리가 갈립니다. <b>어느 쪽인지 반드시 보고 넘어가세요.</b></p>
+        <table>
+          <thead><tr><th style="width:32%">태그</th><th>뜻</th></tr></thead>
+          <tbody>
+          <tr><td><span class="ui">재고 이동</span></td><td>아직 창고에 있는 물건입니다. 자리만 수리대기로 옮깁니다. 재고 총량은 그대로</td></tr>
+          <tr><td><span class="ui">반품 신규입고</span></td><td>이미 나간 물건이 돌아온 것입니다. 재고가 한 대 늘어납니다</td></tr>
+          <tr><td><span class="ui">신규 입고</span></td><td>시스템에 없던 구형입니다. 품목을 직접 골라야 합니다</td></tr>
+          </tbody>
+        </table></li>
+      <li><span class="st-t">수리 유형을 고릅니다</span>
+        <p><span class="ui">반품</span> 또는 <span class="ui">사양변경</span>.
+          사양변경이면 <span class="ui">변경 후 품목</span>을 지정합니다.</p></li>
+      <li><span class="st-t">사유를 적고 접수합니다</span>
+        <p><span class="ui">사유 / 메모</span>. 검사 불합격에서 넘어온 건이면 사유가 배너에 이미 떠 있습니다.</p></li>
+    </ol>
+
+    <h3 id="s-repair-work">수리 작업</h3>
+
+    <ol class="steps">
+      <li><span class="st-t">수리 큐에서 유닛을 고릅니다</span>
+        <p>카드 한 장이 한 대입니다. <span class="ui">전체</span> / <span class="ui">반품</span> /
+          <span class="ui">사양변경</span>, <span class="ui">진행중</span> / <span class="ui">재작업</span>으로 거를 수 있습니다.
+          같은 버튼을 다시 누르면 필터가 풀립니다.</p></li>
+      <li><span class="st-t">작업자와 설비를 지정하고 시작합니다</span></li>
+      <li><span class="st-t">로트를 어떻게 할지 정합니다</span>
+        <p><span class="ui">원 로트 유지</span> — 같은 물건을 고치는 경우.<br>
+          <span class="ui">새 로트 발번</span> — 사양이 바뀌어 사실상 다른 물건이 되는 경우.</p></li>
+      <li><span class="st-t">자재를 넣고 뺍니다</span>
+        <p>교체할 부품은 <span class="ui">자재 추가</span>로 담습니다(생산창고에서 나갑니다).
+          떼어낸 부품 중 <b>다시 쓸 수 있는 것만</b> 회수로 되돌립니다.</p></li>
+      <li><span class="st-t">완료합니다</span>
+        <p><span class="ui">수리 결과 로트</span>가 생기고 <b>생산창고</b>로 갑니다. 다시 검사를 받습니다.</p></li>
+    </ol>
+
+    <div class="note">
+      <span class="nt">자재를 하나도 안 쓴 수리도 정상입니다</span>
+      <p>체결을 다시 하거나 배선을 정리해서 통과하는 경우가 있습니다.
+        그럴 땐 자재를 담지 말고 그냥 완료하세요 — <span class="ui">자재 변동 없음</span>으로 기록됩니다.
+        쓰지도 않은 자재를 억지로 담으면 재고가 오히려 틀어집니다.</p>
+      <p>못 쓰게 된 부품은 <b>회수하지 않는 것</b>이 곧 폐기 처리입니다.
+        그 기록은 <a href="#s-defect">부적합 등록</a>에 남깁니다.</p>
+    </div>
+
+    <p>접수 자체가 잘못됐으면 <span class="ui">접수 취소</span>로 되돌립니다.
+      작업을 시작하기 전에만 가능합니다.</p>
+
+    <!-- ================================================================= -->
+    <h2 id="s-pack"><span class="hn">05</span>포장</h2>
+
+    <dl class="where">
+      <dt>화면</dt><dd>M-CELL 포장</dd>
+      <dt>창고</dt><dd>검사완료창고 + 생산창고 ▸ 제품창고</dd>
+    </dl>
+
+    <p>검사 합격한 유닛을 박스에 담고 라벨을 붙입니다. <b>여기서 완제품이 됩니다.</b>
+      포장 박스 하나가 유닛 한 대입니다.</p>
+
+    <ol class="steps">
+      <li><span class="st-t">포장대기 목록에서 유닛을 고릅니다</span>
+        <p><span class="ui">작업지시일</span>로 조회합니다.</p></li>
+      <li><span class="st-t">작업자와 설비를 지정하고 시작합니다</span>
+        <p><span class="ui">작업 시작</span>.</p></li>
+      <li><span class="st-t">② 포장 자재를 담습니다</span>
+        <p><span class="ui">— 재고 부족</span>이 뜨면 그 자재가 생산창고에 없는 것입니다. 자재 입고를 먼저 확인하세요.</p></li>
+      <li><span class="st-t">③ 박스 라벨을 스캔합니다</span>
+        <p><span class="ui">박스 라벨 스캔</span> → 라벨을 비춥니다 →
+          <span class="ui">이 라벨로 확정</span>. <span class="ui">확정됨</span>으로 바뀌어야 합니다.
+          스캐너를 다 쓰면 <span class="ui">카메라 끄기</span>.</p></li>
+      <li><span class="st-t">작업을 종료합니다</span>
+        <p><span class="ui">작업 종료</span> → <span class="ui">포장 완료</span>.
+          완제품이 제품창고로 들어갑니다.</p></li>
+      <li><span class="st-t">필요하면 바코드를 출력합니다</span>
+        <p><span class="ui">바코드 출력</span> → <span class="ui">출력 (인쇄)</span>.</p></li>
+    </ol>
+
+    <div class="note warn">
+      <span class="nt">박스 라벨은 반드시 스캔해서 확정하세요</span>
+      <p>이 라벨 번호가 <b>출하와 UDI 보고까지 그대로 따라갑니다.</b>
+        손으로 옮겨 적으면 한 글자 틀린 것이 몇 주 뒤 UDI 반려로 돌아옵니다.</p>
+    </div>
+
+    <p>잘못 포장했으면 <span class="ui">포장 취소</span>로 되돌립니다.
+      <b>이미 출하지시가 걸린 건은 취소하지 마세요</b> — 출하 쪽을 먼저 정리합니다.</p>
+
+    <div class="note check">
+      <span class="nt">여기까지 하고 확인</span>
+      <ul class="chk">
+        <li>완제품 로트가 생겼고 제품창고 재고가 늘었습니다.</li>
+        <li>박스에 붙은 라벨과 화면의 <span class="ui">박스 라벨</span>이 같습니다.</li>
+      </ul>
+    </div>
+
+    <!-- ================================================================= -->
+    <h2 id="s-defect"><span class="hn">06</span>부적합 등록</h2>
+
+    <dl class="where"><dt>화면</dt><dd>부적합 등록 (2공장)</dd></dl>
+
+    <p><b>부품·자재 불량을 등록하는 화면입니다.</b> 등록하면 그 수량만큼 재고가 즉시 차감됩니다.</p>
+
+    <ol class="steps">
+      <li><span class="st-t">발생일과 공정을 고릅니다</span>
+        <p>공정을 고르면 그 공정에서 쓸 수 있는 유형만 나옵니다.</p></li>
+      <li><span class="st-t">품목과 수량을 넣습니다</span></li>
+      <li><span class="st-t">유형을 고릅니다</span>
+        <p>없으면 <span class="ui">기타</span>를 고르고 직접 입력합니다. <span class="ui">기타</span>를 골라야 입력칸이 열립니다.</p></li>
+      <li><span class="st-t">사진을 첨부하고 저장합니다</span></li>
+    </ol>
+
+    <table>
+      <thead><tr><th style="width:22%">공정</th><th>유형</th></tr></thead>
+      <tbody>
+      <tr><td>조립</td><td>조립불량 · 부품누락 · 치수불량 · 파손</td></tr>
+      <tr><td>검사</td><td>외관불량 · 진동초과 · 전원불량 · 통신불량</td></tr>
+      <tr><td>수리</td><td>부품불량 · 재수리 · 사양오류</td></tr>
+      <tr><td>포장</td><td>라벨오류 · 박스손상 · 구성품누락</td></tr>
+      </tbody>
+    </table>
+    <p>어느 공정이든 <span class="ui">기타</span>가 함께 있습니다.</p>
+
+    <div class="note stop">
+      <span class="nt">본체 불량과 헷갈리지 마세요</span>
+      <p>M-CELL 본체 자체의 불량은 <b>검사 화면의 불합격</b>으로 기록됩니다.
+        이 화면의 자재 후보에 M-CELL 본체는 나오지 않습니다 — 일부러 뺀 것입니다.
+        여기에 올리는 것은 <b>부품과 자재</b>입니다.</p>
+    </div>
+
+    <div class="note warn">
+      <span class="nt">재고가 어떻게 되나</span>
+      <p>등록하면 재고에서 <b>빠지고 끝납니다.</b> 부적합창고로 옮겨 담지 않습니다.
+        잘못 등록했다면 <b>취소</b>로 되돌리세요. 다시 등록해서 덮어쓰면 두 번 차감됩니다.</p>
+    </div>
+
+    <!-- ================================================================= -->
+    <h2 id="s-status"><span class="hn">07</span>실적 조회와 작업일보</h2>
+
+    <h3 id="s-status-ws">작업실적현황 — "그 기간에 얼마나 했나"</h3>
+    <dl class="where"><dt>화면</dt><dd>작업실적현황 (2공장)</dd></dl>
+    <p>조립 · 검사 · 수리 · 포장이 각각 한 칸씩 늘어섭니다.
+      <b>모든 숫자가 대수(臺數)입니다.</b></p>
+    <ul>
+      <li>기준 날짜는 <b>완료한 날</b>입니다.</li>
+      <li>조립 카드에는 그 기간에 끝낸 모듈 이름이 파란 줄로 함께 표시됩니다.</li>
+      <li>검사 합격률은 <b>대수 기준</b>입니다. 재검사한 대가 여러 번 세어지지 않습니다.</li>
+    </ul>
+
+    <h3 id="s-status-log">작업일보 — "그날 무엇을 했나"</h3>
+    <dl class="where"><dt>화면</dt><dd>작업일보 (2공장)</dd></dl>
+
+    <div class="note">
+      <span class="nt">조립은 스텝 단위로 나옵니다</span>
+      <p>작업실적현황은 <b>대수</b>, 작업일보는 <b>스텝</b>입니다.
+        한 대가 며칠에 걸쳐 조립되기 때문에, 대수로만 적으면
+        <b>완성되지 않은 날은 실적이 아예 없는 것처럼</b> 보입니다.
+        그날 어떤 모듈을 만들었는지 남기려고 스텝으로 적습니다.</p>
+      <p>소계는 <b>완료 단계 수 / 완성 대수</b>로 나뉘어 표시됩니다.</p>
+    </div>
+
+    <table>
+      <thead><tr><th style="width:34%">여기서 할 수 있는 것</th><th>할 수 없는 것</th></tr></thead>
+      <tbody>
+      <tr>
+        <td>작업 기록 등록 · 수정 · 삭제<br>실적의 <b>작업자 · 설비 · 시각</b> 수정</td>
+        <td>실적을 새로 만들기<br>실적의 <b>수량 · 품목 · 로트</b> 수정</td>
+      </tr>
+      </tbody>
+    </table>
+    <p>수량을 고쳐야 한다면 <b>해당 공정 화면에서 완료취소 후 다시 완료</b>합니다.</p>
+
+    <h4>작업 기록에 무엇을 적나</h4>
+    <table>
+      <thead><tr><th style="width:50%">적습니다</th><th>적지 않습니다</th></tr></thead>
+      <tbody>
+      <tr>
+        <td>정전 · 자재 입고 지연 · 인력 부족 · 인수인계</td>
+        <td>자재 불량 → 부적합 등록<br>검사 불합격 → 검사 화면<br>설비 비가동 → 설비 쪽</td>
+      </tr>
+      </tbody>
+    </table>
+
+    <h4>인쇄</h4>
+    <ul>
+      <li>결재란은 <b>첫 장에만</b> 나옵니다.</li>
+      <li>브라우저 인쇄 설정에서 <b>여백을 「없음」으로 두지 마세요.</b></li>
+    </ul>
+
+    <!-- ================================================================= -->
+    <h2 id="s-trouble"><span class="hn">08</span>이럴 땐 이렇게</h2>
+
+    <table>
+      <thead><tr><th style="width:38%">증상</th><th>먼저 볼 것</th></tr></thead>
+      <tbody>
+      <tr><td>조립 화면에 유닛이 안 뜬다</td>
+        <td>① 화면 우측 상단 <span class="ui">새로고침</span>을 눌러 작업지시를 다시 불러옵니다 ② 작업지시가 실제로 나갔는지 ③ 계획일을 바꾸고 <span class="ui">조회</span>를 눌렀는지</td></tr>
+      <tr><td>방금 끝낸 것이 다음 공정 화면에 없다</td>
+        <td>그 화면의 <span class="ui">새로고침</span>을 누릅니다 — 화면을 열어둔 채로는 자동으로 갱신되지 않습니다</td></tr>
+      <tr><td>검사 목록에 안 나온다</td>
+        <td>최상위 스텝까지 끝나야 검사로 넘어갑니다. 조립 진행률을 확인하세요</td></tr>
+      <tr><td>포장 목록에 안 나온다</td>
+        <td>검사 합격까지 끝나야 합니다. 불합격이면 조립 복귀 상태입니다</td></tr>
+      <tr><td>「재고 부족」이 뜬다</td>
+        <td>먼저 <span class="ui">새로고침</span>을 눌러 봅니다. 그래도 그대로면 그 공정이 꺼내 쓰는 창고에 없는 것입니다. <a href="#s-flow-store">창고 표</a> 확인. 자재가 아직 불출되지 않았을 수도 있습니다 (<a href="biz.html#s-mat-issue">자재 투입</a>)</td></tr>
+      <tr><td>재고에 M-CELL 완성품이 부품처럼 보인다</td>
+        <td>생산창고를 자재와 함께 쓰기 때문입니다. 투입 자재 후보에는 나오지 않으니 그대로 두세요</td></tr>
+      <tr><td>같은 로트번호 유닛이 두 개다</td>
+        <td>수리에서 <span class="ui">원 로트 유지</span>를 쓴 경우입니다. 포장된 쪽이 현재 물건입니다</td></tr>
+      <tr><td>재검사로 통과했는데 불합격으로 보인다</td>
+        <td>상태는 <b>마지막 회차</b>입니다. 앞 회차는 이력입니다. 목록을 새로고침해 보세요</td></tr>
+      <tr><td>수리 접수가 안 된다</td>
+        <td>원 유닛이 아직 작업 중일 가능성이 큽니다. 화면 안내를 그대로 따르세요</td></tr>
+      <tr><td>작업지시 날짜와 실적 날짜가 다르다</td>
+        <td>작업지시의 <span class="ui">생산일</span>은 지시를 내린 날(기본 당일)이고, 실적일은 <b>완료를 누른 날</b>입니다. 다른 것이 정상입니다</td></tr>
+      <tr><td>어제 한 작업이 오늘 조회에서 안 보인다</td>
+        <td>실적일은 <b>완료를 누른 날</b>입니다</td></tr>
+      <tr><td>「불러오는 중…」에서 멈춰 있다</td>
+        <td>브라우저를 다시 불러옵니다(F5). 그래도 그대로면 화면 이름과 시각을 적어 유지보수 요청에 올려 주세요</td></tr>
+      </tbody>
+    </table>
+
+    <!-- ================================================================= -->
+  </main>
+</div>
+
+<button class="toTop" aria-label="맨 위로">↑</button>
+<script src="manual.js"></script>
+</body>
+</html>

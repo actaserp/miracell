@@ -478,6 +478,9 @@
                                 <li id="btnMaintenance">
                                     <a href="#" title="요청등록/확인">요청등록/확인</a>
                                 </li>
+                                <li id="btnManual">
+                                    <a href="#" title="사용 매뉴얼">매뉴얼</a>
+                                </li>
                             </ul>
                         </div>
                         <a class="user" title="사용자">
@@ -1255,6 +1258,23 @@
             url,
             'maintenanceRequest',
             `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes,status=no`
+        );
+    });
+
+    // 매뉴얼 (새창 · 탭 추가 없음)
+    $('#btnManual').on('click', function (e) {
+        e.preventDefault();
+
+        var width  = 1280;
+        var height = 900;
+        var left   = (window.screen.width  / 2) - (width  / 2);
+        var top    = (window.screen.height / 2) - (height / 2);
+
+        window.open(
+            withCtx('/manual/index.html'),
+            'mesManual',
+            'width=' + width + ',height=' + height + ',left=' + left + ',top=' + top +
+            ',resizable=yes,scrollbars=yes,status=no'
         );
     });
 </script>
