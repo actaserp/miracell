@@ -1775,6 +1775,8 @@
 <script type="text/javascript">
 
     let eventSource = null;
+    let sseRetry = 0;          // ★ 재연결 백오프 카운터
+    let sseClosing = false;    // ★ 의도적 종료(로그아웃·사업장변경)일 때 재연결 막기
 
     function getUiType(alarm) {
         if (alarm.action === 'REPLY') return 'reply';
@@ -1785,9 +1787,21 @@
     function sseConnect() {
 
         const spjangcd = sessionStorage.getItem("spjangcd");
+        if (!spjangcd) return;
+
+        // ★ 남아 있는 연결이 있으면 먼저 닫는다 (중복 연결 방지)
+        if (eventSource) {
+            try { eventSource.close(); } catch (e) {}
+            eventSource = null;
+        }
+
+        sseClosing = false;
+
         const url = withCtx('/sse/subscribe') + '?spjangcd=' + encodeURIComponent(spjangcd);
 
-        const eventSource = new EventSource(url);
+        // ★ const 를 쓰면 바깥의 eventSource 와 다른 변수가 되어
+        //    로그아웃·사업장변경 시 close() 가 동작하지 않는다.
+        eventSource = new EventSource(url);
 
         // ✅ 기존 SYSTEM 이벤트 (레거시)
         eventSource.addEventListener("SYSTEM", function (e) {
@@ -1824,13 +1838,25 @@
 
         // ✅ 연결 확인
         eventSource.addEventListener("CONNECTED", function () {
+            sseRetry = 0;                       // ★ 성공했으니 백오프 초기화
             console.log("SSE 연결 완료");
         });
 
         eventSource.onerror = function (err) {
-            console.log("SSE 오류 발생, 재연결 시도 중...", err);
-            eventSource.close();
-            setTimeout(sseConnect, 3000);
+            if (eventSource) {
+                try { eventSource.close(); } catch (e) {}
+                eventSource = null;
+            }
+
+            // 로그아웃·사업장변경으로 우리가 닫은 것이면 재연결하지 않는다
+            if (sseClosing) return;
+
+            // ★ 3초 고정이면 서버가 죽었을 때 모든 태블릿이 3초마다 두드린다.
+            //   3 → 6 → 12 → 24 → 30초로 점증시킨다.
+            sseRetry = Math.min(sseRetry + 1, 5);
+            const wait = Math.min(3000 * Math.pow(2, sseRetry - 1), 30000);
+            console.log("SSE 재연결 " + (wait / 1000) + "초 후", err);
+            setTimeout(sseConnect, wait);
         };
     }
 
@@ -1840,6 +1866,7 @@
         Alert.confirm('', '로그아웃하시겠습니까?', function () {
 
             // 🔥 SSE 연결 종료
+            sseClosing = true;              // ★ 재연결 타이머가 다시 붙지 않게
             if (eventSource) {
                 eventSource.close();
                 eventSource = null;
@@ -2554,11 +2581,13 @@
             const newSpjangcd = this.value;
             sessionStorage.setItem('spjangcd', newSpjangcd);
 
+            sseClosing = true;              // ★ onerror 가 옛 사업장으로 재연결하지 않게
             if (eventSource) {
                 eventSource.close();
                 eventSource = null;
             }
 
+            sseRetry = 0;
             sseConnect();
         });
 
