@@ -85,6 +85,8 @@
                     <input type="hidden" id="meddevItemSeq" name="meddev_item_seq"/>
                     <input type="hidden" id="modelSeq" name="model_seq"/>
                     <input type="hidden" id="udiDiSeq" name="udi_di_seq"/>
+                    <input type="hidden" id="materialName" name="material_name"/>
+                    <input type="hidden" id="companyName" name="company_name"/>
                     <input type="hidden" id="supplyTypeCode" name="supply_type_code"/>
                     <table class="table_input">
                         <colgroup>
@@ -193,7 +195,9 @@
                     selectionMode: wijmo.grid.SelectionMode.Row,
                     isReadOnly: true,
                     columns: [
-                        {binding: 'report_state_name', header: '상태', width: 80, align: 'center'},
+                        {binding: 'report_state_name', header: '상태',   width: 80,  align: 'center'},
+                        {binding: 'material_name',     header: '품목명',  width: 150, align: 'left'},
+                        {binding: 'company_name',      header: '거래처명', width: 120, align: 'left'},
                         {binding: 'supply_date', header: '폐기일', width: 100, align: 'center'},
                         {binding: 'udi_di_code', header: 'UDI-DI', width: 140, align: 'left'},
                         {binding: 'std_code', header: '표준코드', width: 160, align: 'left'},
@@ -250,6 +254,8 @@
 
             /** 납품건 조회 팝업에서 선택한 확정 납품건을 폐기 폼에 복사 */
             bindFromDelivery(item) {
+                // 이전 데이터가 섞이지 않도록 먼저 초기화
+                this.newRow();
                 $('#meddevItemSeq').val(item.meddev_item_seq != null ? item.meddev_item_seq : '');
                 $('#modelSeq').val(item.model_seq != null ? item.model_seq : '');
                 $('#udiDiSeq').val(item.udi_di_seq != null ? item.udi_di_seq : '');
@@ -261,6 +267,8 @@
                 $('#itemSerialNo').val(item.item_serial_no || '');
                 $('#manufYm').val(item.manuf_ym || '');
                 $('#useTmlmt').val(item.use_tmlmt || '');
+                $('#materialName').val(item.material_name || '');
+                $('#companyName').val(item.company_name || '');
                 Notify.success('납품건 정보를 불러왔습니다. 폐기일자·수량·사유를 입력하세요.');
             }
 
@@ -281,6 +289,8 @@
                 this.syncStdMonth();
                 $('#supplyQty').val(item.supply_qty);
                 $('#indvdlzSupplyQty').val(item.indvdlz_supply_qty != null ? item.indvdlz_supply_qty : '');
+                $('#materialName').val(item.material_name || '');
+                $('#companyName').val(item.company_name || '');
                 this.fillReason(item.remark || '');
             }
 
@@ -352,6 +362,8 @@
                     supply_date: ($('#supplyDate').val() || '').replaceAll('-', ''),
                     supply_qty: $('#supplyQty').val(),
                     indvdlz_supply_qty: $('#indvdlzSupplyQty').val(),
+                    material_name: $('#materialName').val(),
+                    company_name: $('#companyName').val(),
                     remark: remark
                 };
             }

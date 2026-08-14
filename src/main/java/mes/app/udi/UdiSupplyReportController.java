@@ -423,6 +423,8 @@ public class UdiSupplyReportController {
 		s.addValue("supplyUnitPrice", str(p.get("supply_unit_price")));
 		s.addValue("supplyAmt", str(p.get("supply_amt")));
 		s.addValue("remark", str(p.get("remark")));
+		s.addValue("materialName", str(p.get("material_name")));
+		s.addValue("companyName", str(p.get("company_name")));
 		s.addValue("userId", userId);
 		return s;
 	}

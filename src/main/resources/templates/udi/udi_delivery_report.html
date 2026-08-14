@@ -86,6 +86,8 @@
                     <input type="hidden" id="meddevItemSeq" name="meddev_item_seq"/>
                     <input type="hidden" id="modelSeq" name="model_seq"/>
                     <input type="hidden" id="udiDiSeq" name="udi_di_seq"/>
+                    <input type="hidden" id="materialName" name="material_name"/>
+                    <input type="hidden" id="companyName" name="company_name"/>
                     <table class="table_input">
                         <colgroup>
                             <col style="width:25%"><col style="width:75%">
@@ -226,7 +228,9 @@
                     selectionMode: wijmo.grid.SelectionMode.Row,
                     isReadOnly: true,
                     columns: [
-                        {binding: 'report_state_name', header: '상태', width: 80, align: 'center'},
+                        {binding: 'report_state_name', header: '상태',   width: 80,  align: 'center'},
+                        {binding: 'material_name',     header: '품목명',  width: 150, align: 'left'},
+                        {binding: 'company_name',      header: '거래처명', width: 120, align: 'left'},
                         {binding: 'supply_date', header: '공급일', width: 100, align: 'center'},
                         {binding: 'udi_di_code', header: 'UDI-DI', width: 140, align: 'left'},
                         {binding: 'std_code', header: '표준코드', width: 160, align: 'left'},
@@ -282,6 +286,8 @@
                 };
                 let result = AjaxUtil.getSyncData(gUrl + '/list', param);
                 this.grid.itemsSource = (result && result.data) ? result.data : [];
+                // 검색 후 입력란 초기화
+                this.newRow();
             }
 
             fillForm(item) {
@@ -289,6 +295,8 @@
                 this.currentReportState = item.report_state || '';
                 // 기존건 선택 시 이전 품목특성 초기화 (수기 수정은 서버 검증이 최종 방어)
                 this.useFlags = null;
+                // 기존 저장건 선택 시 바코드 readonly 해제 (직접 수정 허용)
+                this.lockBarcodeFields(false);
                 // 식약처 식별자(hidden) 복원 — 기존 저장건은 DB에 있으므로 그대로 채운다
                 $('#meddevItemSeq').val(item.meddev_item_seq != null ? item.meddev_item_seq : '');
                 $('#modelSeq').val(item.model_seq != null ? item.model_seq : '');
@@ -313,6 +321,8 @@
                 $('#supplyAmt').val(item.supply_amt);
                 $('#supplyAmt').data('manual', item.supply_amt != null && item.supply_amt !== '');
                 $('#remark').val(item.remark || '');
+                $('#materialName').val(item.material_name || '');
+                $('#companyName').val(item.company_name || '');
                 this.toggleDvyfgRow();
             }
 
@@ -324,11 +334,27 @@
                 this.currentReportState = '';
                 this.useFlags = null;
                 $('#supplyAmt').data('manual', false);
+                // 신규 시 바코드 readonly 해제
+                this.lockBarcodeFields(false);
                 this.toggleDvyfgRow();
+            }
+
+            /** 바코드로 채워진 필드를 readonly로 잠금 / 해제 */
+            lockBarcodeFields(lock) {
+                const fields = ['#udiDiCode', '#stdCode', '#udiPiCode', '#lotNo', '#manufYm', '#useTmlmt'];
+                fields.forEach(function(sel) {
+                    if (lock) {
+                        $(sel).attr('readonly', true).css('background', '#f2f4f7');
+                    } else {
+                        $(sel).removeAttr('readonly').css('background', '');
+                    }
+                });
             }
 
             /** 바코드 매칭 팝업에서 선택한 행을 입력폼에 바인드 */
             bindFromMatch(item) {
+                // 이전 데이터가 섞이지 않도록 먼저 초기화
+                this.newRow();
                 if (item.supply_type_code) $('#supplyTypeCode').val(item.supply_type_code);
                 $('#udiDiCode').val(item.udi_di_code || '');
                 $('#stdCode').val(item.std_code || '');
@@ -337,6 +363,8 @@
                 $('#itemSerialNo').val(item.item_serial_no || '');
                 $('#manufYm').val(item.manuf_ym || '');
                 $('#useTmlmt').val(item.use_tmlmt || '');
+                // 바코드로 채워진 필드는 수동 수정 방지
+                this.lockBarcodeFields(true);
                 // ※ 거래처는 우리 내부 코드(company.Code)라 식약처 거래처 코드와 다르다.
                 //   자동 바인드하지 않고, 반드시 거래처 조회(18번)로 식약처 코드를 선택하게 한다.
                 //   (팝업 그리드의 거래처명은 "이 출고가 누구에게 갔는지" 참고용일 뿐이다.)
@@ -345,6 +373,9 @@
                 if (item.indvdlz_supply_qty != null) $('#indvdlzSupplyQty').val(item.indvdlz_supply_qty);
                 if (item.supply_unit_price != null) $('#supplyUnitPrice').val(item.supply_unit_price);
                 if (item.supply_amt != null) $('#supplyAmt').val(item.supply_amt);
+                // 품목명/거래처명 hidden 저장 (그리드 표시용)
+                $('#materialName').val(item.material_name || '');
+                $('#companyName').val(item.company_name || '');
                 // 바코드로 단가/수량이 채워졌으면 공급금액 자동계산 재개
                 $('#supplyAmt').data('manual', false);
                 $('#supplyUnitPrice').trigger('input');

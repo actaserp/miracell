@@ -1191,7 +1191,7 @@ public class PopupController {
 				, mt."Name"                                            as material_name
 				, mt."Code"                                            as material_code
 				, to_char(sh."ShipDate",'YYYYMMDD')                    as supply_date
-				, mlc."OutputQty"                                      as supply_qty
+				, sum(mlc."OutputQty")                                 as supply_qty
 				, c."Name"                                             as company_name
 				, c."Code"                                             as bcnc_code
 				, fn_code_name('shipment_state', sh."State")           as ship_state_name
@@ -1225,6 +1225,13 @@ public class PopupController {
 					""";
 			paramMap.addValue("keyword", keyword);
 		}
+
+		sql += """
+				 group by b.label_id, b.own_barcode, b.udi_barcode, b.udi_di_code,
+				          b.lot_no, b.manuf_ym, b.use_tmlmt, b.item_serial_no,
+				          ml."LotNumber", mt."Name", mt."Code",
+				          sh."ShipDate", sh."State", c."Name", c."Code"
+				""";
 
 		sql += " order by sh.\"ShipDate\" desc, b.label_id desc, prod_lot ";
 

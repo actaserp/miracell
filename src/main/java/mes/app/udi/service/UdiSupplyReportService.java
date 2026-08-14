@@ -156,6 +156,8 @@ public class UdiSupplyReportService {
 				, r."SupplyUnitPrice"     as supply_unit_price
 				, r."SupplyAmt"           as supply_amt
 				, r."Remark"              as remark
+				, r."MaterialName"        as material_name
+				, r."CompanyName"         as company_name
 				, r."ReportState"         as report_state
 				, case r."ReportState" when 't' then '임시'
 				                       when 'r' then '보고확정'
@@ -202,7 +204,8 @@ public class UdiSupplyReportService {
 				  "LotNo","ItemSerialNo","ManufYm","UseTmlmt",
 				  "BcncCode","IsDiffDvyfg","DvyfgPlaceBcncCode",
 				  "SupplyDate","SupplyQty","IndvdlzSupplyQty","SupplyUnitPrice","SupplyAmt",
-				  "Remark","BcncIsRcper","ReportState","_status","_created","_creater_id"
+				  "Remark","BcncIsRcper","MaterialName","CompanyName",
+				  "ReportState","_status","_created","_creater_id"
 				) values (
 				  :stdMonth,:supplyFlagCode,:supplyTypeCode,
 				  :meddevItemSeq,:modelSeq,:udiDiSeq,
@@ -211,7 +214,8 @@ public class UdiSupplyReportService {
 				  :bcncCode,:isDiffDvyfg,:dvyfgPlaceBcncCode,
 				  :supplyDate, cast(nullif(:supplyQty,'') as numeric), cast(nullif(:indvdlzSupplyQty,'') as numeric),
 				  cast(nullif(:supplyUnitPrice,'') as numeric), cast(nullif(:supplyAmt,'') as numeric),
-				  :remark,:bcncIsRcper,'t','t', now(), :userId
+				  :remark,:bcncIsRcper,:materialName,:companyName,
+				  't','t', now(), :userId
 				)
 				returning id
 				""";
@@ -246,6 +250,8 @@ public class UdiSupplyReportService {
 				  "SupplyAmt"          = cast(nullif(:supplyAmt,'') as numeric),
 				  "Remark"             = :remark,
 				  "BcncIsRcper"        = :bcncIsRcper,
+				  "MaterialName"       = :materialName,
+				  "CompanyName"        = :companyName,
 				  "ReportState"        = 't',
 				  "_modified"          = now(),
 				  "_modifier_id"       = :userId
@@ -301,6 +307,7 @@ public class UdiSupplyReportService {
 		String sql = """
 				select r."UdiDiCode"  as udi_di_code
 				, r."StdCode"         as std_code
+				, max(r."MaterialName")                                                              as material_name
 				, coalesce(sum(case when r."SupplyFlagCode" = '1' then r."SupplyQty" else 0 end), 0) as delivery_qty
 				, coalesce(sum(case when r."SupplyFlagCode" = '2' then r."SupplyQty" else 0 end), 0) as return_qty
 				, coalesce(sum(case when r."SupplyFlagCode" = '3' then r."SupplyQty" else 0 end), 0) as disposal_qty

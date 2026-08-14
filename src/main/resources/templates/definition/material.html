@@ -328,14 +328,20 @@
                                             <th>
                                                 <label for="WashYN">세척여부</label>
                                             </th>
-                                            <td colspan="2">
+                                            <td>
                                                 <input type="checkbox" id="WashYN" name="WashYN" value="Y" style="display: block; margin: auto; height: 26px; width: 26px;">
                                             </td>
                                             <th>
                                                 <label for="SterilizationYN">멸균여부</label>
                                             </th>
-                                            <td colspan="2">
+                                            <td>
                                                 <input type="checkbox" id="SterilizationYN" name="SterilizationYN" value="Y" style="display: block; margin: auto; height: 26px; width: 26px;">
+                                            </td>
+                                            <th>
+                                                <label for="InspectYN">검사여부</label>
+                                            </th>
+                                            <td>
+                                                <input type="checkbox" id="InspectYN" name="InspectYN" value="Y" style="display: block; margin: auto; height: 26px; width: 26px;">
                                             </td>
                                         </tr>
                                         <tr>
@@ -1555,6 +1561,7 @@
                     // 세척여부 / 멸균여부 (Y 이면 체크)
                     $('#WashYN').prop('checked', detailData.WashYN === 'Y');
                     $('#SterilizationYN').prop('checked', detailData.SterilizationYN === 'Y');
+                    $('#InspectYN').prop('checked', detailData.InspectYN === 'Y');
 
                     let factory_id = $('#Factory_id').val();
                     AjaxUtil.fillSelectOptions($('#WorkCenter_id'), 'workcenter', '', '', '', factory_id);
