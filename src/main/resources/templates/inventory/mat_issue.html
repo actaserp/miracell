@@ -34,7 +34,6 @@
             justify-content: space-between; /* 좌: 검색필드 / 우: 버튼 */
             align-items: flex-end;          /* 하단 정렬 맞추기 */
             width: 100%;
-            gap: 16px;
         }
 
     </style>
@@ -677,7 +676,7 @@
 
             <div class="ir-field" style="margin-top:8px">
                 <label>비고</label>
-                <textarea id="irDesc" rows="2" style="width:100%"></textarea>
+                <textarea id="irDesc" rows="2" style="width:100%; height:40px;"></textarea>
             </div>
 
           </div>
@@ -692,7 +691,7 @@
     <style id="issueRegCss">
         .ir-form { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px; }
         .ir-field { display:flex; flex-direction:column; gap:4px; flex:1 1 190px; min-width:0; }
-        .ir-field > label { font-weight:700; color:#444; font-size:13px; }
+        .ir-field > label { font-weight:700; color:#444; font-size:13px; text-align: left;}
         .ir-req { color:#C0392B; }
         .ir-field select, .ir-field input[type=date], .ir-field input[type=text] {
             height:40px; padding:0 10px; border:1px solid #d4d5d7; border-radius:6px;
@@ -712,14 +711,27 @@
             margin-bottom:6px; }
         .ir-lothead > span:first-child { font-weight:800; color:#0B7285; }
 
-        @media (max-width: 900px) {
-            .ir-form { gap:8px; }
-            .ir-field { flex:1 1 100%; }
-            .ir-field select, .ir-field input { height:48px; font-size:16px; }
-            .ir-matbox { flex-wrap:wrap; }
-            .ir-matbox input[type=text] { flex:1 1 100%; height:48px; font-size:16px; }
-            .ir-matbox .si-btn { flex:1 1 45%; height:48px; }
+        /* 태블릿 — 기준은 TabletUtil 하나로 통일. 미디어쿼리를 쓰지 않는다.
+
+           ★ 무조건 한 줄씩 세우지 않는다.
+             flex:1 1 100% 로 못박으면 가로 1164px 에서도 날짜 한 칸이
+             화면을 다 먹는다. 최소폭만 정해 두고 들어갈 만큼 넣게 한다.
+             세로로 좁아지면 알아서 아래로 접힌다. */
+        body.tablet-mode .ir-form { gap:8px 10px; }
+        body.tablet-mode .ir-field { flex:1 1 240px; }
+        body.tablet-mode .ir-field select,
+        body.tablet-mode .ir-field input { height:48px; font-size:16px; }
+
+        /* 품목 = 입력칸 + 조회버튼. 버튼을 아래로 떨어뜨릴 이유가 없다. */
+        body.tablet-mode .ir-mat { flex:1 1 100%; margin-bottom:6px; }
+        body.tablet-mode .ir-matbox { flex-wrap:nowrap; }
+        body.tablet-mode .ir-matbox input[type=text] {
+            flex:1 1 auto; min-width:0; height:48px; font-size:16px;
         }
+        body.tablet-mode .ir-matbox .si-btn { flex:0 0 auto; height:48px; padding:0 20px; }
+
+        /* 비고는 남는 높이를 다 먹을 필요가 없다 */
+        body.tablet-mode .ir-field textarea { height:44px; font-size:15px; }
     </style>
 
     <!-- 태블릿 반응형 : 툴바 · 팝업 ────────────────────────────────
@@ -748,17 +760,11 @@
             flex-wrap: wrap;
             gap: 8px 12px;
             width: 100%;
+            justify-content: left;
         }
         body.tablet-mode .search-wrap > dl {
             flex: 0 0 auto;      /* 눌려서 찌그러지지 않게 */
             margin: 0;
-        }
-
-        /* 터치 대상 높이만 키운다. 폭·정렬은 전역 스타일 그대로 */
-        body.tablet-mode .search-wrap select,
-        body.tablet-mode .search-wrap input[type=text],
-        body.tablet-mode .search-wrap input[type=date] {
-            height: 42px;
         }
 
         /* ── 상단 버튼줄 ─────────────────────────────────────── */
@@ -780,23 +786,21 @@
            ax5.ui.modal 이 인라인 px 로 width/height/left/top 을 박는다.
            [class*="modal"] 같은 넓은 선택자는 중첩 팝업(품목·구매처 조회)까지
            물어 레이아웃을 깨뜨리므로 쓰지 않는다. */
-        body.tablet-mode .modal,
-        body.tablet-mode .popup-draggable {
-            width: 96vw !important;
-            max-width: 96vw !important;
-            height: auto !important;
-            max-height: 92vh !important;
-            left: 2vw !important;
-            top: 4vh !important;
-            transform: none !important;
-        }
-        /* ★ 높이를 자르면서 스크롤을 안 주면 하단 버튼이 잘려 사라진다. */
-        body.tablet-mode .content_wrap,
-        body.tablet-mode .modal > .modal-body,
-        body.tablet-mode .popup-draggable > .modal-body {
-            max-height: calc(92vh - 60px);
+        /* 모달 크기는 CSS로 잡지 않는다.
+           PopupDraggable 이 width/height/left/top 을 인라인 px 로 박고,
+           내부 .ax-modal-body 높이도 그 px 기준으로 계산한다.
+           CSS !important 로 바깥상자만 늘리면 안쪽 계산값과 어깋난다.
+           크기는 openPopup() 이 TabletUtil.size() 로 정하고,
+           여기서는 「내부 스크롤」만 책임진다. */
+
+        /* si-root 를 쓰는 신규 팝업은 flex 구조가 이미 스크롤을 처리한다.
+           그 외(구형 write-table 팝업)에만 걸어준다.
+           ax5 는 body 안에 body-frame(absolute, 100%)을 한 겹 더 둔다. */
+        .ax-modal-body [data-modal-els="body-frame"] > .content_wrap:not(.si-root) {
+            height: 100%;
             overflow-y: auto;
             -webkit-overflow-scrolling: touch;
+            box-sizing: border-box;
         }
         body.tablet-mode .popup-button .btn-popup { min-height: 46px; }
 
@@ -820,6 +824,94 @@
             padding-right: 2px;
         }
         .si-root > .popup-button { flex: 0 0 auto; padding-top: 10px; background: inherit; }
+
+        /* ══════════════════════════════════════════════════════════
+           태블릿 = 전체화면 시트
+
+           떠 있는 상자를 손가락으로 끌어 옮기는 일은 태블릿에서 일어나지 않는다.
+           드래그 핸들은 자리만 먹고, 가장자리 여백은 오조작을 부르며,
+           비쳐 보이는 배경은 눈을 분산시킨다. 그래서 화면을 통째로 쓴다.
+
+           ★ 인라인 px 과 싸우지 않는다
+             PopupDraggable 은 width/height/left/top 을 인라인으로 박고,
+             드래그할 때마다 left/top 을 다시 쓴다. 스타일시트의 !important 는
+             인라인보다 우선하므로, 아래 규칙이 드래그 결과까지 함께 무력화한다.
+             동시에 TabletUtil.size() 가 같은 값(전체화면)을 돌려주므로
+             바깥 상자와 내부 계산이 어긋나지 않는다.
+           ══════════════════════════════════════════════════════════ */
+        body.tablet-mode .ax5modal {
+            position: fixed !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100vw !important;
+            /* ★ 안드로이드 크롬에서 100vh 는 「주소창이 숨겨졌을 때」의 높이다.
+                 주소창이 떠 있는 동안은 실제 보이는 영역보다 커서, 모달 밑동이
+                 화면 밖으로 나가고 하단 버튼이 잘린다.
+                 dvh(동적 뷰포트)는 주소창 상태를 따라간다. 미지원 기기를 위해
+                 vh 를 먼저 적어 두고 dvh 로 덮는다. JS 도 --vh 로 한 번 더 받친다. */
+            /* JS(relayoutOpenPopups)가 실측값으로 덮어쓰기 전까지의 보험.
+               최종 높이는 JS 가 important 로 다시 심는다. */
+            height: 100vh !important;
+            height: calc(var(--vh, 1vh) * 100) !important;
+            max-width: none !important;
+            max-height: none !important;
+            border-radius: 0 !important;
+            transform: none !important;
+        }
+
+        /* 제목줄 = 시트 헤더. 끌 수 없으니 커서도 바꾸지 않는다. */
+        body.tablet-mode .ax5modal > .ax-modal-header {
+            cursor: default !important;
+            font-size: 17px;
+        }
+        /* 최소화·복원은 전체화면 시트에서 의미가 없다. 닫기만 남긴다. */
+        body.tablet-mode [data-modal-header-btn="minimize"],
+        body.tablet-mode [data-modal-header-btn="restore"] { display: none !important; }
+        body.tablet-mode [data-modal-header-btn="close"] { padding: 6px 12px; }
+        /* 가장자리 리사이저는 터치로 잡으면 오히려 사고가 난다 */
+        body.tablet-mode [data-ax5modal-resizer] { display: none !important; }
+
+        /* ★ 남은 「조금」의 정체 = 패딩
+             .ax-modal-body / .content_wrap 에 전역 padding 이 붙어 있는데
+             box-sizing 이 content-box 면 height:100% 가 패딩만큼 넘친다.
+             넘친 만큼 맨 아래 popup-button 이 잘린다.
+             경로 전체를 border-box 로 못박아 100% 안에 패딩을 넣는다. */
+        body.tablet-mode .ax-modal-body,
+        body.tablet-mode .ax-modal-body [data-modal-els="body-frame"],
+        body.tablet-mode .ax-modal-body .content_wrap,
+        body.tablet-mode .si-root,
+        body.tablet-mode .si-root > .si-scroll {
+            box-sizing: border-box !important;
+        }
+
+        /* ── 표가 뭉개지지 않게 ───────────────────────────────
+           si-table 은 width:100% 라 콜그룹 고정폭(합계 660~700px)보다
+           좁아지면 칸이 짓눌려 글자가 깨진다. 최소폭을 주어
+           줄어드는 대신 「가로로 밀리게」 한다. 세로 스크롤은 바깥
+           si-scroll 이 맡으므로 여기서는 가로만 흐른다. */
+        body.tablet-mode .si-list-wrap {
+            max-height: none;
+            overflow-x: auto;
+            overflow-y: visible;
+            -webkit-overflow-scrolling: touch;
+        }
+        body.tablet-mode .si-table { min-width: 700px; }
+        /* 로트 재고표는 칸이 4개뿐이라 덜 잡아도 된다 */
+        body.tablet-mode #irLotRows { min-width: 0; }
+        body.tablet-mode .ir-lotbox .si-table { min-width: 420px; }
+
+        /* 하단 버튼줄은 어떤 경우에도 시트 바닥에 붙어 있는다 */
+        body.tablet-mode .si-root > .popup-button {
+            position: sticky; bottom: 0; z-index: 7;
+            background: #fff; border-top: 1px solid #e3e4e6;
+            padding: 8px 0; margin: 0;
+            display: flex; gap: 6px;
+        }
+        body.tablet-mode .popup-button .btn-popup { flex: 1 1 auto; min-height: 48px; }
+        body.tablet-mode .si-scan input { font-size: 17px; }
+        body.tablet-mode .si-store select,
+        body.tablet-mode .si-store input[type=date] { height: 44px; }
+
     </style>
 
     <script>
@@ -827,6 +919,11 @@
            폭만 보면 1138 태블릿을 놓치고, 포인터만 보면 터치스크린 PC 가 걸린다. */
         window.TabletUtil = window.TabletUtil || {
             BREAKPOINT: 1280,
+            /* 팝업 바닥에 더 띄우고 싶으면 이 값만 올린다 (px) */
+            BOTTOM_PAD: 0,
+            /* .ax-modal-body 에서 무조건 더 덜어낼 높이 (px).
+               계산으로는 안 잡히는 여백이 있어 실측으로 정한 값이다. */
+            BODY_TRIM: 20,
             isTouch() {
                 return (window.matchMedia && window.matchMedia('(pointer: coarse)').matches)
                     || ('ontouchstart' in window)
@@ -836,17 +933,144 @@
                 return window.innerWidth <= this.BREAKPOINT && this.isTouch();
             },
             size(w, h) {
-                const ratio = this.isTablet() ? 0.96 : 0.98;
+                /* 태블릿은 전체화면. CSS 의 100vw/100vh 와 같은 값을 돌려주어야
+                   내부 .ax-modal-body 높이 계산이 바깥 상자와 맞는다. */
+                if (this.isTablet()) {
+                    return {width: window.innerWidth, height: window.innerHeight};
+                }
                 return {
-                    width: Math.min(w, Math.floor(window.innerWidth * ratio)),
-                    height: Math.min(h, Math.floor(window.innerHeight * (this.isTablet() ? 0.92 : 0.95)))
+                    width: Math.min(w, Math.floor(window.innerWidth * 0.98)),
+                    height: Math.min(h, Math.floor(window.innerHeight * 0.95))
                 };
             },
             applyBodyClass() {
                 document.body.classList.toggle('tablet-mode', this.isTablet());
+                this.syncVh();
+            },
+            /* dvh 미지원 기기(크롬 108 미만)를 위한 받침.
+               주소창이 뜨고 내리면 innerHeight 가 바뀌므로 그때마다 다시 심는다. */
+            syncVh() {
+                document.documentElement.style.setProperty(
+                    '--vh', (window.innerHeight * 0.01) + 'px');
+            },
+            /* 안드로이드 제스처 바 등 화면 아래 시스템 영역.
+               지원 안 하는 기기에서는 0 이 나온다. */
+            safeBottom() {
+                const el = document.createElement('div');
+                el.style.cssText =
+                    'position:fixed;bottom:0;height:env(safe-area-inset-bottom,0px);visibility:hidden';
+                document.body.appendChild(el);
+                const h = el.offsetHeight || 0;
+                el.remove();
+                return h;
             }
         };
-        window.addEventListener('resize', () => TabletUtil.applyBodyClass());
+
+        /* 팝업 열기 — 크기를 한 군데서만 정한다.
+           호출부는 PC 기준 설계치(w,h)를 그대로 넘기고,
+           화면에 안 들어가면 TabletUtil.size() 가 깎아준다. */
+        window.openPopup = function (modal, w, h, $content, hTablet) {
+            /* hTablet 을 주면 태블릿에서만 그 높이를 쓴다.
+               세로로 긴 화면을 살리되, PC 팝업은 설계치 그대로 둔다. */
+            const H = (hTablet && TabletUtil.isTablet()) ? hTablet : h;
+            const sz = TabletUtil.size(w, H);
+            modal.open(Object.assign({}, sz, {$content: $content}));
+            /* 회전·리사이즈 때 재계산할 수 있게 원본 설계치를 새겨둔다 */
+            setTimeout(function () {
+                $('.ax5modal:visible').last()
+                    .data('baseW', w).data('baseH', h).data('baseHT', hTablet || 0);
+                relayoutOpenPopups();   /* 열자마자 본문 높이를 맞춰둔다 */
+            }, 0);
+            return modal;
+        };
+
+        /* 이미 열려있는 팝업은 인라인 px 이라 스스로 안 바뀐다.
+           세로↔가로 전환 시 다시 계산해 준다. */
+        function relayoutOpenPopups() {
+            $('.ax5modal:visible').each(function () {
+                const $m = $(this);
+                const w = +$m.data('baseW'), h = +$m.data('baseH');
+                if (!w || !h) return;                 /* openPopup 으로 안 열렸으면 건드리지 않는다 */
+                const ht = +$m.data('baseHT');
+                const sz = TabletUtil.size(w, (ht && TabletUtil.isTablet()) ? ht : h);
+                $m.css({
+                    width:  sz.width  + 'px',
+                    height: sz.height + 'px',
+                    left: TabletUtil.isTablet() ? '0px'
+                        : Math.max(0, Math.floor((window.innerWidth  - sz.width)  / 2)) + 'px',
+                    top:  TabletUtil.isTablet() ? '0px'
+                        : Math.max(0, Math.floor((window.innerHeight - sz.height) / 2)) + 'px'
+                });
+
+                /* ★ top:0 을 줘도 실제로 0 에 놓인다는 보장이 없다.
+                     조상에 transform·filter 가 있으면 position:fixed 의 기준이
+                     뷰포트가 아니라 그 조상이 된다. 그러면 모달이 탭바 아래에서
+                     시작하는데 높이는 화면 전체를 받아, 시작한 만큼 아래가 잘린다.
+                     그래서 놓인 자리를 실측해 남은 높이만 쓴다. */
+                if (TabletUtil.isTablet()) {
+                    const top = $m[0].getBoundingClientRect().top;
+                    const safe = TabletUtil.safeBottom();
+                    const avail = Math.floor(window.innerHeight - top - safe);
+                    if (avail > 120) {
+                        sz.height = avail;
+                        /* ★ 스타일시트의 !important 는 인라인보다 세다.
+                             .ax5modal 에 100vh !important 를 걸어 두었으므로
+                             평범한 $m.css('height') 는 먹지 않는다.
+                             실측값이 이기도록 이쪽도 important 로 심는다. */
+                        $m[0].style.setProperty('height', avail + 'px', 'important');
+                    }
+                }
+                /* ★ ax5 는 .ax-modal-body 높이를 열 때 계산한 px 로 박아둔다.
+                     바깥만 늘리고 이걸 그대로 두면 본문이 모자라거나 넘쳐
+                     맨 아래 popup-button 이 잘린다.
+
+                   ★ 헤더 높이만 빼면 20px 쯤 모자란다.
+                     헤더와 본문 사이 여백, 모달 자신의 padding-bottom·border 가
+                     계산에서 빠져 있기 때문이다. 숫자를 박아두면 팝업마다
+                     기기마다 또 어긋나므로, 본문이 실제로 시작하는 지점과
+                     모달 아래쪽 여백을 그때그때 잰다. */
+                const $body = $m.children('.ax-modal-body');
+                if ($body.length) {
+                    const cs = getComputedStyle($m[0]);
+                    const offsetTop =                       /* 모달 위 ~ 본문 위 */
+                        $body[0].getBoundingClientRect().top - $m[0].getBoundingClientRect().top;
+                    const bottomGap =                       /* 모달 아래쪽 여백·테두리 */
+                        (parseFloat(cs.paddingBottom) || 0) + (parseFloat(cs.borderBottomWidth) || 0);
+                    const bodyH = sz.height - offsetTop - bottomGap - TabletUtil.BODY_TRIM;
+                    $body[0].style.setProperty('height', bodyH + 'px', 'important');
+
+                    /* ★ 마지막 보정 — 계산이 아니라 실측이다.
+                         전역 스타일의 padding·border·margin 을 전부 예측할 수는 없다.
+                         실제로 그려진 뒤 바닥이 화면 아래로 얼마나 삐져나갔는지 재서
+                         그만큼 본문에서 덜어낸다. 원인이 무엇이든 스스로 맞춰진다. */
+                    const el = $m.find('.si-root, .content_wrap').first()[0];
+                    if (el) {
+                        /* 제스처 바 위까지가 실제로 보이는 바닥이다.
+                           TabletUtil.BOTTOM_PAD 로 여유를 더 줄 수 있다. */
+                        const floor = window.innerHeight - TabletUtil.safeBottom()
+                            - (TabletUtil.BOTTOM_PAD || 0);
+                        const over = el.getBoundingClientRect().bottom - floor;
+                        if (over > 0) {
+                            $body[0].style.setProperty(
+                                'height', (parseFloat($body.css('height')) - over) + 'px', 'important');
+                        }
+                    }
+                }
+            });
+        }
+
+        let __rzTimer = null;
+        window.addEventListener('resize', function () {
+            TabletUtil.applyBodyClass();
+            clearTimeout(__rzTimer);
+            __rzTimer = setTimeout(relayoutOpenPopups, 150);
+        });
+        window.addEventListener('orientationchange', function () {
+            /* 회전 직후 innerHeight 는 아직 옛 값이다. 한 박자 쉬고 읽는다. */
+            setTimeout(function () { TabletUtil.applyBodyClass(); relayoutOpenPopups(); }, 250);
+        });
+        /* 주소창이 접히고 펴질 때도 높이가 바뀐다 (resize 가 안 오는 기기가 있다) */
+        window.addEventListener('scroll', function () { TabletUtil.syncVh(); }, {passive: true});
         $(function () { TabletUtil.applyBodyClass(); });
     </script>
 
@@ -872,17 +1096,23 @@
             <div class="si-scan">
                 <input id="siInput" autocomplete="off" placeholder="바코드를 스캔하세요 (스캐너 · 직접입력)" />
                 <button type="button" class="si-btn" id="siAdd">입력</button>
-                <button type="button" class="si-btn si-cam" id="siCam" style="display:none">📷 카메라</button>
+                <button type="button" class="si-btn si-cam" id="siCam">📷 카메라</button>
             </div>
             <div class="si-hint" id="siHint">
                 스캐너는 입력칸에 그대로 들어옵니다. 같은 로트를 다시 찍으면 무시됩니다.
             </div>
 
-            <!-- 카메라 -->
+            <!-- 카메라 — 수리 화면과 같은 모양. 입력칸 바로 아래 인라인으로 열린다. -->
             <div class="si-video" id="siVideoBox" style="display:none">
-                <video id="siVideo" playsinline muted></video>
+                <video id="siVideo" playsinline muted autoplay></video>
+                <div class="si-frame" id="siFrame"></div>
+                <div class="si-vtools">
+                    <input type="range" id="siZoom" style="display:none"/>
+                    <button type="button" class="si-btn" id="siTorch" style="display:none">🔦</button>
+                </div>
                 <div class="si-vbar">
                     <span id="siVMsg">라벨을 비추세요</span>
+                    <span class="si-vcount" id="siVCount">0건</span>
                     <button type="button" class="si-btn" id="siCamStop">닫기</button>
                 </div>
             </div>
@@ -967,9 +1197,25 @@
         .si-cam { background:#03428E; color:#fff; border-color:#03428E; }
         .si-hint { font-size:12px; color:#888; margin-bottom:8px; }
 
-        .si-video { position:relative; margin-bottom:8px; background:#000; border-radius:8px;
+        .si-video { position:relative; margin-bottom:8px; background:#000; border-radius:14px;
             overflow:hidden; }
+        /* 조준틀 — 어디에 대면 되는지 알려준다. 잡힐 때 초록으로 턴다. */
+        /* ★ 조준틀은 「이 안에만 넣으세요」가 아니다.
+             BarcodeDetector 는 프레임 전체를 훑으므로 어디에 있어도 잡힌다.
+             테두리를 화면 가장자리에 얇게 둘러 «인식 중»만 알린다.
+             예전처럼 가운데 사각형을 그리고 바깥을 어둡게 깔면,
+             틀 밖에서 잡히는 순간 화면이 거짓말을 한 셈이 된다. */
+        .si-frame { position:absolute; inset:0; border:3px solid rgba(255,255,255,.35);
+            border-radius:14px; pointer-events:none;
+            transition:border-color .15s, box-shadow .15s; }
+        .si-frame.hit { border-color:#66DA26; box-shadow:0 0 0 4px rgba(102,218,38,.35); }
+        .si-vtools { position:absolute; right:10px; top:10px; display:flex; gap:8px;
+            align-items:center; }
+        .si-vtools input[type=range] { width:120px; }
+        .si-vtools .si-btn { height:38px; padding:0 12px; }
+        .si-vcount { font-weight:800; }
         .si-video video { width:100%; max-height:260px; object-fit:cover; display:block; }
+        body.tablet-mode .si-video video { max-height:34dvh; }
         .si-vbar { position:absolute; left:0; right:0; bottom:0; display:flex;
             align-items:center; justify-content:space-between; gap:8px;
             padding:8px; background:rgba(0,0,0,.55); color:#fff; }
@@ -995,11 +1241,10 @@
         .si-tag { display:inline-block; font-size:11px; padding:1px 6px; border-radius:10px;
             margin-left:4px; background:#eee; color:#666; }
 
-        @media (max-width: 900px) {
-            .si-scan input { font-size:18px; height:52px; }
-            .si-btn { height:52px; }
-            .si-table th, .si-table td { padding:10px 6px; }
-        }
+        body.tablet-mode .si-scan input { font-size:18px; height:52px; }
+        body.tablet-mode .si-btn { height:52px; }
+        body.tablet-mode .si-table th,
+        body.tablet-mode .si-table td { padding:10px 6px; }
     </style>
 
 
@@ -1376,6 +1621,7 @@
 
 <th:block layout:fragment="scripts">
     <script type="text/javascript" th:src="@{/resource/jsBarcode/JsBarcode.all.min.js}"></script>
+    <script type="text/javascript" th:src="@{/js/barcode_cam.js}"></script>
     <th:block th:replace="/common/popup_material :: popup_material"></th:block>
     <th:block th:replace="/common/popup_company :: popup_company"></th:block>
 
@@ -1543,7 +1789,7 @@
                 }
 
 
-                modalContainer.open({width: 1000, height: 440, $content});
+                openPopup(modalContainer, 1000, 400, $content);
                 popup = new materialInoutPopup();
                 //AjaxUtil.fillSelectOptions($content.find('#StoreHouse_id'), 'store_house', 'choose', 3);    // 3:자재창고
                 AjaxUtil.fillSelectOptions($content.find('#StoreHouse_id'), 'store_house', 'choose', '');    // 3:자재창고
@@ -1742,7 +1988,7 @@
                 modalContainer = new PopupDraggable('입고 반품');
 
 
-                modalContainer.open({width: 1000, height: 700, $content});
+                openPopup(modalContainer, 1000, 700, $content);
                 popup = new materialInoutPopup();
                 //AjaxUtil.fillSelectOptions($content.find('#StoreHouse_id'), 'store_house', 'choose', 3);    // 3:자재창고
                 AjaxUtil.fillSelectOptions($content.find('#StoreHouse_id'), 'store_house', 'choose', '');    // 3:자재창고
@@ -1993,7 +2239,7 @@
                 let content = tmpl('addBaljuInputPopup', {});
                 let $content = $(content);
                 let modalContainer = new PopupDraggable('발주 입고');
-                modalContainer.open({width: 1300, height: 580, $content});
+                openPopup(modalContainer, 1300, 580, $content);
 
                 this.storeHouseOptions = AjaxUtil.getSelectDataWithNull('store_house', 'choose');
 
@@ -2181,7 +2427,7 @@
                 //let form = $('#mat_multi_input_form');
                 modalContainer = new PopupDraggable('품목 다중입고 등록');
 
-                modalContainer.open({width: 490, height: 620, $content});
+                openPopup(modalContainer, 490, 620, $content);
                 popup = new matMultiInPopup($content);
             }
 
@@ -2208,7 +2454,7 @@
                 let content = tmpl('lotInputPopup', {});
                 let $content = $(content);
                 let modalContainer = new PopupDraggable('로트입고등록');
-                modalContainer.open({width: 1000, height: 600, $content});
+                openPopup(modalContainer, 1000, 600, $content);
 
                 this.matLotGrid = new wijmo.grid.FlexGrid('#mat-lot-grid', {
                     autoGenerateColumns: false,
@@ -2424,7 +2670,7 @@
                 let content = tmpl('inputTestPopup', {});
                 let $content = $(content);
                 let modalContainer = new PopupDraggable('입고검사');
-                modalContainer.open({width: 1000, height: 670, $content});
+                openPopup(modalContainer, 1000, 670, $content);
 
                 this.matTestGrid = new wijmo.grid.FlexGrid('#mat-input-test-grid', {
                     autoGenerateColumns: false,
@@ -2613,7 +2859,7 @@
                 let content = tmpl('barcode_tmpl', {});
                 let $content = $(content);
                 let modalContainer = new PopupDraggable('바코드 출력');
-                modalContainer.open({width: 470, height: 700, $content});
+                openPopup(modalContainer, 470, 700, $content);
                 let $barcodeDiv = $content.find('#barcodeDiv');
 
                 $.each(barcodeItems, function (idx, item) {
@@ -3038,7 +3284,7 @@
                 let content = tmpl('matMovePopup', defaultData);
                 let $content = $(content);
                 this.modalContainer = new PopupDraggable('품목 창고이동');
-                this.modalContainer.open({width: 1000, height: 580, $content});
+                openPopup(this.modalContainer, 1000, 580, $content);
 
                 this.$cboFrom = $content.find('#cboFrom');
                 this.$cboTo = $content.find('#cboTo');
@@ -3112,9 +3358,8 @@
            ★ 스캐너와 카메라는 서로 다른 층에서 동작한다
              · USB/블루투스 스캐너 = 키보드. 입력칸에 그대로 타이핑되고 Enter 가 온다.
                별도 권한도 드라이버도 없다. PC·태블릿 공통.
-             · 카메라 = BarcodeDetector. 안드로이드 크롬만 지원하므로
-               있을 때만 버튼을 노출한다. 별도 기기 판별을 하지 않는다 —
-               이 조건 하나로 PC/아이패드가 자연히 걸러진다.
+             · 카메라 = BarcodeCam 공통 모듈(세척·수리와 동일 엔진).
+               버튼은 항상 두고, 못 쓰는 환경이면 누를 때 이유를 알려준다.
              두 경로 모두 handleScan() 하나로 들어간다.
 
            ★ 없는 로트도 행으로 깐다
@@ -3129,57 +3374,12 @@
                 this.stream = null;
                 this.timer = null;
                 this.detector = null;
+                this.busy = false;       // detect() 호출 겹침 방지
                 this.seq = 0;
             }
 
-            /* ── GS1-128 파싱 ──────────────────────────────────────
-               (01)GTIN (10)LOT (11)제조일 (17)유효기한 (30)수량.
-               가변길이 AI(10·21 등)는 FNC1(그룹구분자)에서 끊긴다.
-               라벨/스캐너에 따라 GS(0x1D)가 오기도, 안 오기도 한다.  */
-            parseGs1(raw) {
-                const out = {raw: raw, gtin14: '', lot: '', eff: '', qty: null};
-                if (!raw) return out;
-                let s = String(raw).trim();
-
-                // 괄호 표기 (01)08809... 도 받는다
-                const hasParen = s.indexOf('(') >= 0;
-                if (hasParen) {
-                    const re = /\((\d{2,4})\)([^(]*)/g;
-                    let m;
-                    while ((m = re.exec(s)) !== null) this.putAi(out, m[1], m[2]);
-                    return out;
-                }
-
-                // GS 구분자 정규화
-                s = s.replace(/\x1D/g, '\u001D');
-                const FIXED = {'01': 14, '11': 6, '15': 6, '17': 6, '13': 6};
-                let i = 0;
-                let guard = 0;
-                while (i < s.length && guard++ < 40) {
-                    const ai2 = s.substr(i, 2);
-                    if (!/^\d{2}$/.test(ai2)) break;
-                    i += 2;
-                    let val;
-                    if (FIXED[ai2] !== undefined) {
-                        val = s.substr(i, FIXED[ai2]);
-                        i += FIXED[ai2];
-                    } else {
-                        const gs = s.indexOf('\u001D', i);
-                        val = (gs >= 0) ? s.substring(i, gs) : s.substring(i);
-                        i = (gs >= 0) ? gs + 1 : s.length;
-                    }
-                    this.putAi(out, ai2, val);
-                }
-                return out;
-            }
-
-            putAi(out, ai, val) {
-                val = (val || '').replace(/\u001D/g, '').trim();
-                if (ai === '01') out.gtin14 = val;
-                else if (ai === '10') out.lot = val;
-                else if (ai === '17') out.eff = val;
-                else if (ai === '30' || ai === '37') out.qty = parseFloat(val);
-            }
+            /* GS1-128 파싱은 BarcodeCam 과 공유한다 — 스캐너 입력도 같은 경로를 탄다 */
+            parseGs1(raw) { return BarcodeCam.parse(raw); }
 
             /* ── 스캔 1건 처리 ────────────────────────────────────── */
             handleScan(raw) {
@@ -3209,12 +3409,15 @@
                     if (!lots.length) {
                         _this.addBadRow(p.lot || val);
                         _this.beep(false);
+                        if (_this.stream) _this.camMsg('확인되지 않는 로트');
                         return;
                     }
                     // 같은 로트번호가 창고 안에 여러 행일 수 있다(이전 불출·세척이 쪼갠 흔적).
                     // 전부 담되 오래된 것부터 — 서버가 이미 InputDateTime ASC 로 준다.
                     lots.forEach(function (l) { _this.addRow(l); });
                     _this.beep(true);
+                    /* 카메라를 보고 있으면 화면을 내리지 않고도 쌓인 건수를 안다 */
+                    if (_this.stream) _this.camMsg('담았습니다 · ' + (lots[0].lot_number || ''));
                 });
             }
 
@@ -3258,24 +3461,24 @@
                 this.rows.forEach((r, idx) => {
                     if (!r.found) {
                         html += '<tr class="si-row-bad" data-k="' + r.key + '">'
-                            + '<td>' + (idx + 1) + '</td>'
-                            + '<td colspan="3">확인되지 않는 로트 · <span class="si-lot">'
+                            + '<td data-label="#">' + (idx + 1) + '</td>'
+                            + '<td colspan="3" data-label="품목">확인되지 않는 로트 · <span class="si-lot">'
                             + esc(r.scan_key) + '</span></td>'
-                            + '<td class="tar">—</td>'
-                            + '<td class="tar">—</td>'
+                            + '<td class="tar" data-label="재고">—</td>'
+                            + '<td class="tar" data-label="이동량">—</td>'
                             + '<td><button type="button" class="si-del" data-del="' + r.key + '">✕</button></td>'
                             + '</tr>';
                         return;
                     }
                     const zero = r.stock <= 0;
                     html += '<tr class="' + (zero ? 'si-row-zero' : '') + '" data-k="' + r.key + '">'
-                        + '<td>' + (idx + 1) + '</td>'
-                        + '<td>' + esc(r.mat_code || '') + '</td>'
-                        + '<td>' + esc(r.mat_name || '')
+                        + '<td data-label="#">' + (idx + 1) + '</td>'
+                        + '<td data-label="품목코드">' + esc(r.mat_code || '') + '</td>'
+                        + '<td data-label="품목">' + esc(r.mat_name || '')
                         + (zero ? '<span class="si-tag">재고 없음</span>' : '') + '</td>'
-                        + '<td class="si-lot">' + esc(r.lot_number || '') + '</td>'
-                        + '<td class="tar">' + this.num(r.stock) + '</td>'
-                        + '<td class="tar"><input type="number" class="si-qty" data-q="' + r.key + '"'
+                        + '<td class="si-lot" data-label="로트">' + esc(r.lot_number || '') + '</td>'
+                        + '<td class="tar" data-label="재고">' + this.num(r.stock) + '</td>'
+                        + '<td class="tar" data-label="이동량"><input type="number" class="si-qty" data-q="' + r.key + '"'
                         + ' value="' + r.qty + '" min="0" max="' + r.stock + '"'
                         + (zero ? ' disabled' : '') + '/></td>'
                         + '<td><button type="button" class="si-del" data-del="' + r.key + '">✕</button></td>'
@@ -3301,66 +3504,72 @@
                 setTimeout(() => $tr.css('background', ''), 400);
             }
 
-            /* ── 소리·진동 ────────────────────────────────────────
-               성공은 짧은 한 번, 실패는 낮게 두 번. 화면을 안 봐도 구분된다. */
-            beep(ok) {
-                try {
-                    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-                    const play = (freq, at, dur) => {
-                        const o = ctx.createOscillator(), g = ctx.createGain();
-                        o.connect(g); g.connect(ctx.destination);
-                        o.frequency.value = freq;
-                        g.gain.setValueAtTime(0.08, ctx.currentTime + at);
-                        o.start(ctx.currentTime + at);
-                        o.stop(ctx.currentTime + at + dur);
-                    };
-                    if (ok) play(1400, 0, 0.08);
-                    else { play(320, 0, 0.12); play(320, 0.18, 0.12); }
-                } catch (e) { /* 소리는 있으면 좋은 것. 없다고 막지 않는다 */ }
-                if (navigator.vibrate) navigator.vibrate(ok ? 40 : [50, 60, 50]);
-            }
+            /* 소리·진동은 BarcodeCam 과 같은 신호를 쓴다 */
+            beep(ok) { BarcodeCam.beep(ok); }
 
-            /* ── 카메라 ──────────────────────────────────────────── */
-            async startCam() {
+            /* ── 카메라 연속 스캔 ─────────────────────────────────
+               BarcodeCam 공통 모듈에 위임한다. 여기서는 「어디에 그릴지」와
+               「잡았을 때 무엇을 할지」만 정한다. 불출은 상자를 여러 개
+               찍는 일이라 continuous: true — 하나 잡아도 닫지 않는다.   */
+            cam() {
+                if (this._cam) return this._cam;
                 const _this = this;
-                try {
-                    this.detector = new window.BarcodeDetector({
-                        formats: ['code_128', 'code_39', 'ean_13', 'ean_8',
-                            'qr_code', 'data_matrix', 'itf', 'codabar']
-                    });
-                    this.stream = await navigator.mediaDevices.getUserMedia({
-                        video: {facingMode: 'environment', width: {ideal: 1280}}
-                    });
-                    const v = this.$content.find('#siVideo')[0];
-                    v.srcObject = this.stream;
-                    await v.play();
-                    this.$content.find('#siVideoBox').show();
+                this._cam = BarcodeCam.create({
+                    video: this.$content.find('#siVideo')[0],
+                    continuous: true,
+                    onScan(raw) {
+                        _this.hitFrame();
+                        _this.handleScan(raw);
+                    },
+                    onStatus(m) { _this.camMsg(m); },
+                    onError(m) { Alert.alert('카메라', m); _this.closeCam(); }
+                });
+                return this._cam;
+            }
 
-                    this.timer = setInterval(async function () {
-                        if (!_this.detector || v.readyState < 2) return;
-                        try {
-                            const codes = await _this.detector.detect(v);
-                            if (codes && codes.length) {
-                                _this.$content.find('#siVMsg').text('인식: ' + codes[0].rawValue);
-                                _this.handleScan(codes[0].rawValue);
-                            }
-                        } catch (e) { /* 프레임 하나 실패는 무시 */ }
-                    }, 220);
-                } catch (e) {
-                    Alert.alert('카메라', '카메라를 열 수 없습니다. 권한과 HTTPS 접속을 확인하세요.');
-                    this.stopCam();
+            async startCam() {
+                const $box = this.$content.find('#siVideoBox');
+                if (this.cam().isRunning()) { this.closeCam(); return; }   // 다시 누르면 닫힘
+
+                $box.show();
+                const ok = await this.cam().start();
+                if (!ok) { $box.hide(); return; }
+
+                this.$content.find('#siCam').text('📷 닫기');
+                this.syncCamTools();
+            }
+
+            closeCam() {
+                if (this._cam) this._cam.stop();
+                if (this.$content) {
+                    this.$content.find('#siVideoBox').hide();
+                    this.$content.find('#siCam').text('📷 카메라');
                 }
             }
 
-            stopCam() {
-                if (this.timer) { clearInterval(this.timer); this.timer = null; }
-                if (this.stream) {
-                    this.stream.getTracks().forEach(t => t.stop());
-                    this.stream = null;
+            /* 줌·토치는 기기가 지원할 때만 낸다. 작은 라벨에는 줌이 크게 듣는다. */
+            syncCamTools() {
+                const c = this.cam(), $c = this.$content;
+                const r = c.zoomRange();
+                $c.find('#siZoom').toggle(!!r);
+                if (r) {
+                    $c.find('#siZoom').attr({min: r.min, max: r.max, step: r.step || 0.1}).val(r.min);
                 }
-                this.detector = null;
-                if (this.$content) this.$content.find('#siVideoBox').hide();
+                $c.find('#siTorch').toggle(c.canTorch());
             }
+
+            hitFrame() {
+                const $f = this.$content.find('#siFrame');
+                $f.addClass('hit');
+                setTimeout(() => $f.removeClass('hit'), 350);
+            }
+
+            camMsg(t) {
+                this.$content.find('#siVMsg').text(t);
+                this.$content.find('#siVCount').text(this.rows.length + '건');
+            }
+
+            stopCam() { this.closeCam(); }     // 기존 호출부 호환
 
             /* ── 불출 ────────────────────────────────────────────── */
             submit() {
@@ -3416,8 +3625,7 @@
                 this.$content = $content;
 
                 this.modal = new PopupDraggable('바코드 불출 (자재창고 → 생산창고)');
-                const sz = TabletUtil.size(900, 640);
-                this.modal.open({width: sz.width, height: sz.height, $content});
+                openPopup(this.modal, 900, 640, $content);
 
                 this.$from = $content.find('#siFrom');
                 this.$to = $content.find('#siTo');
@@ -3427,14 +3635,13 @@
                 this.$from.val('3');
                 this.$to.val('17');
 
-                // 카메라는 지원될 때만 노출 — 이 조건 하나로 PC·아이패드가 걸러진다
-                if (window.BarcodeDetector && navigator.mediaDevices
-                    && navigator.mediaDevices.getUserMedia) {
-                    $content.find('#siCam').show();
-                } else {
-                    $content.find('#siHint').text(
-                        '스캐너는 입력칸에 그대로 들어옵니다. (이 기기에서는 카메라 스캔이 지원되지 않습니다)');
-                }
+                /* 카메라 버튼은 항상 둘다. 쓸 수 없는 환경이면
+                   버튼을 숨기는 대신 누를 때 이유를 말해준다.
+                   — 사내망(http)에서 버튼이 사라지면 고칠 실마리가 없다. */
+                const camChk = BarcodeCam.check();
+                $content.find('#siHint').text(camChk.ok
+                    ? '스캐너는 입력칸에 그대로 들어옵니다. 카메라는 연속으로 읽습니다. 같은 로트를 다시 찍으면 무시됩니다.'
+                    : '스캐너는 입력칸에 그대로 들어옵니다. (카메라 버튼을 누르면 사용 조건을 안내합니다)');
 
                 const $input = $content.find('#siInput');
                 setTimeout(() => $input.focus(), 100);
@@ -3453,7 +3660,13 @@
                 });
 
                 $content.find('#siCam').on('click', function () { _this.startCam(); });
-                $content.find('#siCamStop').on('click', function () { _this.stopCam(); });
+                $content.find('#siCamStop').on('click', function () { _this.closeCam(); });
+                $content.find('#siZoom').on('input', function () { _this.cam().zoom(+this.value); });
+                $content.find('#siTorch').on('click', function () {
+                    _this._torch = !_this._torch;
+                    _this.cam().torch(_this._torch);
+                    $(this).css('background', _this._torch ? '#FFD43B' : '');
+                });
 
                 // 이동량 수정
                 $content.on('change input', '[data-q]', function () {
@@ -3484,6 +3697,10 @@
                     _this.stopCam();
                     _this.modal.close();
                 });
+                /* 헤더의 ✕ 나 ESC 로 닫는 경로도 있다.
+                   그때 카메라를 안 끄면 랜프가 켜진 채로 남는다. */
+                $content.closest('.ax5modal').on('remove', function () { _this.stopCam(); });
+                $(document).one('ax5modal-close.siCam', function () { _this.stopCam(); });
 
                 // 창고를 바꾸면 이미 담긴 로트는 의미가 달라진다
                 this.$from.on('change', function () {
@@ -3504,8 +3721,7 @@
                 const $content = $(tmpl('scanHistPopup', {}));
                 this.$content = $content;
                 this.modal = new PopupDraggable('바코드 불출 이력');
-                const sz = TabletUtil.size(900, 520);
-                this.modal.open({width: sz.width, height: sz.height, $content});
+                openPopup(this.modal, 900, 520, $content);
 
                 $content.find('#shFrom').val(CommonUtil.getYYYYMMDD(-7));
                 $content.find('#shTo').val(CommonUtil.getYYYYMMDD());
@@ -3551,13 +3767,13 @@
                     rows.forEach(function (r) {
                         const canceled = r.state === 'canceled';
                         html += '<tr' + (canceled ? ' class="si-row-zero"' : '') + '>'
-                            + '<td class="si-lot">' + esc(r.move_no || '') + '</td>'
-                            + '<td>' + (r.move_date || '') + ' ' + String(r.move_time || '').substring(0, 5) + '</td>'
-                            + '<td>' + esc(r.from_store || '') + ' → '
+                            + '<td class="si-lot" data-label="불출번호">' + esc(r.move_no || '') + '</td>'
+                            + '<td data-label="일시">' + (r.move_date || '') + ' ' + String(r.move_time || '').substring(0, 5) + '</td>'
+                            + '<td data-label="창고">' + esc(r.from_store || '') + ' → '
                             + esc(r.to_store || '') + '</td>'
-                            + '<td class="tar">' + (r.line_cnt || 0) + '</td>'
-                            + '<td class="tar">' + Number(r.total_qty || 0).toLocaleString() + '</td>'
-                            + '<td>' + esc(r.worker || '') + '</td>'
+                            + '<td class="tar" data-label="건수">' + (r.line_cnt || 0) + '</td>'
+                            + '<td class="tar" data-label="수량">' + Number(r.total_qty || 0).toLocaleString() + '</td>'
+                            + '<td data-label="작업자">' + esc(r.worker || '') + '</td>'
                             + '<td>' + (canceled
                                 ? '<span class="si-tag">취소됨</span>'
                                 : '<button type="button" class="si-del" data-cancel="' + r.move_id
@@ -3640,8 +3856,7 @@
                 const $content = $(tmpl('lotConfirmPopup', {}));
                 this.$content = $content;
                 this.modal = new PopupDraggable('불출 · 로트 배분 확인');
-                const sz = TabletUtil.size(860, 560);
-                this.modal.open({width: sz.width, height: sz.height, $content});
+                openPopup(this.modal, 860, 560, $content);
 
                 $content.find('#lcRoute').text(
                     (this.fromName || '출발') + ' → ' + (this.toName || '도착'));
@@ -3672,11 +3887,11 @@
                 } else {
                     this.rows.forEach(r => {
                         html += '<tr data-k="' + r.key + '">'
-                            + '<td>' + esc(r.mat_code || '') + '</td>'
-                            + '<td>' + esc(r.mat_name || '') + '</td>'
-                            + '<td class="si-lot">' + esc(r.lot_number || '') + '</td>'
-                            + '<td class="tar">' + Number(r.stock).toLocaleString() + '</td>'
-                            + '<td class="tar"><input type="number" class="si-qty" data-q="' + r.key
+                            + '<td data-label="품목코드">' + esc(r.mat_code || '') + '</td>'
+                            + '<td data-label="품목">' + esc(r.mat_name || '') + '</td>'
+                            + '<td class="si-lot" data-label="로트">' + esc(r.lot_number || '') + '</td>'
+                            + '<td class="tar" data-label="재고">' + Number(r.stock).toLocaleString() + '</td>'
+                            + '<td class="tar" data-label="이동량"><input type="number" class="si-qty" data-q="' + r.key
                             + '" value="' + r.qty + '" min="0" max="' + r.stock + '"/></td>'
                             + '<td><button type="button" class="si-del" data-del="' + r.key + '">✕</button></td>'
                             + '</tr>';
@@ -3760,8 +3975,9 @@
                 this.$content = $content;
 
                 this.modal = new PopupDraggable('불출 등록');
-                const sz = TabletUtil.size(880, 720);
-                this.modal.open({width: sz.width, height: sz.height, $content: $content});
+                /* 태블릿은 단계로 나누어 내용이 줄었으니 화면을 마음껏 쓴다.
+                   TabletUtil.size 가 어차피 92vh 로 깎는다. */
+                openPopup(this.modal, 880, 600, $content);
 
                 $content.find('#irDate').val(new Date().toISOString().substring(0, 10));
 
@@ -3860,13 +4076,13 @@
                     const left = Number(l.stock || 0) - used;
                     const dis = left <= 0;
                     html += '<tr' + (dis ? ' class="si-row-zero"' : '') + '>'
-                        + '<td><input type="checkbox" class="ir-chk" data-lot="' + l.mat_lot_id + '"'
+                        + '<td data-label="선택"><input type="checkbox" class="ir-chk" data-lot="' + l.mat_lot_id + '"'
                         + (dis ? ' disabled' : '') + '/></td>'
-                        + '<td class="si-lot">' + esc(l.lot_number || '')
+                        + '<td class="si-lot" data-label="로트">' + esc(l.lot_number || '')
                         + (l.effective_date ? '<span class="si-tag">~' + String(l.effective_date).substring(0, 10) + '</span>' : '')
                         + '</td>'
-                        + '<td class="tar">' + Number(left).toLocaleString() + '</td>'
-                        + '<td class="tar"><input type="number" class="si-qty" data-lotq="'
+                        + '<td class="tar" data-label="잔여">' + Number(left).toLocaleString() + '</td>'
+                        + '<td class="tar" data-label="담을 수량"><input type="number" class="si-qty" data-lotq="'
                         + l.mat_lot_id + '" min="0" max="' + left + '" value="'
                         + (left > 0 ? left : 0) + '"' + (dis ? ' disabled' : '') + '/></td>'
                         + '</tr>';
@@ -3921,11 +4137,11 @@
                 let html = '';
                 this.rows.forEach((r, i) => {
                     html += '<tr>'
-                        + '<td>' + (i + 1) + '</td>'
-                        + '<td>' + esc(r.mat_code || '') + '</td>'
-                        + '<td>' + esc(r.mat_name || '') + '</td>'
-                        + '<td class="si-lot">' + esc(r.lot_number || '') + '</td>'
-                        + '<td class="tar">' + Number(r.qty).toLocaleString() + '</td>'
+                        + '<td data-label="#">' + (i + 1) + '</td>'
+                        + '<td data-label="품목코드">' + esc(r.mat_code || '') + '</td>'
+                        + '<td data-label="품목">' + esc(r.mat_name || '') + '</td>'
+                        + '<td class="si-lot" data-label="로트">' + esc(r.lot_number || '') + '</td>'
+                        + '<td class="tar" data-label="불출량">' + Number(r.qty).toLocaleString() + '</td>'
                         + '<td><button type="button" class="si-del" data-irdel="' + r.key + '">✕</button></td>'
                         + '</tr>';
                 });

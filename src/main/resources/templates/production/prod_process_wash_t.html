@@ -100,10 +100,21 @@
         .wk .wkdel:active{background:var(--red);color:#fff}
         .emptybox{text-align:center;color:var(--ink-2);font-weight:700;padding:30px;border:1.5px dashed var(--line);border-radius:var(--r)}
         /* 바코드 연속 스캔 */
-        .scanwrap{position:relative;border-radius:16px;overflow:hidden;background:#0d1417;aspect-ratio:4/3;max-height:38dvh;margin-top:6px}
-        .scanwrap video{width:100%;height:100%;object-fit:cover;display:block}
-        .scanwrap .frame{position:absolute;inset:14% 8%;border:3px solid rgba(255,255,255,.85);border-radius:12px;box-shadow:0 0 0 100vmax rgba(0,0,0,.28)}
-        .scanwrap .frame.hit{border-color:#31C48D}
+        .scanwrap{position:relative;border-radius:16px;overflow:hidden;background:#0d1417;height:52dvh;margin-top:6px}
+        /* ★ object-fit 은 contain 이어야 한다.
+             BarcodeDetector 는 화면에 보이는 부분이 아니라 원본 프레임 전체를 훑는다.
+             cover 로 잘라 보여주면 눈에 안 보이는 바깥에서 인식이 되어
+             조준틀 안에 맞춰도 반응이 없는 것처럼 느껴진다.
+             contain 은 검출기가 보는 것을 그대로 보여주므로,
+             카메라가 기기 모서리에 붙어 생기는 시차도 눈으로 보고 보정할 수 있다. */
+        .scanwrap video{width:100%;height:100%;object-fit:contain;display:block}
+        /* 조준틀은 «이 안에만» 이 아니라 «인식 중» 표시다 — 가장자리에만 두른다 */
+        .scanwrap .frame{position:absolute;inset:0;border:3px solid rgba(255,255,255,.35);border-radius:16px;pointer-events:none;transition:border-color .15s,box-shadow .15s}
+        .scanwrap .frame.hit{border-color:#31C48D;box-shadow:inset 0 0 0 4px rgba(49,196,141,.35)}
+        .scanwrap .tools{position:absolute;right:10px;top:10px;display:flex;gap:8px;align-items:center}
+        .scanwrap .tools input[type=range]{width:120px}
+        .scanwrap .tools button{height:38px;padding:0 12px;border-radius:10px;border:0;background:#fff;font-weight:800;cursor:pointer}
+        @media (orientation:landscape){ .scanwrap{height:46dvh} }
         .scanwrap .msg{position:absolute;left:0;right:0;bottom:0;padding:10px 14px;background:rgba(13,20,23,.72);color:#fff;font-weight:800;font-size:13.5px;text-align:center}
         .scanlist{display:flex;flex-direction:column;gap:8px;max-height:26dvh;overflow:auto;margin-top:10px}
         .scanrow{display:flex;align-items:center;gap:10px;padding:11px 13px;border:1px solid var(--line);border-radius:13px;background:var(--surface)}
@@ -265,15 +276,22 @@
             <div class="sh"><h3>바코드 스캔</h3><button class="x" data-close>✕</button></div>
             <div class="fieldlab">라벨을 비추면 자동으로 담깁니다 · 계속 찍으세요</div>
             <div class="scanwrap" id="scanWrap">
-                <video id="scanVideo" playsinline muted></video>
+                <video id="scanVideo" playsinline muted autoplay></video>
                 <div class="frame" id="scanFrame"></div>
+                <div class="tools">
+                    <input type="range" id="scanZoom" style="display:none"/>
+                    <button id="scanTorch" style="display:none">🔦</button>
+                </div>
                 <div class="msg" id="scanMsg">카메라 준비 중…</div>
             </div>
+            <div class="scanlist" id="scanList"></div>
+            <!-- 직접 입력은 맨 아래로. 평소엔 카메라·스캐너로 끝나고,
+                 라벨이 훼손됐을 때만 쓰는 예비 수단이다.
+                 (블루투스 스캐너도 이 칸으로 받으므로 지우지는 않는다) -->
             <div class="scanmanual">
-                <input id="scanManual" placeholder="라벨 번호 직접 입력" autocomplete="off"/>
+                <input id="scanManual" placeholder="라벨이 안 읽힐 때 · 번호 직접 입력" autocomplete="off"/>
                 <button id="scanManualBtn">담기</button>
             </div>
-            <div class="scanlist" id="scanList"></div>
             <button class="ok" id="scanDone">담기 완료</button>
         </div></div></div>
 
@@ -305,6 +323,7 @@
 </th:block>
 
 <th:block layout:fragment="scripts">
+    <script type="text/javascript" th:src="@{/js/barcode_cam.js}"></script>
     <script th:inline="none">
         /* ── 높이 자동 맞춤 (원본 유지) ── */
         (function () {
@@ -390,7 +409,8 @@
         const CTX = Object.assign({
             spjangcd: 'ZZ',
             factoryId: '',        // 공장 여러 개일 때만
-            dayRange: 30          // 날짜 카드 조회 범위(일)
+            dayRange: 30,         // 날짜 카드 조회 범위(일)
+            prodStoreId: 17       // 생산창고 — 세척은 여기 있는 로트만 다룬다
         }, window.WASH_CTX || {});
 
         let WASH_WC = null;       // 세척 워크센터 id — boot 시 /context 로 채움
@@ -848,8 +868,10 @@
              30개들이 박스 두 개를 찍으면 60 이 된다.
            ══════════════════════════════════════════════════════════════════ */
         const LOT_API = '/api/lot/lot_tracking/lot_detail';
+        /* 자재투입(불출) 화면과 같은 조회. 「그 창고에 지금 있는 로트」를 돌려준다. */
+        const LOT_IN_STORE_API = '/api/inventory/move_scan/lot_lookup';
 
-        let scanStream = null, scanDet = null, scanTimer = null, scanBusy = false;
+        let scanCam = null;      // BarcodeCam 인스턴스 (열기/닫기/줌/토치)
         let scanSeen = {};        // key(로트|품목) → {…, item_id}
         let lastCode = '', lastAt = 0;
 
@@ -898,6 +920,27 @@
 
             if (!rows.length) return {err: '등록되지 않은 라벨입니다', lot: key};
             const hit = rows[0];
+            const lotNo = hit.LotNumber || key;
+
+            /* ★ 생산창고에 있는 로트인지 확인한다.
+                 lot_detail 은 로트가 «존재하는가»만 답한다 — 어느 창고에 있는지는
+                 보지 않는다. 그래서 자재창고에 그대로 있는 로트를 찍어도 통과했다.
+                 세척은 생산창고로 «불출된» 자재를 쓰는 공정이므로,
+                 불출 전 로트가 담기면 장부와 실물이 어긋난다.
+                 자재투입 화면과 같은 조회로 「지금 그 창고에 있는지」를 묻는다. */
+            let inStore = [];
+            try {
+                const c = AjaxUtil.getSyncData(LOT_IN_STORE_API, {
+                    from_store: CTX.prodStoreId, lot: lotNo, spjangcd: CTX.spjangcd
+                }) || {};
+                inStore = (c.data && c.data.lots) || [];
+            } catch (e) {
+                return {err: '창고 재고 확인 실패', lot: lotNo};
+            }
+            if (!inStore.length) {
+                return {err: '생산창고에 없는 로트입니다 — 자재 불출을 먼저 하세요',
+                    lot: lotNo};
+            }
 
             /* 세척 대상 목록에서 같은 품목을 찾는다.
                lot_detail 에 mat_id 가 없으면 품목명으로 맞춘다(폴백). */
@@ -910,11 +953,17 @@
                     lot: hit.LotNumber || key};
             }
 
-            const remain = num(hit.CurrentStock);
+            /* ★ 수량은 «생산창고» 잔량이다.
+                 hit.CurrentStock 은 전 창고 합계라, 자재창고에 남은 몫까지
+                 포함되어 실제로 쓸 수 있는 양보다 크게 나온다. */
+            const remain = inStore.reduce((a, l) => a + num(l.stock), 0);
+            if (remain <= 0) {
+                return {err: '생산창고 재고가 0 인 로트입니다', lot: lotNo};
+            }
             return {
                 mat_id: target.mat_id, name: target.name, code: target.code,
-                lot: hit.LotNumber || key,
-                qty: remain > 0 ? remain : num(hit.InputQty),   // 로트 잔량 = 이 박스에서 쓸 수 있는 전량
+                lot: lotNo,
+                qty: remain,           // 이 박스에서 쓸 수 있는 전량
                 remain: remain,
                 expiry: hit.EffectiveDate || null
             };
@@ -949,9 +998,9 @@
             const row = {
                 mat_id: res.mat_id, name: res.name, code: res.code, lot: res.lot,
                 qty: add, hits: 1, item_id: null,
-                /* 장부상 이미 소진된 로트 — 앞선 세척에서 FIFO 가 이 로트를 대신 뺐다는 뜻.
-                   담는 것은 막지 않는다. 실물이 손에 있는데 못 담게 하면 현장이 멈춘다. */
-                warn: (res.remain <= 0) ? '장부상 소진된 로트' : null,
+                /* 생산창고 잔량이 0 이면 resolveScan 이 이미 걸러낸다.
+                   여기 남는 것은 「쓸 수 있는 로트」뿐이다. */
+                warn: null,
                 expiry: res.expiry
             };
             scanSeen[k] = row;
@@ -1021,68 +1070,62 @@
             showMask('scanMask');
             scanMsg('카메라 준비 중…');
 
-            if (!('BarcodeDetector' in window)) {
-                scanMsg('이 브라우저는 카메라 인식을 지원하지 않습니다 — 아래에 직접 입력하세요');
+            /* 카메라는 BarcodeCam 공통 모듈에 맡긴다.
+               시트(껍데기)는 이 화면 것을 그대로 쓰고, 안쪽만 공유한다. */
+            const chk = BarcodeCam.check();
+            if (!chk.ok) {
+                scanMsg(chk.msg.split('\n')[0] + ' — 아래에 직접 입력하세요');
                 document.getElementById('scanWrap').style.display = 'none';
                 return;
             }
-            try {
-                scanDet = new window.BarcodeDetector({
-                    formats: ['code_128', 'code_39', 'ean_13', 'ean_8', 'qr_code', 'data_matrix', 'itf']
+            document.getElementById('scanWrap').style.display = '';
+
+            if (!scanCam) {
+                scanCam = BarcodeCam.create({
+                    video: document.getElementById('scanVideo'),
+                    continuous: true,          // 세척은 여러 자재를 연달아 찍는다
+                    onScan(raw) {
+                        const fr = document.getElementById('scanFrame');
+                        fr.classList.add('hit');
+                        setTimeout(() => fr.classList.remove('hit'), 350);
+                        scanHit(raw);
+                    },
+                    onStatus: scanMsg,
+                    onError(m) { scanMsg(m.split('\n')[0] + ' — 아래에 직접 입력하세요'); }
                 });
-                scanStream = await navigator.mediaDevices.getUserMedia({
-                    video: {facingMode: 'environment', width: {ideal: 1280}}
-                });
-                const v = document.getElementById('scanVideo');
-                v.srcObject = scanStream;
-                await v.play();
-                scanMsg('라벨을 비추세요');
-                scanLoop();
-            } catch (e) {
-                console.error('[scan]', e);
-                scanMsg('카메라를 열 수 없습니다 — 아래에 직접 입력하세요');
             }
+            await scanCam.start();
+            syncScanTools();
         }
 
-        function scanLoop() {
-            clearTimeout(scanTimer);
-            scanTimer = setTimeout(async () => {
-                const mask = document.getElementById('scanMask');
-                if (!mask.classList.contains('show')) return;   // 닫혔으면 멈춘다
-                if (!scanBusy && scanDet) {
-                    scanBusy = true;
-                    try {
-                        const v = document.getElementById('scanVideo');
-                        const found = await scanDet.detect(v);
-                        if (found && found.length) {
-                            const code = found[0].rawValue || '';
-                            const now = Date.now();
-                            /* 같은 값이 연속으로 잡힌다 — 2.5초는 무시한다 */
-                            if (code && !(code === lastCode && now - lastAt < 2500)) {
-                                lastCode = code; lastAt = now;
-                                const fr = document.getElementById('scanFrame');
-                                fr.classList.add('hit');
-                                setTimeout(() => fr.classList.remove('hit'), 350);
-                                scanHit(code);
-                            }
-                        }
-                    } catch (e) { /* 프레임 실패는 무시하고 다음 프레임 */ }
-                    scanBusy = false;
-                }
-                scanLoop();
-            }, 220);
+        /* 줌·토치 — 기기가 지원할 때만 낸다 */
+        function syncScanTools() {
+            if (!scanCam) return;
+            const r = scanCam.zoomRange();
+            const z = document.getElementById('scanZoom');
+            const t = document.getElementById('scanTorch');
+            if (z) {
+                z.style.display = r ? '' : 'none';
+                if (r) { z.min = r.min; z.max = r.max; z.step = r.step || 0.1; z.value = r.min; }
+            }
+            if (t) t.style.display = scanCam.canTorch() ? '' : 'none';
         }
 
         function closeScan() {
-            clearTimeout(scanTimer);
-            scanTimer = null;
-            if (scanStream) {
-                scanStream.getTracks().forEach(t => t.stop());
-                scanStream = null;
-            }
-            const v = document.getElementById('scanVideo');
-            if (v) v.srcObject = null;
+            if (scanCam) scanCam.stop();
         }
+
+        (function () {
+            const z = document.getElementById('scanZoom');
+            const t = document.getElementById('scanTorch');
+            let on = false;
+            if (z) z.addEventListener('input', () => scanCam && scanCam.zoom(+z.value));
+            if (t) t.addEventListener('click', () => {
+                on = !on;
+                if (scanCam) scanCam.torch(on);
+                t.style.background = on ? '#FFD43B' : '#fff';
+            });
+        })();
 
         document.getElementById('scanManualBtn').onclick = () => {
             const el = document.getElementById('scanManual');
@@ -1416,7 +1459,9 @@
                     + 'color:var(--ink-2,#5b6570);font-size:19px;font-weight:800;line-height:1;'
                     + 'cursor:pointer;touch-action:manipulation;'
                     + '-webkit-user-select:none;user-select:none';
-                b.addEventListener('click', function () { run(b); });
+                b.addEventListener('click', function () {
+                    run(b);
+                });
                 h.appendChild(b);
             });
         })();
@@ -1425,6 +1470,7 @@
             var el = document.getElementById(id);
             return !!el && !el.classList.contains('hide');
         }
+
         function maskOn(id) {
             var el = document.getElementById(id);
             return !!el && el.classList.contains('show');

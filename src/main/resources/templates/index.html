@@ -447,6 +447,7 @@
                                 <a id="confirmAllAlarms" class="btn-gray">전체확인</a>
                                 <a href="#" class="btn-gray" onclick="openSendModal()">메시지</a>
                                 <a href="#" class="btn-gray" onclick="openHistoryModal()">이력</a>
+                                <a href="#" class="btn-gray" id="btnPushToggle">기기 알림</a>
                             </div>
 
                         </div>
@@ -581,6 +582,7 @@
 <script th:src="@{/js/yumenu.js}"></script>
 <script th:src="@{/js/yuscript.js}"></script>
 <script th:src="@{/js/ax5commUtil.js}"></script>
+<script th:src="@{/js/push.js}"></script>
 
 <script type="text/javascript">
     let nthTabs = null;
@@ -2565,6 +2567,16 @@
         // ✅ 여기서 무조건 1회 연결
         if (finalSpjangcd) {
             sseConnect();
+
+            // ★ 웹 푸시 — GET 이다
+            try {
+                var pk = AjaxUtil.getSyncData('/api/push/key', {});
+                if (pk && pk.data && pk.data.enabled) {
+                    window.PUSH_PUBLIC_KEY = pk.data.publicKey;
+                    PushClient.boot();
+                    syncPushBtn();
+                }
+            } catch (e) { console.warn('[push] key', e); }
         }
     });
 
@@ -2676,6 +2688,25 @@
         const delay = reconnectAttempts === 1 ? 1000 : Math.min(10000, 1000 * reconnectAttempts);
         reconnectTimeout = setTimeout(connectWS, delay);
     }
+
+    // ★ 기기 알림 토글
+    function syncPushBtn() {
+        var $b = $('#btnPushToggle');
+        if (!$b.length) return;
+        if (!PushClient.supported()) { $b.text('알림 미지원').css('opacity', .5); return; }
+        PushClient.isSubscribed(function (on) {
+            $b.text(on ? '기기 알림 ON' : '기기 알림 OFF');
+            $b.css('color', on ? '#1a73e8' : '');
+        });
+    }
+
+    $(document).on('click', '#btnPushToggle', function (e) {
+        e.preventDefault();
+        PushClient.isSubscribed(function (on) {
+            if (on) PushClient.disable(function () { syncPushBtn(); });
+            else    PushClient.enable(function () { syncPushBtn(); });
+        });
+    });
 
 </script>
 
@@ -2830,6 +2861,33 @@
             return (window.scrollY || se.scrollTop || 0) <= 0;
         }
 
+        /* ★ 손가락이 «자체 스크롤 영역» 안에서 시작했는지 본다.
+
+             예전에는 페이지 스크롤(window.scrollY)만 보고 판단했다.
+             그런데 메뉴·알림 드롭다운·모달은 각자 overflow-y:auto 를 가진
+             별도 스크롤 영역이다. 그 안을 만져도 window.scrollY 는 0 이라
+             당겨서 새로고침으로 인식됐고, touchmove 의 preventDefault 가
+             정작 그 영역의 스크롤을 막아 버렸다.
+
+             닿은 지점에서 위로 올라가며 스크롤 가능한 조상을 찾는다.
+             하나라도 있으면 새로고침 제스처를 시작하지 않는다 —
+             셀렉터를 박아두지 않으므로 나중에 스크롤 영역이 늘어나도 따라온다. */
+        function inScrollable(el) {
+            const root = document.scrollingElement || document.documentElement;
+            for (let n = el; n && n !== document.body && n !== root; n = n.parentElement) {
+                if (n.nodeType !== 1) continue;
+                if (n.hasAttribute('data-ptr-ignore')) return true;   // 수동 제외
+                const st = getComputedStyle(n);
+                const oy = st.overflowY;
+                const scrollable = (oy === 'auto' || oy === 'scroll' || oy === 'overlay');
+                /* 실제로 넘칠 때만 «스크롤 영역»이다.
+                   overflow:auto 만 걸려 있고 내용이 짧으면 스크롤할 게 없으니
+                   그런 요소까지 막으면 새로고침이 안 되는 자리가 생긴다. */
+                if (scrollable && n.scrollHeight > n.clientHeight + 1) return true;
+            }
+            return false;
+        }
+
         // 알림 모달/드롭다운이 열려 있으면 새로고침 제스처 무시
         function blocked() {
             const tc = document.getElementById("toastContainer");
@@ -2846,7 +2904,8 @@
         }
 
         window.addEventListener("touchstart", function (e) {
-            if (e.touches.length !== 1 || blocked() || !atTop()) {
+            if (e.touches.length !== 1 || blocked() || !atTop()
+                || inScrollable(e.target)) {
                 pulling = false;
                 return;
             }

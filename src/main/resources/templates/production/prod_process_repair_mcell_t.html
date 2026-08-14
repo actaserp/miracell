@@ -263,7 +263,11 @@
 
             <!-- 카메라 스캔 -->
             <div id="regCamBox" style="display:none;position:relative;margin-top:10px;background:#000;border-radius:14px;overflow:hidden">
-                <video id="regVideo" playsinline muted style="width:100%;max-height:34dvh;object-fit:cover;display:block"></video>
+                <video id="regVideo" playsinline muted autoplay style="width:100%;height:46dvh;object-fit:contain;display:block"></video>
+                <div style="position:absolute;right:10px;top:10px;display:flex;gap:8px;align-items:center">
+                    <input type="range" id="regZoom" style="display:none;width:120px"/>
+                    <button class="opt" id="regTorch" style="display:none;height:38px;background:#fff">🔦</button>
+                </div>
                 <div style="position:absolute;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px;background:rgba(0,0,0,.55);color:#fff;font-weight:700">
                     <span id="regCamMsg">라벨을 비추세요</span>
                     <button class="opt" id="regCamStop" style="height:38px;background:#fff">닫기</button>
@@ -287,6 +291,7 @@
 </th:block>
 
 <th:block layout:fragment="scripts">
+    <script type="text/javascript" th:src="@{/js/barcode_cam.js}"></script>
     <script th:inline="none">
         /* ── 화면 높이 맞춤 (조립·검사 화면과 동일) ───────────────── */
         (function () {
@@ -1159,94 +1164,71 @@
             };
 
             /* ── 바코드 카메라 스캔 (접수 로트) ──────────────────────
-               세척 화면과 같은 방식: BarcodeDetector 로 프레임을 훑는다.
-               다른 점은 여기가 단발 스캔이라는 것 — 하나 잡히면 바로 닫고
-               조회까지 태운다. 접수는 로트 하나를 지목하는 일이라 연속 스캔이 없다.
+               BarcodeCam 공통 모듈에 위임한다. 자재투입·세척과 같은 엔진이고,
+               다른 점은 여기가 단발(continuous:false)이라는 것 —
+               접수는 로트 하나를 지목하는 일이라 연속 스캔이 필요 없다.   */
+            var regCam = null;
 
-               ★ 지원될 때만 버튼을 노출한다. 안드로이드 크롬은 되고
-                 아이패드 사파리는 안 된다. 기기 판별 대신 이 조건 하나로 갈린다.
-               ★ HTTPS 가 아니면 getUserMedia 자체가 없다.                        */
-            var camStream = null, camTimer = null, camDet = null;
-
-            if (window.BarcodeDetector && navigator.mediaDevices
-                && navigator.mediaDevices.getUserMedia) {
-                document.getElementById('regScan').style.display = '';
-            }
-
-            /* GS1-128 에서 로트(AI 10)만 뽑는다. 자사 발행 Code128 은 값이 곧 로트번호라
-               파싱에 걸리지 않고 원문 그대로 내려간다. */
-            function lotFromScan(raw) {
-                if (!raw) return '';
-                var s = String(raw).trim();
-
-                if (s.indexOf('(') >= 0) {                       // (01)...(10)... 표기
-                    var m = /\(10\)([^(]*)/.exec(s);
-                    return m ? m[1].trim() : s;
-                }
-                if (!/^\d/.test(s)) return s;                    // 숫자로 시작하지 않으면 자사 로트
-
-                var FIXED = {'01': 14, '11': 6, '15': 6, '17': 6, '13': 6};
-                var i = 0, guard = 0;
-                while (i < s.length && guard++ < 40) {
-                    var ai = s.substr(i, 2);
-                    if (!/^\d{2}$/.test(ai)) break;
-                    i += 2;
-                    var val;
-                    if (FIXED[ai] !== undefined) { val = s.substr(i, FIXED[ai]); i += FIXED[ai]; }
-                    else {
-                        var gs = s.indexOf('\u001D', i);
-                        val = (gs >= 0) ? s.substring(i, gs) : s.substring(i);
-                        i = (gs >= 0) ? gs + 1 : s.length;
-                    }
-                    if (ai === '10') return val.replace(/\u001D/g, '').trim();
-                }
-                return s;
-            }
+            /* 버튼은 언제나 보인다. 예전에는 지원될 때만 노출했는데,
+               사내망(http)으로 접속한 태블릿은 버튼 자체가 없어서
+               「왜 안 보이지」로 끝났다. 누르면 이유를 말해주는 편이 낫다. */
+            document.getElementById('regScan').style.display = '';
 
             function stopCam() {
-                if (camTimer) { clearInterval(camTimer); camTimer = null; }
-                if (camStream) { camStream.getTracks().forEach(function (t) { t.stop(); }); camStream = null; }
-                camDet = null;
+                if (regCam) regCam.stop();
                 document.getElementById('regCamBox').style.display = 'none';
+                syncCamTools();
+            }
+
+            function syncCamTools() {
+                var z = document.getElementById('regZoom');
+                var t = document.getElementById('regTorch');
+                var r = regCam && regCam.isRunning() ? regCam.zoomRange() : null;
+                if (z) {
+                    z.style.display = r ? '' : 'none';
+                    if (r) { z.min = r.min; z.max = r.max; z.step = r.step || 0.1; z.value = r.min; }
+                }
+                if (t) t.style.display = (regCam && regCam.isRunning() && regCam.canTorch()) ? '' : 'none';
             }
 
             document.getElementById('regScan').addEventListener('click', function () {
                 var box = document.getElementById('regCamBox');
-                if (box.style.display !== 'none') { stopCam(); return; }
+                if (regCam && regCam.isRunning()) { stopCam(); return; }   // 토글
 
-                camDet = new window.BarcodeDetector({
-                    formats: ['code_128', 'code_39', 'ean_13', 'ean_8',
-                        'qr_code', 'data_matrix', 'itf', 'codabar']
-                });
-                navigator.mediaDevices.getUserMedia({
-                    video: {facingMode: 'environment', width: {ideal: 1280}}
-                }).then(function (st) {
-                    camStream = st;
-                    var v = document.getElementById('regVideo');
-                    v.srcObject = st;
-                    v.play();
-                    box.style.display = '';
-                    document.getElementById('regCamMsg').textContent = '라벨을 비추세요';
-
-                    camTimer = setInterval(function () {
-                        if (!camDet || v.readyState < 2) return;
-                        camDet.detect(v).then(function (codes) {
-                            if (!codes || !codes.length) return;
-                            var lot = lotFromScan(codes[0].rawValue);
-                            if (!lot) return;
-                            if (navigator.vibrate) navigator.vibrate(40);
-                            document.getElementById('regLot').value = lot.toUpperCase();
-                            stopCam();
+                if (!regCam) {
+                    regCam = BarcodeCam.create({
+                        video: document.getElementById('regVideo'),
+                        /* ★ 접수는 로트 하나를 지목하는 일이다 — 단발.
+                             하나 잡으면 모듈이 스스로 닫고, 여기서 조회까지 태운다. */
+                        continuous: false,
+                        onScan: function (raw, info) {
+                            var lot = (info && info.lot) || raw;
+                            document.getElementById('regLot').value = String(lot).toUpperCase();
+                            box.style.display = 'none';
+                            syncCamTools();
                             doFind();                     // 스캔 → 조회까지 한 번에
-                        }).catch(function () { /* 프레임 하나 실패는 무시 */ });
-                    }, 220);
-                }).catch(function () {
-                    flash('카메라를 열 수 없습니다 (권한·HTTPS 확인)');
-                    stopCam();
+                        },
+                        onStatus: function (m) { document.getElementById('regCamMsg').textContent = m; },
+                        onError: function (m) { flash(m.split('\n')[0]); stopCam(); }
+                    });
+                }
+                box.style.display = '';
+                regCam.start().then(function (ok) {
+                    if (!ok) { box.style.display = 'none'; return; }
+                    syncCamTools();
                 });
             });
 
             document.getElementById('regCamStop').addEventListener('click', stopCam);
+            (function () {
+                var z = document.getElementById('regZoom'), t = document.getElementById('regTorch'), on = false;
+                if (z) z.addEventListener('input', function () { regCam && regCam.zoom(+z.value); });
+                if (t) t.addEventListener('click', function () {
+                    on = !on;
+                    if (regCam) regCam.torch(on);
+                    t.style.background = on ? '#FFD43B' : '#fff';
+                });
+            })();
 
             /* ── 토스트 ────────────────────────────────────────── */
             var tT;

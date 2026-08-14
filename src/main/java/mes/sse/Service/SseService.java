@@ -1,6 +1,7 @@
 package mes.sse.Service;
 
 import lombok.RequiredArgsConstructor;
+import mes.app.push.PushService;
 import mes.domain.entity.Notification;
 import mes.sse.Transaction.SseSubject;
 import org.springframework.stereotype.Service;
@@ -10,6 +11,7 @@ import org.springframework.stereotype.Service;
 public class SseService {
 
     private final SseSubject subject;
+    private final PushService pushService;   // ★ 추가
 
     /** 시스템 공지 */
     public void sendSystem(String spjangcd, String message) {
@@ -24,6 +26,7 @@ public class SseService {
                 "NOTIFICATION",
                 noti
         );
+        pushService.sendAsync(noti);         // ★ 추가
     }
 
     /** 답장 */
@@ -34,5 +37,6 @@ public class SseService {
                 "COMMENT",
                 comment
         );
+        pushService.sendAsync(comment);      // ★ 추가 — 「메시지」가 이 경로를 탄다
     }
 }
