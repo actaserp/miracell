@@ -398,6 +398,7 @@
             flash('AjaxUtil 미로드 — 공용 스크립트 로드 순서를 확인하세요');
             return {};
         }
+
         function apiPost(path, params, cb) {
             if (typeof AjaxUtil !== 'undefined' && AjaxUtil.postAsyncData) {
                 AjaxUtil.postAsyncData(BASE + path, params || {}, function (r) {
@@ -419,8 +420,10 @@
             const r = AjaxUtil.getSyncData('/api/common/combo', {
                 combo_type: comboType, cond1: cond1 || '', cond2: cond2 || '', cond3: cond3 || ''
             }) || {};
-            return (r.data || []).map(x => ({value: x.value, text: x.text, code: x.Code || '',
-                factory: String(x.Factory_id || x.factory_id || '')}));
+            return (r.data || []).map(x => ({
+                value: x.value, text: x.text, code: x.Code || '',
+                factory: String(x.Factory_id || x.factory_id || '')
+            }));
         }
 
         /* ── 기준 데이터 ── */
@@ -478,7 +481,9 @@
             });
             return (r.data || []).map(b => ({
                 mat_id: b.mat_id, code: b.mat_code, name: b.mat_name,
-                per: num(b.per) || 1, qty: 0, manual: false, stock: num(b.stock), store: b.src_store_name || '재고'
+                per: num(b.per) || 1, qty: 0, manual: false, stock: num(b.stock), store: b.src_store_name || '재고',
+                // FIFO 앞줄 로트 예고(세척일자 포함). 실제 차감은 차수 완료 시 확정된다.
+                nextLots: b.next_lots || ''
             }));
         }
 
@@ -583,7 +588,10 @@
             const r = apiGet('/consumed_inputs', {mp_id: mpId});
             return (r.data || []).map(c => ({
                 mat_id: c.mat_id, code: c.mat_code, name: c.mat_name,
-                unit: c.unit || '', qty: num(c.consumed_qty), lots: c.lots || '',
+                unit: c.unit || '', qty: num(c.consumed_qty),
+                // 세척을 거친 자재는 로트 뒤에 세척일자가 붙는다(lots_wash).
+                // 구매품처럼 세척 이력이 없으면 서버가 로트만 돌려주므로 lots 와 같아진다.
+                lots: c.lots_wash || c.lots || '',
                 store: c.store || '', mat_type: c.mat_type || 'raw',
                 readonly: true, manual: false, per: 1, stock: 0
             }));
@@ -803,7 +811,7 @@
                 const need = bomQ(b, it.qty);
                 const short = b.stock < need;
                 return `<div class="brow">
-          <div class="bid"><div class="bn">${b.name}</div><div class="bc">${b.code}</div></div>
+          <div class="bid"><div class="bn">${b.name}</div><div class="bc">${b.code}${b.nextLots ? ' · 예정 ' + b.nextLots : ''}</div></div>
           <span class="autotag">${auto ? '자동' : '수정'}</span>
           <span class="bstock" style="font-size:11px;font-weight:800;white-space:nowrap;margin-right:4px;color:${short ? '#d33' : 'var(--ink-2)'}">${b.store || '재고'} ${b.stock}</span>
           <div class="bstep" data-bstep="${i}_${bi}"><button class="minus">−</button>
@@ -937,7 +945,10 @@
 
         /* 용기 작업시작 = wait→working (item_start, mp_id). BOM 편집 유지 위해 리로드 안 함 */
         function startVessel(it) {
-            if (!it.mp_id) { flash('담기 정보가 없습니다. 다시 담아주세요'); return; }
+            if (!it.mp_id) {
+                flash('담기 정보가 없습니다. 다시 담아주세요');
+                return;
+            }
             apiPost('/item_start', {
                 mp_id: it.mp_id, qty: it.qty || 0, defect_qty: it.defQty || 0,
                 bom_json: JSON.stringify(it.bom.map(b => ({matId: b.mat_id, qty: bomQ(b, it.qty)}))),
@@ -956,7 +967,10 @@
 
         /* 용기 완료 = 시작된 차수(mp_id) 확정 + BOM 소비 + 반제품 입고 */
         function finishVessel(it) {
-            if (!it.mp_id) { flash('담기 정보가 없습니다. 다시 담아주세요'); return; }
+            if (!it.mp_id) {
+                flash('담기 정보가 없습니다. 다시 담아주세요');
+                return;
+            }
             apiPost('/item_finish', {
                 mp_id: it.mp_id,
                 good_qty: it.qty,
@@ -1101,12 +1115,15 @@
                 if (it.mp_id) {
                     apiPost('/item_delete', {mp_id: it.mp_id}, () => {
                         curC.items.splice(waitIdx, 1);
-                        openVesSheet(); renderItems(); refreshDays();
+                        openVesSheet();
+                        renderItems();
+                        refreshDays();
                         flash('용기 담기 취소');
                     });
                 } else {
                     curC.items.splice(waitIdx, 1);
-                    openVesSheet(); renderItems();
+                    openVesSheet();
+                    renderItems();
                     flash('용기 담기 취소');
                 }
                 return;
@@ -1321,13 +1338,22 @@
             <button id="confirmOk" style="flex:1;height:52px;border-radius:14px;border:none;background:#d33;color:#fff;font-weight:800;font-size:16px">삭제</button>
           </div></div>`;
                 document.body.appendChild(m);
-                m.addEventListener('click', e => { if (e.target === m) m.style.display = 'none'; });
+                m.addEventListener('click', e => {
+                    if (e.target === m) m.style.display = 'none';
+                });
             }
             m.querySelector('#confirmMsg').textContent = msg;
             const ok = m.querySelector('#confirmOk'), cancel = m.querySelector('#confirmCancel');
             ok.textContent = okLabel || '삭제';   // 라벨 미지정 시 항상 '삭제'로 리셋(재사용 모달 라벨 잔존 방지)
-            const close = () => { m.style.display = 'none'; ok.onclick = null; cancel.onclick = null; };
-            ok.onclick = () => { close(); onOk && onOk(); };
+            const close = () => {
+                m.style.display = 'none';
+                ok.onclick = null;
+                cancel.onclick = null;
+            };
+            ok.onclick = () => {
+                close();
+                onOk && onOk();
+            };
             cancel.onclick = close;
             m.style.display = 'flex';
         }
@@ -1373,7 +1399,10 @@
             }
             mn.dataset.vi = String(vi);
             mn.innerHTML = `<button data-menudel="${vi}" style="width:100%;display:flex;align-items:center;gap:8px;text-align:left;padding:13px 14px;border:none;border-radius:10px;background:none;color:#d33;font-weight:800;font-size:15px">🗑 이 용기 삭제</button>`;
-            mn.querySelector('[data-menudel]').onclick = () => { mn.style.display = 'none'; deleteVessel(vi); };
+            mn.querySelector('[data-menudel]').onclick = () => {
+                mn.style.display = 'none';
+                deleteVessel(vi);
+            };
             mn.style.display = 'block';
             const r = btn.getBoundingClientRect();
             const mw = mn.offsetWidth || 160, mh = mn.offsetHeight || 56;
@@ -1405,23 +1434,32 @@
             const v = document.getElementById('dFrom').value;
             return v || shiftDay(todayStr(), -CTX.dayRange);
         }
+
         function dateTo() {
             const v = document.getElementById('dTo').value;
             return v || todayStr();
         }
+
         function initDates() {
             const t = todayStr();
             const f = document.getElementById('dFrom'), o = document.getElementById('dTo');
             if (!f.value) f.value = shiftDay(t, -CTX.dayRange);
             if (!o.value) o.value = t;
         }
+
         document.getElementById('btnSearch').addEventListener('click', function () {
-            if (dateFrom() > dateTo()) { flash('시작일이 종료일보다 늦습니다'); return; }
+            if (dateFrom() > dateTo()) {
+                flash('시작일이 종료일보다 늦습니다');
+                return;
+            }
             refreshDays();
         });
         document.querySelectorAll('#dFrom,#dTo').forEach(function (el) {
             el.addEventListener('keydown', function (e) {
-                if (e.key === 'Enter') { e.preventDefault(); document.getElementById('btnSearch').click(); }
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    document.getElementById('btnSearch').click();
+                }
             });
         });
 
@@ -1468,12 +1506,14 @@
             return (r.data || []).map(function (x) {
                 return {
                     value: x.value,
-                    text : x.text,
-                    code : x.code || x.Code || '',
+                    text: x.text,
+                    code: x.code || x.Code || '',
                     factory: String(x.Factory_id != null ? x.Factory_id
                         : (x.factory_id != null ? x.factory_id : ''))
                 };
-            }).filter(function (w) { return w.value != null && w.text; });
+            }).filter(function (w) {
+                return w.value != null && w.text;
+            });
         }
 
         function fetchWorkerRows() {
@@ -1481,7 +1521,11 @@
 
             /* ① 공용 콤보 (기본 경로) */
             var list = [];
-            try { list = comboPerson(WORKER_FACTORY_ID); } catch (e) { list = []; }
+            try {
+                list = comboPerson(WORKER_FACTORY_ID);
+            } catch (e) {
+                list = [];
+            }
 
             /* ② 콤보가 비면 공정 전용 /workers 로 폴백 (포장처럼 자체 엔드포인트가 있는 화면용) */
             if (!list.length) {
@@ -1492,32 +1536,42 @@
                         spjangcd: (typeof CTX !== 'undefined' && CTX && CTX.spjangcd) ? CTX.spjangcd : 'ZZ'
                     }) || {};
                     rows = r.data || (Array.isArray(r) ? r : []);
-                } catch (e2) { rows = []; }
+                } catch (e2) {
+                    rows = [];
+                }
                 if (!Array.isArray(rows)) rows = [];
                 list = rows.map(function (w) {
                     var id = (w.worker_id != null) ? w.worker_id
-                        : (w.actor_id  != null) ? w.actor_id
+                        : (w.actor_id != null) ? w.actor_id
                             : (w.person_id != null) ? w.person_id
                                 : (w.id != null) ? w.id : w.value;
                     return {
                         value: id,
-                        text : w.name || w.actor_name || w.text || '',
-                        code : w.code || '',
+                        text: w.name || w.actor_name || w.text || '',
+                        code: w.code || '',
                         factory: String(w.factory_id != null ? w.factory_id
                             : (w.Factory_id != null ? w.Factory_id : ''))
                     };
-                }).filter(function (w) { return w.value != null && w.text; });
+                }).filter(function (w) {
+                    return w.value != null && w.text;
+                });
                 if (list.length) console.warn('[workers] 공용 콤보가 비어 ' + WORKER_API + ' 로 폴백했습니다.');
             }
 
             /* ③ 응답에 공장이 실려 있으면 화면에서 한 번 더 거른다 (2차 방어).
                   공장 미지정자는 어느 화면에서도 보이도록 남긴다 — 서버 조건과 같은 방침. */
-            var f = list.filter(function (w) { return !w.factory || w.factory === String(WORKER_FACTORY_ID); });
+            var f = list.filter(function (w) {
+                return !w.factory || w.factory === String(WORKER_FACTORY_ID);
+            });
             if (f.length) list = f;
             return list;
         }
+
         /* {value,text,code} 형태로 쓰는 화면용 */
-        function fetchWorkers() { return fetchWorkerRows(); }
+        function fetchWorkers() {
+            return fetchWorkerRows();
+        }
+
         /* {actor_id,actor_name} 형태로 쓰는 화면용 */
         function fetchWorkersActor() {
             return fetchWorkerRows().map(function (w) {
@@ -1577,7 +1631,9 @@
                     + 'color:var(--ink-2,#5b6570);font-size:19px;font-weight:800;line-height:1;'
                     + 'cursor:pointer;touch-action:manipulation;'
                     + '-webkit-user-select:none;user-select:none';
-                b.addEventListener('click', function () { run(b); });
+                b.addEventListener('click', function () {
+                    run(b);
+                });
                 h.appendChild(b);
             });
         })();
@@ -1586,6 +1642,7 @@
             var el = document.getElementById(id);
             return !!el && !el.classList.contains('hide');
         }
+
         function maskOn(id) {
             var el = document.getElementById(id);
             return !!el && el.classList.contains('show');
@@ -1604,12 +1661,15 @@
             try {
                 var r = apiGet('/work_orders', {process_id: PROC_ID, date: curD.date, spjangcd: CTX.spjangcd});
                 n = (r.data || []).length;
-            } catch (e) { return; }
+            } catch (e) {
+                return;
+            }
             var bar = document.querySelector('#scB .actionbar .actsum .l');
             if (!bar) return;
             if (!bar.dataset.base) bar.dataset.base = bar.textContent;
             bar.textContent = bar.dataset.base + (n ? ('  ·  작업지시 ' + n + '건') : '');
         }
+
         function stockRefresh() {
             if (scOn('scC') && typeof curC !== 'undefined' && curC) {
                 curC.items.forEach(function (it) {
@@ -1617,10 +1677,15 @@
                     var fresh = loadBomDefault(it.mat_id, curD.date);
                     var rows = fresh && fresh.bom ? fresh.bom : (fresh || []);
                     var map = {};
-                    rows.forEach(function (b) { map[b.mat_id] = b; });
+                    rows.forEach(function (b) {
+                        map[b.mat_id] = b;
+                    });
                     (it.bom || []).forEach(function (b) {
                         var n = map[b.mat_id];
-                        if (n) { b.stock = n.stock; if (n.store) b.store = n.store; }
+                        if (n) {
+                            b.stock = n.stock;
+                            if (n.store) b.store = n.store;
+                        }
                     });
                     if (it.ves && fresh && fresh.ves) it.ves.stock = fresh.ves.stock;
                     /* 블리스터 : 용기 반제품 로트도 다시 읽되 고른 로트는 유지 */
@@ -1628,7 +1693,9 @@
                         var lot = loadVesLot(it.ves.mat_id);
                         var list = lot ? lot.list : [];
                         it.vesLots = list;
-                        var keep = it.vesLot ? list.filter(function (l) { return l.lot_id === it.vesLot.lot_id; })[0] : null;
+                        var keep = it.vesLot ? list.filter(function (l) {
+                            return l.lot_id === it.vesLot.lot_id;
+                        })[0] : null;
                         it.vesLot = keep || (list[0] || null);
                     }
                 });

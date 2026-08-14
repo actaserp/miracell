@@ -41,7 +41,7 @@ public class SterilFileService {
                         "       \"LoggerLabel\" AS logger_label, \"SerialNo\" AS serial_no, " +
                         "       \"DataFrom\" AS data_from, \"DataTo\" AS data_to, \"DetectedBy\" AS detected_by " +
                         "  FROM steril_batch_file " +
-                        " WHERE \"SterilBatch_id\" = :bid AND \"_status\" = 'a' " +
+                        " WHERE \"SterilBatch_id\" = :bid " +
                         " ORDER BY \"FileRole\", id";
         return jdbc.queryForList(sql, new MapSqlParameterSource("bid", batchId));
     }
@@ -92,14 +92,17 @@ public class SterilFileService {
                             "  \"_modified\"=now(), \"_modifier_id\"=EXCLUDED.\"_creater_id\"", p);
         }
 
-        // 첨부가 삭제된 파일의 메타 정리 (soft delete — 기록은 남긴다)
+        /* 첨부에서 사라진 파일의 메타는 지운다.
+           남길 이유가 없다 — 이 행은 「그 파일이 멸균 도메인에서 무엇인가」를 적은 꼬리표일 뿐이고,
+           파일 실체와 그 이력은 공용 첨부(attach_file)가 들고 있다.
+           꼬리표만 _status='d' 로 남기면 조회하는 쪽마다 조건을 붙여야 하는데,
+           실제로 logList 는 그 조건이 없어 지운 것이 다시 보인다. */
         List<Map<String, Object>> existing = fileList(batchId);
         for (Map<String, Object> e : existing) {
             Integer afId = intOf(e.get("attach_file_id"));
             if (afId != null && !incoming.contains(afId)) {
-                jdbc.update("UPDATE steril_batch_file SET \"_status\"='d', \"_modified\"=now(), " +
-                                "       \"_modifier_id\"=:uid WHERE id=:id",
-                        new MapSqlParameterSource().addValue("id", e.get("id")).addValue("uid", userId));
+                jdbc.update("DELETE FROM steril_batch_file WHERE id=:id",
+                        new MapSqlParameterSource().addValue("id", e.get("id")));
             }
         }
     }

@@ -163,8 +163,26 @@ public class PackService {
 	 */
 	public static final String NO_COUNTRY = "-";
 
-	/** UDI 라벨 스캔 필수 여부. 도입 초기 ERP 라벨 미공급 기간만 false. */
+	/**
+	 * UDI 라벨 스캔 필수 여부.
+	 *
+	 * ★ 화면에 「라벨 스캔」 단계를 띄울지 여부만 결정한다(context.require_label).
+	 *   labelScan() 의 «거절» 조건으로는 더 이상 쓰지 않는다 — 라벨 내용 검증은
+	 *   전부 경고로 내렸다. 한쪽만 스캔돼도 저장은 되고 경고만 남는다.
+	 */
 	private static final boolean REQUIRE_UDI_LABEL = true;
+
+	/**
+	 * 라벨 «내용» 검증을 거절로 다룰지 여부.
+	 *
+	 *   true  운영 — 어긋나면 저장을 막는다. 다른 물건을 포장했다는 신호이므로
+	 *                여기서 잡지 않으면 틀린 UDI 가 그대로 완제품 로트에 박힌다.
+	 *   false 테스트 — 경고만 남기고 통과. 마스터·시드가 실물 라벨과 안 맞는 동안 쓴다.
+	 *
+	 * ★ 어느 쪽이든 «검사 결과» 는 result.data.warnings 로 항상 내려간다.
+	 *   거절 모드에서는 그중 첫 줄이 result.message 가 된다.
+	 */
+	private static final boolean STRICT_LABEL_MATCH = false;
 
 	/**
 	 * 카톤 로트 접두.
@@ -255,6 +273,7 @@ public class PackService {
 		data.put("ck_out_store_id",  STORE_CK_OUT);
 		data.put("no_country",       NO_COUNTRY);
 		data.put("require_label",    REQUIRE_UDI_LABEL);
+		data.put("strict_label",     STRICT_LABEL_MATCH);   // 화면 안내 문구가 갈린다
 		return data;
 	}
 
@@ -982,7 +1001,19 @@ public class PackService {
 		float units = (session == null) ? 0f : toFloat(session.get("units"));
 		if (units <= 0) units = pkTotal(mpId) / pkPer;
 		data.put("units_planned", units);
-		data.put("cartons", buildCartons(units, cap));
+		/*
+		 * ★ 카톤은 «저장된 개체가 있으면 그것이 진실» 이다.
+		 *
+		 *   ②(완제) 시점에 issueCountryLotsAndCartons 가 pack_carton 에 박스마다
+		 *   실제 번호(C-…-0016-JP-01)를 넣어 둔다. 그런데 여기서 buildCartons 로
+		 *   매번 다시 계산해 내려주는 바람에 화면은 번호를 못 받았고,
+		 *   화면이 제 나름대로 «기준로트 + -01» 을 지어내 보여 주고 있었다 —
+		 *   국가별로 쪼갠 세션에서는 그 값이 DB 와 달라진다(국가 구간이 빠진다).
+		 *
+		 *   ② 전에는 개체가 아직 없으므로 예전처럼 계산해서 «미리보기» 로 내린다.
+		 */
+		List<Map<String, Object>> cartons = getCartonRows(mpId);
+		data.put("cartons", cartons.isEmpty() ? buildCartons(units, cap) : cartons);
 		return data;
 	}
 
@@ -991,6 +1022,43 @@ public class PackService {
 	 * 저장하지 않는 이유: 두 값에서 100% 복원되고, pack_label 은 (MatProduce_id, LabelKind)
 	 * UNIQUE 라 카톤 N행을 담을 수 없다.
 	 */
+	/**
+	 * 저장된 카톤 개체 — pack_carton. ②(완제) 이후에만 행이 있다.
+	 *
+	 * ★ 화면이 쓰는 키 이름을 buildCartons 와 맞춘다(carton_no / inbox_qty / full_yn).
+	 *   여기에 lot_no · country 가 더 붙는다 — 라벨 출력이 이 번호를 그대로 찍어야
+	 *   실물 박스와 DB 가 어긋나지 않는다.
+	 */
+	private List<Map<String, Object>> getCartonRows(Integer mpId) {
+		List<Map<String, Object>> rows = this.sqlRunner.getRows("""
+            SELECT pc."CartonNo"    AS carton_no
+                 , pc."CartonLotNo" AS lot_no
+                 , pc."Qty"         AS inbox_qty
+                 , pc."CountryCode" AS country
+                 , pc."MatLot_id"   AS mat_lot_id
+                 , ml."LotNumber"   AS product_lot
+              FROM pack_carton pc
+              LEFT JOIN mat_lot ml ON ml.id = pc."MatLot_id"
+             WHERE pc."MatProduce_id" = :mpId
+               AND COALESCE(pc._status,'a') = 'a'
+             ORDER BY pc."PackAlloc_id", pc."CartonNo"
+            """, new MapSqlParameterSource().addValue("mpId", mpId));
+		if (rows == null) return new ArrayList<>();
+
+		// 국가 안에서 마지막 박스만 잔여일 수 있다 — 그 국가의 최대 수량과 비교해 판정한다
+		Map<String, Float> capByCountry = new HashMap<>();
+		for (Map<String, Object> r : rows) {
+			String c = str(r.get("country"));
+			capByCountry.merge(c == null ? "" : c, toFloat(r.get("inbox_qty")), Math::max);
+		}
+		for (Map<String, Object> r : rows) {
+			String c = str(r.get("country"));
+			float mx = capByCountry.getOrDefault(c == null ? "" : c, 0f);
+			r.put("full_yn", (toFloat(r.get("inbox_qty")) >= mx - EPS) ? "Y" : "N");
+		}
+		return rows;
+	}
+
 	private List<Map<String, Object>> buildCartons(float units, float cap) {
 		List<Map<String, Object>> out = new ArrayList<>();
 		if (units <= 0 || cap <= 0) return out;
@@ -2191,38 +2259,65 @@ public class PackService {
 		Map<String, Object> ck = findLabel(labels, "ckpk");
 		Map<String, Object> ib = findLabel(labels, "inbox");
 
-		if (REQUIRE_UDI_LABEL && (ck == null || ib == null))
-			return fail(result, "CK·PK 라벨과 인박스 라벨을 각각 스캔해주세요.");
+		/*
+		 * ★ 라벨 «내용» 검증은 한 곳(warns)에 모으고, 거절 여부는
+		 *   STRICT_LABEL_MATCH 하나가 정한다 (2026-08).
+		 *
+		 *   예전에는 조건마다 그 자리에서 fail 로 빠져나갔다. 그래서
+		 *     · 첫 번째로 걸린 것 하나만 알려 주고 나머지는 안 보였고
+		 *     · 테스트 중 잠깐 풀려면 조건 다섯 곳을 각각 손대야 했다.
+		 *   모아 두면 「무엇이 몇 개 어긋났는지」를 한 번에 보여 줄 수 있고,
+		 *   켜고 끄는 자리도 상수 한 곳으로 줄어든다.
+		 *
+		 *   ⚠ false 로 두면 다른 품목의 라벨을 붙였어도 통과한다.
+		 *      스캔값이 곧 완제품 mat_lot."MakerLotNo" 가 되므로, 틀린 값이
+		 *      그대로 시스템의 정답이 된다. 운영 배포 전에 true 로 돌릴 것.
+		 */
+		List<String> warns = new ArrayList<>();
 
-		// 라벨 종류 교차 검증 — 수량(30)의 유무가 두 라벨을 가른다
+		if (ck == null || ib == null)
+			warns.add("라벨 2종(CK·PK / 인박스) 중 한쪽만 스캔되었습니다.");
+
+		// 수량(30)의 유무로 두 라벨을 가르지만, 거래처·기종에 따라 다르게 찍혀 나오기도 한다
 		if (ck != null && ck.get("qty") != null)
-			return fail(result, "CK·PK 라벨엔 수량(30)이 없어야 합니다. 인박스 라벨을 찍은 것 같습니다.");
+			warns.add("CK·PK 라벨에 수량(30)이 있습니다 — 인박스 라벨일 수 있습니다.");
 		if (ib != null && ib.get("qty") == null)
-			return fail(result, "인박스 라벨엔 수량(30)이 있어야 합니다. CK·PK 라벨을 찍은 것 같습니다.");
+			warns.add("인박스 라벨에 수량(30)이 없습니다 — CK·PK 라벨일 수 있습니다.");
 
 		String ckGtin = ck == null ? null : str(ck.get("gtin"));
 		String ibGtin = ib == null ? null : str(ib.get("gtin"));
 		String ckLot  = ck == null ? null : str(ck.get("lot"));
 		String ibLot  = ib == null ? null : str(ib.get("lot"));
 
-		if (!isBlank(ckGtin) && !isBlank(ibGtin) && !ckGtin.equals(ibGtin))
-			return fail(result, "GTIN 불일치 — CK·PK 라벨과 인박스 라벨이 서로 다릅니다.");
-		if (!isBlank(ckLot) && !isBlank(ibLot) && !ckLot.equals(ibLot))
-			return fail(result, "LOT 불일치 — CK·PK 라벨과 인박스 라벨이 서로 다릅니다.");
+		if (!isBlank(ckGtin) && !isBlank(ibGtin) && !gtinLike(ckGtin, ibGtin))
+			warns.add("CK·PK와 인박스의 GTIN이 다릅니다.");
+		if (!isBlank(ckLot) && !isBlank(ibLot) && !lotSame(ckLot, ibLot))
+			warns.add("CK·PK와 인박스의 로트가 다릅니다. (" + ckLot + " / " + ibLot + ")");
 
 		String scanGtin = !isBlank(ibGtin) ? ibGtin : ckGtin;
 		String udiLot   = !isBlank(ibLot)  ? ibLot  : ckLot;
 
 		String expectGtin = getExpectedGtin(mp.getMaterialId(), spjangcd);
-		if (expectGtin != null && !isBlank(scanGtin) && !expectGtin.equals(scanGtin))
-			return fail(result, "GTIN 불일치 — 이 작업지시의 완제품 라벨이 아닙니다. (기대 "
-														+ expectGtin + " / 스캔 " + scanGtin + ")");
+		if (expectGtin != null && !isBlank(scanGtin) && !gtinLike(expectGtin, scanGtin))
+			warns.add("GTIN이 작업지시와 다릅니다. (기대 " + expectGtin + " / 스캔 " + scanGtin + ")");
 
-		// 투입한 PK 로트의 UDI 와 대조 — 여러 로트를 섞었으면 '그중 하나와' 맞으면 통과
+		// 투입한 PK 로트의 UDI 와 대조 — 여러 로트를 섞었으면 '그중 하나와' 맞으면 조용하다
 		Set<String> pkUdiSet = getPkUdiSet(mpId);
-		if (!isBlank(udiLot) && !pkUdiSet.isEmpty() && !pkUdiSet.contains(udiLot))
-			return fail(result, "LOT 불일치 — 스캔 라벨(" + udiLot + ")이 투입 PK 로트의 UDI("
-														+ String.join(", ", pkUdiSet) + ") 어느 것과도 다릅니다.");
+		if (!isBlank(udiLot) && !pkUdiSet.isEmpty() && !containsLot(pkUdiSet, udiLot))
+			warns.add("스캔 라벨(" + udiLot + ")이 투입 PK 로트의 UDI("
+									+ String.join(", ", pkUdiSet) + ") 어느 것과도 다릅니다.");
+
+		/*
+		 * ★ 거절 모드면 여기서 멈춘다 — 저장 전이라 아무 흔적도 남지 않는다.
+		 *   경고 목록은 그대로 실어 보낸다. 화면이 「무엇이 몇 개 어긋났는지」를
+		 *   한 번에 보여 줄 수 있어야 작업자가 라벨을 다시 확인할 수 있다.
+		 */
+		if (STRICT_LABEL_MATCH && !warns.isEmpty()) {
+			Map<String, Object> wd = new HashMap<>();
+			wd.put("warnings", warns);
+			result.data = wd;
+			return fail(result, warns.get(0));
+		}
 
 		saveScanLabels(mpId, labels, spjangcd, user);
 
@@ -2232,6 +2327,7 @@ public class PackService {
 		Map<String, Object> data = new HashMap<>();
 		data.put("phase", "outbox");
 		data.put("udi_lot", udiLot);
+		data.put("warnings", warns);          // 화면이 노란 문구로 보여 준다
 		result.data = data;
 		return result;
 	}
@@ -3238,6 +3334,44 @@ public class PackService {
 	// =========================================================================
 	// 내부 — 라벨 / GTIN
 	// =========================================================================
+
+	// ── 라벨 값 비교 (화면 prod_process_opack_bsc_t.html 의 lotSame / gtinLike 와 같은 규칙) ──
+
+	/** 로트 비교용 정규화 — 대소문자·하이픈·공백 차이로 어긋나지 않게 */
+	private static String lotKey(String v) {
+		return v == null ? "" : v.toUpperCase().replaceAll("[\\s\\-_./]", "");
+	}
+
+	private static boolean lotSame(String a, String b) {
+		return lotKey(a).equals(lotKey(b));
+	}
+
+	private static boolean containsLot(Set<String> set, String lot) {
+		for (String s : set) if (lotSame(s, lot)) return true;
+		return false;
+	}
+
+	/**
+	 * GTIN 비교 — 앞자리 «포장 인디케이터»와 선행 0 차이를 무시한다.
+	 *
+	 *   (0)8806…789 낱개 / 18806…789 인박스 / 28806…789 카톤 은 같은 품목이다.
+	 *   문자열을 그대로 비교하던 시절엔 정상 라벨도 「GTIN 불일치」로 튕겼다.
+	 */
+	private static String gtinCore(String v) {
+		if (v == null) return "";
+		String s = v.replaceAll("\\D", "");
+		if (s.length() >= 14) s = s.substring(s.length() - 13);
+		return s.replaceFirst("^0+", "");
+	}
+
+	private static boolean gtinLike(String a, String b) {
+		String x = gtinCore(a), y = gtinCore(b);
+		if (x.isEmpty() || y.isEmpty()) return true;
+		if (x.equals(y)) return true;
+		if (x.length() >= 12 && y.length() >= 12)
+			return x.substring(x.length() - 12).equals(y.substring(y.length() - 12));
+		return false;
+	}
 
 	private String getExpectedGtin(Integer materialId, String spjangcd) {
 		if (materialId == null) return null;

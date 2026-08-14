@@ -5,6 +5,7 @@ import mes.app.production.service.ProductionWorkService;
 import mes.app.production.service.ProductionCreateService;
 import mes.app.production.service.ProductionCreateService.CreateReq;
 import mes.app.production.service.ProductionCreateService.BomInput;
+import mes.app.production.service.ProductionCreateService.LotInput;
 import mes.domain.entity.User;
 import mes.domain.model.AjaxResult;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -347,6 +348,25 @@ public class ProductionWorkController {
              WHERE id=:mpId
             """, p);
 
+        /* ★ 작지 롤업은 recalcJobRes 에 맡긴다 — 여기서 UPDATE 하지 않는다.
+             완료(finishProduction)가 타는 것과 같은 경로여야
+             「완료 → 취소 → 다시 완료」를 반복해도 값이 제자리로 돌아온다.
+
+             이 호출이 없어서 지금까지
+               · 작지가 'finished' 로 남아 목록에서 사라졌고
+               · GoodQty 가 완료 때 갱신된 값에 그대로 멈춰 차수 합계와 어긋났다.
+             컨트롤러에서 job_res 를 직접 UPDATE 하면 롤업 규칙이 두 군데로 갈라지고,
+             2공장(mcell_unit 기준) 판정도 못 탄다. */
+        Integer jrId = null;
+        Map<String, Object> jr = this.sqlRunner.getRow(
+                "SELECT \"JobResponse_id\" AS jr_id FROM mat_produce WHERE id=:mpId", p);
+        if (jr != null && jr.get("jr_id") != null) {
+            jrId = ((Number) jr.get("jr_id")).intValue();
+        }
+        if (jrId != null) {
+            this.productionCreateService.recalcJobRes(jrId, user);
+        }
+
         return r;
     }
 
@@ -375,6 +395,25 @@ public class ProductionWorkController {
                 BomInput bi = new BomInput();
                 bi.matId = ((Number) mid).intValue();
                 bi.qty = (q == null) ? 0f : Float.parseFloat(String.valueOf(q));
+
+                /* 화면이 로트를 직접 지정했으면 그대로 싣는다(용기 반제품 로트 선택).
+                   없으면 null 로 두어 서버가 FIFO 로 차감한다 — 기존 동작 그대로. */
+                Object lotsRaw = m.get("lots");
+                if (lotsRaw instanceof List) {
+                    List<LotInput> lots = new ArrayList<>();
+                    for (Object o : (List<Object>) lotsRaw) {
+                        if (!(o instanceof Map)) continue;
+                        Map<String, Object> lm = (Map<String, Object>) o;
+                        Object lid = lm.get("lotId");
+                        Object lq = lm.get("qty");
+                        if (lid == null) continue;
+                        LotInput li = new LotInput();
+                        li.lotId = ((Number) lid).intValue();
+                        li.qty = (lq == null) ? 0f : Float.parseFloat(String.valueOf(lq));
+                        if (li.qty > 0) lots.add(li);
+                    }
+                    if (!lots.isEmpty()) bi.lots = lots;
+                }
                 if (bi.qty > 0) list.add(bi);
             }
         } catch (Exception e) {

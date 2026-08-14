@@ -110,6 +110,17 @@
       color:#1f2733; line-height:1.15; }
     #wlWrap .wl-tile .tv small { font-size:13px; color:#a7b0be; margin-left:2px; }
     #wlWrap .wl-tile:not(.on) .tv { color:#c2c9d4; }
+    /* 값이 둘인 타일 — 1공장 포장(완제품 / CK).
+       벽걸이는 지나가며 보는 화면이라 숫자를 줄이는 것이 손해지만,
+       합쳐서 틀린 숫자를 크게 쓰는 것보다는 낫다. */
+    #wlWrap .wl-tile .tsplit { display:flex; align-items:stretch; gap:10px; }
+    #wlWrap .wl-tile .tsplit > div { flex:1 1 0; min-width:0; }
+    #wlWrap .wl-tile .tsplit > div + div { border-left:1px solid #dde3ec; padding-left:10px; }
+    #wlWrap .wl-tile.on .tsplit > div + div { border-left-color:#bfe6d1; }
+    #wlWrap .wl-tile .tsplit .sl { font-size:11px; font-weight:800; color:#a7b0be;
+      letter-spacing:.3px; white-space:nowrap; }
+    #wlWrap .wl-tile.on .tsplit .sl { color:#5c9c7c; }
+    #wlWrap .wl-tile .tsplit .tv { font-size:22px; }
 
     /* 하단 KPI */
     #wlWrap .wl-kpis { flex:0 0 auto; display:grid; grid-template-columns:repeat(5,1fr); gap:14px; }
@@ -283,25 +294,68 @@
     function wlProc(procs){
       var wash = wlData.wash_today || {};
 
-      /* ★ 세척·멸균은 mat_produce 가 없어 working_cnt 가 늘 0 이다 (dash_main 과 동일 처리) */
+      /* ★ 세척·멸균·검사는 mat_produce 가 없어 working_cnt / today_good 이 늘 0 이다
+           (dash_main 과 동일 처리). 검사(mc02)는 판정만 하는 공정이라
+           산출 품목이 없고, 실적의 진실은 mcell_unit 상태에 있다. */
+      var unitMap = {};
+      (wlData.unit_states || []).forEach(function(s){ unitMap[s.state] = wlNum(s.cnt); });
+      var unitCnt = function(states){
+        var n = 0;
+        states.forEach(function(k){ n += (unitMap[k] || 0); });
+        return n;
+      };
+
+      /* ★ 1공장 포장은 CK(반제품)와 키트 결합(완제품)을 둘 다 만든다.
+           둘 다 단위가 「개」라 더해도 오류가 안 나고, 그래서 더 위험하다 —
+           CK 10 + 완제품 10 이 「20개 생산」으로 읽힌다.
+           서버가 today_good_product 를 내릴 때만 나눈다. */
+      var packSplit = function(p){
+        var pr = p.today_good_product;
+        if (pr === null || pr === undefined || pr === '') return null;
+        return {prod: wlNum(pr), semi: wlNum(p.today_good_semi)};
+      };
+
       var procWorking = function(p){
         if (p.code === 'bsc01') return wlNum(wash.working_cnt);
         if (p.code === 'bsc04') {
           return (wlData.steril || []).filter(function(b){ return b.state === 'working'; }).length;
+        }
+        if (p.code === 'mc02') {
+          /* 검사 대기 = 검사 자리에 물건이 와 있다는 뜻. 이게 이 공정의 「작업중」이다 */
+          return (p.unit_waiting === null || p.unit_waiting === undefined)
+                  ? unitCnt(['inspect_wait']) : wlNum(p.unit_waiting);
         }
         return wlNum(p.working_cnt);
       };
 
       var tile = function(p){
         var working = procWorking(p);
+        var split = (p.code === 'bsc05') ? packSplit(p) : null;
+
         var qty;
         if (p.code === 'bsc01')      qty = wlNum(wash.session_cnt) + '<small>세션</small>';
         else if (p.code === 'bsc04') qty = (wlData.steril || []).length + '<small>배치</small>';
+        else if (p.code === 'mc02') {
+          /* 판정 끝난 대수 = pass + reject + packed.
+             packed 를 빼면 포장까지 간 대수가 검사에서 사라지고(통과했기에 포장된 것),
+             reject 를 빼면 검사했지만 떨어진 대수가 증발한다. */
+          var done = (p.unit_done === null || p.unit_done === undefined)
+                  ? unitCnt(['pass', 'reject', 'packed']) : wlNum(p.unit_done);
+          qty = done.toLocaleString() + '<small>대</small>';
+        }
         else                         qty = wlNum(p.today_good).toLocaleString() + '<small>개</small>';
+
+        var half = function(label, v){
+          return '<div><div class="sl">' + label + '</div>'
+                  + '<div class="tv">' + wlNum(v).toLocaleString() + '<small>개</small></div></div>';
+        };
+        var body = split
+                ? '<div class="tsplit">' + half('완제품', split.prod) + half('CK', split.semi) + '</div>'
+                : '<div class="tv">' + qty + '</div>';
 
         return '<div class="wl-tile ' + (working ? 'on' : '') + '">'
                 + '<div class="tn">' + wlEsc(p.name) + '</div>'
-                + '<div class="tv">' + qty + '</div></div>';
+                + body + '</div>';
       };
 
       var f1 = procs.filter(function(p){ return wlNum(p.factory_id) === 1; });
@@ -314,10 +368,14 @@
     }
 
     /* ── 하단 KPI ──
-       ★ 1공장 「개」와 2공장 「대」를 한 칸에 더하지 않는다. 단위가 다르다. */
+       ★ 1공장 「개」와 2공장 「대」를 한 칸에 더하지 않는다. 단위가 다르다.
+
+       ★ 「1공장 완제품」은 공정 합계가 아니다(서버 getKpi 참고).
+         전 공정을 더하면 키트 10개가 조립·블리스터·융착·포장에서 각각 세어져
+         40개로 보인다. 마지막 공정의 완제품만 센다 — 2공장 「포장 완료」와 같은 축. */
     function wlKpi(k){
       var cells = [];
-      cells.push({l:'1공장 오늘 생산', v:wlNum(k.f1_today_good).toLocaleString(), u:'개', c:'blue'});
+      cells.push({l:'1공장 완제품',   v:wlNum(k.f1_today_good).toLocaleString(), u:'개', c:'blue'});
       cells.push({l:'2공장 포장 완료', v:wlNum(k.f2_packed).toLocaleString(),     u:'대', c:'teal'});
       cells.push({l:'작업중 차수',     v:wlNum(k.working_sessions),               u:'건', c:'green'});
       cells.push({l:'진행중 작업지시', v:wlNum(k.open_orders),                    u:'건', c:'violet'});
@@ -388,7 +446,7 @@
       }
     }
 
-    $(document.body).ready(function(){
+    $(document.body).ready(function() {
       wlClock();
       wlLoad();
       setInterval(wlLoad, WL_POLL_MS);

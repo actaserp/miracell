@@ -580,6 +580,7 @@ public class MaterialInoutService {
           , b."AvailableStock" as "AvailableStock"
           , b."ReservationStock" as "ReservationStock"
           , COALESCE(mi."SujuQty2", 0) AS "SujuQty2"
+          , COALESCE(mi."PendingQty", 0) AS "PendingQty"
           , fn_code_name('balju_state', b."State") as "StateName"
           , fn_code_name('shipment_state', b."ShipmentState") as "ShipmentStateName"
           , b."State"
@@ -591,18 +592,29 @@ public class MaterialInoutService {
           left join unit u on m."Unit_id" = u.id
           left join company c on c.id= b."Company_id"
           LEFT JOIN (
+			   /* ★ _status 필터를 WHERE 가 아니라 CASE 안에 둔다.
+			      WHERE 에 두면 가입고 행(_status='t')이 통째로 빠져 셀 수가 없다.
+			      SujuQty2  = 확정 입고 (검사 불필요 품목 + 적합 판정 완료분)
+			      PendingQty= 가입고 대기 (수입검사 대기중, State='waiting')
+			      ★ State='waiting' 조건 필수.
+			        부적합 판정은 State 만 'confirmed' 로 바꾸고 _status='t',
+			        PotentialInputQty 를 그대로 남긴다. 이 조건이 없으면
+			        부적합 난 발주 라인이 영영 재입고 불가가 된다. */
 			   SELECT
 				   "SourceDataPk",
-				   SUM("InputQty") AS "SujuQty2"
+				   SUM(CASE WHEN COALESCE("_status", 'a') = 'a'
+							THEN COALESCE("InputQty", 0) ELSE 0 END) AS "SujuQty2",
+				   SUM(CASE WHEN COALESCE("_status", 'a') = 't'
+							 AND "State" = 'waiting'
+							THEN COALESCE("PotentialInputQty", 0) ELSE 0 END) AS "PendingQty"
 			   FROM mat_inout
 			   WHERE "SourceTableName" = 'balju'
-				 AND COALESCE("_status", 'a') = 'a'
 				 AND "InOut" = 'in'
 			   GROUP BY "SourceDataPk"
 		   ) mi ON mi."SourceDataPk" = b.id
           where 1 = 1
           and b."JumunDate" between :start and :end 
-          AND COALESCE(mi."SujuQty2", 0) < b."SujuQty"
+          AND COALESCE(mi."SujuQty2", 0) + COALESCE(mi."PendingQty", 0) < b."SujuQty"
           and b.spjangcd = :spjangcd
           and "State" != 'force_completion'
 			order by b."JumunDate" desc,  m."Name"
@@ -707,38 +719,70 @@ public class MaterialInoutService {
 		dicParam.addValue("jumunNumber", jumunNumber);
 		dicParam.addValue("spjangcd", spjangcd);
 
+		/* ★ 컬럼명 주의 : balju 에는 "StoreHouse_id" 가 없다.
+		     납품창고는 "ShipmentState" 에 varchar 로 들어간다(발주 목록 화면도
+		     store_house sh ON sh.id::varchar = b."ShipmentState" 로 조인한다).
+		     없는 컬럼을 읽으면 SqlRunner.getRows 가 예외가 아니라 «null» 을 돌려주고,
+		     화면은 그걸 「미입고 품목이 없습니다」로 표시한다 — 조용히 죽는 자리다.
+
+		   ★ 별칭은 화면(addPoLines)이 읽는 이름과 맞춘다.
+		     balju_id / baljuQty / receivedQty / remainQty 를 바꾸면 그리드가 빈다. */
 		String sql = """
-        select b.id
+        select b.id                                as balju_id
+          , b."BaljuHead_id"                       as bh_id
           , b."JumunNumber"
-          , m.id as "Material_id"
-          , m."Code" as product_code
-          , m."Name" as product_name
-          , u."Name" as unit
-          , b."Standard" as standard
-          , b."SujuQty" as "SujuQty"
+          , m.id                                   as "Material_id"
+          , m."Code"                               as product_code
+          , m."Name"                               as product_name
+          , u."Name"                               as unit
+          , b."Standard"                           as standard
           , b."CompanyName"
           , b."Company_id"
-          , b."StoreHouse_id" as "StoreHouse_id"
-          , to_char(b."DueDate", 'yyyy-mm-dd') as "DueDate"
-          , COALESCE(mi."SujuQty2", 0) AS "SujuQty2"
-          , (b."SujuQty" - COALESCE(mi."SujuQty2", 0)) AS "remainQty"
+          -- 납품창고. 숫자 문자열일 때만 캐스팅한다(빈값·쓰레기값에서 터지지 않게).
+          -- NULL 이면 화면이 헤더의 입고창고로 대체한다.
+          , CASE WHEN b."ShipmentState" ~ '^[0-9]+$'
+                 THEN b."ShipmentState"::integer END  as "StoreHouse_id"
+          , to_char(b."DueDate", 'yyyy-mm-dd')     as "DueDate"
+          , b."SujuQty"                            as "baljuQty"
+          , COALESCE(mi."SujuQty2", 0)             as "receivedQty"
+          , COALESCE(mi."PendingQty", 0)           as "pendingQty"
+          , GREATEST(b."SujuQty" - COALESCE(mi."SujuQty2", 0)
+                                 - COALESCE(mi."PendingQty", 0), 0) as "remainQty"
           , b."State"
           from balju b
           inner join material m on m.id = b."Material_id"
-          inner join mat_grp mg on mg.id = m."MaterialGroup_id"
-          left join unit u on m."Unit_id" = u.id
+          -- mat_grp 는 LEFT. INNER 로 두면 품목그룹 없는 자재가 조용히 사라진다.
+          left  join mat_grp mg on mg.id = m."MaterialGroup_id"
+          left  join unit u on u.id = m."Unit_id"
           LEFT JOIN (
-               SELECT "SourceDataPk", SUM("InputQty") AS "SujuQty2"
+               -- 기입고 = 입고 - 반품. 반품 행은 InOut='return' 이면서
+               -- 수량이 InputQty 에 들어간다(이 화면의 save_balju_return).
+               -- 'in' 만 더하면 100 받고 100 반품한 라인이 영원히 전량입고로 남는다.
+               -- ★ 가입고(_status='t')는 InputQty 가 비어 있어 위 합계에 안 잡힌다.
+               --   PendingQty 로 따로 세서 remainQty 에서 함께 뺀다.
+               --   안 그러면 스캔으로 같은 발주 라인을 또 입고해 이중입고가 된다.
+               SELECT "SourceDataPk"
+                    , SUM(CASE WHEN COALESCE("_status", 'a') <> 'a' THEN 0
+                               WHEN "InOut" = 'in'     THEN COALESCE("InputQty", 0)
+                               WHEN "InOut" = 'return' THEN -COALESCE("InputQty", 0)
+                               ELSE 0 END) AS "SujuQty2"
+                    , SUM(CASE WHEN COALESCE("_status", 'a') = 't'
+                                AND "State" = 'waiting'
+                                AND "InOut" = 'in'
+                               THEN COALESCE("PotentialInputQty", 0) ELSE 0 END) AS "PendingQty"
                FROM mat_inout
                WHERE "SourceTableName" = 'balju'
-                 AND COALESCE("_status", 'a') = 'a'
-                 AND "InOut" = 'in'
                GROUP BY "SourceDataPk"
           ) mi ON mi."SourceDataPk" = b.id
           where b."JumunNumber" = :jumunNumber
           and b.spjangcd = :spjangcd
-          and b."State" != 'force_completion'
-          AND (b."SujuQty" - COALESCE(mi."SujuQty2", 0)) > 0
+          -- ★ 「제외」 방식으로 판정한다. draft 는 "아직 아무것도 안 받았다" 는 뜻이라
+          --   가장 받아야 할 상태다. State 가 NULL 인 행도 살려야 하므로 COALESCE.
+          --   (!= 'force_completion' 은 NULL 에서 NULL 이 되어 행이 사라진다)
+          and COALESCE(b."State", '') NOT IN ('canceled', 'force_completion')
+          -- _status 는 삭제 플래그가 아니라 생성 경로('manual')다. 걸지 않는다.
+          AND GREATEST(b."SujuQty" - COALESCE(mi."SujuQty2", 0)
+                                   - COALESCE(mi."PendingQty", 0), 0) > 0
           order by m."Name"
         """;
 

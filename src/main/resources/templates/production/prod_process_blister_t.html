@@ -144,6 +144,25 @@
         .veslot .vlm{font-size:12.5px;color:var(--ink-2);font-weight:700}
         .veslot .vchg{height:46px;padding:0 16px;border-radius:12px;border:1px solid var(--teal);background:var(--surface);color:var(--teal-d);font-weight:800;font-size:14px;cursor:pointer;flex:0 0 auto}
 
+        /* 로트 선택 모달 — 합계 배너 */
+        .lotsum{display:flex;align-items:baseline;gap:8px;padding:9px 12px;border-radius:10px;
+            background:var(--surface-2);border:1px solid var(--line);font-weight:800;font-size:13px;margin-bottom:8px}
+        .lotsum .need{margin-left:auto;font-variant-numeric:tabular-nums}
+        .lotsum.bad{background:#fff2f2;border-color:#e9b4b4;color:#d33}
+        .lotsum.okk{background:var(--teal-bg);border-color:var(--teal);color:var(--teal-d)}
+        .picklist .lqty{display:flex;align-items:center;gap:6px;margin-left:auto}
+        .picklist .lqty .lq{min-width:54px;height:34px;padding:0 8px;border-radius:9px;border:1.5px solid var(--teal);
+            background:#fff;color:var(--teal-d);font-weight:800;font-size:14px;display:flex;align-items:center;
+            justify-content:center;font-variant-numeric:tabular-nums;cursor:pointer}
+        .picklist .prow.off .lqty{opacity:.35;pointer-events:none}
+
+        /* FIFO 배분 예고 행 — 로트별로 얼마가 빠지는지 */
+        .veslot .vlrow{display:flex;align-items:baseline;gap:8px;font-size:13px;font-weight:800;margin-top:3px}
+        .veslot .vlrow .ln{color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .veslot .vlrow .tk{margin-left:auto;color:var(--teal-d);font-variant-numeric:tabular-nums}
+        .veslot .vlrow .av{color:var(--ink-2);font-size:11px;font-weight:700;white-space:nowrap}
+        .veslot .vlshort{margin-top:5px;font-size:12px;font-weight:800;color:#d33}
+
         /* 부가자재 BOM 아코디언 (목업 디자인) */
         .bomtoggle{margin:6px 16px 0 24px;display:flex;align-items:center;gap:8px;cursor:pointer;
             color:var(--ink-2);font-weight:800;font-size:13.5px;padding:8px 0}
@@ -313,9 +332,13 @@
         <!-- 용기 반제품 로트 선택(FIFO) -->
         <div class="mask" id="lotMask"><div class="sheet"><div class="body">
             <div class="sh"><h3>용기 반제품 로트 선택</h3><button class="x" data-close>✕</button></div>
-            <div class="fieldlab">클린룸 가용 로트 <span style="color:var(--ink-2);font-weight:700">(오래된 로트 = FIFO 권장)</span></div>
+            <div class="fieldlab">클린룸 가용 로트 <span style="color:var(--ink-2);font-weight:700">(체크한 로트에서만 차감 · 수량을 눌러 조절)</span></div>
+            <div class="lotsum" id="lotSum"></div>
             <div class="picklist" id="lotList"></div>
-            <button class="ok" data-close style="background:var(--surface-2);color:var(--ink);border:1.5px solid var(--line)">닫기</button>
+            <div style="display:flex;gap:10px;margin-top:14px">
+                <button class="ok" id="lotAuto" style="flex:0 0 40%;margin-top:0;background:var(--surface-2);color:var(--ink);border:1.5px solid var(--line)">FIFO 자동</button>
+                <button class="ok" id="lotOk" style="margin-top:0">적용</button>
+            </div>
         </div></div></div>
 
         <!-- BOM 자재 추가 시트 (클린룸 재고) -->
@@ -523,10 +546,94 @@
             return row.manual ? (row.qty || 0) : Math.round((row.per || 1) * (vqty || 0));
         }
 
+        /* 용기 반제품 소요량 = per × PK수량 */
+        function vesNeed(it) {
+            return (it && it.ves) ? Math.round((it.ves.per || 1) * (it.qty || 0)) : 0;
+        }
+
+        /* ★ 용기 로트 FIFO 배분 미리보기.
+             서버(consumeBomList)는 로트를 받지 않는다 — matId·qty 만 받아
+             클린룸 로트를 오래된 순으로 순회하며 필요량을 채운다.
+             즉 20개 로트 둘로 40개를 차감하는 것은 원래부터 되던 일이고,
+             화면이 첫 로트 하나만 보여줘서 「하나밖에 못 고른다」로 보였을 뿐이다.
+             여기서 서버와 같은 순서로 미리 나눠 보여준다.
+             ★ 정렬(InputDateTime ASC, id ASC)이 서버와 같아야 예고와 결과가 어긋나지 않는다.
+               loadVesLot 이 /material_lots 를 그 순서로 받아오므로 배열 순서를 그대로 쓴다. */
+        /* ★ PK 수량이 바뀌었을 때 지정 로트 배분을 다시 흘린다.
+             · 고른 로트는 고른 순서를 그대로 유지한 채 가용까지 다시 채운다
+             · 그래도 모자라면 나머지 클린룸 로트를 FIFO 로 이어 붙인다
+               (고른 로트의 잔량을 넘겨 생산하는 경우 — 자동으로 다음 로트가 붙어야 한다)
+             · 수량이 줄면 뒤쪽부터 자연히 빠진다
+             지정을 통째로 버리지 않는 이유는, 작업자가 특정 로트를 먼저 쓰겠다고
+             정한 의도는 수량이 바뀌어도 유효하기 때문이다. */
+        function reflowAlloc(it) {
+            if (!it.vesAlloc || !it.vesAlloc.length) return;
+            const need = vesNeed(it);
+            if (need <= 0) { it.vesAlloc = null; return; }
+
+            const avail = {};
+            (it.vesLots || []).forEach(l => { avail[l.lot_id] = num(l.avail); });
+
+            // 고른 순서 먼저, 그다음 나머지를 FIFO 순서로
+            const picked = it.vesAlloc.map(a => a.lot_id);
+            const order = it.vesAlloc.map(a => ({lot_id: a.lot_id, lot_no: a.lot_no}))
+                .concat((it.vesLots || [])
+                    .filter(l => picked.indexOf(l.lot_id) < 0)
+                    .map(l => ({lot_id: l.lot_id, lot_no: l.lot_no})));
+
+            const out = [];
+            let remain = need;
+            order.forEach(o => {
+                if (remain <= 0) return;
+                const cap = num(avail[o.lot_id]);
+                const take = Math.min(cap, remain);
+                if (take <= 0) return;
+                out.push({lot_id: o.lot_id, lot_no: o.lot_no, qty: take});
+                remain -= take;
+            });
+            it.vesAlloc = out.length ? out : null;
+        }
+
+        function vesPlan(it) {
+            const need = vesNeed(it);
+
+            /* 사용자가 로트를 직접 지정했으면 그것이 곧 배분이다.
+               서버도 같은 목록을 받아 그 순서·수량대로 차감하므로
+               화면에 적힌 것과 실제 차감이 어긋나지 않는다. */
+            if (it.vesAlloc && it.vesAlloc.length) {
+                const rows = it.vesAlloc.map(a => {
+                    const l = (it.vesLots || []).find(x => x.lot_id === a.lot_id);
+                    return {lot_no: a.lot_no, avail: l ? num(l.avail) : num(a.qty),
+                        take: num(a.qty), wh: l ? l.wh : '클린룸', fixed: true};
+                });
+                const sum = rows.reduce((x, r) => x + r.take, 0);
+                return {need: need, rows: rows, short: Math.max(need - sum, 0),
+                    over: Math.max(sum - need, 0), fixed: true};
+            }
+
+            const rows = [];
+            let remain = need;
+            (it.vesLots || []).forEach(l => {
+                if (remain <= 0) return;
+                const take = Math.min(num(l.avail), remain);
+                if (take <= 0) return;
+                rows.push({lot_no: l.lot_no, avail: num(l.avail), take: take, wh: l.wh});
+                remain -= take;
+            });
+            return {need: need, rows: rows, short: remain > 0 ? remain : 0, over: 0};
+        }
+
         /* 서버 소비 페이로드 = 용기 반제품(per×수량) + 부가자재 BOM. 용기도 BOM 구성품으로 함께 FIFO 차감. */
         function inputPayload(it) {
             const rows = it.bom.map(b => ({matId: b.mat_id, qty: bomQ(b, it.qty)}));
-            if (it.ves) rows.unshift({matId: it.ves.mat_id, qty: Math.round((it.ves.per || 1) * (it.qty || 0))});
+            if (it.ves) {
+                const v = {matId: it.ves.mat_id, qty: vesNeed(it)};
+                /* 로트를 직접 지정했으면 함께 보낸다. 없으면 서버가 FIFO 로 차감(기존 동작). */
+                if (it.vesAlloc && it.vesAlloc.length) {
+                    v.lots = it.vesAlloc.map(a => ({lotId: a.lot_id, qty: num(a.qty)}));
+                }
+                rows.unshift(v);
+            }
             return rows.filter(r => r.qty > 0);
         }
 
@@ -570,10 +677,17 @@
         /* PK 객체 — 작업지시(WO) 또는 자유(FREE) 소스에서 생성. BOM 은 서버 기본값 */
         function mkVes(src, prodDate) {
             const inp = loadBomDefault(src.mat_id, prodDate);
+            /* ★ 지시량을 미리 채운다.
+                 어차피 지시한 만큼 생산하므로 0 에서 시작해 손으로 올릴 이유가 없다.
+                 수량이 들어가면 bomQ(per×qty)·vesPlan 도 함께 지시량 기준으로 잡혀,
+                 투입 자재와 용기 로트 배분이 처음부터 실제 규모로 보인다.
+                 다르게 만들면 수량만 고치면 되고, 나머지는 따라 움직인다.
+                 작지 없는 자유선택(plan 없음)은 종전대로 0 에서 시작한다. */
             return {
                 mat_id: src.mat_id, vcode: src.vcode, vname: src.vname,
                 wo: src.wo || null, job_res_id: src.job_res_id || null,
-                qty: 0, st: 'wait', start: null, end: null, open: false,
+                plan: num(src.plan) || 0,
+                qty: num(src.plan) || 0, st: 'wait', start: null, end: null, open: false,
                 mp_id: null,
                 ves: inp.ves, vesLots: inp.vesLots, vesLot: inp.vesLot, bom: inp.bom
             };
@@ -933,15 +1047,35 @@
             <div class="bq ${auto ? 'auto' : ''}" data-bpad="${i}_${bi}">${bomQ(b, it.qty)}</div><button class="plus">+</button></div>
           <button class="brm" data-brm="${i}_${bi}">✕</button></div>`;
             }).join('');
-            const vm = it.vesLot;
-            const vesMeta = vm ? (locked
-                ? (it.ves.name + ' · 차감 ' + vm.avail + ' · ' + vm.wh)
-                : (it.ves.name + ' · 가용 ' + vm.avail + ' · ' + vm.wh)) : '가용 로트 없음';
-            const vesRow = it.ves ? `<div class="veslot">
-        <div class="vl"><div class="vlt">투입 용기 반제품 로트 · ${locked ? '차감 완료' : 'FIFO 자동선택'}</div>
+            /* 완료된 차수는 실제 차감분(vesLot)을 그대로 보여준다.
+               진행 중이면 FIFO 배분 예고를 로트별로 나눠 적는다 —
+               로트 하나로는 모자라도 여러 로트에 걸쳐 차감되므로
+               「20개짜리 하나뿐인데 40개를 어떻게」로 읽히면 안 된다. */
+            let vesRow = '';
+            if (it.ves && locked) {
+                const vm = it.vesLot;
+                vesRow = `<div class="veslot">
+        <div class="vl"><div class="vlt">투입 용기 반제품 로트 · 차감 완료</div>
           <div class="vll">${vm ? vm.lot_no : '미지정'}</div>
-          <div class="vlm">${vesMeta}</div></div>
-        ${locked ? '' : `<button class="vchg" data-pickves="${i}">변경</button>`}</div>` : '';
+          <div class="vlm">${vm ? (it.ves.name + ' · 차감 ' + vm.avail + ' · ' + vm.wh) : '가용 로트 없음'}</div></div></div>`;
+            } else if (it.ves) {
+                const pl = vesPlan(it);
+                const lines = pl.rows.map(x =>
+                    `<div class="vlrow"><span class="ln">${x.lot_no}</span>`
+                    + `<span class="tk">${x.take}</span>`
+                    + `<span class="av">/ 가용 ${x.avail}</span></div>`).join('');
+                const head = pl.need > 0
+                    ? `${pl.fixed ? '로트 지정' : 'FIFO 배분'} · 소요 ${pl.need}`
+                    + (pl.rows.length > 1 ? ' · 로트 ' + pl.rows.length + '건' : '')
+                    : (pl.fixed ? '로트 지정' : 'FIFO 배분') + ' · 수량 입력 대기';
+                vesRow = `<div class="veslot">
+        <div class="vl"><div class="vlt">투입 용기 반제품 · ${head}</div>
+          ${lines || `<div class="vlm">${pl.need > 0 ? '가용 로트 없음' : it.ves.name}</div>`}
+          ${pl.short > 0 ? `<div class="vlshort">부족 ${pl.short}개 — 이대로 완료하면 재고 부족으로 막힙니다</div>` : ''}
+          ${pl.over > 0 ? `<div class="vlshort">지정 ${pl.over}개 초과 — 소요보다 많이 차감됩니다</div>` : ''}
+        </div>
+        <button class="vchg" data-pickves="${i}">변경</button></div>`;
+            }
             const woTag = it.wo ? `<span class="autotag">지시 ${it.wo}</span>` : `<span class="autotag" style="color:var(--amber)">작지없음</span>`;
             return `<div class="vitem ${locked ? 'locked' : ''}" data-st="${it.st}"><div class="edge"></div>
       <div class="vhead">
@@ -980,7 +1114,9 @@
             const vs = e.target.closest('[data-vstep]');
             if (vs && (e.target.classList.contains('plus') || e.target.classList.contains('minus'))) {
                 const i = +vs.dataset.vstep, d = e.target.classList.contains('plus') ? 1 : -1;
-                curC.items[i].qty = Math.max(0, (+curC.items[i].qty || 0) + d);
+                const itv = curC.items[i];
+                itv.qty = Math.max(0, (+itv.qty || 0) + d);
+                reflowAlloc(itv);   // 용기 투입량도 함께 따라간다
                 renderItems();
                 return;
             }
@@ -1042,6 +1178,14 @@
                 const shortRow = it.bom.find(b => bomQ(b, it.qty) > b.stock);
                 if (shortRow) {
                     flash(`클린룸 재고 부족 · ${shortRow.name} (재고 ${shortRow.stock.toLocaleString()})`);
+                    return;
+                }
+                /* 용기 반제품도 막는다. 서버가 로트를 다 훑고도 모자라면
+                   IllegalStateException 으로 롤백하는데, 여기서 먼저 잡으면
+                   작업자가 완료를 누르기 전에 부족분을 안다. */
+                const vp = vesPlan(it);
+                if (vp.short > 0) {
+                    flash(`클린룸 용기 부족 · ${it.ves.name} (부족 ${vp.short.toLocaleString()})`);
                     return;
                 }
                 finishVessel(it);
@@ -1271,9 +1415,15 @@
         /* WO-우선(블리스터): 현재 작지(curD)의 PK를 차수로 바로 담기. PK 선택 모달 불필요. */
         function addCurrentWoPk() {
             if (!curD || !curD.job_res_id) { flash('작업지시를 먼저 선택하세요'); return; }
+            /* ★ 남은 지시량을 담는다.
+                 curD.plan 은 작지 OrderQty, curD.good_qty 는 이미 완료된 수량이다.
+                 그냥 plan 을 쓰면 2차수째에 또 전량이 찍혀 지시량을 넘긴다.
+                 이미 다 채웠으면 0 이 되므로, 그때는 사람이 올려서 초과생산을 명시한다. */
+            const left = Math.max(num(curD.plan) - num(curD.good_qty), 0);
             const src = {
                 job_res_id: curD.job_res_id, mat_id: curD.mat_id,
-                vname: curD.vname, vcode: curD.vcode, wo: curD.order_num
+                vname: curD.vname, vcode: curD.vcode, wo: curD.order_num,
+                plan: left
             };
             // 대기 상태 차수가 이미 있으면 중복 담기 방지(먼저 시작/완료 유도)
             if (curC.items.some(it => it.st === 'wait')) {
@@ -1321,8 +1471,52 @@
         /* BOM 자재 추가 (클린룸 재고) */
         let partVi = null, CLEAN_STOCK = [];
 
-        /* 용기 반제품 로트 선택 시트 (FIFO) */
-        let lotVi = null;
+        /* ── 용기 반제품 로트 선택 시트 ──
+             체크한 로트에서만, 지정한 수량만큼 차감한다.
+             선택 결과는 it.vesAlloc = [{lot_id, lot_no, qty}] 로 남고
+             inputPayload 가 lots 로 실어 보낸다(서버 consumeBomList 가 그 순서대로 차감).
+             ★ 아무것도 안 고르면 vesAlloc = null 로 두어 FIFO 로 돌려놓는다 —
+               빈 배열로 두면 「0개 차감」과 구분이 안 된다. */
+        let lotVi = null, LOT_DRAFT = [];
+
+        function lotDraftSum() {
+            return LOT_DRAFT.reduce((a, x) => a + (x.on ? num(x.qty) : 0), 0);
+        }
+
+        /* 체크된 로트에 FIFO 로 필요량을 다시 나눠 담는다.
+           아무것도 안 켜져 있으면 전체를 후보로 본다(= 첫 진입·FIFO 자동). */
+        function lotDraftAuto(need, onlyChecked) {
+            let remain = need;
+            LOT_DRAFT.forEach(x => {
+                const use = onlyChecked ? x.on : true;
+                if (!use || remain <= 0) { if (!onlyChecked) { x.on = false; x.qty = 0; } else if (!x.on) x.qty = 0; return; }
+                const take = Math.min(x.avail, remain);
+                x.on = take > 0;
+                x.qty = take;
+                remain -= take;
+            });
+        }
+
+        function renderLotSheet() {
+            const it = curC.items[lotVi];
+            const need = vesNeed(it);
+            const sum = lotDraftSum();
+            const diff = sum - need;
+            const bar = document.getElementById('lotSum');
+            bar.className = 'lotsum ' + (diff === 0 && need > 0 ? 'okk' : (diff !== 0 ? 'bad' : ''));
+            bar.innerHTML = `<span>소요 ${need}</span><span class="need">지정 ${sum}`
+                + (diff === 0 ? ' · 일치' : (diff > 0 ? ` · ${diff} 초과` : ` · ${-diff} 부족`)) + '</span>';
+
+            const box = document.getElementById('lotList');
+            box.innerHTML = LOT_DRAFT.length ? LOT_DRAFT.map((l, i) => `
+        <div class="prow ${l.on ? 'added' : 'off'}" data-lot="${i}">
+          <div class="pid"><div class="pnm">${l.lot_no}${i === 0 ? ' <span class="autotag">FIFO</span>' : ''}</div>
+            <div class="pcode">${l.name} · ${l.in_date || ''} · 가용 ${l.avail}</div></div>
+          <div class="lqty"><div class="lq" data-lqty="${i}">${l.on ? l.qty : 0}</div></div>
+          <div class="pchk" data-ltog="${i}">${l.on ? '✓' : '＋'}</div></div>`).join('')
+                : `<div class="emptybox">클린룸에 가용한 용기 반제품 로트가 없습니다</div>`;
+        }
+
         function openLotSheet(vi) {
             const it = curC.items[vi];
             if (!it || !it.ves) { flash('이 PK에는 용기 반제품 구성이 없습니다'); return; }
@@ -1330,25 +1524,78 @@
             // 최신 가용 로트 재조회(다른 조가 소비했을 수 있음)
             const lot = loadVesLot(it.ves.mat_id);
             it.vesLots = lot ? lot.list : [];
-            const cur = it.vesLot ? it.vesLot.lot_id : null;
-            const box = document.getElementById('lotList');
-            box.innerHTML = it.vesLots.length ? it.vesLots.map((l, i) => `
-        <div class="prow ${l.lot_id === cur ? 'added' : ''}" data-lot="${i}">
-          <div class="pid"><div class="pnm">${l.lot_no}${i === 0 ? ' <span class="autotag">FIFO</span>' : ''}</div>
-            <div class="pcode">${l.name} · ${l.in_date || ''}</div></div>
-          <div class="pr"><div class="pl">가용</div>${l.avail}</div>
-          <div class="pchk">${l.lot_id === cur ? '✓' : '＋'}</div></div>`).join('')
-                : `<div class="emptybox">클린룸에 가용한 용기 반제품 로트가 없습니다</div>`;
+            const prev = {};
+            (it.vesAlloc || []).forEach(a => { prev[a.lot_id] = num(a.qty); });
+            LOT_DRAFT = it.vesLots.map(l => ({
+                lot_id: l.lot_id, lot_no: l.lot_no, name: l.name, in_date: l.in_date,
+                avail: num(l.avail),
+                on: prev[l.lot_id] > 0,
+                qty: prev[l.lot_id] > 0 ? Math.min(prev[l.lot_id], num(l.avail)) : 0
+            }));
+            // 지정 이력이 없으면 FIFO 로 미리 채워 보여준다
+            if (!LOT_DRAFT.some(x => x.on)) lotDraftAuto(vesNeed(it), false);
+            renderLotSheet();
             showMask('lotMask');
         }
+
         document.getElementById('lotList').addEventListener('click', e => {
-            const r = e.target.closest('[data-lot]');
-            if (!r || lotVi == null) return;
+            if (lotVi == null) return;
             const it = curC.items[lotVi];
-            it.vesLot = it.vesLots[+r.dataset.lot];
+
+            const tg = e.target.closest('[data-ltog]');
+            if (tg) {
+                const l = LOT_DRAFT[+tg.dataset.ltog];
+                l.on = !l.on;
+                if (l.on && l.qty <= 0) {
+                    // 켤 때는 아직 모자란 만큼만 자동으로 담는다
+                    const lack = Math.max(vesNeed(it) - lotDraftSum(), 0);
+                    l.qty = Math.min(l.avail, lack > 0 ? lack : l.avail);
+                }
+                if (!l.on) l.qty = 0;
+                renderLotSheet();
+                return;
+            }
+            const qb = e.target.closest('[data-lqty]');
+            if (qb) {
+                const idx = +qb.dataset.lqty;
+                if (!LOT_DRAFT[idx].on) return;
+                openPad({type: 'lot', idx: idx});
+            }
+        });
+
+        document.getElementById('lotAuto').addEventListener('click', () => {
+            if (lotVi == null) return;
+            lotDraftAuto(vesNeed(curC.items[lotVi]), false);
+            renderLotSheet();
+        });
+
+        document.getElementById('lotOk').addEventListener('click', () => {
+            if (lotVi == null) return;
+            const it = curC.items[lotVi];
+            const need = vesNeed(it);
+            const picked = LOT_DRAFT.filter(x => x.on && num(x.qty) > 0);
+            const over = picked.find(x => num(x.qty) > x.avail);
+            if (over) { flash(`가용 초과 · ${over.lot_no} (가용 ${over.avail})`); return; }
+
+            if (!picked.length) {
+                it.vesAlloc = null;                     // FIFO 로 복귀
+                it.vesLot = it.vesLots[0] || null;
+                hideMask('lotMask');
+                renderItems();
+                flash('용기 로트 · FIFO 자동으로 되돌림');
+                return;
+            }
+            const sum = picked.reduce((a, x) => a + num(x.qty), 0);
+            if (sum !== need) {
+                // 막지는 않는다. 초과·부족은 완료 시 서버가 다시 검증한다.
+                flash(sum > need ? `소요보다 ${sum - need} 많습니다` : `소요보다 ${need - sum} 모자랍니다`);
+            }
+            it.vesAlloc = picked.map(x => ({lot_id: x.lot_id, lot_no: x.lot_no, qty: num(x.qty)}));
+            it.vesLot = {lot_id: picked[0].lot_id, lot_no: picked[0].lot_no,
+                avail: picked[0].avail, wh: '클린룸'};
             hideMask('lotMask');
             renderItems();
-            flash(`용기 로트 지정 · ${it.vesLot.lot_no}`);
+            flash(`용기 로트 ${picked.length}건 지정 · 합계 ${sum}`);
         });
 
         function openPartSheet(vi) {
@@ -1454,6 +1701,10 @@
                 const it = curC.items[ctx.vi];
                 padVal = String(it.qty || 0);
                 document.getElementById('padLab').textContent = it.vname + ' · PK 수량';
+            } else if (ctx.type === 'lot') {
+                const l = LOT_DRAFT[ctx.idx];
+                padVal = String(l.qty || 0);
+                document.getElementById('padLab').textContent = l.lot_no + ' · 차감 수량 (가용 ' + l.avail + ')';
             } else {
                 const it = curC.items[ctx.vi], b = it.bom[ctx.bi];
                 padVal = String(bomQ(b, it.qty));
@@ -1469,8 +1720,28 @@
             if (k === 'C') padVal = '';
             else if (k === 'OK') {
                 const val = Math.max(0, parseInt(padVal || '0', 10));
-                if (padCtx.type === 'ves') curC.items[padCtx.vi].qty = val;
-                else {
+                if (padCtx.type === 'ves') {
+                    const it = curC.items[padCtx.vi];
+                    /* PK 수량이 바뀌면 용기 투입량도 따라 올라간다(per × qty).
+                       고른 로트를 유지한 채 다시 흘리고, 그 로트들로 모자라면
+                       나머지를 FIFO 로 이어 붙인다. */
+                    const had = it.vesAlloc ? it.vesAlloc.length : 0;
+                    it.qty = val;
+                    reflowAlloc(it);
+                    if (had && it.vesAlloc && it.vesAlloc.length > had) {
+                        flash(`용기 부족분 · 로트 ${it.vesAlloc.length - had}건 FIFO 자동 추가`);
+                    }
+                }
+                else if (padCtx.type === 'lot') {
+                    const l = LOT_DRAFT[padCtx.idx];
+                    // 가용을 넘겨 적으면 완료 때 서버가 막는다. 여기서 먼저 잘라준다.
+                    l.qty = Math.min(val, l.avail);
+                    l.on = l.qty > 0;
+                    hideMask('padMask');
+                    renderLotSheet();
+                    if (val > l.avail) flash(`가용 ${l.avail} 까지만 지정됩니다`);
+                    return;
+                } else {
                     const b = curC.items[padCtx.vi].bom[padCtx.bi];
                     b.manual = true;
                     b.qty = val;
