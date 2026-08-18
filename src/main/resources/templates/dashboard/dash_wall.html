@@ -25,7 +25,12 @@
     ═══════════════════════════════════════════════════════════ */
     #wlWrap {
       position: relative;
-      height: 100vh;
+      /* ★ 100vh 를 쓰지 않는다.
+           이 화면은 위에 탭 헤더, 아래에 푸터가 있는 레이아웃 안에 들어간다.
+           100vh 는 「창 전체」라 항상 실제로 쓸 수 있는 자리보다 크고,
+           그만큼 아래가 잘린다. 전체화면일 때만 우연히 맞았던 것이다.
+           실제 높이는 wlFitHeight() 가 잰다 (dash_main 과 같은 방식). */
+      height: 640px;        /* 초기값 · JS 의 WL_MIN_H 와 같은 값 */
       background: #e4e9f2;
       color: #1f2733;
       padding: 22px 26px;
@@ -137,47 +142,237 @@
     #wlWrap .wl-kpi.violet .v { color:#7a6ff0; }
     #wlWrap .wl-kpi.teal .v   { color:#00a3a3; }
 
-    /* 1920 미만에서는 글자를 조금 줄인다 */
+    /* ═══════════════════════════════════════════════
+       반응형
+
+       두 가지를 분리해서 다룬다. 지난번에 이 둘을 한 덩어리로 묶는 바람에
+       가로 1920 짜리 화면이 「세로가 낮다」는 이유만으로 2×2 로 접혔다.
+
+       (1) 접기    — 가로가 좁을 때만. 세로와는 무관하다.
+       (2) 높이풀기 — 세로가 낮을 때(또는 가로가 좁을 때).
+                      100vh 안에 안 들어가면 눌러 담지 말고 흘려보낸다.
+
+       ★ 높이를 풀 때 .wl-body 의 flex:1 도 같이 풀어야 한다.
+         안 풀면 body 가 남는 높이를 전부 빨아들여
+         하단 KPI 줄만 저 아래 바닥에 홀로 떨어져 붙는다.
+    ═══════════════════════════════════════════════ */
+
+    /* ── 겹침 방지 ──
+       .wl-body 는 flex:1 1 auto + min-height:0 이라 자리가 모자라면 눌리고,
+       .wl-kpis 는 flex:0 0 auto 라 제 높이를 지킨다.
+       그래서 눌린 body 안의 내용이 아래로 새어 KPI 줄 위에 그려진다.
+       카드에만 overflow 를 걸면 카드 「안쪽」 글자만 잡히므로 칸에도 건다. */
+    #wlWrap .wl-body { overflow:hidden; }
+    #wlWrap .wl-env, #wlWrap .wl-proc { overflow:hidden; }
+    #wlWrap .wl-ec, #wlWrap .wl-fac, #wlWrap .wl-tile, #wlWrap .wl-kpi { overflow:hidden; }
+    #wlWrap .wl-kpis { position:relative; z-index:2; background:#e4e9f2; }
+
+    /* ── 눌림 방지 ──
+       ★ 이게 없으면 「높이가 모자란지」를 알 수 없다.
+
+         flex/grid 자식은 min-height:0 이면 내용보다 작게까지 줄어든다.
+         그 상태에서 안쪽 글자는 overflow:hidden 으로 잘리므로
+         바깥에서 보면 넘친 흔적이 없다 —
+         wlFitHeight() 의 scrollHeight 검사도 아무것도 못 잡는다.
+         결국 「자리는 그대로인데 내용만 뭉개진」 상태로 굳는다.
+
+         그래서 각 칸에 내용이 필요로 하는 만큼의 최소 높이를 준다.
+         그러면 자리가 모자랄 때 실제로 넘치고,
+         넘치면 wlFitHeight() 가 스크롤 모드로 바꾼다. */
+    #wlWrap .wl-tile  { min-height:44px; }
+    #wlWrap .wl-tiles { grid-auto-rows:minmax(44px, 1fr); }
+    #wlWrap .wl-fac,
+    #wlWrap .wl-ec    { min-height:min-content; }
+    #wlWrap .wl-env,
+    #wlWrap .wl-proc,
+    #wlWrap .wl-body  { min-height:min-content; }
+
+    /* ── 높이가 모자랄 때 ──
+       wlFitHeight() 가 「내용이 들어갈 최소 높이」보다 자리가 좁다고 판단하면
+       #wlWrap 에 .wl-scroll 을 붙인다.
+       그때는 한 화면을 포기하고 세로로 흘려보낸다 — 페이지 스크롤로 본다.
+       ★ .wl-body 의 flex:1 도 같이 풀어야 한다.
+         안 풀면 body 가 남는 높이를 다 빨아들여
+         하단 KPI 줄만 저 아래 바닥에 홀로 떨어진다. */
+    #wlWrap.wl-scroll { height:auto !important; overflow:visible; }
+    #wlWrap.wl-scroll .wl-body { flex:0 0 auto; overflow:visible; }
+    #wlWrap.wl-scroll .wl-env,
+    #wlWrap.wl-scroll .wl-proc,
+    #wlWrap.wl-scroll .wl-kpis { flex:0 0 auto; }
+    #wlWrap.wl-scroll .wl-ec  { min-height:120px; }
+    #wlWrap.wl-scroll .wl-fac { min-height:min-content; }
+    #wlWrap.wl-scroll .wl-ec .rows { justify-content:space-between; gap:2px; }
+
+    /* ── 글자 줄이기 : 가로 1920 미만 ── */
     @media (max-width:1600px){
+      #wlWrap .wl-head h1   { font-size:25px; }
+      #wlWrap .wl-clock     { font-size:28px; }
+      #wlWrap .wl-alarm     { font-size:19px; }
+      #wlWrap .wl-ec .zn    { font-size:17px; }
+      #wlWrap .wl-ec .rw .k { font-size:19px; }
       #wlWrap .wl-ec .rw .v { font-size:32px; }
-      #wlWrap .wl-kpi .v { font-size:36px; }
-      #wlWrap .wl-clock { font-size:28px; }
+      #wlWrap .wl-ec .rw .v small { font-size:14px; }
+      #wlWrap .wl-kpi .v    { font-size:34px; }
+      #wlWrap .wl-kpi .l    { font-size:12.5px; }
+      #wlWrap .wl-tile .tn  { font-size:13px; }
+      #wlWrap .wl-tile .tv  { font-size:22px; }
+      #wlWrap .wl-tile .tsplit .tv { font-size:18px; }
     }
+
+    /* 세로가 낮으면 폭과 무관하게 글자를 줄인다 — 접지는 않는다 */
+    @media (max-height:900px){
+      #wlWrap { padding:14px 18px; gap:10px; }
+      #wlWrap .wl-head h1   { font-size:23px; }
+      #wlWrap .wl-clock     { font-size:24px; }
+      #wlWrap .wl-alarm     { font-size:17px; padding:11px 16px; }
+      #wlWrap .wl-ec        { padding:10px 14px; }
+      #wlWrap .wl-ec .zn    { font-size:16px; }
+      #wlWrap .wl-ec .rw .k { font-size:17px; }
+      #wlWrap .wl-ec .rw .v { font-size:28px; }
+      #wlWrap .wl-kpi .v    { font-size:28px; }
+      #wlWrap .wl-tile .tv  { font-size:20px; }
+    }
+
+    /* ── (1) 접기 : 가로가 좁을 때만 ── */
+    @media (max-width:1400px){
+      #wlWrap { padding:16px 18px; gap:12px; }
+      #wlWrap .wl-head h1 { font-size:22px; }
+      #wlWrap .wl-clock   { font-size:22px; }
+      /* ★ .wl-body 를 block 으로 바꾸지 않는다.
+           block 이 되면 flex 비율(40%/33%)이 죽어서
+           카드가 내용만큼만 자라고 아래가 텅 빈다.
+           폭이 좁아도 「아래까지 꽉 참」은 유지해야 한다. */
+      /* ★ 클린룸 4장은 접지 않는다. 내용이 「이름 + 3줄」뿐이라
+           좁아져도 읽히고, 접으면 세로만 두 배가 된다.
+           벽걸이는 세로가 늘어나는 쪽이 훨씬 불리하다. */
+      #wlWrap .wl-env  { grid-template-columns:repeat(4,1fr); gap:10px; }
+      #wlWrap .wl-ec   { padding:10px 12px; }
+      #wlWrap .wl-ec .zn { font-size:15px; }
+      #wlWrap .wl-ec .zn .st { font-size:10.5px; padding:2px 7px; }
+      #wlWrap .wl-ec .rw .k { font-size:14px; }
+      #wlWrap .wl-ec .rw .v { font-size:24px; }
+      #wlWrap .wl-ec .rw .v small { font-size:12px; }
+      #wlWrap .wl-proc { grid-template-columns:repeat(2,1fr); gap:12px; }
+
+      /* ★ KPI 5장은 어떤 폭에서도 한 줄을 지킨다.
+           2줄이 되면 「오늘의 숫자」가 두 덩어리로 갈라져
+           멀리서 훑을 때 한눈에 안 들어온다.
+           칸을 늘리는 대신 카드 폭과 글자를 줄인다. */
+      #wlWrap .wl-kpis { grid-template-columns:repeat(5,1fr); gap:9px; }
+      #wlWrap .wl-kpi  { padding:9px 11px; }
+      #wlWrap .wl-kpi .l { font-size:11.5px; white-space:nowrap;
+        overflow:hidden; text-overflow:ellipsis; }
+      #wlWrap .wl-kpi .v { font-size:26px; }
+      #wlWrap .wl-kpi .v small { font-size:12px; }
+    }
+
+    /* 1100 이하 — 2열은 유지하고 안쪽 타일을 줄인다 */
+    @media (max-width:1100px){
+      /* ★ 1·2공장도 접지 않는다. 나란히 놓아야 두 공장을 「비교」할 수 있다.
+           세로로 쌓으면 한 번에 하나씩만 보이고, 벽걸이는 세로가 늘수록 불리하다.
+           대신 안쪽 타일을 3열 → 2열로 줄여 폭을 만든다. */
+      #wlWrap .wl-fac  { padding:10px 12px; }
+      #wlWrap .wl-fac .ft { font-size:12px; margin-bottom:7px; }
+      #wlWrap .wl-fac .ft b { font-size:14px; }
+      #wlWrap .wl-tiles { grid-template-columns:repeat(2,1fr); gap:8px; }
+      #wlWrap .wl-tile { padding:7px 9px; }
+      #wlWrap .wl-tile .tn { font-size:12px; }
+      #wlWrap .wl-tile .tv { font-size:18px; }
+      #wlWrap .wl-tile .tsplit .tv { font-size:15px; }
+    }
+
+    /* 992 이하 — 태블릿·좁은 창. 바깥 배치는 그대로, 안쪽만 더 줄인다 */
+    @media (max-width:992px){
+      #wlWrap { padding:12px; }
+      #wlWrap .wl-head { flex-wrap:wrap; gap:10px; }
+      #wlWrap .wl-clock { margin-left:0; width:100%; font-size:20px; }
+      #wlWrap .wl-env  { gap:7px; }
+      #wlWrap .wl-ec   { padding:8px 9px; }
+      #wlWrap .wl-ec .zn { font-size:13px; }
+      #wlWrap .wl-ec .rw .k { font-size:12px; }
+      #wlWrap .wl-ec .rw .v { font-size:19px; }
+      #wlWrap .wl-tiles { gap:6px; }
+      #wlWrap .wl-ec, #wlWrap .wl-fac { min-height:0; }
+      /* 여기서도 1줄 유지. 더 줄일 것은 글자뿐이다 */
+      #wlWrap .wl-kpis { gap:7px; }
+      #wlWrap .wl-kpi  { padding:7px 8px; }
+      #wlWrap .wl-kpi .l { font-size:10.5px; }
+      #wlWrap .wl-kpi .v { font-size:21px; }
+    }
+
+    /* 640 이하 — 타일 안 2분할(완제품/CK)이 무너진다. 세로로 세운다 */
+    @media (max-width:640px){
+      /* 폰에서는 4열이 무리다. 여기서만 2열로 */
+      #wlWrap .wl-env { grid-template-columns:repeat(2,1fr); }
+      #wlWrap .wl-ec .rw .v { font-size:22px; }
+      /* 폰에서는 두 공장을 나란히 둘 수 없다. 여기서만 세로로 */
+      #wlWrap .wl-proc { grid-template-columns:1fr; }
+      #wlWrap .wl-proc .wl-fac + .wl-fac { margin-top:10px; }
+      #wlWrap .wl-tile .tsplit { display:block; }
+      #wlWrap .wl-tile .tsplit > div + div {
+        border-left:0; padding-left:0; margin-top:5px;
+        border-top:1px solid #dde3ec; padding-top:5px;
+      }
+      #wlWrap .wl-tile.on .tsplit > div + div { border-top-color:#bfe6d1; }
+      #wlWrap .wl-alarm { font-size:15px; align-items:flex-start; }
+      #wlWrap .wl-alarm .cnt { font-size:12px; }
+      #wlWrap .wl-kpis { gap:5px; }
+      #wlWrap .wl-kpi  { padding:6px 5px; border-radius:10px; }
+      #wlWrap .wl-kpi .l { font-size:9px; }
+      #wlWrap .wl-kpi .v { font-size:16px; }
+      #wlWrap .wl-kpi .v small { font-size:9px; margin-left:1px; }
+    }
+
+
+    /* ── 아래 여백 ──
+       ★ 모든 미디어쿼리보다 뒤에 둔다.
+         앞에 두면 아래쪽 쿼리의 padding 축약형(padding:12px 등)이
+         padding-bottom 까지 덮어써서 여백이 사라진다.
+       ★ margin 이 아니라 padding 인 이유: margin collapsing 으로
+         부모 바깥으로 빠져나가 자리를 못 만들기 때문이다.
+       고정 높이일 때는 JS 가 높이에서 이미 빼므로 스크롤 모드에만 준다. */
+    #wlWrap.wl-scroll { padding-bottom:30px; }
   </style>
 </head>
 
 <th:block layout:fragment="content">
   <!-- ★ page-title-wrap 을 쓰지 않는다. 벽걸이에서 브레드크럼은 자리만 먹는다 -->
   <div class="layout-contents" style="padding:0; margin:0">
-    <div id="wlWrap">
+    <!-- ★ section 으로 감싼다.
+         .layout-contents 바로 밑에 두면 레이아웃이 붙여 주는 하단 여백을 못 받아
+         마지막 카드가 푸터와 붙는다.
+         padding 은 0 으로 눌러 벽걸이의 「가장자리까지 꽉 참」은 유지한다. -->
+    <section class="section" style="padding:0; margin:0">
+      <div id="wlWrap">
 
-      <div class="wl-head">
-        <h1>대시보드</h1>
-        <span class="wl-live"><i></i><span id="wlUpd">연결 중</span></span>
-        <div class="wl-clock"><span class="d" id="wlDate"></span><span id="wlTime"></span></div>
-        <button type="button" class="wl-full" id="wlFull" title="전체화면">⛶</button>
-      </div>
+        <div class="wl-head">
+          <h1>대시보드</h1>
+          <span class="wl-live"><i></i><span id="wlUpd">연결 중</span></span>
+          <div class="wl-clock"><span class="d" id="wlDate"></span><span id="wlTime"></span></div>
+          <button type="button" class="wl-full" id="wlFull" title="전체화면">⛶</button>
+        </div>
 
-      <div class="wl-alarm ok" id="wlAlarm">
-        <span>정상 운영 중</span>
-      </div>
+        <div class="wl-alarm ok" id="wlAlarm">
+          <span>정상 운영 중</span>
+        </div>
 
-      <div class="wl-body">
-        <div class="wl-env" id="wlEnv"></div>
-        <div class="wl-proc">
-          <div class="wl-fac">
-            <div class="ft"><b>1공장</b>BSC 생산</div>
-            <div class="wl-tiles" id="wlF1"></div>
-          </div>
-          <div class="wl-fac">
-            <div class="ft"><b>2공장</b>M-CELL</div>
-            <div class="wl-tiles" id="wlF2"></div>
+        <div class="wl-body">
+          <div class="wl-env" id="wlEnv"></div>
+          <div class="wl-proc">
+            <div class="wl-fac">
+              <div class="ft"><b>1공장</b>BSC 생산</div>
+              <div class="wl-tiles" id="wlF1"></div>
+            </div>
+            <div class="wl-fac">
+              <div class="ft"><b>2공장</b>M-CELL</div>
+              <div class="wl-tiles" id="wlF2"></div>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div class="wl-kpis" id="wlKpis"></div>
-    </div>
+        <div class="wl-kpis" id="wlKpis"></div>
+      </div>
+    </section>
   </div>
 </th:block>
 
@@ -436,6 +631,63 @@
       }
     }
 
+    /* ── 화면 높이 맞추기 ──
+       이 화면은 「아래까지 꽉 차게」가 기본이다.
+       그래서 창 높이가 아니라 「이 요소가 실제로 쓸 수 있는 높이」를 잰다.
+         쓸 수 있는 높이 = 창 높이 − 요소 시작 위치 − 푸터 높이 − 여백
+       상수로 빼면(calc(100vh - 140px)) 탭 줄바꿈·전체화면 전환 때 또 어긋난다.
+
+       잰 높이가 내용이 들어갈 최소치(WL_MIN_H)보다 작으면
+       억지로 밀어 넣지 않고 .wl-scroll 을 붙여 세로로 흘린다.
+       잘려서 못 보는 것보다 스크롤로 보는 편이 낫다. */
+    var WL_MIN_H = 640;
+    /* 아래 여백. 푸터가 차지하는 자리까지 포함한 값이다.
+       푸터 높이는 고정이라 실측할 것이 없다 —
+       레이아웃이 바뀌면 이 숫자 하나만 고치면 된다. */
+    var WL_GAP_B = 30;
+
+
+    function wlFitHeight(){
+      var el = document.getElementById('wlWrap');
+      if (!el) return;
+
+      /* 전체화면일 때는 이 요소가 곧 화면 전체다. 잴 것이 없다 */
+      if (document.fullscreenElement === el) {
+        el.classList.remove('wl-scroll');
+        el.style.height = '100vh';
+        el.style.paddingBottom = '';
+        return;
+      }
+
+      /* 재기 전에 인라인 높이를 지운다.
+         이전에 넣어둔 값이 남아 있으면 시작 위치 계산이 어긋난다. */
+      el.style.height = '';
+      el.classList.remove('wl-scroll');
+
+      var top = el.getBoundingClientRect().top + window.pageYOffset;
+      var h = window.innerHeight - top - WL_GAP_B;
+
+      if (h < WL_MIN_H) {
+        /* 애초에 자리가 너무 좁다 — 눌러 담지 않고 흘려보낸다 */
+        el.classList.add('wl-scroll');
+        return;
+      }
+
+      /* ★ 먼저 꽉 채워 본다.
+           폭이 좁다고 무조건 스크롤 모드로 보내면
+           이번처럼 자리는 남는데 카드만 작아져 아래가 텅 빈다.
+           「접혔는가」가 아니라 「실제로 넘치는가」로 판단해야 한다. */
+      el.style.height = h + 'px';
+
+      /* 넣어 보고 실제로 넘쳤는지 확인한다.
+         scrollHeight 는 내용 전체 높이, clientHeight 는 보이는 높이다.
+         2px 은 소수점 반올림 오차용 — 없으면 멀쩡한데도 스크롤로 넘어간다. */
+      if (el.scrollHeight > el.clientHeight + 2) {
+        el.style.height = '';
+        el.classList.add('wl-scroll');
+      }
+    }
+
     /* 전체화면 — 벽걸이는 메뉴·주소창이 자리만 먹는다 */
     function wlToggleFull(){
       var el = document.getElementById('wlWrap');
@@ -451,6 +703,13 @@
       wlLoad();
       setInterval(wlLoad, WL_POLL_MS);
       document.getElementById('wlFull').addEventListener('click', wlToggleFull);
+
+      wlFitHeight();
+      window.addEventListener('resize', wlFitHeight);
+      /* 전체화면 진입·해제 때도 다시 잰다 — 시작 위치가 통째로 바뀐다 */
+      document.addEventListener('fullscreenchange', wlFitHeight);
+      /* 레이아웃(탭·푸터)이 조금 늦게 자리를 잡는 경우가 있어 한 번 더 */
+      setTimeout(wlFitHeight, 300);
     });
   </script>
 </th:block>

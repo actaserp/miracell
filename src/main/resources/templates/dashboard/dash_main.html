@@ -20,9 +20,13 @@
          메뉴 줄바꿈·해상도에 따라 또 어긋난다. */
       height: 100vh;
       min-height: 710px;   /* JS 의 DB_MIN_H 와 같은 값 */
-      background: #dfe4ee;
-      border-radius: 12px;
-      padding: 12px;
+      /* ★ 배경·여백·모서리를 갖지 않는다.
+           바깥 <section class="section"> 이 이미 흰 바탕과 안쪽 여백을 준다.
+           여기서 또 배경을 깔면 「액자 속 액자」가 되어 테두리가 두 겹으로 보인다.
+           담는 그릇은 section 하나면 된다. */
+      background: transparent;
+      border-radius: 0;
+      padding: 0;
       box-sizing: border-box;
       display: flex;
       flex-direction: column;
@@ -281,10 +285,198 @@
       font-size:13.5px; padding:9px 15px;
       box-shadow:0 2px 6px rgba(214,69,69,.35); }
 
-    @media (max-width:1400px){
-      #dbWrap .db-kpis { grid-template-columns:repeat(3,1fr); }
-      #dbWrap .db-body { grid-template-columns:1.3fr 1fr; }
+    /* ═══════════════════════════════════════════════════
+       반응형
+
+       ★ 이 화면의 기본 전제는 「스크롤 없는 한 화면」이다.
+         그 전제는 가로가 넉넉할 때만 성립한다.
+         폭이 줄면 열이 접히면서 세로로 길어지는데,
+         높이는 dbFitHeight() 가 창 높이로 못박아 두므로
+         남는 내용이 잘려 나간다 — 잘린 걸 볼 방법이 없다.
+
+         그래서 1400 아래에서는 「한 화면」을 포기하고
+         바깥 스크롤을 허용한다. 이 폭은 벽걸이가 아니라
+         사람이 앉아서 보는 PC 이고, 사람은 스크롤을 내릴 수 있다.
+         벽걸이는 dash_wall 이 따로 담당한다.
+
+       ★ 3열 → 2열로 줄이면 .db-col 이 3개라 세 번째가 다음 줄로 넘어간다.
+         이때 grid-auto-rows 를 안 주면 두 줄이 남은 높이를 반씩 나눠 갖고
+         카드가 전부 눌린다. 줄 높이를 명시하거나 높이를 풀어야 한다.
+    ═══════════════════════════════════════════════════ */
+
+    /* 1600 이하 — 아직 3열 유지. 글자만 한 단계 줄인다 */
+    @media (max-width:1600px){
+      #dbWrap .db-kpi .v   { font-size:20px; }
+      #dbWrap .db-kpi .l   { font-size:10px; }
+      #dbWrap .em .v       { font-size:19px; }
+      #dbWrap .ec          { padding:9px 12px 10px; }
+      #dbWrap .zone .zq    { font-size:17px; }
+      #dbWrap .zone .zsplit .zq { font-size:15px; }
     }
+
+    /* 1400 이하 — 열이 접히기 시작한다. 여기서 높이 고정을 푼다 */
+    @media (max-width:1400px){
+      /* ★ JS 가 넣는 인라인 height 를 이겨야 하므로 !important.
+           dbFitHeight() 쪽에도 같은 폭 가드를 두었지만,
+           JS 가 먼저 돌고 창을 줄이는 경우까지 막으려면 CSS 에도 필요하다. */
+      #dbWrap { height:auto !important; min-height:0; overflow:visible; }
+
+      /* ★ 칸 수를 고정해서 접지 않는다.
+           6 → 3 → 2 로 못박으면 폭이 남을 때 카드 하나가 통째로 길어진다.
+           KPI 카드는 「이름 + 숫자 하나」뿐이라 넓어져도 채울 내용이 없고,
+           그래서 빈 여백만 늘어난 채 길쭉해 보인다.
+
+           대신 최소 폭만 정해 주고 몇 칸이 들어갈지는 폭이 정하게 한다.
+           1560 → 6칸, 1250 → 5칸… 처럼 한 칸씩 자연스럽게 줄어들어
+           카드 비율이 크게 무너지는 구간이 없어진다. */
+      #dbWrap .db-kpis { grid-template-columns:repeat(auto-fit, minmax(165px, 1fr)); }
+
+      /* 세로도 같이 줄인다.
+         가로가 길어진 만큼 이름과 숫자를 한 줄에 나란히 놓으면
+         카드가 납작해져 「길쭉한 빈 칸」 느낌이 사라진다. */
+      #dbWrap .db-kpi {
+        display:flex; align-items:baseline; gap:8px; padding:7px 13px;
+      }
+      #dbWrap .db-kpi .l { flex:1 1 auto; min-width:0;
+        overflow:hidden; text-overflow:ellipsis; }
+      #dbWrap .db-kpi .v { flex:0 0 auto; margin-top:0; font-size:21px; }
+
+      /* ★ 클린룸 카드는 접지 않는다. 4개 그대로 한 줄.
+           한 칸에 든 것이 「이름 + 지표 3줄」뿐이라 좁아져도 읽힌다.
+           2열로 접으면 세로만 두 배가 되고 얻는 게 없다.
+           대신 여백과 글자를 줄여 폭을 맞춘다. */
+      #dbWrap .db-env { grid-template-columns:repeat(4,1fr); gap:8px; }
+      #dbWrap .ec { padding:8px 11px 9px; border-left-width:4px; }
+      #dbWrap .ec-h .n { font-size:13px; }
+      #dbWrap .ec-h .z { display:none; }   /* 「클린룸 1존」은 이름과 중복 */
+      #dbWrap .em .v { font-size:18px; }
+
+      /* ★ flex:1 을 반드시 풀어야 한다.
+           높이를 auto 로 바꿔도 .db-body 가 flex:1 1 auto 로 남아 있으면
+           바깥에 남는 높이를 통째로 빨아들이고,
+           grid 의 기본 align-content:stretch 가 그 높이를 두 줄에 나눠 준다.
+           그 결과 두 번째 줄(멸균·설비·부적합)이 아래로 붙지 않고
+           빈 공간 가운데에 떠 보인다.
+           높이를 내용만큼만 쓰게 하고(flex:0 0 auto),
+           줄은 위에서부터 쌓는다(align-content:start). */
+      #dbWrap .db-body {
+        flex:0 0 auto;
+        /* 1·2공장은 대등한 두 축이다. 3열일 때 1공장이 넓은 건
+           옆에 좁은 열이 둘 더 있어서지, 1공장이 더 중요해서가 아니다.
+           2열이 되면 비교 대상이 서로뿐이므로 반반이 맞다. */
+        grid-template-columns:1fr 1fr;
+        grid-template-rows:auto auto;
+        align-content:start;
+        align-items:stretch;
+      }
+      #dbWrap .db-col { min-height:0; }
+
+      /* 세 번째 컬럼은 둘째 줄 전체를 쓰고 내부를 가로로 편다.
+         세로로 쌓으면 3장이 화면 하나를 통째로 먹는다.
+         grid-row 를 명시한다 — auto-placement 에 맡기면
+         앞 줄 높이에 따라 자리가 흔들린다. */
+      #dbWrap .db-col:nth-child(3) {
+        grid-column:1 / -1; grid-row:2;
+        flex-direction:row; align-items:stretch;
+      }
+      #dbWrap .db-col:nth-child(3) > .db-card { flex:1 1 0; min-width:0; }
+
+      /* 높이가 auto 가 되면 flex:1 이 기댈 기준이 없어져
+         카드가 내용만큼만(또는 0에 가깝게) 나온다. 최소 높이를 준다. */
+      #dbWrap .db-card.grow { min-height:230px; }
+      #dbWrap .db-card-b    { max-height:340px; }
+
+      /* ★ 공정 현황 카드 높이 맞추기.
+           1·2공장 카드는 서로 다른 .db-col(= 별개의 flex 컨테이너) 안에 있어
+           높이가 동기화되지 않는다. 각자 내용만큼만 자란다.
+
+           내용이 다른 이유는 타일 개수가 아니라 타일 「종류」다.
+           둘 다 2줄이지만, 1공장 포장 타일만 2분할(완제품/CK)이라
+           작은 라벨 줄이 하나 더 붙어 그 줄 전체가 커진다.
+           작업중(초록) 여부는 높이와 무관하다 —
+           .zw(작업자 줄)는 대기일 때도 height:14px 로 자리를 잡아 둔다.
+
+           그래서 min-height 로는 안 맞는다. 큰 쪽이 그 값을 넘어서니까.
+           타일 높이 자체를 고정해 「줄 수가 같으면 카드 높이도 같다」로 만든다. */
+      #dbWrap .db-card.fix { min-height:0; }
+      #dbWrap .db-card.fix .db-card-b { max-height:none; }
+      #dbWrap .zone-grid { grid-auto-rows:78px; }
+      #dbWrap .zone {
+        min-height:0; height:78px; overflow:hidden;
+        display:flex; flex-direction:column; justify-content:center;
+      }
+      /* 고정 높이 안에서 2분할이 라벨까지 들어가야 한다. 여백을 조인다 */
+      #dbWrap .zone .zsplit { margin-top:0; }
+      #dbWrap .zone .zsplit .zq { font-size:16px; }
+      #dbWrap .zone .zq { margin-top:1px; }
+      #dbWrap .zone .zw { margin-top:1px; }
+    }
+
+    /* 1200 이하 — 지표 줄의 기준값(18~25 같은 것)이 값을 밀어낸다.
+       기준은 참고값이라 먼저 접는다. */
+    @media (max-width:1200px){
+      /* auto-fit 이 알아서 줄이므로 칸 수를 다시 못박지 않는다.
+         최소 폭만 한 단계 낮춘다. */
+      #dbWrap .db-kpis { grid-template-columns:repeat(auto-fit, minmax(145px, 1fr)); }
+      #dbWrap .em .rg  { display:none; }
+      #dbWrap .em .v   { font-size:18px; }
+      #dbWrap .db-card-h { font-size:11px; }
+      #dbWrap .db-card-h .sub { display:none; }   /* 부제는 접힌다. 제목이 먼저다 */
+    }
+
+    /* 992 이하 — 태블릿·좁은 창. 모두 1열 */
+    @media (max-width:992px){
+      #dbWrap { gap:8px; }
+      #dbWrap .db-body { grid-template-columns:1fr; }
+      #dbWrap .db-env { gap:6px; }
+      #dbWrap .ec { padding:7px 8px 8px; }
+      #dbWrap .ec-h { padding-bottom:5px; }
+      #dbWrap .ec-h .n { font-size:12px; }
+      #dbWrap .ec-h .s { font-size:9.5px; padding:2px 6px; }
+      #dbWrap .em .k { font-size:10.5px; }
+      #dbWrap .em .v { font-size:16px; }
+      /* 1열이 되면 둘째 줄 고정을 풀어야 한다.
+         grid-row:2 가 남아 있으면 2공장 컬럼과 같은 칸을 다투어 겹친다. */
+      #dbWrap .db-col:nth-child(3) {
+        grid-column:auto; grid-row:auto; flex-direction:column;
+      }
+      #dbWrap .zone-grid { grid-template-columns:repeat(2,1fr); }
+      #dbWrap .db-alert  { font-size:11.5px; padding:6px 10px; }
+    }
+
+    /* 640 이하 — 폰. 존 타일 안의 2분할이 무너지므로 세로로 세운다 */
+    @media (max-width:640px){
+      #dbWrap .db-kpis { grid-template-columns:repeat(auto-fit, minmax(128px, 1fr)); }
+      #dbWrap .db-kpi .v { font-size:19px; }
+      /* 폰에서는 4열이 무리다. 여기서만 2열로 */
+      #dbWrap .db-env { grid-template-columns:repeat(2,1fr); }
+      #dbWrap .em .v { font-size:18px; }
+      #dbWrap .zone-grid { grid-template-columns:1fr; grid-auto-rows:auto; }
+      /* ★ 여기서는 타일 높이 고정을 푼다.
+           아래에서 2분할을 세로로 세우므로 78px 안에 들어가지 않는다.
+           1열이라 카드 높이를 맞출 이유도 이미 없다. */
+      #dbWrap .zone { height:auto; overflow:visible; }
+      #dbWrap .zone .zsplit { display:block; }
+      #dbWrap .zone .zsplit > div + div {
+        border-left:0; padding-left:0; margin-top:5px;
+        border-top:1px solid #e5e9f0; padding-top:5px;
+      }
+      #dbWrap .zone.on .zsplit > div + div { border-top-color:#bfe6d1; }
+      #dbWrap .db-card.grow { min-height:180px; }
+      #dbWrap .em .v { font-size:20px; }
+
+      /* 모달·알람은 좁은 화면에서 좌우 여백만 남기고 다 쓴다 */
+      .db-modal, .db-alarm-box { width:100%; max-width:calc(100vw - 24px); }
+      .db-modal-b { padding:12px; }
+      .db-mt th, .db-mt td { padding:4px 2px; font-size:11px; }
+      .db-mt th.z { width:auto; }
+      .db-mt input { max-width:none; height:30px; font-size:12.5px; }
+      .db-az .mx { flex-wrap:wrap; }
+      .db-az .mx div { flex:1 1 30%; }
+      .db-alarm-f { flex-wrap:wrap; }
+      .db-alarm-f .btn { width:100%; }
+    }
+
   </style>
 </head>
 
@@ -309,58 +501,64 @@
       </ul>
     </div>
 
-    <div id="dbWrap">
+    <!-- ★ 다른 화면(생산불량현황 등)과 같이 section 으로 감싼다.
+         .layout-contents 바로 밑에 두면 이 레이아웃이 화면마다 붙여 주는
+         하단 여백을 못 받아 푸터와 붙는다. 여백을 CSS 로 따로 만들 게 아니라
+         원래 자리에 넣어야 한다. -->
+    <section class="section">
+      <div id="dbWrap">
 
-      <!-- ★ 알림이 맨 위. 카드 아래에 두면 제일 중요한 걸 제일 늦게 본다 -->
-      <div class="db-alerts" id="dbAlerts"></div>
-      <div class="db-kpis" id="dbKpis"></div>
-      <div class="db-env" id="dbEnv"></div>
+        <!-- ★ 알림이 맨 위. 카드 아래에 두면 제일 중요한 걸 제일 늦게 본다 -->
+        <div class="db-alerts" id="dbAlerts"></div>
+        <div class="db-kpis" id="dbKpis"></div>
+        <div class="db-env" id="dbEnv"></div>
 
-      <div class="db-body">
+        <div class="db-body">
 
-        <!-- 좌 : 1공장 -->
-        <div class="db-col">
-          <div class="db-card fix">
-            <div class="db-card-h a-f1">1공장 공정 현황
-              <span class="sub">숫자 = 오늘 확정 양품 · 초록 = 작업중</span></div>
-            <div class="db-card-b"><div class="zone-grid" id="dbZoneF1"></div></div>
+          <!-- 좌 : 1공장 -->
+          <div class="db-col">
+            <div class="db-card fix">
+              <div class="db-card-h a-f1">1공장 공정 현황
+                <span class="sub">숫자 = 오늘 확정 양품 · 초록 = 작업중</span></div>
+              <div class="db-card-b"><div class="zone-grid" id="dbZoneF1"></div></div>
+            </div>
+            <div class="db-card grow">
+              <div class="db-card-h a-f1">진행중 작업지시 <span class="sub" id="dbOrderCnt"></span></div>
+              <div class="db-card-b" id="dbOrders"></div>
+            </div>
           </div>
-          <div class="db-card grow">
-            <div class="db-card-h a-f1">진행중 작업지시 <span class="sub" id="dbOrderCnt"></span></div>
-            <div class="db-card-b" id="dbOrders"></div>
+
+          <!-- 중 : 2공장 -->
+          <div class="db-col">
+            <div class="db-card fix">
+              <div class="db-card-h a-f2">2공장 공정 현황 <span class="sub">M-CELL</span></div>
+              <div class="db-card-b"><div class="zone-grid" id="dbZoneF2"></div></div>
+            </div>
+            <div class="db-card grow">
+              <div class="db-card-h a-f2">유닛 현황 <span class="sub">1대 = 1로트</span></div>
+              <div class="db-card-b" id="dbUnits"></div>
+            </div>
           </div>
+
+          <!-- 우 : 배치·설비·품질 -->
+          <div class="db-col">
+            <div class="db-card grow">
+              <div class="db-card-h a-lot">멸균 배치 <span class="sub">BI 판정</span></div>
+              <div class="db-card-b" id="dbSteril"></div>
+            </div>
+            <div class="db-card grow">
+              <div class="db-card-h a-lot">가동중 설비 <span class="sub" id="dbEquCnt"></span></div>
+              <div class="db-card-b" id="dbEqu"></div>
+            </div>
+            <div class="db-card grow">
+              <div class="db-card-h a-qc">오늘 부적합 <span class="sub">공정별</span></div>
+              <div class="db-card-b" id="dbDefect"></div>
+            </div>
+          </div>
+
         </div>
-
-        <!-- 중 : 2공장 -->
-        <div class="db-col">
-          <div class="db-card fix">
-            <div class="db-card-h a-f2">2공장 공정 현황 <span class="sub">M-CELL</span></div>
-            <div class="db-card-b"><div class="zone-grid" id="dbZoneF2"></div></div>
-          </div>
-          <div class="db-card grow">
-            <div class="db-card-h a-f2">유닛 현황 <span class="sub">1대 = 1로트</span></div>
-            <div class="db-card-b" id="dbUnits"></div>
-          </div>
-        </div>
-
-        <!-- 우 : 배치·설비·품질 -->
-        <div class="db-col">
-          <div class="db-card grow">
-            <div class="db-card-h a-lot">멸균 배치 <span class="sub">BI 판정</span></div>
-            <div class="db-card-b" id="dbSteril"></div>
-          </div>
-          <div class="db-card grow">
-            <div class="db-card-h a-lot">가동중 설비 <span class="sub" id="dbEquCnt"></span></div>
-            <div class="db-card-b" id="dbEqu"></div>
-          </div>
-          <div class="db-card grow">
-            <div class="db-card-h a-qc">오늘 부적합 <span class="sub">공정별</span></div>
-            <div class="db-card-b" id="dbDefect"></div>
-          </div>
-        </div>
-
       </div>
-    </div>
+    </section>
   </div>
 
   <!-- ★ 모달을 #dbWrap 안에 넣지 않는다. dbWrap 은 overflow:hidden 이라 잘린다 -->
@@ -491,23 +689,32 @@
     /* ── 화면 높이 맞추기 ──
        대시보드는 스크롤이 없어야 하므로 「창 높이 - 대시보드 시작 위치」로 잡는다.
        전체화면 여부·메뉴 줄바꿈·해상도가 달라져도 알아서 맞는다. */
+    /* 아래 여백. 푸터가 차지하는 자리까지 포함한 값이다.
+       푸터 높이는 고정이라 실측할 것이 없다 —
+       레이아웃이 바뀌면 이 숫자 하나만 고치면 된다. */
+    var DB_GAP_B = 30;
+
+
     function dbFitHeight(){
       var el = document.getElementById('dbWrap');
       if (!el) return;
 
       var top = el.getBoundingClientRect().top + window.pageYOffset;
 
-      /* ★ 푸터 높이를 빼야 한다.
-           창 높이만 기준으로 잡으면 문서 흐름 안에 있는 푸터만큼 아래가 잘린다.
-           index 도 같은 방식으로 계산한다 ($('.footer').outerHeight()).
-           상수로 빼면 푸터 문구가 줄바꿈될 때 또 어긋나므로 실측한다. */
-      var footerH = 0;
-      if (typeof $ === 'function' && $('.footer').length) {
-        footerH = $('.footer').outerHeight(true) || 0;
+      /* ★ 좁은 폭에서는 높이를 못박지 않는다.
+           1400 아래에서는 CSS 가 열을 접어 세로로 길어지는데,
+           여기서 창 높이를 그대로 씌우면 넘친 만큼 잘려서
+           아래쪽 카드를 볼 방법이 없어진다.
+           CSS 미디어쿼리(max-width:1400px)와 같은 값을 쓴다 —
+           두 곳이 어긋나면 한쪽만 접혀 더 이상해진다. */
+      if (window.innerWidth <= 1400) {
+        el.style.height = '';
+        /* 아래 여백은 바깥 <section> 이 준다. 여기서 또 주지 않는다 */
+        return;
       }
 
-      /* 아래 여백 24px — 다른 화면의 section 하단 여백과 맞춘다 */
-      var h = window.innerHeight - top - footerH - 24;
+      /* 아래 여백만큼 빼고 높이를 잡는다 */
+      var h = window.innerHeight - top - DB_GAP_B;
       el.style.height = Math.max(DB_MIN_H, h) + 'px';
     }
 
