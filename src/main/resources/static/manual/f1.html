@@ -548,16 +548,16 @@
     <div class="dgm">
       <div class="dcol">
         <div class="dnode"><span class="dk">01</span><span class="dt">PK 담기</span>
-          <span class="ds">멸균창고에서 멸균필 PK · 필터팩을 꺼낸다</span></div>
+          <span class="ds">멸균창고에서 멸균필 PK를 꺼낸다</span></div>
         <div class="dar"></div>
         <div class="dnode"><span class="dk">02</span><span class="dt">인박스 · CK</span>
-          <span class="ds">CK를 합쳐 키트로 만들고 인박스에 담는다</span></div>
+          <span class="ds">국가별로 배분하고 CK를 합쳐 인박스에 담는다 · 완제품이 나온다</span></div>
         <div class="dar"></div>
         <div class="dnode"><span class="dk">03</span><span class="dt">라벨 스캔</span>
           <span class="ds">붙인 UDI 라벨을 스캔해 로트와 맞는지 확인한다</span></div>
         <div class="dar"></div>
         <div class="dnode"><span class="dk">04</span><span class="dt">아웃박스(카톤)</span>
-          <span class="ds">인박스를 카톤으로 묶는다 · 국가별 배분</span></div>
+          <span class="ds">인박스를 카톤으로 묶는다</span></div>
       </div>
     </div>
 
@@ -567,40 +567,47 @@
       <li><span class="st-t">작업을 시작합니다</span>
         <p><span class="ui">작업 추가</span> → 작업자와 설비를 지정 → <span class="ui">이 작업자로 시작</span>.</p></li>
       <li><span class="st-t">① PK를 담습니다</span>
-        <p>멸균창고에 있는 멸균필 PK 로트를 골라 담습니다. BmSC라면 필터팩도 함께 담습니다.
+        <p>작업을 만들면 <b>PK가 자동으로 배정됩니다.</b> 작업지시 잔여 수량만큼 멸균창고에서
+          오래된 로트부터 잡습니다. 다르면 <span class="ui">PK 로트 담기</span>로 바꿉니다.
           <span class="ui">수량 부족</span>이 뜨면 멸균이 덜 끝났거나 이미 다른 작업이 가져간 것입니다.</p></li>
-      <li><span class="st-t">② CK를 합쳐 인박스에 담습니다</span>
-        <p>포장에서 CK를 새로 만들지 않습니다. <b>이미 만들어 둔 CK를 가져다 씁니다.</b>
-          그 CK가 어디서 왔느냐만 다릅니다.</p>
+      <li><span class="st-t">② 국가를 나누고 CK를 합쳐 인박스에 담습니다</span>
+        <p>국가별로 나눠 포장한다면 <span class="ui">국가 추가</span>로 나라와 수량을 먼저 정합니다.
+          <b>국가마다 완제품 로트가 따로 생기므로</b> 배분을 여기서 정해야 합니다.
+          국가를 쓰지 않으면 한 줄 그대로 두면 됩니다.</p>
+        <p>CK는 국가마다 두 가지 중 하나를 고릅니다.</p>
         <table>
-          <thead><tr><th style="width:34%">완제품 작지가</th><th>CK는</th></tr></thead>
+          <thead><tr><th style="width:34%">고르는 것</th><th>이렇게 됩니다</th></tr></thead>
           <tbody>
-          <tr><td>수주로 내려간 경우</td>
-            <td>라우팅을 따라 <b>CK 작업지시도 함께 생성되어 있습니다.</b> 그 작지로 만든 CK를 씁니다</td></tr>
-          <tr><td>자체재고 생산지시인 경우</td>
-            <td>CK 작지는 따라오지 않습니다. <b>CK도 따로 자체재고 생산지시를 내려</b> 만든 뒤
-              <span class="ui">자체재고 투입</span>으로 그 로트를 골라 씁니다</td></tr>
+          <tr><td><span class="ui">새로 생산</span> (기본)</td>
+            <td>이 자리에서 <b>CK를 만듭니다.</b> 주사기·니들·스티커 같은 CK 구성자재를 소비하고
+              CK 로트가 생긴 뒤 곧바로 완제품에 투입됩니다.
+              <b>BmSC라면 필터팩도 여기서 들어갑니다</b> — 멸균창고의 로트를 직접 골라야 합니다</td></tr>
+          <tr><td><span class="ui">자체재고 투입</span></td>
+            <td>미리 <b>CK 자체재고 생산지시</b>로 만들어 생산창고에 둔 CK를 골라 씁니다.
+              새로 만들지 않고 그 로트를 그대로 가져다 씁니다</td></tr>
           </tbody>
         </table>
-        <p>국가별로 나눠 포장한다면 <b>국가마다 따로</b> 고를 수 있습니다.
-          <span class="ui">담은 합계</span>가 <span class="ui">계획수량</span>과 맞는지 확인합니다.</p></li>
-      <li><span class="st-t">③ 라벨을 스캔합니다</span>
+        <p><span class="ui">담은 합계</span>가 <span class="ui">계획수량</span>과 맞는지 확인하고
+          <span class="ui">인박스 · CK 반영 · 완제품 산출</span>을 누릅니다.
+          누르면 PK·인박스·CK가 한 번에 소비되고 <b>완제품 로트와 카톤 번호가 생깁니다.</b></p></li>
+      <li><span class="st-t">③ 라벨을 스캔합니다 — 두 번</span>
         <p>제품에 붙는 <b>UDI 라벨은 이 시스템에서 뽑지 않습니다.</b> 라벨은 따로 제작해서 옵니다.
           스캔은 <b>그 라벨의 번호와 우리 시스템의 로트를 짝지어 두기 위한 것</b>입니다.
           이걸 해 두어야 나중에 "이 번호가 어느 로트였나"를 되짚을 수 있습니다.</p>
-        <p><span class="ui">스캔</span>으로 라벨을 읽으면 <span class="ui">인식된 라벨</span>에 뜹니다.
-          <span class="ui">반영됨</span>으로 바뀌어야 짝지어진 것입니다.
+        <p><span class="ui">라벨 스캔</span>으로 <b>두 장을 순서대로</b> 찍습니다 —
+          먼저 <b>키트에 붙인 CK·PK 라벨</b>, 다음 <b>인박스에 붙인 라벨</b>.
+          화면이 지금 몇 번째를 찍을 차례인지 알려주니 그대로 따라가면 됩니다.
+          읽으면 <span class="ui">인식된 라벨</span>에 뜨고, 두 장을 다 찍으면
+          <span class="ui">반영됨</span>으로 바뀝니다.
           잘못 읽었으면 <span class="ui">다시 스캔</span> 또는 <span class="ui">‹ 라벨 취소</span>.</p></li>
-      <li><span class="st-t">④ 아웃박스로 묶습니다</span>
-        <p>인박스를 카톤 단위로 묶습니다.</p></li>
-      <li><span class="st-t">국가별로 나눌 것이 있으면 배분합니다</span>
-        <p><span class="ui">국가별 배분</span>에서 <span class="ui">국가 추가</span>로 나라를 넣고 수량을 나눕니다.
-          국가별로 라벨이 달라지는 경우가 있으니 <b>배분을 먼저 정하고 라벨을 뽑으세요.</b></p></li>
       <li><span class="st-t">카톤 박스 바코드를 출력합니다</span>
         <p><span class="ui">바코드 출력</span>. <b>이 시스템에서 뽑는 것은 카톤 박스용 바코드뿐입니다.</b>
-          제품에 붙는 UDI 라벨은 별도로 제작된 것을 쓰고, 우리는 ③에서 그것을 스캔해 짝만 지어 둡니다.</p></li>
-      <li><span class="st-t">완료합니다</span>
-        <p><span class="ui">완제품 로트</span>가 생기고 제품창고로 들어갑니다.</p></li>
+          제품에 붙는 UDI 라벨은 별도로 제작된 것을 쓰고, 우리는 ③에서 그것을 스캔해 짝만 지어 둡니다.</p>
+        <p><b>박스마다 번호가 다릅니다.</b> 카톤 3개면 C-…-KR-01 · -02 · -03 세 장이 나옵니다.
+          출고할 때 박스를 하나씩 찍어 내보내므로 <b>번호를 섞어 붙이면 안 됩니다.</b></p></li>
+      <li><span class="st-t">④ 아웃박스로 묶고 완료합니다</span>
+        <p>인박스를 카톤 단위로 묶고 <span class="ui">포장 공정 완료</span>를 누릅니다.
+          완제품은 ②에서 이미 제품창고에 들어가 있습니다. ④는 박스 묶음과 마감입니다.</p></li>
     </ol>
 
     <div class="note warn">
@@ -612,14 +619,18 @@
 
     <div class="note stop">
       <span class="nt">되돌릴 때</span>
-      <p><span class="ui">생산완료 취소</span>는 완제품 로트를 없애고 투입한 PK·CK를 되돌립니다.
-        <b>이미 출하지시가 걸린 로트는 취소하지 마세요.</b> 출하 쪽을 먼저 정리한 뒤 취소합니다.</p>
+      <p>되돌리는 순서는 <b>진행한 순서의 반대</b>입니다. 라벨을 먼저 풀고 ②를 되돌립니다.
+        <span class="ui">‹ 라벨 취소</span>는 완제품 로트를 두고 라벨만 뗍니다.
+        ②를 되돌리면 완제품 로트가 없어지고 투입한 PK·CK가 돌아옵니다 —
+        국가 배분과 담아둔 PK는 남습니다.
+        <span class="ui">생산완료 취소</span>는 ④(아웃박스 소비)만 되돌립니다.</p>
+      <p><b>이미 출하지시가 걸린 로트는 취소하지 마세요.</b> 출하 쪽을 먼저 정리한 뒤 취소합니다.</p>
     </div>
 
     <div class="note check">
       <span class="nt">여기까지 하고 확인</span>
       <ul class="chk">
-        <li>완제품 로트가 생겼고 제품창고 재고가 늘었습니다.</li>
+        <li>완제품 로트가 생겼고 제품창고 재고가 늘었습니다. 국가를 나눴다면 <b>국가별로</b> 로트가 있습니다.</li>
         <li>출고 계획 등록 화면에서 이 제품을 고를 수 있습니다.</li>
         <li>스캔한 라벨이 모두 <span class="ui">반영됨</span>으로 바뀌었습니다.</li>
       </ul>
