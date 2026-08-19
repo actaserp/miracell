@@ -528,14 +528,14 @@
     <div class="dgm">
       <div class="dcol">
         <div class="dnode"><span class="dk">월중</span><span class="dt">건을 쌓는다</span>
-          <span class="ds">출고할 때마다 <b>납품보고</b>에 등록합니다. 반품 · 폐기가 생기면 각 화면에도 등록합니다.
+          <span class="ds">출고할 때마다 <b>납품보고</b>에 등록합니다. 반품 · 폐기가 생기면 각 화면에도 등록(보고x)합니다.
         <br>이때 상태는 <span class="ui">임시</span>입니다.</span></div>
         <div class="dar"></div>
         <div class="dnode"><span class="dk">월말</span><span class="dt">현황집계표에서 확인</span>
           <span class="ds">그 달 전체를 놓고 출고 내역과 대조합니다. 빠진 건 · 틀린 건은 각 화면에서 고칩니다.</span></div>
         <div class="dar"></div>
         <div class="dnode hi"><span class="dk">마감</span><span class="dt">보고확정</span>
-          <span class="ds">상태가 <span class="ui">보고확정</span>으로 바뀝니다. 엑셀로 내려받아 제출합니다.</span></div>
+          <span class="ds">상태가 <span class="ui">보고확정</span>으로 바뀝니다.</span></div>
       </div>
     </div>
 
@@ -549,7 +549,15 @@
         <p><span class="ui">표준코드</span> · <span class="ui">로트번호</span> ·
           <span class="ui">제조연월(YYMMDD)</span> · <span class="ui">사용기한(YYMMDD)</span> ·
           <span class="ui">일련번호</span>.
-          <span class="ui">바코드 조회</span>로 라벨을 읽으면 이 값들이 한 번에 채워집니다 — <b>손으로 치는 것보다 정확합니다.</b></p></li>
+          <span class="ui">바코드 조회</span>로 라벨을 읽으면 이 값들이 한 번에 채워집니다 — <b>손으로 치는 것보다 정확합니다.</b></p>
+        <p>바코드 조회로 채워진 필드(<span class="ui">UDI-DI</span> · <span class="ui">표준코드</span> ·
+          <span class="ui">UDI-PI</span> · <span class="ui">로트번호</span> ·
+          <span class="ui">제조연월</span> · <span class="ui">사용기한</span>)는
+          <b>자동으로 잠겨 수동 수정이 막힙니다.</b>
+          실수로 바꾸는 것을 방지하기 위한 동작입니다.
+          기존에 저장된 건을 그리드에서 선택하면 잠금이 풀려 직접 수정할 수 있습니다.</p>
+        <p>바코드 조회로 새 데이터를 불러오면 <b>입력란 전체가 먼저 초기화된 후</b> 값이 채워집니다.
+          그리드에서 건을 선택한 상태에서 바코드를 다시 조회해도 이전 값이 섞이지 않습니다.</p></li>
       <li><span class="st-t">공급 정보를 넣습니다</span>
         <p><span class="ui">공급일</span> · <span class="ui">공급형태</span> · <span class="ui">수량</span> ·
           <span class="ui">낱개 수량</span> · <span class="ui">공급단가</span> · <span class="ui">공급금액</span>.</p></li>
@@ -571,14 +579,34 @@
     <p>나간 물건이 돌아왔을 때 등록합니다.
       <span class="ui">납품건 조회</span>로 <b>원래 납품보고한 건을 찾아서</b> 만드세요 —
       그래야 표준코드·로트·일련번호가 그 건과 맞아떨어집니다.</p>
-    <p><span class="ui">반품일</span> · <span class="ui">반품수량</span> · <span class="ui">반품사유</span>를 넣고 저장합니다.</p>
+    <ol class="steps">
+      <li><span class="st-t">납품건 조회를 누릅니다</span>
+        <p>확정된 납품보고 목록이 팝업으로 뜹니다. 반품할 원래 납품건을 선택합니다.</p></li>
+      <li><span class="st-t">입력란이 자동으로 채워집니다</span>
+        <p>선택하는 순간 <b>입력란 전체가 먼저 초기화된 후</b> 납품건의 값이 채워집니다.
+          이전에 선택했던 건의 값이 남아 섞이지 않습니다.</p></li>
+      <li><span class="st-t">반품 정보를 추가로 넣습니다</span>
+        <p><span class="ui">반품일</span> · <span class="ui">반품수량</span> · <span class="ui">반품사유</span>를 입력합니다.</p></li>
+      <li><span class="st-t">저장합니다</span>
+        <p>상태가 <span class="ui">임시</span>가 됩니다.</p></li>
+    </ol>
 
     <h3 id="s-udi-disposal">폐기보고</h3>
     <p>폐기했을 때 등록합니다. 역시 <span class="ui">납품건 조회</span>에서 시작합니다.</p>
-    <p><span class="ui">폐기사유</span>는 고르는 값입니다 —
-      <span class="ui">불량</span> · <span class="ui">파손</span> · <span class="ui">유효기간 경과</span> ·
-      <span class="ui">회수</span> · <span class="ui">기타</span>.
-      <span class="ui">기타</span>를 고르면 <span class="ui">상세폐기사유</span>를 직접 씁니다.</p>
+    <ol class="steps">
+      <li><span class="st-t">납품건 조회를 누릅니다</span>
+        <p>확정된 납품보고 목록이 팝업으로 뜹니다. 폐기 대상 납품건을 선택합니다.</p></li>
+      <li><span class="st-t">입력란이 자동으로 채워집니다</span>
+        <p>선택하는 순간 <b>입력란 전체가 먼저 초기화된 후</b> 납품건의 값이 채워집니다.
+          이전에 선택했던 건의 값이 남아 섞이지 않습니다.</p></li>
+      <li><span class="st-t">폐기 정보를 추가로 넣습니다</span>
+        <p><span class="ui">폐기사유</span>는 고르는 값입니다 —
+          <span class="ui">불량</span> · <span class="ui">파손</span> · <span class="ui">유효기간 경과</span> ·
+          <span class="ui">회수</span> · <span class="ui">기타</span>.
+          <span class="ui">기타</span>를 고르면 <span class="ui">상세폐기사유</span>를 직접 씁니다.</p></li>
+      <li><span class="st-t">저장합니다</span>
+        <p>상태가 <span class="ui">임시</span>가 됩니다.</p></li>
+    </ol>
 
     <div class="note">
       <span class="nt">공정 부적합과 다릅니다</span>
@@ -590,19 +618,24 @@
     <h3 id="s-udi-close">현황집계표와 보고확정</h3>
     <ol class="steps">
       <li><span class="st-t">기준월로 조회합니다</span>
-        <p>납품 · 반품 · 폐기가 한 화면에 모입니다.</p></li>
+        <p>납품 · 반품 · 폐기가 한 화면에 모입니다. 구분 · 상태 · 품목명 · 거래처명 등을 한눈에 볼 수 있습니다.</p></li>
       <li><span class="st-t">출고 내역과 대조합니다</span>
-        <p>그 달 출고 건수와 납품보고 건수가 맞는지 봅니다. 빠진 건이 여기서 드러납니다.</p></li>
-      <li><span class="st-t">보고확정을 누릅니다</span>
-        <p>상태가 <span class="ui">임시</span>에서 <span class="ui">보고확정</span>으로 바뀝니다.</p></li>
+        <p>그 달 출고 건수와 납품보고 건수가 맞는지 봅니다. 빠진 건이 여기서 드러납니다.
+          틀린 건은 납품 · 반품 · 폐기 각 화면에서 수정합니다.</p></li>
+      <li><span class="st-t">보고확정 팝업을 엽니다</span>
+        <p><span class="ui">보고확정 및 취소</span> 버튼을 누르면 팝업이 열립니다.
+          <b>기준월을 확인하고</b> <span class="ui">보고확정</span>을 누릅니다.
+          해당 월의 임시 건 전체가 한 번에 <span class="ui">보고확정</span> 상태로 바뀝니다.</p></li>
       <li><span class="st-t">엑셀로 내려받아 제출합니다</span>
-        <p><span class="ui">엑셀 다운로드</span>.</p></li>
+        <p><span class="ui">엑셀 다운로드</span>로 내려받아 식약처에 제출합니다.</p></li>
     </ol>
 
     <div class="note stop">
-      <span class="nt">확정 후 수정</span>
-      <p>확정한 뒤 틀린 것을 발견하면 <span class="ui">보고확정 및 취소</span>에서 확정을 풀고 고친 다음
-        다시 확정합니다. <b>확정된 상태로는 고쳐지지 않습니다.</b>
+      <span class="nt">확정된 건은 수정 · 삭제가 막힙니다</span>
+      <p>상태가 <span class="ui">보고확정</span>인 건은 <b>삭제 버튼이 비활성화</b>됩니다.
+        확정한 뒤 틀린 것을 발견하면 <span class="ui">보고확정 및 취소</span> 팝업에서
+        <span class="ui">확정취소</span>를 눌러 임시 상태로 되돌린 다음 수정하고 다시 확정합니다.
+        <b>확정된 상태로는 고쳐지지 않습니다.</b>
         이미 제출까지 했다면 고치기 전에 담당자에게 먼저 알리세요.</p>
     </div>
   </main>
