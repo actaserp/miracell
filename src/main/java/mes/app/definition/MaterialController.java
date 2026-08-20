@@ -81,12 +81,13 @@ public class MaterialController {
 			@RequestParam(value = "mat_type", required = false) String matType,
 			@RequestParam(value = "mat_group", required = false) String matGroupId,
 			@RequestParam(value = "keyword", required = false) String keyword,
+			@RequestParam(value = "factory_id", required = false) String factoryId,
 			@RequestParam(value ="spjangcd") String spjangcd,
 			@RequestParam(value ="useYn_flag") String useYnFlag,
 			@RequestParam(value ="user_code", required = false) Integer userCodeId
 	) {
 
-		List<Map<String, Object>> items = this.materialService.getMaterialList(matType, matGroupId, keyword,spjangcd, useYnFlag, userCodeId);
+		List<Map<String, Object>> items = this.materialService.getMaterialList(matType, matGroupId, keyword, factoryId, spjangcd, useYnFlag, userCodeId);
 
 		AjaxResult result = new AjaxResult();
 		result.data = items;

@@ -100,6 +100,14 @@
                         </dl>
                         <dl>
                             <dt>
+                                <label>공장</label>
+                            </dt>
+                            <dd>
+                                <select class="form-control2" id="srchFactory" name="srchFactory"></select>
+                            </dd>
+                        </dl>
+                        <dl>
+                            <dt>
                                 <label>사용중지여부</label>
                             </dt>
                             <dd>
@@ -122,7 +130,7 @@
                             <dd>
                                 <li>
                                     <button type="button" class="btn-delete btn-danger" id="batchDelete"
-                                            style="width: 115px; height: 36px;">
+                                            style="display: none; width: 115px; height: 36px;">
                                         <i class="fas fa-trash"></i>일괄삭제
                                     </button>
                                 </li>
@@ -1043,15 +1051,6 @@
                         }
                     },
                     columns: [
-                        {
-                            binding: 'selected', // 데이터의 임시 컬럼
-                            header: '',
-                            width: 40,
-                            align: 'center',
-                            allowSorting: false,
-                            isReadOnly: false, // 체크박스는 편집가능해야함
-                            dataType: 'Boolean'
-                        },
                         {binding: 'mat_type_name', header: '품목구분', width: 80, align: 'center'},
                         {binding: 'mat_grp_name', header: '품목그룹', width: 100, align: 'left'},
                         {binding: 'mat_name', header: '품목명', width: 220, align: 'left'},
@@ -1374,6 +1373,12 @@
                 // filter dropdown load
                 AjaxUtil.fillSelectOptions($('#cboMaterialType'), 'system_code', 'all', false, 'mat_type');
                 AjaxUtil.fillSelectOptions($('#cboMaterialGroup'), 'material_group', 'all', false);
+                AjaxUtil.fillSelectOptions($('#srchFactory'), 'factory', 'all', false);
+                setTimeout(() => {
+                    if (userinfo.factory_id) {
+                        $('#srchFactory').val(userinfo.factory_id).trigger('change');
+                    }
+                }, 0);
 
                 $('#cboMaterialType').on('change', function (e) {
                     let mat_type = $('#cboMaterialType').val();
@@ -1497,9 +1502,9 @@
                     'mat_type': $('#cboMaterialType').val(),
                     'mat_group': $('#cboMaterialGroup').val(),
                     'keyword': $('#keyword').val(),
+                    'factory_id': $('#srchFactory').val(),
                     'action': 'read',
                     'useYn_flag': $('#useYn_flag').is(':checked') ? '1' : '0',
-                    // 'user_code': $('#cboMaterialMid').val(),
                     spjangcd: sessionStorage.getItem('spjangcd'),
                 };
 

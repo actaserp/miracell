@@ -20,12 +20,13 @@ public class MaterialService {
 	SqlRunner sqlRunner;
 
 
-	public List<Map<String, Object>> getMaterialList(String matType, String matGroupId, String keyword, String spjangcd, String useYnFlag, Integer userCodeId){
+	public List<Map<String, Object>> getMaterialList(String matType, String matGroupId, String keyword, String factoryId, String spjangcd, String useYnFlag, Integer userCodeId){
 
 		MapSqlParameterSource paramMap = new MapSqlParameterSource();
 		paramMap.addValue("mat_type", matType);
 		paramMap.addValue("mat_group_id", matGroupId);
 		paramMap.addValue("keyword", keyword);
+		paramMap.addValue("factory_id", factoryId);
 		paramMap.addValue("spjangcd", spjangcd);
 		paramMap.addValue("UseYn", useYnFlag);
 		paramMap.addValue("userCodeId", userCodeId);
@@ -108,6 +109,7 @@ public class MaterialService {
         """;
 		if (StringUtils.isEmpty(matType)==false) sql +=" and mg.\"MaterialType\" = :mat_type ";
 		if (StringUtils.isEmpty(matGroupId)==false) sql +=" and m.\"MaterialGroup_id\" = (:mat_group_id)::int ";
+		if (StringUtils.isEmpty(factoryId)==false) sql +=" and m.\"Factory_id\" = (:factory_id)::int ";
 		if (userCodeId != null) sql +=" and m.\"mat_user_code\" = :userCodeId ";
 		if (StringUtils.isEmpty(keyword)==false) {
 			sql += """  
