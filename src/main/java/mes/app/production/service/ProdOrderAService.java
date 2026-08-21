@@ -12,13 +12,19 @@ import mes.domain.services.SqlRunner;
 
 @Service
 public class ProdOrderAService {
-	
+
 	@Autowired
 	SqlRunner sqlRunner;
 
+	/**
+	 * 자체 재고 생산 지시 목록.
+	 *
+	 * @param factoryId 공장 필터. 빈 값/null 이면 전체 공장.
+	 *                  공장은 job_res 에 직접 없고 워크센터(work_center)가 들고 있어 wc 로 건다.
+	 */
 	public List<Map<String, Object>> getProdOrderA(String dateFrom, String dateTo, String matGrpPk, String keyword,
-			String matType, String workcenterPk, String spjangcd) {
-		
+												   String matType, String workcenterPk, String factoryId, String spjangcd) {
+
 		MapSqlParameterSource paramMap = new MapSqlParameterSource();
 		paramMap.addValue("dateFrom", dateFrom);
 		paramMap.addValue("dateTo", dateTo);
@@ -27,7 +33,7 @@ public class ProdOrderAService {
 		paramMap.addValue("workcenterPk", workcenterPk);
 		paramMap.addValue("keyword", keyword);
 		paramMap.addValue("spjangcd", spjangcd);
-		
+
 		String sql = """
 		        select jr.id
 		        , jr."WorkOrderNumber" as workorder_number
@@ -80,6 +86,13 @@ public class ProdOrderAService {
                 and jr.spjangcd = :spjangcd
                 and jr."Parent_id" is null
 				""";
+		/* 공장 필터 — 값이 있을 때만 조건을 붙인다.
+		   ※ wc 는 left join 이라, 워크센터가 없는 지시는 공장을 고른 순간 목록에서 빠진다.
+		     「전체」로 보면 그대로 보이므로 데이터가 사라지는 것은 아니다. */
+		if (StringUtils.isEmpty(factoryId) == false) {
+			sql += " and wc.\"Factory_id\" = cast(:factoryId as Integer) ";
+			paramMap.addValue("factoryId", factoryId);
+		}
 		if (StringUtils.isEmpty(workcenterPk) == false) sql += " and jr.\"WorkCenter_id\" = cast(:workcenterPk as Integer) ";
 		if (StringUtils.isEmpty(matGrpPk) == false) {
 			sql += " and mg.id = cast(:matGrpPk as Integer) ";
@@ -87,18 +100,18 @@ public class ProdOrderAService {
 			sql += " and mg.\"MaterialType\" = :matType ";
 		}
 		if (StringUtils.isEmpty(keyword) == false) sql += " and (m.\"Name\" like concat('%%', :keyword , '%%') or m.\"Code\" like concat('%%', :keyword , '%%') ) ";
-        sql += " order by jr.\"WorkOrderNumber\" desc, jr.\"ProductionDate\" desc, jr.\"ShiftCode\", jr.id ";
-        
+		sql += " order by jr.\"WorkOrderNumber\" desc, jr.\"ProductionDate\" desc, jr.\"ShiftCode\", jr.id ";
+
 		List<Map<String, Object>> items = this.sqlRunner.getRows(sql, paramMap);
 
 		return items;
 	}
 
 	public Map<String, Object> getMatInfo(String id) {
-		
+
 		MapSqlParameterSource paramMap = new MapSqlParameterSource();
 		paramMap.addValue("matPk", id);
-		
+
 		if (id.isEmpty()) {
 			return null;
 		}
@@ -112,17 +125,17 @@ public class ProdOrderAService {
 	            left join equ e on e.id = m."Equipment_id"
 	            where m.id = cast(:matPk as Integer)
 				""";
-		
+
 		Map<String, Object> items = this.sqlRunner.getRow(sql, paramMap);
 
 		return items;
 	}
 
 	public Map<String, Object> getProdOrderADetail(String jrPk) {
-		
+
 		MapSqlParameterSource paramMap = new MapSqlParameterSource();
 		paramMap.addValue("jrPk", jrPk);
-		
+
 		String sql = """
 	            select 
 	            jr.id
@@ -160,17 +173,17 @@ public class ProdOrderAService {
 	            left join shift sh on sh."Code" = jr."ShiftCode"
                 where jr.id = cast(:jrPk as Integer)
 				""";
-		
+
 		Map<String, Object> items = this.sqlRunner.getRow(sql, paramMap);
 
 		return items;
 	}
 
 	public Map<String, Object> getJopResRow(Integer id) {
-		
+
 		MapSqlParameterSource paramMap = new MapSqlParameterSource();
 		paramMap.addValue("id", id);
-		
+
 		String sql = """
 				select "State" as state
 	            , "SourceDataPk" as src_pk, "SourceTableName" as src_table
@@ -179,7 +192,7 @@ public class ProdOrderAService {
 				""";
 
 		Map<String,Object> items = this.sqlRunner.getRow(sql, paramMap);
-		
+
 		return items;
 	}
 
@@ -216,17 +229,17 @@ public class ProdOrderAService {
 	}
 
 	public void updateBySujuPk(Integer sujuPk) {
-		
+
 		MapSqlParameterSource paramMap = new MapSqlParameterSource();
 		paramMap.addValue("sujuPk", sujuPk);
-		
+
 		String sql = """
 					update suju
 	                set "State" = 'received'
 	                where id = :sujuPk
 	                and "State" = 'ordered'
 				""";
-		
+
 		this.sqlRunner.execute(sql, paramMap);
 	}
 

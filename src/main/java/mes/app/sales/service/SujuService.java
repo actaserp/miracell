@@ -25,14 +25,18 @@ public class SujuService {
 
 	@Autowired
 	SqlRunner sqlRunner;
-	
+
 	@Autowired
 	SujuRepository SujuRepository;
-	
-	
+
+
 	// 수주 내역 조회
-	public List<Map<String, Object>> getSujuList(Timestamp start, Timestamp end, String spjangcd, String company, String projno) {
-		
+	/**
+	 * @param factoryId 공장 필터. 빈 값/null 이면 전체 공장.
+	 *                  수주에는 공장이 없어 품목(material)의 공장으로 건다.
+	 */
+	public List<Map<String, Object>> getSujuList(Timestamp start, Timestamp end, String spjangcd, String company, String projno, String factoryId) {
+
 		MapSqlParameterSource dicParam = new MapSqlParameterSource();
 		dicParam.addValue("start", start);
 		dicParam.addValue("end", end);
@@ -131,6 +135,13 @@ public class SujuService {
 				and s.project_id = :projno
 				""";
 		}
+		if (factoryId != null && !factoryId.isEmpty()) {
+			dicParam.addValue("factoryId", Integer.parseInt(factoryId));
+			sql += """
+          AND m."Factory_id" = :factoryId
+        """;
+		}
+
 		if (company != null && !company.isEmpty()) {
 			dicParam.addValue("company", "%" + company + "%");   // ← 여기서 와일드카드 포함해서 덮어쓰기
 
@@ -164,13 +175,13 @@ public class SujuService {
 
 
 		List<Map<String, Object>> itmes = this.sqlRunner.getRows(sql, dicParam);
-		
+
 		return itmes;
 	}
-	
+
 	// 수주 상세정보 조회
 	public Map<String, Object> getSujuDetail(int id) {
-		
+
 		MapSqlParameterSource paramMap = new MapSqlParameterSource();
 		paramMap.addValue("id", id);
 
@@ -307,13 +318,13 @@ public class SujuService {
 
 		return sujuHead;
 	}
-	
+
 	// 제품 정보 조회
 	public Map<String, Object> getSujuMatInfo(int product_id) {
-		
+
 		MapSqlParameterSource paramMap = new MapSqlParameterSource();
 		paramMap.addValue("product_id", product_id);
-		
+
 		String sql = """
 			select m.id as mat_pk
 			, m."AvailableStock" 
@@ -322,24 +333,24 @@ public class SujuService {
 			inner join unit u on u.id = m."Unit_id" 
 			where m.id = :product_id
 			""";
-		
+
 		Map<String, Object> item = this.sqlRunner.getRow(sql, paramMap);
-		
+
 		return item;
 	}
-	
+
 	public String makeJumunNumber(Date dataDate) {
-		
+
 		MapSqlParameterSource paramMap = new MapSqlParameterSource();
 		paramMap.addValue("data_date", dataDate);
-		
+
 		String jumunNumber = "";
-		
+
 		String sql = """
 		select "CurrVal" from seq_maker where "Code" = 'JumunNumber' and "BaseDate" = :data_date
 		""";
 		Map<String, Object> mapRow = this.sqlRunner.getRow(sql, paramMap);
-		
+
 		int currVal = 1;
 		if (mapRow!=null && mapRow.containsKey("CurrVal")) {
 			currVal =  (int)mapRow.get("CurrVal");
@@ -355,15 +366,15 @@ public class SujuService {
 		}
 		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
 		jumunNumber = String.format("{0}-{1}", sdf.format(dataDate), currVal);
-		return jumunNumber;	
+		return jumunNumber;
 	}
-	
+
 	public String makeJumunNumberAndUpdateSuju(int suju_id, String dataDate) {
 
 		Suju suju = this.SujuRepository.getSujuById(suju_id);
 		MapSqlParameterSource paramMap = new MapSqlParameterSource();
 		paramMap.addValue("data_date", dataDate);
-		
+
 		String jumunNumber = suju.getJumunNumber();
 		if(StringUtils.hasText(jumunNumber)==false) {
 			Date jumun_date = CommonUtil.trySqlDate(dataDate);

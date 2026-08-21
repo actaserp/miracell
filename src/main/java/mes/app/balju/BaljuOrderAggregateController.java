@@ -22,15 +22,17 @@ public class BaljuOrderAggregateController {
 
   @GetMapping("/read")
   public AjaxResult getBaljuMonthList(
-      @RequestParam(value="srchStartDt",required=false) String srchStartDt,
-      @RequestParam(value="srchEndDt",required=false) String srchEndDt,
-      @RequestParam(value="cboCompany",required=false) Integer cboCompany,
-      @RequestParam(value="cboMatGrp",required=false) Integer cboMatGrp,
-      @RequestParam(value = "cBaljuState", required = false) String cBaljuState,
-      @RequestParam(value = "spjangcd") String spjangcd
+          @RequestParam(value="srchStartDt",required=false) String srchStartDt,
+          @RequestParam(value="srchEndDt",required=false) String srchEndDt,
+          @RequestParam(value="cboCompany",required=false) Integer cboCompany,
+          @RequestParam(value="cboMatGrp",required=false) Integer cboMatGrp,
+          @RequestParam(value = "cBaljuState", required = false) String cBaljuState,
+          // 공장 필터. 빈 값 = 전체.
+          @RequestParam(value = "factory_id", required = false) String factoryId,
+          @RequestParam(value = "spjangcd") String spjangcd
   ) {
 
-    List<Map<String,Object>> items = this.baljuOrderAggregateService.getList(srchStartDt,srchEndDt,cboCompany,cboMatGrp,cBaljuState, spjangcd);
+    List<Map<String,Object>> items = this.baljuOrderAggregateService.getList(srchStartDt,srchEndDt,cboCompany,cboMatGrp,cBaljuState, factoryId, spjangcd);
 
 
     AjaxResult result = new AjaxResult();

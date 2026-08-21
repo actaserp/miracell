@@ -32,10 +32,12 @@ public class ProductionDefectController {
 	public AjaxResult getDefectList(
 			@RequestParam(value = "date_from", required = false) String dateFrom,
 			@RequestParam(value = "date_to", required = false) String dateTo,
-			@RequestParam(value = "proc_code", required = false) String procCode) {
+			@RequestParam(value = "proc_code", required = false) String procCode,
+			// 공장 필터. 빈 값 = 전체.
+			@RequestParam(value = "factory_id", required = false) Integer factoryId) {
 
 		AjaxResult result = new AjaxResult();
-		result.data = this.productionDefectService.getList(dateFrom, dateTo, procCode);
+		result.data = this.productionDefectService.getList(dateFrom, dateTo, procCode, factoryId);
 		return result;
 	}
 
@@ -44,18 +46,21 @@ public class ProductionDefectController {
 	public AjaxResult getOutputList(
 			@RequestParam(value = "date_from", required = false) String dateFrom,
 			@RequestParam(value = "date_to", required = false) String dateTo,
-			@RequestParam(value = "proc_code", required = false) String procCode) {
+			@RequestParam(value = "proc_code", required = false) String procCode,
+			// 공장 필터. 빈 값 = 전체.
+			@RequestParam(value = "factory_id", required = false) Integer factoryId) {
 
 		AjaxResult result = new AjaxResult();
-		result.data = this.productionDefectService.getOutputList(dateFrom, dateTo, procCode);
+		result.data = this.productionDefectService.getOutputList(dateFrom, dateTo, procCode, factoryId);
 		return result;
 	}
 
 	/** 공정 콤보 */
 	@GetMapping("/process_combo")
-	public AjaxResult getProcessCombo() {
+	public AjaxResult getProcessCombo(
+			@RequestParam(value = "factory_id", required = false) Integer factoryId) {
 		AjaxResult result = new AjaxResult();
-		result.data = this.productionDefectService.getProcessCombo();
+		result.data = this.productionDefectService.getProcessCombo(factoryId);
 		return result;
 	}
 

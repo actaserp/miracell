@@ -36,8 +36,10 @@ public class PopupController {
 			@RequestParam(value="material_type", required=false) String material_type,
 			@RequestParam(value="material_group", required=false) Integer material_group,
 			@RequestParam(value="keyword", required=false) String keyword,
+			// 공장 필터. 빈 값 = 전체.
+			@RequestParam(value="factory_id", required=false) String factoryId,
 			@RequestParam(value="spjangcd") String spjangcd
-			) {
+	) {
 		AjaxResult result = new AjaxResult();
 
 		String sql ="""
@@ -73,20 +75,26 @@ public class PopupController {
 							and m."spjangcd" = :spjangcd
 	    """;
 
+		if (StringUtils.hasText(factoryId)){
+			sql+="""
+            and m."Factory_id" = cast(:factoryId as Integer)
+            """;
+		}
+
 		if (StringUtils.hasText(material_type)){
-            sql+=""" 
+			sql+=""" 
             and mg."MaterialType" =:material_type
             """;
 		}
 
 		if(material_group!=null){
-            sql+="""            		
+			sql+="""            		
             and mg."id" =:material_group
             """;
 		}
 
 		if(StringUtils.hasText(keyword)){
-            sql+="""
+			sql+="""
             and (m."Name" ilike concat('%%',:keyword,'%%') or m."Code" ilike concat('%%',:keyword,'%%'))
             """;
 		}
@@ -97,6 +105,7 @@ public class PopupController {
 		paramMap.addValue("material_type", material_type);
 		paramMap.addValue("material_group", material_group, java.sql.Types.INTEGER);
 		paramMap.addValue("keyword", keyword);
+		paramMap.addValue("factoryId", factoryId);
 		paramMap.addValue("spjangcd", spjangcd);
 		result.data = this.sqlRunner.getRows(sql, paramMap);
 		return result;
@@ -107,7 +116,7 @@ public class PopupController {
 	public AjaxResult getSearchMaterial(
 			@RequestParam(value="group_id", required=false) Integer equipment_group,
 			@RequestParam(value="keyword", required=false) String keyword
-			) {
+	) {
 		AjaxResult result = new AjaxResult();
 
 		String sql ="""
@@ -124,13 +133,13 @@ public class PopupController {
 	    """;
 
 		if(equipment_group!=null){
-            sql+="""            		
+			sql+="""            		
             and e."EquipmentGroup_id"=:equipment_group
             """;
 		}
 
 		if(StringUtils.hasText(keyword)){
-            sql+="""
+			sql+="""
             and upper(e."Name") like concat('%%',:keyword,'%%')
             """;
 		}
@@ -461,16 +470,16 @@ public class PopupController {
 
 		if (keyword != null) {
 			sql += " and upper(up.\"Name\") like concat('%%',upper(:keyword),'%%') ";
-        }
+		}
 
 		if (depart_id != null) {
-        	sql += " and up.\"Depart_id\" = :depart_id ";
-        }
+			sql += " and up.\"Depart_id\" = :depart_id ";
+		}
 
-    	sql += " order by COALESCE(d.\"Name\",'Z') , up.\"Name\" ";
+		sql += " order by COALESCE(d.\"Name\",'Z') , up.\"Name\" ";
 
 
-    	List<Map<String, Object>> items = this.sqlRunner.getRows(sql, paramMap);
+		List<Map<String, Object>> items = this.sqlRunner.getRows(sql, paramMap);
 
 		return items;
 	}
@@ -495,7 +504,7 @@ public class PopupController {
 	            order by _order
 				""";
 
-    	List<Map<String, Object>> items = this.sqlRunner.getRows(sql, paramMap);
+		List<Map<String, Object>> items = this.sqlRunner.getRows(sql, paramMap);
 
 		return items;
 
@@ -716,8 +725,8 @@ public class PopupController {
 
 		AjaxResult result = new AjaxResult();
 
-        result.data = popupService.getCltCombineList(spjangcd, item, item2);
-		
+		result.data = popupService.getCltCombineList(spjangcd, item, item2);
+
 		return result;
 	}
 
@@ -823,7 +832,7 @@ public class PopupController {
 
 	@GetMapping("/search_Account")
 	public AjaxResult getSearchAccount(@RequestParam(value = "BankName", required = false) String bankName,
-																		 @RequestParam(value = "accountNumber", required = false) String accountNumber) {
+									   @RequestParam(value = "accountNumber", required = false) String accountNumber) {
 		AjaxResult result = new AjaxResult();
 		MapSqlParameterSource paramMap = new MapSqlParameterSource();
 
@@ -858,22 +867,22 @@ public class PopupController {
 		List<Map<String, Object>> filtered = rawResults.stream()
 				.filter(item -> {
 					String encrypted = String.valueOf(item.get("accountNumber"));
-          String decrypted = null; // 복호화 함수
-          try {
-            decrypted = decrypt(encrypted);
-          } catch (Exception e) {
-            throw new RuntimeException(e);
-          }
-          return decrypted.contains(accountNumber); // 부분 검색
+					String decrypted = null; // 복호화 함수
+					try {
+						decrypted = decrypt(encrypted);
+					} catch (Exception e) {
+						throw new RuntimeException(e);
+					}
+					return decrypted.contains(accountNumber); // 부분 검색
 				})
 				.map(item -> {
 					// 복호화된 값을 덮어쓰기 또는 별도 필드에 저장
-          try {
-            item.put("accountNumber", decrypt(item.get("accountNumber").toString()));
-          } catch (Exception e) {
-            throw new RuntimeException(e);
-          }
-          return item;
+					try {
+						item.put("accountNumber", decrypt(item.get("accountNumber").toString()));
+					} catch (Exception e) {
+						throw new RuntimeException(e);
+					}
+					return item;
 				})
 				.collect(Collectors.toList());
 
@@ -883,7 +892,7 @@ public class PopupController {
 
 	@GetMapping("/search_AccountCode")
 	public AjaxResult getsearch_AccountCode(@RequestParam(value = "acccd")String acccd,
-																		 @RequestParam(value = "accnm") String accnm) {
+											@RequestParam(value = "accnm") String accnm) {
 		AjaxResult result = new AjaxResult();
 		MapSqlParameterSource paramMap = new MapSqlParameterSource();
 		paramMap.addValue("acccd", acccd);
@@ -942,7 +951,7 @@ public class PopupController {
             AND ("relyn" = '0' OR "relyn" IS NULL)
 			""";
 		//relyn = 거래중지 여부
-		
+
 		if (compCode != null && !compCode.isEmpty()) {
 			sql += " AND \"Code\" ILIKE :compCode ";
 			paramMap.addValue("compCode", "%" + compCode + "%");
@@ -1099,7 +1108,7 @@ public class PopupController {
 
 	@GetMapping("/search_routing")
 	public AjaxResult getSearchRouting(@RequestParam(value="routingName", required=false) String routingName,
-																		 @RequestParam(value = "spjangcd") String spjangcd){
+									   @RequestParam(value = "spjangcd") String spjangcd){
 
 		MapSqlParameterSource dicParam = new MapSqlParameterSource();
 		dicParam.addValue("routing_name", routingName);
@@ -1239,4 +1248,4 @@ public class PopupController {
 		return result;
 	}
 
-	}
+}

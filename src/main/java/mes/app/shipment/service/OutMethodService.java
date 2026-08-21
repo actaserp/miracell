@@ -47,9 +47,11 @@ public class OutMethodService {
 	 * @param keyword   품목코드/품목명
 	 * @param unsetOnly true 면 출고방법 미지정 품목만
 	 * @param lotOnly   true 면 LOT 관리 품목만 (출고방법이 실제로 의미를 갖는 대상)
+	 * @param factoryId 공장 — null 이면 전체
 	 */
 	public List<Map<String, Object>> getList(String matType, Integer matGrpPk, String keyword,
-																					 boolean unsetOnly, boolean lotOnly, String spjangcd) {
+											 boolean unsetOnly, boolean lotOnly,
+											 Integer factoryId, String spjangcd) {
 
 		MapSqlParameterSource p = new MapSqlParameterSource();
 		p.addValue("matType", blankToNull(matType));
@@ -57,6 +59,7 @@ public class OutMethodService {
 		p.addValue("keyword", blankToNull(keyword) == null ? null : "%" + keyword.trim() + "%");
 		p.addValue("unsetOnly", unsetOnly);
 		p.addValue("lotOnly", lotOnly);
+		p.addValue("factoryId", factoryId);
 		p.addValue("spjangcd", blankToNull(spjangcd));
 
 		return this.sqlRunner.getRows("""
@@ -89,6 +92,8 @@ public class OutMethodService {
                     OR m."OutMethod" IS NULL)
                AND (CAST(:lotOnly AS boolean) IS NOT TRUE
                     OR COALESCE(m."LotUseYN",'N') = 'Y')
+               AND (CAST(:factoryId AS integer) IS NULL
+                    OR m."Factory_id" = CAST(:factoryId AS integer))
                AND (CAST(:spjangcd AS varchar) IS NULL
                     OR m.spjangcd = CAST(:spjangcd AS varchar))
              ORDER BY mg."MaterialType", m."Code", m."Name"
@@ -143,7 +148,7 @@ public class OutMethodService {
 		MapSqlParameterSource p = new MapSqlParameterSource();
 		p.addValue("matId", matId);
 		Map<String, Object> r = this.sqlRunner.getRow(
-			"SELECT COALESCE(\"OutMethod\", 'fifo') AS m FROM material WHERE id = :matId", p);
+				"SELECT COALESCE(\"OutMethod\", 'fifo') AS m FROM material WHERE id = :matId", p);
 
 		return (r == null) ? DEFAULT_METHOD : String.valueOf(r.get("m"));
 	}

@@ -31,15 +31,15 @@ import mes.domain.services.CommonUtil;
 @RequestMapping("/api/shipment/shipment_order")
 public class ShipmentOrderController {
 
-	@Autowired 
+	@Autowired
 	private ShipmentOrderService shipmentOrderService;
-	
+
 	@Autowired
 	ShipmentRepository shipmentRepository;
-	
+
 	@Autowired
 	ShipmentHeadRepository shipmentHeadRepository;
-	
+
 	@Autowired
 	RelationDataRepository relationDataRepository;
 
@@ -61,8 +61,10 @@ public class ShipmentOrderController {
 			@RequestParam("cboMatGroup") String matGrpPk,
 			@RequestParam("cboMaterial") String matPk,
 			@RequestParam("keyword") String keyword,
-			@RequestParam(value = "CompanySearch", required = false) String company
-			){
+			@RequestParam(value = "CompanySearch", required = false) String company,
+			// 공장 필터. 빈 값 = 전체.
+			@RequestParam(value = "factory_id", required = false) String factoryId
+	){
 
 		if(dateFrom.isEmpty()){
 			//dateFrom = UtilClass.getDayByParamAdd(0); // 오늘날짜
@@ -72,7 +74,7 @@ public class ShipmentOrderController {
 			//dateTo = UtilClass.getDayByParamAdd(7);
 		}
 
-		List<Map<String, Object>> items = this.shipmentOrderService.getSujuList(dateFrom,dateTo,notShip,matGrpPk,matPk,keyword, company);
+		List<Map<String, Object>> items = this.shipmentOrderService.getSujuList(dateFrom,dateTo,notShip,matGrpPk,matPk,keyword, company, factoryId);
 
 		AjaxResult result = new AjaxResult();
 		result.data = items;
@@ -84,13 +86,15 @@ public class ShipmentOrderController {
 	public AjaxResult getProductList(
 			@RequestParam("cboMatGroup") String matGrpPk,
 			@RequestParam("cboMaterial") String matPk,
-			@RequestParam("keyword") String keyword){
-		
-		List<Map<String, Object>> items = this.shipmentOrderService.getProductList(matGrpPk,matPk,keyword);
-		
+			@RequestParam("keyword") String keyword,
+			// 공장 필터. 빈 값 = 전체.
+			@RequestParam(value = "factory_id", required = false) String factoryId){
+
+		List<Map<String, Object>> items = this.shipmentOrderService.getProductList(matGrpPk,matPk,keyword,factoryId);
+
 		AjaxResult result = new AjaxResult();
 		result.data = items;
-		
+
 		return result;
 	}
 
@@ -106,14 +110,14 @@ public class ShipmentOrderController {
 			@RequestParam("TableName") String TableName,
 			HttpServletRequest request,
 			Authentication auth) {
-		
+
 		User user = (User)auth.getPrincipal();
-		
+
 		AjaxResult result = new AjaxResult();
 
 		Timestamp today = new Timestamp(System.currentTimeMillis());  //shipment_head의 OrderDate 컬럼값 yyyy-MM-dd
 		Timestamp shipDate = CommonUtil.tryTimestamp(Ship_date); //shipment_head의 ShipDate 컬럼값 yyyy-MM-dd
-		
+
 		List<Map<String, Object>> data = CommonUtil.loadJsonListMap(Q.getFirst("Q").toString());
 		ShipmentHead smh = new ShipmentHead();
 
@@ -127,7 +131,7 @@ public class ShipmentOrderController {
 		smh.setDeliveryName(DeliveryName);
 		smh.set_audit(user);
 		smh.setState("ordered");
-		
+
 
 		double orderSum = 0;
 		double totalPrice = 0;
@@ -251,7 +255,7 @@ public class ShipmentOrderController {
 			sm.setOrderQty((double)orderQty);
 			sm.setQty((double) 0);
 			if (data.get(i).get("description") != null) {
-			sm.setDescription((String)data.get(i).get("description"));
+				sm.setDescription((String)data.get(i).get("description"));
 			}
 
 			Object sujuPkObj = data.get(i).get("suju_pk");
@@ -268,12 +272,12 @@ public class ShipmentOrderController {
 								Object materialId = s.get("Material_id");
 								return materialId != null && materialId.equals(mat_id);
 							})
-									.findFirst().orElse(null);
+							.findFirst().orElse(null);
 
 					Double unitPrice = null;
 
 					if(productList != null){
-						 unitPrice = ((Double) productList.get("UnitPrice"));
+						unitPrice = ((Double) productList.get("UnitPrice"));
 
 						sm.setUnitPrice(unitPrice);
 						sm.setPrice(unitPrice * orderQty);
@@ -362,50 +366,52 @@ public class ShipmentOrderController {
 		smh.setTotalVat(totalVat);
 
 		smh = this.shipmentHeadRepository.save(smh);
-		
+
 		result.data = smh;
-		
+
 		return result;
 	}
-		
+
 
 	// 출하지시 목록 조회
 	@GetMapping("/order_list")
 	public AjaxResult getShipmentOrderList(
-			@RequestParam(value="srchStartDt", required=false) String date_from, 
+			@RequestParam(value="srchStartDt", required=false) String date_from,
 			@RequestParam(value="srchEndDt", required=false) String date_to,
-			@RequestParam(value="chkNotShipped", required=false) String not_ship, 
+			@RequestParam(value="chkNotShipped", required=false) String not_ship,
 			@RequestParam(value="cboCompany", required=false) Integer comp_pk,
-			@RequestParam(value="cboMatGroup", required=false) Integer mat_grp_pk, 
+			@RequestParam(value="cboMatGroup", required=false) Integer mat_grp_pk,
 			@RequestParam(value="cboMaterial", required=false) Integer mat_pk,
 			@RequestParam(value="CompanySearch", required=false) String company,
 			@RequestParam(value="keyword", required=false) String keyword,
+			// 공장 필터. 빈 값 = 전체.
+			@RequestParam(value="factory_id", required=false) String factoryId,
 			HttpServletRequest request) {
-			
+
 		String state = "";
 		if("Y".equals(not_ship)) {
 			state= "ordered";
 		} else {
 			state = "";
 		}
-		
-		List<Map<String, Object>> items = this.shipmentOrderService.getShipmentOrderList(date_from, date_to, state, comp_pk, mat_grp_pk, mat_pk, keyword, company);
-        AjaxResult result = new AjaxResult();
-        result.data = items;
+
+		List<Map<String, Object>> items = this.shipmentOrderService.getShipmentOrderList(date_from, date_to, state, comp_pk, mat_grp_pk, mat_pk, keyword, company, factoryId);
+		AjaxResult result = new AjaxResult();
+		result.data = items;
 		return result;
 	}
-	
+
 	// 출하 품목 목록 조회
 	@GetMapping("/shipment_item_list")
 	public AjaxResult getShipmentItemList(
 			@RequestParam(value="head_id", required=false) Integer head_id,
 			HttpServletRequest request) {
 		List<Map<String, Object>> items = this.shipmentOrderService.getShipmentItemList(head_id);
-        AjaxResult result = new AjaxResult();
-        result.data = items;
+		AjaxResult result = new AjaxResult();
+		result.data = items;
 		return result;
 	}
-	
+
 	// 출하일 변경
 	@PostMapping("/update_ship_date")
 	public AjaxResult updateShipDate(
@@ -413,10 +419,10 @@ public class ShipmentOrderController {
 			@RequestParam(value="ship_date", required=false) String ship_date,
 			HttpServletRequest request,
 			Authentication auth) {
-		
-        AjaxResult result = new AjaxResult();
+
+		AjaxResult result = new AjaxResult();
 		User user = (User)auth.getPrincipal();
-		
+
 		ShipmentHead shipmentHead = this.shipmentHeadRepository.getShipmentHeadById(head_id);
 
 		if ("shipped".equals(shipmentHead.getState())) {		//if (shipmentHead.getState().equals("shipped")) {
@@ -424,24 +430,24 @@ public class ShipmentOrderController {
 		} else {
 			shipmentHead.setShipDate(CommonUtil.tryTimestamp(ship_date));
 			shipmentHead.set_audit(user);
-			
+
 			shipmentHead = this.shipmentHeadRepository.save(shipmentHead);
-			
+
 			result.data = shipmentHead;
 		}
-		
+
 		return result;
 	}
-	
+
 	// 출하지시 취소
 	@PostMapping("/cancel_order")
 	public AjaxResult cancelOrder(
 			@RequestParam(value="shipmenthead_id", required=false) Integer head_id,
 			HttpServletRequest request,
 			Authentication auth) {
-		
-        AjaxResult result = new AjaxResult();
-		
+
+		AjaxResult result = new AjaxResult();
+
 		ShipmentHead head = this.shipmentHeadRepository.getShipmentHeadById(head_id);
 
 		if ("shipped".equals(head.getState())) {
@@ -462,9 +468,9 @@ public class ShipmentOrderController {
 				return result;
 			}
 
-			this.transactionTemplate.executeWithoutResult(status->{			
+			this.transactionTemplate.executeWithoutResult(status->{
 				try {
-					
+
 					this.shipmentRepository.deleteByShipmentHeadId(head_id);
 					this.shipmentHeadRepository.deleteById(head_id);
 				}
@@ -472,8 +478,8 @@ public class ShipmentOrderController {
 					TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
 					result.success=false;
 					result.message = ex.toString();
-				}				
-			});					
+				}
+			});
 		}
 		return result;
 	}

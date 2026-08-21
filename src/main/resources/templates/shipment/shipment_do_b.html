@@ -130,6 +130,8 @@
                 <a title="북마크" class="bookmark toggle">
                     내 메뉴
                 </a>
+                <label for="Factory_id" class="hide">공장</label>
+                <select style="width: 110px;" id="Factory_id" name="Factory_id"></select>
             </div>
             <ul class="page-navi">
                 <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
@@ -273,7 +275,7 @@
                             <button type="button" class="btn-default" id="btnLotCam" title="카메라로 스캔" disabled>
                                 <i class="fas fa-camera"></i></button>
                             <button type="button" class="btn-default" id="btnLOTSelect" title="LOT추가" disabled><i
-                                class="fas fa-plus"></i></button>
+                                    class="fas fa-plus"></i></button>
                             <button style="" type="button" class="btn-danger y_write_auth" id="btnLOTSelectCancel"
                                     title="LOT삭제" disabled><i class="fas fa-trash"></i></button>
                         </div>
@@ -370,6 +372,10 @@
     <th:block th:replace="/common/columns_setting :: columns_setting"></th:block>
     <!-- ★ 카메라 바코드 스캔 공통 모듈 — 세척·포장 화면과 같은 파일. -->
     <script type="text/javascript" th:src="@{/js/barcode_cam.js}"></script>
+    <script th:inline="javascript">
+        /* 로그인 사용자의 소속 공장. 없으면 null → «전체» 가 기본값이 된다 */
+        const factory_id = [[${session.factory_id}]];
+    </script>
     <script type="text/javascript">
 
         let gUrl = '/api/shipment/shipment_do_a';
@@ -614,6 +620,17 @@
 
                 AjaxUtil.fillSelectOptions($cboCompany, 'company', 'choose', '', 'sale');
                 AjaxUtil.fillSelectOptions($('#cboMatGroup'), 'material_group', 'all', '', 'product,semi,sangpum');
+
+                /* 공장 콤보 — 기본값은 계정의 소속 공장. 없으면 '' = 전체.
+                   change 핸들러는 채운 «뒤에» 건다. fillSelectOptions 가 selected_value 를
+                   넣으면서 .change() 를 직접 발생시키므로 먼저 걸면 조회가 두 번 나간다. */
+                const myFactory = (factory_id == null || factory_id === '' || Number(factory_id) <= 0)
+                    ? '' : String(factory_id);
+                AjaxUtil.fillSelectOptions($('#Factory_id'), 'factory', 'all', myFactory);
+
+                $('#Factory_id').on('change', function () {
+                    if (page) page.searchMain();
+                });
                 // $('#cboMatGroup').change(function (e) {
                 //     let mat_grp_pk = $('#cboMatGroup').val();
                 //     AjaxUtil.fillSelectOptions($('#cboMaterial'), 'material', 'all', '', mat_grp_pk);
@@ -642,7 +659,7 @@
                     _rzTimer = setTimeout(() => {
                         this.applyCompactColumns();
                         [this.shipmentHeaderGrid, this.shipmentListGrid, this.lotListGrid]
-                        .forEach(g => { try { if (g) g.invalidate(true); } catch (e) {} });
+                            .forEach(g => { try { if (g) g.invalidate(true); } catch (e) {} });
                     }, 150);
                 });
 
@@ -655,7 +672,7 @@
                      레이아웃이 잡힌 뒤 한 번 다시 그린다. */
                 setTimeout(() => {
                     [this.shipmentHeaderGrid, this.shipmentListGrid, this.lotListGrid]
-                    .forEach(g => { try { if (g) g.invalidate(true); } catch (e) {} });
+                        .forEach(g => { try { if (g) g.invalidate(true); } catch (e) {} });
                 }, 0);
 
             }
@@ -1223,6 +1240,10 @@
 
                 let data = FormUtil.extractForm($('#searchForm'));
                 data['action'] = 'read';
+
+                /* 공장 필터. 빈 문자열이어도 반드시 보낸다 — 빈 값 = 전체.
+                   #Factory_id 는 searchForm 밖(제목 옆)이라 extractForm 이 못 잡는다. */
+                data['factory_id'] = $('#Factory_id').val() || '';
 
                 let result = AjaxUtil.getSyncData(this.url + '/read', data);
                 if (result != null) {

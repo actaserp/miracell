@@ -25,9 +25,13 @@ public class ShipmentOrderService {
 
 	@Autowired
 	SujuRepository sujuRepository;
-	
-	public List<Map<String, Object>> getSujuList(String dateFrom, String dateTo, String notShip,String matGrpPk, String matPk, String keyword, String company) {
-		
+
+	/**
+	 * @param factoryId 공장 필터. 빈 값/null 이면 전체 공장.
+	 *                  수주에는 공장이 없어 품목(material)의 공장으로 건다.
+	 */
+	public List<Map<String, Object>> getSujuList(String dateFrom, String dateTo, String notShip,String matGrpPk, String matPk, String keyword, String company, String factoryId) {
+
 		MapSqlParameterSource paramMap = new MapSqlParameterSource();
 
 		if(dateFrom.isEmpty()){
@@ -45,7 +49,7 @@ public class ShipmentOrderService {
 		paramMap.addValue("matPk", matPk);
 		paramMap.addValue("keyword", keyword);
 
-        String sql = """ 
+		String sql = """ 
     			with s as (
                 select suju.id as suju_pk
 	            , suju."JumunNumber"
@@ -70,15 +74,19 @@ public class ShipmentOrderService {
 	            AND suju."State" NOT IN ('canceled')
 	            and sh."SujuType" <> 'estimate'
                 """;
-        
+
 //        if (StringUtils.isEmpty(compPk)==false)  sql += " and suju.\"Company_id\" = cast(:compPk as Integer) ";
 		if (StringUtils.isEmpty(company) == false) {
 			sql += " and c2.\"Name\" like :company ";
 			paramMap.addValue("company", "%" + company + "%");
 		}
+		if (StringUtils.isEmpty(factoryId)==false) {
+			sql += " and m.\"Factory_id\" = cast(:factoryId as Integer) ";
+			paramMap.addValue("factoryId", factoryId);
+		}
 		if (StringUtils.isEmpty(matPk)==false)  sql += " and suju.\"Material_id\"  = cast(:matPk as Integer) ";
-        if (StringUtils.isEmpty(matGrpPk)==false)  sql += " and m.\"MaterialGroup_id\"  = cast(:matGrpPk as Integer) ";
-        sql += """
+		if (StringUtils.isEmpty(matGrpPk)==false)  sql += " and m.\"MaterialGroup_id\"  = cast(:matGrpPk as Integer) ";
+		sql += """
         		), SP as (
 				       select s.suju_pk
 				            , sum(RD."Number1") as order_sum
@@ -118,8 +126,8 @@ public class ShipmentOrderService {
             left join unit u on u.id = m."Unit_id"
             where 1 = 1
           """;
-        
-        if (StringUtils.isEmpty(keyword)==false)  sql += " and (m.\"Name\" ilike concat('%%',:keyword,'%%') or m.\"Code\" ilike concat('%%',:keyword,'%%')) ";
+
+		if (StringUtils.isEmpty(keyword)==false)  sql += " and (m.\"Name\" ilike concat('%%',:keyword,'%%') or m.\"Code\" ilike concat('%%',:keyword,'%%')) ";
 		//부분출하는 제외
 		if ("Y".equals(notShip)) {
 			sql += """
@@ -131,20 +139,24 @@ public class ShipmentOrderService {
     """;
 		}
 		sql += " order by s.\"DueDate\", s.\"JumunNumber\", m.\"Code\", m.\"Name\"";
-        
-        List<Map<String,Object>> items = this.sqlRunner.getRows(sql, paramMap);
-		
+
+		List<Map<String,Object>> items = this.sqlRunner.getRows(sql, paramMap);
+
 		return items;
 	}
 
-	public List<Map<String, Object>> getProductList(String matGrpPk, String matPk, String keyword) {
-		
+	/**
+	 * @param factoryId 공장 필터. 빈 값/null 이면 전체 공장.
+	 */
+	public List<Map<String, Object>> getProductList(String matGrpPk, String matPk, String keyword, String factoryId) {
+
 		MapSqlParameterSource paramMap = new MapSqlParameterSource();
 		paramMap.addValue("matGrpPk", matGrpPk);
 		paramMap.addValue("matPk", matPk);
 		paramMap.addValue("keyword", keyword);
-		
-        String sql = """ 
+		paramMap.addValue("factoryId", factoryId);
+
+		String sql = """ 
     			select m.id as mat_id
                 , fn_code_name('mat_type', mg."MaterialType") as mat_type
                     , mg."Name" as mat_grp
@@ -159,19 +171,24 @@ public class ShipmentOrderService {
                 left join unit u on u.id = m."Unit_id" 
                 where mg."MaterialType" in ('product', 'semi')
                 """;
-	        if (StringUtils.isEmpty(matPk)==false)  sql += " and m.\"id\" = cast(:matPk as Integer) ";
-	        if (StringUtils.isEmpty(matGrpPk)==false)  sql += " and mg.\"id\"  = cast(:matGrpPk as Integer) ";
-	        if (StringUtils.isEmpty(keyword)==false)  sql += " and (m.\"Name\" ilike concat('%%',:keyword,'%%') or m.\"Code\" ilike concat('%%',:keyword,'%%')) ";
-	        
-	        sql += " order by mg.\"MaterialType\", m.\"Code\", m.\"Name\" ";
-	        
-	        List<Map<String,Object>> items = this.sqlRunner.getRows(sql, paramMap);
-			
-			return items;
+		if (StringUtils.isEmpty(factoryId)==false)  sql += " and m.\"Factory_id\" = cast(:factoryId as Integer) ";
+		if (StringUtils.isEmpty(matPk)==false)  sql += " and m.\"id\" = cast(:matPk as Integer) ";
+		if (StringUtils.isEmpty(matGrpPk)==false)  sql += " and mg.\"id\"  = cast(:matGrpPk as Integer) ";
+		if (StringUtils.isEmpty(keyword)==false)  sql += " and (m.\"Name\" ilike concat('%%',:keyword,'%%') or m.\"Code\" ilike concat('%%',:keyword,'%%')) ";
+
+		sql += " order by mg.\"MaterialType\", m.\"Code\", m.\"Name\" ";
+
+		List<Map<String,Object>> items = this.sqlRunner.getRows(sql, paramMap);
+
+		return items;
 	}
-	
+
 	// 출하지시 목록 조회
-	public List<Map<String, Object>> getShipmentOrderList(String date_from, String date_to, String state, Integer comp_pk, Integer mat_grp_pk, Integer mat_pk, String keyword, String company) {
+	/**
+	 * @param factoryId 공장 필터. 빈 값/null 이면 전체 공장.
+	 *                  출하에는 공장이 없어 품목(material)의 공장으로 건다.
+	 */
+	public List<Map<String, Object>> getShipmentOrderList(String date_from, String date_to, String state, Integer comp_pk, Integer mat_grp_pk, Integer mat_pk, String keyword, String company, String factoryId) {
 
 		MapSqlParameterSource paramMap = new MapSqlParameterSource();
 		paramMap.addValue("date_from", Date.valueOf(date_from));
@@ -210,11 +227,25 @@ public class ShipmentOrderService {
 			sql += " and c.\"Name\" like :company ";
 			paramMap.addValue("company", "%" + company + "%");
 		}
-		
+
 		if (StringUtils.isEmpty(state) == false) {
 			sql += "  and sh.\"State\" = :state ";
 		}
-		
+
+		/* ★ 아래 exists 블록은 품목 조건이 하나라도 있을 때만 붙고, 그 안에서 order by 까지 닫는다.
+		      공장 조건을 그 안에 넣으면 품목 조건이 없을 때 필터가 통째로 빠지므로
+		      공장은 별도 exists 로 건다. */
+		if (StringUtils.isEmpty(factoryId) == false) {
+			paramMap.addValue("factoryId", Integer.parseInt(factoryId));
+			sql += """
+					and exists ( select 1
+					    from shipment s2
+					    inner join material m2 on m2.id = s2."Material_id"
+					    where s2."ShipmentHead_id" = sh.id
+					      and m2."Factory_id" = :factoryId )
+					""";
+		}
+
 		if (mat_pk != null || mat_grp_pk != null || StringUtils.isEmpty(keyword) == false) {
 			sql += """
 					and exists ( select 1
@@ -223,22 +254,22 @@ public class ShipmentOrderService {
                         left join mat_grp mg on mg.id = m."MaterialGroup_id"
                         where s."ShipmentHead_id" = sh.id 
 					""";
-			
+
 			if (mat_pk != null) {
 				sql += " and s.\"Material_id\" = :mat_pk ";
 			}
-			
+
 			if (mat_grp_pk != null) {
 				sql += " and mg.id = :mat_grp_pk ";
 			}
-			
+
 			if (StringUtils.isEmpty(keyword) == false) {
 				sql += """
 						 and ( m."Name" ilike concat('%%', :keyword,'%%')
 						       or m."Code" ilike concat('%%', :keyword,'%%'))
 						""";
 			}
-			
+
 			sql += """
 					)
 					       order by sh."ShipDate", c."Name", sh.id
@@ -282,7 +313,7 @@ public class ShipmentOrderService {
 			where s."ShipmentHead_id" = :head_id
             order by m."Code", m."Name"
 		 """;
-		
+
 		List<Map<String, Object>> items = this.sqlRunner.getRows(sql, paramMap);
 
 		return items;
@@ -355,5 +386,5 @@ public class ShipmentOrderService {
          ORDER BY pm."Code", cm."Code"
         """, p);
 	}
-	
+
 }

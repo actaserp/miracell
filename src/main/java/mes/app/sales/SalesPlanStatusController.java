@@ -24,15 +24,17 @@ public class SalesPlanStatusController {
 
 	@GetMapping("/read")
 	public AjaxResult getPlanStatus(
-		@RequestParam(value = "cboYear") String year,
-		@RequestParam(value = "cboMatGrp", required = false) String matGrp,
-		@RequestParam(value = "keyword", required = false) String keyword,
-		@RequestParam(value = "cboDataDiv", required = false) String dataDiv,
-		@RequestParam(value = "spjangcd") String spjangcd,
-		HttpServletRequest request) {
+			@RequestParam(value = "cboYear") String year,
+			@RequestParam(value = "cboMatGrp", required = false) String matGrp,
+			@RequestParam(value = "keyword", required = false) String keyword,
+			@RequestParam(value = "cboDataDiv", required = false) String dataDiv,
+			// 공장 필터. 빈 값 = 전체.
+			@RequestParam(value = "factory_id", required = false) String factoryId,
+			@RequestParam(value = "spjangcd") String spjangcd,
+			HttpServletRequest request) {
 
 		List<Map<String, Object>> items =
-			this.salesPlanStatusService.getPlanStatus(year, matGrp, keyword, dataDiv, spjangcd);
+				this.salesPlanStatusService.getPlanStatus(year, matGrp, keyword, dataDiv, factoryId, spjangcd);
 
 		AjaxResult result = new AjaxResult();
 		result.data = items;

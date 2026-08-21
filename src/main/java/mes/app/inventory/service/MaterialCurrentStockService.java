@@ -14,17 +14,21 @@ import mes.domain.services.SqlRunner;
 public class MaterialCurrentStockService {
 	@Autowired
 	SqlRunner sqlRunner;
-	
+
 	// 재고 현황 조회 
-	public List<Map<String, Object>> getMaterialCurrentStockList(String mat_type, Integer mat_grp_pk, String mat_name, Integer store_house_id, String spjangcd) {
-		
-		MapSqlParameterSource paramMap = new MapSqlParameterSource();  
+	/**
+	 * @param factory_id 공장 필터. null 이면 전체 공장.
+	 */
+	public List<Map<String, Object>> getMaterialCurrentStockList(String mat_type, Integer mat_grp_pk, String mat_name, Integer store_house_id, Integer factory_id, String spjangcd) {
+
+		MapSqlParameterSource paramMap = new MapSqlParameterSource();
 		paramMap.addValue("mat_type", mat_type);
 		paramMap.addValue("mat_grp_pk", mat_grp_pk);
 		paramMap.addValue("mat_name", mat_name);
 		paramMap.addValue("store_house_id", store_house_id);
+		paramMap.addValue("factory_id", factory_id);
 		paramMap.addValue("spjangcd", spjangcd);
-		
+
 		String sql = """
 			select m.id, fn_code_name('mat_type', mg."MaterialType") as mat_type_name
             , mg."Name" as mat_grp_name, m."Code" as mat_code, m."Name" as mat_name
@@ -55,13 +59,14 @@ public class MaterialCurrentStockService {
 		if (mat_grp_pk != null) sql +=" and mg.\"id\" = :mat_grp_pk ";
 		if (StringUtils.isEmpty(mat_name)==false) sql +=" and (m.\"Name\" like concat('%%',:mat_name,'%%') or m.\"Code\" like concat('%%',:mat_name,'%%') ) ";
 		if (store_house_id != null) sql +=" and mh.\"StoreHouse_id\" =:store_house_id ";
-		
+		if (factory_id != null) sql +=" and m.\"Factory_id\" = :factory_id ";
+
 		sql += " group by m.id,mg.\"MaterialType\" ,mg.\"Name\" ,u.\"Name\" ,sh.\"Name\" , mh.\"CurrentStock\", m.\"SafetyStock\", m.\"LotUseYN\"  ";
-		
+
 		sql += " order by mg.\"MaterialType\", mg.\"Name\", m.\"Code\", m.\"Name\", m.id, sh.\"Name\" ";
-		
+
 		List<Map<String, Object>> items = this.sqlRunner.getRows(sql, paramMap);
-		
+
 		return items;
 	}
 }

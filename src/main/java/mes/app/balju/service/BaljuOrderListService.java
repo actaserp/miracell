@@ -12,31 +12,35 @@ import java.util.Map;
 @Slf4j
 @Service
 public class BaljuOrderListService {
-  @Autowired
-  SqlRunner sqlRunner;
+    @Autowired
+    SqlRunner sqlRunner;
 
-  public List<Map<String, Object>> getList(String cboYear, Integer cboCompany, Integer cboMatGrp, String cboDataDiv, String spjangcd) {
-    MapSqlParameterSource paramMap = new MapSqlParameterSource();
-    paramMap.addValue("cboYear", cboYear);
-    paramMap.addValue("cboCompany", cboCompany);
-    paramMap.addValue("cboMatGrp", cboMatGrp);
-    paramMap.addValue("cboDataDiv", cboDataDiv);
-    paramMap.addValue("spjangcd", spjangcd);
+    /**
+     * @param factoryId 공장 필터. 빈 값/null 이면 전체 공장.
+     *                  발주에는 공장이 없어 품목(material)의 공장으로 건다.
+     */
+    public List<Map<String, Object>> getList(String cboYear, Integer cboCompany, Integer cboMatGrp, String cboDataDiv, String factoryId, String spjangcd) {
+        MapSqlParameterSource paramMap = new MapSqlParameterSource();
+        paramMap.addValue("cboYear", cboYear);
+        paramMap.addValue("cboCompany", cboCompany);
+        paramMap.addValue("cboMatGrp", cboMatGrp);
+        paramMap.addValue("cboDataDiv", cboDataDiv);
+        paramMap.addValue("spjangcd", spjangcd);
 
-    String data_column = "";
+        String data_column = "";
 
-    String data_year = cboYear;
+        String data_year = cboYear;
 
-    paramMap.addValue("date_form",data_year+"-01-01" );
-    paramMap.addValue("date_to",data_year+"-12-31" );
+        paramMap.addValue("date_form",data_year+"-01-01" );
+        paramMap.addValue("date_to",data_year+"-12-31" );
 
-    if(cboDataDiv.equals("qty")) {
-      data_column = " b.\"SujuQty\" ";
-    }else {
-      data_column = " b.\"Price\" + coalesce(b.\"Vat\",0) ";
-    }
+        if(cboDataDiv.equals("qty")) {
+            data_column = " b.\"SujuQty\" ";
+        }else {
+            data_column = " b.\"Price\" + coalesce(b.\"Vat\",0) ";
+        }
 
-    String sql ="""
+        String sql ="""
 				with A as (
 	            select b."Material_id" as mat_pk, b."CompanyName" as company_name
 	            , extract (month from b."JumunDate") as data_month
@@ -44,27 +48,34 @@ public class BaljuOrderListService {
 	            , sum(b."Price"+ coalesce(b."Vat", 0)) as money_sum
 	            """;
 
-    sql += " ,sum( " + data_column + " ) as balju_sum ";
+        sql += " ,sum( " + data_column + " ) as balju_sum ";
 
-    sql +="""
+        sql +="""
 	            from balju b
                 inner join material m on m.id = b."Material_id" and m.spjangcd = b.spjangcd
 	            where b."JumunDate" between cast(:date_form as date) and cast(:date_to as date)
 	             and b.spjangcd = :spjangcd
 				""";
-    if(cboCompany != null) {
-      sql += """
+        if(factoryId != null && !factoryId.isEmpty()) {
+            paramMap.addValue("factoryId", Integer.parseInt(factoryId));
+            sql += """
+					and m."Factory_id" = :factoryId
+					""";
+        }
+
+        if(cboCompany != null) {
+            sql += """
 					and b."Company_id" = :cboCompany
 					""";
-    }
+        }
 
-    if(cboMatGrp != null) {
-      sql += """
+        if(cboMatGrp != null) {
+            sql += """
 					 and m."MaterialGroup_id" = :cboMatGrp
 					""";
-    }
+        }
 
-    sql += """
+        sql += """
 				group by b."Material_id", b."CompanyName", extract (month from b."JumunDate")
                 )
 	            select 1 as grp_idx, mg."Name" as mat_grp_name, m."Code" as mat_code, m."Name" as mat_name, A.mat_pk
@@ -74,11 +85,11 @@ public class BaljuOrderListService {
 			    , sum(A.money_sum) as year_money_sum
 				""";
 
-    for(int i=1; i<13; i++) {
-      sql+=", min(case when A.data_month = " + i + " then A.balju_sum end) as mon_"+i+" ";
-    }
+        for(int i=1; i<13; i++) {
+            sql+=", min(case when A.data_month = " + i + " then A.balju_sum end) as mon_"+i+" ";
+        }
 
-    sql+="""
+        sql+="""
 				from A 
         inner join material m on m.id = A.mat_pk 
         left join unit u on u.id = m."Unit_id" and u.spjangcd = m.spjangcd
@@ -94,11 +105,11 @@ public class BaljuOrderListService {
 				""";
 
 
-    for(int i=1; i<13; i++) {
-      sql += ", sum(case when A.data_month = "+ i +" then A.balju_sum end) as mon_"+i+" ";
-    }
+        for(int i=1; i<13; i++) {
+            sql += ", sum(case when A.data_month = "+ i +" then A.balju_sum end) as mon_"+i+" ";
+        }
 
-    sql += """
+        sql += """
 				from A 
         inner join material m on m.id = A.mat_pk
         left join unit u on u.id = m."Unit_id" and u.spjangcd = m.spjangcd
@@ -109,9 +120,9 @@ public class BaljuOrderListService {
 
 //    log.info("월별 발주량 read SQL: {}", sql);
 //    log.info("SQL Parameters: {}", paramMap.getValues());
-    List<Map<String, Object>> items = this.sqlRunner.getRows(sql, paramMap);
+        List<Map<String, Object>> items = this.sqlRunner.getRows(sql, paramMap);
 
-    return items;
-  }
+        return items;
+    }
 
 }

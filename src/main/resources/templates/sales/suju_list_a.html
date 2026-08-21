@@ -1,10 +1,10 @@
 <html layout:decorate="~{layout_page}">
 <head>
   <style>
-      #matListTb input, #matListTb textarea {
-          width: 100px;
-          height: 40px;
-      }
+    #matListTb input, #matListTb textarea {
+      width: 100px;
+      height: 40px;
+    }
 
   </style>
 </head>
@@ -17,6 +17,8 @@
         <a title="북마크" class="bookmark toggle">
           내 메뉴
         </a>
+        <label for="Factory_id" class="hide">공장</label>
+        <select style="width: 110px;" id="Factory_id" name="Factory_id"></select>
       </div>
       <ul class="page-navi">
         <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
@@ -83,11 +85,11 @@
         </div>
         <div class="button-wrap">
           <ul>
-           <!-- <li>
-              <a class="btn" title="견적서 출력" id="btnEstimatePrint">
-                견적서 출력
-              </a>
-            </li>-->
+            <!-- <li>
+               <a class="btn" title="견적서 출력" id="btnEstimatePrint">
+                 견적서 출력
+               </a>
+             </li>-->
             <li>
               <a class="btn btn-excell" title="등록" id="btnAddNew">
                 <img th:src="@{/images/icon/ico-plus.svg}" alt="등록 아이콘">
@@ -606,11 +608,15 @@
 
 <th:block layout:fragment="scripts">
   <th:block th:replace="/common/multiform_material :: multiform_material"></th:block>
-<!--  <th:block th:replace="/common/popup_company :: popup_company"></th:block>-->
+  <!--  <th:block th:replace="/common/popup_company :: popup_company"></th:block>-->
   <th:block th:replace="/sales/popup_suju_company :: popup_suju_company"></th:block>
   <th:block th:replace="/sales/popup_company_new_save :: popup_company_new_save"></th:block>
   <th:block th:replace="/sales/popup_material_save :: popup_material_new_save"></th:block>
   <th:block th:replace="/sales/print_estimate :: print_estimate"></th:block>
+  <script th:inline="javascript">
+    /* 로그인 사용자의 소속 공장. 없으면 null → «전체» 가 기본값이 된다 */
+    const factory_id = [[${session.factory_id}]];
+  </script>
   <script type="text/javascript">
 
     let isInternalFormatting = false;
@@ -769,14 +775,14 @@
           let items = _this.grid.selectedItems;
           if (items.length > 0) {
             Alert.confirm('', '삭제하시겠습니까?',
-              function () {
-                let id = items[0].id;
-                let state = items[0].State;
-                let ShipmentStateName = items[0].ShipmentStateName;
-                _this.deleteSujuData(id, state, ShipmentStateName);
-              },
-              function () {
-              }
+                    function () {
+                      let id = items[0].id;
+                      let state = items[0].State;
+                      let ShipmentStateName = items[0].ShipmentStateName;
+                      _this.deleteSujuData(id, state, ShipmentStateName);
+                    },
+                    function () {
+                    }
             );
           } else {
             Alert.alert('', '삭제할 항목을 선택해주세요.', function () {
@@ -874,7 +880,7 @@
 
           // 템플릿 우측 “거래처 … 귀하” 표시용
           const CustomerName = toStr(
-            head.CustomerName || head.CompanyName || row.CustomerName || row.CompanyName || ''
+                  head.CustomerName || head.CompanyName || row.CustomerName || row.CompanyName || ''
           );
 
           return {
@@ -931,8 +937,8 @@
         async function waitImages(doc) {
           const imgs = Array.from(doc.images || []);
           await Promise.all(imgs.map(img => (
-            img.complete ? Promise.resolve()
-              : new Promise(res => { img.onload = img.onerror = res; })
+                  img.complete ? Promise.resolve()
+                          : new Promise(res => { img.onload = img.onerror = res; })
           )));
         }
 
@@ -952,9 +958,9 @@
 
           // ✅ 직인 이미지 data URI 준비(한 번만)
           const ctx =
-            window.APP_CONTEXT_PATH
-            || document.querySelector('base')?.getAttribute('href')?.replace(/\/$/, '')
-            || '';
+                  window.APP_CONTEXT_PATH
+                  || document.querySelector('base')?.getAttribute('href')?.replace(/\/$/, '')
+                  || '';
           const sealHttpUrl = `${ctx}/images/sample/stamp.png`;
 
           let sealDataUri = null;
@@ -974,7 +980,7 @@
 
           // 상세 병렬 조회
           const responses = await Promise.allSettled(
-            targets.map(row => getDetailAsync(DETAIL_URL, buildDetailParams(row)))
+                  targets.map(row => getDetailAsync(DETAIL_URL, buildDetailParams(row)))
           );
 
           for (let i = 0; i < targets.length; i++) {
@@ -1086,8 +1092,8 @@
 
         function isLocked($row) {
           const raw = (($row.find('input[name^="standard_locked_"], input[name="standard_locked"]').val() || '') + '')
-            .trim()
-            .toUpperCase();
+                  .trim()
+                  .toUpperCase();
           return raw === 'N' ;
         }
 
@@ -1106,11 +1112,11 @@
 
         // 초기 렌더된 '버튼 있는' 행만 반영
         $root.on(
-          'input change',
-          'input[name="unit"], input[name^="unit_"], input[name^="standard_locked_"], input[name="standard_locked"]',
-          function () {
-            refreshStdBtn($(this).closest('tr'));
-          }
+                'input change',
+                'input[name="unit"], input[name^="unit_"], input[name^="standard_locked_"], input[name="standard_locked"]',
+                function () {
+                  refreshStdBtn($(this).closest('tr'));
+                }
         );
 
         // unit 값 변경(사용자/프로그램 모두) 시 해당 행만 갱신
@@ -1328,7 +1334,7 @@
           if (ship) return false;     // 출하 진행됨 → 수정 불가
           if (!state) return true;    // 상태 미지정이면 일단 허용(원하면 false로)
           return ['수주', '지시', '계획',
-           '부분 지시', '부분 계획' ].includes(state); // 허용 상태만 통과
+            '부분 지시', '부분 계획' ].includes(state); // 허용 상태만 통과
         }
 
         function applyEditability(data) {
@@ -1343,7 +1349,7 @@
             // 메시지: 출하상태가 있으면 해당 이유로, 아니면 기존 메시지
             const ship = String(data?.ShipmentStateName ?? '').trim();
             const reason = ship ? '* 출하가 진행된 건은 수정이 불가합니다.'
-              : '* 출하가 진행된 수주는 수정이 불가합니다.';
+                    : '* 출하가 진행된 수주는 수정이 불가합니다.';
             $('#notUpdate').text(reason).css('margin-top', '10px').show();
             $('.popup-button').css('margin-top', '10px');
           }
@@ -1422,8 +1428,8 @@
                   const cur = parseFloat((data[`unitPrice_${i}`] || '0').replace(/,/g, ''));
                   return ori !== cur;
                 })(),
-               standard: data[`standard_${i}`] || '',
-               standardDetails: []          // 규격 상세 비활성화
+                standard: data[`standard_${i}`] || '',
+                standardDetails: []          // 규격 상세 비활성화
               });
             }
 
@@ -1489,7 +1495,7 @@
               // unitType이 비어있으면 unit_에서 보정(EA/M만)
               if (!$row.data('unitType')) {
                 const unitNameRaw = ($row.find('input[name^="unit_"]').val() || '')
-                  .toString().trim().toUpperCase();
+                        .toString().trim().toUpperCase();
                 $row.data('unitType', unitNameRaw.startsWith('M') ? 'M' : 'EA');
               }
 
@@ -1535,33 +1541,33 @@
             const unitPriceRaw = String($row.find('input[name^="unitPrice_"]').val() || '').replace(/,/g, '');
             const hasUnitPrice = unitPriceRaw !== '' && !isNaN(Number(unitPriceRaw));
 
-           // const $standard = $row.find('input[type="text"][name^="standard_"]');
-           // const standardRaw    = (($standard.val() ?? '') + '').trim();
-           // const standardNumStr = standardRaw.replace(/,/g, '');
-           // const isStandardNumeric = standardNumStr !== '' && /^\d+(\.\d+)?$/.test(standardNumStr);
-           // const standardNum = isStandardNumeric ? parseFloat(standardNumStr) : 0;
+            // const $standard = $row.find('input[type="text"][name^="standard_"]');
+            // const standardRaw    = (($standard.val() ?? '') + '').trim();
+            // const standardNumStr = standardRaw.replace(/,/g, '');
+            // const isStandardNumeric = standardNumStr !== '' && /^\d+(\.\d+)?$/.test(standardNumStr);
+            // const standardNum = isStandardNumeric ? parseFloat(standardNumStr) : 0;
 
-           const baseQty = Number.isFinite(quantity) ? quantity : 0;
+            const baseQty = Number.isFinite(quantity) ? quantity : 0;
 
 // 🔹 단위 읽기
-           const unitVal = String(
-            $row.find('input[name^="unit_"], input[name="unit"]').val() || ''
-           ).trim();
+            const unitVal = String(
+                    $row.find('input[name^="unit_"], input[name="unit"]').val() || ''
+            ).trim();
 
 // 🔹 단위 + 규격에 따른 실제 계산 수량
-           let qtyForCalc = baseQty;
+            let qtyForCalc = baseQty;
 
-           /*if (isStandardNumeric) {
-            if (isMeter(unitVal)) {
-             // M인 경우만 규격 × 수량
-             qtyForCalc = standardNum * baseQty;
-            } else {
-             // M이 아닌 단위(EA, SET 등)는 규격 무시
-             qtyForCalc = baseQty;
-            }
-           }*/
+            /*if (isStandardNumeric) {
+             if (isMeter(unitVal)) {
+              // M인 경우만 규격 × 수량
+              qtyForCalc = standardNum * baseQty;
+             } else {
+              // M이 아닌 단위(EA, SET 등)는 규격 무시
+              qtyForCalc = baseQty;
+             }
+            }*/
 
-           const isVatIncluded = $row.find('input[name^="VatIncluded_"]').is(':checked');
+            const isVatIncluded = $row.find('input[name^="VatIncluded_"]').is(':checked');
             const isVatExempt   = false;
 
             let supplyAmount     = getNumericValue($row.find('input[name^="supplyAmount_"]'), 0);
@@ -1579,7 +1585,7 @@
               // (정책상 단수정리 필요하면 여기서 Math.floor 등 적용)
               $row.find('input[name^="VatAmount_"]').val(''); // VAT=0 표기
               $row.find('input[name^="totalAmount_"]').val(
-                supplyAmount === 0 ? '' : supplyAmount.toLocaleString('ko-KR')
+                      supplyAmount === 0 ? '' : supplyAmount.toLocaleString('ko-KR')
               );
               calculateTotalSum($content);
               return; // 조정행은 여기서 종료(일반 자동계산 덮어쓰기 방지)
@@ -1587,7 +1593,7 @@
 
             if (shouldAuto) {
               // const lineTotal = qtyForCalc * unitPrice;
-             const lineTotal = Math.floor(qtyForCalc * unitPrice);
+              const lineTotal = Math.floor(qtyForCalc * unitPrice);
               if (isVatExempt) {
                 supplyAmount = lineTotal;
                 vatAmount    = 0;
@@ -1634,9 +1640,9 @@
           $root.find('.item-table tr:visible').each(function () {
             const $row = $(this);
             const $totalInput =
-              $row.find('input[name="totalAmount"]').first().length
-                ? $row.find('input[name="totalAmount"]').first()
-                : $row.find('input[name^="totalAmount_"]').first();
+                    $row.find('input[name="totalAmount"]').first().length
+                            ? $row.find('input[name="totalAmount"]').first()
+                            : $row.find('input[name^="totalAmount_"]').first();
             if (!$totalInput.length) return;
 
             const raw = String($totalInput.val() || '').replace(/,/g, '').trim();
@@ -1647,8 +1653,8 @@
           });
 
           const $target = $root.find('#totalAmountSum').first().length
-            ? $root.find('#totalAmountSum').first()
-            : $('#totalAmountSum');
+                  ? $root.find('#totalAmountSum').first()
+                  : $('#totalAmountSum');
 
           $target.val(sum !== 0 ? Number(sum).toLocaleString() : '');
         }
@@ -1698,216 +1704,216 @@
         // 숫자 포맷 (input 중 formatting) - 소수점/천단위 지원
         // 1) 입력 중: 포맷(천단위)만, 소수 고정 금지
         $content.off('input.numfmt')
-          .on('input.numfmt',
-            'input[name^="quantity_"], input[name^="unitPrice_"],' +
-            ' input[name^="supplyAmount_"], input[name^="VatAmount_"],' +
-            ' input[name^="totalAmount_"]',
-            function (e) {
-              if (isInternalFormatting) return;
-              if (e.originalEvent && e.originalEvent.isComposing) return;
+                .on('input.numfmt',
+                        'input[name^="quantity_"], input[name^="unitPrice_"],' +
+                        ' input[name^="supplyAmount_"], input[name^="VatAmount_"],' +
+                        ' input[name^="totalAmount_"]',
+                        function (e) {
+                          if (isInternalFormatting) return;
+                          if (e.originalEvent && e.originalEvent.isComposing) return;
 
-              isInternalFormatting = true;
-              const input = this;
-              const $this = $(this);
-              const name  = input.name || '';
-              const $row  = $this.closest('tr');
+                          isInternalFormatting = true;
+                          const input = this;
+                          const $this = $(this);
+                          const name  = input.name || '';
+                          const $row  = $this.closest('tr');
 
-              // 커서 보정
-              const prevLen = input.value.length;
-              const cursorPos = input.selectionStart;
-              const rightRemain = prevLen - cursorPos;
+                          // 커서 보정
+                          const prevLen = input.value.length;
+                          const cursorPos = input.selectionStart;
+                          const rightRemain = prevLen - cursorPos;
 
-              // ── supplyAmount_ 전용: 조정 행일 때만 '-' 허용 ──
-              if (name.startsWith('supplyAmount_')) {
-                const adjustment = isAdjustmentRow($row);
-                let raw = String($this.val() || '').replace(/,/g, '');
+                          // ── supplyAmount_ 전용: 조정 행일 때만 '-' 허용 ──
+                          if (name.startsWith('supplyAmount_')) {
+                            const adjustment = isAdjustmentRow($row);
+                            let raw = String($this.val() || '').replace(/,/g, '');
 
-                // 조정행만 '-' 허용, 소수점은 불허(정수)
-                raw = raw.replace(adjustment ? /[^0-9\-]/g : /[^0-9]/g, '');
-                if (adjustment) raw = raw.replace(/(?!^)-/g, ''); // 선행 '-' 하나만 허용
+                            // 조정행만 '-' 허용, 소수점은 불허(정수)
+                            raw = raw.replace(adjustment ? /[^0-9\-]/g : /[^0-9]/g, '');
+                            if (adjustment) raw = raw.replace(/(?!^)-/g, ''); // 선행 '-' 하나만 허용
 
-                if (raw === '' || raw === '-') { isInternalFormatting = false; return; }
-                const num = Number(raw);
-                if (!isFinite(num)) { isInternalFormatting = false; return; }
+                            if (raw === '' || raw === '-') { isInternalFormatting = false; return; }
+                            const num = Number(raw);
+                            if (!isFinite(num)) { isInternalFormatting = false; return; }
 
-                const formatted = num.toLocaleString('ko-KR');
-                $this.val(formatted);
+                            const formatted = num.toLocaleString('ko-KR');
+                            $this.val(formatted);
 
-                const newLen = formatted.length;
-                const pos = Math.max(0, newLen - rightRemain);
-                input.setSelectionRange(pos, pos);
-                isInternalFormatting = false;
-                return;
-              }
+                            const newLen = formatted.length;
+                            const pos = Math.max(0, newLen - rightRemain);
+                            input.setSelectionRange(pos, pos);
+                            isInternalFormatting = false;
+                            return;
+                          }
 
-              // ── totalAmount_ 전용: 조정 행일 때만 '-' 허용 ──
-              if (name.startsWith('totalAmount_')) {
-                const adjustment = isAdjustmentRow($row);
-                let raw = String($this.val() || '').replace(/,/g, '');
-                raw = raw.replace(adjustment ? /[^0-9.\-]/g : /[^0-9.]/g, '');
-                if (adjustment) raw = raw.replace(/(?!^)-/g, ''); // 선행 '-' 하나만
-                // 점 하나만
-                raw = raw.replace(/\.(?=.*\.)/g, '');
-                if (raw === '' || raw === '-' || raw === '.') { isInternalFormatting = false; return; }
-                const num = Number(raw);
-                if (!isFinite(num)) { isInternalFormatting = false; return; }
-                const formatted = num.toLocaleString('ko-KR');
-                $this.val(formatted);
+                          // ── totalAmount_ 전용: 조정 행일 때만 '-' 허용 ──
+                          if (name.startsWith('totalAmount_')) {
+                            const adjustment = isAdjustmentRow($row);
+                            let raw = String($this.val() || '').replace(/,/g, '');
+                            raw = raw.replace(adjustment ? /[^0-9.\-]/g : /[^0-9.]/g, '');
+                            if (adjustment) raw = raw.replace(/(?!^)-/g, ''); // 선행 '-' 하나만
+                            // 점 하나만
+                            raw = raw.replace(/\.(?=.*\.)/g, '');
+                            if (raw === '' || raw === '-' || raw === '.') { isInternalFormatting = false; return; }
+                            const num = Number(raw);
+                            if (!isFinite(num)) { isInternalFormatting = false; return; }
+                            const formatted = num.toLocaleString('ko-KR');
+                            $this.val(formatted);
 
-                const newLen = formatted.length;
-                const pos = Math.max(0, newLen - rightRemain);
-                input.setSelectionRange(pos, pos);
-                isInternalFormatting = false;
-                return;
-              }
+                            const newLen = formatted.length;
+                            const pos = Math.max(0, newLen - rightRemain);
+                            input.setSelectionRange(pos, pos);
+                            isInternalFormatting = false;
+                            return;
+                          }
 
-              // ── 이하 기존 로직(수량 소수1자리, 그 외 정수) ──
-              let allowDecimal = false;
-              let decimals = 0;
-              if (name.startsWith('quantity_')) { allowDecimal = true; decimals = 2; }
+                          // ── 이하 기존 로직(수량 소수1자리, 그 외 정수) ──
+                          let allowDecimal = false;
+                          let decimals = 0;
+                          if (name.startsWith('quantity_')) { allowDecimal = true; decimals = 2; }
 
-              let raw = String($this.val() || '').replace(/,/g, '');
+                          let raw = String($this.val() || '').replace(/,/g, '');
 
-              if (allowDecimal) {
-                raw = raw.replace(/[^0-9.]/g, '').replace(/\.(?=.*\.)/g, '');
-                if (raw === '' || raw === '.') { $this.val(''); isInternalFormatting = false; return; }
-                const hasDot = raw.includes('.');
-                let [intPart, fracPart = ''] = raw.split('.');
-                intPart = intPart.replace(/^0+(?=\d)/, '');
-                if (fracPart.length > decimals) fracPart = fracPart.slice(0, decimals);
-                const intFormatted = (intPart === '' ? '0' : String(Number(intPart))).toLocaleString('ko-KR');
-                const formatted = hasDot ? `${intFormatted}.${fracPart}` : intFormatted;
-                $this.val(formatted);
-                const newLen = formatted.length;
-                const pos = Math.max(0, newLen - rightRemain);
-                input.setSelectionRange(pos, pos);
-              } else {
-                raw = raw.replace(/[^0-9]/g, '');
-                if (raw === '') { $this.val(''); isInternalFormatting = false; return; }
-                const formatted = Number(raw).toLocaleString('ko-KR');
-                $this.val(formatted);
-                const newLen = formatted.length;
-                const pos = Math.max(0, newLen - rightRemain);
-                input.setSelectionRange(pos, pos);
-              }
+                          if (allowDecimal) {
+                            raw = raw.replace(/[^0-9.]/g, '').replace(/\.(?=.*\.)/g, '');
+                            if (raw === '' || raw === '.') { $this.val(''); isInternalFormatting = false; return; }
+                            const hasDot = raw.includes('.');
+                            let [intPart, fracPart = ''] = raw.split('.');
+                            intPart = intPart.replace(/^0+(?=\d)/, '');
+                            if (fracPart.length > decimals) fracPart = fracPart.slice(0, decimals);
+                            const intFormatted = (intPart === '' ? '0' : String(Number(intPart))).toLocaleString('ko-KR');
+                            const formatted = hasDot ? `${intFormatted}.${fracPart}` : intFormatted;
+                            $this.val(formatted);
+                            const newLen = formatted.length;
+                            const pos = Math.max(0, newLen - rightRemain);
+                            input.setSelectionRange(pos, pos);
+                          } else {
+                            raw = raw.replace(/[^0-9]/g, '');
+                            if (raw === '') { $this.val(''); isInternalFormatting = false; return; }
+                            const formatted = Number(raw).toLocaleString('ko-KR');
+                            $this.val(formatted);
+                            const newLen = formatted.length;
+                            const pos = Math.max(0, newLen - rightRemain);
+                            input.setSelectionRange(pos, pos);
+                          }
 
-              isInternalFormatting = false;
-            }
-          );
+                          isInternalFormatting = false;
+                        }
+                );
 
         // 블러 시: totalAmount_는 조정 행에서 음수 유지
         $content.off('blur.numfmt')
-          .on('blur.numfmt',
-            'input[name^="quantity_"], input[name^="unitPrice_"], ' +
-            'input[name^="supplyAmount_"], input[name^="VatAmount_"], ' +
-            'input[name^="totalAmount_"]',
-            function () {
-              const $this = $(this);
-              const name = this.name || '';
-              const $row = $this.closest('tr');
-              let v = String($this.val() || '').replace(/,/g, '');
-              if (!v) return;
+                .on('blur.numfmt',
+                        'input[name^="quantity_"], input[name^="unitPrice_"], ' +
+                        'input[name^="supplyAmount_"], input[name^="VatAmount_"], ' +
+                        'input[name^="totalAmount_"]',
+                        function () {
+                          const $this = $(this);
+                          const name = this.name || '';
+                          const $row = $this.closest('tr');
+                          let v = String($this.val() || '').replace(/,/g, '');
+                          if (!v) return;
 
-              if (name.startsWith('supplyAmount_')) {
-                const adjustment = isAdjustmentRow($row);
-                v = v.replace(/,/g, '');
-                v = v.replace(adjustment ? /[^0-9\-]/g : /[^0-9]/g, '');
-                if (adjustment) v = v.replace(/(?!^)-/g, '');
-                if (v === '' || v === '-') { $this.val(''); return; }
+                          if (name.startsWith('supplyAmount_')) {
+                            const adjustment = isAdjustmentRow($row);
+                            v = v.replace(/,/g, '');
+                            v = v.replace(adjustment ? /[^0-9\-]/g : /[^0-9]/g, '');
+                            if (adjustment) v = v.replace(/(?!^)-/g, '');
+                            if (v === '' || v === '-') { $this.val(''); return; }
 
-                const num = Number(v);
-                if (!isFinite(num)) { $this.val(''); return; }
+                            const num = Number(v);
+                            if (!isFinite(num)) { $this.val(''); return; }
 
-                // 필요 시 여기서 단수정리(절사/반올림) 수행
-                // num = Math.floor(num); // 정책에 맞게
+                            // 필요 시 여기서 단수정리(절사/반올림) 수행
+                            // num = Math.floor(num); // 정책에 맞게
 
-                $this.val(num.toLocaleString('ko-KR'));
+                            $this.val(num.toLocaleString('ko-KR'));
 
-                // 조정행이면 공급가 수동편집 플래그 세우고 재계산(VAT=0 정책이라면 calculateAmounts에서 처리)
-                if (adjustment) {
-                  $row.data('supplyEdited', true);
-                  $row.removeData('vatEdited');
-                  calculateAmounts($row);
-                }
-                return;
-              }
+                            // 조정행이면 공급가 수동편집 플래그 세우고 재계산(VAT=0 정책이라면 calculateAmounts에서 처리)
+                            if (adjustment) {
+                              $row.data('supplyEdited', true);
+                              $row.removeData('vatEdited');
+                              calculateAmounts($row);
+                            }
+                            return;
+                          }
 
-              //  totalAmount_ 분기 대체
-              if (name.startsWith('totalAmount_')) {
-                const adjustment = isAdjustmentRow($row);
+                          //  totalAmount_ 분기 대체
+                          if (name.startsWith('totalAmount_')) {
+                            const adjustment = isAdjustmentRow($row);
 
-                // 숫자 정리(+ 조정행은 음수 허용)
-                v = v.replace(adjustment ? /[^0-9.\-]/g : /[^0-9.]/g, '');
-                if (adjustment) v = v.replace(/(?!^)-/g, '');
-                v = v.replace(/\.(?=.*\.)/g, '');
-                if (v === '' || v === '-' || v === '.') { $this.val(''); return; }
+                            // 숫자 정리(+ 조정행은 음수 허용)
+                            v = v.replace(adjustment ? /[^0-9.\-]/g : /[^0-9.]/g, '');
+                            if (adjustment) v = v.replace(/(?!^)-/g, '');
+                            v = v.replace(/\.(?=.*\.)/g, '');
+                            if (v === '' || v === '-' || v === '.') { $this.val(''); return; }
 
-                const num = Number(v);
-                if (!isFinite(num)) { $this.val(''); return; }
+                            const num = Number(v);
+                            if (!isFinite(num)) { $this.val(''); return; }
 
-                if (adjustment) {
-                  // ✅ 합계 입력값을 '공급가액'으로 이관
-                  const $sup = $row.find('input[name^="supplyAmount_"]');
-                  $sup.val(num ? Number(num).toLocaleString('ko-KR') : '');
+                            if (adjustment) {
+                              // ✅ 합계 입력값을 '공급가액'으로 이관
+                              const $sup = $row.find('input[name^="supplyAmount_"]');
+                              $sup.val(num ? Number(num).toLocaleString('ko-KR') : '');
 
-                  // 부가세는 단수정리 행에서는 0으로(관례) —— 필요 시 정책으로 바꾸세요.
-                  $row.find('input[name^="VatAmount_"]').val('');
-                  $row.data('supplyEdited', true);
-                  $row.removeData('vatEdited');
+                              // 부가세는 단수정리 행에서는 0으로(관례) —— 필요 시 정책으로 바꾸세요.
+                              $row.find('input[name^="VatAmount_"]').val('');
+                              $row.data('supplyEdited', true);
+                              $row.removeData('vatEdited');
 
-                  // 합계는 supply+vat로 자동 반영
-                  calculateAmounts($row);
-                  return; // total은 사용자가 직접 넣는 필드가 아님
-                }
+                              // 합계는 supply+vat로 자동 반영
+                              calculateAmounts($row);
+                              return; // total은 사용자가 직접 넣는 필드가 아님
+                            }
 
-                // 일반행: 기존 포맷만 유지
-                $this.val(num.toLocaleString('ko-KR'));
-                return;
-              }
+                            // 일반행: 기존 포맷만 유지
+                            $this.val(num.toLocaleString('ko-KR'));
+                            return;
+                          }
 
-              // quantity_ 블러 처리 (소수 2자리)
-              if (name.startsWith('quantity_')) {
-                v = v.replace(/[^0-9.]/g, '').replace(/\.(?=.*\.)/g, '');
-                if (v === '' || v === '.') { $this.val(''); return; }
-                let num = Number(v);
-                if (!isFinite(num)) { $this.val(''); return; }
+                          // quantity_ 블러 처리 (소수 2자리)
+                          if (name.startsWith('quantity_')) {
+                            v = v.replace(/[^0-9.]/g, '').replace(/\.(?=.*\.)/g, '');
+                            if (v === '' || v === '.') { $this.val(''); return; }
+                            let num = Number(v);
+                            if (!isFinite(num)) { $this.val(''); return; }
 
-                // ⬇ 여기만 1→2자리로
-                num = Math.round(num * 100) / 100;
+                            // ⬇ 여기만 1→2자리로
+                            num = Math.round(num * 100) / 100;
 
-                const parts = String(num).split('.');
-                const intStr = Number(parts[0]).toLocaleString('ko-KR');
+                            const parts = String(num).split('.');
+                            const intStr = Number(parts[0]).toLocaleString('ko-KR');
 
-                if (parts.length === 1 || Number(parts[1]) === 0) {
-                  $this.val(intStr);
-                } else {
-                  // 최대 2자리, 뒤의 0은 제거
-                  const frac = (parts[1] + '00').slice(0, 2).replace(/0+$/, '');
-                  $this.val(frac ? `${intStr}.${frac}` : intStr);
-                }
-              } else {
-                const iv = v.replace(/[^0-9]/g, '');
-                if (iv === '') { $this.val(''); return; }
-                $this.val(Number(iv).toLocaleString('ko-KR'));
-              }
-            }
-          );
+                            if (parts.length === 1 || Number(parts[1]) === 0) {
+                              $this.val(intStr);
+                            } else {
+                              // 최대 2자리, 뒤의 0은 제거
+                              const frac = (parts[1] + '00').slice(0, 2).replace(/0+$/, '');
+                              $this.val(frac ? `${intStr}.${frac}` : intStr);
+                            }
+                          } else {
+                            const iv = v.replace(/[^0-9]/g, '');
+                            if (iv === '') { $this.val(''); return; }
+                            $this.val(Number(iv).toLocaleString('ko-KR'));
+                          }
+                        }
+                );
 
         $content.off('change.productCodeGuard')
-          .on('change.productCodeGuard', 'input[name^="product_code_"]', function () {
-            const $row = $(this).closest('tr');
-            const code = (this.value ?? '').toString().trim();
-            if (code !== '') {
-              // totalAmount_에서 음수 제거 후 재계산
-              const $tot = $row.find('input[name^="totalAmount_"]');
-              const cleaned = (($tot.val() ?? '') + '').replace(/,/g, '').replace(/-/g, '');
-              $tot.val(cleaned ? Number(cleaned).toLocaleString('ko-KR') : '');
-              // 일반 모드 강제 재계산
-              $row.removeData('supplyEdited');
-              $row.removeData('vatEdited');
-              calculateAmounts($row, 'unit');
-            }
-          });
+                .on('change.productCodeGuard', 'input[name^="product_code_"]', function () {
+                  const $row = $(this).closest('tr');
+                  const code = (this.value ?? '').toString().trim();
+                  if (code !== '') {
+                    // totalAmount_에서 음수 제거 후 재계산
+                    const $tot = $row.find('input[name^="totalAmount_"]');
+                    const cleaned = (($tot.val() ?? '') + '').replace(/,/g, '').replace(/-/g, '');
+                    $tot.val(cleaned ? Number(cleaned).toLocaleString('ko-KR') : '');
+                    // 일반 모드 강제 재계산
+                    $row.removeData('supplyEdited');
+                    $row.removeData('vatEdited');
+                    calculateAmounts($row, 'unit');
+                  }
+                });
 
         // 검색 버튼 클릭 시 팝업
         $content.on('click', 'a[title="품목 신규등록"]', function () {
@@ -1923,7 +1929,7 @@
               //prefix로 찾는 헬퍼 (보이는 텍스트/셀렉트만 타겟)
               const setByPrefix = (prefix, val) => {
                 const $target = $row.find(
-                  `input[type="text"][name^="${prefix}"]:visible,
+                        `input[type="text"][name^="${prefix}"]:visible,
                      textarea[name^="${prefix}"]:visible,
                      select[name^="${prefix}"]:visible`
                 ).first();
@@ -1976,6 +1982,9 @@
           const keyword = $field.val().trim();
           const pop = new PopMatComponent();
           pop.material_type = 'product,sangpum';
+          /* 화면에서 고른 공장을 품목 팝업에도 그대로 적용한다.
+             «전체»면 '' 이라 팝업도 전체를 보여준다. */
+          pop.factory_id = $('#Factory_id').val() || null;
 
           const callback = function (item) {
             $productId.val(item.id || '');
@@ -2000,6 +2009,7 @@
 
           const data = {
             keyword: keyword,
+            factory_id: $('#Factory_id').val() || '',
             spjangcd: sessionStorage.getItem('spjangcd')
           };
 
@@ -2098,8 +2108,8 @@
           // ↕️ 상하 이동
           if (key === 'ArrowDown' || key === 'ArrowUp') {
             const $targetRow = key === 'ArrowDown'
-              ? $row.nextAll('tr:visible').first()
-              : $row.prevAll('tr:visible').first();
+                    ? $row.nextAll('tr:visible').first()
+                    : $row.prevAll('tr:visible').first();
 
             const allowAutoAdd = ['txtProductName_', 'description_'];
             const isAllowedField = allowAutoAdd.some(prefix => nameAttr.startsWith(prefix));
@@ -2165,9 +2175,9 @@
           const $table = $popup.find('.item-Standard-table');
           const $tpl   = $table.find('.item-template-row').first();
           const $row   = $tpl.clone(true, true)
-            .removeClass('item-template-row')
-            .addClass('std-row')
-            .show();
+                  .removeClass('item-template-row')
+                  .addClass('std-row')
+                  .show();
           $table.append($row);
           return $row;
         };
@@ -2208,7 +2218,7 @@
         //서버/신규 데이터 → UI 채우기
         function setRows(details){
           // 기존 표준행 제거
-         $popup.find('.item-Standard-table tr.std-row').remove();
+          $popup.find('.item-Standard-table tr.std-row').remove();
 
           const list = (details || []); // 최대 3행
           if (list.length === 0) {
@@ -2266,14 +2276,14 @@
           } else if (sujuId > 0) {
             // 3) 서버 조회
             $.getJSON('/api/sales/suju/detail_list', { sujuId })
-              .done(res => {
-                const rows = (res && (res.data || res.rows)) || [];
-                setRows(rows);
-              })
-              .fail(err => {
-                console.error('detail_list load error', err);
-                setRows([]); // 실패 시 기본 2행
-              });
+                    .done(res => {
+                      const rows = (res && (res.data || res.rows)) || [];
+                      setRows(rows);
+                    })
+                    .fail(err => {
+                      console.error('detail_list load error', err);
+                      setRows([]); // 실패 시 기본 2행
+                    });
           } else {
             // 4) 신규 기본
             setRows([]);
@@ -2419,215 +2429,215 @@
           // );
           // (선택) 계산 자동화: qty/단가/규격/단위 변경 시 공급가액/부가세 갱신
           $root.off('input.stdCalc').on(
-            'input.stdCalc',
-            '.item-Standard-table tr.std-row input[name="qty"], ' +
-            '.item-Standard-table tr.std-row input[name="sd_UnitPrice"], ' +
-            '.item-Standard-table tr.std-row input[name="standard"], ' +
-            '.item-Standard-table tr.std-row input[name="UnitName"]',
-            function () {
-              const $r = $(this).closest('tr.std-row');
+                  'input.stdCalc',
+                  '.item-Standard-table tr.std-row input[name="qty"], ' +
+                  '.item-Standard-table tr.std-row input[name="sd_UnitPrice"], ' +
+                  '.item-Standard-table tr.std-row input[name="standard"], ' +
+                  '.item-Standard-table tr.std-row input[name="UnitName"]',
+                  function () {
+                    const $r = $(this).closest('tr.std-row');
 
-              const qty  = parseFloat(($r.find('input[name="qty"]').val() || '').toString().replace(/,/g,'')) || 0;
-              const unit = parseFloat(($r.find('input[name="sd_UnitPrice"]').val() || '').toString().replace(/,/g,'')) || 0;
+                    const qty  = parseFloat(($r.find('input[name="qty"]').val() || '').toString().replace(/,/g,'')) || 0;
+                    const unit = parseFloat(($r.find('input[name="sd_UnitPrice"]').val() || '').toString().replace(/,/g,'')) || 0;
 
-              // 미터 단위면 (규격 × 수량) = 실수량
-              const unitName = ($r.find('input[name="UnitName"]').val() || '').toString().trim();
-              const isMeter  = isUnitMeter(unitName);
+                    // 미터 단위면 (규격 × 수량) = 실수량
+                    const unitName = ($r.find('input[name="UnitName"]').val() || '').toString().trim();
+                    const isMeter  = isUnitMeter(unitName);
 
-              const stdRaw = ($r.find('input[name="standard"]').val() || '').toString().replace(/,/g,'').trim();
-              const stdNum = /^\d+(\.\d+)?$/.test(stdRaw) ? parseFloat(stdRaw) : 0;
+                    const stdRaw = ($r.find('input[name="standard"]').val() || '').toString().replace(/,/g,'').trim();
+                    const stdNum = /^\d+(\.\d+)?$/.test(stdRaw) ? parseFloat(stdRaw) : 0;
 
-              const effectiveQty = isMeter && stdNum > 0 ? (stdNum * qty) : qty;
+                    const effectiveQty = isMeter && stdNum > 0 ? (stdNum * qty) : qty;
 
-              const price = Math.round(effectiveQty * unit);  // 공급가액
-              const vat   = Math.round(price * 0.1);          // 부가세(10%)
-              const total = price + vat;
+                    const price = Math.round(effectiveQty * unit);  // 공급가액
+                    const vat   = Math.round(price * 0.1);          // 부가세(10%)
+                    const total = price + vat;
 
-              $r.find('input[name="sd_price"]').val(price ? price.toLocaleString() : '');
-              $r.find('input[name="sd_vat"]').val(vat ? vat.toLocaleString() : '');
-              $r.find('input[name="TotalAmount"]').val(total ? total.toLocaleString() : '');
+                    $r.find('input[name="sd_price"]').val(price ? price.toLocaleString() : '');
+                    $r.find('input[name="sd_vat"]').val(vat ? vat.toLocaleString() : '');
+                    $r.find('input[name="TotalAmount"]').val(total ? total.toLocaleString() : '');
 
-              updateTotals($root);
-            }
+                    updateTotals($root);
+                  }
           );
 
 
           // 별도 포맷 핸들러
           $root
-            .off('focus.stdFmt blur.stdFmt')
-            .on('focus.stdFmt',
-              '.item-Standard-table tr.std-row input[name="sd_UnitPrice"], ' +
-              '.item-Standard-table tr.std-row input[name="sd_price"], ' +
-              '.item-Standard-table tr.std-row input[name="sd_vat"]',
-              function () {
-                this.value = (this.value || '').replace(/,/g, ''); // 편집 전 콤마 제거
-              }
-            )
-            .on('blur.stdFmt',
-              '.item-Standard-table tr.std-row input[name="sd_UnitPrice"],' +
-              ' .item-Standard-table tr.std-row input[name="sd_price"], ' +
-              '.item-Standard-table tr.std-row input[name="sd_vat"]',
-              function () {
-                const raw = (this.value || '').replace(/,/g, '');
-                const n = parseFloat(raw);
-                this.value = Number.isFinite(n) ? n.toLocaleString() : '';
+                  .off('focus.stdFmt blur.stdFmt')
+                  .on('focus.stdFmt',
+                          '.item-Standard-table tr.std-row input[name="sd_UnitPrice"], ' +
+                          '.item-Standard-table tr.std-row input[name="sd_price"], ' +
+                          '.item-Standard-table tr.std-row input[name="sd_vat"]',
+                          function () {
+                            this.value = (this.value || '').replace(/,/g, ''); // 편집 전 콤마 제거
+                          }
+                  )
+                  .on('blur.stdFmt',
+                          '.item-Standard-table tr.std-row input[name="sd_UnitPrice"],' +
+                          ' .item-Standard-table tr.std-row input[name="sd_price"], ' +
+                          '.item-Standard-table tr.std-row input[name="sd_vat"]',
+                          function () {
+                            const raw = (this.value || '').replace(/,/g, '');
+                            const n = parseFloat(raw);
+                            this.value = Number.isFinite(n) ? n.toLocaleString() : '';
 
-                // 포맷 후에도 계산/합계 반영 보장
-                $(this).trigger('input');
-                updateTotals($root);
-              }
-            );
+                            // 포맷 후에도 계산/합계 반영 보장
+                            $(this).trigger('input');
+                            updateTotals($root);
+                          }
+                  );
         }
 
         attachStdNav($popup, addRow);
         // 저장: 합계 바인딩 + 상세 JSON 부모행에 보관
         $popup.off('click.btnStdSave')
-          .on('click.btnStdSave', '#btn_standard_save', function () {
-            const toNum = v => {
-              if (v == null) return 0;
-              const n = parseFloat(String(v).replace(/,/g, ''));
-              return Number.isFinite(n) ? n : 0;
-            };
+                .on('click.btnStdSave', '#btn_standard_save', function () {
+                  const toNum = v => {
+                    if (v == null) return 0;
+                    const n = parseFloat(String(v).replace(/,/g, ''));
+                    return Number.isFinite(n) ? n : 0;
+                  };
 
-            // 1) 행 수집
-            const toStr = v => (v == null ? '' : String(v)).trim();
-            const rows = [];
-            $popup.find('.item-Standard-table tr.std-row').each(function () {
-              const $r = $(this);
+                  // 1) 행 수집
+                  const toStr = v => (v == null ? '' : String(v)).trim();
+                  const rows = [];
+                  $popup.find('.item-Standard-table tr.std-row').each(function () {
+                    const $r = $(this);
 
-              const standard      = toStr($r.find('input[name="standard"]').val()).replace(/["“”]/g, '').replace(/\s+/g, ' ').trim();
-              const UnitName      = toStr($r.find('input[name="UnitName"]').val()).trim();
-              const qtyStr        = toStr($r.find('input[name="qty"]').val()).trim();
-              const unitPriceStr  = toStr($r.find('input[name="sd_UnitPrice"]').val()).replace(/,/g,'');
-              const priceStr      = toStr($r.find('input[name="sd_price"]').val()).replace(/,/g,'');
-              const vatStr        = toStr($r.find('input[name="sd_vat"]').val()).replace(/,/g,'');
-              const totalStr      = toStr($r.find('input[name="TotalAmount"]').val()).replace(/,/g,'');
+                    const standard      = toStr($r.find('input[name="standard"]').val()).replace(/["“”]/g, '').replace(/\s+/g, ' ').trim();
+                    const UnitName      = toStr($r.find('input[name="UnitName"]').val()).trim();
+                    const qtyStr        = toStr($r.find('input[name="qty"]').val()).trim();
+                    const unitPriceStr  = toStr($r.find('input[name="sd_UnitPrice"]').val()).replace(/,/g,'');
+                    const priceStr      = toStr($r.find('input[name="sd_price"]').val()).replace(/,/g,'');
+                    const vatStr        = toStr($r.find('input[name="sd_vat"]').val()).replace(/,/g,'');
+                    const totalStr      = toStr($r.find('input[name="TotalAmount"]').val()).replace(/,/g,'');
 
-              // 숫자 변환
-              const qty       = parseFloat(qtyStr)       || 0;
-              const unitPrice = parseFloat(unitPriceStr) || 0;
-              let   price     = parseFloat(priceStr);
-              let   vat       = parseFloat(vatStr);
-              let   total     = parseFloat(totalStr);
+                    // 숫자 변환
+                    const qty       = parseFloat(qtyStr)       || 0;
+                    const unitPrice = parseFloat(unitPriceStr) || 0;
+                    let   price     = parseFloat(priceStr);
+                    let   vat       = parseFloat(vatStr);
+                    let   total     = parseFloat(totalStr);
 
-              // 금액 보정(누락 시 계산)
-              const VAT_RATE = 0.1; // 필요시 변경
-              if (!Number.isFinite(price)) price = Math.round(qty * unitPrice);
-              if (!Number.isFinite(vat))   vat   = Math.round(price * VAT_RATE);
-              if (!Number.isFinite(total)) total = price + vat;
+                    // 금액 보정(누락 시 계산)
+                    const VAT_RATE = 0.1; // 필요시 변경
+                    if (!Number.isFinite(price)) price = Math.round(qty * unitPrice);
+                    if (!Number.isFinite(vat))   vat   = Math.round(price * VAT_RATE);
+                    if (!Number.isFinite(total)) total = price + vat;
 
-              // 완전 빈 행은 제외(규격/수량 모두 비었으면 스킵)
-              if (standard !== '' || qtyStr !== '') {
-                rows.push({
-                  standard,
-                  UnitName,
-                  qty: qtyStr,                     // 원문 문자열 보존(필요 시 qty로 바꿔도 됨)
-                  sd_UnitPrice: String(unitPrice), // 콤마 제거된 원시값
-                  sd_price:     String(price),
-                  sd_vat:       String(vat),
-                  TotalAmount:  String(total)
+                    // 완전 빈 행은 제외(규격/수량 모두 비었으면 스킵)
+                    if (standard !== '' || qtyStr !== '') {
+                      rows.push({
+                        standard,
+                        UnitName,
+                        qty: qtyStr,                     // 원문 문자열 보존(필요 시 qty로 바꿔도 됨)
+                        sd_UnitPrice: String(unitPrice), // 콤마 제거된 원시값
+                        sd_price:     String(price),
+                        sd_vat:       String(vat),
+                        TotalAmount:  String(total)
+                      });
+                    }
+                  });
+
+                  // 2) 합계 계산
+                  const num = v => {
+                    const s = (v == null ? '' : String(v)).replace(/,/g, '').trim();
+                    if (s === '' || s === '-' || s === '.') return 0;
+                    const n = Number(s);
+                    return Number.isFinite(n) ? n : 0;
+                  }
+
+                  const sumStd  = rows.reduce((a, r) => a + num(r.standard), 0);               // Σ 규격
+                  const sumQty  = rows.reduce((a, r) => a + num(r.qty), 0);                     // Σ 수량
+                  const sumMul  = rows.reduce((a, r) => a + num(r.standard) * num(r.qty), 0);   // Σ(규격×수량)
+
+                  // 3) 부모행 타깃(standard_0 / quantity_0 우선)
+                  const $qty0 = $parentRow.find('input[type="text"][name="quantity_0"]:visible');
+                  const $std0 = $parentRow.find('input[type="text"][name="standard_0"]:visible');
+
+                  let $qtyTarget = $qty0.length
+                          ? $qty0
+                          : $parentRow.find('input[type="text"][name^="quantity_"]:visible').first()
+                                  .add($parentRow.find('input[name="quantity"]').first()).first();
+
+                  let $stdTarget = $std0.length
+                          ? $std0
+                          : $parentRow.find('input[type="text"][name^="standard_"]:visible').first()
+                                  .add($parentRow.find('input[name="standard"]').first()).first();
+
+                  // 4) 단위에 따라 값 세팅
+                  const unitVal =
+                          (Data.unit || '').trim() ||
+                          ($parentRow.find('input[name="UnitName"], input[name="unit"], input[name^="unit_"]').first().val() || '').trim();
+
+                  const unitIsMeter = isUnitMeter(unitVal);
+
+                  // 규격이 숫자인 행이 하나라도 있는지 (숫자면 '장'이어도 총길이로 처리)
+                  const hasNumericStandard = rows.some(r => {
+                    const s = String(r.standard ?? '').replace(/,/g, '').trim();
+                    return /^\d+(\.\d+)?$/.test(s);
+                  });
+
+                  // 총길이 사용 여부
+                  const useTotalLength = unitIsMeter || hasNumericStandard;
+
+                  // 수량 채우기 (총길이: Σ(규격×수량), 아니면 Σ수량)
+                  if ($qtyTarget.length) {
+                    const v = useTotalLength ? sumMul : sumQty;
+                    $qtyTarget.val(v ? v.toFixed(2) : '').trigger('input').trigger('change');
+                  }
+
+                  // 규격 표시 라벨
+                  const stdList   = rows.map(r => (r.standard || '').trim()).filter(s => s !== '');
+                  const firstStd  = stdList[0] || '';
+                  const restCount = Math.max(0, stdList.length - 1);
+
+                  const stdLabel  = unitIsMeter
+                          ? '총(M)'
+                          : (firstStd ? (restCount > 0 ? `${firstStd} 외 ${restCount}개` : firstStd) : '');
+
+                  if ($stdTarget.length) {
+                    $stdTarget.val(stdLabel).trigger('input').trigger('change');
+                  }
+
+                  // 수량: 미터면 총길이(Σ 규격×수량), 아니면 Σ수량
+                  if ($qtyTarget.length) {
+                    const v = isMeter ? sumMul : sumQty;
+                    $qtyTarget.val(v.toFixed(2)).trigger('input').trigger('change');
+                  }
+
+                  // 5) 상세 JSON 저장
+                  const idx = getRowIndex($parentRow);
+                  const jsonName = (idx != null) ? `standard_detail_json_${idx}` : 'standard_detail_json';
+                  upsertHidden($parentRow, jsonName, JSON.stringify(rows));
+
+                  // 5-1) 부모행 금액 반영(공급/부가세/합계)
+                  (() => {
+                    const sumSupply = rows.reduce((a, r) => a + num(r.sd_price), 0);
+                    const sumVat    = rows.reduce((a, r) => a + num(r.sd_vat),   0);
+                    const sumTotal  = sumSupply + sumVat;
+
+                    const findAny = (base) => $parentRow.find(`input[name="${base}"], input[name^="${base}_"]`).first();
+                    const $supply = findAny('supplyAmount');
+                    const $vat    = findAny('VatAmount');
+                    const $total  = findAny('totalAmount');
+
+                    if ($supply.length) $supply.val(sumSupply ? sumSupply.toLocaleString() : '').trigger('input').trigger('change');
+                    if ($vat.length)    $vat.val(sumVat ? sumVat.toLocaleString() : '').trigger('input').trigger('change');
+                    if ($total.length)  $total.val(sumTotal ? sumTotal.toLocaleString() : '').trigger('input').trigger('change');
+
+                    upsertHidden($parentRow, 'standard_popup_total_supply', String(sumSupply));
+                    upsertHidden($parentRow, 'standard_popup_total_vat',    String(sumVat));
+                    upsertHidden($parentRow, 'standard_popup_total_amount', String(sumTotal));
+
+                    if (typeof calculateTotalSum === 'function') {
+                      calculateTotalSum($('#sujuForm'));
+                    }
+                  })();
+
+                  modal.close?.();
                 });
-              }
-            });
-
-            // 2) 합계 계산
-            const num = v => {
-              const s = (v == null ? '' : String(v)).replace(/,/g, '').trim();
-              if (s === '' || s === '-' || s === '.') return 0;
-              const n = Number(s);
-              return Number.isFinite(n) ? n : 0;
-            }
-
-            const sumStd  = rows.reduce((a, r) => a + num(r.standard), 0);               // Σ 규격
-            const sumQty  = rows.reduce((a, r) => a + num(r.qty), 0);                     // Σ 수량
-            const sumMul  = rows.reduce((a, r) => a + num(r.standard) * num(r.qty), 0);   // Σ(규격×수량)
-
-            // 3) 부모행 타깃(standard_0 / quantity_0 우선)
-            const $qty0 = $parentRow.find('input[type="text"][name="quantity_0"]:visible');
-            const $std0 = $parentRow.find('input[type="text"][name="standard_0"]:visible');
-
-            let $qtyTarget = $qty0.length
-              ? $qty0
-              : $parentRow.find('input[type="text"][name^="quantity_"]:visible').first()
-                .add($parentRow.find('input[name="quantity"]').first()).first();
-
-            let $stdTarget = $std0.length
-              ? $std0
-              : $parentRow.find('input[type="text"][name^="standard_"]:visible').first()
-                .add($parentRow.find('input[name="standard"]').first()).first();
-
-            // 4) 단위에 따라 값 세팅
-            const unitVal =
-              (Data.unit || '').trim() ||
-              ($parentRow.find('input[name="UnitName"], input[name="unit"], input[name^="unit_"]').first().val() || '').trim();
-
-            const unitIsMeter = isUnitMeter(unitVal);
-
-            // 규격이 숫자인 행이 하나라도 있는지 (숫자면 '장'이어도 총길이로 처리)
-            const hasNumericStandard = rows.some(r => {
-              const s = String(r.standard ?? '').replace(/,/g, '').trim();
-              return /^\d+(\.\d+)?$/.test(s);
-            });
-
-            // 총길이 사용 여부
-            const useTotalLength = unitIsMeter || hasNumericStandard;
-
-            // 수량 채우기 (총길이: Σ(규격×수량), 아니면 Σ수량)
-            if ($qtyTarget.length) {
-              const v = useTotalLength ? sumMul : sumQty;
-              $qtyTarget.val(v ? v.toFixed(2) : '').trigger('input').trigger('change');
-            }
-
-          // 규격 표시 라벨
-            const stdList   = rows.map(r => (r.standard || '').trim()).filter(s => s !== '');
-            const firstStd  = stdList[0] || '';
-            const restCount = Math.max(0, stdList.length - 1);
-
-            const stdLabel  = unitIsMeter
-              ? '총(M)'
-              : (firstStd ? (restCount > 0 ? `${firstStd} 외 ${restCount}개` : firstStd) : '');
-
-            if ($stdTarget.length) {
-              $stdTarget.val(stdLabel).trigger('input').trigger('change');
-            }
-
-            // 수량: 미터면 총길이(Σ 규격×수량), 아니면 Σ수량
-            if ($qtyTarget.length) {
-              const v = isMeter ? sumMul : sumQty;
-              $qtyTarget.val(v.toFixed(2)).trigger('input').trigger('change');
-            }
-
-            // 5) 상세 JSON 저장
-            const idx = getRowIndex($parentRow);
-            const jsonName = (idx != null) ? `standard_detail_json_${idx}` : 'standard_detail_json';
-            upsertHidden($parentRow, jsonName, JSON.stringify(rows));
-
-            // 5-1) 부모행 금액 반영(공급/부가세/합계)
-            (() => {
-              const sumSupply = rows.reduce((a, r) => a + num(r.sd_price), 0);
-              const sumVat    = rows.reduce((a, r) => a + num(r.sd_vat),   0);
-              const sumTotal  = sumSupply + sumVat;
-
-              const findAny = (base) => $parentRow.find(`input[name="${base}"], input[name^="${base}_"]`).first();
-              const $supply = findAny('supplyAmount');
-              const $vat    = findAny('VatAmount');
-              const $total  = findAny('totalAmount');
-
-              if ($supply.length) $supply.val(sumSupply ? sumSupply.toLocaleString() : '').trigger('input').trigger('change');
-              if ($vat.length)    $vat.val(sumVat ? sumVat.toLocaleString() : '').trigger('input').trigger('change');
-              if ($total.length)  $total.val(sumTotal ? sumTotal.toLocaleString() : '').trigger('input').trigger('change');
-
-              upsertHidden($parentRow, 'standard_popup_total_supply', String(sumSupply));
-              upsertHidden($parentRow, 'standard_popup_total_vat',    String(sumVat));
-              upsertHidden($parentRow, 'standard_popup_total_amount', String(sumTotal));
-
-              if (typeof calculateTotalSum === 'function') {
-                calculateTotalSum($('#sujuForm'));
-              }
-            })();
-
-            modal.close?.();
-        });
 
         // 닫기
         $popup.on('click', '#modal-close-button', function(){ modal.close(); });
@@ -2666,6 +2676,8 @@
           'start': start,
           'end': end,
           'company':company ,
+          /* 빈 문자열이어도 반드시 보낸다 — 빈 값 = 전체 */
+          'factory_id': $('#Factory_id').val() || '',
           'action': 'read'
         };
 
@@ -2701,13 +2713,13 @@
         $content.find('#btn_excel_save').on('click', function () {
           let $form = $content.find('#excelUploadForm');
           Alert.confirm('',
-            '저장하시겠습니까?',
-            function () {
-              _this.saveSujuBulkData($form, modalContainer);
-              //modalContainer.close();
-            },
-            function () {
-            }
+                  '저장하시겠습니까?',
+                  function () {
+                    _this.saveSujuBulkData($form, modalContainer);
+                    //modalContainer.close();
+                  },
+                  function () {
+                  }
           );
         });
       }
@@ -2842,21 +2854,32 @@
 
     $(document).ready(function (e) {
 
-     page = new SujuUploadPage();
+      page = new SujuUploadPage();
 
-     const now = new Date();
+      const now = new Date();
 
 // ✅ 시작일: 오늘 기준 1년 전
-     const oneYearAgo = new Date(now);
-     oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+      const oneYearAgo = new Date(now);
+      oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
 
 // ✅ 종료일: 오늘 기준 한 달 뒤 (같은 일자)
-     const oneMonthLater = new Date(now);
-     oneMonthLater.setMonth(oneMonthLater.getMonth() + 1);
+      const oneMonthLater = new Date(now);
+      oneMonthLater.setMonth(oneMonthLater.getMonth() + 1);
 
-     $('#srchStartDt').val(CommonUtil.formatYYYYMMDD(oneYearAgo));
-     $('#srchEndDt').val(CommonUtil.formatYYYYMMDD(oneMonthLater));
+      $('#srchStartDt').val(CommonUtil.formatYYYYMMDD(oneYearAgo));
+      $('#srchEndDt').val(CommonUtil.formatYYYYMMDD(oneMonthLater));
 
+
+      /* 공장 콤보 — 기본값은 계정의 소속 공장. 없으면 '' = 전체.
+         change 핸들러는 채운 «뒤에» 건다. fillSelectOptions 가 selected_value 를
+         넣으면서 .change() 를 직접 발생시키므로 먼저 걸면 조회가 두 번 나간다. */
+      const myFactory = (factory_id == null || factory_id === '' || Number(factory_id) <= 0)
+              ? '' : String(factory_id);
+      AjaxUtil.fillSelectOptions($('#Factory_id'), 'factory', 'all', myFactory);
+
+      $('#Factory_id').on('change', function () {
+        page.searchMainData();
+      });
 
       page.searchMainData();
 

@@ -103,6 +103,26 @@
         .imgview.on{display:flex}.imgview img{max-width:92vw;max-height:92vh;border-radius:10px}
         .toast{position:absolute;left:50%;bottom:26px;transform:translateX(-50%);background:#15222B;color:#fff;font-weight:700;font-size:15px;padding:12px 20px;border-radius:12px;z-index:70;opacity:0;transition:opacity .2s;pointer-events:none;max-width:88vw}
         .toast.on{opacity:.96}
+        /* ── 구분 토글 (작업불량 / 원자재불량) ──
+           등록 시트 맨 위. 이 선택이 아래 필드 구성을 통째로 바꾼다. */
+        .kindsel{display:flex;gap:8px;margin:2px 0 4px}
+        .kindsel .k{flex:1;min-height:52px;border:1.5px solid var(--line);border-radius:12px;
+            background:var(--surface-2);color:var(--ink-2);font-size:15.5px;font-weight:800;
+            cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+        .kindsel .k small{font-size:11.5px;font-weight:700;opacity:.85}
+        .kindsel .k.sel{background:var(--red);border-color:var(--red);color:#fff}
+        /* 창고 선택 버튼 — 재고와 안내문구를 같이 보여준다.
+           등록하는 사람이 「입고 직후」인지 「불출 후」인지 알아야 하기 때문. */
+        .strow{display:flex;align-items:center;gap:10px;min-height:60px;padding:10px 14px;
+            border:1.5px solid var(--line);border-radius:12px;background:var(--surface-2);
+            cursor:pointer;margin-bottom:8px}
+        .strow.sel{border-color:var(--red);background:#FFF3F3}
+        .strow .sn{font-size:16px;font-weight:800;color:var(--ink)}
+        .strow .sh{font-size:12px;font-weight:700;color:var(--ink-2);margin-top:2px}
+        .strow .sq{margin-left:auto;text-align:right;font-size:16px;font-weight:800;color:var(--ink)}
+        .strow .sq small{display:block;font-size:11px;font-weight:700;color:var(--ink-2)}
+        .srcbadge{display:inline-block;font-size:11.5px;font-weight:800;padding:2px 8px;border-radius:6px;
+            background:#EAF1FB;color:#2F6FED;margin-right:6px}
         @media (max-width:560px){ .filt{width:100%;margin-left:0} }
     </style>
 
@@ -111,6 +131,7 @@
             <div class="topbar">
                 <h1>부적합 관리</h1><span class="fbadge f2" id="fBadge">2공장 · M-CELL</span>
                 <div class="filt">
+                    <button class="selbox pick" id="fSrcBtn" type="button"><span id="fSrcLabel">구분 전체</span><span class="car">▾</span></button>
                     <button class="selbox pick" id="fProcBtn" type="button"><span id="fProcLabel">공정 전체</span><span class="car">▾</span></button>
                     <input type="date" class="dinput" id="fFrom"><span style="font-weight:800;color:var(--ink-2)">~</span><input type="date" class="dinput" id="fTo">
                     <button class="addbtn" id="btnAdd">＋ 부적합 등록</button>
@@ -130,14 +151,33 @@
         <div class="mask" id="regMask"><div class="sheet"><div class="body">
             <div class="sh"><h3>부적합 등록</h3><button class="x" data-close>✕</button></div>
 
-            <div class="fieldlab">공정</div>
-            <div class="opts" id="regProc"></div>
+            <!-- ★ 구분이 먼저다. 아래 필드 구성이 통째로 달라진다.
+                 작업불량   : 공정 · 작지 · 작업자 있음. 창고는 공정이 정한다
+                 원자재불량 : 공정 없음. 창고를 사람이 고른다 -->
+            <div class="fieldlab">구분</div>
+            <div class="kindsel" id="regKind">
+                <button class="k sel" type="button" data-kind="work">작업불량<small>공정에서 발생</small></button>
+                <button class="k" type="button" data-kind="material">원자재불량<small>입고 자재 부적합</small></button>
+            </div>
 
-            <div class="fieldlab">관련 작업지시 <span style="color:var(--ink-2);font-weight:700">(선택 — 알면 고르고, 모르면 비웁니다)</span></div>
-            <button class="opt" id="woPick" style="width:100%;justify-content:space-between"><span id="woPickLabel">작업지시 없음</span><span style="color:var(--ink-2)">›</span></button>
+            <div id="workOnly">
+                <div class="fieldlab">공정</div>
+                <div class="opts" id="regProc"></div>
 
-            <div class="fieldlab">불량 자재 <span style="color:var(--ink-2);font-weight:700">(공정에서 다루는 자재)</span></div>
+                <div class="fieldlab">관련 작업지시 <span style="color:var(--ink-2);font-weight:700">(선택 — 알면 고르고, 모르면 비웁니다)</span></div>
+                <button class="opt" id="woPick" style="width:100%;justify-content:space-between"><span id="woPickLabel">작업지시 없음</span><span style="color:var(--ink-2)">›</span></button>
+            </div>
+
+            <div class="fieldlab">불량 자재 <span style="color:var(--ink-2);font-weight:700" id="matLabHint">(공정에서 다루는 자재)</span></div>
             <button class="opt" id="matPick" style="width:100%;justify-content:space-between"><span id="matPickLabel">자재 선택</span><span style="color:var(--ink-2)">›</span></button>
+
+            <!-- 원자재불량 전용 — 어느 창고에서 뺄지.
+                 재고가 자재창고·클린룸·생산창고에 흩어져 있어 서버가 한 곳으로 정할 수 없다.
+                 재고가 어디 있는지는 재고가 알고, 어느 자리에서 발견했는지는 사람이 안다. -->
+            <div id="matOnly" style="display:none">
+                <div class="fieldlab">차감 창고 <span style="color:var(--ink-2);font-weight:700">(재고가 있는 창고)</span></div>
+                <div id="regStore"><span style="color:var(--ink-2);font-weight:700">자재를 먼저 선택하세요</span></div>
+            </div>
 
             <div class="fieldlab">불량 유형</div>
             <div class="opts" id="regType"></div>
@@ -150,7 +190,7 @@
             <div class="stepq"><button class="m" id="qMinus">−</button><div class="q" id="qVal">1</div><button class="p" id="qPlus">＋</button></div>
             <div class="stockhint" id="stockHint"></div>
 
-            <div class="fieldlab">작업자 · 발생일자</div>
+            <div class="fieldlab" id="dateLab">작업자 · 발생일자</div>
             <div style="display:flex;gap:10px;flex-wrap:wrap">
                 <button class="opt" id="workerPick" type="button" style="flex:1;min-width:150px;height:56px;justify-content:space-between"><span id="workerPickLabel">작업자 선택</span><span style="color:var(--ink-2)">›</span></button>
                 <input type="date" class="dinput" id="mDate" style="flex:1;min-width:150px;height:56px">
@@ -182,6 +222,12 @@
                 <button class="opt" id="btnCam" type="button" style="width:100%;min-height:60px;font-size:17px;justify-content:flex-start;gap:14px"><span style="font-size:22px">📷</span> 카메라로 촬영</button>
                 <button class="opt" id="btnLib" type="button" style="width:100%;min-height:60px;font-size:17px;justify-content:flex-start;gap:14px"><span style="font-size:22px">🖼️</span> 사진첩에서 선택</button>
             </div>
+        </div></div></div>
+
+        <!-- 구분 필터 시트 -->
+        <div class="mask" id="fSrcMask"><div class="sheet"><div class="body">
+            <div class="sh"><h3>구분 선택</h3><button class="x" data-close>✕</button></div>
+            <div class="picklist" id="fSrcList"></div>
         </div></div></div>
 
         <!-- 공정 필터 시트 -->
@@ -352,6 +398,8 @@
                         return { id:p.id, code:p.code, name:p.name,
                             types: types.filter(t=>t.process_id===p.id) };
                     });
+                    // 원자재 유형은 공정 매핑이 없다. Coverage 로만 걸러 서버가 통째로 내린다.
+                    MAT_TYPES = d.mat_defect_types || [];
                     if (done) done();
                 });
             }
@@ -371,7 +419,8 @@
                     factory_id: CTX.factory_id,
                     date_from : document.getElementById('fFrom').value,
                     date_to   : document.getElementById('fTo').value,
-                    process_id: fProcVal || ''
+                    process_id: fProcVal || '',
+                    defect_source: fSrcVal || ''
                 }, function(res){
                     if(!res || res.success===false){ toast(res&&res.message||'조회 실패'); return; }
                     DEFECTS = res.data || [];
@@ -383,7 +432,8 @@
                 document.getElementById('kCnt').textContent = DEFECTS.length;
                 document.getElementById('kQty').textContent =
                     fmtNum(DEFECTS.reduce((a,x)=>a+(Number(x.defect_qty)||0),0));
-                const ps={}; DEFECTS.forEach(x=>ps[x.process_id]=1);
+                // 원자재불량은 공정이 없다 — 공정 수에 넣으면 undefined 가 1개로 세어진다
+                const ps={}; DEFECTS.forEach(function(x){ if(x.process_id) ps[x.process_id]=1; });
                 document.getElementById('kProc').textContent = Object.keys(ps).length;
 
                 const el=document.getElementById('list');
@@ -393,8 +443,16 @@
                     const thumb = (x.file_cnt>0)
                         ? '<img class="dthumb" src="'+API+'/photo?defect_id='+x.id+'&idx=1">'
                         : '';
+                    // 원자재불량은 공정이 없다. 그 자리에 구분 배지를 넣어
+                    // 목록에서 두 종류가 한눈에 갈리게 한다.
+                    const isMat = (x.defect_source === 'material');
+                    const stageNm = x.discovery_stage==='incoming' ? '입고 시'
+                        : x.discovery_stage==='issued'   ? '불출 후' : '';
+                    const procCell = isMat
+                        ? '<span class="srcbadge">원자재'+(stageNm?' · '+stageNm:'')+'</span>'
+                        : '<span class="proc">'+(x.process_name||'')+'</span>';
                     return '<div class="drow" data-row="'+x.id+'"><div class="dl">'
-                        + '<div class="r1"><span class="proc">'+(x.process_name||'')+'</span>'
+                        + '<div class="r1">'+procCell
                         +   '<span class="dtype">'+(x.defect_type_name||'')+'</span>'
                         +   '<span class="dmeta">'+(x.defect_date||'')+(x.actor_name?' · '+x.actor_name:'')+'</span>'
                         +   (x.order_num?'<span class="dwo">'+x.order_num+'</span>':'')+'</div>'
@@ -416,7 +474,68 @@
             let regWo=null, WOS=[];
             let regWorker=null, fProcVal='';
             let matAll=false;
+            // ★ 구분. 'work' | 'material'. 화면 구성과 API 파라미터를 동시에 가른다.
+            let regKind='work', MAT_TYPES=[], STORES=[], regStore=null, fSrcVal='';
             let detPhotoTarget=false, detWorkerPick=false;
+
+            /**
+             * 구분 전환.
+             * 필드를 숨기는 것으로 끝내지 않고 **선택값을 비운다** —
+             * 작업불량으로 공정·자재를 고르다 원자재로 바꿨을 때
+             * 이전 공정의 자재가 그대로 남아 있으면 엉뚱한 창고가 차감된다.
+             */
+            function setKind(k){
+                regKind = k;
+                regProc=null; regMat=null; regType=null; regEtc=false; MATS=[];
+                regWo=null; WOS=[]; regStore=null; STORES=[];
+                if (k==='material') regWorker=null;   // 원자재불량은 작업자를 받지 않는다
+                setQty(1);
+                document.querySelectorAll('#regKind .k').forEach(function(b){
+                    b.classList.toggle('sel', b.dataset.kind===k);
+                });
+                const isMat = (k==='material');
+                document.getElementById('workOnly').style.display = isMat ? 'none' : '';
+                document.getElementById('matOnly').style.display  = isMat ? '' : 'none';
+                document.getElementById('workerPick').style.display = isMat ? 'none' : '';
+                document.getElementById('dateLab').textContent = isMat ? '발생일자' : '작업자 · 발생일자';
+                document.getElementById('matLabHint').textContent =
+                    isMat ? '(재고가 있는 자재)' : '(공정에서 다루는 자재)';
+                renderRegProc(); renderRegType(); updateWoLabel();
+                updateWorkerLabel(); updateMatLabel(); renderStores();
+            }
+
+            /** 창고 선택 목록. 1건이면 자동 선택 — 대부분의 자재가 한 창고에만 있다 */
+            function renderStores(){
+                const el = document.getElementById('regStore');
+                if (regKind!=='material') { el.innerHTML=''; return; }
+                if (!regMat) {
+                    el.innerHTML='<span style="color:var(--ink-2);font-weight:700">자재를 먼저 선택하세요</span>';
+                    return;
+                }
+                if (!STORES.length) {
+                    el.innerHTML='<span style="color:var(--ink-2);font-weight:700">'
+                        + '이 자재는 재고가 있는 창고가 없습니다. 차감할 수 없습니다.</span>';
+                    return;
+                }
+                el.innerHTML = STORES.map(function(s){
+                    const sel = regStore && String(regStore.store_id)===String(s.store_id);
+                    return '<div class="strow'+(sel?' sel':'')+'" data-st="'+s.store_id+'">'
+                        + '<div><div class="sn">'+s.store_name+'</div>'
+                        +   '<div class="sh">'+(s.hint||'')+'</div></div>'
+                        + '<div class="sq">'+fmtNum(s.stock_qty)+'<small>로트 '+(s.lot_cnt||0)+'</small></div>'
+                        + '</div>';
+                }).join('');
+            }
+
+            function loadStores(){
+                if (regKind!=='material' || !regMat) { STORES=[]; regStore=null; renderStores(); return; }
+                get(API+'/store_list', {mat_id:regMat.mat_id}, function(res){
+                    STORES = (res && res.data) || [];
+                    // 창고가 하나뿐이면 고를 것이 없다. 자동 선택하고 안내만 남긴다.
+                    regStore = (STORES.length===1) ? STORES[0] : null;
+                    renderStores(); renderStockHint();
+                });
+            }
 
             function renderRegProc(){
                 document.getElementById('regProc').innerHTML = PROCS.map(p=>
@@ -424,6 +543,16 @@
                 ).join('') || '<span style="color:var(--ink-2);font-weight:700">등록된 공정이 없습니다.</span>';
             }
             function renderRegType(){
+                // 원자재불량은 공정이 없으니 공정별 유형을 쓸 수 없다.
+                // 서버가 Coverage='material'|'all' 로 걸러 내려준 목록을 쓴다.
+                if (regKind==='material'){
+                    document.getElementById('regType').innerHTML = MAT_TYPES.length
+                        ? MAT_TYPES.map(t=>'<button class="opt'+(regType===t.defect_type_id?' sel':'')
+                            +'" data-rt="'+t.defect_type_id+'" data-nm="'+t.defect_type_name+'">'+t.defect_type_name+'</button>').join('')
+                        : '<span style="color:var(--ink-2);font-weight:700">등록된 원자재 부적합 유형이 없습니다.</span>';
+                    document.getElementById('etcWrap').style.display = regEtc ? '' : 'none';
+                    return;
+                }
                 const p=PROCS.find(x=>x.id===regProc);
                 document.getElementById('regType').innerHTML = p
                     ? (p.types.length
@@ -433,6 +562,20 @@
                     : '<span style="color:var(--ink-2);font-weight:700">공정을 먼저 선택하세요</span>';
                 document.getElementById('etcWrap').style.display = regEtc ? '' : 'none';
             }
+            // ---------- 구분 필터 피커 ----------
+            function renderSrcFilter(){
+                const opts=[ {v:'',  nm:'구분 전체', d:'작업불량 · 원자재불량 모두'},
+                    {v:'work',     nm:'작업불량',   d:'공정에서 발생한 부적합'},
+                    {v:'material', nm:'원자재불량', d:'입고 자재의 부적합'} ];
+                document.getElementById('fSrcList').innerHTML = opts.map(function(o){
+                    const sel=(fSrcVal===o.v);
+                    return '<div class="prow'+(sel?' sel':'')+'" data-fs="'+o.v+'">'
+                        + '<div class="pid"><div class="pnm">'+o.nm+'</div>'
+                        +   '<div class="pcode">'+o.d+'</div></div>'
+                        + '<div class="pchk">'+(sel?'✓':'＋')+'</div></div>';
+                }).join('');
+            }
+
             // ---------- 공정 필터 피커 (태블릿: select 대신 큰 행) ----------
             function renderProcFilter(){
                 const el=document.getElementById('fProcList');
@@ -514,12 +657,26 @@
                 const el=document.getElementById('stockHint');
                 if(!regMat){ el.textContent=''; el.classList.remove('over');
                     document.getElementById('qPlus').disabled=false; return; }
-                const stk=Number(regMat.stock_qty)||0;
+                // ★ 원자재불량은 자재 전체 재고가 아니라 **고른 창고의 재고**가 상한이다.
+                //   전체 재고로 판단하면 다른 창고 재고까지 세어 "저장 시 재고 부족" 이 난다.
+                let stk, storeNm;
+                if (regKind==='material'){
+                    if (!regStore){
+                        el.classList.remove('over');
+                        el.innerHTML = STORES.length
+                            ? '차감할 창고를 선택하세요'
+                            : '';
+                        document.getElementById('qPlus').disabled=false; return;
+                    }
+                    stk = Number(regStore.stock_qty)||0; storeNm = regStore.store_name||'';
+                } else {
+                    stk = Number(regMat.stock_qty)||0; storeNm = regMat.src_store_name||'';
+                }
                 const over = regQty > stk;
                 el.classList.toggle('over', over);
                 el.innerHTML = over
-                    ? '재고를 초과했습니다 — '+(regMat.src_store_name||'')+' 재고 <b>'+fmtNum(stk)+'</b>'
-                    : (regMat.src_store_name||'')+' 재고 <b>'+fmtNum(stk)+'</b> 중 '+fmtNum(regQty)+' 차감 (선입선출)';
+                    ? '재고를 초과했습니다 — '+storeNm+' 재고 <b>'+fmtNum(stk)+'</b>'
+                    : storeNm+' 재고 <b>'+fmtNum(stk)+'</b> 중 '+fmtNum(regQty)+' 차감 (선입선출)';
                 document.getElementById('qPlus').disabled = regQty >= stk;
             }
             function setQty(n){
@@ -531,17 +688,41 @@
 
             function openReg(){
                 regProc=null; regMat=null; regType=null; regEtc=false; regPhotos=[]; MATS=[];
-                regWo=null; WOS=[];
+                regWo=null; WOS=[]; regStore=null; STORES=[];
                 document.getElementById('mDate').value=new Date().toISOString().slice(0,10);
                 regWorker=null; updateWorkerLabel();
                 document.getElementById('mNote').value=''; document.getElementById('mEtc').value='';
                 setQty(1);
-                renderRegProc(); renderRegType(); updateWoLabel(); updateMatLabel(); renderPhotos();
+                setKind('work');   // 항상 작업불량으로 시작 — 대부분이 그쪽이다
+                renderPhotos();
                 showMask('regMask');
             }
 
             function bind(){
                 document.getElementById('btnAdd').addEventListener('click', openReg);
+
+                document.getElementById('regKind').addEventListener('click', function(e){
+                    const b=e.target.closest('[data-kind]'); if(!b)return;
+                    if(b.dataset.kind===regKind) return;   // 같은 걸 다시 눌러 초기화되는 사고 방지
+                    setKind(b.dataset.kind);
+                });
+                document.getElementById('regStore').addEventListener('click', function(e){
+                    const r=e.target.closest('[data-st]'); if(!r)return;
+                    regStore = STORES.find(x=>String(x.store_id)===r.dataset.st) || null;
+                    setQty(1);              // 창고가 바뀌면 상한이 달라진다
+                    renderStores(); renderStockHint();
+                });
+
+                document.getElementById('fSrcBtn').addEventListener('click', function(){
+                    renderSrcFilter(); showMask('fSrcMask');
+                });
+                document.getElementById('fSrcList').addEventListener('click', function(e){
+                    const r=e.target.closest('[data-fs]'); if(!r)return;
+                    fSrcVal=r.dataset.fs;
+                    document.getElementById('fSrcLabel').textContent =
+                        fSrcVal==='work' ? '작업불량' : fSrcVal==='material' ? '원자재불량' : '구분 전체';
+                    hideMask('fSrcMask'); loadList();
+                });
                 document.getElementById('fProcBtn').addEventListener('click', function(){
                     renderProcFilter(); showMask('fProcMask');
                 });
@@ -614,7 +795,8 @@
                 });
 
                 document.getElementById('matPick').addEventListener('click', function(){
-                    if(!regProc){ toast('공정을 먼저 선택하세요'); return; }
+                    // 원자재불량은 공정이 없다. 공정 가드를 그대로 두면 자재를 못 고른다.
+                    if(regKind!=='material' && !regProc){ toast('공정을 먼저 선택하세요'); return; }
                     document.getElementById('matSearch').value='';
                     matAll=false;
                     loadMats('');
@@ -632,8 +814,10 @@
                     const r=e.target.closest('[data-mid]'); if(!r)return;
                     regMat = MATS.find(m=>String(m.mat_id)===r.dataset.mid);
                     hideMask('matMask');
+                    regStore=null; STORES=[];    // 자재가 바뀌면 창고 후보가 완전히 달라진다
                     setQty(1);
                     updateMatLabel();
+                    loadStores();
                 });
 
                 document.getElementById('mPhotos').addEventListener('click', function(e){
@@ -675,23 +859,32 @@
             function loadMats(kw){
                 const el=document.getElementById('matList');
                 el.innerHTML='<div style="color:var(--ink-2);font-weight:700;padding:16px 2px">불러오는 중…</div>';
-                get(API+'/material_list', {factory_id:CTX.factory_id, process_id:regProc, keyword:kw||'', all:matAll?'true':'false'},
+                get(API+'/material_list', {factory_id:CTX.factory_id, process_id:regProc||'',
+                        keyword:kw||'', all:matAll?'true':'false', defect_source:regKind},
                     function(res){
                         if(!res || res.success===false){ el.innerHTML='<div class="empty">'+(res&&res.message||'조회 실패')+'</div>'; return; }
                         MATS = res.data || [];
                         const p=PROCS.find(x=>x.id===regProc);
-                        document.getElementById('matTitle').textContent=(p?p.name:'')+' · 자재 선택';
+                        document.getElementById('matTitle').textContent =
+                            (regKind==='material') ? '원자재 선택' : (p?p.name:'')+' · 자재 선택';
                         // 공정 범위로 0건이면 서버가 전체 자재로 폴백해 내려준다.
                         // 세척처럼 작지·BOM 이 없는 공정이 그렇다 — 사실을 알려준다.
+                        // 원자재 모드에는 공정 범위 자체가 없다 — 「전체 자재」 토글이 의미가 없다
+                        document.getElementById('matAllBtn').style.display = (regKind==='material') ? 'none' : '';
                         document.getElementById('matAllBtn').classList.toggle('sel', matAll);
                         document.getElementById('matScopeNote').textContent =
-                            matAll ? '재고 있는 자재 전체'
-                                : (MATS.length ? '' : '이 공정의 자재를 찾지 못해 전체를 표시합니다');
+                            (regKind==='material') ? '재고가 있는 자재가 위에 표시됩니다'
+                                : matAll ? '재고 있는 자재 전체'
+                                    : (MATS.length ? '' : '이 공정의 자재를 찾지 못해 전체를 표시합니다');
                         el.innerHTML = MATS.length ? MATS.map(function(m){
                             const stk=Number(m.stock_qty)||0;
                             return '<div class="prow'+(regMat&&regMat.mat_id===m.mat_id?' sel':'')+(stk<=0?' zero':'')+'" data-mid="'+m.mat_id+'">'
                                 + '<div class="pid"><div class="pnm">'+m.mat_name+'</div><div class="pcode">'+m.mat_code+'</div></div>'
-                                + '<div class="pstk">'+fmtNum(stk)+' '+(m.unit||'')+'<small>'+(m.src_store_name||'')+'</small></div>'
+                                + '<div class="pstk">'+fmtNum(stk)+' '+(m.unit||'')+'<small>'
+                                +   (regKind==='material'
+                                    ? (Number(m.store_cnt)>1 ? '창고 '+m.store_cnt+'곳' : (m.store_names||''))
+                                    : (m.src_store_name||''))
+                                +   '</small></div>'
                                 + '<div class="pchk">'+(regMat&&regMat.mat_id===m.mat_id?'✓':'＋')+'</div></div>';
                         }).join('') : '<div style="color:var(--ink-2);font-weight:700;padding:16px 2px">자재가 없습니다.</div>';
                     });
@@ -752,30 +945,39 @@
             }
 
             function save(){
-                if(!regProc){ toast('공정을 선택하세요'); return; }
+                const isMat = (regKind==='material');
+                if(!isMat && !regProc){ toast('공정을 선택하세요'); return; }
                 if(!regMat){ toast('불량 자재를 선택하세요'); return; }
+                if(isMat && !regStore){ toast('차감할 창고를 선택하세요'); return; }
                 if(!regType){ toast('불량 유형을 선택하세요'); return; }
                 let etc=null;
                 if(regEtc){
                     etc=document.getElementById('mEtc').value.trim();
                     if(!etc){ toast('기타 유형을 입력하세요'); return; }
                 }
-                const stk=Number(regMat.stock_qty)||0;
-                if(regQty>stk){ toast('재고를 초과했습니다. ('+(regMat.src_store_name||'')+' 재고 '+fmtNum(stk)+')'); return; }
+                // 상한은 원자재불량이면 고른 창고 재고, 작업불량이면 소스창고 재고다.
+                // 서버도 같은 검사를 한다 — 화면 값만 믿지 않는다.
+                const stk = isMat ? (Number(regStore.stock_qty)||0) : (Number(regMat.stock_qty)||0);
+                const stkNm = isMat ? (regStore.store_name||'') : (regMat.src_store_name||'');
+                if(regQty>stk){ toast('재고를 초과했습니다. ('+stkNm+' 재고 '+fmtNum(stk)+')'); return; }
 
                 const btn=document.getElementById('btnSave');
                 btn.disabled=true; btn.textContent='저장 중…';
 
                 post(API+'/regist', {
                     factory_id     : CTX.factory_id,
+                    defect_source  : regKind,
                     defect_date    : document.getElementById('mDate').value,
-                    process_id     : regProc,
+                    // 원자재불량은 공정·작지·작업자를 보내지 않는다. 서버도 한 번 더 잘라낸다.
+                    process_id     : isMat ? null : regProc,
                     mat_id         : regMat.mat_id,
                     defect_type_id : regEtc ? null : regType,
                     defect_type_etc: etc,
                     qty            : regQty,
-                    job_res_id     : regWo ? regWo.wo_id : null,
-                    actor_id       : regWorker ? regWorker.id : null,
+                    src_store_id   : isMat ? regStore.store_id : null,
+                    discovery_stage: isMat ? (regStore.stage || null) : null,
+                    job_res_id     : isMat ? null : (regWo ? regWo.wo_id : null),
+                    actor_id       : isMat ? null : (regWorker ? regWorker.id : null),
                     description    : document.getElementById('mNote').value.trim() || null,
                 }, function(res){
                     if(!res || res.success===false){
@@ -857,11 +1059,17 @@
 
                 if(detEdit){
 
+                    // ★ 원자재불량은 공정이 없다. PROCS 에서 찾으면 undefined 라
+                    //   유형 버튼이 한 개도 안 그려진다(수정 자체가 막힌다).
+                    const isMatD = (h.defect_source === 'material');
+
                     const p=PROCS.find(x=>x.id===h.process_id);
 
-                    const types=p?p.types:[];
+                    const types = isMatD ? MAT_TYPES : (p?p.types:[]);
 
-                    html+='<div class="dsum"><div><span>공정</span>'+(h.process_name||'-')+'</div>'
+                    html+='<div class="dsum"><div><span>구분</span>'+(isMatD?'원자재불량':'작업불량')+'</div>'
+
+                        + (isMatD ? '' : '<div><span>공정</span>'+(h.process_name||'-')+'</div>')
 
                         + '<div><span>자재</span>'+(h.mat_name||'-')+'</div>'
 
@@ -869,7 +1077,9 @@
 
                         + '<div style="font-size:12.5px;font-weight:700;color:var(--ink-2);margin:0 2px 4px">'
 
-                        + '공정·자재·수량은 재고를 차감한 값이라 수정할 수 없습니다. 바꾸려면 삭제 후 다시 등록하세요.</div>';
+                        + (isMatD ? '자재·수량·차감창고' : '공정·자재·수량')
+
+                        + '은 재고를 차감한 값이라 수정할 수 없습니다. 바꾸려면 삭제 후 다시 등록하세요.</div>';
 
                     html+='<div class="fieldlab">불량 유형</div><div class="opts" id="edType">'
 
@@ -889,11 +1099,29 @@
 
                         + '<input type="date" class="dinput" id="edDate" style="width:100%;height:52px" value="'+(h.defect_date||'')+'">';
 
-                    html+='<div class="fieldlab">작업자</div>'
+                    // 발견 시점은 원자재불량에서만 의미가 있다.
+                    // 창고 위치로 기본값을 제안했을 뿐이라 사람이 고칠 수 있어야 한다.
+                    if(isMatD){
 
-                        + '<button class="opt" id="edWorker" type="button" style="width:100%;justify-content:space-between">'
+                        const st=h.discovery_stage||'';
 
-                        + '<span id="edWorkerLabel">'+(edWorker?edWorker.name:'작업자 없음')+'</span><span style="color:var(--ink-2)">›</span></button>';
+                        html+='<div class="fieldlab">발견 시점</div><div class="opts" id="edStage">'
+
+                            + '<button class="opt'+(st==='incoming'?' sel':'')+'" data-st="incoming">입고 시 확인</button>'
+
+                            + '<button class="opt'+(st==='issued'?' sel':'')+'" data-st="issued">불출 후 확인</button>'
+
+                            + '</div>';
+
+                    } else {
+
+                        html+='<div class="fieldlab">작업자</div>'
+
+                            + '<button class="opt" id="edWorker" type="button" style="width:100%;justify-content:space-between">'
+
+                            + '<span id="edWorkerLabel">'+(edWorker?edWorker.name:'작업자 없음')+'</span><span style="color:var(--ink-2)">›</span></button>';
+
+                    }
 
                     html+='<div class="fieldlab">비고</div>'
 
@@ -901,9 +1129,21 @@
 
                 } else {
 
+                    const isMatV = (h.defect_source === 'material');
+
+                    const stageV = h.discovery_stage==='incoming' ? '입고 시 확인'
+
+                        : h.discovery_stage==='issued'   ? '불출 후 확인' : '-';
+
                     html+='<div class="dsum">'
 
-                        + '<div><span>공정</span>'+(h.process_name||'-')+'</div>'
+                        + '<div><span>구분</span>'+(isMatV?'원자재불량':'작업불량')+'</div>'
+
+                        + (isMatV
+
+                            ? '<div><span>발견</span>'+stageV+'</div>'
+
+                            : '<div><span>공정</span>'+(h.process_name||'-')+'</div>')
 
                         + '<div><span>유형</span>'+(h.defect_type_name||'-')+'</div>'
 
@@ -911,9 +1151,9 @@
 
                         + '<div><span>발생일</span>'+(h.defect_date||'-')+'</div>'
 
-                        + '<div><span>작업자</span>'+(h.actor_name||'-')+'</div>'
+                        + (isMatV ? '' : '<div><span>작업자</span>'+(h.actor_name||'-')+'</div>')
 
-                        + '<div><span>작업지시</span>'+(h.order_num||'미지정')+'</div>'
+                        + (isMatV ? '' : '<div><span>작업지시</span>'+(h.order_num||'미지정')+'</div>')
 
                         + '<div><span>등록</span>'+(h.created_at||'-')+'</div></div>';
 
@@ -997,7 +1237,7 @@
             }
 
 
-            let edType=null, edEtc=false, edWorker=null;
+            let edType=null, edEtc=false, edWorker=null, edStage=null;
 
 
             function bindDetail(){
@@ -1015,6 +1255,8 @@
                     edEtc=!detHead.defect_type_id && !!detHead.defect_type_etc;
 
                     edWorker=detHead.actor_id?{id:detHead.actor_id,name:detHead.actor_name}:null;
+
+                    edStage=detHead.discovery_stage||null;
 
                     detNewPhotos=[];
 
@@ -1040,6 +1282,19 @@
                     document.getElementById('edEtcWrap').style.display = edEtc?'':'none';
 
                 };
+
+                const es=document.getElementById('edStage');
+
+                if(es) es.onclick=function(e){
+
+                    const b=e.target.closest('[data-st]'); if(!b)return;
+
+                    edStage=b.dataset.st;
+
+                    es.querySelectorAll('.opt').forEach(x=>x.classList.toggle('sel', x.dataset.st===edStage));
+
+                };
+
 
                 const ew=document.getElementById('edWorker');
 
@@ -1129,6 +1384,9 @@
                     job_res_id     : detHead.job_res_id || null,
 
                     actor_id       : edWorker ? edWorker.id : null,
+
+                    // 원자재불량 건에만 값이 실린다. 작업불량이면 null 이라 서버가 기존값을 유지한다.
+                    discovery_stage: (detHead.defect_source==='material') ? (edStage||null) : null,
 
                     description    : (document.getElementById('edNote').value||'').trim() || null
 

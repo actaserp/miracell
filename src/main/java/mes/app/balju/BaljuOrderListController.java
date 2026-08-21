@@ -22,15 +22,17 @@ public class BaljuOrderListController {
 
   @GetMapping("/read")
   public AjaxResult getSujuMonthList(
-      @RequestParam(value="cboYear",required=false) String cboYear,
-      @RequestParam(value="cboCompany",required=false) Integer cboCompany,
-      @RequestParam(value="cboMatGrp",required=false) Integer cboMatGrp,
-      @RequestParam(value="cboDataDiv",required=false) String cboDataDiv,
-      @RequestParam(value = "spjangcd") String spjangcd
+          @RequestParam(value="cboYear",required=false) String cboYear,
+          @RequestParam(value="cboCompany",required=false) Integer cboCompany,
+          @RequestParam(value="cboMatGrp",required=false) Integer cboMatGrp,
+          @RequestParam(value="cboDataDiv",required=false) String cboDataDiv,
+          // 공장 필터. 빈 값 = 전체.
+          @RequestParam(value="factory_id",required=false) String factoryId,
+          @RequestParam(value = "spjangcd") String spjangcd
   ) {
 //    log.info("월별 발주량 read : cboYear:{}, cboCompany:{}, cboMatGrp:{}, cboDataDiv:{}, spjangcd:{} ",
 //    cboYear, cboCompany, cboMatGrp, cboDataDiv, spjangcd);
-    List<Map<String,Object>> items = this.baljuOrderListService.getList(cboYear,cboCompany,cboMatGrp,cboDataDiv, spjangcd);
+    List<Map<String,Object>> items = this.baljuOrderListService.getList(cboYear,cboCompany,cboMatGrp,cboDataDiv, factoryId, spjangcd);
 
     AjaxResult result = new AjaxResult();
     result.data = items;

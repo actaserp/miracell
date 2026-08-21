@@ -17,6 +17,8 @@
                 <a title="북마크" class="bookmark toggle">
                     내 메뉴
                 </a>
+                <label for="Factory_id" class="hide">공장</label>
+                <select style="width: 110px;" id="Factory_id" name="Factory_id"></select>
             </div>
             <ul class="page-navi">
                 <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
@@ -104,6 +106,10 @@
 
 <th:block layout:fragment="scripts">
 
+    <script th:inline="javascript">
+        /* 로그인 사용자의 소속 공장. 없으면 null → «전체» 가 기본값이 된다 */
+        const factory_id = [[${session.factory_id}]];
+    </script>
     <script type="text/javascript">
         class MaterialStockPage {
             constructor() {
@@ -222,6 +228,8 @@
                     'mat_grp_pk': $('#cboMatGrp').val(),
                     'mat_name': $('#txtMatName').val(),
                     'store_house_id': $('#cboStoreHouse').val(),
+                    /* 빈 문자열이어도 반드시 보낸다 — 빈 값 = 전체 */
+                    'factory_id': $('#Factory_id').val() || '',
                     'spjangcd' : sessionStorage.getItem('spjangcd')
 
                 };
@@ -254,6 +262,17 @@
             });
 
             AjaxUtil.fillSelectOptions($('#cboStoreHouse'), 'store_house', 'all', false);
+
+            /* 공장 콤보 — 기본값은 계정의 소속 공장. 없으면 '' = 전체.
+               change 핸들러는 채운 «뒤에» 건다. fillSelectOptions 가 selected_value 를
+               넣으면서 .change() 를 직접 발생시키므로 먼저 걸면 조회가 두 번 나간다. */
+            const myFactory = (factory_id == null || factory_id === '' || Number(factory_id) <= 0)
+                ? '' : String(factory_id);
+            AjaxUtil.fillSelectOptions($('#Factory_id'), 'factory', 'all', myFactory);
+
+            $('#Factory_id').on('change', function () {
+                page.searchDataBind();
+            });
 
             // 검색버튼
             $('#btnSearch').click(function (e) {

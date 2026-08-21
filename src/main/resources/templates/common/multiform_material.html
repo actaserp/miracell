@@ -12,90 +12,103 @@
         {% } %}
     </script>
     <script type="text/x-tmpl" id="mult_matSearchTemplate">
-    <style>
-        .wj-flexgrid .align-left {
-        text-align: left !important;
-        }
-    </style>
-    <div class="content_wrap popup">
-            <!--<header>
-                <h4 id="popTitle">품목 선택</h4>
-                <div class="popup_close_box"><button class="btn_popup_close" id="material-search-close"><i class="fas fa-times"></i></button></div>
-            </header>-->
+        <style>
+            .wj-flexgrid .align-left {
+            text-align: left !important;
+            }
+        </style>
+        <div class="content_wrap popup">
+                <!--<header>
+                    <h4 id="popTitle">품목 선택</h4>
+                    <div class="popup_close_box"><button class="btn_popup_close" id="material-search-close"><i class="fas fa-times"></i></button></div>
+                </header>-->
 
-        <section class="section" style="padding-top: 10px;">
+            <section class="section" style="padding-top: 10px;">
 
-            <div class="section-top">
-                <div class="search-wrap" style="text-align: left;">
-<!--                        <dl style="display:none;">-->
-<!--                            <dt>-->
-<!--                                <label for="cboMaterialType">-->
-<!--                                    품목구분<span class="eq"></span>-->
-<!--                                </label>-->
-<!--                            </dt>-->
-<!--                            <dd>-->
-<!--                                <div class="srch-box">-->
-<!--                                    <select id="cboMaterialType" name="cboMaterialType">-->
+                <div class="section-top">
+                    <div class="search-wrap" style="text-align: left;">
+    <!--                        <dl style="display:none;">-->
+    <!--                            <dt>-->
+    <!--                                <label for="cboMaterialType">-->
+    <!--                                    품목구분<span class="eq"></span>-->
+    <!--                                </label>-->
+    <!--                            </dt>-->
+    <!--                            <dd>-->
+    <!--                                <div class="srch-box">-->
+    <!--                                    <select id="cboMaterialType" name="cboMaterialType">-->
 
-<!--                                    </select>-->
-<!--                                </div>-->
-<!--                            </dd>-->
-<!--                        </dl>-->
-                    <dl>
-                        <dt>
-                            <label for="cboMaterialGrp">
-                                품목그룹<span class="eq"></span>
-                            </label>
-                        </dt>
-                        <dd>
-                            <div class="srch-box">
-                                <select id='cboMaterialGrp' name="cboMaterialGrp" ></select>
-                            </div>
-                        </dd>
-                    </dl>
+    <!--                                    </select>-->
+    <!--                                </div>-->
+    <!--                            </dd>-->
+    <!--                        </dl>-->
+                        <dl>
+                            <dt>
+                                <label for="cboFactory">
+                                    공장<span class="eq"></span>
+                                </label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <select id="cboFactory" name="cboFactory"></select>
+                                </div>
+                            </dd>
+                        </dl>
 
-                    <dl>
-                        <dt>
-                            <label for="keyword">
-                                품목명<span class="eq"></span>
-                            </label>
-                        </dt>
-                        <dd>
-                            <div class="srch-box">
-                                <input class="form-control2" type="text" id="keyword" name="keyword" />
-                            </div>
-                        </dd>
-                    </dl>
+                        <dl>
+                            <dt>
+                                <label for="cboMaterialGrp">
+                                    품목그룹<span class="eq"></span>
+                                </label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <select id='cboMaterialGrp' name="cboMaterialGrp" ></select>
+                                </div>
+                            </dd>
+                        </dl>
 
-                    <dl>
-                        <dt>&nbsp;</dt>
-                        <dd>
-                            <li>
-                                <a class="btn btn-delete" title="검색" id="btnMaterialSearch">
-                                    <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
-                                    <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
-                                    검색
-                                </a>
-                            </li>
-                        </dd>
-                    </dl>
+                        <dl>
+                            <dt>
+                                <label for="keyword">
+                                    품목명<span class="eq"></span>
+                                </label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <input class="form-control2" type="text" id="keyword" name="keyword" />
+                                </div>
+                            </dd>
+                        </dl>
+
+                        <dl>
+                            <dt>&nbsp;</dt>
+                            <dd>
+                                <li>
+                                    <a class="btn btn-delete" title="검색" id="btnMaterialSearch">
+                                        <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                                        <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                        검색
+                                    </a>
+                                </li>
+                            </dd>
+                        </dl>
+                    </div>
+                    <div class="container-fluid">
+                        <div id="search-grid" style="height: 280px;"></div>
+                    </div>
                 </div>
-                <div class="container-fluid">
-                    <div id="search-grid" style="height: 280px;"></div>
+
+            </section>
+
+
+                <div class="popup-button">
+                    <button type="button" class="btn-popup" id="btnMaterialSelect" ><span data-commonCd="선택">선택</span></button>
+                    <button type="button" class="btn-popup" id="btn-search-close"><span data-commonCd="닫기">닫기</span></button>
+    <!--                    <button type="button" class="btn-popup" id="btnTest"><span data-commonCd="새로고침">새로고침</span></button>-->
                 </div>
-            </div>
-
-        </section>
 
 
-            <div class="popup-button">
-                <button type="button" class="btn-popup" id="btnMaterialSelect" ><span data-commonCd="선택">선택</span></button>
-                <button type="button" class="btn-popup" id="btn-search-close"><span data-commonCd="닫기">닫기</span></button>
-<!--                    <button type="button" class="btn-popup" id="btnTest"><span data-commonCd="새로고침">새로고침</span></button>-->
-            </div>
-
-
-    </div>
+        </div>
     </script>
 
     <script type="text/javascript">
@@ -197,7 +210,10 @@
                 this.$cboMaterialGrp = null;
                 this.$btnMaterialSelect = null;
                 this.$keyword = null;
+                this.$cboFactory = null;
                 this.material_type = null;
+                /* 호출 화면이 기본값으로 넣어줄 수 있는 공장. null 이면 «전체»로 열린다 */
+                this.factory_id = null;
 
             }
 
@@ -208,6 +224,8 @@
                     // 'material_type': _this.$cboMaterialType.val(),
                     'material_group': _this.$cboMaterialGrp.val(),
                     'keyword': _this.$keyword.val(),
+                    /* 팝업 안 공장 콤보 값. «전체»면 '' 이라 전체가 나온다 */
+                    'factory_id': _this.$cboFactory.val() || '',
                     'spjangcd': sessionStorage.getItem('spjangcd')
                 };
 
@@ -281,9 +299,9 @@
                         keyActionEnter: wijmo.grid.KeyAction.None,
                         columns: [
                             {binding: 'Code', header: '품목코드', width: 150, align: 'center'},
-                            {binding: 'group_name', header: '품목그룹', width: 110, cssClass:'align-left'},
+                            {binding: 'group_name', header: '품목그룹', width: 110, cssClass: 'align-left'},
                             // {binding: 'mat_user_name', header: '품목중분류', width: 250, cssClass:'align-left'},
-                            {binding: 'Name', header: '품목명', width: '*', cssClass:'align-left'},
+                            {binding: 'Name', header: '품목명', width: '*', cssClass: 'align-left'},
                             {binding: 'unit_name', header: '단위', width: 70, align: 'center'},
                             // {binding: 'Spec', header: '규격', width: '*', align: 'left'},
                             {binding: 'cur_stock', header: '총재고', width: '*', align: 'left'}
@@ -298,6 +316,16 @@
                     this.$cboMaterialGrp = $content.find('#cboMaterialGrp');
                     this.$keyword = $content.find('#keyword');
                     this.$btnMaterialSelect = $content.find('#btnMaterialSelect');
+                    this.$cboFactory = $content.find('#cboFactory');
+
+                    /* 공장 콤보. 'all' 이면 첫 항목이 «전체»(value='').
+                       호출 화면이 factory_id 를 넣어줬으면 그것을 기본 선택한다. */
+                    AjaxUtil.fillSelectOptions(this.$cboFactory, 'factory', 'all',
+                        (this.factory_id == null || this.factory_id === '') ? '' : String(this.factory_id));
+
+                    this.$cboFactory.on('change', function () {
+                        _this.searchDataBind();
+                    });
 
                     // AjaxUtil.fillSelectOptions(this.$cboMaterialType, 'system_code', null, false, 'mat_type', this.material_type);
                     AjaxUtil.fillSelectOptions(this.$cboMaterialGrp, 'material_group', 'all', 112, ''); // 제품[112]을 기본으로

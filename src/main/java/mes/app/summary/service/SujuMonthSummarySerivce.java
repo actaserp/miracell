@@ -13,34 +13,38 @@ import mes.domain.services.SqlRunner;
 @Slf4j
 @Service
 public class SujuMonthSummarySerivce {
-	
+
 	@Autowired
 	SqlRunner sqlRunner;
 
-	public List<Map<String, Object>> getList(String cboYear,Integer cboCompany,Integer cboMatGrp,String cboDataDiv,String spjangcd) {
+	/**
+	 * @param factoryId 공장 필터. 빈 값/null 이면 전체 공장.
+	 *                  수주에는 공장이 없어 품목(material)의 공장으로 건다.
+	 */
+	public List<Map<String, Object>> getList(String cboYear,Integer cboCompany,Integer cboMatGrp,String cboDataDiv,String factoryId,String spjangcd) {
 		MapSqlParameterSource paramMap = new MapSqlParameterSource();
 		paramMap.addValue("cboYear", cboYear);
 		paramMap.addValue("cboCompany", cboCompany);
 		paramMap.addValue("cboMatGrp", cboMatGrp);
 		paramMap.addValue("cboDataDiv", cboDataDiv);
 		paramMap.addValue("spjangcd", spjangcd);
-		
-		
-		
+
+
+
 		String data_column = "";
-		
+
 		String data_year = cboYear;
-		
+
 		paramMap.addValue("date_form",data_year+"-01-01" );
 		paramMap.addValue("date_to",data_year+"-12-31" );
-		
+
 		if(cboDataDiv.equals("qty")) {
-			data_column = " s.\"SujuQty\" "; 
+			data_column = " s.\"SujuQty\" ";
 		}else {
 			data_column = " s.\"Price\" + coalesce(s.\"Vat\",0) ";
 		}
-		
-		
+
+
 		String sql ="""
 				with A as (
 	            select s."Material_id" as mat_pk, s."CompanyName" as company_name
@@ -49,27 +53,34 @@ public class SujuMonthSummarySerivce {
 	            , sum(s."Price" + coalesce(s."Vat", 0)) as money_sum
 	            , s."Standard" as standard
 	            """;
-		
-		sql += " ,sum( " + data_column + " ) as suju_sum "; 
-		
+
+		sql += " ,sum( " + data_column + " ) as suju_sum ";
+
 		sql +="""
 	            from suju s
                 inner join material m on m.id = s."Material_id"
 	            where s."JumunDate" between cast(:date_form as date) and cast(:date_to as date)
 	            and s.spjangcd = :spjangcd
 				""";
+		if(factoryId != null && !factoryId.isEmpty()) {
+			paramMap.addValue("factoryId", Integer.parseInt(factoryId));
+			sql += """
+					and m."Factory_id" = :factoryId
+					""";
+		}
+
 		if(cboCompany != null) {
 			sql += """
 					and s."Company_id" = :cboCompany
 					""";
 		}
-		
+
 		if(cboMatGrp != null) {
 			sql += """
 					 and m."MaterialGroup_id" = :cboMatGrp
 					""";
 		}
-		
+
 		sql += """
 				group by s."Material_id", s."CompanyName", extract (month from s."JumunDate"),s."Standard"
                 )
@@ -79,11 +90,11 @@ public class SujuMonthSummarySerivce {
 			    , sum(A.qty_sum) as year_qty_sum	        
 			    , sum(A.money_sum) as year_money_sum
 				""";
-		
+
 		for(int i=1; i<13; i++) {
 			sql+=", min(case when A.data_month = " + i + " then A.suju_sum end) as mon_"+i+" ";
 		}
-			
+
 		sql+="""
 				from A 
         inner join material m on m.id = A.mat_pk
@@ -98,12 +109,12 @@ public class SujuMonthSummarySerivce {
 		, sum(A.qty_sum) as year_qty_sum	 
 		, sum(A.money_sum) as year_money_sum
 				""";
-		
-		
+
+
 		for(int i=1; i<13; i++) {
 			sql += ", sum(case when A.data_month = "+ i +" then A.suju_sum end) as mon_"+i+" ";
 		}
-			
+
 		sql += """
 				from A 
         inner join material m on m.id = A.mat_pk

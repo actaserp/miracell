@@ -8,6 +8,8 @@
                 <a title="북마크" class="bookmark toggle">
                     내 메뉴
                 </a>
+                <label for="Factory_id" class="hide">공장</label>
+                <select style="width: 110px;" id="Factory_id" name="Factory_id"></select>
             </div>
             <ul class="page-navi">
                 <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
@@ -107,117 +109,134 @@
     </div>
 </th:block>
 <th:block layout:fragment="scripts">
+    <script th:inline="javascript">
+        /* 로그인 사용자의 소속 공장. 없으면 null → «전체» 가 기본값이 된다 */
+        const factory_id = [[${session.factory_id}]];
+    </script>
 
-<script type="text/javascript">
-    
+    <script type="text/javascript">
 
-    class StockLotTakeHistoryPage {
-        constructor() {
-        	this.baseUrl = "/api/inventory/lot_stock_take";
-            this.grid1 = null;
-            this.init();
-        }
 
-        init() {
-            let _this = this;
-            this.grid = new wijmo.grid.FlexGrid('#material-grid', {
-                autoGenerateColumns: false,
-                selectionMode: wijmo.grid.SelectionMode.Row,
-                headersVisibility: wijmo.grid.HeadersVisibility.All,
-                isReadOnly: true,
-                frozenColumns: 0,
-                itemsSource: new wijmo.collections.CollectionView([]),
-                formatItem: (s, e) => {
-                    if (e.panel.cellType === wijmo.grid.CellType.RowHeader) {
-                        // 헤더에 순번
-                        e.cell.textContent = (e.row + 1).toString();
+        class StockLotTakeHistoryPage {
+            constructor() {
+                this.baseUrl = "/api/inventory/lot_stock_take";
+                this.grid1 = null;
+                this.init();
+            }
+
+            init() {
+                let _this = this;
+                this.grid = new wijmo.grid.FlexGrid('#material-grid', {
+                    autoGenerateColumns: false,
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.All,
+                    isReadOnly: true,
+                    frozenColumns: 0,
+                    itemsSource: new wijmo.collections.CollectionView([]),
+                    formatItem: (s, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.RowHeader) {
+                            // 헤더에 순번
+                            e.cell.textContent = (e.row + 1).toString();
+                        }
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                            e.cell.style.textAlign = 'center';
+                        }
+                    },
+                    columns: [
+                        {binding: 'house_name', header: '창고명', width: 100, align: 'left'},
+                        {binding: 'mat_type_name', header: '품목유형', width: 100, align: 'center'},
+                        {binding: 'mat_grp_name', header: '품목그룹', width: 100, align: 'center'},
+                        {binding: 'mat_code', header: '품목코드', width: 100, align: 'center'},
+                        {binding: 'mat_name', header: '품목명', width: 200, align: 'left'},
+                        {binding: 'LotNumber', header: 'Lot', width: 150, align:'center' },
+                        {binding: 'unit_name', header: '단위', width: 80, align: 'center'},
+                        {binding: 'account_stock', header: '장부재고', width: 100, align: 'right' },
+                        {binding: 'real_stock', header: '실재고', width: 100, align: 'right' },
+                        {binding: 'gap', header: '차이', width: 100, align: 'right' },
+                        {binding: 'unit_price', header: '단가', width: 100, align: 'right' },
+                        {binding: 'gap_price', header: '차이금액', width: 100, align: 'right' },
+                        {binding: 'description', header: '비고', width: 250, align: 'left'},
+                        {binding: 'state', header: '상태', width: 80, align: 'center'},
+                        {binding: 'taker_name', header: '실사자', width: 100, align: 'center'},
+                        {binding: 'take_date_time', header: '실사일시', width: 150, align: 'center'},
+                        {binding: 'confirmer_name', header: '확인자', width: 100, align: 'center'},
+                        {binding: 'confirm_date_time', header: '확인일시', width: 150, align: 'center'}
+                    ]
+                });
+                new FlexGridContextMenu(this.grid);
+                this.grid.downloadFileName = 'LOT 재고 조정 이력';
+            }
+
+            searchMainData() {
+                let _this = this;
+                let data = {
+                    'date_from': $('#srchStartDt').val(),
+                    'date_to': $('#srchEndDt').val(),
+                    'storehouse_id': $('#cboStoreHouse').val(),
+                    'mat_type': $('#cboMaterialType').val(),
+                    'mat_group_pk': $('#cboMaterialGroup').val(),
+                    'keyword': $('#keyword').val(),
+                    /* 빈 문자열이어도 반드시 보낸다 — 빈 값 = 전체 */
+                    'factory_id': $('#Factory_id').val() || '',
+                };
+
+                let fnsuccess = function(result){
+                    if (result.success) {
+                        _this.grid.itemsSource.sourceCollection = result.data;
                     }
-                    if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-                        e.cell.style.textAlign = 'center';
-                    }
-                },
-                columns: [
-                    {binding: 'house_name', header: '창고명', width: 100, align: 'left'},
-                    {binding: 'mat_type_name', header: '품목유형', width: 100, align: 'center'},
-                    {binding: 'mat_grp_name', header: '품목그룹', width: 100, align: 'center'},
-                    {binding: 'mat_code', header: '품목코드', width: 100, align: 'center'},
-                    {binding: 'mat_name', header: '품목명', width: 200, align: 'left'},
-                    {binding: 'LotNumber', header: 'Lot', width: 150, align:'center' },
-                    {binding: 'unit_name', header: '단위', width: 80, align: 'center'},
-                    {binding: 'account_stock', header: '장부재고', width: 100, align: 'right' },
-                    {binding: 'real_stock', header: '실재고', width: 100, align: 'right' },
-                    {binding: 'gap', header: '차이', width: 100, align: 'right' },
-                    {binding: 'unit_price', header: '단가', width: 100, align: 'right' },
-                    {binding: 'gap_price', header: '차이금액', width: 100, align: 'right' },
-                    {binding: 'description', header: '비고', width: 250, align: 'left'},
-                    {binding: 'state', header: '상태', width: 80, align: 'center'},
-                    {binding: 'taker_name', header: '실사자', width: 100, align: 'center'},
-                    {binding: 'take_date_time', header: '실사일시', width: 150, align: 'center'},
-                    {binding: 'confirmer_name', header: '확인자', width: 100, align: 'center'},
-                    {binding: 'confirm_date_time', header: '확인일시', width: 150, align: 'center'}
-                ]
-            });
-            new FlexGridContextMenu(this.grid);
-            this.grid.downloadFileName = 'LOT 재고 조정 이력';
-        }
+                };
 
-        searchMainData() {
-            let _this = this;
-            let data = {
-                'date_from': $('#srchStartDt').val(),
-                'date_to': $('#srchEndDt').val(),
-                'storehouse_id': $('#cboStoreHouse').val(),
-                'mat_type': $('#cboMaterialType').val(),
-                'mat_group_pk': $('#cboMaterialGroup').val(),
-                'keyword': $('#keyword').val(),
-            };
-            
-            let fnsuccess = function(result){
-                if (result.success) {
-                    _this.grid.itemsSource.sourceCollection = result.data;
-                }
-            };
+                let url = this.baseUrl + "/history_list"
+                AjaxUtil.getAsyncData(url, data, fnsuccess);
+            }
 
-            let url = this.baseUrl + "/history_list"
-            AjaxUtil.getAsyncData(url, data, fnsuccess);
+
         }
 
 
-    }
 
+        let page = null;
 
+        $(document).ready(function (e) {
+            page = new StockLotTakeHistoryPage();
 
-    $(document).ready(function (e) {
-        let page = new StockLotTakeHistoryPage();
+            /* 공장 콤보 — 기본값은 계정의 소속 공장. 없으면 '' = 전체. */
+            const myFactory = (factory_id == null || factory_id === '' || Number(factory_id) <= 0)
+                ? '' : String(factory_id);
+            AjaxUtil.fillSelectOptions($('#Factory_id'), 'factory', 'all', myFactory);
 
-        AjaxUtil.fillSelectOptions($('#cboMaterialType'), 'system_code', 'all', false, 'mat_type');
-        AjaxUtil.fillSelectOptions($('#cboManageLevel'), 'user_code', 'all', false, 'mat_manage_level');
-        AjaxUtil.fillSelectOptions($('#cboMaterialGroup'), 'material_group', 'all', false);
-        AjaxUtil.fillSelectOptions($('#cboStoreHouse'), 'store_house', 'all', false);
-
-        //$('#srchDt').ax5DatePicker({ direction: 'top' });
-        $('#srchStartDt').val(CommonUtil.getYYYYMMDD(-7));
-        $('#srchEndDt').val(CommonUtil.getYYYYMMDD());
-        
-    
-        // 검색
-        $('#btnSearch').click(function (e) {
-            page.searchMainData();
-        });
-
-        //$('#cboStoreHouse').change(function (e) {
-        //    page.searchMainData();
-        //});
-
-        $('#keyword').keypress(function (e) {
-            if (e.keyCode === 13)
+            $('#Factory_id').on('change', function () {
                 page.searchMainData();
-        });
+            });
+
+            AjaxUtil.fillSelectOptions($('#cboMaterialType'), 'system_code', 'all', false, 'mat_type');
+            AjaxUtil.fillSelectOptions($('#cboManageLevel'), 'user_code', 'all', false, 'mat_manage_level');
+            AjaxUtil.fillSelectOptions($('#cboMaterialGroup'), 'material_group', 'all', false);
+            AjaxUtil.fillSelectOptions($('#cboStoreHouse'), 'store_house', 'all', false);
+
+            //$('#srchDt').ax5DatePicker({ direction: 'top' });
+            $('#srchStartDt').val(CommonUtil.getYYYYMMDD(-7));
+            $('#srchEndDt').val(CommonUtil.getYYYYMMDD());
 
 
-        page.searchMainData();
+            // 검색
+            $('#btnSearch').click(function (e) {
+                page.searchMainData();
+            });
 
-    })
-</script>
+            //$('#cboStoreHouse').change(function (e) {
+            //    page.searchMainData();
+            //});
+
+            $('#keyword').keypress(function (e) {
+                if (e.keyCode === 13)
+                    page.searchMainData();
+            });
+
+
+            page.searchMainData();
+
+        })
+    </script>
 </th:block>
 </html>

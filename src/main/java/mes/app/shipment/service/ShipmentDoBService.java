@@ -25,7 +25,11 @@ public class ShipmentDoBService {
 	@Autowired
 	NamedParameterJdbcTemplate namedParameterJdbcTemplate;
 	// 출하지시헤더 조회
-	public List<Map<String, Object>> getShipmentHeaderList(String date_from, String date_to, String state, Integer comp_pk, Integer mat_grp_pk, Integer mat_pk, String keyword) {
+	/**
+	 * @param factoryId 공장 필터. 빈 값/null 이면 전체 공장.
+	 *                  출하에는 공장이 없어 품목(material)의 공장으로 건다.
+	 */
+	public List<Map<String, Object>> getShipmentHeaderList(String date_from, String date_to, String state, Integer comp_pk, Integer mat_grp_pk, Integer mat_pk, String keyword, String factoryId) {
 
 		MapSqlParameterSource paramMap = new MapSqlParameterSource();
 		paramMap.addValue("date_from", Date.valueOf(date_from));
@@ -72,11 +76,18 @@ public class ShipmentDoBService {
 			    inner join shipment s on s."ShipmentHead_id" = SH.id 
         	""";
 
-		if(mat_grp_pk != null || mat_pk != null || !keyword.isEmpty()){
+		/* 공장 조건도 material 조인이 필요하다. 품목 조건이 없어도 붙여야 한다. */
+		boolean hasFactory = (factoryId != null && !factoryId.isEmpty());
+		if(mat_grp_pk != null || mat_pk != null || !keyword.isEmpty() || hasFactory){
 			sql += "inner join material m on m.id = s.\"Material_id\" ";
 		}
 
 		sql += " where 1 = 1 ";
+
+		if (hasFactory) {
+			paramMap.addValue("factoryId", Integer.parseInt(factoryId));
+			sql += " and m.\"Factory_id\" = :factoryId ";
+		}
 
 		if (mat_pk != null) {
 			sql += " and s.\"Material_id\" = :mat_pk ";

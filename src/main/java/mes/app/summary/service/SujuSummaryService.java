@@ -11,12 +11,16 @@ import mes.domain.services.SqlRunner;
 
 @Service
 public class SujuSummaryService {
-	
+
 	@Autowired
 	SqlRunner sqlRunner;
 
+	/**
+	 * @param factoryId 공장 필터. 빈 값/null 이면 전체 공장.
+	 *                  수주에는 공장이 없어 품목(material)의 공장으로 건다.
+	 */
 	public List<Map<String, Object>> getList(String srchStartDt, String srchEndDt, Integer cboCompany,
-			Integer cboMatGrp, String sujuState, String spjangcd) {
+											 Integer cboMatGrp, String sujuState, String factoryId, String spjangcd) {
 		MapSqlParameterSource paramMap = new MapSqlParameterSource();
 		paramMap.addValue("srchStartDt", srchStartDt);
 		paramMap.addValue("srchEndDt", srchEndDt);
@@ -24,8 +28,8 @@ public class SujuSummaryService {
 		paramMap.addValue("cboMatGrp", cboMatGrp);
 		paramMap.addValue("sujuState", sujuState);
 		paramMap.addValue("spjangcd", spjangcd);
-		
-		
+
+
 		String sql ="""
 				 with A as (
 	        select s."Material_id" as mat_pk, s."CompanyName" as company_name,
@@ -37,13 +41,20 @@ public class SujuSummaryService {
 	        where s."JumunDate" between cast(:srchStartDt as date) and cast(:srchEndDt as date)
 	        and s.spjangcd = :spjangcd
 				""";
-		
+
+		if(factoryId != null && !factoryId.isEmpty()) {
+			paramMap.addValue("factoryId", Integer.parseInt(factoryId));
+			sql += """
+					and m."Factory_id" = :factoryId
+					""";
+		}
+
 		if(cboCompany != null) {
 			sql += """ 
 					and s."Company_id" = :cboCompany
 					""";
 		}
-		
+
 		if(cboMatGrp != null) {
 			sql += """
 					and m."MaterialGroup_id" = :cboMatGrp
@@ -55,7 +66,7 @@ public class SujuSummaryService {
 					and s."State" = :sujuState
 					""";
 		}
-		
+
 		sql += """
 				group by s."Material_id", s."CompanyName" ,s."Standard"
             )
@@ -70,10 +81,10 @@ public class SujuSummaryService {
             left join mat_grp mg on mg.id = m."MaterialGroup_id"
             left join unit u on u.id = m."Unit_id"
 				""";
-		
+
 		List<Map<String,Object>> items = this.sqlRunner.getRows(sql, paramMap);
-		
-		
+
+
 		return items;
 	}
 

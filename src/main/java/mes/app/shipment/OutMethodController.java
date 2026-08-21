@@ -30,17 +30,19 @@ public class OutMethodController {
 
 	@GetMapping("/read")
 	public AjaxResult read(
-		@RequestParam(value = "mat_type", required = false) String matType,
-		@RequestParam(value = "mat_group", required = false) Integer matGrpPk,
-		@RequestParam(value = "keyword", required = false) String keyword,
-		@RequestParam(value = "unset_only", required = false) String unsetOnly,
-		@RequestParam(value = "lot_only", required = false) String lotOnly,
-		@RequestParam(value = "spjangcd", required = false) String spjangcd) {
+			@RequestParam(value = "mat_type", required = false) String matType,
+			@RequestParam(value = "mat_group", required = false) Integer matGrpPk,
+			@RequestParam(value = "keyword", required = false) String keyword,
+			@RequestParam(value = "unset_only", required = false) String unsetOnly,
+			@RequestParam(value = "lot_only", required = false) String lotOnly,
+			// 공장 필터. 빈 값 = 전체.
+			@RequestParam(value = "factory_id", required = false) Integer factoryId,
+			@RequestParam(value = "spjangcd", required = false) String spjangcd) {
 
 		AjaxResult r = new AjaxResult();
 		r.data = this.outMethodService.getList(
-			matType, matGrpPk, keyword,
-			"Y".equals(unsetOnly), "Y".equals(lotOnly), spjangcd);
+				matType, matGrpPk, keyword,
+				"Y".equals(unsetOnly), "Y".equals(lotOnly), factoryId, spjangcd);
 		r.success = true;
 		return r;
 	}
@@ -50,9 +52,9 @@ public class OutMethodController {
 	 */
 	@PostMapping("/save")
 	public AjaxResult save(
-		@RequestParam(value = "out_method", required = false) String method,
-		@RequestBody MultiValueMap<String, Object> Q,
-		Authentication auth) {
+			@RequestParam(value = "out_method", required = false) String method,
+			@RequestBody MultiValueMap<String, Object> Q,
+			Authentication auth) {
 
 		AjaxResult r = new AjaxResult();
 		try {

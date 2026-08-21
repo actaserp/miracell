@@ -46,7 +46,7 @@ public class JobPlanController {
 
 	@Autowired
 	JobPlanHeadRepository jobPlanHeadRepository;
-	
+
 	@Autowired
 	JobPlanService jobPlanService;
 
@@ -69,30 +69,32 @@ public class JobPlanController {
 			@RequestParam(value="date_kind", required=false) String date_kind,
 			@RequestParam(value="start", required=false) String start_date,
 			@RequestParam(value="end", required=false) String end_date,
+			// 공장 필터. 빈 값 = 전체.
+			@RequestParam(value="factory_id", required=false) String factoryId,
 			@RequestParam(value="spjangcd") String spjangcd,
 			HttpServletRequest request) {
 
 		if (start_date != null) start_date = start_date.replaceAll("-", "");
 		if (end_date != null) end_date = end_date.replaceAll("-", "");
 
-		List<Map<String, Object>> items = this.jobPlanService.getList(date_kind, start_date, end_date, spjangcd);
-		
+		List<Map<String, Object>> items = this.jobPlanService.getList(date_kind, start_date, end_date, factoryId, spjangcd);
+
 		AjaxResult result = new AjaxResult();
 		result.data = items;
-		
+
 		return result;
 	}
-	
+
 	// 상세정보 조회
 	@GetMapping("/detail")
 	public AjaxResult getPlanDetail(
 			@RequestParam("head_id") int head_id,
 			HttpServletRequest request) {
 		Map<String, Object> item = this.jobPlanService.getDetail(head_id);
-		
+
 		AjaxResult result = new AjaxResult();
 		result.data = item;
-		
+
 		return result;
 	}
 
@@ -180,14 +182,14 @@ public class JobPlanController {
 	@PostMapping("/delete")
 	public AjaxResult deletePlan(
 			@RequestParam("id") Integer head_id) {
-		
+
 		AjaxResult result = new AjaxResult();
 
 		jobPlanRepository.deleteByHead_Id(Long.valueOf(head_id));
 
 		// 2. 그 다음 job_plan_head 삭제
 		jobPlanHeadRepository.deleteById(Long.valueOf(head_id));
-		
+
 		return result;
 	}
 

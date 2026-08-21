@@ -650,21 +650,21 @@
        ★ 탭이 숨겨지면 폴링을 멈춘다. 벽걸이가 아닌 사람 PC 에서
          배경 탭이 계속 서버를 두드리는 걸 막는다.
     ═══════════════════════════════════════════════════ */
-    const DB_API      = '/api/dashboard/main';
-    const DB_POLL_MS  = 60000;
+    const DB_API = '/api/dashboard/main';
+    const DB_POLL_MS = 60000;
     const DB_SPJANGCD = (typeof SPJANGCD !== 'undefined' && SPJANGCD) ? SPJANGCD : 'ZZ';
 
     /* 온습도 기준 — OPC-UA 연동 시 이 값을 마스터에서 내려받도록 바꾼다.
        지금 화면에 두는 이유는 센서가 붙는 순간 판정이 바로 돌게 하기 위함이다. */
-    const DB_ENV_LIMIT = { temp: {min:18, max:25}, humi: {min:30, max:60} };
+    const DB_ENV_LIMIT = {temp: {min: 18, max: 25}, humi: {min: 30, max: 60}};
 
     /* 서버가 env 를 못 내릴 때 자리만 잡아줄 존 이름.
        값·기준치는 넣지 않는다(서버가 유일한 출처). */
     const DB_ENV_FALLBACK = [
-      {n:'세척실',   z:'클린룸 1존'},
-      {n:'조립실',   z:'클린룸 2존'},
-      {n:'검사실',   z:'클린룸 3존'},
-      {n:'내포장실', z:'클린룸 4존'}
+      {n: '세척실', z: '클린룸 1존'},
+      {n: '조립실', z: '클린룸 2존'},
+      {n: '검사실', z: '클린룸 3존'},
+      {n: '내포장실', z: '클린룸 4존'}
     ];
 
     /* 대시보드 최소 높이.
@@ -677,14 +677,20 @@
     const DB_OPEN_WARN_MIN = 240;
 
     var dbTimer = null;
-    var dbData  = null;
+    var dbData = null;
 
-    function dbEsc(v){
+    function dbEsc(v) {
       return String(v === null || v === undefined ? '' : v)
-              .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+              .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
-    function dbNum(v){ return Number(v || 0); }
-    function dbPad(n){ return String(n).padStart(2,'0'); }
+
+    function dbNum(v) {
+      return Number(v || 0);
+    }
+
+    function dbPad(n) {
+      return String(n).padStart(2, '0');
+    }
 
     /* ── 화면 높이 맞추기 ──
        대시보드는 스크롤이 없어야 하므로 「창 높이 - 대시보드 시작 위치」로 잡는다.
@@ -695,7 +701,7 @@
     var DB_GAP_B = 30;
 
 
-    function dbFitHeight(){
+    function dbFitHeight() {
       var el = document.getElementById('dbWrap');
       if (!el) return;
 
@@ -719,12 +725,12 @@
     }
 
     /* ── 시계 ── */
-    function dbStartClock(){
-      var tick = function(){
+    function dbStartClock() {
+      var tick = function () {
         var d = new Date();
         var el = document.getElementById('dbClock');
         if (el) {
-          el.textContent = d.getFullYear() + '-' + dbPad(d.getMonth()+1) + '-' + dbPad(d.getDate())
+          el.textContent = d.getFullYear() + '-' + dbPad(d.getMonth() + 1) + '-' + dbPad(d.getDate())
                   + '  ' + dbPad(d.getHours()) + ':' + dbPad(d.getMinutes()) + ':' + dbPad(d.getSeconds());
         }
       };
@@ -733,12 +739,12 @@
     }
 
     /* ── 조회 ── */
-    function dbLoad(){
+    function dbLoad() {
       if (typeof AjaxUtil === 'undefined' || !AjaxUtil.getAsyncData) {
         console.error('[dashboard] AjaxUtil 미로드');
         return;
       }
-      AjaxUtil.getAsyncData(DB_API + '/read', {spjangcd: DB_SPJANGCD}, function(res){
+      AjaxUtil.getAsyncData(DB_API + '/read', {spjangcd: DB_SPJANGCD}, function (res) {
         if (!res || !res.data) {
           document.getElementById('dbAlerts').innerHTML =
                   '<div class="db-alert red">데이터를 불러오지 못했습니다. 잠시 후 다시 시도합니다.</div>';
@@ -752,7 +758,7 @@
       });
     }
 
-    function dbRender(){
+    function dbRender() {
       var k = dbData.kpi || {};
       var procs = dbData.process_now || [];
 
@@ -777,16 +783,16 @@
          전 공정을 더하면 키트 10개가 조립·블리스터·융착·포장에서 각각 세어져
          40개로 보인다. 마지막 공정의 완제품만 센다 — 2공장 「포장 완료」와 같은 축.
          조립만 돌린 날 0 이 뜨는 건 맞는 표시다. 그날 진행은 아래 존 타일에 있다. */
-    function dbRenderKpi(k){
+    function dbRenderKpi(k) {
       var cells = [
-        {l:'1공장 완제품',   v:dbNum(k.f1_today_good).toLocaleString(), u:'개',  c:'blue'},
-        {l:'2공장 포장 완료', v:dbNum(k.f2_packed).toLocaleString(),     u:'대',  c:'blue'},
-        {l:'진행중 작업지시', v:dbNum(k.open_orders),                    u:'건',  c:'violet'},
-        {l:'작업중 차수',     v:dbNum(k.working_sessions),               u:'건',  c:'green'},
-        {l:'오늘 부적합',     v:dbNum(k.today_defect),                   u:'개',  c:'red'},
-        {l:'가동중 설비',     v:dbNum(k.equ_running),                    u:'대',  c:'teal'}
+        {l: '1공장 완제품', v: dbNum(k.f1_today_good).toLocaleString(), u: '개', c: 'blue'},
+        {l: '2공장 포장 완료', v: dbNum(k.f2_packed).toLocaleString(), u: '대', c: 'blue'},
+        {l: '진행중 작업지시', v: dbNum(k.open_orders), u: '건', c: 'violet'},
+        {l: '작업중 차수', v: dbNum(k.working_sessions), u: '건', c: 'green'},
+        {l: '오늘 부적합', v: dbNum(k.today_defect), u: '개', c: 'red'},
+        {l: '가동중 설비', v: dbNum(k.equ_running), u: '대', c: 'teal'}
       ];
-      document.getElementById('dbKpis').innerHTML = cells.map(function(c){
+      document.getElementById('dbKpis').innerHTML = cells.map(function (c) {
         return '<div class="db-kpi ' + c.c + '"><div class="l">' + c.l + '</div>'
                 + '<div class="v">' + c.v + '<small>' + c.u + '</small></div></div>';
       }).join('');
@@ -795,9 +801,13 @@
     /* ── 존(공정) 타일 ──
        ★ 존 배열을 화면이 들고 있지 않다. 서버가 process 마스터에서 내린다.
          목업의 「검사 / 내포장」은 v2 시절 이름이라 실제와 맞지 않았다. */
-    function dbRenderZones(procs){
-      var f1 = procs.filter(function(p){ return dbNum(p.factory_id) === 1; });
-      var f2 = procs.filter(function(p){ return dbNum(p.factory_id) === 2; });
+    function dbRenderZones(procs) {
+      var f1 = procs.filter(function (p) {
+        return dbNum(p.factory_id) === 1;
+      });
+      var f2 = procs.filter(function (p) {
+        return dbNum(p.factory_id) === 2;
+      });
 
       var wash = dbData.wash_today || {};
 
@@ -814,10 +824,14 @@
            · packed 를 빼면 포장까지 간 대수가 검사에서 사라진다(검사를 통과했기에 포장된 것)
            · reject 를 빼면 「검사했지만 떨어진 대수」가 실적에서 증발한다 */
       var unitMap = {};
-      (dbData.unit_states || []).forEach(function(s){ unitMap[s.state] = dbNum(s.cnt); });
-      var unitCnt = function(states){
+      (dbData.unit_states || []).forEach(function (s) {
+        unitMap[s.state] = dbNum(s.cnt);
+      });
+      var unitCnt = function (states) {
         var n = 0;
-        states.forEach(function(k){ n += (unitMap[k] || 0); });
+        states.forEach(function (k) {
+          n += (unitMap[k] || 0);
+        });
         return n;
       };
 
@@ -828,22 +842,28 @@
 
            서버가 today_good_product / today_good_semi 를 내려줄 때만 나눈다.
            안 내려주면 예전처럼 합계 한 줄 — 없는 숫자를 화면에서 지어내지 않는다. */
-      var packSplit = function(p){
+      var packSplit = function (p) {
         var pr = p.today_good_product;
         if (pr === null || pr === undefined || pr === '') return null;
         return {prod: dbNum(pr), semi: dbNum(p.today_good_semi)};
       };
 
-      var procWork = function(p){
+      var procWork = function (p) {
         if (p.code === 'bsc01') {
           /* 서버가 wash_today.working_cnt 를 안 내리면 세션수로도 판단하지 않는다 —
              오늘 끝난 세션까지 「작업중」이 되어 버린다. 값이 올 때만 켠다. */
           return {cnt: dbNum(wash.working_cnt), who: wash.workers || '-'};
         }
         if (p.code === 'bsc04') {
-          var run = (dbData.steril || []).filter(function(b){ return b.state === 'working'; });
-          return {cnt: run.length,
-            who: run.map(function(b){ return b.equ_name || '멸균기'; }).join(', ') || '-'};
+          var run = (dbData.steril || []).filter(function (b) {
+            return b.state === 'working';
+          });
+          return {
+            cnt: run.length,
+            who: run.map(function (b) {
+              return b.equ_name || '멸균기';
+            }).join(', ') || '-'
+          };
         }
         if (p.code === 'mc02') {
           /* 검사 대기 = 검사 자리에 물건이 와 있다는 뜻. 이게 이 공정의 「작업중」이다.
@@ -856,7 +876,7 @@
         return {cnt: dbNum(p.working_cnt), who: p.workers || '-'};
       };
 
-      var tile = function(p){
+      var tile = function (p) {
         var w = procWork(p);
         var working = w.cnt;
         var good = dbNum(p.today_good);
@@ -878,7 +898,7 @@
           qtyHtml = good.toLocaleString() + '<small>개</small>';
         }
 
-        var half = function(label, v){
+        var half = function (label, v) {
           return '<div><div class="sl">' + label + '</div>'
                   + '<div class="zq">' + dbNum(v).toLocaleString() + '<small>개</small></div></div>';
         };
@@ -916,7 +936,7 @@
 
        차압은 양압 유지가 목적이라 하한이 중요하다 —
        외부보다 높아야 오염이 안으로 들어오지 않는다. */
-    function dbRenderEnv(zones){
+    function dbRenderEnv(zones) {
       var host = document.getElementById('dbEnv');
 
       /* ★ 비었다고 조용히 지우지 않는다.
@@ -925,16 +945,18 @@
            기준치는 서버가 내려주는 값만 쓴다 — 화면에 숫자를 복사해두면
            클린룸 화면과 두 벌이 되어 서로 다른 기준으로 경고를 띄운다. */
       if (!zones.length) {
-        zones = DB_ENV_FALLBACK.map(function(z){
-          return {name:z.n, label:z.z, temp:null, humi:null, press:null,
-            temp_min:null, temp_max:null, humi_min:null,
-            humi_max:null, press_min:null, press_max:null};
+        zones = DB_ENV_FALLBACK.map(function (z) {
+          return {
+            name: z.n, label: z.z, temp: null, humi: null, press: null,
+            temp_min: null, temp_max: null, humi_min: null,
+            humi_max: null, press_min: null, press_max: null
+          };
         });
       }
 
       /* 한 줄 = 지표 하나. 막대 위 점이 기준 범위 안에서의 위치다. */
       /* 한 줄 = 지표 하나. 왼쪽에 이름·기준, 오른쪽에 큰 값. */
-      var metric = function(key, unit, val, min, max, digits){
+      var metric = function (key, unit, val, min, max, digits) {
         var has = (val !== null && val !== undefined && val !== '');
         var v = has ? Number(val) : null;
         var hasRange = (min !== null && min !== undefined
@@ -952,19 +974,19 @@
                 + '<small>' + unit + '</small></span></div>';
       };
 
-      host.innerHTML = zones.map(function(z){
-        var t  = metric('TEMP',  '°C', z.temp,  z.temp_min,  z.temp_max,  1);
-        var h  = metric('HUMI',  '%',  z.humi,  z.humi_min,  z.humi_max,  1);
+      host.innerHTML = zones.map(function (z) {
+        var t = metric('TEMP', '°C', z.temp, z.temp_min, z.temp_max, 1);
+        var h = metric('HUMI', '%', z.humi, z.humi_min, z.humi_max, 1);
         var pr = metric('PRESS', 'Pa', z.press, z.press_min, z.press_max, 0);
 
-        var hasAny = [z.temp, z.humi, z.press].some(function(v){
+        var hasAny = [z.temp, z.humi, z.press].some(function (v) {
           return v !== null && v !== undefined && v !== '';
         });
         var alarm = /class="em warn/.test(t + h + pr);
 
         var badge = !hasAny ? '<span class="s off">대기</span>'
-                : alarm   ? '<span class="s bad">기준 이탈</span>'
-                        :           '<span class="s">정상</span>';
+                : alarm ? '<span class="s bad">기준 이탈</span>'
+                        : '<span class="s">정상</span>';
 
         return '<div class="ec ' + (alarm ? 'alarm' : (hasAny ? 'ok' : '')) + '">'
                 + '<div class="ec-h"><span class="n">' + dbEsc(z.name) + '</span>'
@@ -974,7 +996,7 @@
     }
 
     /* ── 진행중 작업지시 ── */
-    function dbRenderOrders(rows){
+    function dbRenderOrders(rows) {
       document.getElementById('dbOrderCnt').textContent = rows.length + '건';
 
       if (!rows.length) {
@@ -983,9 +1005,9 @@
         return;
       }
 
-      document.getElementById('dbOrders').innerHTML = rows.map(function(o){
+      document.getElementById('dbOrders').innerHTML = rows.map(function (o) {
         var order = dbNum(o.order_qty);
-        var good  = dbNum(o.good_qty);
+        var good = dbNum(o.good_qty);
         /* ★ 롤업에 삭제된 차수가 섞여 100% 를 넘을 수 있다(미해결 건).
              막지 않으면 막대가 칸을 뚫고 나간다. */
         var pct = order ? Math.min(100, good / order * 100) : 0;
@@ -1009,13 +1031,13 @@
     /* ── 2공장 유닛 ──
        ★ 여기가 2공장 진척의 진실이다(packed 기준).
          mat_produce 를 세면 한 대가 스텝 대여섯 건으로 흩어진다. */
-    function dbRenderUnits(states, working){
+    function dbRenderUnits(states, working) {
       var label = {
-        wait:'대기', assembling:'조립중', inspect_wait:'검사대기',
-        pass:'합격', reject:'불합격', packed:'포장완료', repairing:'수리중'
+        wait: '대기', assembling: '조립중', inspect_wait: '검사대기',
+        pass: '합격', reject: '불합격', packed: '포장완료', repairing: '수리중'
       };
 
-      var chips = states.map(function(s){
+      var chips = states.map(function (s) {
         var cls = (s.state === 'reject') ? 'red'
                 : (s.state === 'packed') ? 'green'
                         : (s.state === 'assembling' || s.state === 'repairing') ? 'blue' : '';
@@ -1023,7 +1045,7 @@
                 + (label[s.state] || dbEsc(s.state)) + ' ' + dbNum(s.cnt) + '</span>';
       }).join('');
 
-      var list = working.length ? working.map(function(u){
+      var list = working.length ? working.map(function (u) {
         return '<div class="r"><span class="nm">' + dbEsc(u.lot_number || ('#' + u.unit_no))
                 + '</span>'
                 + (u.is_repair === 'Y' ? '<span class="tag warn">수리</span>' : '')
@@ -1038,13 +1060,13 @@
     /* ── 멸균 배치 ──
        ★ BI 판정중을 「합격」으로 세지 않는다.
          나중에 불합격이 나오면 진행률이 거꾸로 간다. */
-    function dbRenderSteril(rows){
+    function dbRenderSteril(rows) {
       if (!rows.length) {
         document.getElementById('dbSteril').innerHTML =
                 '<div class="empty">진행중이거나 오늘 진행한 배치가 없습니다</div>';
         return;
       }
-      document.getElementById('dbSteril').innerHTML = rows.map(function(b){
+      document.getElementById('dbSteril').innerHTML = rows.map(function (b) {
         var bi = b.bi_result;
         var tag = (bi === 'pass') ? '<span class="tag green">BI 합격</span>'
                 : (bi === 'fail') ? '<span class="tag red">BI 불합격</span>'
@@ -1061,7 +1083,7 @@
        ★ 닫히지 않은 equ_run 이 곧 「지금 돌고 있는 설비」다.
          다만 작업 취소가 이 행을 안 지워서 유령이 남을 수 있으므로
          오래 열려 있으면 「미종료 의심」으로 표시한다. */
-    function dbRenderEqu(rows){
+    function dbRenderEqu(rows) {
       document.getElementById('dbEquCnt').textContent = rows.length + '대';
 
       if (!rows.length) {
@@ -1069,11 +1091,11 @@
                 '<div class="empty">가동중인 설비가 없습니다</div>';
         return;
       }
-      document.getElementById('dbEqu').innerHTML = rows.map(function(e){
+      document.getElementById('dbEqu').innerHTML = rows.map(function (e) {
         var min = dbNum(e.open_min);
         var stale = min > DB_OPEN_WARN_MIN;
         var dur = (min >= 60)
-                ? Math.floor(min/60) + '시간 ' + (min % 60) + '분'
+                ? Math.floor(min / 60) + '시간 ' + (min % 60) + '분'
                 : min + '분';
         return '<div class="r"><span class="nm">' + dbEsc(e.equ_name || '-') + '</span>'
                 + (stale ? '<span class="tag warn">미종료 의심</span>' : '')
@@ -1083,13 +1105,13 @@
     }
 
     /* ── 오늘 부적합 ── */
-    function dbRenderDefect(rows){
+    function dbRenderDefect(rows) {
       if (!rows.length) {
         document.getElementById('dbDefect').innerHTML =
                 '<div class="empty">오늘 등록된 부적합이 없습니다</div>';
         return;
       }
-      document.getElementById('dbDefect').innerHTML = rows.map(function(d){
+      document.getElementById('dbDefect').innerHTML = rows.map(function (d) {
         return '<div class="r"><span class="nm">' + dbEsc(d.proc_name) + '</span>'
                 + '<span class="tag ' + (dbNum(d.factory_id) === 2 ? 'blue' : '') + '">'
                 + dbNum(d.factory_id) + '공장</span>'
@@ -1100,7 +1122,7 @@
 
     /* ── 알림 띠 ──
        대시보드에서 제일 중요한 부분이다. 숫자는 봐야 알지만 알림은 눈에 띈다. */
-    function dbRenderAlerts(){
+    function dbRenderAlerts() {
       var out = [];
 
       /* ★ 환경 이탈은 이 띠에 넣지 않는다.
@@ -1167,6 +1189,11 @@
          그건 사람이 보낸 알림용이라 발신자·답장 버튼이 붙고 5초 뒤 사라진다.
          전이 순간의 「환기」 용도로만, 있으면 빌려 쓴다.
        ═══════════════════════════════════════════════ */
+    /* ★ 이탈 확인 팝업 사용 여부 — 여기 하나만 바꾸면 된다.
+         false 면 팝업을 띄우지 않는다. 다만 상단 붉은 띄·붉은 카드·
+         이탈 이력은 그대로 남는다. 운영 전환 시 true 로 되돌릴 것. */
+    var DB_ENV_ALARM_POPUP = false;
+
     var dbEnvState = {};   /* zoneCode → 직전 이탈 여부 */
     var dbEnvFirst = true; /* 첫 조회 여부 */
 
@@ -1273,6 +1300,7 @@
      * ★ 이미 떠 있으면 존을 덧붙인다. 창을 여러 개 띄우지 않는다.
      */
     function dbEnvNotify(zones) {
+      if (!DB_ENV_ALARM_POPUP) return;   /* 팝업만 끄다 — 배너·카드·이력은 유지 */
       var now = new Date();
       var at = dbPad(now.getHours()) + ':' + dbPad(now.getMinutes())
               + ':' + dbPad(now.getSeconds());

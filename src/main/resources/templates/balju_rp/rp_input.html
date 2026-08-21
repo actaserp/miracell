@@ -456,6 +456,8 @@
                 <a title="북마크" class="bookmark toggle">
                     내 메뉴
                 </a>
+                <label for="Factory_id" class="hide">공장</label>
+                <select style="width: 110px;" id="Factory_id" name="Factory_id"></select>
             </div>
             <ul class="page-navi">
                 <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
@@ -1475,6 +1477,10 @@
     <th:block th:replace="/common/popup_material :: popup_material"></th:block>
     <th:block th:replace="/common/popup_company :: popup_company"></th:block>
 
+    <script th:inline="javascript">
+        /* 로그인 사용자의 소속 공장. 없으면 null → «전체» 가 기본값이 된다 */
+        const factory_id = [[${session.factory_id}]];
+    </script>
     <script type="text/javascript">
         // ===== 태블릿 유틸 =====
         const TabletUtil = {
@@ -1673,7 +1679,9 @@
                     'house_pk': house_pk,
                     'mat_type': mat_type,
                     'mat_grp_pk': mat_grp_pk,
-                    'keyword': txtMatName
+                    'keyword': txtMatName,
+                    /* 빈 문자열이어도 반드시 보낸다 — 빈 값 = 전체 */
+                    'factory_id': $('#Factory_id').val() || ''
                 };
 
                 let result = AjaxUtil.getSyncData(this.url + "/read_receipt", data);
@@ -2252,8 +2260,8 @@
 
                     let url = _this.url + '/save_balju_return';
                     let items = _this.baljuReturnGrid.rows
-                    .filter(row => row.isSelected)
-                    .map(row => row.dataItem);
+                        .filter(row => row.isSelected)
+                        .map(row => row.dataItem);
 
                     console.log(items);
 
@@ -2433,8 +2441,8 @@
                     if (e.target?.type === 'checkbox') {
                         setTimeout(() => {
                             let items = _this.baljuInputGrid.rows
-                            .filter(row => row.isSelected)
-                            .map(row => row.dataItem);
+                                .filter(row => row.isSelected)
+                                .map(row => row.dataItem);
 
                             items.forEach(item => {
                                 if ((!item.inputQty || item.inputQty === '') && item.SujuQty) {
@@ -2492,8 +2500,8 @@
 
                     let url = _this.url + '/save_balju';
                     let items = _this.baljuInputGrid.rows
-                    .filter(row => row.isSelected)
-                    .map(row => row.dataItem);
+                        .filter(row => row.isSelected)
+                        .map(row => row.dataItem);
 
                     console.log(items);
 
@@ -2550,8 +2558,8 @@
                 $content.find('#btnCompletionMat').on('click', function () {
                     let url = _this.url + '/force-complete';
                     let items = _this.baljuInputGrid.rows
-                    .filter(row => row.isSelected)
-                    .map(row => row.dataItem);
+                        .filter(row => row.isSelected)
+                        .map(row => row.dataItem);
 
                     console.log(items);
 
@@ -3319,13 +3327,13 @@
                 const $scan = $content.find('#scanBarcode');
 
                 $scan.attr('lang', 'en')
-                .attr('autocapitalize', 'off')
-                .attr('autocorrect', 'off')
-                .attr('spellcheck', 'false')
-                .css('ime-mode', 'disabled')
-                .on('compositionstart', function (e) {
-                    e.preventDefault();
-                });
+                    .attr('autocapitalize', 'off')
+                    .attr('autocorrect', 'off')
+                    .attr('spellcheck', 'false')
+                    .css('ime-mode', 'disabled')
+                    .on('compositionstart', function (e) {
+                        e.preventDefault();
+                    });
 
                 // ── 태블릿 전용 : DS2278(HID 키보드) 입력은 받되 소프트 키보드는 숨긴다 ──
                 if (TabletUtil.isTablet()) {
@@ -3462,8 +3470,8 @@
                 $content.find('#btnScanRowDelete').on('click', function () {
                     let cv = _this.scanResultGrid.itemsSource;
                     let selected = _this.scanResultGrid.rows
-                    .filter(r => r.isSelected)
-                    .map(r => r.dataItem);
+                        .filter(r => r.isSelected)
+                        .map(r => r.dataItem);
                     if (selected.length === 0) {
                         Alert.alert('', '삭제할 행을 선택하세요.');
                         return;
@@ -4701,6 +4709,17 @@
             AjaxUtil.fillSelectOptions($('#searchForm').find('#cboHouse'), 'store_house', 'all');
             AjaxUtil.fillSelectOptions($('#cboMatType'), 'system_code', 'all', false, 'mat_type');
             AjaxUtil.fillSelectOptions($('#cboMatGroup'), 'material_group', 'all', false);
+
+            /* 공장 콤보 — 기본값은 계정의 소속 공장. 없으면 '' = 전체.
+               change 핸들러는 채운 «뒤에» 건다. fillSelectOptions 가 selected_value 를
+               넣으면서 .change() 를 직접 발생시키므로 먼저 걸면 조회가 두 번 나간다. */
+            const myFactory = (factory_id == null || factory_id === '' || Number(factory_id) <= 0)
+                ? '' : String(factory_id);
+            AjaxUtil.fillSelectOptions($('#Factory_id'), 'factory', 'all', myFactory);
+
+            $('#Factory_id').on('change', function () {
+                page.searchDataBind();
+            });
 
             $('#cboMatType').on('change', function (e) {
                 let mat_type = $('#cboMatType').val();

@@ -2,9 +2,9 @@
 
 <head>
   <style>
-      .grid-cell-red {
-          background: rgb(248, 210, 203) !important;
-      }
+    .grid-cell-red {
+      background: rgb(248, 210, 203) !important;
+    }
 
   </style>
 </head>
@@ -17,6 +17,8 @@
         <a title="북마크" class="bookmark toggle">
           내 메뉴
         </a>
+        <label for="Factory_id" class="hide">공장</label>
+        <select style="width: 110px;" id="Factory_id" name="Factory_id"></select>
       </div>
       <ul class="page-navi">
         <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
@@ -134,128 +136,145 @@
 
 <th:block layout:fragment="scripts">
 
+  <script th:inline="javascript">
+    /* 로그인 사용자의 소속 공장. 없으면 null → «전체» 가 기본값이 된다 */
+    const factory_id = [[${session.factory_id}]];
+  </script>
   <script type="text/javascript">
-   class BalJuOptimal_stockPage {
-    constructor() {
-     this.gird = null;
-     this.init();
-     this.spjangcd = sessionStorage.getItem('spjangcd');
-     this.url = '/api/balju/optimal_stock';
-    }
-
-    init() {
-     let _this = this;
-     this.grid = new wijmo.grid.FlexGrid('#material-stock-grid', {
-      autoGenerateColumns: false,
-      frozenColumns: 0, // 열 고정
-      headersVisibility: wijmo.grid.HeadersVisibility.Column,
-      selectionMode: wijmo.grid.SelectionMode.None, // 다중 선택 불가
-      allowSorting: true, // 정렬 가능l
-      formatItem: (sender, e) => {
-       if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-        e.cell.style.textAlign = 'center';
-       }
-      },
-      columns: [
-       {binding: 'material_code', header: '자재코드', width: 100, align: 'center', visible: false},
-       {binding: 'material_name', header: '자재명', width: 300, align: 'left', isReadOnly: true},
-       {binding: 'unit_name', header: '단위', width: 100, align: 'center', isReadOnly: true},
-       // {binding: 'standard', header: '규격', width: 100, align: 'center', isReadOnly: true},
-       {binding: 'order_qty', header: '수주소요량', width: 120, align: 'right', isReadOnly: true},
-       {binding: 'plan_qty', header: '계획소요량', width: 120, align: 'right', isReadOnly: true},
-       {binding: 'demand_qty', header: '적용소요량', width: 120, align: 'right', isReadOnly: true},
-       //{binding: 'incoming_qty', header: '미입고수량', width: 120, align: 'right', isReadOnly: true},
-       {binding: 'current_stock', header: '현재고', width: 120, align: 'right', isReadOnly: true},
-       {binding: 'optimal_stock', header: '적정재고', width: 120, align: 'right', isReadOnly: true},
-       {binding: 'need_more_qty', header: '필요수량', width: 120, align: 'right', isReadOnly: true},
-       {binding: 'state', header: '상태', width: 120, align: 'center', isReadOnly: true},
-      ],
-      itemsSource: new wijmo.collections.CollectionView([]), // 빈 데이터로 초기화
-      itemFormatter: (panel, row, col, cell) => {
-       if (panel.cellType === wijmo.grid.CellType.Cell) {
-        const item = panel.rows[row].dataItem; // 현재 행 데이터
-        const column = panel.columns[col]; // 현재 열
-        if (!item) return;
-
-        // 부족한 행의 현재고를 붉게 표시
-        // (기존 코드는 cur_stock / safety_stock 을 봤는데 응답에 없는 컬럼이라 동작하지 않았다)
-        if (column.binding === 'current_stock' && item.state === '부족') {
-         cell.classList.add('grid-cell-red');
-        }
-
-        // 필요수량이 있는 행 강조
-        if (column.binding === 'need_more_qty' && Number(item.need_more_qty) > 0) {
-         cell.classList.add('redText');
-        }
-       }
+    class BalJuOptimal_stockPage {
+      constructor() {
+        this.gird = null;
+        this.init();
+        this.spjangcd = sessionStorage.getItem('spjangcd');
+        this.url = '/api/balju/optimal_stock';
       }
-     });
-     new FlexGridContextMenu(this.grid);
-     this.grid.downloadFileName = '수주대비 자재적정 재고현황 내역';
 
-     $('#txtMatName').on('keypress', function (e) {
-      if (e.keyCode === 13) {
-       _this.searchDataBind();
+      init() {
+        let _this = this;
+        this.grid = new wijmo.grid.FlexGrid('#material-stock-grid', {
+          autoGenerateColumns: false,
+          frozenColumns: 0, // 열 고정
+          headersVisibility: wijmo.grid.HeadersVisibility.Column,
+          selectionMode: wijmo.grid.SelectionMode.None, // 다중 선택 불가
+          allowSorting: true, // 정렬 가능l
+          formatItem: (sender, e) => {
+            if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+              e.cell.style.textAlign = 'center';
+            }
+          },
+          columns: [
+            {binding: 'material_code', header: '자재코드', width: 100, align: 'center', visible: false},
+            {binding: 'material_name', header: '자재명', width: 300, align: 'left', isReadOnly: true},
+            {binding: 'unit_name', header: '단위', width: 100, align: 'center', isReadOnly: true},
+            // {binding: 'standard', header: '규격', width: 100, align: 'center', isReadOnly: true},
+            {binding: 'order_qty', header: '수주소요량', width: 120, align: 'right', isReadOnly: true},
+            {binding: 'plan_qty', header: '계획소요량', width: 120, align: 'right', isReadOnly: true},
+            {binding: 'demand_qty', header: '적용소요량', width: 120, align: 'right', isReadOnly: true},
+            //{binding: 'incoming_qty', header: '미입고수량', width: 120, align: 'right', isReadOnly: true},
+            {binding: 'current_stock', header: '현재고', width: 120, align: 'right', isReadOnly: true},
+            {binding: 'optimal_stock', header: '적정재고', width: 120, align: 'right', isReadOnly: true},
+            {binding: 'need_more_qty', header: '필요수량', width: 120, align: 'right', isReadOnly: true},
+            {binding: 'state', header: '상태', width: 120, align: 'center', isReadOnly: true},
+          ],
+          itemsSource: new wijmo.collections.CollectionView([]), // 빈 데이터로 초기화
+          itemFormatter: (panel, row, col, cell) => {
+            if (panel.cellType === wijmo.grid.CellType.Cell) {
+              const item = panel.rows[row].dataItem; // 현재 행 데이터
+              const column = panel.columns[col]; // 현재 열
+              if (!item) return;
+
+              // 부족한 행의 현재고를 붉게 표시
+              // (기존 코드는 cur_stock / safety_stock 을 봤는데 응답에 없는 컬럼이라 동작하지 않았다)
+              if (column.binding === 'current_stock' && item.state === '부족') {
+                cell.classList.add('grid-cell-red');
+              }
+
+              // 필요수량이 있는 행 강조
+              if (column.binding === 'need_more_qty' && Number(item.need_more_qty) > 0) {
+                cell.classList.add('redText');
+              }
+            }
+          }
+        });
+        new FlexGridContextMenu(this.grid);
+        this.grid.downloadFileName = '수주대비 자재적정 재고현황 내역';
+
+        $('#txtMatName').on('keypress', function (e) {
+          if (e.keyCode === 13) {
+            _this.searchDataBind();
+          }
+        });
+
       }
-     });
+
+      searchDataBind() {
+        let _this = this;
+
+        let param = {
+          'mat_name': $('#txtMatName').val(),
+          'Inventory_status': $('#cboState').val(),
+          'srchStartDt': $('#srchStartDt').val(),
+          'srchEndDt': $('#srchEndDt').val(),
+          'basis': $('#cboBasis').val(),
+          'mat_type': $('#cboMaterialType').val(),
+          /* 빈 문자열이어도 반드시 보낸다 — 빈 값 = 전체 */
+          'factory_id': $('#Factory_id').val() || '',
+          'spjangcd': sessionStorage.getItem('spjangcd')
+        };
+
+
+        let result = AjaxUtil.getSyncData(this.url + '/read', param);
+        if (result != null) {
+          _this.grid.itemsSource.sourceCollection = result.data;
+        }
+      }
+
 
     }
 
-    searchDataBind() {
-     let _this = this;
+    let page = null;
 
-     let param = {
-      'mat_name': $('#txtMatName').val(),
-      'Inventory_status': $('#cboState').val(),
-      'srchStartDt': $('#srchStartDt').val(),
-      'srchEndDt': $('#srchEndDt').val(),
-      'basis': $('#cboBasis').val(),
-      'mat_type': $('#cboMaterialType').val(),
-      'spjangcd': sessionStorage.getItem('spjangcd')
-     };
+    $(document).ready(function (e) {
+      page = new BalJuOptimal_stockPage();
 
+      const today = new Date();
+      const yyyy = today.getFullYear();
+      const mmNum = today.getMonth() + 1;                 // 1~12
+      const mm = String(mmNum).padStart(2, '0');
 
-     let result = AjaxUtil.getSyncData(this.url + '/read', param);
-     if (result != null) {
-      _this.grid.itemsSource.sourceCollection = result.data;
-     }
-    }
+      const firstDay = `${yyyy}-${mm}-01`;
+      const lastDayNum = new Date(yyyy, mmNum, 0).getDate();
+      const endOfMonth = `${yyyy}-${mm}-${String(lastDayNum).padStart(2, '0')}`;
 
+      $('#srchStartDt').val(firstDay);
+      $('#srchEndDt').val(endOfMonth);
 
-   }
+      /* 공장 콤보 — 기본값은 계정의 소속 공장. 없으면 '' = 전체.
+         change 핸들러는 채운 «뒤에» 건다. fillSelectOptions 가 selected_value 를
+         넣으면서 .change() 를 직접 발생시키므로 먼저 걸면 조회가 두 번 나간다. */
+      const myFactory = (factory_id == null || factory_id === '' || Number(factory_id) <= 0)
+              ? '' : String(factory_id);
+      AjaxUtil.fillSelectOptions($('#Factory_id'), 'factory', 'all', myFactory);
 
-   let page = null;
+      $('#Factory_id').on('change', function () {
+        page.searchDataBind();
+      });
 
-   $(document).ready(function (e) {
-    page = new BalJuOptimal_stockPage();
+      //AjaxUtil.fillSelectOptions($('#cboState'), 'system_code', 'all', false, 'Inventory_status') ;
 
-    const today = new Date();
-    const yyyy = today.getFullYear();
-    const mmNum = today.getMonth() + 1;                 // 1~12
-    const mm = String(mmNum).padStart(2, '0');
+      // 검색버튼
+      $('#btnSearch').click(function (e) {
+        page.searchDataBind();
+      });
 
-    const firstDay = `${yyyy}-${mm}-01`;
-    const lastDayNum = new Date(yyyy, mmNum, 0).getDate();
-    const endOfMonth = `${yyyy}-${mm}-${String(lastDayNum).padStart(2, '0')}`;
+      // 소요량 기준 · 품목구분 변경 시 즉시 재조회
+      $('#cboBasis, #cboMaterialType').change(function (e) {
+        page.searchDataBind();
+      });
 
-    $('#srchStartDt').val(firstDay);
-    $('#srchEndDt').val(endOfMonth);
+      page.searchDataBind();
 
-    //AjaxUtil.fillSelectOptions($('#cboState'), 'system_code', 'all', false, 'Inventory_status') ;
-
-    // 검색버튼
-    $('#btnSearch').click(function (e) {
-     page.searchDataBind();
     });
-
-    // 소요량 기준 · 품목구분 변경 시 즉시 재조회
-    $('#cboBasis, #cboMaterialType').change(function (e) {
-     page.searchDataBind();
-    });
-
-    page.searchDataBind();
-
-   });
 
 
   </script>

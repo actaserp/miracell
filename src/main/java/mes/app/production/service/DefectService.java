@@ -24,6 +24,19 @@ import mes.domain.services.SqlRunner;
  *  - 차감만 하고 부적합창고로 입고하지 않는다 — 회수하지 않는 것이 곧 폐기 처리
  *    (2공장 수리 §5.5 와 같은 원칙). 격리 보관을 재고로 잡아야 하면 그때 in 을 더한다.
  *
+ * 2026-08 추가 — 원자재불량
+ *  - "DefectSource" 로 work(작업불량) / material(원자재불량) 을 가른다.
+ *  - 원자재불량은 공정·작지·작업자가 없다. "Process_id" 는 NULL.
+ *  - ★ 차감 창고를 계산하지 않고 **사용자가 고른다.**
+ *    사오는 원자재 재고가 자재(3)·클린룸(5)·생산(17) 에 흩어져 있어
+ *    어느 번호로 고정해도 대부분의 품목이 "재고 부족" 으로 막힌다(실측 확인).
+ *    대신 서버가 그 창고에 실재고가 있는지 반드시 재검증한다 — 화면 값을 믿지 않는다.
+ *  - "DiscoveryStage" 로 입고 시 발견인지 불출 후 발견인지 남긴다.
+ *    화면 문구로만 두면 나중에 공급사 클레임 집계를 못 뽑는다.
+ *
+ *  ★ FIFO 차감 · mat_lot_cons · mat_inout · 삭제 롤백은 **바뀌지 않는다.**
+ *    달라지는 것은 srcStore 를 어떻게 정하느냐 하나뿐이다.
+ *
  * ★ 재고 3종 세트를 여기서만 만든다 (MCELL 기준문서 §6 함정)
  *    mat_lot_cons : 차감의 진실. 트리거가 mat_lot."CurrentStock" 를 재계산한다
  *    mat_inout    : 이력. out 은 반드시 "OutputQty" (InputQty 에 넣으면 가산된다)
@@ -38,6 +51,11 @@ public class DefectService {
 
 	private static final int STORE_DEFECT = 2;   // 부적합창고 (현재는 미사용, 격리입고 확장용)
 	private static final int STORE_PROD   = 17;  // 생산창고
+	private static final int STORE_MAT    = 3;   // 자재창고 (입고 직후 자리)
+
+	/** 부적합 구분 */
+	public static final String SRC_WORK     = "work";       // 작업불량 — 공정에서 발생
+	public static final String SRC_MATERIAL = "material";   // 원자재불량 — 입고 자재
 
 	/**
 	 * 화면에 뿌릴 공정 순서.
@@ -105,17 +123,116 @@ public class DefectService {
                   JOIN process p      ON p.id = pdt."Process_id"
                  WHERE COALESCE(p."Factory_id", 1) = :fid
                    AND COALESCE(dt._status, 'a') = 'a'
+                   -- ★ 원자재 전용 유형이 공정 목록에 섞이지 않게 한다
+                   AND COALESCE(dt."Coverage", 'all') IN ('work', 'all')
                  ORDER BY pdt."Process_id"
                         , CASE WHEN dt."Name" = '기타' THEN 1 ELSE 0 END   -- 기타는 항상 맨 뒤
                         , dt.id
                 """;
 		List<Map<String, Object>> types = this.sqlRunner.getRows(typeSql, p);
 
+		// ★ 원자재불량 유형은 proc_defect_type 을 타지 않는다.
+		//   공정이 없으니 매핑할 자리가 없다. Coverage 로만 거른다.
+		String matTypeSql = """
+                SELECT dt.id     AS defect_type_id
+                     , dt."Name" AS defect_type_name
+                  FROM defect_type dt
+                 WHERE COALESCE(dt._status, 'a') = 'a'
+                   AND COALESCE(dt."Coverage", 'all') IN ('material', 'all')
+                 ORDER BY CASE WHEN dt."Name" = '기타' THEN 1 ELSE 0 END, dt.id
+                """;
+		List<Map<String, Object>> matTypes = this.sqlRunner.getRows(matTypeSql, p);
+
 		Map<String, Object> ctx = new HashMap<>();
 		ctx.put("factory_id", factoryId);
 		ctx.put("processes", procs);
 		ctx.put("defect_types", types);
+		ctx.put("mat_defect_types", matTypes == null ? new ArrayList<>() : matTypes);
 		return ctx;
+	}
+
+	/**
+	 * 원자재불량 자재 후보.
+	 *
+	 * 공정이 없으므로 라우팅·플래그로 좁힐 수 없다. 그 공장 자재 중
+	 * **어느 창고든 실재고가 있는 것**을 위로 올려 전부 내린다.
+	 *
+	 * ★ 창고를 여기서 확정하지 않는다. 한 자재가 여러 창고에 있을 수 있고,
+	 *   어느 창고에서 뺄지는 사용자가 고른다(getStoreList).
+	 *   그래서 stock_qty 는 **전 창고 합계**다.
+	 *
+	 * ★ InspectYN='Y' 제외는 작업불량과 같다 — 유닛 불량은 insp_result 가 진실이다.
+	 */
+	public List<Map<String, Object>> getMaterialListForSource(int factoryId, String keyword) {
+		MapSqlParameterSource p = new MapSqlParameterSource();
+		p.addValue("fid", factoryId);
+		p.addValue("kw", keyword == null || keyword.isBlank() ? null : "%" + keyword.trim() + "%");
+
+		List<Map<String, Object>> rows = this.sqlRunner.getRows("""
+                SELECT m.id                        AS mat_id
+                     , m."Code"                    AS mat_code
+                     , m."Name"                    AS mat_name
+                     , u."Name"                    AS unit
+                     , COALESCE(st.qty, 0)         AS stock_qty
+                     , COALESCE(st.store_cnt, 0)   AS store_cnt
+                     , st.store_names              AS store_names
+                  FROM material m
+                  LEFT JOIN unit u ON u.id = m."Unit_id"
+                  LEFT JOIN LATERAL (
+                        SELECT SUM(ml."CurrentStock")              AS qty
+                             , COUNT(DISTINCT ml."StoreHouse_id")  AS store_cnt
+                             , string_agg(DISTINCT sh."Name", ', ') AS store_names
+                          FROM mat_lot ml
+                          JOIN store_house sh ON sh.id = ml."StoreHouse_id"
+                         WHERE ml."Material_id"  = m.id
+                           AND ml."CurrentStock" > 0
+                           AND COALESCE(ml._status, 'a') = 'a'
+                  ) st ON true
+                 WHERE COALESCE(m._status, 'a') = 'a'
+                   AND COALESCE(m."InspectYN", 'N') <> 'Y'
+                   AND COALESCE(m."Factory_id", 1) = :fid
+                   AND (CAST(:kw AS varchar) IS NULL
+                        OR m."Name" LIKE CAST(:kw AS varchar)
+                        OR m."Code" LIKE CAST(:kw AS varchar))
+                 ORDER BY COALESCE(st.qty, 0) > 0 DESC, m."Code"
+                """, p);
+		return rows == null ? new ArrayList<>() : rows;
+	}
+
+	/**
+	 * 그 자재의 재고가 있는 창고 목록.
+	 *
+	 * 원자재불량에서 「어느 창고에서 뺄까」를 사용자가 고르게 하기 위한 것.
+	 * 화면은 창고명 + 재고 + 안내문구를 버튼에 붙이고, 1건이면 자동 선택한다.
+	 *
+	 * ★ hint 를 서버가 내리는 이유 —
+	 *   등록하는 사람이 「입고 후 아직 안 쓴 것」인지 「불출해서 쓰다 발견한 것」인지
+	 *   창고 이름만 보고는 모른다. 자재창고면 입고 직후, 그 외면 불출 후다.
+	 *   stage 는 그 판단을 DiscoveryStage 기본값으로 화면에 제안하는 용도이고,
+	 *   최종 값은 사람이 바꿀 수 있다 — 창고 위치가 발견 시점을 100% 결정하지는 않는다.
+	 */
+	public List<Map<String, Object>> getStoreList(int matId) {
+		MapSqlParameterSource p = new MapSqlParameterSource()
+				.addValue("matId", matId).addValue("matStore", STORE_MAT);
+		List<Map<String, Object>> rows = this.sqlRunner.getRows("""
+                SELECT ml."StoreHouse_id"                     AS store_id
+                     , sh."Name"                              AS store_name
+                     , SUM(ml."CurrentStock")                 AS stock_qty
+                     , COUNT(*)                               AS lot_cnt
+                     , CASE WHEN ml."StoreHouse_id" = :matStore
+                            THEN 'incoming' ELSE 'issued' END AS stage
+                     , CASE WHEN ml."StoreHouse_id" = :matStore
+                            THEN '입고 후 미불출 — 수입 시점 부적합'
+                            ELSE '불출 후 — 사용 중 확인된 부적합' END AS hint
+                  FROM mat_lot ml
+                  JOIN store_house sh ON sh.id = ml."StoreHouse_id"
+                 WHERE ml."Material_id"  = :matId
+                   AND ml."CurrentStock" > 0
+                   AND COALESCE(ml._status, 'a') = 'a'
+                 GROUP BY ml."StoreHouse_id", sh."Name"
+                 ORDER BY ml."StoreHouse_id" = :matStore DESC, SUM(ml."CurrentStock") DESC
+                """, p);
+		return rows == null ? new ArrayList<>() : rows;
 	}
 
 	/**
@@ -277,12 +394,14 @@ public class DefectService {
 
 	/** 목록 (KPI 는 화면에서 이 결과로 집계) */
 	public List<Map<String, Object>> getList(int factoryId, String dateFrom, String dateTo,
-											 Integer processId, String spjangcd) {
+											 Integer processId, String defectSource,
+											 String spjangcd) {
 		MapSqlParameterSource p = new MapSqlParameterSource();
 		p.addValue("fid", factoryId);
 		p.addValue("df", dateFrom);
 		p.addValue("dt", dateTo);
 		p.addValue("procId", processId);
+		p.addValue("src", (defectSource == null || defectSource.isBlank()) ? null : defectSource);
 		p.addValue("spjangcd", spjangcd);
 
 		String sql = """
@@ -290,6 +409,8 @@ public class DefectService {
                      , to_char(d."DefectDate", 'yyyy-mm-dd')          AS defect_date
                      , d."Process_id"                                  AS process_id
                      , p."Name"                                        AS process_name
+                     , COALESCE(d."DefectSource", 'work')              AS defect_source
+                     , d."DiscoveryStage"                              AS discovery_stage
                      , d."Material_id"                                 AS mat_id
                      , m."Code"                                        AS mat_code
                      , m."Name"                                        AS mat_name
@@ -330,7 +451,11 @@ public class DefectService {
                    -- ★ CAST 필수: `? IS NULL` 만 있는 파라미터는 PostgreSQL 이 타입을
                    --   추론하지 못해 "매개 변수의 자료형을 알 수가 없습니다" 로 터진다.
                    --   NamedParameterJdbcTemplate 이 같은 이름도 각각 별개 ? 로 펼치기 때문.
+                   -- 공정 필터를 걸면 원자재불량(Process_id IS NULL)은 자연히 빠진다.
+                   -- 그게 맞다 — 공정을 고른 사람은 그 공정 건만 보려는 것이다.
                    AND (CAST(:procId AS integer) IS NULL OR d."Process_id" = CAST(:procId AS integer))
+                   AND (CAST(:src AS varchar) IS NULL
+                        OR COALESCE(d."DefectSource",'work') = CAST(:src AS varchar))
                    AND (CAST(:spjangcd AS varchar) IS NULL OR d.spjangcd = CAST(:spjangcd AS varchar))
                  ORDER BY d."DefectDate" DESC, d.id DESC
                 """;
@@ -361,6 +486,8 @@ public class DefectService {
                      , jr."WorkOrderNumber"                           AS order_num
                      , to_char(d._created, 'yyyy-mm-dd hh24:mi')      AS created_at
                      , d."Process_id"                                  AS process_id
+                     , COALESCE(d."DefectSource", 'work')              AS defect_source
+                     , d."DiscoveryStage"                              AS discovery_stage
                      , d."DefectType_id"                               AS defect_type_id
                      , d."DefectTypeEtc"                               AS defect_type_etc
                      , d."Actor_id"                                    AS actor_id
@@ -411,19 +538,46 @@ public class DefectService {
 	/**
 	 * 부적합 등록 + 로트 FIFO 차감.
 	 *
+	 * ★ 작업불량과 원자재불량이 갈리는 곳은 **srcStore 를 정하는 한 줄뿐이다.**
+	 *   그 아래 FIFO 차감·재고 3종 세트는 완전히 같다. 경로를 둘로 만들지 않는다 —
+	 *   둘로 나뉘면 한쪽만 고쳐서 재고가 어긋나는 사고가 난다.
+	 *
+	 * @param defectSource   work | material
+	 * @param processId      원자재불량이면 null
+	 * @param srcStoreId     원자재불량이면 사용자가 고른 창고. 작업불량이면 무시(계산한다)
+	 * @param discoveryStage 원자재불량만. incoming | issued
 	 * @return 생성된 defect_regist.id
 	 */
 	@Transactional
-	public int regist(int factoryId, String defectDate, int processId, int matId,
+	public int regist(int factoryId, String defectSource, String defectDate,
+					  Integer processId, int matId,
 					  Integer defectTypeId, String defectTypeEtc, double qty,
+					  Integer srcStoreId, String discoveryStage,
 					  Integer jobResId, Integer actorId, String description,
 					  User user, String spjangcd) {
+
+		boolean isMaterial = SRC_MATERIAL.equals(defectSource);
 
 		if (qty <= 0) throw new IllegalArgumentException("불량 수량을 확인해주세요.");
 		if (defectTypeId == null && (defectTypeEtc == null || defectTypeEtc.isBlank()))
 			throw new IllegalArgumentException("불량 유형을 선택하거나 직접 입력해주세요.");
 
-		int srcStore = resolveSourceStore(matId, processId);
+		// 창고 판정 — 여기가 두 구분의 유일한 분기점이다.
+		int srcStore;
+		if (isMaterial) {
+			// ★ 계산하지 않는다. 사오는 원자재 재고가 자재(3)·클린룸(5)·생산(17) 에
+			//   흩어져 있어 어느 규칙으로도 한 창고로 좁혀지지 않는다.
+			//   대신 **화면 값을 믿지 않고** 실재고를 여기서 재검증한다.
+			if (srcStoreId == null || srcStoreId == 0)
+				throw new IllegalArgumentException("차감할 창고를 선택해주세요.");
+			assertStoreHasStock(matId, srcStoreId);
+			srcStore = srcStoreId;
+			processId = null;   // 원자재불량은 공정을 갖지 않는다
+		} else {
+			if (processId == null || processId == 0)
+				throw new IllegalArgumentException("공정을 선택해주세요.");
+			srcStore = resolveSourceStore(matId, processId);
+		}
 
 		// 1) 재고 확인 — 담는 시점에 막는다. 실적 껍데기를 만든 뒤 터지면 원인을 늦게 안다
 		List<Map<String, Object>> lots = findFifoLots(matId, srcStore);
@@ -444,9 +598,13 @@ public class DefectService {
 		h.addValue("dtEtc", defectTypeEtc);
 		h.addValue("qty", qty);
 		h.addValue("srcStore", srcStore);
-		h.addValue("woId", jobResId);
-		h.addValue("actorId", actorId);
+		// 원자재불량은 작지·작업자를 받지 않는다. 화면이 보내더라도 여기서 잘라낸다 —
+		// 공정 없는 건에 작지가 붙으면 목록·집계에서 계보가 꼬인다.
+		h.addValue("woId",   isMaterial ? null : jobResId);
+		h.addValue("actorId", isMaterial ? null : actorId);
 		h.addValue("desc", description);
+		h.addValue("src", isMaterial ? SRC_MATERIAL : SRC_WORK);
+		h.addValue("stage", isMaterial ? normalizeStage(discoveryStage) : null);
 		h.addValue("uid", user == null ? null : user.getId());
 		h.addValue("spjangcd", spjangcd);
 
@@ -454,12 +612,12 @@ public class DefectService {
                 INSERT INTO defect_regist
                     ("Factory_id","DefectDate","Process_id","Material_id","DefectType_id",
                      "DefectTypeEtc","DefectQty","SourceStoreHouse_id","JobResponse_id",
-                     "Actor_id","Description",
+                     "Actor_id","Description","DefectSource","DiscoveryStage",
                      "State",_status,_created,_creater_id,spjangcd)
                 VALUES
                     (:fid, CAST(:ddate AS date), :procId, :matId, :dtId,
                      :dtEtc, :qty, :srcStore, :woId,
-                     :actorId, :desc,
+                     :actorId, :desc, :src, :stage,
                      'confirmed','a',now(),:uid,:spjangcd)
                 RETURNING id
                 """, h);
@@ -516,12 +674,13 @@ public class DefectService {
 	@Transactional
 	public void update(int defectId, Integer defectTypeId, String defectTypeEtc,
 					   String defectDate, Integer jobResId, Integer actorId,
-					   String description, User user) {
+					   String description, String discoveryStage, User user) {
 		if (defectTypeId == null && (defectTypeEtc == null || defectTypeEtc.isBlank()))
 			throw new IllegalArgumentException("불량 유형을 선택하거나 직접 입력해주세요.");
 
 		MapSqlParameterSource p = new MapSqlParameterSource();
 		p.addValue("id", defectId);
+		p.addValue("stage", normalizeStage(discoveryStage));
 		p.addValue("dtId", defectTypeId);
 		p.addValue("dtEtc", defectTypeEtc);
 		p.addValue("ddate", defectDate);
@@ -535,9 +694,13 @@ public class DefectService {
                    SET "DefectType_id"  = :dtId
                      , "DefectTypeEtc"  = :dtEtc
                      , "DefectDate"     = CAST(:ddate AS date)
+                     -- 원자재불량은 작지·작업자가 없다. 그 건에는 NULL 이 그대로 들어간다
                      , "JobResponse_id" = :woId
                      , "Actor_id"       = :actorId
                      , "Description"    = :desc
+                     -- 발견 시점은 원자재불량에서만 의미가 있다.
+                     -- 작업불량 건이면 화면이 null 을 보내고 기존 null 이 유지된다.
+                     , "DiscoveryStage" = COALESCE(CAST(:stage AS varchar), "DiscoveryStage")
                      , _modified        = now()
                      , _modifier_id     = :uid
                  WHERE id = :id
@@ -647,6 +810,42 @@ public class DefectService {
 		if (r == null || r.get("store_id") == null)
 			throw new IllegalArgumentException("품목의 소스창고를 판정할 수 없습니다.");
 		return ((Number) r.get("store_id")).intValue();
+	}
+
+	/**
+	 * 고른 창고에 실재고가 있는지 확인.
+	 *
+	 * ★ 화면이 보낸 창고를 그대로 믿지 않는다.
+	 *   자재를 고른 뒤 창고를 고르고 저장하기까지 사이에 재고가 빠질 수 있고,
+	 *   무엇보다 위조된 요청이 엉뚱한 창고를 차감하는 것을 막아야 한다.
+	 *   여기서 막지 않으면 findFifoLots 가 빈 목록을 돌려주고
+	 *   "재고가 부족합니다 (창고 재고 0 / 요청 n)" 이라는 헷갈리는 메시지가 나간다.
+	 */
+	private void assertStoreHasStock(int matId, int storeId) {
+		MapSqlParameterSource p = new MapSqlParameterSource()
+				.addValue("matId", matId).addValue("storeId", storeId);
+		Map<String, Object> r = this.sqlRunner.getRow("""
+                SELECT COALESCE(SUM(ml."CurrentStock"), 0) AS qty
+                     , (SELECT sh."Name" FROM store_house sh WHERE sh.id = :storeId) AS store_name
+                  FROM mat_lot ml
+                 WHERE ml."Material_id"   = :matId
+                   AND ml."StoreHouse_id" = :storeId
+                   AND ml."CurrentStock"  > 0
+                   AND COALESCE(ml._status, 'a') = 'a'
+                """, p);
+		if (r == null || toD(r.get("qty")) <= 0) {
+			String nm = (r == null || r.get("store_name") == null)
+					? "선택한 창고" : String.valueOf(r.get("store_name"));
+			throw new IllegalArgumentException(
+					"%s 에 이 자재의 재고가 없습니다. 창고를 다시 선택해주세요.".formatted(nm));
+		}
+	}
+
+	/** 발견 시점 값 정규화. 모르는 값이 들어오면 CHECK 제약에 걸리므로 여기서 버린다 */
+	private static String normalizeStage(String stage) {
+		if (stage == null || stage.isBlank()) return null;
+		String v = stage.trim();
+		return ("incoming".equals(v) || "issued".equals(v)) ? v : null;
 	}
 
 	/** 선입선출 로트. 생산 투입과 같은 정렬(InputDateTime) */

@@ -18,17 +18,21 @@ public class LotStockTakeService {
 	@Autowired
 	SqlRunner sqlRunner;
 
-	public List<Map<String, Object>> getMaterialStockList(String mat_type, Integer mat_grp, Integer company_id, String keyword, String spjangcd)
+	/**
+	 * @param factory_id 공장 필터. null 이면 전체 공장.
+	 */
+	public List<Map<String, Object>> getMaterialStockList(String mat_type, Integer mat_grp, Integer company_id, String keyword, Integer factory_id, String spjangcd)
 	{
-		
-		MapSqlParameterSource paramMap = new MapSqlParameterSource();  
+
+		MapSqlParameterSource paramMap = new MapSqlParameterSource();
 		paramMap.addValue("mat_type", mat_type);
 		paramMap.addValue("mat_grp", mat_grp);
 		paramMap.addValue("keyword", keyword);
 		paramMap.addValue("company_id", company_id);
+		paramMap.addValue("factory_id", factory_id);
 		paramMap.addValue("spjangcd", spjangcd);
-		
-		
+
+
 		String sql ="""
         with a as (
         select 
@@ -38,13 +42,13 @@ public class LotStockTakeService {
         inner join mat_grp mg on mg.id = m."MaterialGroup_id" 
         where 1=1
 		""";
-		
+
 		if(StringUtils.hasText(mat_type)) {
 			sql += """
 			and mg."MaterialType" = :mat_type
 			""";
 		}
-		
+
 		if(mat_grp!=null) {
 			sql += """
 			and m."MaterialGroup_id" = :mat_grp
@@ -90,13 +94,13 @@ public class LotStockTakeService {
 			and mg."MaterialType" = :mat_type
 			""";
 		}
-		
+
 		if(mat_grp!=null) {
 			sql += """
 			and m."MaterialGroup_id" = :mat_grp
 		    """;
 		}
-		
+
 		if(StringUtils.hasText(keyword)) {
 			sql+="""
 			and ( upper(m."Name") like concat('%%', upper(:keyword),'%%') 
@@ -105,19 +109,25 @@ public class LotStockTakeService {
 				 )
 			""";
 		}
-		
+
 		if(company_id!=null) {
 			sql+="""
 			and c.id = :company_id
 			""";
 		}
-		
+
+		if(factory_id!=null) {
+			sql+="""
+			and m."Factory_id" = :factory_id
+			""";
+		}
+
 		return this.sqlRunner.getRows(sql, paramMap);
 	}
-	
-	
+
+
 	public List<Map<String, Object>> getMaterialLotList(Integer materialId, Integer storehouseId){
-		MapSqlParameterSource paramMap = new MapSqlParameterSource();  
+		MapSqlParameterSource paramMap = new MapSqlParameterSource();
 		paramMap.addValue("material_id", materialId);
 		paramMap.addValue("storehouse_id", storehouseId);
 
@@ -139,7 +149,7 @@ public class LotStockTakeService {
 		where 1=1
         and ml."Material_id" = :material_id
         """;
-		
+
 		if(storehouseId!=null) {
 			sql+="""
 			and ml."StoreHouse_id" = :storehouse_id 
@@ -147,7 +157,7 @@ public class LotStockTakeService {
 		}
 		sql+="""
 		""";
-		
+
 		sql+="""
 		), B as (
 		SELECT A.ml_id, A.storehouse_id 
@@ -173,15 +183,15 @@ public class LotStockTakeService {
 
 		return this.sqlRunner.getRows(sql, paramMap);
 	}
-	
-	
+
+
 	public List<Map<String, Object>> searchLotList(Integer material_id, Integer storehouse_id, String lot_number){
-		
-		MapSqlParameterSource paramMap = new MapSqlParameterSource();  
+
+		MapSqlParameterSource paramMap = new MapSqlParameterSource();
 		paramMap.addValue("material_id", material_id);
 		paramMap.addValue("storehouse_id", storehouse_id);
 		paramMap.addValue("lot_number", lot_number);
-		
+
 		String sql = """
         with A as (
         select 
@@ -195,19 +205,19 @@ public class LotStockTakeService {
         where 1=1
         and ml."LotNumber" = :lot_number
 		""";
-		
+
 		if (material_id!=null) {
 			sql+="""
 			and ml."Material_id" = :material_id
 			""";
 		}
-		
+
 		if(storehouse_id!=null) {
 			sql+="""
 			and ml."StoreHouse_id" = :storehouse_id
 			""";
 		}
-		
+
 		sql+="""
 		), B as (
         select 
@@ -232,12 +242,16 @@ public class LotStockTakeService {
 		""";
 		return this.sqlRunner.getRows(sql, paramMap);
 	}
-	
-	
-	public List<Map<String, Object>> getLotAdjustConfirmList(Integer storehouse_id, String keyword, String spjangcd){
+
+
+	/**
+	 * @param factory_id 공장 필터. null 이면 전체 공장.
+	 */
+	public List<Map<String, Object>> getLotAdjustConfirmList(Integer storehouse_id, String keyword, Integer factory_id, String spjangcd){
 		MapSqlParameterSource paramMap = new MapSqlParameterSource();
 		paramMap.addValue("storehouse_id", storehouse_id);
 		paramMap.addValue("keyword", keyword);
+		paramMap.addValue("factory_id", factory_id);
 		paramMap.addValue("spjangcd", spjangcd);
 
 		String sql = """
@@ -275,7 +289,13 @@ public class LotStockTakeService {
 			and slt."StoreHouse_id" = :storehouse_id
 			""";
 		}
-		
+
+		if(factory_id != null) {
+			sql+="""
+			and m."Factory_id" = :factory_id
+			""";
+		}
+
 		if(StringUtils.hasText(keyword)) {
 			sql+=""" 
             and ( upper(m."Name") like concat('%%',upper(:keyword),'%%') 
@@ -286,21 +306,25 @@ public class LotStockTakeService {
 		}
 		return this.sqlRunner.getRows(sql, paramMap);
 	}
-	
-	
-	public List<Map<String, Object>> getSotckLotTakeHistoryList(String strDateFrom, String strDateTo, Integer storehouse_id, String mat_type, Integer mat_grp_pk, String keyword, String spjangcd){
+
+
+	/**
+	 * @param factory_id 공장 필터. null 이면 전체 공장.
+	 */
+	public List<Map<String, Object>> getSotckLotTakeHistoryList(String strDateFrom, String strDateTo, Integer storehouse_id, String mat_type, Integer mat_grp_pk, String keyword, Integer factory_id, String spjangcd){
 
 		MapSqlParameterSource paramMap = new MapSqlParameterSource();
 		Date date_from = CommonUtil.trySqlDate(strDateFrom);
 		Date date_to = CommonUtil.trySqlDate(strDateTo);
 		paramMap.addValue("date_from", date_from);
-		paramMap.addValue("date_to", date_to);		
+		paramMap.addValue("date_to", date_to);
 		paramMap.addValue("storehouse_id", storehouse_id);
 		paramMap.addValue("mat_type", mat_type);
 		paramMap.addValue("mat_grp_pk", mat_grp_pk);
 		paramMap.addValue("keyword", keyword);
+		paramMap.addValue("factory_id", factory_id);
 		paramMap.addValue("spjangcd", spjangcd);
-		
+
 		String sql = """
         select slt.id  
         , sh."Name" as house_name
@@ -332,31 +356,37 @@ public class LotStockTakeService {
         where slt."TakeDate" between :date_from and :date_to
         and slt.spjangcd = :spjangcd
 		""";
-		
+
 		if (storehouse_id!=null) {
 			sql+="""
 			and slt."StoreHouse_id" = :storehouse_id	
 			""";
 		}
-		
+
+		if (factory_id!=null) {
+			sql+="""
+			and m."Factory_id" = :factory_id
+			""";
+		}
+
 		if(StringUtils.hasText(mat_type)) {
 			sql+="""
 			and mg."MaterialType" = :mat_type
 			""";
 		}
-		
+
 		if(mat_grp_pk!=null) {
 			sql+="""
 			and m."MaterialGroup_id" = :mat_group_pk
 			""";
 		}
-		
+
 		if(StringUtils.hasText(keyword)) {
 			sql+="""
 			and ( upper(m."Name") like concat('%%',upper(:keyword),'%%') or upper(m."Code") = upper(:keyword) )
 			""";
 		}
-		
+
 		sql+="""
 		order by sh."Name", slt."TakeDate", slt."TakeTime", m."Name"
 		""";

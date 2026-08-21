@@ -36,6 +36,23 @@
 
                     <dl>
                         <dt>
+                            <label for="cboFactory">
+                                공장
+                            </label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <select id="cboFactory" name="cboFactory">
+                                    <option value="">전체</option>
+                                    <option value="1">1공장 (키트)</option>
+                                    <option value="2">2공장 (M-CELL)</option>
+                                </select>
+                            </div>
+                        </dd>
+                    </dl>
+
+                    <dl>
+                        <dt>
                             <label for="cboProcess">
                                 공정
                             </label>
@@ -76,6 +93,10 @@
 
 <th:block layout:fragment="scripts">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script th:inline="javascript">
+        /* 로그인 사용자의 소속 공장. 없으면 null → «전체» 가 기본값이 된다 */
+        const factory_id = [[${session.factory_id}]];
+    </script>
     <script type="text/javascript">
         class ProdResultPage {
             constructor() {
@@ -139,7 +160,18 @@
                 /* ★ 워크센터가 아니라 공정으로 거른다.
                    defect_regist 는 Process_id 를 갖고 WorkCenter_id 가 없다.
                    세척·멸균·M-CELL 검사는 work_center 를 거치지도 않는다. */
-                const cb = AjaxUtil.getSyncData(this.baseUrl + '/process_combo', {});
+                /* 기본 선택 = 계정의 소속 공장. 없으면 «전체»('') */
+                const my = (factory_id == null || factory_id === '' || Number(factory_id) <= 0)
+                    ? '' : String(factory_id);
+                if (!my || $('#cboFactory option[value="' + my + '"]').length) $('#cboFactory').val(my);
+
+                this.fillProcess();
+            }
+
+            /** 공정 콤보 — 고른 공장의 공정만 담는다 */
+            fillProcess() {
+                const cb = AjaxUtil.getSyncData(this.baseUrl + '/process_combo',
+                    {factory_id: $('#cboFactory').val() || ''});
                 const $proc = $('#cboProcess').empty().append('<option value="">전체</option>');
                 ((cb && cb.data) ? cb.data : []).forEach(function (x) {
                     $proc.append('<option value="' + x.code + '">' + x.name + '</option>');
@@ -338,6 +370,8 @@
                 const param = {
                     date_from: firstDay,
                     date_to: lastDay,
+                    /* 빈 문자열이어도 반드시 보낸다 — 빈 값 = 전체 */
+                    factory_id: $('#cboFactory').val() || '',
                     proc_code: $('#cboProcess').val()
                 };
 
@@ -476,6 +510,12 @@
                 monthPicker.value = new Date().toISOString().slice(0, 7); // YYYY-MM
             }
             $('#btnMainSearch').on('click', function () {
+                page.searchMainData();
+            });
+
+            /* 공장을 바꾸면 공정 콤보를 다시 담고 재조회한다 */
+            $('#cboFactory').on('change', function () {
+                page.fillProcess();
                 page.searchMainData();
             });
 

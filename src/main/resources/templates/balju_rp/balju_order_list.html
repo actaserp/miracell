@@ -8,6 +8,8 @@
         <a title="북마크" class="bookmark toggle">
           내 메뉴
         </a>
+        <label for="Factory_id" class="hide">공장</label>
+        <select style="width: 110px;" id="Factory_id" name="Factory_id"></select>
       </div>
       <ul class="page-navi">
         <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
@@ -22,7 +24,7 @@
           <dl>
             <dt>
               <label>
-               연도
+                연도
               </label>
             </dt>
             <dd>
@@ -96,8 +98,12 @@
 <th:block layout:fragment="scripts">
   <!--<th:block th:replace="/common/columns_setting :: columns_setting"></th:block>-->
   <th:block th:replace="/common/multiform_material :: multiform_material"></th:block>
-<!--  <th:block th:replace="/common/popup_company :: popup_company"></th:block>-->
+  <!--  <th:block th:replace="/common/popup_company :: popup_company"></th:block>-->
   <th:block th:replace="/common/popup_company_purchase :: popup_company_Purchase"></th:block>
+  <script th:inline="javascript">
+    /* 로그인 사용자의 소속 공장. 없으면 null → «전체» 가 기본값이 된다 */
+    const factory_id = [[${session.factory_id}]];
+  </script>
   <script type="text/javascript">
     class BaljuOrderListPage {
       constructor() {
@@ -134,51 +140,51 @@
             { binding: 'year_money_sum', header: '연발주액', width: 100, align: 'right', format: 'n0', },
             {binding: 'company_name', header: '업체', width: 200, align: 'left', allowSorting: false },
             {
-             binding: 'mon_1', header: '1월', width: 95, align: 'right', allowSorting: false,
+              binding: 'mon_1', header: '1월', width: 95, align: 'right', allowSorting: false,
               format: 'n0',
             },
             {
-             binding: 'mon_2', header: '2월', width: 95, align: 'right', allowSorting: false,
+              binding: 'mon_2', header: '2월', width: 95, align: 'right', allowSorting: false,
               format: 'n0',
             },
             {
-             binding: 'mon_3', header: '3월', width: 95, align: 'right', allowSorting: false,
+              binding: 'mon_3', header: '3월', width: 95, align: 'right', allowSorting: false,
               format: 'n0',
             },
             {
-             binding: 'mon_4', header: '4월', width: 95, align: 'right', allowSorting: false,
+              binding: 'mon_4', header: '4월', width: 95, align: 'right', allowSorting: false,
               format: 'n0',
             },
             {
-             binding: 'mon_5', header: '5월', width: 95, align: 'right', allowSorting: false,
+              binding: 'mon_5', header: '5월', width: 95, align: 'right', allowSorting: false,
               format: 'n0',
             },
             {
-             binding: 'mon_6', header: '6월', width: 95, align: 'right', allowSorting: false,
+              binding: 'mon_6', header: '6월', width: 95, align: 'right', allowSorting: false,
               format: 'n0',
             },
             {
-             binding: 'mon_7', header: '7월', width: 95, align: 'right', allowSorting: false,
+              binding: 'mon_7', header: '7월', width: 95, align: 'right', allowSorting: false,
               format: 'n0',
             },
             {
-             binding: 'mon_8', header: '8월', width: 95, align: 'right', allowSorting: false,
+              binding: 'mon_8', header: '8월', width: 95, align: 'right', allowSorting: false,
               format: 'n0',
             },
             {
-             binding: 'mon_9', header: '9월', width: 95, align: 'right', allowSorting: false,
+              binding: 'mon_9', header: '9월', width: 95, align: 'right', allowSorting: false,
               format: 'n0',
             },
             {
-             binding: 'mon_10', header: '10월', width: 95, align: 'right', allowSorting: false,
+              binding: 'mon_10', header: '10월', width: 95, align: 'right', allowSorting: false,
               format: 'n0',
             },
             {
-             binding: 'mon_11', header: '11월', width: 95, align: 'right', allowSorting: false,
+              binding: 'mon_11', header: '11월', width: 95, align: 'right', allowSorting: false,
               format: 'n0',
             },
             {
-             binding: 'mon_12', header: '12월', width: 95, align: 'right', allowSorting: false,
+              binding: 'mon_12', header: '12월', width: 95, align: 'right', allowSorting: false,
               format: 'n0',
             },
           ],
@@ -202,9 +208,9 @@
 
             //'전체' 업체명인 셀만 스타일 적용
             if (
-              colName === 'company_name' &&
-              typeof item?.[colName] === 'string' &&
-              item[colName].trim() === '전체'
+                    colName === 'company_name' &&
+                    typeof item?.[colName] === 'string' &&
+                    item[colName].trim() === '전체'
             ) {
               cell.style.backgroundColor = '#f0f9ff';
               cell.style.color = '#007acc';
@@ -233,6 +239,8 @@
           'cboCompany': $("#cboCompanyHidden").val(),
           'cboMatGrp': $("#cboMatGrp").val(),
           'cboDataDiv': $("#cboDataDiv").val(),
+          /* 빈 문자열이어도 반드시 보낸다 — 빈 값 = 전체 */
+          'factory_id': $('#Factory_id').val() || '',
           spjangcd: this.spjangcd.val()  //사업장 코드
         }
         let fnsuccess = function (result) {
@@ -255,6 +263,17 @@
       AjaxUtil.fillSelectOptions($('#cboCompany'), 'company', 'all', '', 'sale');
       AjaxUtil.fillSelectOptions($('#cboMatGrp'), 'material_group', 'all', '', 'product,semi');
       AjaxUtil.fillSelectOptions($('#cboYear'), 'data_year', '', false);
+
+      /* 공장 콤보 — 기본값은 계정의 소속 공장. 없으면 '' = 전체.
+         change 핸들러는 채운 «뒤에» 건다. fillSelectOptions 가 selected_value 를
+         넣으면서 .change() 를 직접 발생시키므로 먼저 걸면 조회가 두 번 나간다. */
+      const myFactory = (factory_id == null || factory_id === '' || Number(factory_id) <= 0)
+              ? '' : String(factory_id);
+      AjaxUtil.fillSelectOptions($('#Factory_id'), 'factory', 'all', myFactory);
+
+      $('#Factory_id').on('change', function () {
+        page.searchMainData();
+      });
 
       $('#srchStartDt').val(CommonUtil.getYYYYMMDD(-7));
       $('#srchEndDt').val(CommonUtil.getYYYYMMDD());

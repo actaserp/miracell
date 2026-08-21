@@ -73,13 +73,13 @@ public class MaterialInoutController {
 	// 입출고 전체 리스트
 	@GetMapping("/read")
 	public AjaxResult getMaterialInout(
-		@RequestParam(value = "srchStartDt", required=false) String srchStartDt,
-		@RequestParam(value = "srchEndDt", required=false) String srchEndDt,
-		@RequestParam(value = "house_pk", required=false) String housePk,
-		@RequestParam(value = "mat_type", required=false) String matType,
-		@RequestParam(value = "mat_grp_pk", required=false) String matGrpPk,
-		@RequestParam(value = "spjangcd", required=false) String spjangcd,
-		@RequestParam(value = "keyword", required=false) String keyword) {
+			@RequestParam(value = "srchStartDt", required=false) String srchStartDt,
+			@RequestParam(value = "srchEndDt", required=false) String srchEndDt,
+			@RequestParam(value = "house_pk", required=false) String housePk,
+			@RequestParam(value = "mat_type", required=false) String matType,
+			@RequestParam(value = "mat_grp_pk", required=false) String matGrpPk,
+			@RequestParam(value = "spjangcd", required=false) String spjangcd,
+			@RequestParam(value = "keyword", required=false) String keyword) {
 
 		List<Map<String, Object>> items = this.materialInoutService.getMaterialInout(srchStartDt,srchEndDt,housePk,matType,matGrpPk,keyword,spjangcd);
 
@@ -92,15 +92,17 @@ public class MaterialInoutController {
 	// 입출고 전체 리스트
 	@GetMapping("/read_receipt")
 	public AjaxResult getMaterialInout_receipt(
-		@RequestParam(value = "srchStartDt", required=false) String srchStartDt,
-		@RequestParam(value = "srchEndDt", required=false) String srchEndDt,
-		@RequestParam(value = "house_pk", required=false) String housePk,
-		@RequestParam(value = "mat_type", required=false) String matType,
-		@RequestParam(value = "mat_grp_pk", required=false) String matGrpPk,
-		@RequestParam(value = "spjangcd", required=false) String spjangcd,
-		@RequestParam(value = "keyword", required=false) String keyword) {
+			@RequestParam(value = "srchStartDt", required=false) String srchStartDt,
+			@RequestParam(value = "srchEndDt", required=false) String srchEndDt,
+			@RequestParam(value = "house_pk", required=false) String housePk,
+			@RequestParam(value = "mat_type", required=false) String matType,
+			@RequestParam(value = "mat_grp_pk", required=false) String matGrpPk,
+			@RequestParam(value = "spjangcd", required=false) String spjangcd,
+			// 공장 필터. 빈 값 = 전체.
+			@RequestParam(value = "factory_id", required=false) String factoryId,
+			@RequestParam(value = "keyword", required=false) String keyword) {
 
-		List<Map<String, Object>> items = this.materialInoutService.getMaterialInoutReceipt(srchStartDt,srchEndDt,housePk,matType,matGrpPk,keyword,spjangcd);
+		List<Map<String, Object>> items = this.materialInoutService.getMaterialInoutReceipt(srchStartDt,srchEndDt,housePk,matType,matGrpPk,keyword,factoryId,spjangcd);
 
 		AjaxResult result = new AjaxResult();
 		result.data = items;
@@ -111,15 +113,17 @@ public class MaterialInoutController {
 	// 불출 리스트
 	@GetMapping("/read_issue")
 	public AjaxResult getMaterialInout_issue(
-		@RequestParam(value = "srchStartDt", required=false) String srchStartDt,
-		@RequestParam(value = "srchEndDt", required=false) String srchEndDt,
-		@RequestParam(value = "house_pk", required=false) String housePk,
-		@RequestParam(value = "mat_type", required=false) String matType,
-		@RequestParam(value = "mat_grp_pk", required=false) String matGrpPk,
-		@RequestParam(value = "spjangcd", required=false) String spjangcd,
-		@RequestParam(value = "keyword", required=false) String keyword) {
+			@RequestParam(value = "srchStartDt", required=false) String srchStartDt,
+			@RequestParam(value = "srchEndDt", required=false) String srchEndDt,
+			@RequestParam(value = "house_pk", required=false) String housePk,
+			@RequestParam(value = "mat_type", required=false) String matType,
+			@RequestParam(value = "mat_grp_pk", required=false) String matGrpPk,
+			@RequestParam(value = "spjangcd", required=false) String spjangcd,
+			// 공장 필터. 빈 값 = 전체.
+			@RequestParam(value = "factory_id", required=false) String factoryId,
+			@RequestParam(value = "keyword", required=false) String keyword) {
 
-		List<Map<String, Object>> items = this.materialInoutService.getMaterialInoutIssue(srchStartDt,srchEndDt,housePk,matType,matGrpPk,keyword,spjangcd);
+		List<Map<String, Object>> items = this.materialInoutService.getMaterialInoutIssue(srchStartDt,srchEndDt,housePk,matType,matGrpPk,keyword,factoryId,spjangcd);
 
 		AjaxResult result = new AjaxResult();
 		result.data = items;
@@ -130,15 +134,17 @@ public class MaterialInoutController {
 	// 폐기 리스트
 	@GetMapping("/read_disposal")
 	public AjaxResult getMaterialInout_disposal(
-		@RequestParam(value = "srchStartDt", required=false) String srchStartDt,
-		@RequestParam(value = "srchEndDt", required=false) String srchEndDt,
-		@RequestParam(value = "house_pk", required=false) String housePk,
-		@RequestParam(value = "mat_type", required=false) String matType,
-		@RequestParam(value = "mat_grp_pk", required=false) String matGrpPk,
-		@RequestParam(value = "spjangcd", required=false) String spjangcd,
-		@RequestParam(value = "keyword", required=false) String keyword) {
+			@RequestParam(value = "srchStartDt", required=false) String srchStartDt,
+			@RequestParam(value = "srchEndDt", required=false) String srchEndDt,
+			@RequestParam(value = "house_pk", required=false) String housePk,
+			@RequestParam(value = "mat_type", required=false) String matType,
+			@RequestParam(value = "mat_grp_pk", required=false) String matGrpPk,
+			@RequestParam(value = "spjangcd", required=false) String spjangcd,
+			// 공장 필터. 빈 값 = 전체.
+			@RequestParam(value = "factory_id", required=false) String factoryId,
+			@RequestParam(value = "keyword", required=false) String keyword) {
 
-		List<Map<String, Object>> items = this.materialInoutService.getMaterialInoutDisposal(srchStartDt,srchEndDt,housePk,matType,matGrpPk,keyword,spjangcd);
+		List<Map<String, Object>> items = this.materialInoutService.getMaterialInoutDisposal(srchStartDt,srchEndDt,housePk,matType,matGrpPk,keyword,factoryId,spjangcd);
 
 		AjaxResult result = new AjaxResult();
 		result.data = items;
@@ -256,20 +262,20 @@ public class MaterialInoutController {
 	@PostMapping("/save")
 	@Transactional
 	public AjaxResult saveMaterialInout(
-		@RequestParam("Description") String description,
-		@RequestParam("InoutQty") String inoutQty,
-		@RequestParam("InoutType_hidden") String inoutType,
-		@RequestParam(value="cboCompany", required = false) Integer companyId,
-		@RequestParam("Material_id") String materialId,
-		@RequestParam("StoreHouse_id") String storeHouseId,
-		@RequestParam("inoutDate") String inoutDateStr,
-		@RequestParam(value = "mio_pk", required = false) Integer mio_pk,
-		@RequestParam("cboMaterialGroup") String cboMaterialGroup,
-		@RequestParam("cboMaterialType") String cboMaterialType,
-		@RequestParam("type") String type,
-		@RequestParam("spjangcd") String spjangcd,
-		HttpServletRequest request,
-		Authentication auth) {
+			@RequestParam("Description") String description,
+			@RequestParam("InoutQty") String inoutQty,
+			@RequestParam("InoutType_hidden") String inoutType,
+			@RequestParam(value="cboCompany", required = false) Integer companyId,
+			@RequestParam("Material_id") String materialId,
+			@RequestParam("StoreHouse_id") String storeHouseId,
+			@RequestParam("inoutDate") String inoutDateStr,
+			@RequestParam(value = "mio_pk", required = false) Integer mio_pk,
+			@RequestParam("cboMaterialGroup") String cboMaterialGroup,
+			@RequestParam("cboMaterialType") String cboMaterialType,
+			@RequestParam("type") String type,
+			@RequestParam("spjangcd") String spjangcd,
+			HttpServletRequest request,
+			Authentication auth) {
 
 		User user = (User)auth.getPrincipal();
 
@@ -279,7 +285,7 @@ public class MaterialInoutController {
 		String state = "confirmed";
 		String _status = "a";
 		int qty = Integer.parseInt(
-			inoutQty.replace(",", "").replaceAll("[^\\d-]", "")
+				inoutQty.replace(",", "").replaceAll("[^\\d-]", "")
 		);
 
 		result.success = false;
@@ -290,7 +296,7 @@ public class MaterialInoutController {
 		if (mio_pk != null) {
 			isUpdate = true;
 			mi = matInoutRepository.findById(mio_pk)
-						 .orElseThrow(() -> new RuntimeException("기존 데이터 없음: " + mio_pk));
+					.orElseThrow(() -> new RuntimeException("기존 데이터 없음: " + mio_pk));
 		} else {
 			mi = new MaterialInout();
 		}
@@ -368,19 +374,19 @@ public class MaterialInoutController {
 	@PostMapping("/save_nocomp")
 	@Transactional
 	public AjaxResult saveMaterialInout_noComp(
-		@RequestParam("Description") String description,
-		@RequestParam("InoutQty") String inoutQty,
-		@RequestParam("InoutType_hidden") String inoutType,
-		@RequestParam("Material_id") String materialId,
-		@RequestParam("StoreHouse_id") String storeHouseId,
-		@RequestParam("inoutDate") String inoutDateStr,
-		@RequestParam(value = "mio_pk", required = false) Integer mio_pk,
-		@RequestParam("cboMaterialGroup") String cboMaterialGroup,
-		@RequestParam("cboMaterialType") String cboMaterialType,
-		@RequestParam("type") String type,
-		@RequestParam("spjangcd") String spjangcd,
-		HttpServletRequest request,
-		Authentication auth) {
+			@RequestParam("Description") String description,
+			@RequestParam("InoutQty") String inoutQty,
+			@RequestParam("InoutType_hidden") String inoutType,
+			@RequestParam("Material_id") String materialId,
+			@RequestParam("StoreHouse_id") String storeHouseId,
+			@RequestParam("inoutDate") String inoutDateStr,
+			@RequestParam(value = "mio_pk", required = false) Integer mio_pk,
+			@RequestParam("cboMaterialGroup") String cboMaterialGroup,
+			@RequestParam("cboMaterialType") String cboMaterialType,
+			@RequestParam("type") String type,
+			@RequestParam("spjangcd") String spjangcd,
+			HttpServletRequest request,
+			Authentication auth) {
 
 		User user = (User)auth.getPrincipal();
 
@@ -390,7 +396,7 @@ public class MaterialInoutController {
 		String state = "confirmed";
 		String _status = "a";
 		int qty = Integer.parseInt(
-			inoutQty.replace(",", "").replaceAll("[^\\d-]", "")
+				inoutQty.replace(",", "").replaceAll("[^\\d-]", "")
 		);
 
 		result.success = false;
@@ -401,7 +407,7 @@ public class MaterialInoutController {
 		if (mio_pk != null) {
 			isUpdate = true;
 			mi = matInoutRepository.findById(mio_pk)
-						 .orElseThrow(() -> new RuntimeException("기존 데이터 없음: " + mio_pk));
+					.orElseThrow(() -> new RuntimeException("기존 데이터 없음: " + mio_pk));
 		} else {
 			mi = new MaterialInout();
 		}
@@ -477,7 +483,7 @@ public class MaterialInoutController {
 
 	@GetMapping("/matinout_detail")
 	public AjaxResult getMaterialInoutDetail(
-		@RequestParam(value = "mio_pk", required=false) Integer mio_pk) {
+			@RequestParam(value = "mio_pk", required=false) Integer mio_pk) {
 
 		List<Map<String, Object>> items = materialInoutService.getMaterialInoutDetail(mio_pk);
 
@@ -496,15 +502,15 @@ public class MaterialInoutController {
 
 		// 1️⃣ mat_inout 존재 여부 확인
 		MaterialInout mi = matInoutRepository.findById(mio_pk)
-												 .orElseThrow(() -> new RuntimeException("기존 데이터 없음: " + mio_pk));
+				.orElseThrow(() -> new RuntimeException("기존 데이터 없음: " + mio_pk));
 
 		Integer matPk = mi.getMaterialId();
 		Integer storeHouseId = mi.getStoreHouseId();
 
 		// 2️⃣ mat_lot 삭제 (참조되는 lot 데이터 제거)
 		jdbcTemplate.update(
-			"DELETE FROM mat_lot WHERE \"SourceTableName\" = ? AND \"SourceDataPk\" = ?",
-			"mat_inout", mio_pk
+				"DELETE FROM mat_lot WHERE \"SourceTableName\" = ? AND \"SourceDataPk\" = ?",
+				"mat_inout", mio_pk
 		);
 
 		// 3️⃣ mat_inout 삭제
@@ -521,7 +527,7 @@ public class MaterialInoutController {
 	@SuppressWarnings("unchecked")
 	@GetMapping("/trans_multi_input_data")
 	public AjaxResult transMultiInputData(
-		@RequestParam MultiValueMap<String,Object> Q
+			@RequestParam MultiValueMap<String,Object> Q
 	) throws JSONException, JsonMappingException, JsonProcessingException {
 
 		AjaxResult result = new AjaxResult();
@@ -552,14 +558,14 @@ public class MaterialInoutController {
 	@PostMapping("/save_multi_data")
 	@Transactional
 	public AjaxResult saveMultiData(
-		@RequestParam("Company_id") String companyId,
-		@RequestParam("InoutType") String inoutType,
-		@RequestParam MultiValueMap<String,Object> Q,
-		@RequestParam("StoreHouse_id") String storeHouseId,
-		@RequestParam("type") String type,
-		@RequestParam("spjangcd") String spjangcd,
-		HttpServletRequest request,
-		Authentication auth) {
+			@RequestParam("Company_id") String companyId,
+			@RequestParam("InoutType") String inoutType,
+			@RequestParam MultiValueMap<String,Object> Q,
+			@RequestParam("StoreHouse_id") String storeHouseId,
+			@RequestParam("type") String type,
+			@RequestParam("spjangcd") String spjangcd,
+			HttpServletRequest request,
+			Authentication auth) {
 
 		User user = (User)auth.getPrincipal();
 
@@ -643,7 +649,7 @@ public class MaterialInoutController {
 
 	@GetMapping("/mio_lot_list")
 	public AjaxResult mioLotList(
-		@RequestParam("mio_id") String mioId) {
+			@RequestParam("mio_id") String mioId) {
 
 		List<Map<String, Object>> items = this.lotService.mioLotList(mioId);
 		AjaxResult result = new AjaxResult();
@@ -653,7 +659,7 @@ public class MaterialInoutController {
 
 	@GetMapping("/mio_test_list")
 	public AjaxResult mioTestList(
-		@RequestParam("mio_id") Integer mioId) {
+			@RequestParam("mio_id") Integer mioId) {
 
 
 		List<TestResult> trList = this.testResultRepository.findBySourceTableNameAndSourceDataPk("mat_inout", mioId);
@@ -698,17 +704,17 @@ public class MaterialInoutController {
 	@PostMapping("/lot_save")
 	@Transactional
 	public AjaxResult lotSave(
-		@RequestBody MultiValueMap<String,Object> Q,
-		@RequestParam("Material_id") String materialId,
-		@RequestParam("StoreHouse_id") Integer storeHouseId,
-		@RequestParam("mio_id") String mioId,
+			@RequestBody MultiValueMap<String,Object> Q,
+			@RequestParam("Material_id") String materialId,
+			@RequestParam("StoreHouse_id") Integer storeHouseId,
+			@RequestParam("mio_id") String mioId,
 		/* Y = 이 입고건의 «기존 로트를 지우고» 새로 발번한다.
 		   스캔 입고로 이미 로트가 깔린 건에 로트계산을 다시 돌리면
 		   예전에는 그 위에 얹혀 중복 입고가 됐다(스캔 33×3 + 계산 99 = 198). */
-		@RequestParam(value = "replace_yn", required = false, defaultValue = "N") String replaceYn,
-		@RequestParam("spjangcd") String spjangcd,
-		HttpServletRequest request,
-		Authentication auth) {
+			@RequestParam(value = "replace_yn", required = false, defaultValue = "N") String replaceYn,
+			@RequestParam("spjangcd") String spjangcd,
+			HttpServletRequest request,
+			Authentication auth) {
 
 		User user = (User)auth.getPrincipal();
 
@@ -785,18 +791,18 @@ public class MaterialInoutController {
 	@PostMapping("/test_save")
 	@Transactional
 	public AjaxResult testSave(
-		@RequestBody MultiValueMap<String,Object> Q,
-		@RequestParam(value = "material_id", required = false) Integer materialId,
-		@RequestParam(value = "testRemark", required = false) String testRemark,
-		@RequestParam(value = "test_mast_id", required = false) String testMastId,
-		@RequestParam(value = "test_result_id", required = false) String testResultId,
-		@RequestParam(value = "judg_grp", required = false) String judgGrp,
-		@RequestParam(value = "test_date", required = false) String test_date,
-		@RequestParam(value = "effective_date", required = false) String effectiveDate,
-		@RequestParam(value = "mio_id", required = false) Integer mioId,
-		@RequestParam("spjangcd") String spjangcd,
-		HttpServletRequest request,
-		Authentication auth) {
+			@RequestBody MultiValueMap<String,Object> Q,
+			@RequestParam(value = "material_id", required = false) Integer materialId,
+			@RequestParam(value = "testRemark", required = false) String testRemark,
+			@RequestParam(value = "test_mast_id", required = false) String testMastId,
+			@RequestParam(value = "test_result_id", required = false) String testResultId,
+			@RequestParam(value = "judg_grp", required = false) String judgGrp,
+			@RequestParam(value = "test_date", required = false) String test_date,
+			@RequestParam(value = "effective_date", required = false) String effectiveDate,
+			@RequestParam(value = "mio_id", required = false) Integer mioId,
+			@RequestParam("spjangcd") String spjangcd,
+			HttpServletRequest request,
+			Authentication auth) {
 
 		User user = (User)auth.getPrincipal();
 
@@ -885,9 +891,9 @@ public class MaterialInoutController {
 	@PostMapping("/check_in_test")
 	@Transactional
 	public AjaxResult checkInTest(
-		@RequestBody MultiValueMap<String,Object> Q,
-		HttpServletRequest request,
-		Authentication auth) {
+			@RequestBody MultiValueMap<String,Object> Q,
+			HttpServletRequest request,
+			Authentication auth) {
 
 		User user = (User)auth.getPrincipal();
 
@@ -912,10 +918,10 @@ public class MaterialInoutController {
 
 	@GetMapping("/read_balju")
 	public AjaxResult getbaljuList(
-		@RequestParam(value="start", required=false) String start_date,
-		@RequestParam(value="end", required=false) String end_date,
-		@RequestParam("spjangcd") String spjangcd,
-		HttpServletRequest request) {
+			@RequestParam(value="start", required=false) String start_date,
+			@RequestParam(value="end", required=false) String end_date,
+			@RequestParam("spjangcd") String spjangcd,
+			HttpServletRequest request) {
 
 		start_date = start_date + " 00:00:00";
 		end_date = end_date + " 23:59:59";
@@ -933,12 +939,12 @@ public class MaterialInoutController {
 
 	@GetMapping("/read_balju_in")
 	public AjaxResult getbaljuInList(
-		@RequestParam(value="start", required=false) String start_date,
-		@RequestParam(value="end", required=false) String end_date,
-		@RequestParam(value="cboCompanyHidden", required=false) Integer cboCompany,
-		@RequestParam(value = "keyword", required=false) String keyword,
-		@RequestParam("spjangcd") String spjangcd,
-		HttpServletRequest request) {
+			@RequestParam(value="start", required=false) String start_date,
+			@RequestParam(value="end", required=false) String end_date,
+			@RequestParam(value="cboCompanyHidden", required=false) Integer cboCompany,
+			@RequestParam(value = "keyword", required=false) String keyword,
+			@RequestParam("spjangcd") String spjangcd,
+			HttpServletRequest request) {
 
 		start_date = start_date + " 00:00:00";
 		end_date = end_date + " 23:59:59";
@@ -957,9 +963,9 @@ public class MaterialInoutController {
 	@PostMapping("/save_balju")
 	@Transactional
 	public AjaxResult saveBaljuInout(
-		@RequestBody List<Map<String, Object>> baljuList,
-		HttpServletRequest request,
-		Authentication auth) {
+			@RequestBody List<Map<String, Object>> baljuList,
+			HttpServletRequest request,
+			Authentication auth) {
 
 		User user = (User)auth.getPrincipal();
 		AjaxResult result = new AjaxResult();
@@ -1027,7 +1033,7 @@ public class MaterialInoutController {
 				if (alreadyIn + qty > baljuQty) {
 					result.success = false;
 					result.message = "미입고수량 초과 (발주라인 " + bal_pk + " · 발주 " + (int) baljuQty
-														 + " · 기입고+가입고 " + (int) alreadyIn + " · 요청 " + qty + ")";
+							+ " · 기입고+가입고 " + (int) alreadyIn + " · 요청 " + qty + ")";
 					return result;
 				}
 
@@ -1061,9 +1067,9 @@ public class MaterialInoutController {
 	@PostMapping("/save_balju_return")
 	@Transactional
 	public AjaxResult saveBaljuReturn(
-		@RequestBody List<Map<String, Object>> baljuList,
-		HttpServletRequest request,
-		Authentication auth) {
+			@RequestBody List<Map<String, Object>> baljuList,
+			HttpServletRequest request,
+			Authentication auth) {
 
 		User user = (User)auth.getPrincipal();
 		AjaxResult result = new AjaxResult();
@@ -1129,8 +1135,8 @@ public class MaterialInoutController {
 	@PostMapping("/save_scan")
 	@Transactional
 	public AjaxResult saveScanInput(
-		@RequestBody Map<String, Object> payload,
-		Authentication auth) {
+			@RequestBody Map<String, Object> payload,
+			Authentication auth) {
 
 		User user = (User) auth.getPrincipal();
 		AjaxResult result = new AjaxResult();
@@ -1196,8 +1202,8 @@ public class MaterialInoutController {
 				if (lotManaged && !isWaiting) {
 					// 로트번호: UDI 있으면 원본, 없으면 채번
 					String lotNumber = !scanLot.isEmpty()
-															 ? scanLot
-															 : lotService.make_lot_in_number();
+							? scanLot
+							: lotService.make_lot_in_number();
 
 					// 유효기한: UDI (17) 우선, 없으면 품목 ValidDays
 					Timestamp effDt = null;
@@ -1205,13 +1211,13 @@ public class MaterialInoutController {
 						effDt = Timestamp.valueOf(effStr + " 00:00:00");
 					} else if (m.getValidDays() != null) {
 						effDt = Timestamp.valueOf(
-							LocalDate.now().plusDays(m.getValidDays()) + " 00:00:00");
+								LocalDate.now().plusDays(m.getValidDays()) + " 00:00:00");
 					}
 
 					// 동일 품목+로트 중복 체크 (외부 UDI 재입고 대비)
 					MaterialLot ml = (MaterialLot) matLotRepository
-																					 .findByMaterialIdAndLotNumberAndSpjangcd(matPk, lotNumber, spjangcd)
-																					 .orElse(null);
+							.findByMaterialIdAndLotNumberAndSpjangcd(matPk, lotNumber, spjangcd)
+							.orElse(null);
 
 					if (ml == null) {
 						ml = new MaterialLot();
@@ -1267,12 +1273,12 @@ public class MaterialInoutController {
 	 */
 	@GetMapping("/scan_lookup")
 	public AjaxResult scanLookup(
-		@RequestParam(value="gtin14", required=false) String gtin14,
-		@RequestParam(value="di",     required=false) String di,
-		@RequestParam(value="lot",    required=false) String lot,
-		@RequestParam(value="barcode_type", required=false) String barcodeType,
-		@RequestParam(value="raw", required=false) String raw,
-		@RequestParam(value="spjangcd", required=false) String spjangcd) {
+			@RequestParam(value="gtin14", required=false) String gtin14,
+			@RequestParam(value="di",     required=false) String di,
+			@RequestParam(value="lot",    required=false) String lot,
+			@RequestParam(value="barcode_type", required=false) String barcodeType,
+			@RequestParam(value="raw", required=false) String raw,
+			@RequestParam(value="spjangcd", required=false) String spjangcd) {
 
 		AjaxResult result = new AjaxResult();
 		Map<String,Object> data = null;
@@ -1302,8 +1308,8 @@ public class MaterialInoutController {
 				data.put("material_name", m.getName());
 				data.put("gtin", gtin14 != null ? gtin14 : "");
 				data.put("effective_date",
-					ml.getEffectiveDate() != null
-						? ml.getEffectiveDate().toLocalDateTime().toLocalDate().toString() : "");
+						ml.getEffectiveDate() != null
+								? ml.getEffectiveDate().toLocalDateTime().toLocalDate().toString() : "");
 				data.put("valid_days", m.getValidDays());
 			}
 		}
@@ -1332,21 +1338,21 @@ public class MaterialInoutController {
 	 */
 	@PostMapping("/barcode_register")
 	public AjaxResult barcodeRegister(
-		@RequestParam("material_id") Integer materialId,
-		@RequestParam(value="gtin", required=false) String gtin,
-		@RequestParam(value="udi_di", required=false) String udiDi,
-		@RequestParam(value="barcode_type", required=false) String barcodeType,
-		@RequestParam(value="pack_level", required=false) String packLevel,
-		@RequestParam(value="pack_qty", required=false) java.math.BigDecimal packQty,
-		@RequestParam(value="company_id", required=false) Integer companyId,
-		@RequestParam(value="spjangcd", required=false) String spjangcd,
-		Authentication auth) {
+			@RequestParam("material_id") Integer materialId,
+			@RequestParam(value="gtin", required=false) String gtin,
+			@RequestParam(value="udi_di", required=false) String udiDi,
+			@RequestParam(value="barcode_type", required=false) String barcodeType,
+			@RequestParam(value="pack_level", required=false) String packLevel,
+			@RequestParam(value="pack_qty", required=false) java.math.BigDecimal packQty,
+			@RequestParam(value="company_id", required=false) Integer companyId,
+			@RequestParam(value="spjangcd", required=false) String spjangcd,
+			Authentication auth) {
 
 		AjaxResult result = new AjaxResult();
 		try {
 			User user = (User) auth.getPrincipal();
 			materialInoutService.registerBarcode(materialId, barcodeType, gtin, udiDi,
-				companyId, spjangcd, user.getId(), packLevel, packQty);
+					companyId, spjangcd, user.getId(), packLevel, packQty);
 			result.success = true;
 		} catch (IllegalArgumentException e) {
 			result.success = false;
@@ -1361,8 +1367,8 @@ public class MaterialInoutController {
 	@PostMapping("/lot_save_by_po")
 	@Transactional
 	public AjaxResult lotSaveByPo(
-		@RequestBody Map<String, Object> payload,
-		Authentication auth) {
+			@RequestBody Map<String, Object> payload,
+			Authentication auth) {
 
 		User user = (User) auth.getPrincipal();
 		AjaxResult result = new AjaxResult();
@@ -1412,7 +1418,7 @@ public class MaterialInoutController {
 				if (alreadyIn + qty > baljuQty) {
 					result.success = false;
 					result.message = "미입고수량 초과 (발주라인 " + balPk + ", 발주 " + (int) baljuQty
-														 + " / 기입고+가입고 " + (int) alreadyIn + " / 요청 " + qty + ")";
+							+ " / 기입고+가입고 " + (int) alreadyIn + " / 요청 " + qty + ")";
 					throw new RuntimeException(result.message);
 				}
 
@@ -1454,9 +1460,9 @@ public class MaterialInoutController {
 				boolean lotManaged = "Y".equals(m.getLotUseYn());
 				if (lotManaged && !isWaiting) {
 					String lotNumber = (line.get("LotNumber") != null
-																&& !String.valueOf(line.get("LotNumber")).isEmpty())
-															 ? String.valueOf(line.get("LotNumber"))
-															 : lotService.make_lot_in_number();
+							&& !String.valueOf(line.get("LotNumber")).isEmpty())
+							? String.valueOf(line.get("LotNumber"))
+							: lotService.make_lot_in_number();
 
 					String effStr = CommonUtil.tryString(line.get("EffectiveDate"));
 					Timestamp effDt = null;
@@ -1501,8 +1507,8 @@ public class MaterialInoutController {
 
 	@GetMapping("/receiving_by_barcode")
 	public AjaxResult receivingByBarcode(
-		@RequestParam("barcode") String barcode,
-		@RequestParam("spjangcd") String spjangcd) {
+			@RequestParam("barcode") String barcode,
+			@RequestParam("spjangcd") String spjangcd) {
 
 		AjaxResult result = new AjaxResult();
 
@@ -1512,7 +1518,7 @@ public class MaterialInoutController {
 		String jumunNumber = barcode.substring(2).trim(); // "PO" + JumunNumber
 
 		List<Map<String, Object>> lines =
-			this.materialInoutService.getBaljuLinesByJumunNumber(jumunNumber, spjangcd);
+				this.materialInoutService.getBaljuLinesByJumunNumber(jumunNumber, spjangcd);
 
 		/* ★ SqlRunner.getRows 는 SQL 오류 시 예외가 아니라 null 을 돌려준다.
 		     그대로 내려보내면 화면에는 「미입고 품목이 없습니다」로 보여서

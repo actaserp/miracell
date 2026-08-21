@@ -29,42 +29,44 @@ import mes.domain.services.SqlRunner;
 @RestController
 @RequestMapping("/api/inventory/lot_stock_take")
 public class LotStockTakeController {
-	
+
 	@Autowired
 	SqlRunner sqlRunner;
-	
+
 	@Autowired
 	LotStockTakeService lotStockTakeService;
-	
+
 	@Autowired
-	TransactionTemplate transactionTemplate;	
-	
+	TransactionTemplate transactionTemplate;
+
 	@Autowired
 	StockLotTakeRepository stockLotTakeRepository;
-	
+
 	@GetMapping("/read")
 	public AjaxResult getMaterialStockList(
 			@RequestParam(value="mat_type", required=false) String matType,
 			@RequestParam(value="mat_grp", required=false) Integer matGroup,
 			@RequestParam(value="company_id", required=false) Integer companyId,
+			// 공장 필터. 빈 값 = 전체.
+			@RequestParam(value="factory_id", required=false) Integer factoryId,
 			@RequestParam("spjangcd") String spjangcd,
 			@RequestParam(value="keyword", required=false) String keyword
-			) {
+	) {
 		AjaxResult result = new AjaxResult();
-		result.data = this.lotStockTakeService.getMaterialStockList(matType, matGroup, companyId, keyword, spjangcd);
+		result.data = this.lotStockTakeService.getMaterialStockList(matType, matGroup, companyId, keyword, factoryId, spjangcd);
 		return result;
 	}
-	
+
 	@GetMapping("/mat_lot_list")
 	public AjaxResult getMaterialLotList(
 			@RequestParam(value="material_id", required=true) Integer materialId,
 			@RequestParam(value="storehouse_id", required=false) Integer storehouseId
-			) {
+	) {
 		AjaxResult result = new AjaxResult();
 		result.data = this.lotStockTakeService.getMaterialLotList(materialId, storehouseId);
 		return result;
 	}
-	
+
 	@PostMapping("/save_lot_adjust")
 	public AjaxResult saveLotAdjust(
 			@RequestParam(value="ml_id", required=true) int ml_id,
@@ -75,25 +77,25 @@ public class LotStockTakeController {
 			@RequestParam(value="gap_description", required=false) String description,
 			@RequestParam(value="spjangcd", required=false) String spjangcd,
 			Authentication auth
-			) {
-		
+	) {
+
 		User user = (User)auth.getPrincipal();
 		AjaxResult result = new AjaxResult();
-		
+
 		Date now = new Date(System.currentTimeMillis());
-		
+
 		String stock_time = DateUtil.getHHmmByTodayString() + ":00";
 		Time stockTime = Time.valueOf(stock_time);
-		
-		Optional<StockLotTake> optStockLotTake = this.stockLotTakeRepository.findByMaterialLotIdAndStoreHouseIdAndState(ml_id, storehouse_id, "taked");		
+
+		Optional<StockLotTake> optStockLotTake = this.stockLotTakeRepository.findByMaterialLotIdAndStoreHouseIdAndState(ml_id, storehouse_id, "taked");
 		this.transactionTemplate.executeWithoutResult(status->{
 			try {
-				
+
 				if(optStockLotTake.isPresent()) {
 					StockLotTake oldStockLotTake = optStockLotTake.get();
 					this.stockLotTakeRepository.delete(oldStockLotTake);
 				}
-				
+
 				StockLotTake stockLotTake = new StockLotTake();
 				stockLotTake.setMaterialLotId(ml_id);
 				stockLotTake.setStoreHouseId(storehouse_id);
@@ -107,7 +109,7 @@ public class LotStockTakeController {
 				stockLotTake.set_audit(user);
 				stockLotTake.setSpjangcd(spjangcd);
 				this.stockLotTakeRepository.save(stockLotTake);
-				
+
 				result.data = stockLotTake.getId();
 			}
 			catch(Exception ex) {
@@ -116,41 +118,43 @@ public class LotStockTakeController {
 				result.message = ex.toString();
 			}
 		});
-		
+
 		return result;
 	}
-	
+
 	@GetMapping("/search_lot")
 	public AjaxResult searchLot(
 			@RequestParam(value="mat_id", required=false) Integer mat_id,
 			@RequestParam(value="storehouse_id", required=false) Integer storehouse_id,
 			@RequestParam(value="lot_number", required=true) String lot_number
-			) {
+	) {
 		AjaxResult result = new AjaxResult();
 		result.data = this.lotStockTakeService.searchLotList(mat_id, storehouse_id, lot_number);
 		return result;
 	}
-	
-	//LOT재고조정확인	
+
+	//LOT재고조정확인
 	@GetMapping("/lot_adjust_confirm_list")
 	public AjaxResult getLotAdjustConfirmList(
 			@RequestParam(value="storehouse_id", required=false) Integer storehouse_id,
 			@RequestParam(value="keyword", required=false) String keyword,
+			// 공장 필터. 빈 값 = 전체.
+			@RequestParam(value="factory_id", required=false) Integer factoryId,
 			@RequestParam("spjangcd") String spjangcd
-			) {
+	) {
 		AjaxResult result = new AjaxResult();
-		result.data = this.lotStockTakeService.getLotAdjustConfirmList(storehouse_id, keyword, spjangcd);
+		result.data = this.lotStockTakeService.getLotAdjustConfirmList(storehouse_id, keyword, factoryId, spjangcd);
 		return result;
 	}
-	
+
 	@PostMapping("/confirm_adjust")
 	public AjaxResult confirmLotAdjust(@RequestParam(value="ids", required=true) String ids,
-			Authentication auth
-			) {
+									   Authentication auth
+	) {
 		AjaxResult result = new AjaxResult();
 		User user = (User)auth.getPrincipal();
 		List<Map<String, Object>> id_list = CommonUtil.loadJsonListMap(ids);
-		
+
 		for(Map<String, Object> map :id_list) {
 			String sql = """
             update stock_lot_take
@@ -162,19 +166,19 @@ public class LotStockTakeController {
             where id = :id
             and "State" = 'taked'
 			""";
-			
+
 			int id = (int)(map.get("id"));
 
 			MapSqlParameterSource paramMap = new MapSqlParameterSource();
 			paramMap.addValue("user_pk", user.getId());
 			paramMap.addValue("id", id);
-			
+
 			this.sqlRunner.execute(sql, paramMap);
 		}
 		result.data = id_list;
 		return result;
 	}
-	
+
 	@GetMapping("/history_list")
 	public AjaxResult getSotckLotTakeHistoryList(
 			@RequestParam(value="date_from", required=true) String date_from,
@@ -182,11 +186,13 @@ public class LotStockTakeController {
 			@RequestParam(value="storehouse_id", required=false) Integer storehouse_id,
 			@RequestParam(value="mat_type", required=false) String mat_type,
 			@RequestParam(value="mat_grp_pk", required=false) Integer mat_grp_pk,
+			// 공장 필터. 빈 값 = 전체.
+			@RequestParam(value="factory_id", required=false) Integer factoryId,
 			@RequestParam("spjangcd") String spjangcd,
 			@RequestParam(value="keyword", required=false) String keyword
-		)	{
+	)	{
 		AjaxResult result = new AjaxResult();
-		result.data = this.lotStockTakeService.getSotckLotTakeHistoryList(date_from, date_to, storehouse_id, mat_type, mat_grp_pk, keyword, spjangcd);
+		result.data = this.lotStockTakeService.getSotckLotTakeHistoryList(date_from, date_to, storehouse_id, mat_type, mat_grp_pk, keyword, factoryId, spjangcd);
 		return result;
 	}
 }

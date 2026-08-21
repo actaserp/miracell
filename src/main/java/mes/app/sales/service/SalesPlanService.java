@@ -27,8 +27,12 @@ public class SalesPlanService {
 	 * 계획 대비 수주 실적(수주수량/달성률)을 함께 계산해서 내려준다.
 	 * 조인 기준 = 계획연월 + 품목 (+거래처 지정 시 거래처)
 	 */
+	/**
+	 * @param factoryId 공장 필터. 빈 값/null 이면 전체 공장.
+	 *                  영업계획에는 공장이 없어 품목(material)의 공장으로 건다.
+	 */
 	public List<Map<String, Object>> getPlanList(String year, String month, String matGrp,
-																							 String keyword, String spjangcd) {
+												 String keyword, String factoryId, String spjangcd) {
 
 		MapSqlParameterSource dicParam = new MapSqlParameterSource();
 		dicParam.addValue("year", year);
@@ -93,6 +97,13 @@ public class SalesPlanService {
 			dicParam.addValue("month", month);
 			sql += """
           AND ph."PlanMonth" = :month
+          """;
+		}
+
+		if (factoryId != null && !factoryId.isEmpty()) {
+			dicParam.addValue("factoryId", Integer.parseInt(factoryId));
+			sql += """
+          AND m."Factory_id" = :factoryId
           """;
 		}
 
@@ -200,8 +211,8 @@ public class SalesPlanService {
 
 		// 수정 잠금 판단용 — 상세 중 하나라도 수주가 있으면 수정 불가
 		double sujuSum = planList.stream()
-											 .mapToDouble(r -> r.get("SujuQty") == null ? 0d : ((Number) r.get("SujuQty")).doubleValue())
-											 .sum();
+				.mapToDouble(r -> r.get("SujuQty") == null ? 0d : ((Number) r.get("SujuQty")).doubleValue())
+				.sum();
 		planHead.put("SujuQty", sujuSum);
 
 		return planHead;
@@ -244,7 +255,7 @@ public class SalesPlanService {
 
 	/** 동일 연월 + 거래처 계획 중복 건수 (수정 시 본인 제외) */
 	public int countDuplicatePlan(Integer headId, String planYear, String planMonth,
-																Integer companyId, String spjangcd) {
+								  Integer companyId, String spjangcd) {
 
 		MapSqlParameterSource param = new MapSqlParameterSource();
 		param.addValue("headId", headId);
@@ -300,8 +311,8 @@ public class SalesPlanService {
 	 * 상세는 월 단위 수십 건이고 참조하는 하위 전표가 없어 안전하다.
 	 */
 	public Integer savePlan(Integer headId, String planYear, String planMonth, Integer companyId,
-													String companyName, String description, String spjangcd,
-													List<Map<String, Object>> items, User user) {
+							String companyName, String description, String spjangcd,
+							List<Map<String, Object>> items, User user) {
 
 		// ── 1) 헤더 ──────────────────────────────────────────────
 		MapSqlParameterSource headParam = new MapSqlParameterSource();

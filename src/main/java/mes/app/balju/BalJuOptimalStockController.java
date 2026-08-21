@@ -30,7 +30,9 @@ public class BalJuOptimalStockController {
                             // 소요량 기준: suju | plan | sum | max(기본)
                             @RequestParam(value = "basis", required = false, defaultValue = "max") String basis,
                             // 품목구분: 빈값=제품 제외 전체 / raw_mat(기본) | semi | sub_mat | ...
-                            @RequestParam(value = "mat_type", required = false, defaultValue = "raw_mat") String matType) {
+                            @RequestParam(value = "mat_type", required = false, defaultValue = "raw_mat") String matType,
+                            // 공장 필터. 빈 값 = 전체.
+                            @RequestParam(value = "factory_id", required = false) String factoryId) {
     AjaxResult result = new AjaxResult();
     /*log.info("자재 적정재고 현황 mat_name:{}, Inventory_status:{}, srchStartDt:{}, srchEndDt:{}, spjangcd:{}, basis:{}"
         , mat_name, status, startDt, endDt, spjangcd, basis);*/
@@ -42,7 +44,7 @@ public class BalJuOptimalStockController {
     Timestamp end = Timestamp.valueOf(endDt);
 
     List<Map<String, Object>> items =
-      optimalStockService.getList(mat_name, status, start, end, spjangcd, basis, matType);
+            optimalStockService.getList(mat_name, status, start, end, spjangcd, basis, matType, factoryId);
     result.data = items;
     return result;
   }

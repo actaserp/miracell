@@ -4,6 +4,12 @@
         .wj-header {
             text-align: center !important;
         }
+
+        /* 라디오 체크 표시 위치 보정 (공통 스킨의 :after 점이 중앙에서 어긋난다) */
+        input[type="radio"]:checked:after {
+            top: 3px;
+            left: 3px;
+        }
     </style>
 </head>
 
@@ -123,12 +129,33 @@
                                 </td>
                             </tr>
                             <tr>
+                                <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                    <label><span class="eq">*</span>사용 구분</label>
+                                </th>
+                                <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                    <!-- 이 유형을 어느 등록 화면에 띄울지 정한다.
+                                         부적합 등록 화면이 이 값으로 목록을 가른다. -->
+                                    <label style="margin-right:14px; cursor:pointer;">
+                                        <input type="radio" name="coverage" value="work" checked> 작업불량
+                                    </label>
+                                    <label style="margin-right:14px; cursor:pointer;">
+                                        <input type="radio" name="coverage" value="material"> 원자재불량
+                                    </label>
+                                    <label style="cursor:pointer;">
+                                        <input type="radio" name="coverage" value="all"> 공통
+                                    </label>
+                                    <div style="font-size:12px; color:#888; margin-top:4px;">
+                                        공통 = 두 화면에 모두 표시 (이물·파손처럼 양쪽에서 같은 말을 쓰는 유형)
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
                                 <th style="text-align: center; width: 5%; padding: 5px; border: 1px solid #ddd;">
                                     <label for="description">비고</label>
                                 </th>
                                 <td style="width: 15%; padding: 5px; border: 1px solid #ddd;" colspan="3">
                                     <textarea id="description" name="description"></textarea>
-<!--                                    <input type="text" id="description" name="description" style="width: 100%;">-->
+                                    <!--                                    <input type="text" id="description" name="description" style="width: 100%;">-->
                                 </td>
                             </tr>
                             </tbody>
@@ -156,7 +183,8 @@
             {binding: 'id', header: 'id', width: 100, align: 'left', visible: false},
             {binding: 'defect_type_code', header: '코드', width: 130, align: 'center'},
             {binding: 'defect_type_name', header: '부적합유형명', width: 200, align: 'center'},
-            {binding: 'description', header: '비고', width: 500, align: 'center'}
+            {binding: 'coverage_name', header: '사용 구분', width: 110, align: 'center'},
+            {binding: 'description', header: '비고', width: 420, align: 'center'}
         ];
 
         document.readyState === 'complete' ? init() : window.onload = init;
@@ -198,12 +226,27 @@
                 document.getElementById('defect_type_code').value = selectedItem.defect_type_code;
                 document.getElementById('defect_type_name').value = selectedItem.defect_type_name;
                 document.getElementById('description').value = selectedItem.description;
+                // 라디오는 value 대입으로 안 되고 checked 를 직접 잡아야 한다.
+                // 값이 비어 있는 과거 행은 '공통'으로 본다(서버 coalesce 와 같은 규칙).
+                setCoverage(selectedItem.coverage);
 
                 setButtonState();
             });
 
             theGrid.rowHeaders.columns.splice(0, 1);
 
+        }
+
+        /**
+         * 사용 구분 라디오 세팅.
+         * form reset() 은 checked 속성 기본값으로 되돌리므로 work 가 켜진다 —
+         * 신규 등록의 기본값으로 의도한 동작이다.
+         */
+        function setCoverage(v) {
+            let val = v || 'all';
+            $('#defectTypeForm input[name=coverage]').each(function () {
+                this.checked = (this.value === val);
+            });
         }
 
         //버튼 활성화
@@ -265,6 +308,8 @@
                 id: item.id,
                 defect_type_code: item.defect_type_code,
                 defect_type_name: item.defect_type_name,
+                coverage: item.coverage,
+                coverage_name: item.coverage_name,
                 description: item.description
             }));
 
@@ -311,6 +356,9 @@
                 $('#defectTypeForm #defect_type_name').focus();
                 return;
             }
+            // FormUtil 이 라디오를 못 담는 경우가 있어 직접 읽어 덮어쓴다.
+            // 비어 있으면 서버가 all 로 처리하지만, 화면에서 확정해 보내는 편이 명확하다.
+            data.coverage = $('#defectTypeForm input[name=coverage]:checked').val() || 'all';
 
             let fnSuccess = function (result) {
                 if (result.success) {

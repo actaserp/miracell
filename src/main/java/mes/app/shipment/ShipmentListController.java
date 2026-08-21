@@ -33,16 +33,18 @@ public class ShipmentListController {
 
 	@GetMapping("/shipment_head_list")
 	public AjaxResult getShipmentHeadList(
-		@RequestParam("srchStartDt") String dateFrom,
-		@RequestParam("srchEndDt") String dateTo,
-		@RequestParam(value = "cboCompany", required = false) String compPk,
-		@RequestParam("cboMatGroup") String matGrpPk,
-		@RequestParam("cboMaterial") String matPk,
-		@RequestParam(value = "CompanySearch", required = false) String company,
-		@RequestParam("keyword") String keyword
+			@RequestParam("srchStartDt") String dateFrom,
+			@RequestParam("srchEndDt") String dateTo,
+			@RequestParam(value = "cboCompany", required = false) String compPk,
+			@RequestParam("cboMatGroup") String matGrpPk,
+			@RequestParam("cboMaterial") String matPk,
+			@RequestParam(value = "CompanySearch", required = false) String company,
+			// 공장 필터. 빈 값 = 전체.
+			@RequestParam(value = "factory_id", required = false) String factoryId,
+			@RequestParam("keyword") String keyword
 	) {
 
-		List<Map<String, Object>> items = this.shipmentListService.getShipmentHeadList(dateFrom,dateTo,compPk,matGrpPk,matPk,keyword, "shipped", company);
+		List<Map<String, Object>> items = this.shipmentListService.getShipmentHeadList(dateFrom,dateTo,compPk,matGrpPk,matPk,keyword, "shipped", company, factoryId);
 
 		AjaxResult result = new AjaxResult();
 		result.data = items;
@@ -52,7 +54,7 @@ public class ShipmentListController {
 
 	@GetMapping("/shipment_item_list")
 	public AjaxResult getShipmentItemList(
-		@RequestParam("head_id") String headId
+			@RequestParam("head_id") String headId
 	) {
 
 		List<Map<String, Object>> items = this.shipmentListService.getShipmentItemList(headId, null);
@@ -66,9 +68,9 @@ public class ShipmentListController {
 	@Transactional
 	@PostMapping("/shipment_status_cancel")
 	public AjaxResult shipmentStatusCancel(
-		@RequestParam(value = "cancel_ids[]", required = false) List<Integer> cancelIds,
-		HttpServletRequest request,
-		Authentication auth) {
+			@RequestParam(value = "cancel_ids[]", required = false) List<Integer> cancelIds,
+			HttpServletRequest request,
+			Authentication auth) {
 
 		AjaxResult result = new AjaxResult();
 		User user = (User) auth.getPrincipal();

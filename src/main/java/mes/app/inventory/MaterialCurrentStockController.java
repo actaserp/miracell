@@ -20,7 +20,7 @@ public class MaterialCurrentStockController {
 
 	@Autowired
 	private MaterialCurrentStockService MaterialCurrentStockService;
-	
+
 	// 재고 현황 조회
 	@GetMapping("/read")
 	public AjaxResult getMaterialCurrentStockList(
@@ -28,14 +28,16 @@ public class MaterialCurrentStockController {
 			@RequestParam(value="mat_grp_pk", required=false) Integer mat_grp_pk, //품목그룹
 			@RequestParam(value="mat_name", required=false) String mat_name, // 품목명(코드)
 			@RequestParam(value="store_house_id", required=false) Integer store_house_id, //창고
+			// 공장 필터. 빈 값 = 전체.
+			@RequestParam(value="factory_id", required=false) Integer factory_id,
 			@RequestParam(value="spjangcd", required=false) String spjangcd,
 			HttpServletRequest request) {
-		
-		List<Map<String, Object>> items = this.MaterialCurrentStockService.getMaterialCurrentStockList(mat_type, mat_grp_pk, mat_name, store_house_id, spjangcd);
-		
+
+		List<Map<String, Object>> items = this.MaterialCurrentStockService.getMaterialCurrentStockList(mat_type, mat_grp_pk, mat_name, store_house_id, factory_id, spjangcd);
+
 		AjaxResult result = new AjaxResult();
 		result.data = items;
-		
+
 		return result;
 	}
 }

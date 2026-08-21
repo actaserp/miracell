@@ -18,7 +18,7 @@ public class MaterialInoutService {
 	SqlRunner sqlRunner;
 
 	public List<Map<String, Object>> getMaterialInout(String srchStartDt, String srchEndDt, String housePk,
-																										String matType, String matGrpPk, String keyword, String spjangcd) {
+													  String matType, String matGrpPk, String keyword, String spjangcd) {
 
 		MapSqlParameterSource param = new MapSqlParameterSource();
 		param.addValue("srchStartDt", srchStartDt);
@@ -101,8 +101,13 @@ public class MaterialInoutService {
 		return items;
 	}
 
+	/**
+	 * @param factoryId 공장 필터. 빈 값/null 이면 전체 공장.
+	 *                  수불에는 공장이 없어 품목(material)의 공장으로 건다.
+	 */
 	public List<Map<String, Object>> getMaterialInoutReceipt(String srchStartDt, String srchEndDt, String housePk,
-																													 String matType, String matGrpPk, String keyword, String spjangcd) {
+															 String matType, String matGrpPk, String keyword,
+															 String factoryId, String spjangcd) {
 
 		MapSqlParameterSource param = new MapSqlParameterSource();
 		param.addValue("srchStartDt", srchStartDt);
@@ -176,6 +181,10 @@ public class MaterialInoutService {
 		if (StringUtils.isEmpty(matType)==false) sql +=" and mg.\"MaterialType\" = :matType ";
 		if (StringUtils.isEmpty(matGrpPk)==false) sql +=" and m.\"MaterialGroup_id\" = cast(:matGrpPk as Integer) ";
 		if (StringUtils.isEmpty(keyword)==false) sql +=" and upper(m.\"Name\") like concat('%%',upper(:keyword),'%%') ";
+		if (StringUtils.isEmpty(factoryId)==false) {
+			sql +=" and m.\"Factory_id\" = cast(:factoryId as Integer) ";
+			param.addValue("factoryId", factoryId);
+		}
 
 		sql += " order by \"InoutDate\" desc, \"InoutTime\" desc, mi.id desc ";
 
@@ -184,8 +193,13 @@ public class MaterialInoutService {
 		return items;
 	}
 
+	/**
+	 * @param factoryId 공장 필터. 빈 값/null 이면 전체 공장.
+	 *                  수불에는 공장이 없어 품목(material)의 공장으로 건다.
+	 */
 	public List<Map<String, Object>> getMaterialInoutIssue(String srchStartDt, String srchEndDt, String housePk,
-																												 String matType, String matGrpPk, String keyword, String spjangcd) {
+														   String matType, String matGrpPk, String keyword,
+														   String factoryId, String spjangcd) {
 
 		MapSqlParameterSource param = new MapSqlParameterSource();
 		param.addValue("srchStartDt", srchStartDt);
@@ -257,6 +271,10 @@ public class MaterialInoutService {
 		if (StringUtils.isEmpty(matType)==false) sql +=" and mg.\"MaterialType\" = :matType ";
 		if (StringUtils.isEmpty(matGrpPk)==false) sql +=" and m.\"MaterialGroup_id\" = cast(:matGrpPk as Integer) ";
 		if (StringUtils.isEmpty(keyword)==false) sql +=" and upper(m.\"Name\") like concat('%%',upper(:keyword),'%%') ";
+		if (StringUtils.isEmpty(factoryId)==false) {
+			sql +=" and m.\"Factory_id\" = cast(:factoryId as Integer) ";
+			param.addValue("factoryId", factoryId);
+		}
 
 		sql += " order by \"InoutDate\" desc, \"InoutTime\" desc, mi.id desc ";
 
@@ -265,8 +283,13 @@ public class MaterialInoutService {
 		return items;
 	}
 
+	/**
+	 * @param factoryId 공장 필터. 빈 값/null 이면 전체 공장.
+	 *                  수불에는 공장이 없어 품목(material)의 공장으로 건다.
+	 */
 	public List<Map<String, Object>> getMaterialInoutDisposal(String srchStartDt, String srchEndDt, String housePk,
-																														String matType, String matGrpPk, String keyword, String spjangcd) {
+															  String matType, String matGrpPk, String keyword,
+															  String factoryId, String spjangcd) {
 
 		MapSqlParameterSource param = new MapSqlParameterSource();
 		param.addValue("srchStartDt", srchStartDt);
@@ -339,6 +362,10 @@ public class MaterialInoutService {
 		if (StringUtils.isEmpty(matType)==false) sql +=" and mg.\"MaterialType\" = :matType ";
 		if (StringUtils.isEmpty(matGrpPk)==false) sql +=" and m.\"MaterialGroup_id\" = cast(:matGrpPk as Integer) ";
 		if (StringUtils.isEmpty(keyword)==false) sql +=" and upper(m.\"Name\") like concat('%%',upper(:keyword),'%%') ";
+		if (StringUtils.isEmpty(factoryId)==false) {
+			sql +=" and m.\"Factory_id\" = cast(:factoryId as Integer) ";
+			param.addValue("factoryId", factoryId);
+		}
 
 		sql += " order by \"InoutDate\" desc, \"InoutTime\" desc, mi.id desc ";
 
@@ -862,7 +889,7 @@ public class MaterialInoutService {
 		MapSqlParameterSource p = new MapSqlParameterSource();
 		p.addValue("gtin14", gtin14);
 		p.addValue("gtin13", (gtin14 != null && gtin14.length() == 14 && gtin14.startsWith("0"))
-													 ? gtin14.substring(1) : gtin14);
+				? gtin14.substring(1) : gtin14);
 		p.addValue("spjangcd", (spjangcd == null || spjangcd.isBlank()) ? null : spjangcd);
 
 		return this.sqlRunner.getRow("""
@@ -956,7 +983,7 @@ public class MaterialInoutService {
 
 	/** 미등록 바코드 자동 학습용 — 스캔한 GTIN 을 품목에 매핑 등록 */
 	public int registerBarcode(Integer materialId, String barcodeType, String gtin, String udiDi,
-														 Integer companyId, String spjangcd, Integer userId) {
+							   Integer companyId, String spjangcd, Integer userId) {
 		return registerBarcode(materialId, barcodeType, gtin, udiDi, companyId, spjangcd, userId, null, null);
 	}
 
@@ -973,8 +1000,8 @@ public class MaterialInoutService {
 	 *   CHECK 제약이 each 는 반드시 1이 되도록 막고 있어 실수가 걸린다.
 	 */
 	public int registerBarcode(Integer materialId, String barcodeType, String gtin, String udiDi,
-														 Integer companyId, String spjangcd, Integer userId,
-														 String packLevel, java.math.BigDecimal packQty) {
+							   Integer companyId, String spjangcd, Integer userId,
+							   String packLevel, java.math.BigDecimal packQty) {
 		if (materialId == null)
 			throw new IllegalArgumentException("품목을 선택하세요");
 		if ((gtin == null || gtin.isBlank()) && (udiDi == null || udiDi.isBlank()))

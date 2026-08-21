@@ -109,6 +109,10 @@
 
 <th:block layout:fragment="scripts">
     <th:block th:replace="/common/columns_setting :: columns_setting"></th:block>
+    <script th:inline="javascript">
+        /* 로그인 사용자의 소속 공장. 없으면 null → «전체» 가 기본값이 된다 */
+        const factory_id = [[${session.factory_id}]];
+    </script>
     <script type="text/javascript">
 
         /* =====================================================================
@@ -264,6 +268,15 @@
             $('#cboMatType').on('change', function () {
                 AjaxUtil.fillSelectOptions($('#matGrpPk'), 'material_group', 'all', false, $(this).val());
             });
+
+            /* 기본 선택 = 계정의 소속 공장. 없으면 «전체»(''). */
+            (function () {
+                const my = (factory_id == null || factory_id === '' || Number(factory_id) <= 0)
+                    ? '' : String(factory_id);
+                if (!my || $('#cboFactory option[value="' + my + '"]').length) $('#cboFactory').val(my);
+            })();
+
+            $('#cboFactory').on('change', () => page.searchMainData());
 
             $('#btnMainSearch').click(() => page.searchMainData());
             page.searchMainData();

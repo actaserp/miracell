@@ -59,13 +59,15 @@ public class ShipmentDoBController {
 	// 출하지시헤더 조회
 	@GetMapping("/read")
 	public AjaxResult getShipmentHeaderList(
-		@RequestParam(value = "srchStartDt", required = false) String date_from,
-		@RequestParam(value = "srchEndDt", required = false) String date_to,
-		@RequestParam(value = "cboCompany", required = false) Integer comp_pk,
-		@RequestParam(value = "cboMatGroup", required = false) Integer mat_grp_pk,
-		@RequestParam(value = "cboMaterial", required = false) Integer mat_pk,
-		@RequestParam(value = "keyword", required = false) String keyword,
-		@RequestParam(value = "chkNotShipped", required = false) String not_ship, HttpServletRequest request) {
+			@RequestParam(value = "srchStartDt", required = false) String date_from,
+			@RequestParam(value = "srchEndDt", required = false) String date_to,
+			@RequestParam(value = "cboCompany", required = false) Integer comp_pk,
+			@RequestParam(value = "cboMatGroup", required = false) Integer mat_grp_pk,
+			@RequestParam(value = "cboMaterial", required = false) Integer mat_pk,
+			@RequestParam(value = "keyword", required = false) String keyword,
+			// 공장 필터. 빈 값 = 전체.
+			@RequestParam(value = "factory_id", required = false) String factoryId,
+			@RequestParam(value = "chkNotShipped", required = false) String not_ship, HttpServletRequest request) {
 
 		String state = "";
 		if ("Y".equals(not_ship)) {
@@ -75,7 +77,7 @@ public class ShipmentDoBController {
 		}
 
 		List<Map<String, Object>> items = this.shipmentDoBService.getShipmentHeaderList(date_from, date_to, state,
-			comp_pk, mat_grp_pk, mat_pk, keyword);
+				comp_pk, mat_grp_pk, mat_pk, keyword, factoryId);
 
 		AjaxResult result = new AjaxResult();
 		result.data = items;
@@ -86,8 +88,8 @@ public class ShipmentDoBController {
 	// 출하 항목 조회
 	@GetMapping("/shipment_list")
 	public AjaxResult getShipmentList(
-		@RequestParam(value = "header_id", required = false) Integer shipment_header_id,
-		HttpServletRequest request) {
+			@RequestParam(value = "header_id", required = false) Integer shipment_header_id,
+			HttpServletRequest request) {
 
 		List<Map<String, Object>> items = this.shipmentDoBService.getShipmentList(shipment_header_id);
 
@@ -100,8 +102,8 @@ public class ShipmentDoBController {
 	// 출하 처리 LOT상세
 	@GetMapping("/shipment_lot_list")
 	public AjaxResult getShipmentLotList(
-		@RequestParam(value = "sh_id", required = false) Integer sh_id,
-		@RequestParam(value = "shipment_id", required = false) Integer shipment_id, HttpServletRequest request) {
+			@RequestParam(value = "sh_id", required = false) Integer sh_id,
+			@RequestParam(value = "shipment_id", required = false) Integer shipment_id, HttpServletRequest request) {
 
 		List<Map<String, Object>> items = this.shipmentDoBService.getShipmentLotList(sh_id, shipment_id);
 
@@ -114,9 +116,9 @@ public class ShipmentDoBController {
 	// LOT지정 팝업 lot 검색
 	@GetMapping("/mat_lot_search")
 	public AjaxResult getMatLotSearch(
-		@RequestParam(value = "sh_id", required = false) Integer sh_id,
-		@RequestParam(value = "material_id", required = false) Integer material_id,
-		@RequestParam(value = "lot_number", required = false) String lot_number, HttpServletRequest request) {
+			@RequestParam(value = "sh_id", required = false) Integer sh_id,
+			@RequestParam(value = "material_id", required = false) Integer material_id,
+			@RequestParam(value = "lot_number", required = false) String lot_number, HttpServletRequest request) {
 
 		List<Map<String, Object>> items = this.shipmentDoBService.getMatLotSearch(sh_id, material_id, lot_number);
 
@@ -129,11 +131,11 @@ public class ShipmentDoBController {
 	// lot 추가, TODO: LOT추가하면 mat_lot_cons에는 추가되고 mat_lot의 현재고도 깎이는데 material은 현재고가 변함이 없음 --> 뭐지? 출하할때는 빠지나 확인필요.
 	@PostMapping("/save_mat_lot_cons")
 	public AjaxResult saveMatLotCons(
-		@RequestParam(value = "sh_id") Integer sh_id,
-		@RequestParam(value = "shipment_id") Integer shipment_id,
-		@RequestBody MultiValueMap<String,Object> Q,
-		HttpServletRequest request,
-		Authentication auth) {
+			@RequestParam(value = "sh_id") Integer sh_id,
+			@RequestParam(value = "shipment_id") Integer shipment_id,
+			@RequestBody MultiValueMap<String,Object> Q,
+			HttpServletRequest request,
+			Authentication auth) {
 
 		AjaxResult result = new AjaxResult();
 
@@ -250,9 +252,9 @@ public class ShipmentDoBController {
 	 */
 	@PostMapping("/carton_ship")
 	public AjaxResult cartonShip(
-		@RequestParam(value = "carton_id") Integer cartonId,
-		@RequestParam(value = "shipment_id", required = false) Integer shipmentId,
-		Authentication auth) {
+			@RequestParam(value = "carton_id") Integer cartonId,
+			@RequestParam(value = "shipment_id", required = false) Integer shipmentId,
+			Authentication auth) {
 
 		AjaxResult result = new AjaxResult();
 		User user = (User) auth.getPrincipal();
@@ -268,11 +270,11 @@ public class ShipmentDoBController {
 	// Lot 삭제
 	@PostMapping("/delete_mal_lot_consume")
 	public AjaxResult deleteMalLotConsume(
-		@RequestBody MultiValueMap<String,Object> Q,
-		@RequestParam(value = "sh_id", required = false) Integer sh_id,
-		@RequestParam(value = "shipment_id", required = false) Integer shipment_id,
-		HttpServletRequest request,
-		Authentication auth) {
+			@RequestBody MultiValueMap<String,Object> Q,
+			@RequestParam(value = "sh_id", required = false) Integer sh_id,
+			@RequestParam(value = "shipment_id", required = false) Integer shipment_id,
+			HttpServletRequest request,
+			Authentication auth) {
 
 		AjaxResult result = new AjaxResult();
 
@@ -318,10 +320,10 @@ public class ShipmentDoBController {
 	// 출고 처리
 	@PostMapping("/shipment_status_complete")
 	public AjaxResult shipmentStatusComplete(
-		@RequestParam(value = "sh_id", required = false) Integer sh_id,
-		@RequestParam(value = "description", required = false) String description,
-		HttpServletRequest request,
-		Authentication auth) {
+			@RequestParam(value = "sh_id", required = false) Integer sh_id,
+			@RequestParam(value = "description", required = false) String description,
+			HttpServletRequest request,
+			Authentication auth) {
 
 		AjaxResult result = new AjaxResult();
 

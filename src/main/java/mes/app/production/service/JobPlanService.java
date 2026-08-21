@@ -22,23 +22,28 @@ public class JobPlanService {
 
 	@Autowired
 	SqlRunner sqlRunner;
-	
+
 	@Autowired
 	JobPlanRepository jobPlanRepository;
 
 	@Autowired
 	JobPlanHeadRepository jobPlanHeadRepository;
-	
-	
+
+
 	// 수주 내역 조회 
-	public List<Map<String, Object>> getList(String date_kind, String start, String end, String spjangcd) {
-		
+	/**
+	 * @param factoryId 공장 필터. 빈 값/null 이면 전체 공장.
+	 *                  계획에는 공장이 없어 품목(material)의 공장으로 건다.
+	 *                  행 단위로 자르므로, 다른 공장 품목만 있는 헤더는 계획행 없이 남는다.
+	 */
+	public List<Map<String, Object>> getList(String date_kind, String start, String end, String factoryId, String spjangcd) {
+
 		MapSqlParameterSource dicParam = new MapSqlParameterSource();
 		dicParam.addValue("date_kind", date_kind);
 		dicParam.addValue("start", start);
 		dicParam.addValue("end", end);
 		dicParam.addValue("spjangcd", spjangcd);
-		
+
 		String sql = """
 				SELECT
 				     h.id AS head_id,
@@ -66,18 +71,27 @@ public class JobPlanService {
 				 WHERE h.spjangcd = :spjangcd
 				   AND h.stdate <= :end
 				   AND h.eddate >= :start
-				 
-				 ORDER BY h.id desc, p.id desc;
+			""";
+
+		if (StringUtils.hasText(factoryId)) {
+			dicParam.addValue("factoryId", Integer.parseInt(factoryId));
+			sql += """
+				   AND m."Factory_id" = :factoryId
+			""";
+		}
+
+		sql += """
+				 ORDER BY h.id desc, p.id desc
 			""";
 
 		List<Map<String, Object>> itmes = this.sqlRunner.getRows(sql, dicParam);
-		
+
 		return itmes;
 	}
-	
+
 	// 수주 상세정보 조회
 	public Map<String, Object> getDetail(int head_id) {
-		
+
 		MapSqlParameterSource paramMap = new MapSqlParameterSource();
 		paramMap.addValue("head_id", head_id);
 
@@ -115,7 +129,7 @@ public class JobPlanService {
 		List<Map<String, Object>> planList = this.sqlRunner.getRows(detailSql, paramMap);
 
 		head.put("planList", planList);
-		
+
 		return head;
 	}
 

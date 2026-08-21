@@ -9,6 +9,20 @@
                 <div class="search-wrap" style="text-align: left;">
                     <dl>
                         <dt>
+                            <label for="cboFactory">
+                                공장<span class="eq"></span>
+                            </label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <select id="cboFactory" name="cboFactory">
+
+                                </select>
+                            </div>
+                        </dd>
+                    </dl>
+                    <dl>
+                        <dt>
                             <label for="cboMaterialType">
                                 품목구분<span class="eq"></span>
                             </label>
@@ -82,7 +96,10 @@
                 this.$cboMaterialGroup = null;
                 this.$btnMaterialSelect = null;
                 this.$keyword = null;
+                this.$cboFactory = null;
                 this.material_type = null;
+                /* 호출 화면이 기본값으로 넣어줄 수 있는 공장. null 이면 «전체»로 열린다 */
+                this.factory_id = null;
             }
 
             searchDataBind() {
@@ -91,6 +108,8 @@
                 let data = {
                     'material_type': _this.$cboMaterialType.val(),
                     'keyword': _this.$keyword.val(),
+                    /* 팝업 안 공장 콤보 값. «전체»면 '' 이라 전체가 나온다 */
+                    'factory_id': _this.$cboFactory.val() || '',
                     spjangcd: sessionStorage.getItem('spjangcd')
                 };
 
@@ -150,6 +169,16 @@
                 this.$cboMaterialType = $content.find('#cboMaterialType');
                 this.$keyword = $content.find('#keyword');
                 this.$btnMaterialSelect = $content.find('#btnMaterialSelect');
+                this.$cboFactory = $content.find('#cboFactory');
+
+                /* 공장 콤보. 'all' 이면 첫 항목이 «전체»(value='').
+                   호출 화면이 factory_id 를 넣어줬으면 그것을 기본 선택한다. */
+                AjaxUtil.fillSelectOptions(this.$cboFactory, 'factory', 'all',
+                    (this.factory_id == null || this.factory_id === '') ? '' : String(this.factory_id));
+
+                this.$cboFactory.on('change', function () {
+                    _this.searchDataBind();
+                });
 
                 AjaxUtil.fillSelectOptions(this.$cboMaterialType, 'system_code', 'all', false, 'mat_type');
                 if (this.material_type != null) {

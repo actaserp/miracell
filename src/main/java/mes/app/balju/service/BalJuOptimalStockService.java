@@ -27,10 +27,12 @@ public class BalJuOptimalStockService {
    * @param basis   소요량 산정 기준
    *                suju = 수주만 / plan = 생산계획만 / sum = 둘의 합 / max(기본) = 둘 중 큰 값
    * @param matType 품목구분(mat_grp.MaterialType). 빈값이면 완제품만 뺀 전체
+   * @param factoryId 공장 필터. 빈값/null 이면 전체 공장
    */
   public List<Map<String, Object>> getList(String matName, String status,
                                            Timestamp start, Timestamp end,
-                                           String spjangcd, String basis, String matType) {
+                                           String spjangcd, String basis, String matType,
+                                           String factoryId) {
     MapSqlParameterSource paramMap = new MapSqlParameterSource();
     paramMap.addValue("matName", matName);
     paramMap.addValue("status", status);
@@ -41,6 +43,9 @@ public class BalJuOptimalStockService {
     paramMap.addValue("basis", (basis == null || basis.isBlank()) ? "max" : basis.trim());
     // 옵션값에 공백이 섞여 들어오는 경우가 있어 trim 필수(예: ' commodity')
     paramMap.addValue("matType", (matType == null) ? "" : matType.trim());
+    // 공장. null 이면 CTE 조건이 통째로 참이 되어 전체가 나온다.
+    paramMap.addValue("factoryId",
+            (factoryId == null || factoryId.isBlank()) ? null : Integer.valueOf(factoryId.trim()));
 
     String sql = """
       WITH RECURSIVE
@@ -64,6 +69,8 @@ public class BalJuOptimalStockService {
           LEFT JOIN mat_grp g ON g.id = m."MaterialGroup_id"
           WHERE m.spjangcd = :spjangcd
             AND m."Useyn" = '0'
+            AND (CAST(:factoryId AS integer) IS NULL
+                 OR m."Factory_id" = CAST(:factoryId AS integer))
             AND CASE
                   -- 미선택(전체)이면 완제품만 제외
                   WHEN COALESCE(CAST(:matType AS text),'') = ''

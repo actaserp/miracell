@@ -24,13 +24,13 @@ import mes.domain.services.CommonUtil;
 @RestController
 @RequestMapping("/api/inventory/material_move")
 public class MaterialMoveController {
-	
+
 	@Autowired
 	private MaterialMoveService materialMoveService;
-	
+
 	@Autowired
 	MatInoutRepository matInoutRepository;
-	
+
 	@GetMapping("/read")
 	public AjaxResult getMaterialMoveList(
 			@RequestParam(value="storehouse_id", required = false) Integer storehouse_id,
@@ -38,8 +38,8 @@ public class MaterialMoveController {
 			@RequestParam("spjangcd") String spjangcd,
 			@RequestParam(value="keyword", required = false) String keyword) {
 
-        AjaxResult result = new AjaxResult();
-        result.data = this.materialMoveService.getMaterialMoveList(storehouse_id, material_id, keyword, spjangcd);
+		AjaxResult result = new AjaxResult();
+		result.data = this.materialMoveService.getMaterialMoveList(storehouse_id, material_id, keyword, spjangcd);
 		return result;
 	}
 
@@ -47,14 +47,16 @@ public class MaterialMoveController {
 	public AjaxResult getHouseMoveList(
 			@RequestParam(value="storehouse_id", required = false) Integer storehouse_id,
 			@RequestParam(value="mat_grp_pk", required = false) Integer mat_grp_pk,
+			// 공장 필터. 빈 값 = 전체.
+			@RequestParam(value="factory_id", required = false) Integer factory_id,
 			@RequestParam("spjangcd") String spjangcd,
 			@RequestParam(value="keyword", required = false) String keyword) {
 
 		AjaxResult result = new AjaxResult();
-		result.data = this.materialMoveService.getHouseMoveList(storehouse_id, mat_grp_pk, keyword, spjangcd);
+		result.data = this.materialMoveService.getHouseMoveList(storehouse_id, mat_grp_pk, keyword, factory_id, spjangcd);
 		return result;
 	}
-	
+
 	@PostMapping("/material_move")
 	@Transactional
 	public AjaxResult saveMaterialMove(
@@ -66,7 +68,7 @@ public class MaterialMoveController {
 
 		// 현재 일자
 		LocalDate nowDate = LocalDate.now();
-		
+
 		// 현재 시간
 		LocalTime nowTime = LocalTime.now();
 
@@ -75,7 +77,7 @@ public class MaterialMoveController {
 		for (Map<String, Object> map : moveList) {
 			int mat_id = (int)map.get("mat_id");
 			float moveQty = Float.parseFloat(map.get("move_qty").toString());
-			
+
 			// 출고
 			MaterialInout mo = new MaterialInout();
 			mo.setStoreHouseId(Integer.parseInt(map.get("storehouse_id").toString()));
@@ -90,7 +92,7 @@ public class MaterialMoveController {
 			mo.set_status("a");
 			mo.set_audit(user);
 			this.matInoutRepository.save(mo);
-			
+
 			// 입고
 			MaterialInout mi = new MaterialInout();
 			mi.setStoreHouseId(to_storehouse_id);
@@ -109,25 +111,25 @@ public class MaterialMoveController {
 
 		return result;
 	}
-	
+
 	@PostMapping("/material_lot_move")
 	public AjaxResult saveLotMove(
 			@RequestParam(value="to_storehouse_id", required = true) Integer to_storehouse_id,
 			@RequestParam(value="lot_list", required = true) String lots ,
 			Authentication auth
-			) {
+	) {
 		User user = (User)auth.getPrincipal();
 		AjaxResult result = new AjaxResult();
-		
+
 		LocalDate nowDate = LocalDate.now();
 		LocalTime nowTime = LocalTime.now();
-		
+
 		List<Map<String, Object>> lotList = CommonUtil.loadJsonListMap(lots);
 		for (Map<String, Object> map : lotList){
 			int mat_id = (int)map.get("mat_id");
 			int mat_lot_id = (int)map.get("mat_lot_id");
 			int from_storehouse_id = (int)map.get("storehouse_id");
-			
+
 			String lotnumber =(String)map.get("LotNumber");
 			float currentStock = Float.parseFloat(map.get("CurrentStock").toString());
 			if(from_storehouse_id==to_storehouse_id) {
@@ -148,7 +150,7 @@ public class MaterialMoveController {
 			mio_out.set_status("a");
 			mio_out.set_audit(user);
 			this.matInoutRepository.save(mio_out);
-			
+
 			MaterialInout mio_in = new MaterialInout();
 			mio_in.setMaterialId(mat_id);
 			mio_in.setStoreHouseId(to_storehouse_id);
@@ -163,10 +165,10 @@ public class MaterialMoveController {
 			mio_in.setLotNumber(lotnumber);
 			mio_in.set_audit(user);
 			this.matInoutRepository.save(mio_in);
-			
+
 			this.materialMoveService.updateMaterialLotStorehouse(mat_lot_id, to_storehouse_id);
 		}
-		
+
 		return result;
 	}
 
@@ -174,8 +176,8 @@ public class MaterialMoveController {
 	public AjaxResult getMaterialLotList(
 			@RequestParam(value="storehouse_id", required = false) Integer storehouse_id,
 			@RequestParam(value="material_id", required = false) Integer material_id
-			) {
-		AjaxResult result = new AjaxResult();		
+	) {
+		AjaxResult result = new AjaxResult();
 		result.data = this.materialMoveService.getMaterialLotList(storehouse_id, material_id);
 		return result;
 	}

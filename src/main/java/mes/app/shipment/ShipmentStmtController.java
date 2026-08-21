@@ -48,7 +48,7 @@ public class ShipmentStmtController {
 
 	@Autowired
 	private ShipmentListService shipmentListService;
-	
+
 	@Autowired
 	private ShipmentStmtService shipmentStmtService;
 
@@ -72,6 +72,8 @@ public class ShipmentStmtController {
 			@RequestParam(value="cboCompany", required=false) String comp_pk,
 			@RequestParam(value="cboMatGroup", required=false) String mat_grp_pk,
 			@RequestParam(value="CompanySearch", required=false) String company,
+			// 공장 필터. 빈 값 = 전체.
+			@RequestParam(value="factory_id", required=false) String factoryId,
 			@RequestParam(value="cboMaterial", required=false) String mat_pk) {
 
 		AjaxResult result = new AjaxResult();
@@ -84,7 +86,7 @@ public class ShipmentStmtController {
 
 		try{
 			List<Map<String, Object>> items
-				= this.shipmentListService.getShipmentHeadList(date_from, date_to, comp_pk, mat_grp_pk, mat_pk, null, "", company);
+					= this.shipmentListService.getShipmentHeadList(date_from, date_to, comp_pk, mat_grp_pk, mat_pk, null, "", company, factoryId);
 
 			result.data = items;
 			return result;
@@ -95,14 +97,14 @@ public class ShipmentStmtController {
 			return result;
 		}
 	}
-	
+
 	// 출하 품목
 	@GetMapping("/shipment_item_list")
 	public AjaxResult getShipmentItemList(
 			@RequestParam(value="head_id", required=false) String head_id,
 			@RequestParam(value="company_id", required=false) Integer company_id,
 			@RequestParam(value="calc_money", required=false) String calc_money) {
-		
+
 		List<Map<String, Object>> items = null;
 		AjaxResult result = new AjaxResult();
 
@@ -111,7 +113,7 @@ public class ShipmentStmtController {
 
 		result.success = true;
 		result.data = items;
-		
+
 		return result;
 	}
 
@@ -267,15 +269,15 @@ public class ShipmentStmtController {
 
 		return result;
 	}
-		
-	// 명세서 발행처리	
+
+	// 명세서 발행처리
 	@PostMapping("/update_stmt_issue")
 	public AjaxResult issueStatement(
 			@RequestParam("head_id") Integer head_id,
 			HttpServletRequest request,
 			Authentication auth) {
 		User user = (User)auth.getPrincipal();
-		AjaxResult result = new AjaxResult();		
+		AjaxResult result = new AjaxResult();
 		ShipmentHead head = this.shipmentHeadRepository.getShipmentHeadById(head_id);
 		if (head == null) {
 			result.success = false;
@@ -286,12 +288,12 @@ public class ShipmentStmtController {
 				return result;
 			} else {
 
-                head.setStatementIssuedYN("Y");
-                head.setIssueDate(DateUtil.getNowTimeStamp());	//DateUtil.getTodayString()
-                head.setStatementNumber("");
-                head.set_audit(user);
-                head = this.shipmentHeadRepository.save(head);
-                result.data = head;
+				head.setStatementIssuedYN("Y");
+				head.setIssueDate(DateUtil.getNowTimeStamp());	//DateUtil.getTodayString()
+				head.setStatementNumber("");
+				head.set_audit(user);
+				head = this.shipmentHeadRepository.save(head);
+				result.data = head;
 			}
 		}
 		return result;
@@ -302,15 +304,15 @@ public class ShipmentStmtController {
 	public AjaxResult printTradingStatement(
 			@RequestParam(value="head_id", required=false) Integer head_id,
 			@RequestParam(value="company_id") Integer company_id
-			) {
+	) {
 
 
 		Map<String, Object> header = this.tradeStmtService.getTradeStmtHeaderInfo(head_id);
 		List<Map<String, Object>> items = this.tradeStmtService.getTradeStmtItemList(head_id, company_id);
-		
-        Map<String, Object> rtnData = new HashMap<String, Object>();
-        rtnData.putAll(header);
-        rtnData.put("item_list", items);
+
+		Map<String, Object> rtnData = new HashMap<String, Object>();
+		rtnData.putAll(header);
+		rtnData.put("item_list", items);
 
 		AjaxResult result = new AjaxResult();
 		result.data = rtnData;

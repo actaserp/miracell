@@ -24,7 +24,11 @@ public class BaljuOrderService {
   @Autowired
   SqlRunner sqlRunner;
 
-  public List<Map<String, Object>> getBaljuList(String date_kind, Timestamp start, Timestamp end, String spjangcd, String company) {
+  /**
+   * @param factoryId 공장 필터. 빈 값/null 이면 전체 공장.
+   *                  발주에는 공장이 없어 품목(material)의 공장으로 건다.
+   */
+  public List<Map<String, Object>> getBaljuList(String date_kind, Timestamp start, Timestamp end, String spjangcd, String company, String factoryId) {
 
     MapSqlParameterSource dicParam = new MapSqlParameterSource();
     dicParam.addValue("date_kind", date_kind);
@@ -176,6 +180,11 @@ public class BaljuOrderService {
     if (StringUtils.isEmpty(company) == false) {
       sql += " and c.\"Name\" like :company ";
       dicParam.addValue("company", "%" + company + "%");
+    }
+
+    if (StringUtils.isEmpty(factoryId) == false) {
+      sql += " and m.\"Factory_id\" = cast(:factoryId as Integer) ";
+      dicParam.addValue("factoryId", factoryId);
     }
 
     sql += """
@@ -530,11 +539,11 @@ public class BaljuOrderService {
         """;
 
     MapSqlParameterSource params = new MapSqlParameterSource()
-        .addValue("unitPrice", newUnitPrice)
-        .addValue("changerName", changerName)
-        .addValue("materialId", materialId)
-        .addValue("companyId", companyId)
-        .addValue("jumunDate", jumunDate);
+            .addValue("unitPrice", newUnitPrice)
+            .addValue("changerName", changerName)
+            .addValue("materialId", materialId)
+            .addValue("companyId", companyId)
+            .addValue("jumunDate", jumunDate);
 
     int affected = sqlRunner.execute(sql, params);
     //log.info("🔁 단가 업데이트 완료 (이전 단가 백업 포함): {}건", affected);
@@ -598,15 +607,15 @@ public class BaljuOrderService {
         """;
 
     MapSqlParameterSource updateParams = new MapSqlParameterSource()
-        .addValue("state", newState)
-        .addValue("id", id);
+            .addValue("state", newState)
+            .addValue("id", id);
 
     int affected = sqlRunner.execute(updateSql, updateParams);
 
     // 5. 결과 반환
     return List.of(Map.of(
-        "updatedRows", affected,
-        "newState", newState
+            "updatedRows", affected,
+            "newState", newState
     ));
   }
 
@@ -625,8 +634,8 @@ public class BaljuOrderService {
     LocalDate today = LocalDate.now();
 
     Timestamp applyEndDate = applyStartDateDate.equals(today)
-        ? applyStartDate
-        : Timestamp.valueOf(applyStartDateDate.minusDays(1).atStartOfDay());
+            ? applyStartDate
+            : Timestamp.valueOf(applyStartDateDate.minusDays(1).atStartOfDay());
 
     Timestamp applyEndDate2 = CommonUtil.tryTimestamp("2100-12-31");
 

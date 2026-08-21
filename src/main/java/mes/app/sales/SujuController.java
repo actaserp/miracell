@@ -110,12 +110,14 @@ public class SujuController {
   // 수주 목록 조회
   @GetMapping("/read")
   public AjaxResult getSujuList(
-      @RequestParam(value = "start") String start_date,
-      @RequestParam(value = "end" ) String end_date,
-      @RequestParam(value = "spjangcd") String spjangcd,
-      @RequestParam(value = "company",required = false) String company,
-      @RequestParam(value = "projno", required = false) String projno,
-      HttpServletRequest request) {
+          @RequestParam(value = "start") String start_date,
+          @RequestParam(value = "end" ) String end_date,
+          @RequestParam(value = "spjangcd") String spjangcd,
+          @RequestParam(value = "company",required = false) String company,
+          @RequestParam(value = "projno", required = false) String projno,
+          // 공장 필터. 빈 값 = 전체.
+          @RequestParam(value = "factory_id", required = false) String factoryId,
+          HttpServletRequest request) {
 
     start_date = start_date + " 00:00:00";
     end_date = end_date + " 23:59:59";
@@ -123,7 +125,7 @@ public class SujuController {
     Timestamp start = Timestamp.valueOf(start_date);
     Timestamp end = Timestamp.valueOf(end_date);
 
-    List<Map<String, Object>> items = this.sujuService.getSujuList(start, end,spjangcd, company, projno);
+    List<Map<String, Object>> items = this.sujuService.getSujuList(start, end,spjangcd, company, projno, factoryId);
 
     AjaxResult result = new AjaxResult();
     result.data = items;
@@ -134,8 +136,8 @@ public class SujuController {
   // 수주 상세정보 조회
   @GetMapping("/detail")
   public AjaxResult getSujuDetail(
-      @RequestParam("id") int id,
-      HttpServletRequest request) {
+          @RequestParam("id") int id,
+          HttpServletRequest request) {
     Map<String, Object> item = this.sujuService.getSujuDetail(id);
 
     AjaxResult result = new AjaxResult();
@@ -164,8 +166,8 @@ public class SujuController {
   // 제품 정보 조회
   @GetMapping("/product_info")
   public AjaxResult getSujuMatInfo(
-      @RequestParam("product_id") int id,
-      HttpServletRequest request) {
+          @RequestParam("product_id") int id,
+          HttpServletRequest request) {
     Map<String, Object> item = this.sujuService.getSujuMatInfo(id);
 
     AjaxResult result = new AjaxResult();
@@ -260,7 +262,7 @@ public class SujuController {
 
         // 🔒 출하 연동이면 삭제 차단
         boolean hasShipment = shipmentRepository
-                                .existsBySourceTableNameAndSourceDataPk("rela_data", exId);
+                .existsBySourceTableNameAndSourceDataPk("rela_data", exId);
 
         if (hasShipment) {
           result.success = false;
@@ -279,8 +281,8 @@ public class SujuController {
     for (Map<String, Object> item : items) {
       Suju suju;
       String standard = java.util.Objects.toString(
-          item.containsKey("Standard") ? item.get("Standard") : item.get("standard"),
-          ""
+              item.containsKey("Standard") ? item.get("Standard") : item.get("standard"),
+              ""
       );
 
 
@@ -307,16 +309,16 @@ public class SujuController {
 
         // 기존 DB 값과 핵심 변경 비교
         boolean coreChanged =
-            !java.util.Objects.equals(suju.getMaterialId(), mid) ||
-                !java.util.Objects.equals(suju.getSujuQty(), qty) ||
-                !java.util.Objects.equals(suju.getSujuQty2(), qty) ||
-                !java.util.Objects.equals(suju.getUnitPrice(), unitPrice) ||
-                !java.util.Objects.equals(suju.getCompanyId(), companyId) ||
-                !java.util.Objects.equals(suju.getDueDate(), newDueDate);
+                !java.util.Objects.equals(suju.getMaterialId(), mid) ||
+                        !java.util.Objects.equals(suju.getSujuQty(), qty) ||
+                        !java.util.Objects.equals(suju.getSujuQty2(), qty) ||
+                        !java.util.Objects.equals(suju.getUnitPrice(), unitPrice) ||
+                        !java.util.Objects.equals(suju.getCompanyId(), companyId) ||
+                        !java.util.Objects.equals(suju.getDueDate(), newDueDate);
 
         // 정확한 출하 연동 여부 확인 (SourceTableName/SourceDataPk 기준)
         boolean hasShipment = shipmentRepository
-            .existsBySourceTableNameAndSourceDataPk("rela_data", sujuId);
+                .existsBySourceTableNameAndSourceDataPk("rela_data", sujuId);
         // ← Repository에 아래 시그니처 추가 필요:
         // boolean existsBySourceTableNameAndSourceDataPk(String sourceTableName, Integer sourceDataPk);
 
@@ -334,8 +336,8 @@ public class SujuController {
         // (필요하면) 변경 없음이면 스킵
         // ✅ 규격/상세 변경도 "변경"으로 인식해야 함
         boolean standardChanged = !java.util.Objects.equals(
-          java.util.Objects.toString(suju.getStandard(), ""),
-          java.util.Objects.toString(standard, "")
+                java.util.Objects.toString(suju.getStandard(), ""),
+                java.util.Objects.toString(standard, "")
         );
 
         // 표준상세 payload가 오면(빈 리스트 포함 여부는 정책에 따라 선택)
@@ -343,10 +345,10 @@ public class SujuController {
         boolean hasDetailsPayload = (sdObj instanceof List) && !((List<?>) sdObj).isEmpty();
 
         boolean nothingChanged = !coreChanged
-         && !standardChanged
-         && !hasDetailsPayload
-         && java.util.Objects.equals(suju.getTotalAmount(), tryIntNull(item.get("totalAmount")))
-         && java.util.Objects.equals(suju.getDescription(), (String) item.get("description"));
+                && !standardChanged
+                && !hasDetailsPayload
+                && java.util.Objects.equals(suju.getTotalAmount(), tryIntNull(item.get("totalAmount")))
+                && java.util.Objects.equals(suju.getDescription(), (String) item.get("description"));
 
         if (nothingChanged) continue;
 
@@ -402,7 +404,7 @@ public class SujuController {
       SujuRepository.save(suju);
       Integer sujuId = suju.getId();
 
-    // 우선: items 요소에 배열 형태로 온 경우
+      // 우선: items 요소에 배열 형태로 온 경우
       Object sdObj = item.get("standardDetails");
       if (sdObj instanceof List) {
 //        @SuppressWarnings("unchecked")
@@ -586,8 +588,8 @@ public class SujuController {
 
     try {
       List<Map<String, Object>> details =
-          objectMapper.readValue(detailJson,
-              new com.fasterxml.jackson.core.type.TypeReference<List<Map<String, Object>>>() {});
+              objectMapper.readValue(detailJson,
+                      new com.fasterxml.jackson.core.type.TypeReference<List<Map<String, Object>>>() {});
 
       saveSujuDetailsList(sujuId, details);
 
@@ -630,9 +632,9 @@ public class SujuController {
   @Transactional
   @PostMapping("/delete")
   public AjaxResult deleteSuju(
-      @RequestParam("id") Integer id,
-      @RequestParam("State") String State,
-      @RequestParam("ShipmentStateName") String ShipmentStateName) {
+          @RequestParam("id") Integer id,
+          @RequestParam("State") String State,
+          @RequestParam("ShipmentStateName") String ShipmentStateName) {
 
     AjaxResult result = new AjaxResult();
 
@@ -689,11 +691,11 @@ public class SujuController {
   @Transactional
   @PostMapping("/upload_save")
   public AjaxResult saveSujuBulkData(
-      @RequestParam(value = "data_date") String data_date,
-      @RequestParam(value = "spjangcd") String spjangcd,
-      @RequestParam(value = "upload_file") MultipartFile upload_file,
-      MultipartHttpServletRequest multipartRequest,
-      Authentication auth) throws FileNotFoundException, IOException {
+          @RequestParam(value = "data_date") String data_date,
+          @RequestParam(value = "spjangcd") String spjangcd,
+          @RequestParam(value = "upload_file") MultipartFile upload_file,
+          MultipartHttpServletRequest multipartRequest,
+          Authentication auth) throws FileNotFoundException, IOException {
 
     User user = (User) auth.getPrincipal();
 
@@ -736,24 +738,24 @@ public class SujuController {
     List<Suju> sujuList = new ArrayList<>();
 
     Map<String, Company> companyMap = CompanyList.stream()
-        .collect(Collectors.toMap(Company::getName, Function.identity()));
+            .collect(Collectors.toMap(Company::getName, Function.identity()));
 
     Map<String, Depart> departMap = departList.stream()
-        .collect(Collectors.toMap(Depart::getName, Function.identity()));
+            .collect(Collectors.toMap(Depart::getName, Function.identity()));
 
     Map<String, TB_DA003> projectMap = projectList.stream()
-        .collect(Collectors.toMap(TB_DA003::getProjnm, Function.identity()));
+            .collect(Collectors.toMap(TB_DA003::getProjnm, Function.identity()));
 
     Map<String, Material> materialMap = materialList.stream()
-        .filter(m -> m.getCustomerBarcode() != null && !m.getCustomerBarcode().trim().isEmpty())
-        .collect(Collectors.toMap(
-            Material::getCustomerBarcode,
-            Function.identity(),
-            (existing, duplicate) -> existing
-        ));
+            .filter(m -> m.getCustomerBarcode() != null && !m.getCustomerBarcode().trim().isEmpty())
+            .collect(Collectors.toMap(
+                    Material::getCustomerBarcode,
+                    Function.identity(),
+                    (existing, duplicate) -> existing
+            ));
 
     Map<String, Unit> unitMap = unitList.stream()
-        .collect(Collectors.toMap(Unit::getName, Function.identity()));
+            .collect(Collectors.toMap(Unit::getName, Function.identity()));
 
 
     AjaxResult result = new AjaxResult();
@@ -882,18 +884,18 @@ public class SujuController {
 
       if (sujuHead == null) {
         sujuHead = sujuHeadRepository.findByJumunNumberAndSpjangcd(jumun_number, spjangcd)
-            .orElseGet(() -> {
-              SujuHead newHead = new SujuHead();
-              newHead.setCompany_id(company.getId());   // 해당 행 기준
-              newHead.setJumunDate(Date.valueOf(jumun_date));
-              newHead.setDeliveryDate(Date.valueOf(due_date));
-              newHead.setSpjangcd(spjangcd);
-              newHead.setJumunNumber(jumun_number);
-              newHead.set_audit(user);
-              newHead.set_audit(user);
-              newHead.setSujuType("sales");
-              return sujuHeadRepository.save(newHead);
-            });
+                .orElseGet(() -> {
+                  SujuHead newHead = new SujuHead();
+                  newHead.setCompany_id(company.getId());   // 해당 행 기준
+                  newHead.setJumunDate(Date.valueOf(jumun_date));
+                  newHead.setDeliveryDate(Date.valueOf(due_date));
+                  newHead.setSpjangcd(spjangcd);
+                  newHead.setJumunNumber(jumun_number);
+                  newHead.set_audit(user);
+                  newHead.set_audit(user);
+                  newHead.setSujuType("sales");
+                  return sujuHeadRepository.save(newHead);
+                });
 
         sujuHeadMap.put(jumun_number, sujuHead);  // 캐싱
       }
@@ -992,9 +994,9 @@ public class SujuController {
   // 수주 변환 changeSujuBulkData
   @PostMapping("/change")
   public AjaxResult changeSujuBulkData(
-      @RequestParam MultiValueMap<String, Object> Q,
-      HttpServletRequest request,
-      Authentication auth) {
+          @RequestParam MultiValueMap<String, Object> Q,
+          HttpServletRequest request,
+          Authentication auth) {
 
     AjaxResult result = new AjaxResult();
 
@@ -1094,19 +1096,19 @@ public class SujuController {
 
   @PostMapping("/save_Comp")
   public AjaxResult SaveComp(
-      @RequestParam(value = "id", required = false) Integer id,   // ★ 신규일 땐 null 허용
-      @RequestParam("name") String name,
-      @RequestParam("cboCompanyType") String companyType,
-      @RequestParam("TelNumber") String telNumber,
-      @RequestParam("business_number") String businessNumber,
-      @RequestParam("business_type") String businessType,
-      @RequestParam("business_item") String businessItem,
-      @RequestParam("address") String address,
-      @RequestParam("fax_number") String fax_number,
-      @RequestParam("sales_manager") String sales_manager,
-      @RequestParam("email") String email,
-      @RequestParam("spjangcd") String spjangcd,
-      Authentication auth
+          @RequestParam(value = "id", required = false) Integer id,   // ★ 신규일 땐 null 허용
+          @RequestParam("name") String name,
+          @RequestParam("cboCompanyType") String companyType,
+          @RequestParam("TelNumber") String telNumber,
+          @RequestParam("business_number") String businessNumber,
+          @RequestParam("business_type") String businessType,
+          @RequestParam("business_item") String businessItem,
+          @RequestParam("address") String address,
+          @RequestParam("fax_number") String fax_number,
+          @RequestParam("sales_manager") String sales_manager,
+          @RequestParam("email") String email,
+          @RequestParam("spjangcd") String spjangcd,
+          Authentication auth
   ) {
     AjaxResult result = new AjaxResult();
     User user = (User) auth.getPrincipal();
@@ -1235,8 +1237,8 @@ public class SujuController {
       createOrReuseDefaultBom(saved, spjangcd, user);
 
       String unitName = unitRepository.findById(Unit_id)
-          .map(Unit::getName)
-          .orElse(null);
+              .map(Unit::getName)
+              .orElse(null);
 
       // 프론트에서 바로 바인딩할 최소 데이터 제공
       Map<String, Object> data = new HashMap<>();
@@ -1318,8 +1320,8 @@ public class SujuController {
   @PostMapping("/estimate_confirm")
   @Transactional
   public AjaxResult estimateConfirm(
-      @RequestParam("JumunNumber") String jumunNumber,
-      Authentication auth
+          @RequestParam("JumunNumber") String jumunNumber,
+          Authentication auth
   ) {
     AjaxResult result = new AjaxResult();
 
@@ -1332,7 +1334,7 @@ public class SujuController {
 
     // 1) 헤더 조회
     SujuHead head = (SujuHead) sujuHeadRepository.findByJumunNumber(jumunNumber)
-        .orElse(null);
+            .orElse(null);
     if (head == null) {
       result.success = false;
       result.message = "수주 헤더를 찾을 수 없습니다.";

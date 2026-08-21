@@ -27,8 +27,13 @@ public class SalesPlanStatusService {
 	@Autowired
 	SqlRunner sqlRunner;
 
+	/**
+	 * @param factoryId 공장 필터. 빈 값/null 이면 전체 공장.
+	 *                  계획·수주에는 공장이 없어 품목(material)의 공장으로 건다.
+	 */
 	public List<Map<String, Object>> getPlanStatus(String year, String matGrp,
-																								 String keyword, String dataDiv, String spjangcd) {
+												   String keyword, String dataDiv,
+												   String factoryId, String spjangcd) {
 
 		MapSqlParameterSource param = new MapSqlParameterSource();
 		param.addValue("year", year);
@@ -38,8 +43,8 @@ public class SalesPlanStatusService {
 		StringBuilder monthCols = new StringBuilder();
 		for (int m = 1; m <= 12; m++) {
 			monthCols.append(",\n          ")
-				.append(metricExpr(dataDiv, m))
-				.append(" AS mon_").append(m);
+					.append(metricExpr(dataDiv, m))
+					.append(" AS mon_").append(m);
 		}
 		String yearCol = metricExpr(dataDiv, 0) + " AS year_sum";
 
@@ -95,6 +100,13 @@ public class SalesPlanStatusService {
         WHERE 1 = 1
         """.formatted(yearCol, monthCols.toString());
 
+		if (factoryId != null && !factoryId.isEmpty()) {
+			param.addValue("factoryId", Integer.parseInt(factoryId));
+			sql += """
+            AND m."Factory_id" = :factoryId
+          """;
+		}
+
 		if (matGrp != null && !matGrp.isEmpty()) {
 			param.addValue("matGrp", Integer.parseInt(matGrp));
 			sql += """
@@ -144,8 +156,8 @@ public class SalesPlanStatusService {
 				return sujuMoney;
 			case "rate":
 				return "CASE WHEN " + planQty + " > 0"
-								 + " THEN ROUND((" + sujuQty + " / " + planQty + " * 100)::numeric, 1)"
-								 + " ELSE 0 END";
+						+ " THEN ROUND((" + sujuQty + " / " + planQty + " * 100)::numeric, 1)"
+						+ " ELSE 0 END";
 			case "diff_qty":
 				return "(" + sujuQty + " - " + planQty + ")";
 			case "plan_qty":

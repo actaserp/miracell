@@ -67,12 +67,14 @@ public class BaljuOrderController {
   // 발주 목록 조회
   @GetMapping("/read")
   public AjaxResult getSujuList(
-      @RequestParam(value = "date_kind", required = false) String date_kind,
-      @RequestParam(value = "start", required = false) String start_date,
-      @RequestParam(value = "end", required = false) String end_date,
-      @RequestParam(value = "spjangcd") String spjangcd,
-      @RequestParam(value = "company", required = false) String company,
-      HttpServletRequest request) {
+          @RequestParam(value = "date_kind", required = false) String date_kind,
+          @RequestParam(value = "start", required = false) String start_date,
+          @RequestParam(value = "end", required = false) String end_date,
+          @RequestParam(value = "spjangcd") String spjangcd,
+          @RequestParam(value = "company", required = false) String company,
+          // 공장 필터. 빈 값 = 전체.
+          @RequestParam(value = "factory_id", required = false) String factoryId,
+          HttpServletRequest request) {
     //log.info("발주 read--- date_kind:{}, start_date:{},end_date:{} , spjangcd:{} " ,date_kind,start_date , end_date, spjangcd);
     start_date = start_date + " 00:00:00";
     end_date = end_date + " 23:59:59";
@@ -80,7 +82,7 @@ public class BaljuOrderController {
     Timestamp start = Timestamp.valueOf(start_date);
     Timestamp end = Timestamp.valueOf(end_date);
 
-    List<Map<String, Object>> items = this.baljuOrderService.getBaljuList(date_kind, start, end, spjangcd, company);
+    List<Map<String, Object>> items = this.baljuOrderService.getBaljuList(date_kind, start, end, spjangcd, company, factoryId);
 
     AjaxResult result = new AjaxResult();
     result.data = items;
@@ -119,7 +121,7 @@ public class BaljuOrderController {
     if (headId != null) {
 //      log.info("🔄 기존 발주 수정 - headId: {}", headId);
       head = balJuHeadRepository.findById(headId)
-          .orElseThrow(() -> new RuntimeException("발주 헤더 없음"));
+              .orElseThrow(() -> new RuntimeException("발주 헤더 없음"));
       head.setModified(new Timestamp(System.currentTimeMillis()));
       head.setModifierId(user.getId());
       head.setDeliveryDate(dueDate);
@@ -152,9 +154,9 @@ public class BaljuOrderController {
 
     if (headId != null) {
       Set<Integer> incomingIds = items.stream()
-          .map(i -> CommonUtil.tryIntNull(i.get("baljuId")))
-          .filter(Objects::nonNull)
-          .collect(Collectors.toSet());
+              .map(i -> CommonUtil.tryIntNull(i.get("baljuId")))
+              .filter(Objects::nonNull)
+              .collect(Collectors.toSet());
 
       List<Balju> existingDetails = bujuRepository.findByBaljuHeadId(headId);
       for (Balju detail : existingDetails) {
@@ -174,14 +176,14 @@ public class BaljuOrderController {
       Double supply_price = Double.parseDouble(item.get("supply_price").toString());
       Double vat = Double.parseDouble(item.get("vat").toString());
       String standard = java.util.Objects.toString(
-          item.containsKey("Standard") ? item.get("Standard") : item.get("standard"),
-          ""
+              item.containsKey("Standard") ? item.get("Standard") : item.get("standard"),
+              ""
       );
       Balju detail;
 
       if (baljuId != null) {
         detail = bujuRepository.findById(baljuId)
-            .orElseThrow(() -> new RuntimeException("상세 항목 없음"));
+                .orElseThrow(() -> new RuntimeException("상세 항목 없음"));
         detail._modified = new Timestamp(System.currentTimeMillis());
         detail._modifier_id = user.getId();
       } else {
@@ -237,8 +239,8 @@ public class BaljuOrderController {
   // 발주 상세정보 조회
   @GetMapping("/detail")
   public AjaxResult getBaljuDetail(
-      @RequestParam("id") int id,
-      HttpServletRequest request) {
+          @RequestParam("id") int id,
+          HttpServletRequest request) {
 //    log.info("상세 정보 들어옴 : id:{}", id);
     Map<String, Object> item = this.baljuOrderService.getBaljuDetail(id);
 
@@ -252,8 +254,8 @@ public class BaljuOrderController {
   @PostMapping("/delete")
   @Transactional
   public AjaxResult deleteSuju(
-      @RequestParam("id") Integer id,
-      @RequestParam("State") String State) {
+          @RequestParam("id") Integer id,
+          @RequestParam("State") String State) {
 
     AjaxResult result = new AjaxResult();
 
@@ -524,10 +526,10 @@ public class BaljuOrderController {
 
         // 2. 병합 범위 계산 (B~G 열, 3행 병합)
         CellRangeAddress specialNoteRegion = new CellRangeAddress(
-          specialNoteStartRow,
-          specialNoteStartRow + 2,
-          1,
-          6
+                specialNoteStartRow,
+                specialNoteStartRow + 2,
+                1,
+                6
         );
 
         // 3. 기존 병합과 충돌하는 것 제거
@@ -595,12 +597,12 @@ public class BaljuOrderController {
 
         //메일 전송
         mailService.sendMailWithAttachment(
-          recipients,
-          title,
-          content,
-          tempXlsx.toFile(),
-          fileName,
-          replyTo
+                recipients,
+                title,
+                content,
+                tempXlsx.toFile(),
+                fileName,
+                replyTo
         );
 //      log.info("✅ 메일 전송 완료: 수신자={}", recipients);
         // 임시 파일 삭제 예약
@@ -723,7 +725,7 @@ public class BaljuOrderController {
       // 저장
       Material saved = materialRepository.save(material);
 
-     // createOrReuseDefaultBom(saved, spjangcd, user);
+      // createOrReuseDefaultBom(saved, spjangcd, user);
 
 //      String unitName = unitRepository.findById(Unit_id)
 //                          .map(Unit::getName)

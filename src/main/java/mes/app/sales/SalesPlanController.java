@@ -36,15 +36,17 @@ public class SalesPlanController {
 	// 영업계획 목록 조회
 	@GetMapping("/read")
 	public AjaxResult getPlanList(
-		@RequestParam(value = "year") String year,
-		@RequestParam(value = "month", required = false) String month,
-		@RequestParam(value = "matGrp", required = false) String matGrp,
-		@RequestParam(value = "keyword", required = false) String keyword,
-		@RequestParam(value = "spjangcd") String spjangcd,
-		HttpServletRequest request) {
+			@RequestParam(value = "year") String year,
+			@RequestParam(value = "month", required = false) String month,
+			@RequestParam(value = "matGrp", required = false) String matGrp,
+			@RequestParam(value = "keyword", required = false) String keyword,
+			// 공장 필터. 빈 값 = 전체.
+			@RequestParam(value = "factory_id", required = false) String factoryId,
+			@RequestParam(value = "spjangcd") String spjangcd,
+			HttpServletRequest request) {
 
 		List<Map<String, Object>> items =
-			this.salesPlanService.getPlanList(year, month, matGrp, keyword, spjangcd);
+				this.salesPlanService.getPlanList(year, month, matGrp, keyword, factoryId, spjangcd);
 
 		AjaxResult result = new AjaxResult();
 		result.data = items;
@@ -55,8 +57,8 @@ public class SalesPlanController {
 	// 영업계획 상세 조회 (수정 팝업)
 	@GetMapping("/detail")
 	public AjaxResult getPlanDetail(
-		@RequestParam("id") int id,
-		HttpServletRequest request) {
+			@RequestParam("id") int id,
+			HttpServletRequest request) {
 
 		Map<String, Object> item = this.salesPlanService.getPlanDetail(id);
 
@@ -147,9 +149,9 @@ public class SalesPlanController {
 
 		try {
 			Integer savedId = this.salesPlanService.savePlan(
-				headId, planYear, planMonth, companyId,
-				(String) payload.get("CompanyName"),
-				(String) payload.get("Description"), spjangcd, items, user);
+					headId, planYear, planMonth, companyId,
+					(String) payload.get("CompanyName"),
+					(String) payload.get("Description"), spjangcd, items, user);
 
 			result.success = true;
 			result.data = Map.of("id", savedId);
@@ -187,9 +189,9 @@ public class SalesPlanController {
 	// 거래처 + 품목 단가 조회 (수주등록의 readPriceSuju 와 동일 마스터)
 	@GetMapping("/read_price")
 	public AjaxResult getPlanPrice(
-		@RequestParam(value = "company_id", required = false) Integer companyId,
-		@RequestParam("mat_pk") int matPk,
-		@RequestParam("baseDate") String baseDate) {
+			@RequestParam(value = "company_id", required = false) Integer companyId,
+			@RequestParam("mat_pk") int matPk,
+			@RequestParam("baseDate") String baseDate) {
 
 		List<Map<String, Object>> items = this.salesPlanService.getPriceByMatAndComp(matPk, companyId, baseDate);
 

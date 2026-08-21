@@ -26,16 +26,16 @@ import mes.domain.services.CommonUtil;
 @RestController
 @RequestMapping("/api/production/prod_order_a")
 public class ProdOrderAController {
-	
+
 	@Autowired
 	private ProdOrderAService prodOrderAService;
-	
+
 	@Autowired
 	MaterialRepository materialRepository;
-	
+
 	@Autowired
 	JobResRepository jobResRepository;
-	
+
 	@Autowired
 	RoutingProcRepository routingProcRepository;
 
@@ -47,7 +47,7 @@ public class ProdOrderAController {
 
 	@Autowired
 	BomRepository bomRepository;
-	
+
 	@GetMapping("/read")
 	public AjaxResult getProdOrderA(
 			@RequestParam(value="date_from", required = true) String dateFrom,
@@ -56,35 +56,37 @@ public class ProdOrderAController {
 			@RequestParam("mat_type") String matType,
 			@RequestParam("mat_grp_pk") String matGrpPk,
 			@RequestParam("keyword") String keyword,
+			// 공장 필터. 빈 값 = 전체. 화면이 소속 공장을 기본으로 채워 보낸다.
+			@RequestParam(value="factory_id", required=false) String factoryId,
 			@RequestParam("spjangcd") String spjangcd
-			){
-		List<Map<String, Object>> items = this.prodOrderAService.getProdOrderA(dateFrom,dateTo,matGrpPk,keyword,matType,workcenterPk,spjangcd);
+	){
+		List<Map<String, Object>> items = this.prodOrderAService.getProdOrderA(dateFrom,dateTo,matGrpPk,keyword,matType,workcenterPk,factoryId,spjangcd);
 		AjaxResult result = new AjaxResult();
 		result.data = items;
 		return result;
 	}
-	
+
 	@GetMapping("/mat_info")
 	public AjaxResult getMatInfo(
 			@RequestParam("id") String id ) {
-		
+
 		Map<String, Object> items = this.prodOrderAService.getMatInfo(id);
-		
+
 		AjaxResult result = new AjaxResult();
 		result.data = items;
-		
+
 		return result;
 	}
-	
+
 	@GetMapping("/detail")
 	public AjaxResult getProdOrderADetail(
 			@RequestParam("jr_pk") String jrPk) {
-		
+
 		Map<String, Object> items = this.prodOrderAService.getProdOrderADetail(jrPk);
-		
+
 		AjaxResult result = new AjaxResult();
 		result.data = items;
-		
+
 		return result;
 	}
 
@@ -241,9 +243,9 @@ public class ProdOrderAController {
 	@Transactional
 	public AjaxResult deleteProdOrderA(@RequestParam("id") Integer id) {
 		AjaxResult result = new AjaxResult();
-		
+
 		Map<String, Object> row = this.prodOrderAService.getJopResRow(id);
-		
+
 		if (row == null) {
 			result.success = true;
 			result.code = id.toString();
@@ -279,11 +281,11 @@ public class ProdOrderAController {
 			}
 		}
 
-		
+
 		if (sujuPk > 0 && deletYn > 0) {
 			this.prodOrderAService.updateBySujuPk(sujuPk);
 		}
-		
+
 		return result;
 	}
 }

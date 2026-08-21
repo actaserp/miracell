@@ -52,13 +52,16 @@ public class ProductionDefectService {
 	 * 부적합유형 × 발생일 집계.
 	 *
 	 * @param procCode 공정 코드(bsc01 …). null 이면 전체
+	 * @param factoryId 공장. null 이면 전체.
+	 *                  defect_regist 에는 공장이 없어 공정(process)의 공장으로 건다.
 	 */
-	public List<Map<String, Object>> getList(String date_from, String date_to, String procCode) {
+	public List<Map<String, Object>> getList(String date_from, String date_to, String procCode, Integer factoryId) {
 
 		MapSqlParameterSource p = new MapSqlParameterSource();
 		p.addValue("date_from", date_from);
 		p.addValue("date_to", date_to);
 		p.addValue("proc_code", (procCode == null || procCode.isBlank()) ? null : procCode);
+		p.addValue("factory_id", factoryId);
 
 		String sql = """
             SELECT d."DefectDate"                                   AS defect_date
@@ -79,6 +82,8 @@ public class ProductionDefectService {
                AND COALESCE(d."State",'') = 'confirmed'
                AND COALESCE(d._status, 'a') = 'a'
                AND (CAST(:proc_code AS varchar) IS NULL OR p."Code" = CAST(:proc_code AS varchar))
+               AND (CAST(:factory_id AS integer) IS NULL
+                    OR COALESCE(p."Factory_id", 1) = CAST(:factory_id AS integer))
              GROUP BY d."DefectDate", dt.id, dt."Name", d."DefectTypeEtc", p."Code", p."Name"
              ORDER BY defect_type, d."DefectDate"
             """;
@@ -98,12 +103,13 @@ public class ProductionDefectService {
 	 *   대신 2공장은 유닛으로 세야 하므로 여기서는 1공장 생산형만 본다
 	 *   (2공장 부적합은 공정 필터로 갈라 본다).
 	 */
-	public List<Map<String, Object>> getOutputList(String date_from, String date_to, String procCode) {
+	public List<Map<String, Object>> getOutputList(String date_from, String date_to, String procCode, Integer factoryId) {
 
 		MapSqlParameterSource p = new MapSqlParameterSource();
 		p.addValue("date_from", date_from);
 		p.addValue("date_to", date_to);
 		p.addValue("proc_code", (procCode == null || procCode.isBlank()) ? null : procCode);
+		p.addValue("factory_id", factoryId);
 
 		String sql = """
             WITH out_src AS (
@@ -146,6 +152,10 @@ public class ProductionDefectService {
               FROM out_src
              WHERE work_date BETWEEN CAST(:date_from AS date) AND CAST(:date_to AS date)
                AND (CAST(:proc_code AS varchar) IS NULL OR proc_code = CAST(:proc_code AS varchar))
+               -- 공장은 공정으로 유도한다. out_src 는 소스가 여러 개라 공정코드만 공통이다.
+               AND (CAST(:factory_id AS integer) IS NULL
+                    OR proc_code IN (SELECT pf."Code" FROM process pf
+                                      WHERE COALESCE(pf."Factory_id", 1) = CAST(:factory_id AS integer)))
              GROUP BY work_date
              ORDER BY work_date
             """;
@@ -153,13 +163,17 @@ public class ProductionDefectService {
 		return nz(this.sqlRunner.getRows(sql, p));
 	}
 
-	/** 공정 콤보 — 실적이 없어도 목록에는 있어야 고를 수 있다 */
-	public List<Map<String, Object>> getProcessCombo() {
+	/** 공정 콤보 — 실적이 없어도 목록에는 있어야 고를 수 있다. factoryId null 이면 전체 */
+	public List<Map<String, Object>> getProcessCombo(Integer factoryId) {
+		MapSqlParameterSource p = new MapSqlParameterSource();
+		p.addValue("factory_id", factoryId);
 		return nz(this.sqlRunner.getRows("""
             SELECT p."Code" AS code, p."Name" AS name, COALESCE(p."Factory_id", 1) AS factory_id
               FROM process p
              WHERE COALESCE(p._status, 'a') = 'a'
+               AND (CAST(:factory_id AS integer) IS NULL
+                    OR COALESCE(p."Factory_id", 1) = CAST(:factory_id AS integer))
              ORDER BY COALESCE(p."Factory_id", 1), p."Code"
-            """, new MapSqlParameterSource()));
+            """, p));
 	}
 }

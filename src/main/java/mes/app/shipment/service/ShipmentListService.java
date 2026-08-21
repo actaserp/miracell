@@ -23,7 +23,11 @@ public class ShipmentListService {
 	@Autowired
 	mes.domain.repository.SujuRepository sujuRepository;
 
-	public List<Map<String, Object>> getShipmentHeadList(String dateFrom, String dateTo, String compPk, String matGrpPk, String matPk, String keyword, String state, String company) {
+	/**
+	 * @param factoryId 공장 필터. 빈 값/null 이면 전체 공장.
+	 *                  출고에는 공장이 없어 품목(material)의 공장으로 건다.
+	 */
+	public List<Map<String, Object>> getShipmentHeadList(String dateFrom, String dateTo, String compPk, String matGrpPk, String matPk, String keyword, String state, String company, String factoryId) {
 
 		MapSqlParameterSource paramMap = new MapSqlParameterSource();
 		paramMap.addValue("dateFrom", dateFrom);
@@ -61,6 +65,19 @@ public class ShipmentListService {
 		}
 		if (StringUtils.isEmpty(compPk)==false)  sql += " and sh.\"Company_id\" = cast(:compPk as Integer) ";
 		if (StringUtils.isEmpty(state)==false)  sql += " and sh.\"State\" = :state ";
+		/* ★ 아래 exists 는 품목 조건이 하나라도 있을 때만 붙는다.
+		      공장을 그 안에 넣으면 품목 조건이 없을 때 필터가 통째로 빠지므로 별도 exists 로 건다. */
+		if (StringUtils.isEmpty(factoryId)==false) {
+			paramMap.addValue("factoryId", factoryId);
+			sql += """
+					and exists ( select 1
+					    from shipment s2
+					    inner join material m2 on m2.id = s2."Material_id"
+					    where s2."ShipmentHead_id" = sh.id
+					      and m2."Factory_id" = cast(:factoryId as Integer) )
+					""";
+		}
+
 		if (StringUtils.isEmpty(matPk)==false || StringUtils.isEmpty(matGrpPk)==false || StringUtils.isEmpty(keyword)==false) {
 			sql += """
 					and exists ( select 1
@@ -263,7 +280,7 @@ public class ShipmentListService {
             """, p);
 		if (rep != null)
 			return "수리 접수(" + rep.get("repair_no") + ")가 걸린 로트가 있어 취소할 수 없습니다. — "
-							 + rep.get("lot_number");
+					+ rep.get("lot_number");
 
 		// ② 출고 뒤 그 로트가 다시 소비됐는가
 		Map<String, Object> used = this.sqlRunner.getRow("""
@@ -280,7 +297,7 @@ public class ShipmentListService {
             """, p);
 		if (used != null)
 			return "출고 이후 다시 투입된 로트가 있어 취소할 수 없습니다. — "
-							 + used.get("lot_number") + " (" + used.get("src") + ")";
+					+ used.get("lot_number") + " (" + used.get("src") + ")";
 
 		// ③ 되돌릴 로트 행이 남아 있는가 (지워졌으면 되살릴 대상이 없다)
 		Map<String, Object> gone = this.sqlRunner.getRow("""

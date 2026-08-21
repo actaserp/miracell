@@ -1,60 +1,60 @@
 <html layout:decorate="~{layout_page}">
 <th:block layout:fragment="content">
   <style>
-      .om-default { color: #8a8a8a; }
-      .om-set     { font-weight: 600; }
-      .om-legend  { font-size: 12px; color: #666; margin-left: 8px; }
+    .om-default { color: #8a8a8a; }
+    .om-set     { font-weight: 600; }
+    .om-legend  { font-size: 12px; color: #666; margin-left: 8px; }
 
-      /* 우측 적용 패널 */
-      .om-panel { padding: 16px; }
+    /* 우측 적용 패널 */
+    .om-panel { padding: 16px; }
 
-      .om-count {
-          margin: 0 0 14px;
-          padding: 10px 12px;
-          background: #f5f7fa;
-          border-left: 3px solid #d0d7e2;
-          font-size: 13px;
-          color: #555;
-      }
-      .om-count.on { border-left-color: #3069B3; color: #222; }
-      .om-count strong { color: #03428E; font-size: 15px; }
+    .om-count {
+      margin: 0 0 14px;
+      padding: 10px 12px;
+      background: #f5f7fa;
+      border-left: 3px solid #d0d7e2;
+      font-size: 13px;
+      color: #555;
+    }
+    .om-count.on { border-left-color: #3069B3; color: #222; }
+    .om-count strong { color: #03428E; font-size: 15px; }
 
-      /* .button-wrap 은 전역 CSS 에서 우측 정렬·축소가 걸려 있어 쓰지 않는다 */
-      .om-actions {
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-          margin: 0;
-          padding: 0;
-          list-style: none;
-      }
-      .om-actions li { margin: 0; padding: 0; }
-      .om-actions button {
-          display: block;
-          width: 100%;
-          height: 40px;
-          font-size: 14px;
-          text-align: center;
-      }
-      .om-actions .om-reset { margin-top: 4px; }
+    /* .button-wrap 은 전역 CSS 에서 우측 정렬·축소가 걸려 있어 쓰지 않는다 */
+    .om-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .om-actions li { margin: 0; padding: 0; }
+    .om-actions button {
+      display: block;
+      width: 100%;
+      height: 40px;
+      font-size: 14px;
+      text-align: center;
+    }
+    .om-actions .om-reset { margin-top: 4px; }
 
-      .om-guide {
-          margin-top: 20px;
-          padding-top: 16px;
-          border-top: 1px solid #e5e5e5;
-      }
-      .om-guide dl {
-          display: grid;
-          grid-template-columns: 88px 1fr;
-          gap: 8px 12px;
-          margin: 0;
-          font-size: 12.5px;
-          line-height: 1.6;
-      }
-      .om-guide dt { color: #03428E; font-weight: 600; }
-      .om-guide dd { margin: 0; color: #555; }
-      #searchForm .search-wrap dd input[type="text"],
-      #searchForm .search-wrap dd select { width: 140px; }
+    .om-guide {
+      margin-top: 20px;
+      padding-top: 16px;
+      border-top: 1px solid #e5e5e5;
+    }
+    .om-guide dl {
+      display: grid;
+      grid-template-columns: 88px 1fr;
+      gap: 8px 12px;
+      margin: 0;
+      font-size: 12.5px;
+      line-height: 1.6;
+    }
+    .om-guide dt { color: #03428E; font-weight: 600; }
+    .om-guide dd { margin: 0; color: #555; }
+    #searchForm .search-wrap dd input[type="text"],
+    #searchForm .search-wrap dd select { width: 140px; }
   </style>
 
   <div class="layout-contents">
@@ -62,6 +62,8 @@
       <div class="left">
         <h2>출고방법 지정</h2>
         <a title="북마크" class="bookmark toggle">내 메뉴</a>
+        <label for="Factory_id" class="hide">공장</label>
+        <select style="width: 110px;" id="Factory_id" name="Factory_id"></select>
       </div>
       <ul class="page-navi">
         <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
@@ -173,220 +175,237 @@
 <th:block layout:fragment="scripts">
   <th:block th:replace="/common/columns_setting :: columns_setting"></th:block>
 
+  <script th:inline="javascript">
+    /* 로그인 사용자의 소속 공장. 없으면 null → «전체» 가 기본값이 된다 */
+    const factory_id = [[${session.factory_id}]];
+  </script>
   <script type="text/javascript">
 
-   // 서버 CHECK 제약 및 OutMethodService.METHODS 와 같은 집합
-   const OUT_METHODS = [
-    {code: 'fifo',   name: '선입선출'},
-    {code: 'lifo',   name: '후입선출'},
-    {code: 'manual', name: '지정 LOT 우선'}
-   ];
+    // 서버 CHECK 제약 및 OutMethodService.METHODS 와 같은 집합
+    const OUT_METHODS = [
+      {code: 'fifo',   name: '선입선출'},
+      {code: 'lifo',   name: '후입선출'},
+      {code: 'manual', name: '지정 LOT 우선'}
+    ];
 
-   function methodName(code) {
-    let m = OUT_METHODS.filter(function (x) { return x.code === code; })[0];
-    return m ? m.name : (code || '');
-   }
-
-   class OutMethodPage {
-
-    constructor() {
-     this.url = '/api/shipment/out_method';
-     this.grid = null;
-     this.viewData = new wijmo.collections.CollectionView();
-     this.init();
+    function methodName(code) {
+      let m = OUT_METHODS.filter(function (x) { return x.code === code; })[0];
+      return m ? m.name : (code || '');
     }
 
-    init() {
-     let _this = this;
+    class OutMethodPage {
 
-     this.grid = new wijmo.grid.FlexGrid('#theGrid', {
-      selectionMode: wijmo.grid.SelectionMode.Row,
-      headersVisibility: wijmo.grid.HeadersVisibility.Column,
-      autoGenerateColumns: false,
-      showMarquee: true,
-      isReadOnly: true,
-      frozenColumns: 3,
-      columns: [
-       {
-        binding: 'selected', header: '', width: 40, align: 'center',
-        allowSorting: false, isReadOnly: false, dataType: 'Boolean'
-       },
-       {binding: 'mat_code', header: '품목코드', width: 130, align: 'left'},
-       {binding: 'mat_name', header: '품목명', width: 240, align: 'left'},
-       {binding: 'mat_type_name', header: '품목구분', width: 80, align: 'center'},
-       {binding: 'mat_grp_name', header: '품목그룹', width: 110, align: 'left'},
-       {binding: 'unit_name', header: '단위', width: 60, align: 'center'},
-       {binding: 'store_name', header: '기본창고', width: 110, align: 'left'},
-       {binding: 'lot_use_yn', header: 'LOT관리', width: 75, align: 'center'},
-       {binding: 'lot_cnt', header: '재고로트', width: 80, align: 'right'},
-       {binding: 'out_method', header: '출고방법', width: 130, align: 'center'}
-      ],
-      itemsSource: this.viewData
-     });
-
-     this.grid.formatItem.addHandler(function (s, e) {
-      if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-       e.cell.style.textAlign = 'center';
+      constructor() {
+        this.url = '/api/shipment/out_method';
+        this.grid = null;
+        this.viewData = new wijmo.collections.CollectionView();
+        this.init();
       }
 
-      let col = s.columns[e.col];
+      init() {
+        let _this = this;
 
-      // 헤더 전체선택
-      if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader && col.binding === 'selected') {
-       e.cell.innerHTML = '<input type="checkbox" id="allCheck"/>';
-       let all = e.cell.querySelector('#allCheck');
-       if (all) {
-        let items = s.itemsSource.items || [];
-        all.checked = items.length > 0 && items.every(function (r) { return r.selected; });
-        all.onclick = function (ev) {
-         items.forEach(function (r) { r.selected = ev.target.checked; });
-         s.refresh();
-         _this.updateSelCount();
-        };
-       }
-       return;
-      }
-
-      if (e.panel.cellType !== wijmo.grid.CellType.Cell) return;
-      let item = s.rows[e.row] ? s.rows[e.row].dataItem : null;
-      if (!item) return;
-
-      // 행 체크박스
-      if (col.binding === 'selected') {
-       e.cell.innerHTML = '<input type="checkbox" ' + (item.selected ? 'checked' : '') + '/>';
-       e.cell.firstChild.onclick = function (ev) {
-        item.selected = ev.target.checked;
-        s.refresh();
-        _this.updateSelCount();
-       };
-       return;
-      }
-
-      // 출고방법 — 지정값과 기본값 상속을 구분해서 보여준다
-      if (col.binding === 'out_method') {
-       e.cell.innerHTML = item.is_default
-        ? '<span class="om-default">' + methodName(item.out_method) + ' (기본)</span>'
-        : '<span class="om-set">' + methodName(item.out_method) + '</span>';
-       return;
-      }
-
-      // LOT 관리를 안 하는 품목은 출고방법이 의미가 없다 — 흐리게
-      if (item.lot_use_yn !== 'Y') {
-       e.cell.style.color = '#aaa';
-      }
-     });
-
-     new FlexGridContextMenu(this.grid);
-     this.grid.downloadFileName = '출고방법 지정';
-
-     AjaxUtil.fillSelectOptions($('#cboMaterialType'), 'system_code', 'all', false, 'mat_type');
-     AjaxUtil.fillSelectOptions($('#cboMaterialGroup'), 'material_group', 'all', false);
-
-     $('#cboMaterialType').on('change', function () {
-      AjaxUtil.fillSelectOptions($('#cboMaterialGroup'), 'material_group', 'all', false,
-       $('#cboMaterialType').val());
-     });
-    }
-
-    search() {
-     let data = {
-      mat_type: $('#cboMaterialType').val(),
-      mat_group: $('#cboMaterialGroup').val(),
-      keyword: $('#keyword').val(),
-      unset_only: $('#unset_only').is(':checked') ? 'Y' : '',
-      lot_only: $('#lot_only').is(':checked') ? 'Y' : '',
-      spjangcd: sessionStorage.getItem('spjangcd')
-     };
-
-     let result = AjaxUtil.getSyncData(this.url + '/read', data);
-     if (result == null || !result.success) return;
-
-     (result.data || []).forEach(function (r) { r.selected = false; });
-     this.viewData.sourceCollection = result.data;
-     this.updateSelCount();
-    }
-
-    updateSelCount() {
-     let n = (this.viewData.items || []).filter(function (r) { return r.selected; }).length;
-     let $c = $('#selCount');
-
-     if (n === 0) {
-      $c.removeClass('on').text('품목을 선택하면 여기서 한 번에 지정합니다');
-     } else {
-      $c.addClass('on').html('<strong>' + n + '건</strong> 선택됨');
-     }
-    }
-
-    /** method 가 빈 값이면 미지정으로 되돌린다 */
-    apply(method) {
-     let _this = this;
-     let sel = (this.viewData.items || []).filter(function (r) { return r.selected; });
-
-     if (sel.length === 0) {
-      Alert.alert('', '품목을 선택하세요.');
-      return;
-     }
-
-     // LOT 관리를 안 하는 품목이 섞였으면 알려준다 — 저장은 막지 않는다.
-     // 나중에 LOT 관리를 켤 수 있으니 미리 정해두는 것도 정상적인 사용이다.
-     let noLot = sel.filter(function (r) { return r.lot_use_yn !== 'Y'; }).length;
-     let warn = noLot > 0
-      ? '\n(LOT 관리를 안 하는 품목 ' + noLot + '건 포함 — 지금은 적용되지 않습니다)'
-      : '';
-
-     let label = method ? methodName(method) : '미지정';
-     let ids = sel.map(function (r) { return {id: r.id}; });
-
-     Alert.confirm('', sel.length + '건을 ' + label + '(으)로 지정하시겠습니까?' + warn,
-      function () {
-       AjaxUtil.postAsyncData(
-        _this.url + '/save?out_method=' + encodeURIComponent(method || ''),
-        {Q: JSON.stringify(ids)},
-        function (res) {
-         if (res.success && res.data && res.data.ok) {
-          Alert.alert('', res.data.row.count + '건을 ' + label + '(으)로 지정했습니다.');
-          _this.search();
-         } else {
-          Alert.alert('', (res.data && res.data.message) || '지정하지 못했습니다.');
-         }
+        this.grid = new wijmo.grid.FlexGrid('#theGrid', {
+          selectionMode: wijmo.grid.SelectionMode.Row,
+          headersVisibility: wijmo.grid.HeadersVisibility.Column,
+          autoGenerateColumns: false,
+          showMarquee: true,
+          isReadOnly: true,
+          frozenColumns: 3,
+          columns: [
+            {
+              binding: 'selected', header: '', width: 40, align: 'center',
+              allowSorting: false, isReadOnly: false, dataType: 'Boolean'
+            },
+            {binding: 'mat_code', header: '품목코드', width: 130, align: 'left'},
+            {binding: 'mat_name', header: '품목명', width: 240, align: 'left'},
+            {binding: 'mat_type_name', header: '품목구분', width: 80, align: 'center'},
+            {binding: 'mat_grp_name', header: '품목그룹', width: 110, align: 'left'},
+            {binding: 'unit_name', header: '단위', width: 60, align: 'center'},
+            {binding: 'store_name', header: '기본창고', width: 110, align: 'left'},
+            {binding: 'lot_use_yn', header: 'LOT관리', width: 75, align: 'center'},
+            {binding: 'lot_cnt', header: '재고로트', width: 80, align: 'right'},
+            {binding: 'out_method', header: '출고방법', width: 130, align: 'center'}
+          ],
+          itemsSource: this.viewData
         });
-      },
-      function () {}
-     );
+
+        this.grid.formatItem.addHandler(function (s, e) {
+          if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+            e.cell.style.textAlign = 'center';
+          }
+
+          let col = s.columns[e.col];
+
+          // 헤더 전체선택
+          if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader && col.binding === 'selected') {
+            e.cell.innerHTML = '<input type="checkbox" id="allCheck"/>';
+            let all = e.cell.querySelector('#allCheck');
+            if (all) {
+              let items = s.itemsSource.items || [];
+              all.checked = items.length > 0 && items.every(function (r) { return r.selected; });
+              all.onclick = function (ev) {
+                items.forEach(function (r) { r.selected = ev.target.checked; });
+                s.refresh();
+                _this.updateSelCount();
+              };
+            }
+            return;
+          }
+
+          if (e.panel.cellType !== wijmo.grid.CellType.Cell) return;
+          let item = s.rows[e.row] ? s.rows[e.row].dataItem : null;
+          if (!item) return;
+
+          // 행 체크박스
+          if (col.binding === 'selected') {
+            e.cell.innerHTML = '<input type="checkbox" ' + (item.selected ? 'checked' : '') + '/>';
+            e.cell.firstChild.onclick = function (ev) {
+              item.selected = ev.target.checked;
+              s.refresh();
+              _this.updateSelCount();
+            };
+            return;
+          }
+
+          // 출고방법 — 지정값과 기본값 상속을 구분해서 보여준다
+          if (col.binding === 'out_method') {
+            e.cell.innerHTML = item.is_default
+                    ? '<span class="om-default">' + methodName(item.out_method) + ' (기본)</span>'
+                    : '<span class="om-set">' + methodName(item.out_method) + '</span>';
+            return;
+          }
+
+          // LOT 관리를 안 하는 품목은 출고방법이 의미가 없다 — 흐리게
+          if (item.lot_use_yn !== 'Y') {
+            e.cell.style.color = '#aaa';
+          }
+        });
+
+        new FlexGridContextMenu(this.grid);
+        this.grid.downloadFileName = '출고방법 지정';
+
+        /* 공장 콤보 — 기본값은 계정의 소속 공장. 없으면 '' = 전체.
+           change 핸들러는 채운 «뒤에» 건다. fillSelectOptions 가 selected_value 를
+           넣으면서 .change() 를 직접 발생시키므로 먼저 걸면 조회가 두 번 나간다. */
+        const myFactory = (factory_id == null || factory_id === '' || Number(factory_id) <= 0)
+                ? '' : String(factory_id);
+        AjaxUtil.fillSelectOptions($('#Factory_id'), 'factory', 'all', myFactory);
+
+        $('#Factory_id').on('change', function () {
+          if (page) page.search();
+        });
+
+        AjaxUtil.fillSelectOptions($('#cboMaterialType'), 'system_code', 'all', false, 'mat_type');
+        AjaxUtil.fillSelectOptions($('#cboMaterialGroup'), 'material_group', 'all', false);
+
+        $('#cboMaterialType').on('change', function () {
+          AjaxUtil.fillSelectOptions($('#cboMaterialGroup'), 'material_group', 'all', false,
+                  $('#cboMaterialType').val());
+        });
+      }
+
+      search() {
+        let data = {
+          mat_type: $('#cboMaterialType').val(),
+          mat_group: $('#cboMaterialGroup').val(),
+          keyword: $('#keyword').val(),
+          unset_only: $('#unset_only').is(':checked') ? 'Y' : '',
+          lot_only: $('#lot_only').is(':checked') ? 'Y' : '',
+          /* 빈 문자열이어도 반드시 보낸다 — 빈 값 = 전체 */
+          factory_id: $('#Factory_id').val() || '',
+          spjangcd: sessionStorage.getItem('spjangcd')
+        };
+
+        let result = AjaxUtil.getSyncData(this.url + '/read', data);
+        if (result == null || !result.success) return;
+
+        (result.data || []).forEach(function (r) { r.selected = false; });
+        this.viewData.sourceCollection = result.data;
+        this.updateSelCount();
+      }
+
+      updateSelCount() {
+        let n = (this.viewData.items || []).filter(function (r) { return r.selected; }).length;
+        let $c = $('#selCount');
+
+        if (n === 0) {
+          $c.removeClass('on').text('품목을 선택하면 여기서 한 번에 지정합니다');
+        } else {
+          $c.addClass('on').html('<strong>' + n + '건</strong> 선택됨');
+        }
+      }
+
+      /** method 가 빈 값이면 미지정으로 되돌린다 */
+      apply(method) {
+        let _this = this;
+        let sel = (this.viewData.items || []).filter(function (r) { return r.selected; });
+
+        if (sel.length === 0) {
+          Alert.alert('', '품목을 선택하세요.');
+          return;
+        }
+
+        // LOT 관리를 안 하는 품목이 섞였으면 알려준다 — 저장은 막지 않는다.
+        // 나중에 LOT 관리를 켤 수 있으니 미리 정해두는 것도 정상적인 사용이다.
+        let noLot = sel.filter(function (r) { return r.lot_use_yn !== 'Y'; }).length;
+        let warn = noLot > 0
+                ? '\n(LOT 관리를 안 하는 품목 ' + noLot + '건 포함 — 지금은 적용되지 않습니다)'
+                : '';
+
+        let label = method ? methodName(method) : '미지정';
+        let ids = sel.map(function (r) { return {id: r.id}; });
+
+        Alert.confirm('', sel.length + '건을 ' + label + '(으)로 지정하시겠습니까?' + warn,
+                function () {
+                  AjaxUtil.postAsyncData(
+                          _this.url + '/save?out_method=' + encodeURIComponent(method || ''),
+                          {Q: JSON.stringify(ids)},
+                          function (res) {
+                            if (res.success && res.data && res.data.ok) {
+                              Alert.alert('', res.data.row.count + '건을 ' + label + '(으)로 지정했습니다.');
+                              _this.search();
+                            } else {
+                              Alert.alert('', (res.data && res.data.message) || '지정하지 못했습니다.');
+                            }
+                          });
+                },
+                function () {}
+        );
+      }
     }
-   }
 
-   let page = null;
+    let page = null;
 
-   $(document).ready(function () {
+    $(document).ready(function () {
 
-    page = new OutMethodPage();
+      page = new OutMethodPage();
 
-    $('#btnSearch').click(function (e) {
-     e.preventDefault();
-     page.search();
-    });
+      $('#btnSearch').click(function (e) {
+        e.preventDefault();
+        page.search();
+      });
 
-    // 검색창이 form 안에 있어 Enter 가 submit 으로 잡힌다 — 페이지가 새로고침되므로 막는다
-    $('#searchForm').on('submit', function (e) {
-     e.preventDefault();
-     return false;
-    });
+      // 검색창이 form 안에 있어 Enter 가 submit 으로 잡힌다 — 페이지가 새로고침되므로 막는다
+      $('#searchForm').on('submit', function (e) {
+        e.preventDefault();
+        return false;
+      });
 
-    $('#searchForm').on('keydown', function (e) {
-     if (e.key === 'Enter') {
-      e.preventDefault();
+      $('#searchForm').on('keydown', function (e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          page.search();
+        }
+      });
+
+      $('#btnFifo').click(function () { page.apply('fifo'); });
+      $('#btnLifo').click(function () { page.apply('lifo'); });
+      $('#btnManual').click(function () { page.apply('manual'); });
+      $('#btnClear').click(function () { page.apply(''); });
+
       page.search();
-     }
     });
-
-    $('#btnFifo').click(function () { page.apply('fifo'); });
-    $('#btnLifo').click(function () { page.apply('lifo'); });
-    $('#btnManual').click(function () { page.apply('manual'); });
-    $('#btnClear').click(function () { page.apply(''); });
-
-    page.search();
-   });
   </script>
 </th:block>
 </html>

@@ -15,14 +15,14 @@ public class MaterialMoveService {
 
 	@Autowired
 	SqlRunner sqlRunner;
-	
+
 	public List<Map<String, Object>> getMaterialMoveList(Integer storehouse_id, Integer material_id, String keyword, String spjangcd) {
-		MapSqlParameterSource param = new MapSqlParameterSource();		
+		MapSqlParameterSource param = new MapSqlParameterSource();
 		param.addValue("storehouse_id", storehouse_id);
 		param.addValue("material_id", material_id);
 		param.addValue("keyword", keyword);
 		param.addValue("spjangcd", spjangcd);
-		
+
 		String sql = """
         with AA as(
         select m.id as mat_id, count(ml.id) as mat_lot_check
@@ -59,13 +59,13 @@ public class MaterialMoveService {
 			and sh.id = :storehouse_id
 			""";
 		}
-		
+
 		if(material_id!=null) {
 			sql+="""
 			and m.id = :material_id
 			""";
 		}
-		
+
 		if(StringUtils.hasText(keyword)){
 			sql+="""
 			and ( upper(m."Name") like concat('%%',upper(:keyword),'%%') or upper(m."Code") = upper(:keyword) )
@@ -76,15 +76,19 @@ public class MaterialMoveService {
 		order by mg."MaterialType", mg."Name", m."Code", m."Name", m.id, sh."Name"
 		""";
 
-        List<Map<String, Object>> items = this.sqlRunner.getRows(sql, param);
-        return items;
+		List<Map<String, Object>> items = this.sqlRunner.getRows(sql, param);
+		return items;
 	}
 
-	public List<Map<String, Object>> getHouseMoveList(Integer storehouse_id, Integer mat_grp_pk, String keyword, String spjangcd) {
+	/**
+	 * @param factory_id 공장 필터. null 이면 전체 공장.
+	 */
+	public List<Map<String, Object>> getHouseMoveList(Integer storehouse_id, Integer mat_grp_pk, String keyword, Integer factory_id, String spjangcd) {
 		MapSqlParameterSource param = new MapSqlParameterSource();
 		param.addValue("storehouse_id", storehouse_id);
 		param.addValue("mat_grp_pk", mat_grp_pk);
 		param.addValue("keyword", keyword);
+		param.addValue("factory_id", factory_id);
 		param.addValue("spjangcd", spjangcd);
 
 		String sql = """
@@ -106,6 +110,12 @@ public class MaterialMoveService {
 			and m."MaterialGroup_id" = :mat_grp_pk
 			""";
 		}
+		if(factory_id!=null) {
+			sql+="""
+			and m."Factory_id" = :factory_id
+			""";
+		}
+
 
 		if(StringUtils.hasText(keyword)){
 			sql+="""
@@ -148,6 +158,12 @@ public class MaterialMoveService {
 			and mg.id = :mat_grp_pk
 			""";
 		}
+		if(factory_id!=null) {
+			sql+="""
+			and m."Factory_id" = :factory_id
+			""";
+		}
+
 
 		if(StringUtils.hasText(keyword)){
 			sql+="""
@@ -163,7 +179,7 @@ public class MaterialMoveService {
 		return items;
 	}
 
-	
+
 	public List<Map<String, Object>> getMaterialLotList(Integer storehouse_id, Integer material_id){
 		MapSqlParameterSource param = new MapSqlParameterSource();
 		param.addValue("storehouse_id", storehouse_id);
@@ -188,7 +204,7 @@ public class MaterialMoveService {
 		""";
 		return this.sqlRunner.getRows(sql, param);
 	}
-	
+
 	public int updateMaterialLotStorehouse(int ml_id, int storehouse_id) {
 		MapSqlParameterSource param = new MapSqlParameterSource();
 		param.addValue("ml_id", ml_id);

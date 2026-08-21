@@ -15,7 +15,11 @@ public class BaljuOrderAggregateService {
   @Autowired
   SqlRunner sqlRunner;
 
-  public List<Map<String, Object>> getList(String srchStartDt, String srchEndDt, Integer cboCompany, Integer cboMatGrp, String cBaljuState, String spjangcd) {
+  /**
+   * @param factoryId 공장 필터. 빈 값/null 이면 전체 공장.
+   *                  발주에는 공장이 없어 품목(material)의 공장으로 건다.
+   */
+  public List<Map<String, Object>> getList(String srchStartDt, String srchEndDt, Integer cboCompany, Integer cboMatGrp, String cBaljuState, String factoryId, String spjangcd) {
     MapSqlParameterSource paramMap = new MapSqlParameterSource();
     paramMap.addValue("srchStartDt", srchStartDt);
     paramMap.addValue("srchEndDt", srchEndDt);
@@ -38,6 +42,13 @@ public class BaljuOrderAggregateService {
              and cast(:srchEndDt as date) 
              and b.spjangcd = :spjangcd
         """;
+
+    if (factoryId != null && !factoryId.isEmpty()) {
+      paramMap.addValue("factoryId", Integer.parseInt(factoryId));
+      sql += """
+          and m."Factory_id" = :factoryId
+          """;
+    }
 
     if (cboCompany != null) {
       sql += """ 
@@ -80,4 +91,3 @@ public class BaljuOrderAggregateService {
     return items;
   }
 }
-
