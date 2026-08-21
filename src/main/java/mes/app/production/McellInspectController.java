@@ -115,9 +115,10 @@ public class McellInspectController {
             @RequestParam("unit_id") Integer unitId,
             @RequestParam("form_id") Integer formId,
             @RequestParam(value = "actor_id", required = false) Integer actorId,
+            @RequestParam(value = "member_ids", required = false) String memberIds,
             @RequestParam(value = "spjangcd", defaultValue = "ZZ") String spjangcd,
             Authentication auth) {
-        return this.mcellInspectService.startResult(unitId, formId, actorId, spjangcd,
+        return this.mcellInspectService.startResult(unitId, formId, actorId, memberIds, spjangcd,
                 (User) auth.getPrincipal());
     }
 
@@ -179,9 +180,10 @@ public class McellInspectController {
             @RequestParam("unit_id") Integer unitId,
             @RequestParam("form_id") Integer formId,
             @RequestParam(value = "actor_id", required = false) Integer actorId,
+            @RequestParam(value = "member_ids", required = false) String memberIds,
             @RequestParam(value = "spjangcd", defaultValue = "ZZ") String spjangcd,
             Authentication auth) {
-        return this.mcellInspectService.recheck(unitId, formId, actorId, spjangcd,
+        return this.mcellInspectService.recheck(unitId, formId, actorId, memberIds, spjangcd,
                 (User) auth.getPrincipal());
     }
 

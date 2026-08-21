@@ -204,10 +204,11 @@ public class McellRepairController {
     public AjaxResult unitStart(
             @RequestParam("unit_id") Integer unitId,
             @RequestParam(value = "actor_id", required = false) Integer actorId,
+            @RequestParam(value = "member_ids", required = false) String memberIds,
             @RequestParam(value = "equipment_id", required = false) Integer equipmentId,
             @RequestParam(value = "start_time", required = false) String startTime,
             Authentication auth) {
-        return this.mcellRepairService.unitStart(unitId, actorId, equipmentId, startTime,
+        return this.mcellRepairService.unitStart(unitId, actorId, memberIds, equipmentId, startTime,
                 (User) auth.getPrincipal());
     }
 

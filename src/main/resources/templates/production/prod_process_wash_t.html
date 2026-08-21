@@ -23,6 +23,9 @@
         .qhead{display:flex;align-items:baseline;gap:12px;margin:2px 2px 18px}
         .qhead h1{font-size:26px;font-weight:800;letter-spacing:-.03em;margin:0}
         .qhead .cnt{color:var(--ink-2);font-weight:700}
+        .qfilter{display:flex;gap:8px;margin-left:auto}
+        .qfilter button{min-height:44px;padding:0 16px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink-2);font-weight:700;font-size:15px;cursor:pointer}
+        .qfilter button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
         .searchbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 2px 18px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px;box-shadow:var(--shadow)}
         .searchbar .slab{font-weight:800;color:var(--ink-2);font-size:14px}
         .searchbar .tilde{font-weight:800;color:var(--ink-2)}
@@ -186,6 +189,8 @@
         .opts{display:flex;flex-wrap:wrap;gap:10px}
         .opt{min-height:54px;padding:0 18px;border-radius:14px;border:1.5px solid var(--line);background:var(--surface);font-weight:800;font-size:16px;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
         .opt:active{background:var(--surface-2)}.opt.sel{border-color:var(--teal);background:var(--teal-bg);color:var(--teal-d)}
+        .opt .ck{width:20px;height:20px;border-radius:6px;border:1.5px solid var(--line);display:grid;place-items:center;font-size:13px;flex:0 0 auto}
+        .opt.sel .ck{background:var(--teal);color:#fff;border-color:var(--teal)}
         .opt .sub{font-size:12.5px;color:var(--ink-2);font-weight:700}
         .sheet .ok{width:100%;margin-top:20px;background:var(--teal);color:#fff;min-height:var(--tap);border:none;border-radius:16px;font-size:19px;font-weight:800;cursor:pointer}
         .sheet .ok:disabled{background:var(--line);color:var(--ink-2)}
@@ -216,7 +221,10 @@
         <div class="app">
             <!-- A. 날짜 카드 -->
             <div class="screen" id="scA"><div class="wrap">
-                <div class="qhead"><h1>세척 공정</h1><span class="cnt" id="dayCnt"></span></div>
+                <div class="qhead"><h1>세척 공정</h1><span class="cnt" id="dayCnt"></span>
+                    <div class="qfilter"><button class="on" data-f="all">전체</button>
+                        <button data-f="wait">대기</button><button data-f="working">작업중</button>
+                        <button data-f="done">완료</button></div></div>
                 <div class="searchbar"><span class="slab">작업일</span>
                     <input type="date" id="dFrom" class="dinput"/><span class="tilde">~</span><input type="date" id="dTo" class="dinput"/>
                     <button class="sbtn" id="btnSearch">조회</button></div>
@@ -235,7 +243,7 @@
                     <div id="wkList" style="display:flex;flex-direction:column;gap:12px"></div>
                 </div></div>
                 <div class="actionbar">
-                    <div class="actsum"><span class="l">작업자가 본인 카드를 눌러 세척을 진행합니다</span></div>
+                    <div class="actsum"><span class="l">작업자를 선택하여 세척을 진행합니다</span></div>
                     <button class="btn start" id="btnAddWorker">＋ 작업자 추가</button>
                 </div>
             </div></div>
@@ -258,7 +266,7 @@
         <!-- 작업자·설비 선택 시트 -->
         <div class="mask" id="workerMask"><div class="sheet"><div class="body">
             <div class="sh"><h3>작업자 추가</h3><button class="x" data-close>✕</button></div>
-            <div class="fieldlab">작업자</div><div class="opts" id="workerOpts"></div>
+            <div class="fieldlab">작업자 <span style="color:var(--ink-2);font-weight:700">(여러 명 선택 가능)</span></div><div class="opts" id="workerOpts"></div>
             <div class="fieldlab">세척기</div><div class="opts" id="equipOpts"></div>
             <button class="ok" id="workerOk" disabled>이 작업자 추가</button>
         </div></div></div>
@@ -495,11 +503,17 @@
                 DAYS.unshift({date: t, work_cnt: 0, good_qty: 0, cnts: {wait: 0, work: 0, done: 0}, st: 'wait'});
             }
         }
+        /* 작업자 표시 이름 — 조원이 있으면 전원 나열 (조립 BSC 와 동일) */
+        function workerLabel(w) {
+            return (w.members && String(w.members).trim()) ? w.members : (w.worker || '-');
+        }
+
         function loadWorkers(date) {
             const r = apiGet('/work_list', {date: date, spjangcd: CTX.spjangcd});
             return (r.data || []).map(w => ({
                 work_id: w.work_id,
                 actor_id: w.actor_id, worker: w.worker_name || '-',
+                members: w.members || '', member_cnt: num(w.member_cnt) || 0,
                 equipment_id: w.equipment_id, equip: w.equipment_name || '-', code: w.equipment_code || '',
                 start: w.start_time || null, end: w.end_time || null,
                 good_qty: num(w.good_qty),
@@ -527,7 +541,25 @@
             renderWorkers();
         }
         function refreshItems() {
+            /* ★ 아직 서버에 안 보낸(dirty) 수량은 다시 읽으면 0 으로 돌아온다.
+               한 행을 시작/완료하면 목록 전체를 다시 읽으므로, 그때 다른 행에
+               미리 찍어둔 수량이 통째로 날아갔다. 읽기 전에 챙겨뒀다가 되얹는다.
+               (저장 자체는 여전히 시작/완료/화면이탈 시점 1회씩 — 스텝퍼마다 보내지 않는다) */
+            const keep = {};
+            if (curW && curW.items) curW.items.forEach(it => {
+                if (it.item_id != null && dirty.has(it.item_id)) {
+                    keep[it.item_id] = {qty: it.qty, defQty: it.defQty};
+                }
+            });
+
             curW.items = loadItems(curW.work_id);
+
+            curW.items.forEach(it => {
+                const k = keep[it.item_id];
+                /* 완료된 행은 서버 값이 정답이다 — 덮어쓰지 않는다 */
+                if (k && it.st !== 'done') { it.qty = k.qty; it.defQty = k.defQty; }
+                else if (k) { dirty.delete(it.item_id); }
+            });
             // 작업 헤더(시작/종료/완료수량)는 서버 파생값 — 목록에서 다시 읽는다
             const fresh = loadWorkers(curD.date).find(w => w.work_id === curW.work_id);
             if (fresh) { curW.start = fresh.start; curW.end = fresh.end; curW.good_qty = fresh.good_qty; curW.st = fresh.st; }
@@ -541,11 +573,25 @@
 
         /* ── A. 날짜 카드 ── */
         const dayGrid = document.getElementById('dayGrid');
+        /* ── A화면 상태 필터 (다른 공정 화면과 동일 규약) ──
+           카드가 들고 있는 d.st 로만 거른다. 서버 재조회 없이 화면에서 자른다. */
+        let filt = 'all';
+        document.querySelectorAll('.qfilter button').forEach(b => b.addEventListener('click', () => {
+            document.querySelectorAll('.qfilter button').forEach(x => x.classList.remove('on'));
+            b.classList.add('on');
+            filt = b.dataset.f;
+            renderDays();
+        }));
+
         function renderDays() {
-            document.getElementById('dayCnt').textContent = DAYS.length + '일';
-            dayGrid.innerHTML = DAYS.map((d, i) => {
-                const isToday = d.date === todayStr();
-                return `<div class="day" data-st="${d.st}" data-i="${i}"><div class="edge"></div>
+            /* 원본 인덱스를 유지해야 카드 클릭(openDay)이 어긋나지 않는다 */
+            const view = DAYS.map((d, i) => ({d, i}))
+                .filter(x => filt === 'all' || x.d.st === filt);
+            document.getElementById('dayCnt').textContent =
+                (filt === 'all' ? DAYS.length + '일' : view.length + ' / ' + DAYS.length + '일');
+            dayGrid.innerHTML = view.map(({d, i}) => {
+                    const isToday = d.date === todayStr();
+                    return `<div class="day" data-st="${d.st}" data-i="${i}"><div class="edge"></div>
       <div class="row1"><span class="dt">${fmtDate(d.date)}</span>
         ${isToday ? '<span class="today">오늘</span>' : ''}
         <span class="chip ${d.st}">${STLAB[d.st]}</span></div>
@@ -557,7 +603,8 @@
           <span class="minipill g">작업중 ${d.cnts.work}</span>
           <span class="minipill d">완료 ${d.cnts.done}</span>
         </div></div></div>`;
-            }).join('');
+                }).join('') ||
+                '<div class="emptybox">해당 상태의 작업일이 없습니다.</div>';
         }
         dayGrid.addEventListener('click', e => {
             const c = e.target.closest('.day');
@@ -592,7 +639,7 @@
             box.innerHTML = curD.workers.map((w, i) => {
                 const del = workerDeletable(w) ? `<button class="wkdel" data-del="${i}">삭제</button>` : '';
                 return `<div class="wk" data-st="${w.st}" data-i="${i}"><div class="edge"></div>
-      <div class="who"><span class="nm">${w.worker}</span><span class="eq">${w.equip}${w.code ? ' · ' + w.code : ''}</span></div>
+      <div class="who"><span class="nm">${workerLabel(w)}</span><span class="eq">${w.equip}${w.code ? ' · ' + w.code : ''}</span></div>
       <div class="wktime">${pillT(w.start)} ~ ${pillT(w.end)}</div>
       <div class="qty"><div class="l">완료수량</div><div class="v">${(w.good_qty || 0).toLocaleString()}</div></div>
       <span class="badge ${w.st}">${STLAB[w.st]}</span>${del}</div>`;
@@ -630,7 +677,8 @@
         <div class="infopill big"><span>완료수량</span><b>${workerDone(curW).toLocaleString()}</b></div>`;
         }
         function renderItems() {
-            document.getElementById('cWorker').textContent = curW.worker;
+            /* 조립(BSC)과 같은 규칙 — 제목은 작업자 전원, 아래 줄은 날짜 · 설비 */
+            document.getElementById('cWorker').textContent = workerLabel(curW);
             document.getElementById('cSub').textContent =
                 `${fmtDate(curD.date)} · ${curW.equip}${curW.code ? ' · ' + curW.code : ''}`;
             renderCHead();
@@ -770,16 +818,16 @@
         }));
 
         /* 작업자·세척기 선택 — /api/common/combo */
-        let selW = null, selE = null;
+        let selWorkers = [], selE = null;
 
         function openWorkerSheet() {
-            selW = null;
+            selWorkers = [];
             selE = null;
             if (!WORKERS.length) WORKERS = fetchWorkers();   /* 소속 공장 인원만 */
             /* ★ 세척 공정의 워크센터에 속한 설비만 (공정↔워크센터 1:1) */
             if (!EQUIPS.length) EQUIPS = WASH_WC ? combo('equipment', '', '', WASH_WC) : [];
             document.getElementById('workerOpts').innerHTML = WORKERS.length
-                ? WORKERS.map(w => `<button class="opt" data-w="${w.value}" data-n="${w.text}">${w.text}</button>`).join('')
+                ? WORKERS.map(w => `<button class="opt" data-w="${w.value}" data-n="${w.text}"><span class="ck"></span>${w.text}</button>`).join('')
                 : `<div class="emptybox">작업자 목록이 없습니다</div>`;
             document.getElementById('equipOpts').innerHTML = EQUIPS.length
                 ? EQUIPS.map(x => `<button class="opt" data-e="${x.value}" data-n="${x.text}">${x.text}</button>`).join('')
@@ -788,14 +836,24 @@
             showMask('workerMask');
         }
 
+        /* 작업자 다중 선택 — 첫 선택자가 대표(Actor). 조립(BSC)과 동일 규약 */
         document.getElementById('workerOpts').addEventListener('click', e => {
             const b = e.target.closest('[data-w]');
             if (!b) return;
-            document.querySelectorAll('#workerOpts .opt').forEach(x => x.classList.remove('sel'));
-            b.classList.add('sel');
-            selW = {id: b.dataset.w, name: b.dataset.n};
+            const id = b.dataset.w, name = b.dataset.n, k = selWorkers.findIndex(x => x.id === id);
+            if (k >= 0) { selWorkers.splice(k, 1); } else { selWorkers.push({id, name}); }
+            paintWorkerOpts();
             ckWorker();
         });
+
+        function paintWorkerOpts() {
+            document.querySelectorAll('#workerOpts .opt').forEach(x => {
+                const on = selWorkers.some(w => w.id === x.dataset.w);
+                x.classList.toggle('sel', on);
+                const ck = x.querySelector('.ck');
+                if (ck) ck.textContent = on ? '\u2713' : '';
+            });
+        }
         document.getElementById('equipOpts').addEventListener('click', e => {
             const b = e.target.closest('[data-e]');
             if (!b) return;
@@ -806,19 +864,23 @@
         });
 
         function ckWorker() {
-            document.getElementById('workerOk').disabled = !(selW && selE);
+            document.getElementById('workerOk').disabled = !(selWorkers.length && selE);
         }
 
         document.getElementById('workerOk').onclick = () => {
             apiPost('/work_start', {
-                date: curD.date, actor_id: selW.id, equipment_id: selE.id, spjangcd: CTX.spjangcd
+                date: curD.date,
+                actor_id  : selWorkers[0].id,                                        /* 대표 = Actor_id */
+                member_ids: selWorkers.slice(1).map(w => w.id).filter(Boolean).join(','),
+                equipment_id: selE.id, spjangcd: CTX.spjangcd
             }, (r) => {
                 hideMask('workerMask');
                 const workId = r.data && r.data.work_id;
                 refreshWorkers();
                 const idx = curD.workers.findIndex(w => w.work_id === workId);
                 if (idx >= 0) openWorker(idx);
-                flash((r.data && r.data.reused) ? `기존 작업 열기 · ${selW.name}` : `작업자 추가 · ${selW.name} / ${selE.name}`);
+                const nm = selWorkers.map(w => w.name).join(', ');
+                flash((r.data && r.data.reused) ? `기존 작업 열기 · ${nm}` : `작업자 추가 · ${nm} / ${selE.name}`);
             });
         };
 
@@ -1453,7 +1515,7 @@
                     var cs = getComputedStyle(c);
                     return cs.marginLeft === 'auto' || parseFloat(cs.flexGrow) > 0;
                 });
-                b.style.cssText = (pushed ? '' : 'margin-left:auto;') + 'flex:0 0 auto;align-self:center;'
+                b.style.cssText = (pushed ? '' : '') + 'flex:0 0 auto;align-self:center;'
                     + 'width:40px;height:40px;border-radius:12px;'
                     + 'border:1px solid var(--line,#dfe3e8);background:var(--surface,#fff);'
                     + 'color:var(--ink-2,#5b6570);font-size:19px;font-weight:800;line-height:1;'

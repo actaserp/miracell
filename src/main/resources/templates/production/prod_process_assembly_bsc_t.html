@@ -19,6 +19,9 @@
         .qhead{display:flex;align-items:baseline;gap:12px;margin:2px 2px 18px}
         .qhead h1{font-size:26px;font-weight:800;letter-spacing:-.03em;margin:0}
         .qhead .cnt{color:var(--ink-2);font-weight:700}
+        .qfilter{display:flex;gap:8px;margin-left:auto}
+        .qfilter button{min-height:44px;padding:0 16px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink-2);font-weight:700;font-size:15px;cursor:pointer}
+        .qfilter button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
         .searchbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 2px 18px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px;box-shadow:var(--shadow)}
         .searchbar .slab{font-weight:800;color:var(--ink-2);font-size:14px}
         .searchbar .tilde{font-weight:800;color:var(--ink-2)}
@@ -208,7 +211,10 @@
         <div class="app">
             <!-- A. 날짜 카드 -->
             <div class="screen" id="scA"><div class="wrap">
-                <div class="qhead"><h1>용기 조립 공정</h1><span class="cnt" id="dayCnt"></span></div>
+                <div class="qhead"><h1>용기 조립 공정</h1><span class="cnt" id="dayCnt"></span>
+                    <div class="qfilter"><button class="on" data-f="all">전체</button>
+                        <button data-f="wait">대기</button><button data-f="working">작업중</button>
+                        <button data-f="done">완료</button></div></div>
                 <div class="searchbar"><span class="slab">작업일</span>
                     <input type="date" id="dFrom" class="dinput"/><span class="tilde">~</span><input type="date" id="dTo" class="dinput"/>
                     <button class="sbtn" id="btnSearch">조회</button></div>
@@ -227,7 +233,7 @@
                     <div id="wkList" style="display:flex;flex-direction:column;gap:12px"></div>
                 </div></div>
                 <div class="actionbar">
-                    <div class="actsum"><span class="l">2인 1조로도 편성됩니다 · 조를 눌러 용기를 조립하세요</span></div>
+                    <div class="actsum"><span class="l">2작업자를 선택하여 용기를 조립하세요</span></div>
                     <button class="btn start" id="btnAddCrew">＋ 작업조 추가</button>
                 </div>
             </div></div>
@@ -629,12 +635,26 @@
         /* ── A. 날짜 카드 ── */
         const dayGrid = document.getElementById('dayGrid');
 
+        /* ── A화면 상태 필터 (다른 공정 화면과 동일 규약) ──
+           카드가 들고 있는 d.st 로만 거른다. 서버 재조회 없이 화면에서 자른다. */
+        let filt = 'all';
+        document.querySelectorAll('.qfilter button').forEach(b => b.addEventListener('click', () => {
+            document.querySelectorAll('.qfilter button').forEach(x => x.classList.remove('on'));
+            b.classList.add('on');
+            filt = b.dataset.f;
+            renderDays();
+        }));
+
         function renderDays() {
-            document.getElementById('dayCnt').textContent = DAYS.length + '일';
-            dayGrid.innerHTML = DAYS.map((d, i) => {
-                const st = d.st, isToday = d.date === todayStr();
-                const wait = d._loaded ? d.crews.reduce((a, c) => a + c.items.filter(x => x.st === 'wait').length, 0) : 0;
-                return `<div class="day" data-st="${st}" data-i="${i}"><div class="edge"></div>
+            /* 원본 인덱스를 유지해야 카드 클릭(openDay)이 어긋나지 않는다 */
+            const view = DAYS.map((d, i) => ({d, i}))
+                .filter(x => filt === 'all' || x.d.st === filt);
+            document.getElementById('dayCnt').textContent =
+                (filt === 'all' ? DAYS.length + '일' : view.length + ' / ' + DAYS.length + '일');
+            dayGrid.innerHTML = view.map(({d, i}) => {
+                    const st = d.st, isToday = d.date === todayStr();
+                    const wait = d._loaded ? d.crews.reduce((a, c) => a + c.items.filter(x => x.st === 'wait').length, 0) : 0;
+                    return `<div class="day" data-st="${st}" data-i="${i}"><div class="edge"></div>
       <div class="row1"><span class="dt">${fmtDate(d.date)}</span>
         ${isToday ? '<span class="today">오늘</span>' : ''}
         <span class="chip ${st}">${STLAB[st]}</span></div>
@@ -646,7 +666,8 @@
           <span class="minipill g">작업중 ${d.cnts.work}</span>
           <span class="minipill d">완료 ${d.cnts.done}</span>
         </div></div></div>`;
-            }).join('');
+                }).join('') ||
+                '<div class="emptybox">해당 상태의 작업일이 없습니다.</div>';
         }
 
         dayGrid.addEventListener('click', e => {
@@ -1033,11 +1054,6 @@
                 b.classList.add('sel');
                 b.querySelector('.ck').textContent = '✓';
             }
-            /* 대표(첫 선택자) 표시 갱신 */
-            document.querySelectorAll('#workerOpts .opt').forEach(x => {
-                const isLeader = selWorkers.length && selWorkers[0].id === x.dataset.w;
-                x.classList.toggle('leader', !!isLeader);
-            });
             ckCrew();
         });
         document.getElementById('equipOpts').addEventListener('click', e => {
@@ -1625,7 +1641,7 @@
                     var cs = getComputedStyle(c);
                     return cs.marginLeft === 'auto' || parseFloat(cs.flexGrow) > 0;
                 });
-                b.style.cssText = (pushed ? '' : 'margin-left:auto;') + 'flex:0 0 auto;align-self:center;'
+                b.style.cssText = (pushed ? '' : '') + 'flex:0 0 auto;align-self:center;'
                     + 'width:40px;height:40px;border-radius:12px;'
                     + 'border:1px solid var(--line,#dfe3e8);background:var(--surface,#fff);'
                     + 'color:var(--ink-2,#5b6570);font-size:19px;font-weight:800;line-height:1;'

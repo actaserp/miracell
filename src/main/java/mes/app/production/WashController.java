@@ -81,11 +81,12 @@ public class WashController {
     public AjaxResult workStart(
             @RequestParam("date") String date,
             @RequestParam("actor_id") Integer actorId,
+            @RequestParam(value = "member_ids", required = false) String memberIds,
             @RequestParam("equipment_id") Integer equipmentId,
             @RequestParam("spjangcd") String spjangcd,
             Authentication auth) {
         User user = (User) auth.getPrincipal();
-        return this.washService.workStart(date, actorId, equipmentId, spjangcd, user);
+        return this.washService.workStart(date, actorId, memberIds, equipmentId, spjangcd, user);
     }
 
     @PostMapping("/work_delete")

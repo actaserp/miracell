@@ -150,11 +150,12 @@ public class McellAssemblyController {
     public AjaxResult stepStart(
             @RequestParam("step_id") Integer stepId,
             @RequestParam(value = "actor_id", required = false) Integer actorId,
+            @RequestParam(value = "member_ids", required = false) String memberIds,
             @RequestParam(value = "equipment_id", required = false) Integer equipmentId,
             @RequestParam(value = "start_time", required = false) String startTime,
             @RequestParam("spjangcd") String spjangcd,
             Authentication auth) {
-        return this.mcellAssemblyService.startStep(stepId, actorId, equipmentId, startTime,
+        return this.mcellAssemblyService.startStep(stepId, actorId, memberIds, equipmentId, startTime,
                 spjangcd, (User) auth.getPrincipal());
     }
 

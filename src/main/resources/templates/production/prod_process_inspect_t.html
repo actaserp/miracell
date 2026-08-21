@@ -182,6 +182,7 @@
         .tabbar button.on{border-color:var(--teal);background:var(--teal-bg);color:var(--teal-d)}
         .tabbar button .ts{font-size:11.5px;font-weight:800}
         .tabbar button .ts.pass{color:var(--green)}.tabbar button .ts.fail{color:var(--red)}
+        .tabbar button .tw{font-size:11px;font-weight:700;color:var(--ink-2);max-width:100%;padding:0 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
         .whoRow{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 16px;box-shadow:var(--shadow)}
         .whoRow .l{font-size:13px;color:var(--ink-2);font-weight:800}
         .whoRow .nm{font-size:17px;font-weight:800}
@@ -207,6 +208,8 @@
         .ms-wash-root .judge button.fail.on{border-color:var(--red);background:var(--red-bg);color:var(--red)}
         .opt{min-height:54px;padding:0 18px;border-radius:14px;border:1.5px solid var(--line);background:var(--surface);font-weight:800;font-size:16px;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
         .opt:active{background:var(--surface-2)}.opt.sel{border-color:var(--teal);background:var(--teal-bg);color:var(--teal-d)}
+        .opt .ck{width:20px;height:20px;border-radius:6px;border:1.5px solid var(--line);display:grid;place-items:center;font-size:13px;flex:0 0 auto}
+        .opt.sel .ck{background:var(--teal);color:#fff;border-color:var(--teal)}
 
         .actionbar{flex:0 0 auto;background:var(--surface);border-top:1px solid var(--line);padding:14px 18px calc(14px + env(safe-area-inset-bottom));display:flex;gap:12px;align-items:center;box-shadow:0 -8px 24px -18px rgba(21,34,43,.4)}
         .actionbar .actsum{display:flex;flex-direction:column;margin-right:auto}
@@ -274,7 +277,7 @@
             <div class="screen hide" id="scC"><div class="col-stack">
                 <div class="topbar2"><button class="back" data-back="B">‹</button>
                     <div class="htitle"><div class="t" id="cUnit">—</div><div class="s" id="cSub">—</div></div>
-                    <div class="infopill"><span>LOT</span><b id="cLot">—</b></div>
+                    <div class="infopill" id="cLotPill"><span>LOT</span><b id="cLot">—</b></div>
                 </div>
                 <div class="bscroll"><div class="bgrid" id="cGrid"></div></div>
                 <div class="actionbar" id="cAction"></div>
@@ -284,7 +287,7 @@
         <!-- 검사자 배정 -->
         <div class="mask" id="whoMask"><div class="sheet"><div class="body">
             <div class="sh"><h3 id="whoTitle">검사자 배정</h3><button class="x" data-close>✕</button></div>
-            <div class="fieldlab">검사자</div><div class="opts" id="whoOpts"></div>
+            <div class="fieldlab">검사자 <span style="color:var(--ink-2);font-weight:700">(여러 명 선택 가능)</span></div><div class="opts" id="whoOpts"></div>
             <button class="ok" id="whoOk" disabled>배정</button>
         </div></div></div>
 
@@ -443,6 +446,13 @@
             return renderUnits().then(() => show('B'));
         }
         function unitState(u) { return u.state; }
+        /* 양식 1건의 검사자 표시 이름 — 대표 + 조원 전원 (조립 BSC 와 동일 규칙) */
+        function formWho(f) {
+            const t = (f && f.member_names && String(f.member_names).trim())
+                ? f.member_names : (f && f.actor_name);
+            return (t && String(t).trim()) ? String(t).trim() : '';
+        }
+
         function ckChip(f) {
             const nm = esc(f.form_name);
             if (f.verdict === 'pass') return '<span class="ckchip pass">' + nm + ' 합격</span>';
@@ -547,8 +557,18 @@
             const _sc = document.getElementById('cGrid').closest('.bscroll');
             const _keep = _sc ? _sc.scrollTop : 0;
             document.getElementById('cUnit').textContent = '#' + String(curU.unit_no).padStart(2, '0') + '호기 · ' + (UST[curU.state] || curU.state);
-            document.getElementById('cSub').textContent = (curO.mat_name || '') + ' · ' + (curO.order_num || '');
-            document.getElementById('cLot').textContent = curU.lot_number || '—';
+            /* 검사자 — 이 로트의 모든 양식에 투입된 인원 전원 (중복 제거) */
+            const who = [];
+            FORMS.forEach(f => {
+                formWho(f).split(',').map(x => x.trim()).filter(Boolean)
+                    .forEach(n => { if (!who.includes(n)) who.push(n); });
+            });
+            document.getElementById('cSub').textContent =
+                (curO.mat_name || '') + ' · ' + (curO.order_num || '') +
+                (who.length ? ' · ' + who.join(', ') : '');
+            /* 로트는 발번된 뒤에만 */
+            document.getElementById('cLot').textContent = curU.lot_number || '';
+            document.getElementById('cLotPill').style.display = curU.lot_number ? '' : 'none';
 
             if (histView !== null) { renderHistDetail(); if (_sc) _sc.scrollTop = 0; return; }
 
@@ -576,12 +596,15 @@
                 if (f.verdict === 'pass') { ts = '합격'; cls = 'pass'; }
                 else if (f.verdict === 'fail') { ts = '불합격'; cls = 'fail'; }
                 else if (f.result_id) ts = '진행중';
+                const fw = formWho(f);
                 return '<button class="' + (+f.form_id === +curForm ? 'on' : '') + '" data-tab="' + f.form_id + '">' +
-                    esc(f.form_name) + '<span class="ts ' + cls + '">' + ts + '</span></button>';
+                    esc(f.form_name) + '<span class="ts ' + cls + '">' + ts + '</span>' +
+                    (fw ? '<span class="tw">' + esc(fw) + '</span>' : '') + '</button>';
             }).join('') + '</div>';
 
             const res = DET.result, confirmed = !!judgedRes();
-            const actor = res && res.actor_name;
+            /* 이 양식의 검사자 전원. DET 가 아직 없으면 탭 데이터(FORMS)에서 집는다 */
+            const actor = (res && (res.member_names || res.actor_name)) || formWho(curFormMeta());
             html += '<div class="whoRow"><span class="l">' + esc(curFormMeta().form_name) + ' 검사자</span>' +
                 '<span class="nm">' + esc(actor || '미배정') + '</span>' +
                 (confirmed ? '' : '<button class="assign" data-who>' + (actor ? '변경' : '배정') + '</button>') + '</div>';
@@ -901,29 +924,51 @@
             if (e.target === m || e.target.closest('[data-close]')) m.classList.remove('show');
         }));
 
-        /* 검사자 배정 */
-        let whoSel = null;
+        /* 검사자 배정 — 여러 명. 첫 선택자가 대표(Actor). 조립(BSC)과 동일 규약 */
+        let selWorkers = [];
+        function whoSel() { return selWorkers.length ? selWorkers[0].id : null; }
+
         function openWho() {
             if (!WORKERS.length) WORKERS = fetchWorkers();   /* 소속 공장 인원만 */
-            whoSel = (DET.result && DET.result.actor_id) || null;
+            /* 기존 회차의 대표 + 조원을 그대로 복원 */
+            selWorkers = [];
+            if (DET.result && DET.result.actor_id) {
+                selWorkers.push({id: String(DET.result.actor_id), name: DET.result.actor_name || ''});
+                String(DET.result.member_ids || '').split(',').map(x => x.trim()).filter(Boolean)
+                    .forEach(id => { if (!selWorkers.some(w => w.id === id)) selWorkers.push({id, name: ''}); });
+            }
             document.getElementById('whoTitle').textContent = curFormMeta().form_name + ' 검사자 배정';
             document.getElementById('whoOpts').innerHTML = WORKERS.map(w =>
-                    '<button class="opt' + (+w.value === +whoSel ? ' sel' : '') + '" data-w="' + w.value + '">' + esc(w.text) + '</button>').join('')
+                    '<button class="opt" data-w="' + w.value + '" data-n="' + esc(w.text) + '">' +
+                    '<span class="ck"></span>' + esc(w.text) + '</button>').join('')
                 || '<div style="color:var(--ink-2);font-weight:700">등록된 인원이 없습니다</div>';
-            document.getElementById('whoOk').disabled = !whoSel;
+            paintWhoOpts();
             showMask('whoMask');
         }
         document.getElementById('whoOpts').addEventListener('click', e => {
             const b = e.target.closest('[data-w]'); if (!b) return;
-            document.querySelectorAll('#whoOpts .opt').forEach(x => x.classList.remove('sel'));
-            b.classList.add('sel'); whoSel = b.dataset.w;
-            document.getElementById('whoOk').disabled = false;
+            const id = b.dataset.w, name = b.dataset.n, k = selWorkers.findIndex(x => x.id === id);
+            if (k >= 0) { selWorkers.splice(k, 1); } else { selWorkers.push({id, name}); }
+            paintWhoOpts();
         });
+
+        function paintWhoOpts() {
+            document.querySelectorAll('#whoOpts .opt').forEach(x => {
+                const on = selWorkers.some(w => String(w.id) === String(x.dataset.w));
+                x.classList.toggle('sel', on);
+                const ck = x.querySelector('.ck');
+                if (ck) ck.textContent = on ? '\u2713' : '';
+            });
+            document.getElementById('whoOk').disabled = !selWorkers.length;
+        }
         document.getElementById('whoOk').onclick = function () {
             hideMask('whoMask');
             guard(async () => {
                 await apiPost('/result_start', {
-                    unit_id: curU.unit_id, form_id: curForm, actor_id: whoSel, spjangcd: CTX.spjangcd
+                    unit_id: curU.unit_id, form_id: curForm,
+                    actor_id  : whoSel(),                                                /* 대표 = Actor_id */
+                    member_ids: selWorkers.slice(1).map(w => w.id).filter(Boolean).join(','),
+                    spjangcd: CTX.spjangcd
                 });
                 await loadDetail();
                 await renderUnits();

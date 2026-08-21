@@ -149,6 +149,8 @@
         .opts{display:flex;flex-wrap:wrap;gap:10px}
         .opt{min-height:54px;padding:0 18px;border-radius:14px;border:1.5px solid var(--line);background:var(--surface);font-weight:800;font-size:16px;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
         .opt:active{background:var(--surface-2)}.opt.sel{border-color:var(--teal);background:var(--teal-bg);color:var(--teal-d)}
+        .opt .ck{width:20px;height:20px;border-radius:6px;border:1.5px solid var(--line);display:grid;place-items:center;font-size:13px;flex:0 0 auto}
+        .opt.sel .ck{background:var(--teal);color:#fff;border-color:var(--teal)}
         .sheet .ok{width:100%;margin-top:20px;background:var(--teal);color:#fff;min-height:var(--tap);border:none;border-radius:16px;font-size:19px;font-weight:800;cursor:pointer}
         .sheet .ok:disabled{background:var(--line);color:var(--ink-2)}
         .txin{width:100%;height:54px;border:1.5px solid var(--line);border-radius:14px;padding:0 14px;font-size:16px;font-weight:700;background:var(--surface)}
@@ -198,7 +200,7 @@
             <div class="screen hide" id="scC"><div class="col-stack">
                 <div class="topbar2"><button class="back" data-back="A">‹</button>
                     <div class="htitle"><div class="t" id="cUnit">—</div><div class="s" id="cSub">—</div></div>
-                    <div class="infopill"><span>원 로트</span><b id="cSrc">—</b></div>
+                    <div class="infopill" id="cSrcPill"><span>원 로트</span><b id="cSrc">—</b></div>
                     <button id="btnRegCancel" style="background:var(--red-bg);border:1px solid var(--red);color:var(--red);height:46px;padding:0 14px;border-radius:12px;font-weight:800;font-size:14px;cursor:pointer;flex:0 0 auto;display:none">접수 취소</button>
                 </div>
                 <div class="bscroll"><div class="bgrid" id="cGrid"></div></div>
@@ -209,7 +211,7 @@
         <!-- 작업자 · 설비 배정 -->
         <div class="mask" id="whoMask"><div class="sheet"><div class="body">
             <div class="sh"><h3>수리 작업자 · 설비 배정</h3><button class="x" data-close>✕</button></div>
-            <div class="fieldlab">작업자 <span style="color:var(--red)">*</span></div>
+            <div class="fieldlab">작업자 <span style="color:var(--red)">*</span> <span style="color:var(--ink-2);font-weight:700">(여러 명 선택 가능)</span></div>
             <div class="opts" id="whoOpts"></div>
             <div class="fieldlab">설비 <span style="color:var(--ink-2);font-weight:700">(선택 · 고르면 가동 이력이 남습니다)</span></div>
             <div class="opts" id="equOpts"></div>
@@ -430,6 +432,13 @@
                 console.log('[repair] wo_queue', p, '→', ORDERS.length + '건');
                 renderQueue();
             }
+            /* 유닛/작지 1건의 작업자 표시 이름 — 대표 + 조원 전원 (조립 BSC 와 동일 규칙) */
+            function unitWho(u) {
+                var t = (u && u.member_names && String(u.member_names).trim())
+                    ? u.member_names : (u && u.actor_name);
+                return (t && String(t).trim()) ? String(t).trim() : '';
+            }
+
             function renderQueue() {
                 document.getElementById('qcnt').textContent = ORDERS.length + '대';
                 if (!ORDERS.length) {
@@ -455,8 +464,8 @@
                         '<span class="val" style="font-size:15px">' + esc(o.src_lot) + '</span></div>' +
                         (changed ? '<div class="blk"><span class="lab">결과 로트</span>' +
                             '<span class="val g" style="font-size:15px">' + esc(res) + '</span></div>' : '') +
-                        (o.actor_name ? '<div class="blk"><span class="lab">작업자</span>' +
-                            '<span class="val" style="font-size:15px">' + esc(o.actor_name) + '</span></div>' : '') +
+                        (unitWho(o) ? '<div class="blk"><span class="lab">작업자</span>' +
+                            '<span class="val" style="font-size:15px">' + esc(unitWho(o)) + '</span></div>' : '') +
                         (function () {
                             var d = durTxt(o.start_time, o.end_time);
                             if (d) return '<div class="blk"><span class="lab">소요</span>' +
@@ -527,8 +536,13 @@
                 document.getElementById('cUnit').textContent = (u.repair_no || '수리') +
                     (num(u.sibling_cnt) > 1 ? ' #' + String(u.unit_no).padStart(2, '0') : '') +
                     ' · ' + (UST[u.state] || u.state);
-                document.getElementById('cSub').textContent = (CAT[u.cat] || u.cat) + ' · ' + (u.mat_code || '');
-                document.getElementById('cSrc').textContent = u.src_lot || '—';
+                /* 작업자 — 대표 + 조원 전원 (조립 BSC 와 동일 규칙) */
+                var who = unitWho(u);
+                document.getElementById('cSub').textContent =
+                    (CAT[u.cat] || u.cat) + ' · ' + (u.mat_code || '') + (who ? ' · ' + who : '');
+                /* 원 로트는 확정된 뒤에만 */
+                document.getElementById('cSrc').textContent = u.src_lot || '';
+                document.getElementById('cSrcPill').style.display = u.src_lot ? '' : 'none';
                 // 접수 취소는 아직 손대지 않은 유닛에서만. 서버도 같은 조건으로 막는다.
                 document.getElementById('btnRegCancel').style.display = (u.state === 'wait') ? '' : 'none';
 
@@ -573,12 +587,13 @@
                 if (dur) html += '<div class="durline">소요 ' + dur + '</div>';
 
                 // 작업자 · 설비
+                var uWho = unitWho(u);
                 html += '<div class="whoRow"><span class="l">수리 작업자</span>' +
-                    '<span class="nm">' + esc(u.actor_name || '미배정') + '</span>' +
+                    '<span class="nm">' + esc(uWho || '미배정') + '</span>' +
                     (u.equipment_name
                         ? '<span class="l" style="margin-left:14px">설비</span><span class="nm">' + esc(u.equipment_name) + '</span>'
                         : '') +
-                    (locked ? '' : '<button class="assign" data-who>' + (u.actor_name ? '변경' : '배정') + '</button>') + '</div>';
+                    (locked ? '' : '<button class="assign" data-who>' + (uWho ? '변경' : '배정') + '</button>') + '</div>';
 
                 // 자재 가감
                 var mats = u.mats || [];
@@ -654,7 +669,7 @@
                         '<button class="btn start" data-act="start">' +
                         (u.state === 'reject' ? '재작업 시작' : '수리 시작') + '</button>';
                 } else if (u.state === 'repairing') {
-                    bar.innerHTML = '<div class="actsum"><span class="l">' + esc(u.actor_name || '') +
+                    bar.innerHTML = '<div class="actsum"><span class="l">' + esc(unitWho(u)) +
                         (u.mat_produce_id ? ' · 재작업중 (' + esc(u.result_lot || '') + ')' : ' · 수리중') + '</span>' +
                         '<span class="v">＋' + pc + ' / −' + mc + ' 자재</span></div>' +
                         '<button class="btn ghost" data-act="cancel">시작취소</button>' +
@@ -820,18 +835,28 @@
             };
 
             /* ── 작업자 · 설비 배정 ────────────────────────────── */
-            var whoSel = null, equSel = null;
+            var selWorkers = [], equSel = null;
+            function whoSel() { return selWorkers.length ? selWorkers[0].id : null; }
 
             function openWho() {
                 if (!WORKERS.length) WORKERS = fetchWorkersActor();   /* 소속 공장(2공장) 인원만 */
                 if (!EQUIPS.length)  EQUIPS  = api('/equipments') || [];
-                whoSel = curU.actor_id || null;
+                /* 기존 배정(대표 + 조원)을 그대로 복원 */
+                selWorkers = [];
+                if (curU.actor_id) {
+                    selWorkers.push({id: String(curU.actor_id), name: curU.actor_name || ''});
+                    String(curU.member_ids || '').split(',').map(function (x) { return x.trim(); })
+                        .filter(Boolean).forEach(function (id) {
+                        if (!selWorkers.some(function (w) { return w.id === id; })) selWorkers.push({id: id, name: ''});
+                    });
+                }
                 equSel = curU.equipment_id || null;
 
                 document.getElementById('whoOpts').innerHTML = WORKERS.map(function (w) {
-                    return '<button class="opt' + (whoSel === w.actor_id ? ' sel' : '') + '" data-w="' + w.actor_id + '">' +
-                        esc(w.actor_name) + '</button>';
+                    return '<button class="opt" data-w="' + w.actor_id + '" data-n="' + esc(w.actor_name) + '">' +
+                        '<span class="ck"></span>' + esc(w.actor_name) + '</button>';
                 }).join('') || '<div class="emptybox">등록된 작업자가 없습니다.</div>';
+                paintWhoOpts();
 
                 document.getElementById('equOpts').innerHTML = EQUIPS.length
                     ? EQUIPS.map(function (q) {
@@ -840,16 +865,28 @@
                     }).join('')
                     : '<div class="emptybox">수리 워크센터에 등록된 설비가 없습니다.</div>';
 
-                document.getElementById('whoOk').disabled = !whoSel;
                 showMask('whoMask');
             }
 
+            /* 작업자 다중 선택 — 첫 선택자가 대표(Actor). 조립(BSC)과 동일 규약 */
             document.getElementById('whoOpts').addEventListener('click', function (e) {
                 var b = e.target.closest('[data-w]'); if (!b) return;
-                document.querySelectorAll('#whoOpts .opt').forEach(function (x) { x.classList.remove('sel'); });
-                b.classList.add('sel'); whoSel = +b.dataset.w;
-                document.getElementById('whoOk').disabled = false;
+                var id = b.dataset.w, name = b.dataset.n;
+                var k = -1;
+                selWorkers.forEach(function (w, i) { if (String(w.id) === String(id)) k = i; });
+                if (k >= 0) { selWorkers.splice(k, 1); } else { selWorkers.push({id: id, name: name}); }
+                paintWhoOpts();
             });
+
+            function paintWhoOpts() {
+                document.querySelectorAll('#whoOpts .opt').forEach(function (x) {
+                    var on = selWorkers.some(function (w) { return String(w.id) === String(x.dataset.w); });
+                    x.classList.toggle('sel', on);
+                    var ck = x.querySelector('.ck');
+                    if (ck) ck.textContent = on ? '\u2713' : '';
+                });
+                document.getElementById('whoOk').disabled = !selWorkers.length;
+            }
 
             // 설비는 선택 항목 — 같은 걸 다시 누르면 해제된다(가동 이력 안 남김)
             document.getElementById('equOpts').addEventListener('click', function (e) {
@@ -863,10 +900,15 @@
 
             // 배정 = 수리 시작. 이미 수리중이면 서버가 상태·시작시각을 보존하고 배정만 바꾼다.
             document.getElementById('whoOk').onclick = function () {
-                if (!whoSel) { flash('작업자를 선택하세요'); return; }
+                if (!selWorkers.length) { flash('작업자를 선택하세요'); return; }
                 hideMask('whoMask');
-                post('/unit_start', {unit_id: curU.id, actor_id: whoSel, equipment_id: equSel},
-                    function () { reloadUnit(); loadQueue(); });
+                post('/unit_start', {
+                    unit_id: curU.id,
+                    actor_id  : whoSel(),                                                /* 대표 = Actor_id */
+                    member_ids: selWorkers.slice(1).map(function (w) { return w.id; })
+                        .filter(Boolean).join(','),
+                    equipment_id: equSel
+                }, function () { reloadUnit(); loadQueue(); });
             };
 
             /* ── 자재 시트 ─────────────────────────────────────── */

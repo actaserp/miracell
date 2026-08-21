@@ -482,8 +482,9 @@ public class ProductionCreateService {
             p.addValue("spjangcd", req.spjangcd);
             this.sqlRunner.execute("""
                 INSERT INTO mat_produce_member
-                    ("MatProduce_id","Person_id","IsLeader","_status","_created","_creater_id",spjangcd)
-                VALUES (:mpId,:pid,:leader,'a',now(),:userId,:spjangcd)
+                    ("SourceTableName","SourceDataPk","MatProduce_id","Person_id","IsLeader",
+                     "_status","_created","_creater_id",spjangcd)
+                VALUES ('mat_produce',:mpId,:mpId,:pid,:leader,'a',now(),:userId,:spjangcd)
                 """, p);
         }
         // 대표가 memberIds 에 없으면 대표도 1행 추가
@@ -495,8 +496,9 @@ public class ProductionCreateService {
             p.addValue("spjangcd", req.spjangcd);
             this.sqlRunner.execute("""
                 INSERT INTO mat_produce_member
-                    ("MatProduce_id","Person_id","IsLeader","_status","_created","_creater_id",spjangcd)
-                VALUES (:mpId,:pid,'Y','a',now(),:userId,:spjangcd)
+                    ("SourceTableName","SourceDataPk","MatProduce_id","Person_id","IsLeader",
+                     "_status","_created","_creater_id",spjangcd)
+                VALUES ('mat_produce',:mpId,:mpId,:pid,'Y','a',now(),:userId,:spjangcd)
                 """, p);
         }
     }

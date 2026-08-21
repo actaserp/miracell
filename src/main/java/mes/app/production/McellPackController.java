@@ -46,8 +46,8 @@ public class McellPackController {
 
 	@GetMapping("/context")
 	public AjaxResult context(
-		@RequestParam(value = "process_code", defaultValue = "mc03") String processCode,
-		@RequestParam(value = "factory_id", defaultValue = "2") Integer factoryId) {
+			@RequestParam(value = "process_code", defaultValue = "mc03") String processCode,
+			@RequestParam(value = "factory_id", defaultValue = "2") Integer factoryId) {
 		AjaxResult r = new AjaxResult();
 		r.data = this.mcellPackService.getContext(processCode, factoryId);
 		return r;
@@ -56,10 +56,10 @@ public class McellPackController {
 	/** A화면 — 포장 큐 (작지 카드 + 「작지 없음」 카드) */
 	@GetMapping("/wo_queue")
 	public AjaxResult woQueue(
-		@RequestParam(value = "process_id", required = false) Integer processId,
-		@RequestParam(value = "date_from", required = false) String dateFrom,
-		@RequestParam(value = "date_to", required = false) String dateTo,
-		@RequestParam(value = "spjangcd", defaultValue = "ZZ") String spjangcd) {
+			@RequestParam(value = "process_id", required = false) Integer processId,
+			@RequestParam(value = "date_from", required = false) String dateFrom,
+			@RequestParam(value = "date_to", required = false) String dateTo,
+			@RequestParam(value = "spjangcd", defaultValue = "ZZ") String spjangcd) {
 		AjaxResult r = new AjaxResult();
 		r.data = this.mcellPackService.getWoQueue(processId, spjangcd, dateFrom, dateTo);
 		return r;
@@ -68,8 +68,8 @@ public class McellPackController {
 	/** B·C화면 — 포장 대기 유닛 (검사 합격 · 검사완료창고 · 이 카드 소속) */
 	@GetMapping("/ready_units")
 	public AjaxResult readyUnits(
-		@RequestParam(value = "job_res_id", required = false) Integer jobResId,
-		@RequestParam(value = "pack_mat_id", required = false) Integer packMatId) {
+			@RequestParam(value = "job_res_id", required = false) Integer jobResId,
+			@RequestParam(value = "pack_mat_id", required = false) Integer packMatId) {
 		AjaxResult r = new AjaxResult();
 		r.data = this.mcellPackService.getReadyUnits(jobResId, packMatId);
 		return r;
@@ -78,8 +78,8 @@ public class McellPackController {
 	/** B화면 — 포장 완료 목록 (작업 세션은 이 목록에서 파생시킨다) */
 	@GetMapping("/packed_list")
 	public AjaxResult packedList(
-		@RequestParam(value = "job_res_id", required = false) Integer jobResId,
-		@RequestParam(value = "pack_mat_id", required = false) Integer packMatId) {
+			@RequestParam(value = "job_res_id", required = false) Integer jobResId,
+			@RequestParam(value = "pack_mat_id", required = false) Integer packMatId) {
 		AjaxResult r = new AjaxResult();
 		r.data = this.mcellPackService.getPackedList(jobResId, packMatId);
 		return r;
@@ -88,8 +88,8 @@ public class McellPackController {
 	/** C화면 — 포장 자재 (완제품 BOM − 유닛품목). store_id 로 소스창고를 함께 내린다 */
 	@GetMapping("/pack_materials")
 	public AjaxResult packMaterials(
-		@RequestParam(value = "job_res_id", required = false) Integer jobResId,
-		@RequestParam(value = "pack_mat_id", required = false) Integer packMatId) {
+			@RequestParam(value = "job_res_id", required = false) Integer jobResId,
+			@RequestParam(value = "pack_mat_id", required = false) Integer packMatId) {
 		AjaxResult r = new AjaxResult();
 		r.data = this.mcellPackService.getPackMaterials(jobResId, packMatId);
 		return r;
@@ -98,8 +98,8 @@ public class McellPackController {
 	/** 이 카드가 포장 대상으로 삼는 유닛 품목 */
 	@GetMapping("/unit_materials")
 	public AjaxResult unitMaterials(
-		@RequestParam(value = "job_res_id", required = false) Integer jobResId,
-		@RequestParam(value = "pack_mat_id", required = false) Integer packMatId) {
+			@RequestParam(value = "job_res_id", required = false) Integer jobResId,
+			@RequestParam(value = "pack_mat_id", required = false) Integer packMatId) {
 		AjaxResult r = new AjaxResult();
 		r.data = this.mcellPackService.getUnitMaterials(jobResId, packMatId);
 		return r;
@@ -112,9 +112,9 @@ public class McellPackController {
 	 */
 	@GetMapping("/label_check")
 	public AjaxResult labelCheck(
-		@RequestParam("key") String key,
-		@RequestParam(value = "job_res_id", required = false) Integer jobResId,
-		@RequestParam(value = "pack_mat_id", required = false) Integer packMatId) {
+			@RequestParam("key") String key,
+			@RequestParam(value = "job_res_id", required = false) Integer jobResId,
+			@RequestParam(value = "pack_mat_id", required = false) Integer packMatId) {
 		AjaxResult r = new AjaxResult();
 		r.data = this.mcellPackService.checkLabel(key);
 		return r;
@@ -127,9 +127,9 @@ public class McellPackController {
 	 */
 	@GetMapping("/lot_search")
 	public AjaxResult lotSearch(
-		@RequestParam("key") String key,
-		@RequestParam(value = "job_res_id", required = false) Integer jobResId,
-		@RequestParam(value = "pack_mat_id", required = false) Integer packMatId) {
+			@RequestParam("key") String key,
+			@RequestParam(value = "job_res_id", required = false) Integer jobResId,
+			@RequestParam(value = "pack_mat_id", required = false) Integer packMatId) {
 		AjaxResult r = new AjaxResult();
 		r.data = this.mcellPackService.searchUnitLot(jobResId, packMatId, key);
 		return r;
@@ -145,7 +145,7 @@ public class McellPackController {
 	/** 포장 설비 목록 (워크센터 + 설비그룹 기준) */
 	@GetMapping("/equipments")
 	public AjaxResult equipments(
-		@RequestParam(value = "workcenter_id", required = false) Integer workCenterId) {
+			@RequestParam(value = "workcenter_id", required = false) Integer workCenterId) {
 		AjaxResult r = new AjaxResult();
 		r.data = this.mcellPackService.getEquipments(workCenterId);
 		return r;
@@ -161,42 +161,45 @@ public class McellPackController {
 	@PostMapping("/pack_unit")
 	@Transactional
 	public AjaxResult packUnit(
-		@RequestParam(value = "job_res_id", required = false) Integer jobResId,
-		@RequestParam(value = "pack_mat_id", required = false) Integer packMatId,
-		@RequestParam("mat_lot_id") Integer matLotId,
-		@RequestParam(value = "maker_lot_no", required = false) String makerLotNo,
-		@RequestParam(value = "actor_id", required = false) Integer actorId,
-		@RequestParam(value = "equipment_id", required = false) Integer equipmentId,
-		@RequestParam(value = "start_time", required = false) String startTime,
-		@RequestParam(value = "end_time", required = false) String endTime,
-		@RequestParam(value = "bom_json", required = false) String bomJson,
-		// ★ 스캔 원문. 화면이 GS1 에서 (10)만 뽑아 maker_lot_no 로 보내므로
-		//   원문은 따로 받아 pack_label."RawData" 에 남긴다. 없으면 라벨값을 그대로 쓴다.
-		@RequestParam(value = "label_raw", required = false) String labelRaw,
-		@RequestParam(value = "spjangcd", defaultValue = "ZZ") String spjangcd,
-		Authentication auth) {
+			@RequestParam(value = "job_res_id", required = false) Integer jobResId,
+			@RequestParam(value = "pack_mat_id", required = false) Integer packMatId,
+			@RequestParam("mat_lot_id") Integer matLotId,
+			@RequestParam(value = "maker_lot_no", required = false) String makerLotNo,
+			@RequestParam(value = "actor_id", required = false) Integer actorId,
+			@RequestParam(value = "member_ids", required = false) String memberIds,
+			@RequestParam(value = "equipment_id", required = false) Integer equipmentId,
+			@RequestParam(value = "start_time", required = false) String startTime,
+			@RequestParam(value = "end_time", required = false) String endTime,
+			@RequestParam(value = "bom_json", required = false) String bomJson,
+			// ★ 스캔 원문. 화면이 GS1 에서 (10)만 뽑아 maker_lot_no 로 보내므로
+			//   원문은 따로 받아 pack_label."RawData" 에 남긴다. 없으면 라벨값을 그대로 쓴다.
+			@RequestParam(value = "label_raw", required = false) String labelRaw,
+			@RequestParam(value = "spjangcd", defaultValue = "ZZ") String spjangcd,
+			Authentication auth) {
 		return this.mcellPackService.packUnit(jobResId, packMatId, matLotId, makerLotNo,
-			actorId, equipmentId, startTime, endTime,
-			parseBom(bomJson), labelRaw, spjangcd, (User) auth.getPrincipal());
+				actorId, memberIds, equipmentId, startTime, endTime,
+				parseBom(bomJson), labelRaw, spjangcd, (User) auth.getPrincipal());
 	}
 
 	/** 「작업 추가」 = 포장 작업 시작. 작지를 working 으로 올린다 */
 	@PostMapping("/work_start")
 	@Transactional
 	public AjaxResult workStart(
-		@RequestParam("job_res_id") Integer jobResId,
-		@RequestParam(value = "actor_id", required = false) Integer actorId,
-		@RequestParam(value = "start_time", required = false) String startTime,
-		Authentication auth) {
-		return this.mcellPackService.startWork(jobResId, actorId, startTime, (User) auth.getPrincipal());
+			@RequestParam("job_res_id") Integer jobResId,
+			@RequestParam(value = "actor_id", required = false) Integer actorId,
+			@RequestParam(value = "member_ids", required = false) String memberIds,
+			@RequestParam(value = "start_time", required = false) String startTime,
+			Authentication auth) {
+		return this.mcellPackService.startWork(jobResId, actorId, memberIds, startTime,
+				(User) auth.getPrincipal());
 	}
 
 	/** 「작업 종료」 — 차수가 하나도 없으면 작지를 ordered 로 되돌린다 */
 	@PostMapping("/work_end")
 	@Transactional
 	public AjaxResult workEnd(
-		@RequestParam("job_res_id") Integer jobResId,
-		Authentication auth) {
+			@RequestParam("job_res_id") Integer jobResId,
+			Authentication auth) {
 		return this.mcellPackService.endWork(jobResId, (User) auth.getPrincipal());
 	}
 
@@ -204,8 +207,8 @@ public class McellPackController {
 	@PostMapping("/pack_cancel")
 	@Transactional
 	public AjaxResult packCancel(
-		@RequestParam("mat_produce_id") Integer mpId,
-		Authentication auth) {
+			@RequestParam("mat_produce_id") Integer mpId,
+			Authentication auth) {
 		return this.mcellPackService.cancelPack(mpId, (User) auth.getPrincipal());
 	}
 
@@ -213,10 +216,10 @@ public class McellPackController {
 	@PostMapping("/pack_time")
 	@Transactional
 	public AjaxResult packTime(
-		@RequestParam("mat_produce_id") Integer mpId,
-		@RequestParam("which") String which,          // start | end
-		@RequestParam("value") String value,          // 'yyyy-MM-dd HH:mm'
-		Authentication auth) {
+			@RequestParam("mat_produce_id") Integer mpId,
+			@RequestParam("which") String which,          // start | end
+			@RequestParam("value") String value,          // 'yyyy-MM-dd HH:mm'
+			Authentication auth) {
 		return this.mcellPackService.setPackTime(mpId, which, value, (User) auth.getPrincipal());
 	}
 
@@ -233,7 +236,7 @@ public class McellPackController {
 		boolean business = (e instanceof IllegalStateException) || (e instanceof IllegalArgumentException);
 		if (!business) log.error("[mcell/pack] 처리 오류", e);
 		r.message = (e.getMessage() == null || e.getMessage().isBlank())
-									? "처리 중 오류가 발생했습니다." : e.getMessage();
+				? "처리 중 오류가 발생했습니다." : e.getMessage();
 		return r;
 	}
 

@@ -275,6 +275,26 @@
         #tabSteril .insp-scroll { max-height:60vh; overflow:auto; }
         body.touch-mode #tabSteril .rec input { height:42px; width:96px; }
         body.touch-mode #tabSteril .work-table thead th { height:48px; }
+
+
+        /* ════════════════════════════════════════════════════════════════
+           넘침 방지 (반응형 전환·글자 축소는 하지 않는다 — PC 레이아웃 그대로)
+
+           flex 아이템은 min-width 기본값이 auto 라, 안쪽 표가 넓으면 패널이
+           줄어드는 대신 부모를 밀어낸다. min-width:0 을 줘야 비로소
+           패널 안에서 가로 스크롤이 걸린다.
+           ──────────────────────────────────────────────────────────────── */
+        .prod-flex > .section,
+        .prod-flex > .tab-wrap { min-width: 0; }
+        .prod-flex > .section > .container-fluid { min-width: 0; }
+
+        /* 멸균 대기 목록 — 표가 넓으면 표 안에서 가로 스크롤 */
+        #waitList { overflow-x: auto; }
+        #waitList > table { min-width: 640px; }
+
+        /* 배치 상세 — 멸균기 select / 일시 입력이 셀을 넘지 않게 */
+        #batchDetail .work-table input,
+        #batchDetail .work-table select { max-width: 100%; box-sizing: border-box; }
     </style>
     <th:block th:replace="fragments/prod_process_common :: processCommonCss"></th:block>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -520,8 +540,8 @@
                                     </div>
                                     <div style="padding:12px; display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
                                         <strong>BI 색상 변화</strong>
-                                        <button type="button" class="judge-btn pass" id="biPass" disabled>합격 PASS</button>
-                                        <button type="button" class="judge-btn fail" id="biFail" disabled>불합격 FAIL</button>
+                                        <button type="button" class="judge-btn pass" id="biPass" disabled>음성 (합격)</button>
+                                        <button type="button" class="judge-btn fail" id="biFail" disabled>양성 (불합격)</button>
                                         <span style="margin-left:auto;">BI 로트
                                             <input type="text" id="biLot" placeholder="BI-YYYYMMDD-X" autocomplete="off" style="height:36px; width:180px;" disabled>
                                         </span>
@@ -826,6 +846,25 @@
         const PROCESS_CODE = 'p05';
 
         class ProcSterilPage extends ProcPageBase {
+
+            /* ════════════════════════════════════════════════════════════
+               반응형 해제 — 이 화면은 PC 전용이다.
+
+               ProcPageBase.initLayoutCollapse() 가 폭 1600 밑에서 sync() 를 돌린다.
+               그 안에서 벌어지는 일이 CSS 가 아니라 DOM 조작이라 스타일로는 못 막는다.
+                 · body 에 touch-mode 클래스 부여
+                 · moveListToTab(true)  — 좌측 목록을 #tabList 안으로 물리적으로 이동
+                 · activateTab('tabList') — 기본정보 탭을 숨기고 목록 탭을 활성화
+                 · moveStartFinishToSticky(true) — 시작/완료 버튼을 하단 바로 이동
+               앞서 CSS 오버라이드와 클래스 제거로 시도했더니, 활성 탭이 tabList 인 채
+               body:not(.touch-mode) #tabList{display:none} 에 걸려 화면이 통째로 비었다.
+
+               그래서 진입점을 통째로 비운다. 아무것도 안 하면 collapsed=false 초기값
+               그대로라 PC 레이아웃이 유지되고, 폭이 줄면 비율만 좁아진다.
+               ════════════════════════════════════════════════════════════ */
+            initLayoutCollapse() { /* PC 전용 화면 — 반응형 전환 사용 안 함 */
+            }
+
             constructor(processCode) {
                 super(processCode);
                 this.config = PROCESS_CONFIG[processCode] || {name: processCode};
@@ -1079,10 +1118,16 @@
                     return {v: val, t: label};
                 };
                 if (f.FieldKey === 'bi_result') {
-                    return this._selectHtml(f.FieldKey, v, [O('', '선택'), O('PASS', 'PASS (합격)'), O('FAIL', 'FAIL (불합격)')], cls);
+                    /* 검체 BI 는 «음성 = 균 사멸 = 합격», «양성 = 균 생존 = 멸균 실패».
+                       아래 대조군(control_result)과 정반대라 헷갈리기 쉬워 라벨에 둘 다 적는다.
+                       저장값은 PASS/FAIL 그대로 — 기존 데이터·서버 로직을 건드리지 않는다. */
+                    return this._selectHtml(f.FieldKey, v,
+                        [O('', '선택'), O('PASS', '음성 (합격 · 멸균 성공)'), O('FAIL', '양성 (불합격 · 멸균 실패)')], cls);
                 }
                 if (f.FieldKey === 'control_result') {
-                    // 대조군은 "양성(균 증식)" 이 정상. 음성이면 시험 무효 → 경고.
+                    /* ★ 대조군은 검체 BI 와 반대다 — «양성(균 증식) = 정상».
+                       양성 대조군은 균이 자라야 시험이 유효했다는 뜻이기 때문이다.
+                       음성이면 배지·배양 자체가 실패한 것이라 시험 무효 → 경고. */
                     return this._selectHtml(f.FieldKey, v,
                         [O('', '선택'), O('positive', '양성 (정상)'), O('negative', '음성 (시험무효)')], cls);
                 }
@@ -1108,7 +1153,7 @@
                 }
                 const val = String(this._valOf('bi_note') || '').replace(/"/g, '&quot;');
                 const msg = bi === 'FAIL'
-                    ? '판정이 <b>FAIL</b> 입니다. 조치·사유를 기록하세요.'
+                    ? '검체 BI 가 <b>양성</b> 입니다 — 균이 생존했습니다(멸균 실패). 조치·사유를 기록하세요.'
                     : '대조군이 <b>음성</b> 입니다 — BI 시험이 무효일 수 있습니다. 사유를 기록하세요.';
                 const html = '<div class="insp-box" id="biNoteBox" style="border-color:#f3c2c2; background:#fdf6f6; margin-top:8px;">' +
                     '<div style="padding:10px 12px;">' +
@@ -1266,7 +1311,7 @@
                 $('#biPass, #biFail, #biLot, #btnBiConfirm').prop('disabled', true);
                 $('#biHint').text(b
                     ? (this.isFinished()
-                        ? ('판정 완료: ' + (b.bi === 'pass' ? '합격 PASS' : '불합격 FAIL') + (b.maker_lot_no ? ' · UDI 로트번호 ' + b.maker_lot_no : ''))
+                        ? ('판정 완료: ' + (b.bi === 'pass' ? '음성 (합격)' : '양성 (불합격)') + (b.maker_lot_no ? ' · UDI 로트번호 ' + b.maker_lot_no : ''))
                         : 'BI 판정은 목록 하단 [배치 상세]에서 진행합니다.')
                     : '배치를 선택하세요.');
                 this.paintBiButtons();
@@ -1282,7 +1327,7 @@
                 this.sterilJudge = v;
                 this.paintBiButtons();
                 const fail = v === 'FAIL';
-                $('#biWarn').toggle(fail).text(fail ? '⚠ BI 불합격 — 재멸균 불가. 이 배치 PK 전량 폐기 대상입니다.' : '');
+                $('#biWarn').toggle(fail).text(fail ? '⚠ BI 양성(불합격) — 균 생존. 재멸균 불가, 이 배치 PK 전량 폐기 대상입니다.' : '');
                 $('#btnBiConfirm').prop('disabled', false)
                     .text(fail ? 'PK 전량 폐기 처리' : '합격 확정 → 멸균필')
                     .css({background: fail ? '#c62828' : '', color: fail ? '#fff' : ''});
@@ -1291,7 +1336,7 @@
 
             refreshJudgeView() {
                 const v = this.sterilJudge;
-                $('#strJudgeView').text(v ? ('BI 판정: ' + v + (v === 'FAIL' ? ' (재멸균 불가·폐기)' : ' (멸균필)'))
+                $('#strJudgeView').text(v ? ('BI 판정: ' + (v === 'FAIL' ? '양성 (불합격 · 재멸균 불가 · 폐기)' : '음성 (합격 · 멸균필)'))
                     : '기본정보 탭에서 BI 판정을 먼저 정하세요');
             }
 
@@ -1921,7 +1966,11 @@
                     }
                     this._equips = (r.data || []).map(x => ({value: x.value, text: x.text}));
                 }
-                const sel = (selectedId == null) ? '' : String(selectedId);
+                /* 아직 지정 안 된 배치는 첫 번째 멸균기를 미리 골라준다.
+                   멸균기가 사실상 한 대뿐이라 매번 고르는 게 군더더기다.
+                   («선택» 자리는 남겨두되 선택 상태로 만들지 않는다) */
+                let sel = (selectedId == null || selectedId === '') ? '' : String(selectedId);
+                if (!sel && this._equips.length) sel = String(this._equips[0].value);
                 return '<option value="">선택</option>' + this._equips.map(e =>
                     '<option value="' + e.value + '"' + (String(e.value) === sel ? ' selected' : '') + '>' + e.text + '</option>').join('');
             }
@@ -2194,10 +2243,10 @@
                 const eqOpts = this._equipOptions(b.equipment_id);
                 h += '<div style="padding:0 12px;"><table class="work-table"><tbody>' +
                     '<tr><th style="width:120px;">멸균일</th><td>' + b.date + '</td>' +
-                    '<th style="width:120px;">멸균기</th><td><select id="batchEquip" style="height:32px;min-width:180px;">' + eqOpts + '</select></td></tr>' +
+                    '<th style="width:120px;">멸균기</th><td><select id="batchEquip" style="height:32px;width:100%;max-width:220px;min-width:0;">' + eqOpts + '</select></td></tr>' +
                     '<tr><th>상태</th><td>' + (this.STLAB[st] || st) + '</td><th>담긴 수량</th><td>' + this._qtyOf(b) + ' EA</td></tr>' +
-                    '<tr><th>시작</th><td><input type="datetime-local" id="batchStart" value="' + this._toLocal(b.start) + '" style="height:32px;width:215px;"></td>' +
-                    '<th>종료</th><td><input type="datetime-local" id="batchEnd" value="' + this._toLocal(b.end) + '" style="height:32px;width:215px;"></td></tr>' +
+                    '<tr><th>시작</th><td><input type="datetime-local" id="batchStart" value="' + this._toLocal(b.start) + '" style="height:32px;width:100%;max-width:215px;min-width:0;"></td>' +
+                    '<th>종료</th><td><input type="datetime-local" id="batchEnd" value="' + this._toLocal(b.end) + '" style="height:32px;width:100%;max-width:215px;min-width:0;"></td></tr>' +
                     '<tr><th>담당</th><td>' + (b.worker || '-') + '</td><th>UDI 로트번호</th><td>' + (b.maker_lot_no || '-') + '</td></tr>' +
                     '</tbody></table></div>';
                 // 담긴 로트
@@ -2225,10 +2274,10 @@
                     }).join('') : '<tr><td colspan="' + (editable ? 5 : 4) + '" class="muted" style="text-align:center;padding:14px;">담긴 로트가 없습니다.</td></tr>') +
                     '</tbody></table></div>';
                 // BI 판정
-                h += '<div class="insp-secttitle" style="margin-top:12px;">멸균검증 (BI) 판정 <span class="muted" style="font-weight:400;">— PASS: 멸균창고 이동(멸균필) / FAIL: 전량 폐기</span></div>';
+                h += '<div class="insp-secttitle" style="margin-top:12px;">멸균검증 (BI) 판정 <span class="muted" style="font-weight:400;">— 음성(합격): 멸균창고 이동(멸균필) / 양성(불합격): 전량 폐기</span></div>';
                 if (judged) {
                     h += '<div style="padding:12px;"><b style="color:' + (b.bi === 'pass' ? '#2e7d32' : '#c62828') + ';">' +
-                        (b.bi === 'pass' ? '합격 PASS — 멸균필 · 멸균창고 이동 완료' : '불합격 FAIL — 전량 폐기 처리됨') + '</b>' +
+                        (b.bi === 'pass' ? '음성 — 합격 · 멸균필 · 멸균창고 이동 완료' : '양성 — 불합격 · 전량 폐기 처리됨') + '</b>' +
                         (b.maker_lot_no ? ' <span class="muted">· UDI 로트번호 ' + b.maker_lot_no + '</span>' : '') +
                         '<div class="muted" style="margin-top:6px;">판정 후에도 멸균일지 탭에서 USB 데이터로 일지를 작성할 수 있습니다.</div></div>';
                 } else if (!ls.length) {
@@ -2238,8 +2287,8 @@
                 } else {
                     h += '<div style="padding:12px; display:flex; gap:12px; align-items:center; flex-wrap:wrap;">' +
                         '<strong>BI 색상 변화</strong>' +
-                        '<button class="judge-btn pass" data-act="pass">합격 PASS</button>' +
-                        '<button class="judge-btn fail" data-act="fail">불합격 FAIL</button>' +
+                        '<button class="judge-btn pass" data-act="pass">음성 (합격)</button>' +
+                        '<button class="judge-btn fail" data-act="fail">양성 (불합격)</button>' +
                         '<span style="margin-left:auto;">UDI 로트번호 <input type="text" id="makerLotInput" value="' + (b.maker_lot_no || this._udiProposal(b)) + '" style="height:34px;width:200px;" placeholder="BMJ20260722"></span></div>' +
                         '<p class="muted" style="margin:0 12px 12px;">합격 시 위 UDI 로트번호가 이 배치의 멸균필 로트에 부여됩니다.</p>';
                 }
@@ -2376,7 +2425,7 @@
                 if (act === 'fail') {
                     Alert.confirm('', 'BI 불합격 — 이 배치 전량을 폐기합니다. 계속할까요?', function () {
                         _this._post('/bi_judge', {batch_id: b.id, result: 'fail', spjangcd: _this._sp()}, function () {
-                            if (typeof Notify !== 'undefined') Notify.warning('멸균 FAIL — 전량 폐기 처리');
+                            if (typeof Notify !== 'undefined') Notify.warning('BI 양성(불합격) — 전량 폐기 처리');
                             _this.openBatch(b.id);
                             _this.searchMainData();
                             _this.renderWaitList();
@@ -2583,7 +2632,7 @@
                         '다만 규격 상한·하한은 현장 기준이 바뀔 수 있어 수정할 수 있으며, ' +
                         '저장하면 그 값으로 규격 판정(적합/이탈)에 바로 반영됩니다.';
                 if (kind === 'select')
-                    return '판정·대조군처럼 선택지가 정해진 항목입니다. 선택지(PASS/FAIL, 양성/음성)는 ' +
+                    return '판정·대조군처럼 선택지가 정해진 항목입니다. 선택지(검체 BI 음성/양성, 대조군 양성/음성)는 ' +
                         '프로그램이 관리하므로 양식에서 바꿀 수 없습니다.';
                 return '수기 항목입니다. 이름·단위·규격을 자유롭게 정할 수 있고, 담당자가 값을 직접 입력합니다. ' +
                     '규격을 넣으면 입력값이 범위를 벗어날 때 이탈로 표시됩니다.';

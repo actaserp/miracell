@@ -41,6 +41,7 @@ public class McellRepairService {
 
     @Autowired SqlRunner sqlRunner;
     @Autowired ProductionCreateService productionCreateService;
+    @Autowired WorkMemberService workMemberService;
 
     /** 산출창고 = 생산창고. 검사가 17 → 19 로 옮기므로 반드시 17. */
     public static final int    STORE_PROD         = 17;
@@ -117,7 +118,7 @@ public class McellRepairService {
                 .addValue("flag", (flag == null || flag.isBlank() || "all".equals(flag)) ? null : flag)
                 .addValue("dateFrom", (dateFrom == null || dateFrom.isBlank()) ? null : LocalDate.parse(dateFrom))
                 .addValue("dateTo",   (dateTo   == null || dateTo.isBlank())   ? null : LocalDate.parse(dateTo));
-        return this.sqlRunner.getRows("""
+        return this.sqlRunner.getRows(("""
                 SELECT mu.id                                       AS unit_id
                      , mu."UnitNo"                                 AS unit_no
                      , mu."State"                                  AS unit_state
@@ -127,6 +128,7 @@ public class McellRepairService {
                      , mu."RejectReason"                           AS reject_reason
                      , mu."MatProduce_id"                          AS mat_produce_id
                      , pe."Name"                                   AS actor_name
+                     , ${MEMBER_NAMES}                             AS member_names
                      , eq."Name"                                   AS equipment_name
                      , to_char(mu."StartTime",'yyyy-mm-dd hh24:mi') AS start_time
                      , to_char(mu."EndTime",'yyyy-mm-dd hh24:mi')   AS end_time
@@ -171,7 +173,9 @@ public class McellRepairService {
                    AND (CAST(:dateTo   AS date) IS NULL OR r."ReceiptDate" <= CAST(:dateTo   AS date))
                  ORDER BY r."ReceiptDate" DESC, r.id DESC, mu."UnitNo"
                  LIMIT 200
-                """, p);
+                """
+                /* 조원은 스칼라 서브쿼리. LATERAL 로 붙이면 조원 수만큼 유닛 행이 복제된다. */
+                .replace("${MEMBER_NAMES}", WorkMemberService.namesSql("mcell_unit", "mu.id"))), p);
     }
 
     /** C화면 — 유닛 1건 상세 (헤더 + 원 로트 재고 + 자재 가감) */
@@ -180,6 +184,9 @@ public class McellRepairService {
         if (unit == null) throw new IllegalArgumentException("유닛을 찾을 수 없습니다.");
 
         Map<String, Object> out = new LinkedHashMap<>(unit);
+        // 배정 시트를 다시 열 때 선택 상태를 복원하기 위한 조원 정보
+        out.put("member_ids",   this.workMemberService.idsOf(WorkMemberService.SRC_MCELL_UNIT, unitId));
+        out.put("member_names", this.workMemberService.namesOf(WorkMemberService.SRC_MCELL_UNIT, unitId));
         out.put("mats", getUnitMats(unitId));
         out.put("next_lot", previewResultLot(unit));
         // 같은 접수에 몇 대가 묶여 있는지 — 접수 취소 안내 문구가 이걸 본다
@@ -1354,7 +1361,7 @@ public class McellRepairService {
     // =====================================================================
 
     @Transactional
-    public AjaxResult unitStart(Integer unitId, Integer actorId, Integer equipmentId,
+    public AjaxResult unitStart(Integer unitId, Integer actorId, String memberIds, Integer equipmentId,
                                 String startTime, User user) {
         AjaxResult r = new AjaxResult();
         r.success = true;
@@ -1398,6 +1405,11 @@ public class McellRepairService {
                        "_modified"=now(), "_modifier_id"=:userId
                  WHERE id=:id
                 """, p);
+
+        // 조원 명단. 대표(Actor_id)는 위에서 mcell_unit 에 저장했고, 여기엔 대표도 1행 들어간다.
+        this.workMemberService.save(WorkMemberService.SRC_MCELL_UNIT,
+                unitId, actorId, memberIds, user, "ZZ");
+
         touchRepairState(asInt(u.get("repair_id")), user);
 
         if (reworkNote != null) r.message = reworkNote;
@@ -1420,6 +1432,7 @@ public class McellRepairService {
                 UPDATE mcell_unit SET "State"='wait', "StartTime"=NULL,
                        "_modified"=now(), "_modifier_id"=:userId WHERE id=:id
                 """, new MapSqlParameterSource().addValue("id", unitId).addValue("userId", user.getId()));
+        this.workMemberService.clear(WorkMemberService.SRC_MCELL_UNIT, unitId);
         touchRepairState(asInt(u.get("repair_id")), user);
         return r;
     }
@@ -1510,6 +1523,14 @@ public class McellRepairService {
         // 3) ＋자재 소비 + 결과 로트 생산창고(17) 입고
         AjaxResult fin = this.productionCreateService.finishProduction(mpId, req, user);
         if (!fin.success) throw new IllegalStateException(fin.message);
+
+        // ★ 조원을 mat_produce 로 승계한다.
+        //   수리도 완료 시점에야 mat_produce 가 생긴다. 작업일보·실적현황이 mat_produce 축으로
+        //   조원을 읽으므로 여기서 한 번 더 심어야 수리 조원이 보인다.
+        this.workMemberService.save(WorkMemberService.SRC_MAT_PRODUCE, mpId,
+                asInt(u.get("actor_id")),
+                this.workMemberService.idsOf(WorkMemberService.SRC_MCELL_UNIT, unitId),
+                user, spjangcd);
 
         // 4) −자재(회수 부품) 생산창고 재입고
         //    ★ 원 부품로트를 알면 그 번호를 이어받는다 : {원부품로트}-RC{n}

@@ -37,6 +37,7 @@ public class McellAssemblyService {
 
     @Autowired SqlRunner sqlRunner;
     @Autowired ProductionCreateService productionCreateService;
+    @Autowired WorkMemberService workMemberService;
 
     /** 2공장 기본 창고 */
     public static final int STORE_PROD    = 17;   // 생산창고 — 조립 산출/투입
@@ -153,7 +154,7 @@ public class McellAssemblyService {
      */
     public List<Map<String, Object>> getStepList(Integer unitId) {
         MapSqlParameterSource p = new MapSqlParameterSource().addValue("unitId", unitId);
-        List<Map<String, Object>> rows = this.sqlRunner.getRows("""
+        List<Map<String, Object>> rows = this.sqlRunner.getRows(("""
                 SELECT st.id                                        AS step_id
                      , st."Material_id"                             AS mat_id
                      , m."Code"                                     AS mat_code
@@ -170,6 +171,8 @@ public class McellAssemblyService {
                      , st."ReworkYN"                                AS rework_yn
                      , st."Actor_id"                                AS actor_id
                      , pr."Name"                                    AS actor_name
+                     , ${MEMBER_IDS}                                AS member_ids
+                     , ${MEMBER_NAMES}                              AS member_names
                      , st."Equipment_id"                            AS equipment_id
                      , eq."Name"                                    AS equipment_name
                      , to_char(st."StartTime", 'yyyy-mm-dd hh24:mi') AS start_time
@@ -190,7 +193,10 @@ public class McellAssemblyService {
                   ) bm ON true
                  WHERE st."McellUnit_id" = :unitId AND COALESCE(st."_status",'a') = 'a'
                  ORDER BY st."Depth" DESC, st."SeqNo", st.id
-                """, p);
+                """
+                /* ★ 조원은 스칼라 서브쿼리. LATERAL 로 붙이면 행이 복제된다. */
+                .replace("${MEMBER_IDS}",   WorkMemberService.idsSql("mcell_unit_step", "st.id"))
+                .replace("${MEMBER_NAMES}", WorkMemberService.namesSql("mcell_unit_step", "st.id"))), p);
 
         // ── 계층 관계 계산 (자식 목록 / 잠금 / 재고투입 조상에 의한 스킵) ──
         Map<Integer, Map<String, Object>> byMat = new LinkedHashMap<>();
@@ -490,7 +496,7 @@ public class McellAssemblyService {
 
     /** 작업 시작 — 스텝을 working 으로. 유닛 로트가 없으면 여기서 발번. */
     @Transactional
-    public AjaxResult startStep(Integer stepId, Integer actorId, Integer equipmentId,
+    public AjaxResult startStep(Integer stepId, Integer actorId, String memberIds, Integer equipmentId,
                                 String startTime, String spjangcd, User user) {
         AjaxResult r = new AjaxResult();
         r.success = true;
@@ -535,6 +541,10 @@ public class McellAssemblyService {
                        "_modified"=now(), "_modifier_id"=:userId
                  WHERE id=:stepId
                 """, p);
+
+        // 조원 명단. 대표(Actor_id)는 위에서 스텝에 저장했고, 여기엔 대표도 1행 들어간다.
+        this.workMemberService.save(WorkMemberService.SRC_MCELL_STEP,
+                stepId, actorId, memberIds, user, spjangcd);
         return r;
     }
 
@@ -627,6 +637,14 @@ public class McellAssemblyService {
                        "_modified"=now(), "_modifier_id"=:userId
                  WHERE id=:stepId
                 """, p);
+
+        // ★ 조원을 mat_produce 로 승계한다.
+        //   스텝이 완료돼야 비로소 mat_produce 가 생긴다. 작업일보·실적현황은 mat_produce 축으로
+        //   조원을 읽으므로 여기서 한 번 더 심어야 2공장 조립에도 조원이 보인다.
+        String stepMembers = this.workMemberService.idsOf(WorkMemberService.SRC_MCELL_STEP, stepId);
+        Integer leaderId = (actorId != null) ? actorId : asInt(st.get("actor_id"));
+        this.workMemberService.save(WorkMemberService.SRC_MAT_PRODUCE,
+                mpId, leaderId, stepMembers, user, spjangcd);
 
         // ── 최상위 완료 → 유닛 검사대기 ──
         if (depth != null && depth == 0) {
@@ -734,6 +752,8 @@ public class McellAssemblyService {
                        "_modified"=now(), "_modifier_id"=:userId
                  WHERE id=:stepId
                 """, p);
+
+        this.workMemberService.clear(WorkMemberService.SRC_MCELL_STEP, stepId);
 
         // 이 유닛에서 진행 중인 것이 하나도 안 남았으면 발번한 로트를 되돌린다.
         // 안 하면 그 번호가 영구히 비고 다음 유닛이 -002 부터 시작한다.

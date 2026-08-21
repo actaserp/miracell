@@ -32,6 +32,7 @@ import java.util.*;
 public class McellInspectService {
 
     @Autowired SqlRunner sqlRunner;
+    @Autowired WorkMemberService workMemberService;
     private final ObjectMapper om = new ObjectMapper();
 
     public static final int STORE_PROD    = 17;   // 생산창고 (조립 산출 = 검사 대기)
@@ -310,11 +311,13 @@ public class McellInspectService {
     public List<Map<String, Object>> getUnitFormStates(Integer unitId, Integer matId) {
         MapSqlParameterSource p = new MapSqlParameterSource()
                 .addValue("unitId", unitId).addValue("matId", matId);
-        return this.sqlRunner.getRows("""
+        return this.sqlRunner.getRows(("""
                 SELECT f.id AS form_id, f."Code" AS form_code, f."Name" AS form_name, f."SeqNo" AS seq_no
                      , r.id AS result_id, r."TryNo" AS try_no, r."Verdict" AS verdict, r."State" AS state
                      , r."FailReason" AS fail_reason
                      , r."Actor_id" AS actor_id, pr."Name" AS actor_name
+                     , ${MEMBER_NAMES}                          AS member_names
+                     , ${MEMBER_IDS}                            AS member_ids
                      , to_char(r."EndTime",'yyyy-mm-dd hh24:mi') AS judged_at
                      , COALESCE(h.tries,0) AS try_cnt
                   FROM insp_form f
@@ -331,7 +334,11 @@ public class McellInspectService {
                   ) h ON true
                  WHERE COALESCE(f."UseYN",'Y')='Y' AND COALESCE(f."_status",'a')='a'
                  ORDER BY f."SeqNo", f.id
-                """, p);
+                """
+                /* 검사자는 양식(회차)마다 다르다. 스칼라 서브쿼리로 붙인다 —
+                   LATERAL 로 조인하면 조원 수만큼 양식 행이 복제된다. */
+                .replace("${MEMBER_NAMES}", WorkMemberService.namesSql("insp_result", "r.id"))
+                .replace("${MEMBER_IDS}",   WorkMemberService.idsSql("insp_result", "r.id"))), p);
     }
 
     /** C화면 — 특정 양식의 현재 회차 상세(항목 + 입력값) */
@@ -351,6 +358,12 @@ public class McellInspectService {
 
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("form", getFormDetail(formId));
+        // 배정 시트를 다시 열 때 선택 상태를 복원하기 위한 조원 정보
+        if (res != null) {
+            Integer rid = asInt(res.get("result_id"));
+            res.put("member_ids",   this.workMemberService.idsOf(WorkMemberService.SRC_INSP_RESULT, rid));
+            res.put("member_names", this.workMemberService.namesOf(WorkMemberService.SRC_INSP_RESULT, rid));
+        }
         out.put("result", res);
         out.put("items", res == null ? List.of() : this.sqlRunner.getRows("""
                 SELECT ri."InspFormItem_id" AS item_id, ri."SeqNo" AS seq_no, ri."RepeatNo" AS repeat_no,
@@ -395,7 +408,7 @@ public class McellInspectService {
 
     /** 검사 시작 / 검사자 배정 — 진행중 회차가 없으면 새 회차 생성 */
     @Transactional
-    public AjaxResult startResult(Integer unitId, Integer formId, Integer actorId,
+    public AjaxResult startResult(Integer unitId, Integer formId, Integer actorId, String memberIds,
                                   String spjangcd, User user) {
         AjaxResult r = new AjaxResult();
         r.success = true;
@@ -430,6 +443,12 @@ public class McellInspectService {
                     """, p);
             resId = asInt(ins.get("id"));
         }
+
+        // 검사자 조원. 대표(Actor_id)는 위에서 insp_result 에 저장했고, 여기엔 대표도 1행 들어간다.
+        //   ※ 검사는 mat_produce 를 만들지 않는다(창고 이동만) — insp_result 축이 최종 보관처다.
+        this.workMemberService.save(WorkMemberService.SRC_INSP_RESULT,
+                resId, actorId, memberIds, user, spjangcd);
+
         r.data = Map.of("result_id", resId);
         return r;
     }
@@ -556,6 +575,7 @@ public class McellInspectService {
 
         this.sqlRunner.execute("DELETE FROM insp_result_item WHERE \"InspResult_id\"=:resId", p);
         this.sqlRunner.execute("DELETE FROM insp_result WHERE id=:resId", p);
+        this.workMemberService.clear(WorkMemberService.SRC_INSP_RESULT, resultId);
 
         AjaxResult fin = recalcUnit(asInt(res.get("unit_id")), spjangcd, user);
         r.data = fin.data;
@@ -565,7 +585,8 @@ public class McellInspectService {
 
     /** 재검사 — 새 회차를 연다 (이전 회차는 이력으로 보존) */
     @Transactional
-    public AjaxResult recheck(Integer unitId, Integer formId, Integer actorId, String spjangcd, User user) {
+    public AjaxResult recheck(Integer unitId, Integer formId, Integer actorId, String memberIds,
+                              String spjangcd, User user) {
         // 유닛을 검사대기로 되돌린 뒤 새 회차 시작
         MapSqlParameterSource p = new MapSqlParameterSource()
                 .addValue("unitId", unitId).addValue("userId", user.getId());
@@ -574,7 +595,7 @@ public class McellInspectService {
                        "_modified"=now(), "_modifier_id"=:userId
                  WHERE id=:unitId AND "State" IN ('pass','reject')
                 """, p);
-        return startResult(unitId, formId, actorId, spjangcd, user);
+        return startResult(unitId, formId, actorId, memberIds, spjangcd, user);
     }
 
     /**

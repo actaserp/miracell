@@ -904,7 +904,8 @@
             box.innerHTML = BATCHES.map(function (o) {
                 var st = (o.state === 'working' || o.state === 'wait') ? 'working' : 'done';
                 var badge = o.state === 'scrapped' ? '폐기' : (o.state === 'done' ? '멸균필' : (o.state === 'wait' ? '대기' : '작업중'));
-                var bi = o.bi_result === 'pass' ? '합격' : (o.bi_result === 'fail' ? '불합격' : '판정전');
+                /* 검체 BI 는 «음성 = 합격», «양성 = 멸균 실패» (대조군과 반대다) */
+                var bi = o.bi_result === 'pass' ? '음성(합격)' : (o.bi_result === 'fail' ? '양성(불합격)' : '판정전');
                 return '<div class="wo" data-st="' + st + '" data-id="' + o.batch_id + '"><div class="edge"></div>' +
                     '<div class="row1"><span class="wono">' + (o.batch_no || ('배치 ' + o.batch_id)) + '</span>' +
                     '<span style="font-size:13px;color:var(--ink-2);font-weight:700">' + o.steril_date + '</span>' +
@@ -984,7 +985,7 @@
 
         function renderCBody() {
             var lk = locked(), html = '';
-            if (curB.bi_result === 'fail') html += '<div class="warn-banner">⚠ BI 불합격 — 전량 폐기된 배치입니다.</div>';
+            if (curB.bi_result === 'fail') html += '<div class="warn-banner">⚠ BI 양성(불합격) — 균 생존. 전량 폐기된 배치입니다.</div>';
             if (curB.state === 'done') html += '<div class="secline" style="color:var(--green)">멸균필 · 멸균창고 이동 완료 <span class="ln"></span></div>';
             // 담긴 로트
             html += '<div class="secline">멸균 대상 로트 <span class="ln"></span><span>' + (curB.items || []).length + '건 · ' + batchQty() + ' EA</span></div>';
@@ -1012,8 +1013,8 @@
             }
             // BI
             html += '<div class="secline">멸균검증(BI) 판정 <span class="ln"></span><span></span></div>';
-            html += '<div class="judge"><button class="pass ' + (curB.bi_result === 'pass' ? 'on' : '') + '" ' + (lk ? 'disabled' : '') + ' data-bi="pass">합격 PASS</button>' +
-                '<button class="fail ' + (curB.bi_result === 'fail' ? 'on' : '') + '" ' + (lk ? 'disabled' : '') + ' data-bi="fail">불합격 FAIL</button></div>';
+            html += '<div class="judge"><button class="pass ' + (curB.bi_result === 'pass' ? 'on' : '') + '" ' + (lk ? 'disabled' : '') + ' data-bi="pass">음성 (합격)</button>' +
+                '<button class="fail ' + (curB.bi_result === 'fail' ? 'on' : '') + '" ' + (lk ? 'disabled' : '') + ' data-bi="fail">양성 (불합격)</button></div>';
             document.getElementById('cBody').innerHTML = html;
         }
 

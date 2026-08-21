@@ -107,7 +107,7 @@
         .sid .sn{font-size:17px;font-weight:800;letter-spacing:-.02em;line-height:1.25;overflow-wrap:anywhere}
         .sid .sc{font-size:12.5px;color:var(--ink-2);font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .lvl{font-size:11px;font-weight:800;color:var(--ink-2);background:var(--surface-2);border:1px solid var(--line);padding:3px 8px;border-radius:999px;flex:0 0 auto}
-        .swho{font-size:12px;font-weight:800;color:var(--green);background:var(--green-bg);padding:4px 10px;border-radius:999px;flex:0 0 auto;font-variant-numeric:tabular-nums}
+        .swho{font-size:12px;font-weight:800;color:var(--green);background:var(--green-bg);padding:4px 10px;border-radius:999px;flex:0 1 auto;min-width:0;font-variant-numeric:tabular-nums}
         .swho.rw{color:var(--red);background:var(--red-bg)}
         .swho.on{color:var(--teal-d);background:var(--teal-bg)}
         .smeta{flex:1 0 100%;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:2px 0 2px 42px;margin-top:-4px}
@@ -200,6 +200,8 @@
         .opts{display:flex;flex-wrap:wrap;gap:10px}
         .opt{min-height:54px;padding:0 18px;border-radius:14px;border:1.5px solid var(--line);background:var(--surface);font-weight:800;font-size:16px;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
         .opt:active{background:var(--surface-2)}.opt.sel{border-color:var(--teal);background:var(--teal-bg);color:var(--teal-d)}
+        .opt .ck{width:20px;height:20px;border-radius:6px;border:1.5px solid var(--line);display:grid;place-items:center;font-size:13px;flex:0 0 auto}
+        .opt.sel .ck{background:var(--teal);color:#fff;border-color:var(--teal)}
         .opt .sub{font-size:12.5px;color:var(--ink-2);font-weight:700}
         .sheet .ok{width:100%;margin-top:20px;background:var(--teal);color:#fff;min-height:var(--tap);border:none;border-radius:16px;font-size:19px;font-weight:800;cursor:pointer}
         .sheet .ok:disabled{background:var(--line);color:var(--ink-2)}
@@ -283,7 +285,7 @@
         <div class="mask" id="startMask"><div class="sheet"><div class="body">
             <div class="sh"><h3 id="startTitle">모듈 완료 · 작업자 확인</h3><button class="x" data-close>✕</button></div>
             <div class="fieldlab" id="startSub">이 어셈블리를 작업한 사람과 설비를 지정하세요</div>
-            <div class="fieldlab">작업자</div><div class="opts" id="workerOpts"></div>
+            <div class="fieldlab">작업자 <span style="color:var(--ink-2);font-weight:700">(여러 명 선택 가능)</span></div><div class="opts" id="workerOpts"></div>
             <div class="fieldlab">조립 설비</div><div class="opts" id="equipOpts"></div>
             <button class="ok" id="startOk" disabled>이 레벨 완료</button>
         </div></div></div>
@@ -564,12 +566,17 @@
             const _sc = document.getElementById('cGrid').closest('.bscroll');
             const _keep = _sc ? _sc.scrollTop : 0;
             document.getElementById('cUnit').textContent = unitName(u) + ' · ' + (curO.mat_name || '');
-            const who = Array.from(new Set(STEPS.filter(s => s.actor_name).map(s => s.actor_name)));
+            /* 작업자 — 스텝마다 조가 다를 수 있으므로 대표·조원을 전부 모아 중복 제거 */
+            const who = [];
+            STEPS.forEach(st => {
+                stepWho(st).split(',').map(x => x.trim()).filter(Boolean)
+                    .forEach(n => { if (!who.includes(n)) who.push(n); });
+            });
             document.getElementById('cSub').textContent = (curO.order_num || '') +
-                (u.lot_number ? (who.length ? ' · 작업자 ' + who.join(', ') : ' · 작업자 미배정') : ' · 미시작');
+                (who.length ? ' · ' + who.join(', ') : '');
+            /* 로트는 발번된 뒤에만 — 「발번 전」 칩은 자리만 차지한다 */
             document.getElementById('cLotPill').innerHTML =
-                (u.lot_number ? '<span class="infopill"><span>LOT</span><b>' + esc(u.lot_number) + '</b></span>'
-                    : '<span class="infopill"><span>로트</span><b>발번 전</b></span>') +
+                (u.lot_number ? '<span class="infopill"><span>LOT</span><b>' + esc(u.lot_number) + '</b></span>' : '') +
                 (u.start_time ? '<span class="tpill"><span>시작</span><b>' + esc(u.start_time) + '</b></span>' : '') +
                 (u.end_time ? '<span class="tpill"><span>완료</span><b>' + esc(u.end_time) + '</b></span>' : '');
 
@@ -619,6 +626,12 @@
                     '<button class="brm" data-rm="' + i + ',' + bi + '">✕</button>') + '</div>';
         }
 
+        /* 스텝 1건의 작업자 표시 이름 — 대표 + 조원 전원 (조립 BSC 와 동일 규칙) */
+        function stepWho(s) {
+            const t = (s.member_names && String(s.member_names).trim()) ? s.member_names : s.actor_name;
+            return (t && String(t).trim()) ? String(t).trim() : '';
+        }
+
         function stepCard(s, i) {
             const locked = !!s.locked, done = s.state === 'done', rw = s.rework_yn === 'Y';
             const working = s.state === 'working';
@@ -630,7 +643,9 @@
                     : working ? '<span class="st-badge working"><i></i>작업중</span>'
                         : locked ? '<span class="lockicon">🔒 하위 ' + s.kid_cnt + '개 완료 후</span>'
                             : '<span class="st-badge wait">대기</span>';
-            const whoTxt = s.actor_name ? '<span class="swho' + (rw ? ' rw' : working ? ' on' : '') + '">' + esc(s.actor_name) + ' · ' + esc(s.equipment_name || '') + '</span>' : '';
+            /* 어셈블리마다 조가 다를 수 있다 — 그 스텝의 작업자를 전원 표시한다 */
+            const sWho = stepWho(s);
+            const whoTxt = sWho ? '<span class="swho' + (rw ? ' rw' : working ? ' on' : '') + '">' + esc(sWho) + (s.equipment_name ? ' · ' + esc(s.equipment_name) : '') + '</span>' : '';
             const tchips = s.start_time ? '<span class="stime">' +
                 '<button data-stime="' + i + ',start">시작 <b>' + shortT(s.start_time) + '</b></button>' +
                 (s.end_time ? '<button data-stime="' + i + ',end">완료 <b>' + shortT(s.end_time) + '</b></button>' : '') +
@@ -866,40 +881,67 @@
         }));
 
         /* ── 작업자/설비 선택 → 작업 시작 ── */
-        let selW = null, selE = null, whoStep = null;
+        let selWorkers = [], selE = null, whoStep = null;
         function openWhoSheet(si) {
             whoStep = si;
             const s = stepIdx(si);
             const last = STEPS.filter(x => x.actor_id).slice(-1)[0];
-            selW = s.actor_id || (last ? last.actor_id : null);
+            /* 직전 스텝의 조 편성을 그대로 이어받는다 (한 대를 같은 조가 계속 만든다) */
+            const src = (s.actor_id ? s : (last || null));
+            selWorkers = src ? memberList(src) : [];
             selE = s.equipment_id || (last ? last.equipment_id : null);
             document.getElementById('startTitle').textContent = '작업 시작 · ' + s.mat_name;
             document.getElementById('startSub').textContent = s.mat_code + ' · 이 어셈블리를 작업할 사람과 설비를 지정하세요';
             document.getElementById('workerOpts').innerHTML = WORKERS.map(w =>
-                '<button class="opt' + (+w.actor_id === +selW ? ' sel' : '') + '" data-w="' + w.actor_id + '">' + esc(w.actor_name) + '</button>').join('');
+                '<button class="opt" data-w="' + w.actor_id + '" data-n="' + esc(w.actor_name) + '">' +
+                '<span class="ck"></span>' + esc(w.actor_name) + '</button>').join('');
+            paintWorkerOpts();
             document.getElementById('equipOpts').innerHTML = EQUIPS.map(eq =>
                 '<button class="opt' + (+eq.equipment_id === +selE ? ' sel' : '') + '" data-e="' + eq.equipment_id + '">' + esc(eq.equipment_name) +
                 '<span class="sub">' + esc(eq.equipment_code || '') + '</span></button>').join('');
             document.getElementById('startOk').textContent = '이 어셈블리 작업 시작';
             ckStart(); showMask('startMask');
         }
+        /* 스텝 행(actor_id + members)에서 선택 배열 복원 — 대표가 항상 첫 번째 */
+        function memberList(s) {
+            const arr = [];
+            if (s.actor_id) arr.push({id: String(s.actor_id), name: s.actor_name || ''});
+            String(s.member_ids || '').split(',').map(x => x.trim()).filter(Boolean)
+                .forEach(id => { if (!arr.some(w => w.id === id)) arr.push({id, name: ''}); });
+            return arr;
+        }
+
+        /* 작업자 다중 선택 — 첫 선택자가 대표(Actor). 조립(BSC)과 동일 규약 */
         document.getElementById('workerOpts').addEventListener('click', e => {
             const b = e.target.closest('[data-w]'); if (!b) return;
-            document.querySelectorAll('#workerOpts .opt').forEach(x => x.classList.remove('sel'));
-            b.classList.add('sel'); selW = b.dataset.w; ckStart();
+            const id = b.dataset.w, name = b.dataset.n, k = selWorkers.findIndex(x => x.id === id);
+            if (k >= 0) { selWorkers.splice(k, 1); } else { selWorkers.push({id, name}); }
+            paintWorkerOpts(); ckStart();
         });
+
+        function paintWorkerOpts() {
+            document.querySelectorAll('#workerOpts .opt').forEach(x => {
+                const on = selWorkers.some(w => String(w.id) === String(x.dataset.w));
+                x.classList.toggle('sel', on);
+                const ck = x.querySelector('.ck');
+                if (ck) ck.textContent = on ? '\u2713' : '';
+            });
+        }
         document.getElementById('equipOpts').addEventListener('click', e => {
             const b = e.target.closest('[data-e]'); if (!b) return;
             document.querySelectorAll('#equipOpts .opt').forEach(x => x.classList.remove('sel'));
             b.classList.add('sel'); selE = b.dataset.e; ckStart();
         });
-        function ckStart() { document.getElementById('startOk').disabled = !(selW && selE); }
+        function ckStart() { document.getElementById('startOk').disabled = !(selWorkers.length && selE); }
         document.getElementById('startOk').onclick = () => {
             const s = stepIdx(whoStep);
             hideMask('startMask');
             guard(async () => {
                 await apiPost('/step_start', {
-                    step_id: s.step_id, actor_id: selW, equipment_id: selE,
+                    step_id: s.step_id,
+                    actor_id  : selWorkers[0].id,                                        /* 대표 = Actor_id */
+                    member_ids: selWorkers.slice(1).map(w => w.id).filter(Boolean).join(','),
+                    equipment_id: selE,
                     start_time: nowFull(), spjangcd: CTX.spjangcd
                 });
                 await loadSteps();

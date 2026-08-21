@@ -46,6 +46,7 @@ public class WashService {
     private static final String SRC_TABLE = "wash_work_item";
 
     @Autowired SqlRunner sqlRunner;
+    @Autowired WorkMemberService workMemberService;
     @Autowired MaterialRepository materialRepository;
     @Autowired MatLotRepository matLotRepository;
     @Autowired MatLotConsRepository matLotConsRepository;
@@ -133,6 +134,9 @@ public class WashService {
             SELECT ww.id                                    AS work_id
                  , ww."Actor_id"                            AS actor_id
                  , pr."Name"                                AS worker_name
+                 , ${MEMBER_NAMES}                           AS members
+                 , ${MEMBER_IDS}                             AS member_ids
+                 , ${MEMBER_CNT}                             AS member_cnt
                  , ww."Equipment_id"                        AS equipment_id
                  , e."Name"                                 AS equipment_name
                  , e."Code"                                 AS equipment_code
@@ -160,7 +164,12 @@ public class WashService {
                AND ww."WashDate" = :date
              GROUP BY ww.id, pr."Name", e."Name", e."Code"
              ORDER BY MIN(wwi."StartTime") NULLS LAST, ww.id
-            """;
+            """
+                /* ★ 조원은 스칼라 서브쿼리로 붙인다. LATERAL 로 조인하면 조원 수만큼
+                      행이 복제되어 위의 COUNT/SUM 이 배로 부풀어 오른다. */
+                .replace("${MEMBER_NAMES}", WorkMemberService.namesSql("wash_work", "ww.id"))
+                .replace("${MEMBER_IDS}",   WorkMemberService.idsSql("wash_work", "ww.id"))
+                .replace("${MEMBER_CNT}",   WorkMemberService.countSql("wash_work", "ww.id"));
         return this.sqlRunner.getRows(sql, p);
     }
 
@@ -235,7 +244,7 @@ public class WashService {
 
     /** 작업 시작 — 같은 날/작업자/세척기면 기존 작업 재사용 */
     @Transactional
-    public AjaxResult workStart(String date, Integer actorId, Integer equipmentId,
+    public AjaxResult workStart(String date, Integer actorId, String memberIds, Integer equipmentId,
                                 String spjangcd, User user) {
         AjaxResult r = new AjaxResult();
         r.success = true;
@@ -256,7 +265,11 @@ public class WashService {
                AND "_status" = 'a'
             """, p);
         if (exist != null && exist.get("id") != null) {
-            r.data = Map.of("work_id", ((Number) exist.get("id")).intValue(), "reused", true);
+            int reusedId = ((Number) exist.get("id")).intValue();
+            // 재사용이어도 조 편성은 갱신한다. 안 그러면 조원을 바꿔 다시 열었을 때 옛 명단이 남는다.
+            this.workMemberService.save(WorkMemberService.SRC_WASH_WORK,
+                    reusedId, actorId, memberIds, user, spjangcd);
+            r.data = Map.of("work_id", reusedId, "reused", true);
             return r;
         }
 
@@ -272,7 +285,11 @@ public class WashService {
             RETURNING id
             """, p);
 
-        r.data = Map.of("work_id", ((Number) row.get("id")).intValue(), "reused", false);
+        int workId = ((Number) row.get("id")).intValue();
+        this.workMemberService.save(WorkMemberService.SRC_WASH_WORK,
+                workId, actorId, memberIds, user, spjangcd);
+
+        r.data = Map.of("work_id", workId, "reused", false);
         return r;
     }
 
@@ -301,6 +318,7 @@ public class WashService {
             UPDATE wash_work SET "_status" = 'd', "_modified" = now(), "_modifier_id" = :userId
              WHERE id = :workId
             """, p);
+        this.workMemberService.clear(WorkMemberService.SRC_WASH_WORK, workId);
         return r;
     }
 

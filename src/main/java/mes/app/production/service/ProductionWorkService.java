@@ -128,19 +128,23 @@ public class ProductionWorkService {
                                  AND COUNT(*) FILTER (WHERE mp."State"='finished') > 0 THEN 'working'
                             WHEN COUNT(*) FILTER (WHERE mp."State"='working') > 0 THEN 'working'
                             ELSE 'working' END                          AS state
-                     , string_agg(DISTINCT mem_name, ', ')              AS members
+                     /* ★ 조원은 스칼라 서브쿼리로 붙인다. LATERAL 로 조인하면 조원 수만큼
+                          원본 행이 복제되어 위의 COUNT/SUM 이 배로 부풀어 오른다.
+                          MIN(mp.id) = 이 작업조의 가장 이른 차수. 조원은 조 단위로 고정이므로
+                          대표 차수 하나를 기준 삼으면 된다. */
+                     , (SELECT string_agg(p2."Name", ', '
+                                          ORDER BY (m2."IsLeader"='Y') DESC, p2."Name")
+                          FROM mat_produce_member m2
+                          JOIN person p2 ON p2.id = m2."Person_id"
+                         WHERE m2."SourceTableName" = 'mat_produce'
+                           AND m2."SourceDataPk"    = MIN(mp.id)
+                           AND COALESCE(m2."_status",'a') = 'a')       AS members
                   FROM mat_produce mp
                   JOIN job_res jr ON jr.id = mp."JobResponse_id"
                   LEFT JOIN work_center wc ON wc.id = mp."WorkCenter_id"
                   LEFT JOIN shift sh ON sh."Code" = mp."ShiftCode"
                   LEFT JOIN person pr ON pr.id = mp."Actor_id"
                   LEFT JOIN equ e ON e.id = mp."Equipment_id"
-                  LEFT JOIN LATERAL (
-                        SELECT p2."Name" AS mem_name
-                          FROM mat_produce_member mpm
-                          JOIN person p2 ON p2.id = mpm."Person_id"
-                         WHERE mpm."MatProduce_id" = mp.id AND COALESCE(mpm."_status",'a')='a'
-                  ) mm ON true
                  WHERE COALESCE(mp."_status",'a') = 'a'
                    AND wc."Process_id" = :processId
                    AND mp.spjangcd = :spjangcd
