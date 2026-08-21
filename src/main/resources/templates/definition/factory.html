@@ -334,9 +334,9 @@
 
     }
 
-    // 부서 정보 삭제
+    // 공장 정보 삭제
     function deleteDepart() {
-      let url = '/api/definition/depart';
+      let url = '/api/definition/factory';
       let id = $('#basicForm').find('#id').val();
       let data = {id: id};
       let fnSuccess = function (res) {
