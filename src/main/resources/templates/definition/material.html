@@ -1369,7 +1369,11 @@
                 AjaxUtil.fillSelectOptions($('#srchFactory'), 'factory', 'all', false);
                 setTimeout(() => {
                     if (userinfo.factory_id) {
+                        // 특정 공장이 지정된 계정 → 해당 공장으로 필터
                         $('#srchFactory').val(userinfo.factory_id).trigger('change');
+                    } else {
+                        // factory_id가 없거나 전체값인 계정 → 전체 조회
+                        $('#srchFactory').val('').trigger('change');
                     }
                 }, 0);
 
