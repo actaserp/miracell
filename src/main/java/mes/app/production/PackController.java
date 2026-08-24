@@ -143,6 +143,28 @@ public class PackController {
 	}
 
 	/**
+	 * ③ CK 투입자재 「＋ 자재」 후보.
+	 *
+	 *   saved_only=true  → 이 세션에 이미 저장된 BOM 밖 자재만 (세션 열 때 복원)
+	 *   saved_only=false → 위 + 소스창고 실재고 있는 자재 (검색 시트)
+	 *
+	 * 응답 모양은 /ck_bom 과 같다 — 화면이 두 목록을 하나로 합쳐 쓴다.
+	 */
+	@GetMapping("/ck_mat_candidates")
+	public AjaxResult ckMatCandidates(
+		@RequestParam("mp_id") Integer mpId,
+		@RequestParam(value = "jr_pk",         required = false) Integer jrPk,
+		@RequestParam(value = "ck_material_id", required = false) Integer ckMaterialId,
+		@RequestParam(value = "keyword",       required = false) String keyword,
+		@RequestParam(value = "saved_only",    required = false, defaultValue = "false") boolean savedOnly,
+		@RequestParam(value = "spjangcd",      required = false) String spjangcd) {
+		AjaxResult r = new AjaxResult();
+		r.data = this.packService.getCkMatCandidates(mpId, ckMaterialId, jrPk, keyword, savedOnly, spjangcd);
+		r.success = true;
+		return r;
+	}
+
+	/**
 	 * ② 「CK 자체재고 투입」 후보 — 생산창고(17)에 남아 있는 CK 로트.
 	 * CK 자체재고 작지로 미리 만들어 둔 것이 여기 잡힌다.
 	 *

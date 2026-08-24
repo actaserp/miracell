@@ -670,6 +670,150 @@ public class PackService {
 	}
 
 	/**
+	 * CK 투입자재 «추가» 후보.
+	 *
+	 * ★ 두 갈래를 UNION 한다 — 순서가 중요하다.
+	 *
+	 *   ① saved : 이미 이 세션에 저장된 BOM 밖 자재 (pack_alloc_item)
+	 *             ─ 재고가 0 이 돼도 «반드시» 나온다.
+	 *               새로고침 후 화면이 그 자재를 되살리는 유일한 근거다.
+	 *               (재고 기준으로만 뽑으면, 마지막 한 개를 담아 재고가 0 이 된 순간
+	 *                다음 진입에서 그 줄이 조용히 사라진다)
+	 *   ② cand  : CK_SRC_STORES(생산17·자재3·검사완료19)에 실재고가 있는 자재.
+	 *             검색어로 좁힌다. 시트 목록용.
+	 *             ★ 창고 목록은 packFinish 의 consumeFifoMulti 와 «반드시» 같아야 한다.
+	 *               화면이 보여준 재고에서 서버가 못 빼면 반영 직전에야 막힌다.
+	 *
+	 * ★ BOM 자재는 양쪽에서 모두 뺀다. 그건 /ck_bom 이 이미 내려주므로
+	 *   여기서 또 내면 화면 목록에 같은 자재가 두 줄로 뜬다.
+	 *
+	 * ★ qty_per 는 0 이다. BOM 에 없으니 「CK 1개당 소요량」이 성립하지 않는다.
+	 *   → 화면은 이 자재를 «수동» 으로 다루고, 배분 수량을 고쳐도 따라가지 않는다.
+	 *
+	 * @param savedOnly true 면 ①만 — 세션 열 때 복원용으로 부른다(검색 안 함)
+	 */
+	public List<Map<String, Object>> getCkMatCandidates(Integer mpId, Integer ckMaterialId,
+																											Integer jrPk, String keyword,
+																											boolean savedOnly, String spjangcd) {
+		if (ckMaterialId == null && jrPk != null) ckMaterialId = resolveCkMaterial(jrPk);
+		if (mpId == null) return Collections.emptyList();
+
+		MapSqlParameterSource p = new MapSqlParameterSource();
+		p.addValue("mpId",        mpId);
+		p.addValue("ckMatId",     ckMaterialId);
+		p.addValue("savedOnly",   savedOnly);
+		p.addValue("keyword",     isBlank(keyword) ? null : "%" + keyword.trim() + "%");
+		p.addValue("sterilStore", STORE_STERIL);
+		p.addValue("prodStore",   STORE_PROD);
+		p.addValue("matStore",    STORE_MAT);
+		p.addValue("inspStore",   STORE_INSPECTED);
+		p.addValue("cleanStore",  STORE_CLEAN);
+		p.addValue("spjangcd",    isBlank(spjangcd) ? null : spjangcd);
+
+		return this.sqlRunner.getRows("""
+            WITH b AS (
+                SELECT bo.id, NULLIF(bo."OutputAmount",0) AS out_amt
+                  FROM bom bo
+                 WHERE bo."Material_id" = CAST(:ckMatId AS integer)
+                   AND COALESCE(bo._status,'a') <> 'd'
+                   AND (bo."StartDate" IS NULL OR bo."StartDate" <= now())
+                   AND (bo."EndDate"   IS NULL OR bo."EndDate"   >= now())
+                   AND (CAST(:spjangcd AS varchar) IS NULL OR bo.spjangcd = CAST(:spjangcd AS varchar))
+                 ORDER BY bo."StartDate" DESC NULLS LAST, bo.id DESC
+                 LIMIT 1
+            )
+            -- CK BOM 구성자재 = 여기서 제외할 목록
+            , bommat AS (
+                SELECT DISTINCT c."Material_id" AS mat_id
+                  FROM bom_comp c JOIN b ON b.id = c."BOM_id"
+                 WHERE COALESCE(c._status,'a') <> 'd'
+            )
+            -- ① 이 세션에 이미 저장된 BOM 밖 자재 (재고 무관 · 복원용)
+            , saved AS (
+                SELECT DISTINCT pai."Material_id" AS mat_id
+                  FROM pack_alloc_item pai
+                 WHERE pai."MatProduce_id" = :mpId
+                   AND COALESCE(pai._status,'a') = 'a'
+                   AND COALESCE(pai."ItemKind",'ck') = 'ck'
+                   AND pai."Material_id" IS NOT NULL
+                   AND NOT EXISTS (SELECT 1 FROM bommat bm WHERE bm.mat_id = pai."Material_id")
+                   AND (CAST(:ckMatId AS integer) IS NULL
+                        OR pai."Material_id" <> CAST(:ckMatId AS integer))
+            )
+            -- ② 소스창고에 실재고가 있는 자재 (검색 목록용)
+            , cand AS (
+                SELECT m.id AS mat_id
+                  FROM material m
+                 WHERE CAST(:savedOnly AS boolean) IS NOT TRUE
+                   AND COALESCE(m._status,'a') <> 'd'
+                   AND COALESCE(m."Factory_id",1) = 1
+                   AND (CAST(:spjangcd AS varchar) IS NULL OR m.spjangcd = CAST(:spjangcd AS varchar))
+                   AND NOT EXISTS (SELECT 1 FROM bommat bm WHERE bm.mat_id = m.id)
+                   AND (CAST(:ckMatId AS integer) IS NULL OR m.id <> CAST(:ckMatId AS integer))
+                   AND (CAST(:keyword AS varchar) IS NULL
+                        OR m."Name" LIKE CAST(:keyword AS varchar)
+                        OR m."Code" LIKE CAST(:keyword AS varchar))
+                   -- ★ 필터백 계열(융착 bsc06 산출)은 후보에서 뺀다.
+                   --   이 자재는 MatLot_id(지정 멸균로트)가 있어야 소비되는데,
+                   --   그 로트 선택 시트는 BOM 필터백 전용 흐름이다. 임의로 추가하면
+                   --   로트 없이 저장돼 consumeFifoMulti 로 넘어가고 17/3/19 에 없어 실패한다.
+                   --   ※ saved 쪽에는 이 조건을 걸지 않는다 — 이미 저장된 건 무조건 복원돼야 한다.
+                   AND NOT EXISTS (SELECT 1 FROM work_center wc2
+                                     JOIN process pr2 ON pr2.id = wc2."Process_id"
+                                    WHERE wc2.id = m."WorkCenter_id" AND pr2."Code" = 'bsc06')
+                   AND EXISTS (SELECT 1 FROM mat_lot ml2
+                                WHERE ml2."Material_id" = m.id
+                                  -- ★ CK_SRC_STORES 와 같아야 한다. 멸균(18) 금지 — 위 주석 참고
+                                  AND ml2."StoreHouse_id" IN (:prodStore, :matStore, :inspStore)
+                                  AND COALESCE(ml2."CurrentStock",0) > 0)
+                 ORDER BY m."Code"
+                 LIMIT 100
+            )
+            , pick AS (
+                SELECT mat_id, 'Y' AS saved_yn FROM saved
+                UNION
+                SELECT mat_id, 'N' AS saved_yn FROM cand
+                 WHERE mat_id NOT IN (SELECT mat_id FROM saved)
+            )
+            -- ★ 아래 컬럼 구성은 getCkBom 과 반드시 같아야 한다 (화면이 한 목록에 섞는다)
+            SELECT pk.mat_id                          AS mat_id
+                 , m."Code"                           AS mat_code
+                 , m."Name"                           AS mat_name
+                 , u."Name"                           AS unit
+                 , 0                                  AS qty_per      -- ★ BOM 밖이라 소요량 없음
+                 , 9999                               AS sort_no      -- BOM 자재 뒤로
+                 , 'N'                                AS in_bom
+                 , pk.saved_yn                        AS saved_yn
+                 , CASE WHEN kpr."Code" = 'bsc06' THEN 'Y' ELSE 'N' END AS sterile_yn
+                 , COALESCE(m."WashYN",'N')           AS wash_yn
+                 , COALESCE(st.prod,   0)             AS prod_stock
+                 , COALESCE(st.mat,    0)             AS mat_stock
+                 , COALESCE(st.insp,   0)             AS insp_stock
+                 , COALESCE(st.clean,  0)             AS clean_stock
+                 , COALESCE(st.steril, 0)             AS steril_stock
+                 , CASE WHEN kpr."Code" = 'bsc06' THEN COALESCE(st.steril,0)
+                        ELSE COALESCE(st.prod,0) + COALESCE(st.mat,0) + COALESCE(st.insp,0)
+                   END                                AS usable_stock
+              FROM pick pk
+              JOIN material m  ON m.id  = pk.mat_id
+              LEFT JOIN unit u ON u.id  = m."Unit_id"
+              LEFT JOIN work_center kwc ON kwc.id = m."WorkCenter_id"
+              LEFT JOIN process     kpr ON kpr.id = kwc."Process_id"
+              LEFT JOIN LATERAL (
+                  SELECT COALESCE(SUM(CASE WHEN ml."StoreHouse_id" = :prodStore   THEN ml."CurrentStock" END),0) AS prod
+                       , COALESCE(SUM(CASE WHEN ml."StoreHouse_id" = :matStore    THEN ml."CurrentStock" END),0) AS mat
+                       , COALESCE(SUM(CASE WHEN ml."StoreHouse_id" = :inspStore   THEN ml."CurrentStock" END),0) AS insp
+                       , COALESCE(SUM(CASE WHEN ml."StoreHouse_id" = :cleanStore  THEN ml."CurrentStock" END),0) AS clean
+                       , COALESCE(SUM(CASE WHEN ml."StoreHouse_id" = :sterilStore THEN ml."CurrentStock" END),0) AS steril
+                    FROM mat_lot ml
+                   WHERE ml."Material_id" = pk.mat_id
+                     AND COALESCE(ml."CurrentStock",0) > 0
+              ) st ON true
+             ORDER BY pk.saved_yn DESC, m."Code"
+            """, p);
+	}
+
+	/**
 	 * 완제품 BOM 에서 박스류 입수량 — IN BOX 1.0→1개당1, OUT BOX 0.25→카톤 4입.
 	 *
 	 * ★ v3.3 : StartDate/EndDate 조건을 넣어 getKitSpec·getCkBom 과 같은 BOM 을 보게 맞췄다.
@@ -1207,18 +1351,36 @@ public class PackService {
 		return out;
 	}
 
+	/* ══════════════════════════════════════════════════════════════════════════
+   PackService.remainOrderQty — 단위 불일치 수정
+
+   붙여넣는 곳 : PackService.java 의 remainOrderQty(...) 메서드 전체를 교체
+
+   ── 무엇이 틀렸나 ──
+   order_qty 를 «자식 작지» 의 OrderQty 에서 가져왔다. 포장 자식 작지의
+   산출품목은 CK 반제품이라 그 값은 «CK 개수» 다.
+   반면 used 는 GoodQty / (PK ÷ pk_per) 로 계산한 «완제품 개수» 다.
+   좌변 CK − 우변 완제품 을 뺐으니 단위가 맞지 않는다.
+
+     실제 데이터(mp 148) : 자식지시 648 · 헤더지시 216 · ck_per 3
+       648 = 216 × 3   → 자식지시는 CK 개수가 맞다
+       그런데 화면은 이 648 을 «완제품 잔여» 로 받아
+         · 계획 216 인데 「완제품 648」 로 표시
+         · CK 소요 1944 (= 648 × 3) 로 세 배 부풀림
+         · autoAssignPkLots 의 need 가 1944 → 멸균 재고 전량을 한 세션이 선점
+
+   ── 어떻게 고치나 ──
+   같은 파일 getSessionDetail / 목록 쿼리는 이미 부모를 우선한다.
+       COALESCE(hdr."OrderQty", jr."OrderQty") AS order_qty
+   여기만 그 규칙에서 빠져 있었다. 부모(완제품 헤더) 지시량을 우선한다.
+
+   ★ 별칭 주의 : 안쪽 LATERAL 이 이미 hdr 을 쓰고 있다. 바깥 조인은 hdr2 로 둔다.
+   ★ 부모가 없는 경우(pack_start_nojob 로 만든 무작지 세션)에는 jr."OrderQty" 로
+     떨어진다. 이때 jr 은 헤더 자신이라 완제품 단위이므로 그대로 맞다.
+   ══════════════════════════════════════════════════════════════════════════ */
+
 	/**
-	 * 작지 잔여 = 지시량 − 산출품 세션들이 이미 잡은 양. ★완제품 단위로 돌려준다
-	 *
-	 *   완료 세션은 GoodQty, 진행 세션은 담아둔 PK 합계로 센다.
-	 *   ★ 진행 세션의 PK 를 세지 않으면 두 번째 세션이 지시량 전체를 또 자동배정한다.
-	 *   ★ 국가별 CK 산출 차수(LastProcessYN='N')는 세지 않는다 — 세면 잔여가 0 이 되어
-	 *     두 번째 세션이 PK 를 못 잡는다.
-	 *
-	 *   ★★ v3.3 : pk.q 는 PK 낱개 합계라 pkPer 로 나눠야 OrderQty(완제품)와 단위가 맞는다.
-	 *      안 나누면 작지 50개짜리에서 첫 세션이 PK 60(=완제품 20)을 담았을 때
-	 *      used=60 이 되어 잔여가 0 으로 잘리고, 두 번째 세션이 PK 를 한 개도 못 잡았다.
-	 *      GREATEST 왼쪽의 GoodQty 는 packFinish 가 완제품 단위로 넣으므로 그대로 둔다.
+	 * 이 작지의 «완제품» 잔여 지시량. (exceptMpId 세션은 제외)
 	 *
 	 * @param pkPer 완제품 1개당 PK 개수 (getKitSpec 의 pk_per)
 	 */
@@ -1228,9 +1390,12 @@ public class PackService {
 		p.addValue("exMp", exceptMpId);
 		p.addValue("pkPer", pkPer <= 0 ? 1f : pkPer);
 		Map<String, Object> r = this.sqlRunner.getRow("""
-            SELECT COALESCE(jr."OrderQty",0) AS order_qty
-                 , COALESCE(u.used,0)        AS used
+            -- ★ 부모(완제품 헤더) 지시량을 우선한다.
+            --   자식 작지의 OrderQty 는 CK 개수라, used(완제품)와 단위가 어긋난다.
+            SELECT COALESCE(hdr2."OrderQty", jr."OrderQty", 0) AS order_qty
+                 , COALESCE(u.used,0)                          AS used
               FROM job_res jr
+              LEFT JOIN job_res hdr2 ON hdr2.id = jr."Parent_id"
               LEFT JOIN LATERAL (
                   SELECT SUM(CASE WHEN mp."State" = 'finished'
                                   THEN COALESCE(mp."GoodQty",0)
