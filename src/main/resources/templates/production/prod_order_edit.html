@@ -54,33 +54,33 @@
                         </dd>
                     </dl>
 
-<!--                    <dl>-->
-<!--                        <dt>-->
-<!--                            <label for="cboMatType">-->
-<!--                                제품 구분<span class="eq"></span>-->
-<!--                            </label>-->
-<!--                        </dt>-->
-<!--                        <dd>-->
-<!--                            <div class="srch-box">-->
-<!--                                <select id="cboMatType" name="cboMatType">-->
-<!--                                    <option value="product">제품</option>-->
-<!--                                    <option value="semi">반제품</option>-->
-<!--                                </select>-->
-<!--                            </div>-->
-<!--                        </dd>-->
-<!--                    </dl>-->
-<!--                    <dl>-->
-<!--                        <dt>-->
-<!--                            <label for="Factory_id">-->
-<!--                                공장<span class="eq"></span>-->
-<!--                            </label>-->
-<!--                        </dt>-->
-<!--                        <dd>-->
-<!--                            <div class="srch-box">-->
-<!--                                <select style="width: 150px;" type="text" id="Factory_id" name="Factory_id" > </select>-->
-<!--                            </div>-->
-<!--                        </dd>-->
-<!--                    </dl>-->
+                    <!--                    <dl>-->
+                    <!--                        <dt>-->
+                    <!--                            <label for="cboMatType">-->
+                    <!--                                제품 구분<span class="eq"></span>-->
+                    <!--                            </label>-->
+                    <!--                        </dt>-->
+                    <!--                        <dd>-->
+                    <!--                            <div class="srch-box">-->
+                    <!--                                <select id="cboMatType" name="cboMatType">-->
+                    <!--                                    <option value="product">제품</option>-->
+                    <!--                                    <option value="semi">반제품</option>-->
+                    <!--                                </select>-->
+                    <!--                            </div>-->
+                    <!--                        </dd>-->
+                    <!--                    </dl>-->
+                    <!--                    <dl>-->
+                    <!--                        <dt>-->
+                    <!--                            <label for="Factory_id">-->
+                    <!--                                공장<span class="eq"></span>-->
+                    <!--                            </label>-->
+                    <!--                        </dt>-->
+                    <!--                        <dd>-->
+                    <!--                            <div class="srch-box">-->
+                    <!--                                <select style="width: 150px;" type="text" id="Factory_id" name="Factory_id" > </select>-->
+                    <!--                            </div>-->
+                    <!--                        </dd>-->
+                    <!--                    </dl>-->
 
                     <dl>
                         <dt>
@@ -175,17 +175,17 @@
                     <div class="section-top">
                         <div class="button-wrap">
                             <ul>
-<!--                                <li>-->
-<!--                                    <a class="btn btn-edit" title="작업 지시 수정" id="btnJobResDetail">-->
-<!--                                        <img th:src="@{/images/icon/ico-edit.svg}" alt="수정 아이콘">-->
-<!--                                        작업 지시 수정-->
-<!--                                    </a>-->
-<!--                                </li>-->
-<!--                                <li>-->
-<!--                                    <a class="btn" title="생산지시서 출력" id="btnJobResPrint">-->
-<!--                                        생산지시서 출력-->
-<!--                                    </a>-->
-<!--                                </li>-->
+                                <!--                                <li>-->
+                                <!--                                    <a class="btn btn-edit" title="작업 지시 수정" id="btnJobResDetail">-->
+                                <!--                                        <img th:src="@{/images/icon/ico-edit.svg}" alt="수정 아이콘">-->
+                                <!--                                        작업 지시 수정-->
+                                <!--                                    </a>-->
+                                <!--                                </li>-->
+                                <!--                                <li>-->
+                                <!--                                    <a class="btn" title="생산지시서 출력" id="btnJobResPrint">-->
+                                <!--                                        생산지시서 출력-->
+                                <!--                                    </a>-->
+                                <!--                                </li>-->
                                 <li>
                                     <a class="btn btn-edit" title="생산지시 메모" id="btnJobResDetail">
                                         <img th:src="@{/images/icon/ico-edit.svg}" alt="수정 아이콘">
@@ -289,6 +289,11 @@
                                 </th>
                                 <td colspan="3">
                                     <textarea id="description" name="Description">{%=o.Description%}</textarea>
+                                </td>
+                            </tr>
+                            <tr id="editGuardRow" style="display:none;">
+                                <td colspan="4" style="padding:6px 10px; font-size:12px; white-space:normal; word-break:break-all; line-height:1.5;">
+                                    <span id="editGuardMsg"></span>
                                 </td>
                             </tr>
                         </tbody>
@@ -1123,11 +1128,14 @@
                 let modalContainer = new PopupDraggable('작업 지시 수정');
                 modalContainer.open({width: 1050, height: 480, $content});
 
-                // $('#srchDtProd2').ax5DatePicker({direction: 'top'});
-                let $form = $content.find('#jobOrderForm');
-                let $ShiftCode = $content.find('#ShiftCode')
+                let $form          = $content.find('#jobOrderForm');
+                let $ShiftCode     = $content.find('#ShiftCode');
                 let $WorkCenter_id = $content.find('#WorkCenter_id');
-                let $OrderQty = $content.find('#OrderQty');
+                let $OrderQty      = $content.find('#OrderQty');
+                let $guardRow      = $content.find('#editGuardRow');
+                let $guardMsg      = $content.find('#editGuardMsg');
+
+                $guardRow.hide();   // 응답 오기 전 빈 줄이 보이지 않게
 
                 $.each(this.workcenterOptions, function (idx, item) {
                     $WorkCenter_id.append('<option value="' + item.value + '">' + item.text + '</option>');
@@ -1139,12 +1147,48 @@
 
                 FormUtil.BindDataForm(data, $form);
 
+                // ── 수정 가능 여부 미리 조회 ──
+                //    "저장 눌렀더니 안 된다" 가 아니라 "왜 안 되는지" 를 먼저 보여준다.
+                //    ★ 하위 품목을 일일이 나열하지 않는다. 담당자에게 필요한 건 하한선 하나뿐이다.
+                let guard = {qtyEditable: true, minQty: 0, cascade: false, hasProduction: false};
+                AjaxUtil.getAsyncData(_this.url + '/edit_guard', {jobres_id: data.id}, function (r) {
+                    if (typeof r.data === 'undefined' || r.data == null) return;   // ★ AjaxUtil 은 typeof 로 확인
+                    guard = r.data;
+
+                    let msg = '', color = '#555555';
+
+                    if (guard.qtyEditable === false) {
+                        $OrderQty.prop('readonly', true).addClass('readonly');
+                        msg = guard.reason;
+                        color = '#c0392b';
+                    } else if (guard.hasProduction) {
+                        $OrderQty.attr('min', guard.minQty);
+                        msg = guard.reason;
+                        color = '#b7791f';
+                    } else if (guard.cascade) {
+                        msg = '지시량 변경 시 하위 반제품 지시량도 함께 조정됩니다.';
+                    }
+
+                    if (msg) {
+                        $guardMsg.css('color', color).text(msg);
+                        $guardRow.show();
+                    } else {
+                        $guardRow.hide();
+                    }
+                });
+
                 let $btnPopJobOrderSave = $content.find('#btnPopJobOrderSave');
                 $btnPopJobOrderSave.click(function (e) {
 
                     let qty = $OrderQty.val();
                     if (qty === "" || qty <= 0) {
-                        Alert.alert('', '지사량을 잘못 입력하셨습니다.');
+                        Alert.alert('', '지시량을 잘못 입력하셨습니다.');
+                        return;
+                    }
+
+                    if (guard.qtyEditable !== false && guard.hasProduction
+                        && parseFloat(qty) < parseFloat(guard.minQty)) {
+                        Alert.alert('', '이미 생산된 수량이 있어 ' + guard.minQty + ' 미만으로는 지시할 수 없습니다.');
                         return;
                     }
 
@@ -1158,9 +1202,48 @@
                     //     return;
                     // }
 
-                    Alert.confirm('', '저장하시겠습니까?', function () {
+                    let qtyChanged = (parseFloat(qty) !== parseFloat(data.OrderQty));
+
+                    let confirmMsg = (guard.cascade && qtyChanged)
+                        ? '하위 반제품 지시량도 함께 변경됩니다. 저장하시겠습니까?'
+                        : '저장하시겠습니까?';
+
+                    Alert.confirm('', confirmMsg, function () {
                         let jobresData = FormUtil.extractForm($form);
                         jobresData['mat_type'] = data['mat_type'];
+
+                        // ── 수주량 동기화 여부 ──
+                        //   지시량이 바뀌었고, 이 작지가 수주에 물려 있을 때만 묻는다.
+                        //   (반제품 자식 작지는 수주에 직접 물리지 않으므로 묻지 않는다)
+                        if (qtyChanged && guard.sujuLinked) {
+                            let newQty     = parseFloat(qty);
+                            let oldQty     = parseFloat(data.OrderQty);
+                            let newSujuQty = (parseFloat(guard.sujuOtherQty) || 0) + newQty;
+                            let ask;
+
+                            if (newQty > oldQty) {
+                                ask = '작업지시량이 ' + oldQty + ' → ' + newQty + ' 로 늘어납니다.'
+                                    + '\n수주량도 함께 ' + guard.sujuQty + ' → ' + newSujuQty + ' 로 수정할까요?'
+                                    + '\n\n[확인] 수주량도 수정   /   [취소] 작업지시만 수정';
+                            } else {
+                                // ★ 감량은 의미가 둘로 갈린다. [취소] 시 잔량이 얼마 남는지 숫자로 보여준다.
+                                //   습관적으로 [확인] 을 눌러 잔량이 사라지는 사고를 막기 위한 것.
+                                ask = '작업지시량이 ' + oldQty + ' → ' + newQty + ' 로 줄어듭니다.'
+                                    + '\n수주량도 ' + guard.sujuQty + ' → ' + newSujuQty + ' 로 줄일까요?'
+                                    + '\n\n[확인] 주문 자체가 줄어든 경우 (잔량 없음)'
+                                    + '\n[취소] 나머지를 나중에 지시할 경우 (잔량 ' + (oldQty - newQty) + ' 남김)';
+                            }
+
+                            Alert.confirm('', ask, function () {
+                                jobresData['sync_suju'] = 'Y';
+                                _this.updateJobOrder(jobresData, modalContainer);
+                            }, function () {
+                                jobresData['sync_suju'] = 'N';
+                                _this.updateJobOrder(jobresData, modalContainer);
+                            });
+                            return;
+                        }
+
                         _this.updateJobOrder(jobresData, modalContainer);
                     });
                 });
@@ -1171,17 +1254,41 @@
                 let _this = this;
                 let url = this.url + '/update_order';
                 let fnsuccess = function (result) {
-                    if (result.success) {
-                        Notify.success('저장했습니다.');
-                        modalContainer.close();
-                        let items = _this.grid.selectedItems;
-                        if (items.length > 0) {
-                            if (data['mat_type'] === 'prod') {
-                                _this.loadJobResList(items[0]);
-                            } else if (data['mat_type'] === 'semi') {
-                                _this.loadSemiJobResList(items[0]);
+                    // ★ 서버가 거부한 경우 message 를 반드시 띄운다.
+                    //   조용히 닫히면 사용자는 저장된 줄 안다.
+                    if (!result.success) {
+                        Alert.alert('저장할 수 없습니다', result.message || '저장에 실패했습니다.');
+                        return;
+                    }
+
+                    Notify.success('저장했습니다.');
+                    modalContainer.close();
+
+                    let items = _this.grid.selectedItems;
+                    if (items.length > 0) {
+                        let selectedItem = items[0];
+
+                        // ★ 수주 그리드의 기지시량/잔량을 그 자리에서 갱신한다.
+                        //   다시 조회를 누르면 그리드가 초기화(선택·스크롤 소실)되므로
+                        //   서버가 재집계해 내려준 값을 선택 행에 직접 반영한다.
+                        //   (makeSemiOrder 와 동일한 패턴)
+                        if (typeof result.data !== 'undefined' && result.data != null
+                            && typeof result.data.info !== 'undefined' && result.data.info != null) {
+                            selectedItem.ordered_qty = result.data.info.ordered_qty;
+                            selectedItem.remain_qty  = result.data.info.remain_qty;
+                            selectedItem.AdditionalQty = 0;
+                            // 수주량 동기화를 선택했으면 수주량 칼럼도 같이 바뀐다
+                            if (typeof result.data.info.SujuQty !== 'undefined' && result.data.info.SujuQty != null) {
+                                selectedItem.SujuQty  = result.data.info.SujuQty;
+                                selectedItem.SujuQty2 = result.data.info.SujuQty2;
                             }
+                            _this.grid.collectionView.refresh();
+                            _this.grid.invalidate();
                         }
+
+                        // 캐스케이드된 경우 반제품 그리드도 같이 갱신해야 한다
+                        _this.loadJobResList(selectedItem);
+                        _this.loadSemiJobResList(selectedItem);
                     }
                 }
                 AjaxUtil.postAsyncData(url, data, fnsuccess);

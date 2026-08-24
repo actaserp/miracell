@@ -12,14 +12,38 @@
          안 주면 자식이 내용만큼 부풀어 화면 밖으로 밀린다
          (.ws-panel{flex:1} 에서 겪은 것과 같은 계열).
     ═══════════════════════════════════════════════════ */
+
+    /* ── 스크롤의 주인은 바깥 section ─────────────────────────
+       ★ 이 화면은 PC·태블릿 모두 «스크롤해서 보는» 화면이다.
+         (스크롤 없는 한 화면은 벽걸이 전용 dash_wall 이 담당한다)
+
+         그래서 #dbWrap 에 높이를 못박지 않는다. 내용만큼 자라게 두고,
+         넘치면 section 이 스크롤한다. 안쪽에 스크롤을 두면
+         「화면은 안 움직이는데 내부만 굴러가는」 이상한 조작감이 된다.
+
+       ★ layout_page.html 의 공용 규칙이 section 에 아래 여백을 준다.
+         일반 화면에서는 자연스럽지만 여기서는 그만큼이 빈 띠로 남는다.
+         실측: layout-contents 604 / section 500(bottom 574) → 30px.
+         공용 CSS 는 건드리지 않는다 — 다른 화면이 같이 흔들린다. */
+    body .layout-contents > section.section,
+    body section.section:has(#dbWrap) {
+      flex: 1 1 auto !important;
+      min-height: 0 !important;
+      overflow-y: auto !important;
+      -webkit-overflow-scrolling: touch;
+      margin-bottom: 0 !important;
+      padding-bottom: 12px !important;
+    }
+
     #dbWrap {
       position: relative;
-      /* 초기값. 실제 높이는 dbFitHeight() 가 잰다 —
-         100vh 는 창 전체라 상단 헤더·메뉴만큼 아래가 잘린다.
-         헤더 높이를 상수로 빼는 방법(calc(100vh - 140px))은
-         메뉴 줄바꿈·해상도에 따라 또 어긋난다. */
-      height: 100vh;
-      min-height: 710px;   /* JS 의 DB_MIN_H 와 같은 값 */
+      /* ★ 높이를 정하지 않는다. 내용만큼 자라고, 스크롤은 바깥 section 이 갖는다.
+           예전에는 100vh + JS 실측으로 못박았는데, 그러면
+             · 내용이 짧을 때  → 아래가 빈 띠로 남고
+             · 내용이 길 때    → 잘려서 볼 방법이 없었다
+           둘 다 「스크롤해서 보는 화면」이라는 전제와 맞지 않는다. */
+      height: auto;
+      min-height: 0;
       /* ★ 배경·여백·모서리를 갖지 않는다.
            바깥 <section class="section"> 이 이미 흰 바탕과 안쪽 여백을 준다.
            여기서 또 배경을 깔면 「액자 속 액자」가 되어 테두리가 두 겹으로 보인다.
@@ -29,11 +53,12 @@
       padding: 0;
       box-sizing: border-box;
       display: flex;
+      flex: 0 0 auto;
       flex-direction: column;
       gap: 10px;
       font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
       color: #1f2733;
-      overflow: hidden;
+      overflow: visible;
     }
 
     /* ── 헤더 ── */
@@ -288,16 +313,10 @@
     /* ═══════════════════════════════════════════════════
        반응형
 
-       ★ 이 화면의 기본 전제는 「스크롤 없는 한 화면」이다.
-         그 전제는 가로가 넉넉할 때만 성립한다.
-         폭이 줄면 열이 접히면서 세로로 길어지는데,
-         높이는 dbFitHeight() 가 창 높이로 못박아 두므로
-         남는 내용이 잘려 나간다 — 잘린 걸 볼 방법이 없다.
-
-         그래서 1400 아래에서는 「한 화면」을 포기하고
-         바깥 스크롤을 허용한다. 이 폭은 벽걸이가 아니라
-         사람이 앉아서 보는 PC 이고, 사람은 스크롤을 내릴 수 있다.
-         벽걸이는 dash_wall 이 따로 담당한다.
+       ★ 이 화면은 폭과 무관하게 「스크롤해서 보는」 화면이다.
+         (스크롤 없는 한 화면은 벽걸이 전용 dash_wall 이 담당한다)
+         따라서 폭에 따라 바뀌는 것은 열 수와 글자 크기뿐이고,
+         높이 고정 같은 것은 어디에도 두지 않는다.
 
        ★ 3열 → 2열로 줄이면 .db-col 이 3개라 세 번째가 다음 줄로 넘어간다.
          이때 grid-auto-rows 를 안 주면 두 줄이 남은 높이를 반씩 나눠 갖고
@@ -316,10 +335,7 @@
 
     /* 1400 이하 — 열이 접히기 시작한다. 여기서 높이 고정을 푼다 */
     @media (max-width:1400px){
-      /* ★ JS 가 넣는 인라인 height 를 이겨야 하므로 !important.
-           dbFitHeight() 쪽에도 같은 폭 가드를 두었지만,
-           JS 가 먼저 돌고 창을 줄이는 경우까지 막으려면 CSS 에도 필요하다. */
-      #dbWrap { height:auto !important; min-height:0; overflow:visible; }
+      /* 높이는 이제 어디서도 못박지 않는다(위 #dbWrap 참고). 남길 규칙이 없다 */
 
       /* ★ 칸 수를 고정해서 접지 않는다.
            6 → 3 → 2 로 못박으면 폭이 남을 때 카드 하나가 통째로 길어진다.
@@ -670,7 +686,6 @@
     /* 대시보드 최소 높이.
        실측값이 이보다 작으면 카드가 답답해진다 — 그때는 차라리 페이지가
        조금 스크롤되는 편이 낫다. 화면을 보고 정한 값이라 여기서 조정한다. */
-    const DB_MIN_H = 710;
 
     /* 미종료 의심 기준 — 이보다 오래 열려 있으면 취소 후 남은 유령일 수 있다.
        실제로 5시간짜리 유령이 있었다(작업 취소가 equ_run 을 안 지운다). */
@@ -690,38 +705,6 @@
 
     function dbPad(n) {
       return String(n).padStart(2, '0');
-    }
-
-    /* ── 화면 높이 맞추기 ──
-       대시보드는 스크롤이 없어야 하므로 「창 높이 - 대시보드 시작 위치」로 잡는다.
-       전체화면 여부·메뉴 줄바꿈·해상도가 달라져도 알아서 맞는다. */
-    /* 아래 여백. 푸터가 차지하는 자리까지 포함한 값이다.
-       푸터 높이는 고정이라 실측할 것이 없다 —
-       레이아웃이 바뀌면 이 숫자 하나만 고치면 된다. */
-    var DB_GAP_B = 30;
-
-
-    function dbFitHeight() {
-      var el = document.getElementById('dbWrap');
-      if (!el) return;
-
-      var top = el.getBoundingClientRect().top + window.pageYOffset;
-
-      /* ★ 좁은 폭에서는 높이를 못박지 않는다.
-           1400 아래에서는 CSS 가 열을 접어 세로로 길어지는데,
-           여기서 창 높이를 그대로 씌우면 넘친 만큼 잘려서
-           아래쪽 카드를 볼 방법이 없어진다.
-           CSS 미디어쿼리(max-width:1400px)와 같은 값을 쓴다 —
-           두 곳이 어긋나면 한쪽만 접혀 더 이상해진다. */
-      if (window.innerWidth <= 1400) {
-        el.style.height = '';
-        /* 아래 여백은 바깥 <section> 이 준다. 여기서 또 주지 않는다 */
-        return;
-      }
-
-      /* 아래 여백만큼 빼고 높이를 잡는다 */
-      var h = window.innerHeight - top - DB_GAP_B;
-      el.style.height = Math.max(DB_MIN_H, h) + 'px';
     }
 
     /* ── 시계 ── */
@@ -1465,11 +1448,6 @@
     }
 
     $(document.body).ready(function () {
-      dbFitHeight();
-      window.addEventListener('resize', dbFitHeight);
-      /* 폰트·메뉴가 늦게 그려지면 시작 위치가 달라진다. 한 박자 뒤 다시 잰다 */
-      setTimeout(dbFitHeight, 300);
-
       dbStartClock();
       dbLoad();
       dbStartPoll();

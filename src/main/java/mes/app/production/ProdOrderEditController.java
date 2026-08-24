@@ -31,13 +31,13 @@ public class ProdOrderEditController {
 
 	@Autowired
 	MaterialRepository materialRepository;
-	
+
 	@Autowired
 	RoutingProcRepository routingProcRepository;
-	
+
 	@Autowired
 	JobResRepository jobResRepository;
-	
+
 	@Autowired
 	SujuRepository sujuRepository;
 
@@ -52,7 +52,7 @@ public class ProdOrderEditController {
 
 	@Autowired
 	NotificationController_modal notificationController_modal;
-	
+
 	// 수주 목록 조회
 	@GetMapping("/suju_list")
 	public AjaxResult getSujuList(
@@ -67,11 +67,11 @@ public class ProdOrderEditController {
 			@RequestParam(value="not_flag", required=false) String not_flag) {
 
 		List<Map<String, Object>> items = this.prodOrderEditService.getSujuList(date_kind, start, end, mat_group, mat_name, not_flag, spjangcd, cboFactory, company);
-		
-        AjaxResult result = new AjaxResult();
-        result.data = items;
-		
-        return result;
+
+		AjaxResult result = new AjaxResult();
+		result.data = items;
+
+		return result;
 	}
 
 	// 제품 지시내역 조회
@@ -80,11 +80,11 @@ public class ProdOrderEditController {
 			@RequestParam(value="suju_id", required=false) Integer suju_id) {
 
 		List<Map<String, Object>> items = this.prodOrderEditService.getJobOrderList(suju_id);
-		
-        AjaxResult result = new AjaxResult();
-        result.data = items;
-		
-        return result;
+
+		AjaxResult result = new AjaxResult();
+		result.data = items;
+
+		return result;
 	}
 
 	// 제품 지시내역 상세조회
@@ -92,15 +92,15 @@ public class ProdOrderEditController {
 	public AjaxResult getJobOrderDetail(
 			@RequestParam("jobres_id") Integer jobres_id,
 			HttpServletRequest request) {
-		
+
 		Map<String, Object> item = this.prodOrderEditService.getJobOrderDetail(jobres_id);
-		
+
 		AjaxResult result = new AjaxResult();
 		result.data = item;
-		
+
 		return result;
 	}
-	
+
 	// 반제품 작업지시 조회
 	@GetMapping("/semi_list")
 	public AjaxResult getSemiList(
@@ -108,28 +108,28 @@ public class ProdOrderEditController {
 			@RequestParam(value="mat_pk", required=false) Integer mat_pk,
 			@RequestParam(value="suju_qty", required=false) Double suju_qty,
 			@RequestParam(value="suju_pk", required=false) Integer suju_pk) {
-		
+
 		List<Map<String, Object>> items = this.prodOrderEditService.getSemiList(data_date, mat_pk, suju_qty, suju_pk);
-		
-        AjaxResult result = new AjaxResult();
-        result.data = items;
-		
-        return result;
+
+		AjaxResult result = new AjaxResult();
+		result.data = items;
+
+		return result;
 	}
-		
+
 	// 반제품 지시내역 조회
 	@GetMapping("/semi_joborder_list")
 	public AjaxResult getSemiJoborderList(
 			@RequestParam(value="suju_id", required=false) Integer suju_id) {
 
 		List<Map<String, Object>> items = this.prodOrderEditService.getSemiJoborderList(suju_id);
-		
-        AjaxResult result = new AjaxResult();
-        result.data = items;
-		
-        return result;
+
+		AjaxResult result = new AjaxResult();
+		result.data = items;
+
+		return result;
 	}
-	
+
 	// 작업지시 생성
 	@PostMapping("/make_prod_order")
 	@Transactional
@@ -144,7 +144,7 @@ public class ProdOrderEditController {
 			@RequestParam("spjangcd") String spjangcd,
 			HttpServletRequest request,
 			Authentication auth) {
-		
+
 		AjaxResult result = new AjaxResult();
 		User user = (User)auth.getPrincipal();
 		return prodOrderEditService.makeProdOrder(
@@ -160,9 +160,8 @@ public class ProdOrderEditController {
 		);
 	}
 
-	// 지시내역 수정
+	// 지시내역 수정 (하위 반제품 캐스케이드 + 수주량 동기화)
 	@PostMapping("/update_order")
-	@Transactional
 	public AjaxResult updateOrder(
 			@RequestParam(value="id", required=false) Integer jobres_id,
 			@RequestParam(value="ProductionDate", required=false) String productionDate,
@@ -171,37 +170,25 @@ public class ProdOrderEditController {
 			@RequestParam(value="Equipment_id", required=false) Integer Equipment_id,
 			@RequestParam(value="OrderQty", required=false) Float OrderQty,
 			@RequestParam(value="Description", required=false) String Description,
+			@RequestParam(value="sync_suju", required=false) String syncSuju,   // 'Y' 면 수주량도 수정
 			HttpServletRequest request,
 			Authentication auth) {
-		
-		AjaxResult result = new AjaxResult();
-		
-		User user = (User)auth.getPrincipal();
-		
-		Timestamp ProductionDate = Timestamp.valueOf(productionDate + " 00:00:00");
-		
-		JobRes jr = this.jobResRepository.getJobResById(jobres_id);
-		
-		if (jr != null) {
-			
-			jr.setProductionDate(ProductionDate);
-			jr.setShiftCode(ShiftCode);
-			jr.setWorkCenter_id(WorkCenter_id);
-			jr.setOrderQty(OrderQty);
-			jr.setDescription(Description);
-			if (Equipment_id != null) {
-				jr.setEquipment_id(Equipment_id);
-			}
-			jr.set_audit(user);
 
-			jr = this.jobResRepository.save(jr);
-						
-			result.success = true;
-		} else {
-			result.success = false;					
-		}
-		
+		User user = (User) auth.getPrincipal();
+
+		return this.prodOrderEditService.updateOrderCascade(
+				jobres_id, productionDate, ShiftCode,
+				WorkCenter_id, Equipment_id, OrderQty, Description, syncSuju, user);
+	}
+
+	// 수정 가능 여부 미리보기 (모달 열 때 호출)
+	@GetMapping("/edit_guard")
+	public AjaxResult getEditGuard(
+			@RequestParam("jobres_id") Integer jobres_id) {
+
+		AjaxResult result = new AjaxResult();
+		result.data = this.prodOrderEditService.getEditGuard(jobres_id);
+		result.success = true;
 		return result;
 	}
-	
 }
