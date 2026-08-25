@@ -597,3 +597,43 @@
         return run();
     }
 })(jQuery);
+/* ═══════════════════════════════════════════════════════════════════════
+   뒤로가기 훅 — iframe 안의 각 화면이 노출한다.
+   부모(index.html)의 popstate 가드가 활성 탭에서 이 함수를 찾아 부른다.
+
+   ★ 닫을 것이 있어 «처리했으면» true, 아무것도 안 했으면 false.
+     false 를 주면 부모는 조용히 무시한다(앱을 나가지는 않는다).
+
+   ★ 한 번에 하나만 닫는다.
+     시트 위에 넘패드가 겹쳐 뜨는 화면에서 둘을 함께 닫아 버리면
+     작업자는 «뒤로가기 한 번에 두 단계가 사라졌다» 고 느낀다.
+     위에 뜬 것부터 하나씩 벗겨야 손에 익은 대로 동작한다.
+   ═══════════════════════════════════════════════════════════════════════ */
+window.mesOnBack = function () {
+
+    /* 위에 뜬 것부터 — 뒤에 오는 선택자일수록 아래층 */
+    var LAYERS = [
+        '.numpad.on',      // 넘패드 (시트 위에 겹친다)
+        '.sheet.on',       // 투입자재·부적합 등 바텀시트
+        '.wl-modal.on',    // 작업일보 모달
+        '.modal-overlay:not([style*="display: none"])'
+    ];
+
+    for (var i = 0; i < LAYERS.length; i++) {
+        var el = document.querySelector(LAYERS[i]);
+        if (!el || el.offsetParent === null) continue;
+
+        /* 화면이 자기 닫기 함수를 가지고 있으면 그것을 쓴다.
+           클래스만 떼면 포커스 복귀·카메라 스트림 해제 같은
+           뒷정리를 건너뛰게 된다(스캔 시트가 실제로 그랬다). */
+        if (typeof el.dataset.closeFn === 'string' && typeof window[el.dataset.closeFn] === 'function') {
+            window[el.dataset.closeFn]();
+        } else {
+            el.classList.remove('on');
+            if (el.classList.contains('modal-overlay')) el.style.display = 'none';
+        }
+        return true;
+    }
+
+    return false;   // 닫을 것 없음 — 부모가 무시한다
+};

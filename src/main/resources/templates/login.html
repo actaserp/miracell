@@ -752,12 +752,29 @@
                         select.append(option);
                     });
                 },
-                error: function (error) {
+                error: function (xhr) {
+                    /* ★ 403 은 «장애» 가 아니라 «이 페이지가 낡았다» 는 뜻이다.
+                       뒤로가기로 캐시에서 되살아난 로그인 화면은 세션이 갈리기 전의
+                       CSRF 토큰을 들고 있어 이 POST 가 반드시 403 으로 떨어진다.
+                       그때 알럿을 띄우면 작업자에겐 «앱이 깨졌다» 로 보인다.
+                       조용히 새로 받아오는 것이 맞다. */
+                    if (xhr && (xhr.status === 403 || xhr.status === 419)) {
+                        location.reload();
+                        return;
+                    }
                     Alert.alert('', '에러가 발생하였습니다.');
                 }
             });
         }
         getspjangcd();
+
+        /* ★ bfcache 복원 감지.
+           안드로이드 크롬은 뒤로가기 시 페이지를 통째로 되살리므로 스크립트가
+           다시 돌지 않는다(no-store 헤더로도 못 막는 경우가 있다).
+           persisted 면 문서 전체가 낡았다는 뜻이라 새로 받는다. */
+        window.addEventListener('pageshow', function (e) {
+            if (e.persisted) location.reload();
+        });
 
         function startTimer(duration, ele) {
             // 기존 타이머가 있으면 제거

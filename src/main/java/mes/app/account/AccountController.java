@@ -41,13 +41,13 @@ import mes.domain.services.SqlRunner;
 
 @RestController
 public class AccountController {
-	
+
 	@Autowired
 	AccountService accountService;
-		
-    @Autowired
-    UserRepository userRepository;
-	
+
+	@Autowired
+	UserRepository userRepository;
+
 	@Autowired
 	SqlRunner sqlRunner;
 
@@ -58,9 +58,9 @@ public class AccountController {
 	private final ConcurrentHashMap<String, Long> tokenExpiry = new ConcurrentHashMap<>();
 	private Boolean flag;
 	private Boolean flag_pw;
-	
+
 	@Resource(name="authenticationManager")
-    private AuthenticationManager authManager;
+	private AuthenticationManager authManager;
 
 	@GetMapping("/login")
 	public ModelAndView loginPage(HttpServletRequest request,
@@ -99,18 +99,33 @@ public class AccountController {
 			}
 		}
 
-		// ✅ 2️⃣ 기존 로그인 페이지 로직
+		// ✅ 2️⃣ 이미 로그인된 상태면 로그아웃하지 않고 메인으로 돌려보낸다.
+		//
+		// ★ 예전에는 여기서 SecurityContextLogoutHandler 로 강제 로그아웃했다.
+		//   GET 에 로그아웃이라는 부작용을 붙인 것이 문제였다 — 브라우저는 뒤로가기·
+		//   프리페치·캐시 복원으로 GET 을 제멋대로 재실행한다. 안드로이드 태블릿에서
+		//   뒤로가기 한 번에 세션이 날아가던 것이 정확히 이 경로였다.
+		//   (로그인은 전체 페이지 POST 라 히스토리에 [/login] → [/] 두 칸이 남고,
+		//    탭 iframe 은 히스토리에 안 쌓이므로 뒤로가기 첫 번째가 곧장 /login 이다)
+		//
+		//   로그아웃은 그것만을 위한 /logout 이 이미 있다. 계정을 바꾸려면 그 쪽을 쓴다.
+		if (auth != null) {
+			return new ModelAndView("redirect:/");
+		}
+
+		// ✅ 3️⃣ 로그인 화면은 캐시에 남기지 않는다.
+		//   되살아난 페이지는 세션이 갈리기 전의 낡은 CSRF 토큰을 들고 있어,
+		//   화면이 뜨자마자 부르는 getspjangcd() POST 가 403 으로 떨어지고
+		//   "에러가 발생하였습니다" 알럿이 뜬다. 캐시를 막으면 항상 새로 받는다.
+		response.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+		response.setHeader("Pragma", "no-cache");
+		response.setDateHeader("Expires", 0);
+
 		String userAgent = request.getHeader("User-Agent").toLowerCase();
 		boolean isMobile = userAgent.contains("mobile") || userAgent.contains("iphone");
 		ModelAndView mv = new ModelAndView(isMobile ? "mlogin" : "login");
 		mv.addObject("userinfo", new HashMap<>());
 		mv.addObject("gui", new HashMap<>());
-
-		// ✅ 3️⃣ 이미 로그인된 상태라면 강제 로그아웃 처리
-		if (auth != null) {
-			SecurityContextLogoutHandler handler = new SecurityContextLogoutHandler();
-			handler.logout(request, response, auth);
-		}
 
 		return mv;
 	}
@@ -269,8 +284,8 @@ public class AccountController {
 
 			SecurityContextHolder.clearContext();
 
-            result.put("code", "OK");
-            result.put("message", "로그아웃 완료");
+			result.put("code", "OK");
+			result.put("message", "로그아웃 완료");
 		}catch (Exception e){
 			result.put("code", "ERROR");
 			result.put("message", "로그아웃 처리 중 오류: " + e.getMessage());
@@ -292,47 +307,47 @@ public class AccountController {
 		return result;
 	}
 
-    @PostMapping("/account/myinfo/password_change")
-    public AjaxResult userPasswordChange(
-    		@RequestParam("name") final String name,
-    		@RequestParam("loginPwd") final String loginPwd,
-    		@RequestParam("loginPwd2") final String loginPwd2,
-    		Authentication auth
-    		) {
+	@PostMapping("/account/myinfo/password_change")
+	public AjaxResult userPasswordChange(
+			@RequestParam("name") final String name,
+			@RequestParam("loginPwd") final String loginPwd,
+			@RequestParam("loginPwd2") final String loginPwd2,
+			Authentication auth
+	) {
 
-    	User user = (User)auth.getPrincipal();
-        AjaxResult result = new AjaxResult();
+		User user = (User)auth.getPrincipal();
+		AjaxResult result = new AjaxResult();
 
-        if (StringUtils.hasText(loginPwd)==false | StringUtils.hasText(loginPwd2)==false) {
-        	result.success=false;
-        	result.message="The verification password is incorrect.";
-        	return result;
-        }
+		if (StringUtils.hasText(loginPwd)==false | StringUtils.hasText(loginPwd2)==false) {
+			result.success=false;
+			result.message="The verification password is incorrect.";
+			return result;
+		}
 
-        if(loginPwd.equals(loginPwd2)==false) {
-        	result.success=false;
-        	result.message="The verification password is incorrect.";
-        	return result;
-        }
+		if(loginPwd.equals(loginPwd2)==false) {
+			result.success=false;
+			result.message="The verification password is incorrect.";
+			return result;
+		}
 
-        user.setPassword(Pbkdf2Sha256.encode(loginPwd2));
-        //user.getUserProfile().setName(name);
-        this.userRepository.save(user);
+		user.setPassword(Pbkdf2Sha256.encode(loginPwd2));
+		//user.getUserProfile().setName(name);
+		this.userRepository.save(user);
 
-        String sql = """
+		String sql = """
         	update user_profile set 
         	"Name"=:name, _modified = now(), _modifier_id=:id 
         	where id=:id 
         """;
 
-        MapSqlParameterSource dicParam = new MapSqlParameterSource();
-        dicParam.addValue("name", name);
-        dicParam.addValue("id", user.getId());
-        this.sqlRunner.execute(sql, dicParam);
+		MapSqlParameterSource dicParam = new MapSqlParameterSource();
+		dicParam.addValue("name", name);
+		dicParam.addValue("id", user.getId());
+		this.sqlRunner.execute(sql, dicParam);
 
 
-        return result;
-    }
+		return result;
+	}
 
 	/***
 	 *  아이디 중복 확인

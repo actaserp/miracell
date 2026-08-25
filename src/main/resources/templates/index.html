@@ -44,6 +44,66 @@
         sessionStorage.setItem("spjangcd", [[${session.spjangcd}]]);
     </script>
 
+    <script>
+        /* ═══ 안드로이드 뒤로가기 가드 ═══════════════════════════════════
+           로그인은 전체 페이지 POST 라 히스토리에 [/login] → [/] 두 칸이 남는다.
+           탭은 nth-tabs 가 iframe 을 «새로 만들어» 끼우는 방식이라(addTab 의
+           innerHTML), 새 프레임의 최초 로드는 히스토리에 쌓이지 않는다.
+           탭 전환(setActTab)도 보이기만 바꿀 뿐 src 를 건드리지 않는다.
+           → 메뉴를 몇 개를 열든 히스토리는 두 칸 그대로이고, 뒤로가기 한 번이면
+             곧장 /login 으로 되감겨 «이미 로그인됨» 알럿이 뜬다.
+
+           OS 버튼이라 없앨 수는 없으니, 센티넬을 심어 그 자리에 머물게 하고
+           뒤로가기에는 «열려 있는 것 닫기» 만 맡긴다.
+           전면 무력화하지 않는 이유 — 시트가 떠 있을 때 뒤로가기를 누르는 건
+           안드로이드에서 학습된 반사라, 아무 반응이 없으면 화면을 두드리게 되고
+           그게 현장에서 오입력이 된다.
+           ─────────────────────────────────────────────────────────────── */
+        (function () {
+            if (window.top !== window.self) return;   // iframe 안에서는 돌지 않는다
+
+            var SENTINEL = {mesRoot: 1};
+            history.pushState(SENTINEL, '');
+
+            /* 부모에 떠 있는 모달(.modal-overlay = 발송·이력 등) */
+            function closeParentModal() {
+                var hit = false;
+                var list = document.querySelectorAll('.modal-overlay');
+                for (var i = 0; i < list.length; i++) {
+                    var el = list[i];
+                    /* offsetParent 가 null 이면 화면에 없다 — display:none 과
+                       조상이 숨겨진 경우를 한 번에 거른다 */
+                    if (el.offsetParent !== null) { el.style.display = 'none'; hit = true; }
+                }
+                return hit;
+            }
+
+            /* 활성 탭 iframe 에게 «닫아라» 고 알린다.
+               화면이 window.mesOnBack 을 노출하고, 닫았으면 true 를 돌려준다.
+               노출하지 않은 화면은 그냥 무시된다(앱만 안 나가면 된다). */
+            function closeFrameLayer() {
+                var frames = document.querySelectorAll('.con_area iframe.nth-tabs-frame');
+                for (var i = 0; i < frames.length; i++) {
+                    var f = frames[i];
+                    if (f.offsetParent === null) continue;   // 숨은 탭은 건너뛴다
+                    try {
+                        if (f.contentWindow && typeof f.contentWindow.mesOnBack === 'function') {
+                            if (f.contentWindow.mesOnBack() === true) return true;
+                        }
+                    } catch (e) { /* 아직 로드 전이면 무시 */ }
+                }
+                return false;
+            }
+
+            window.addEventListener('popstate', function () {
+                if (!closeParentModal()) closeFrameLayer();
+                /* ★ 닫을 게 있었든 없었든 센티넬을 다시 심는다.
+                   이게 없으면 다음 뒤로가기가 /login 으로 내려간다. */
+                history.pushState(SENTINEL, '');
+            });
+        })();
+    </script>
+
     <style>
         /* ═══ 부모 창은 스크롤하지 않는다 ═══════════════════════════════
            내용은 전부 iframe 안에 있고 스크롤은 거기서 담당한다.
