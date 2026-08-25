@@ -238,13 +238,14 @@
 
         @media (max-width:680px){.qgrid{grid-template-columns:1fr}}
         @media (prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important}}
+
     </style>
 
     <div class="ms-wash-root">
         <div class="app">
             <!-- A. 검사 작업지시(수주) -->
             <div class="screen" id="scA"><div class="wrap">
-                <div class="qhead"><h1>M-CELL 검사 · 생산계획</h1><span class="cnt" id="qcnt"></span>
+                <div class="qhead"><h1>M-CELL 검사 · 생산계획</h1><a title="북마크" class="bookmark toggle">내 메뉴</a><span class="cnt" id="qcnt"></span>
                     <div class="qfilter"><button class="on" data-f="all">전체</button>
                         <button data-f="wait">대기</button><button data-f="working">검사중</button></div>
                     <button class="gearbtn" id="btnForms" title="검사 양식 설정">⚙<span>양식 설정</span></button></div>
