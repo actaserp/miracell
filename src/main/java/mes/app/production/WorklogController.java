@@ -37,15 +37,26 @@ public class WorklogController {
 
     // ── 작업 기록 ─────────────────────────────────────────
 
-    /** 그날의 작업 기록. factory_id 를 비우면 두 공장 모두(통합 일보) */
+    /**
+     * 기간의 작업 기록. factory_id 를 비우면 두 공장 모두(통합 일보)
+     *
+     * ★ date_from / date_to 로 받는다 — 실적 조회(work_status)와 같은 이름이다.
+     *   화면 한 곳에서 실적은 기간, 기록은 하루로 물으면 같은 표 안에서 범위가 어긋난다.
+     *   구버전 화면이 보내던 date 도 계속 받는다(둘 다 없으면 오늘).
+     */
     @GetMapping("/notes")
     public AjaxResult notes(
-            @RequestParam("date") String date,
+            @RequestParam(value = "date_from", required = false) String dateFrom,
+            @RequestParam(value = "date_to", required = false) String dateTo,
+            @RequestParam(value = "date", required = false) String date,
             @RequestParam(value = "factory_id", required = false) Integer factoryId,
             @RequestParam(value = "spjangcd", defaultValue = "ZZ") String spjangcd) {
 
+        String from = (dateFrom != null && !dateFrom.isBlank()) ? dateFrom : date;
+        String to   = (dateTo   != null && !dateTo.isBlank())   ? dateTo   : from;
+
         AjaxResult r = new AjaxResult();
-        r.data = this.svc.getNotes(date, factoryId, spjangcd);
+        r.data = this.svc.getNotes(from, to, factoryId, spjangcd);
         return r;
     }
 

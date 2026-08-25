@@ -15,8 +15,8 @@
             line-height:1.4; white-space:nowrap; }
         .wl-tag.lot { background:#eef2f8; color:#3a4759; } .wl-tag.row { background:#e7f0ff; color:#2f6fed; margin-bottom:0; }
         .wl-tag.qty { background:#e3f6ec; color:#0f9d58; } .wl-tag.def { background:#fdecec; color:#d64545; }
-        .wl-navbtn { border:1px solid #e2e6ee; background:#fbfcfe; width:40px; height:40px; border-radius:10px; font-size:18px; font-weight:800; cursor:pointer; color:#3a4759; }
         .wl-dateinput { border:1px solid #e2e6ee; background:#fbfcfe; height:42px; border-radius:10px; padding:0 12px; font-size:18px; font-weight:800; color:#1f2733; font-variant-numeric:tabular-nums; cursor:pointer; }
+        .wl-dsep { font-size:18px; font-weight:800; color:#8a94a4; }
 
         /* 공정 블록 */
         .wl-proc-box { background:#fff; border:1px solid #e2e6ee; border-radius:12px; margin-bottom:14px; overflow:hidden; }
@@ -77,8 +77,8 @@
         .wl-runhead { display:none; }
 
         @media print {
-            .page-title-wrap, .section-top, .page-navi, .bookmark, .wl-print, .wl-navbtn,
-            .wl-dateinput, .wl-note, .wl-daybar .dow,
+            .page-title-wrap, .section-top, .page-navi, .bookmark, .wl-print,
+            .wl-dateinput, .wl-dsep, .wl-note, .wl-daybar .dow,
             .wl-btn, .wl-rowbtn, .wl-dim, .wl-modal, .th-act, .wl-chk { display:none !important; }
 
             /* ★ 여러 장으로 안 나뉘던 원인
@@ -153,9 +153,10 @@
 
         <section class="section">
             <div class="section-top"><div class="wl-topbar">
-                <div style="font-size:13px;color:#8a94a4;font-weight:700">하루 동안 공정별로 어떤 작업을 했는지 보여줍니다.</div>
+                <div style="font-size:13px;color:#8a94a4;font-weight:700">선택한 기간 동안 공정별로 어떤 작업을 했는지 보여줍니다. (기본 오늘 하루)</div>
                 <label class="wl-chk"><input type="checkbox" id="chkEmpty"> 작업 없는 공정도 표시</label>
                 <button type="button" class="wl-btn add" id="btnAdd">+ 작업 기록 등록</button>
+                <button type="button" class="wl-btn gray" id="btnExcel">⤓ 엑셀 다운로드</button>
                 <button type="button" class="wl-print" id="btnPrint" style="margin-left:0">🖨 인쇄</button>
             </div></div>
 
@@ -166,10 +167,10 @@
                     <tr><td></td><td></td><td></td></tr></table>
 
                 <div class="wl-daybar" id="dayBar">
-                    <button class="wl-navbtn" id="prevDay" title="전날">‹</button>
                     <input type="date" id="fDate" class="wl-dateinput">
+                    <span class="wl-dsep">~</span>
+                    <input type="date" id="fDate2" class="wl-dateinput">
                     <span class="dow" id="dDow"></span>
-                    <button class="wl-navbtn" id="nextDay" title="다음날">›</button>
                     <div class="sum" id="daySum"></div>
                 </div>
                 <div id="body"><div class="wl-loading">불러오는 중…</div></div>
@@ -232,7 +233,7 @@
          *   또 한 로트가 여러 날에 걸치면 일보가 아니라 이력이 되어버린다.
          *   일보는 "그날 무엇을 얼마나 했나"를 보는 문서다.
          *
-         * ★ 데이터는 작업실적현황과 같은 API 를 쓴다(기간을 하루로 좁혀서).
+         * ★ 데이터는 작업실적현황과 같은 API 를 쓴다(기본은 오늘 하루, 기간 조회도 가능).
          *   집계 규칙이 두 벌이 되면 같은 날 두 화면 숫자가 달라진다.
          * ========================================================= */
         const WL_SPJANGCD = (window.WS_CTX && window.WS_CTX.spjangcd) || 'ZZ';
@@ -274,8 +275,15 @@
         /** 'yyyy-mm-dd hh:mm' → 'hh:mm' (일보는 하루치라 날짜가 불필요) */
         function hm(s){
             if(!s) return '-';
-            const m = String(s).match(/(\d{2}:\d{2})$/);
-            return m ? m[1] : s;
+            const t = String(s).match(/(\d{2}:\d{2})(:\d{2})?$/);
+            if(!t) return s;
+            /* ★ 기간으로 보면 시각만으로는 어느 날 것인지 사라진다.
+               하루치일 때는 지금처럼 시각만 — 날짜가 매 줄 반복되면 표가 무거워진다. */
+            if(WL_MULTI){
+                const d = String(s).match(/^\d{4}-(\d{2}-\d{2})/);
+                if(d) return d[1]+' '+t[1];
+            }
+            return t[1];
         }
         /** 조원이 여럿이면 명단을 그대로 쓴다 (조원 칸을 따로 두지 않는다) */
         function wlWorker(r){
@@ -285,34 +293,58 @@
         function fmt(d){
             return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
         }
-        function shiftDay(n){
-            const v = document.getElementById('fDate').value;
-            const d = v ? new Date(v+'T00:00') : new Date();
-            d.setDate(d.getDate()+n);
-            document.getElementById('fDate').value = fmt(d);
-            wlLoad();
+        let WL_MULTI = false;   /* 하루치가 아니면 표의 시간 칸에 날짜를 함께 찍는다 */
+
+        /** 조회 기간. from > to 로 넣으면 뒤집어 준다 — 입력 순서 탓에 빈 화면이 나오지 않게. */
+        function wlRange(){
+            const a = document.getElementById('fDate');
+            const b = document.getElementById('fDate2');
+            let from = a.value, to = (b && b.value) ? b.value : a.value;
+            if(!from) from = to;
+            if(from && to && from > to){
+                const t = from; from = to; to = t;
+                a.value = from; if(b) b.value = to;
+            }
+            const days = (from && to)
+                ? Math.round((new Date(to+'T00:00') - new Date(from+'T00:00')) / 86400000) + 1 : 0;
+            return {from:from, to:to, days:days};
         }
+
+        /** 머리글·인쇄 제목·엑셀 파일이 같은 문구를 쓰도록 한 곳에서 만든다 */
+        function wlPeriodText(){
+            const r = wlRange();
+            if(!r.from) return '';
+            if(r.from === r.to){
+                const d = new Date(r.from+'T00:00');
+                return r.from+' ('+DOW[d.getDay()]+')';
+            }
+            return r.from+' ~ '+r.to+' ('+r.days+'일간)';
+        }
+
 
         // =====================================================
         function wlLoad(){
             const host = document.getElementById('body');
             if(!wlReady()){ host.innerHTML = '<div class="wl-empty">AjaxUtil 로드 실패 — 새로고침해 주세요.</div>'; return; }
-            const date = document.getElementById('fDate').value;
-            if(!date){ host.innerHTML = '<div class="wl-empty">날짜를 선택해 주세요.</div>'; return; }
+            const rg = wlRange();
+            const date = rg.from, dateTo = rg.to;
+            if(!date || !dateTo){ host.innerHTML = '<div class="wl-empty">날짜를 선택해 주세요.</div>'; return; }
 
-            const d = new Date(date+'T00:00');
-            document.getElementById('dDow').textContent = '('+DOW[d.getDay()]+')';
-            document.getElementById('dayBar').setAttribute('data-title', date+' ('+DOW[d.getDay()]+') 작업일보');
+            WL_MULTI = (date !== dateTo);
+            const pt = wlPeriodText();
+            document.getElementById('dDow').textContent =
+                WL_MULTI ? '('+rg.days+'일간)' : '('+DOW[new Date(date+'T00:00').getDay()]+')';
+            document.getElementById('dayBar').setAttribute('data-title', pt+' 작업일보');
             document.getElementById('runHead').textContent =
-                '작업일보 · 1공장 · 키트(BSC/BmSC) · '+date+' ('+DOW[d.getDay()]+')';
+                '작업일보 · 1공장 · 키트(BSC/BmSC) · '+pt;
             host.innerHTML = '<div class="wl-loading">불러오는 중…</div>';
 
-            /* 기간을 하루로 좁혀 작업실적현황과 같은 API 를 쓴다 */
-            noteLoad(date);
+            /* 작업실적현황과 같은 API·같은 기간 파라미터를 쓴다 */
+            noteLoad(date, dateTo);
             let r = null;
             try {
                 r = wlData(AjaxUtil.getSyncData(WL_API+'/f1_process',
-                    {date_from:date, date_to:date, spjangcd:WL_SPJANGCD}));
+                    {date_from:date, date_to:dateTo, spjangcd:WL_SPJANGCD}));
             } catch(e) {
                 console.error('[worklog] f1_process', e);
             }
@@ -560,10 +592,11 @@
            동기 호출이라 여기서 예외가 나면 뒤 렌더가 통째로 멈춘다.
            (테이블 미생성·엔드포인트 미배포 때 실제로 그랬다) */
         let NOTE_ERR = null;
-        function noteLoad(date){
+        function noteLoad(date, dateTo){
             NOTE_ERR = null;
             try {
-                const p = {date:date, spjangcd:WL_SPJANGCD};
+                /* 실적과 같은 기간을 본다 — 한쪽만 하루치면 같은 화면에서 범위가 어긋난다 */
+                const p = {date_from:date, date_to:(dateTo || date), spjangcd:WL_SPJANGCD};
                 if (typeof WL_FACTORY !== 'undefined' && WL_FACTORY) p.factory_id = WL_FACTORY;
                 NOTES = wlData(AjaxUtil.getSyncData(NOTE_API+'/notes', p)) || [];
             } catch(e) {
@@ -586,7 +619,7 @@
 
         /** 작업 기록 블록 — 일보 맨 아래에 붙는다 */
         function noteBlock(){
-            const th = '<th>구분</th><th class="left">내용</th><th>공정</th>'
+            const th = '<th>일자</th><th>구분</th><th class="left">내용</th><th>공정</th>'
                 + '<th>설비</th><th>관련 작업자</th><th>작성자</th><th class="th-act">관리</th>';
             if(NOTE_ERR){
                 return '<div class="wl-proc-box"><div class="wl-proc-h"><span class="nm">작업 기록</span></div>'
@@ -596,7 +629,8 @@
             const tb = NOTES.length ? NOTES.map(function(n){
                     const fac = (typeof WL_FACTORY === 'undefined' || !WL_FACTORY)
                         ? '<span class="wl-code">'+(Number(n.factory_id)===2?'2공장':'1공장')+'</span> ' : '';
-                    return '<tr><td><span class="wl-cat '+esc(n.category)+'">'
+                    return '<tr><td>'+esc(n.note_date||'-')+'</td>'
+                        + '<td><span class="wl-cat '+esc(n.category)+'">'
                         +   esc(n.category_name || n.category || '-')+'</span></td>'
                         + '<td class="left">'+fac+esc(n.content)+'</td>'
                         + '<td>'+esc(n.process_name||'-')+'</td>'
@@ -608,7 +642,7 @@
                         +   '<button type="button" class="wl-rowbtn del" onclick="noteDel('+n.pk+')">삭제</button>'
                         + '</td></tr>';
                 }).join('')
-                : '<tr><td colspan="7" style="color:#c2c9d4;padding:22px">등록된 작업 기록이 없습니다.</td></tr>';
+                : '<tr><td colspan="8" style="color:#c2c9d4;padding:22px">등록된 작업 기록이 없습니다.</td></tr>';
 
             return '<div class="wl-proc-box"><div class="wl-proc-h">'
                 + '<span class="nm">작업 기록</span>'
@@ -726,15 +760,97 @@
             return m ? (m[1]+'T'+m[2]) : '';
         }
 
+        /* =========================================================
+         * 엑셀 내려받기
+         *
+         * ★ 화면에 그려진 표를 그대로 옮긴다.
+         *   엑셀용으로 집계를 다시 짜면 규칙이 두 벌이 되어
+         *   같은 기간인데 화면과 파일의 숫자가 달라진다.
+         *   (작업실적현황과 API 를 공유하는 것과 같은 이유)
+         *
+         * ★ 라이브러리를 붙이지 않고 표 HTML 을 .xls 로 내린다.
+         *   엑셀이 그대로 읽고, 화면의 소계·합계 행이 살아 있다.
+         * ========================================================= */
+        function wlExcel(){
+            const body = document.getElementById('body');
+            if(!body || !body.querySelector('table')){
+                Alert.alert('내려받을 내용이 없습니다.'); return;
+            }
+            const r = wlRange();
+            const COLS = 14;
+
+            /* 원본을 건드리지 않도록 복제해서 화면 전용 요소를 걷어낸다 */
+            const clone = body.cloneNode(true);
+            clone.querySelectorAll('.th-act').forEach(function(el){ el.remove(); });
+            clone.querySelectorAll('button').forEach(function(el){ el.remove(); });
+            clone.querySelectorAll('br').forEach(function(el){
+                el.parentNode.replaceChild(document.createTextNode(' / '), el);
+            });
+
+            const cell = function(el){ return esc(String(el.textContent||'').replace(/\s+/g,' ').trim()); };
+            let sheet = '';
+            Array.prototype.forEach.call(clone.children, function(node){
+                if(node.classList && node.classList.contains('wl-fsec')){
+                    sheet += '<tr><td colspan="'+COLS+'" style="font-weight:bold;background:#dde3ee">'
+                        +  cell(node)+'</td></tr>';
+                    return;
+                }
+                const t = node.querySelector ? node.querySelector('table') : null;
+                if(!t) return;
+                const h = node.querySelector('.wl-proc-h');
+                sheet += '<tr><td colspan="'+COLS+'"></td></tr>'
+                    +  '<tr><td colspan="'+COLS+'" style="font-weight:bold;background:#eef2f8">'
+                    +  (h ? cell(h) : '')+'</td></tr>';
+                Array.prototype.forEach.call(t.querySelectorAll('tr'), function(tr){
+                    let line = '';
+                    Array.prototype.forEach.call(tr.children, function(td){
+                        const cs = td.getAttribute('colspan');
+                        const head = (td.tagName === 'TH');
+                        line += '<td'+(cs ? ' colspan="'+cs+'"' : '')
+                            +  (head ? ' style="font-weight:bold;background:#e8ebf0"' : '')
+                            +  '>'+cell(td)+'</td>';
+                    });
+                    sheet += '<tr>'+line+'</tr>';
+                });
+            });
+
+            const title = (document.getElementById('runHead').textContent || '작업일보').trim();
+            const html = '<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head>'
+                + '<meta http-equiv="Content-Type" content="text/html; charset=utf-8">'
+                + '<!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>'
+                + '<x:Name>작업일보</x:Name>'
+                + '<x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>'
+                + '</x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->'
+                + '<style>table{border-collapse:collapse}td{border:.5pt solid #999;padding:2px 4px;'
+                + 'font-size:10pt;vertical-align:middle}</style></head><body><table>'
+                + '<tr><td colspan="'+COLS+'" style="font-size:14pt;font-weight:bold;border:0">'+esc(title)+'</td></tr>'
+                + '<tr><td colspan="'+COLS+'" style="border:0">출력 '+fmt(new Date())+'</td></tr>'
+                + sheet + '</table></body></html>';
+
+            /* BOM 을 붙여야 엑셀이 UTF-8 로 읽는다 — 없으면 한글이 깨진다 */
+            const blob = new Blob(['\ufeff'+html], {type:'application/vnd.ms-excel;charset=utf-8'});
+            const url  = URL.createObjectURL(blob);
+            const a    = document.createElement('a');
+            a.href = url;
+            a.download = '작업일보_' + r.from + ((r.from === r.to) ? '' : '_'+r.to) + '.xls';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+        }
+
         // =====================================================
         document.addEventListener('DOMContentLoaded', function(){
-            document.getElementById('fDate').value = fmt(new Date());
+            /* 기본은 오늘 ~ 오늘 — 일보는 그날치를 보는 문서가 기본이다 */
+            const today = fmt(new Date());
+            document.getElementById('fDate').value  = today;
+            document.getElementById('fDate2').value = today;
             document.getElementById('fDate').addEventListener('change', wlLoad);
-            document.getElementById('prevDay').addEventListener('click', function(){ shiftDay(-1); });
-            document.getElementById('nextDay').addEventListener('click', function(){ shiftDay(1); });
+            document.getElementById('fDate2').addEventListener('change', wlLoad);
             document.getElementById('chkEmpty').addEventListener('change', wlLoad);
             document.getElementById('btnAdd').addEventListener('click', function(){ noteOpen(null); });
             document.getElementById('btnPrint').addEventListener('click', function(){ window.print(); });
+            document.getElementById('btnExcel').addEventListener('click', wlExcel);
             document.addEventListener('keydown', function(e){ if(e.key==='Escape'){ noteClose(); editClose(); } });
             wlLoad();
         });

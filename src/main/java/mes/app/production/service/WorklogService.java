@@ -46,13 +46,22 @@ public class WorklogService {
     // =================================================================
 
     /**
-     * 그날의 작업 기록.
+     * 기간의 작업 기록.
      *
      * factoryId 가 null 이면 두 공장을 모두 — 통합 일보가 쓴다.
+     * dateTo 를 비우면 dateFrom 하루치 — 기본은 그날치를 보는 문서다.
      */
-    public List<Map<String, Object>> getNotes(String date, Integer factoryId, String spjangcd) {
+    public List<Map<String, Object>> getNotes(String dateFrom, String dateTo,
+                                              Integer factoryId, String spjangcd) {
+        if (blank(dateTo)) dateTo = dateFrom;
+        // 뒤집어 들어오면 빈 목록이 되어 "기록이 없다"로 잘못 읽힌다
+        if (!blank(dateFrom) && dateFrom.compareTo(dateTo) > 0) {
+            String t = dateFrom; dateFrom = dateTo; dateTo = t;
+        }
+
         MapSqlParameterSource p = new MapSqlParameterSource();
-        p.addValue("date", date);
+        p.addValue("date_from", dateFrom);
+        p.addValue("date_to", dateTo);
         p.addValue("factory_id", factoryId);
         p.addValue("spjangcd", blank(spjangcd) ? "ZZ" : spjangcd);
 
@@ -80,12 +89,12 @@ public class WorklogService {
                   LEFT JOIN equ     e  ON e.id  = n."Equipment_id"
                   LEFT JOIN person  pe ON pe.id = n."Actor_id"
                   LEFT JOIN person  cr ON cr.id = n."_creater_id"
-                 WHERE n."NoteDate" = CAST(:date AS date)
+                 WHERE n."NoteDate" BETWEEN CAST(:date_from AS date) AND CAST(:date_to AS date)
                    AND COALESCE(n._status, 'a') = 'a'
                    AND n.spjangcd = :spjangcd
                    AND (CAST(:factory_id AS integer) IS NULL
                         OR n."Factory_id" = CAST(:factory_id AS integer))
-                 ORDER BY n."Factory_id", n.id
+                 ORDER BY n."NoteDate", n."Factory_id", n.id
                 """;
 
         return nz(this.sqlRunner.getRows(sql, p));
