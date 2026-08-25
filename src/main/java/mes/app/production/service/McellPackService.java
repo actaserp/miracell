@@ -68,6 +68,11 @@ public class McellPackService {
 	@Autowired WorkMemberService workMemberService;
 
 	public static final int STORE_PROD    = 17;   // 생산창고 — 포장자재
+
+	/** 포장 자재 사진 — 공용 attach_file 네임스페이스 (McellPackController 와 같은 값) */
+	/** ★ mat_produce 는 조립·수리도 쓰는 테이블 — 구분은 AttachName 이 한다 */
+	public static final String ATT_TABLE = "mat_produce";
+	public static final String ATT_NAME  = "PACK_MCELL_MAT_PHOTO";
 	public static final int STORE_INSPECT = 19;   // 검사완료창고 — 유닛 로트
 	public static final int STORE_PRODUCT = 4;    // 제품창고 — 완제품 (wc 56 ProcessStoreHouse_id)
 	public static final int WC_PACK       = 56;   // 포장(2공장) 워크센터
@@ -80,23 +85,23 @@ public class McellPackService {
 
 	/** 완제품 작지인가 = 그 산출품목의 manufacturing BOM 에 InspectYN='Y' 구성품이 있는가 */
 	private static final String IS_PACK_MATERIAL =
-			"""
-            EXISTS (SELECT 1
-                      FROM bom b2
-                      JOIN bom_comp bc2 ON bc2."BOM_id" = b2.id
-                      JOIN material  cm2 ON cm2.id = bc2."Material_id"
-                     WHERE b2."Material_id" = %s
-                       AND b2."BOMType" = 'manufacturing'
-                       AND COALESCE(cm2."InspectYN",'N') = 'Y')
-            """;
+		"""
+					EXISTS (SELECT 1
+										FROM bom b2
+										JOIN bom_comp bc2 ON bc2."BOM_id" = b2.id
+										JOIN material  cm2 ON cm2.id = bc2."Material_id"
+									 WHERE b2."Material_id" = %s
+										 AND b2."BOMType" = 'manufacturing'
+										 AND COALESCE(cm2."InspectYN",'N') = 'Y')
+					""";
 
 	/** 유닛 작지(ajr)가 포장 작지(jr)에 속하는가 */
 	private static final String BELONGS_TO_JR =
-			"""
-            (    ajr.id = jr.id
-              OR ajr."Parent_id" = jr.id
-              OR ajr."WorkOrderNumber" = jr."WorkOrderNumber" )
-            """;
+		"""
+					(    ajr.id = jr.id
+						OR ajr."Parent_id" = jr.id
+						OR ajr."WorkOrderNumber" = jr."WorkOrderNumber" )
+					""";
 
 	/**
 	 * 유닛이 실제로 매달릴 작지.
@@ -109,32 +114,32 @@ public class McellPackService {
 	 *   두 행 생긴다(조립 1 + 수리 1). 원 유닛은 McellRepair_id 가 비어 있는 쪽이다.
 	 */
 	private static final String ORIG_JR_LATERAL =
-			"""
-            LEFT JOIN LATERAL (
-                  SELECT j.* FROM job_res j
-                   WHERE j.id = COALESCE(
-                         (SELECT o."JobResponse_id" FROM mcell_unit o
-                           WHERE o."LotNumber" = COALESCE(NULLIF(mu."SrcLotNumber",''), mu."LotNumber")
-                             AND o.id <> mu.id
-                             AND o."McellRepair_id" IS NULL
-                             AND COALESCE(o."_status",'a') = 'a'
-                           ORDER BY o.id LIMIT 1),
-                         mu."JobResponse_id")
-            ) ajr ON true
-            """;
+		"""
+					LEFT JOIN LATERAL (
+								SELECT j.* FROM job_res j
+								 WHERE j.id = COALESCE(
+											 (SELECT o."JobResponse_id" FROM mcell_unit o
+												 WHERE o."LotNumber" = COALESCE(NULLIF(mu."SrcLotNumber",''), mu."LotNumber")
+													 AND o.id <> mu.id
+													 AND o."McellRepair_id" IS NULL
+													 AND COALESCE(o."_status",'a') = 'a'
+												 ORDER BY o.id LIMIT 1),
+											 mu."JobResponse_id")
+					) ajr ON true
+					""";
 
 	/** 같은 로트번호에 유닛이 여럿일 수 있다(재작업·분해). pass 1건만 고른다. */
 	private static final String PASS_UNIT_LATERAL =
-			"""
-            JOIN LATERAL (
-                  SELECT x.* FROM mcell_unit x
-                   WHERE x."LotNumber"   = ml."LotNumber"
-                     AND x."Material_id" = ml."Material_id"
-                     AND COALESCE(x."_status",'a') = 'a'
-                     AND x."State" = 'pass'
-                   ORDER BY x.id DESC LIMIT 1
-            ) mu ON true
-            """;
+		"""
+					JOIN LATERAL (
+								SELECT x.* FROM mcell_unit x
+								 WHERE x."LotNumber"   = ml."LotNumber"
+									 AND x."Material_id" = ml."Material_id"
+									 AND COALESCE(x."_status",'a') = 'a'
+									 AND x."State" = 'pass'
+								 ORDER BY x.id DESC LIMIT 1
+					) mu ON true
+					""";
 
 	/* 포장자재의 소스창고는 항상 생산창고(17)다 — '불출된 것' 을 쓴다(§8).
 	 *
@@ -152,8 +157,8 @@ public class McellPackService {
 	/** 공정 컨텍스트 — mc03 → 워크센터 56 / 산출창고 4 / 기본 설비 */
 	public Map<String, Object> getContext(String processCode, Integer factoryId) {
 		MapSqlParameterSource p = new MapSqlParameterSource()
-				.addValue("processCode", processCode)
-				.addValue("factoryId", factoryId);
+																.addValue("processCode", processCode)
+																.addValue("factoryId", factoryId);
 		Map<String, Object> row = this.sqlRunner.getRow("""
                 SELECT p.id AS process_id, p."Code" AS process_code, p."Name" AS process_name,
                        wc.id AS workcenter_id, wc."Name" AS workcenter_name,
@@ -173,8 +178,8 @@ public class McellPackService {
 			// 워크센터 56 에 설비가 둘(포장대·외포장기) 붙어 있어 기본값을 코드로 집는다.
 			// id 를 박으면 서버 이전·재등록 때 조용히 엉뚱한 설비가 잡힌다.
 			Map<String, Object> equ = this.sqlRunner.getRow(
-					"SELECT id FROM equ WHERE \"Code\" = :code AND COALESCE(\"_status\",'a')='a' LIMIT 1",
-					new MapSqlParameterSource().addValue("code", DEFAULT_EQU_CODE));
+				"SELECT id FROM equ WHERE \"Code\" = :code AND COALESCE(\"_status\",'a')='a' LIMIT 1",
+				new MapSqlParameterSource().addValue("code", DEFAULT_EQU_CODE));
 			row.put("default_equipment_id", equ == null ? null : asInt(equ.get("id")));
 		}
 		return row;
@@ -187,7 +192,7 @@ public class McellPackService {
 	 *   판별은 BOM 구조로 한다.
 	 */
 	public List<Map<String, Object>> getWoQueue(Integer processId, String spjangcd,
-												String dateFrom, String dateTo) {
+																							String dateFrom, String dateTo) {
 		// ★ SqlRunner.getRows 는 오류 시 null 을 반환한다(빈 리스트가 아니다).
 		return safe(getOrderCards(spjangcd, dateFrom, dateTo));
 	}
@@ -199,9 +204,9 @@ public class McellPackService {
 	/** 포장 작지 카드 */
 	private List<Map<String, Object>> getOrderCards(String spjangcd, String dateFrom, String dateTo) {
 		MapSqlParameterSource p = new MapSqlParameterSource()
-				.addValue("spjangcd", spjangcd)
-				.addValue("dateFrom", (dateFrom == null || dateFrom.isBlank()) ? null : LocalDate.parse(dateFrom))
-				.addValue("dateTo",   (dateTo   == null || dateTo.isBlank())   ? null : LocalDate.parse(dateTo));
+																.addValue("spjangcd", spjangcd)
+																.addValue("dateFrom", (dateFrom == null || dateFrom.isBlank()) ? null : LocalDate.parse(dateFrom))
+																.addValue("dateTo",   (dateTo   == null || dateTo.isBlank())   ? null : LocalDate.parse(dateTo));
 		return this.sqlRunner.getRows("""
                 SELECT jr.id                                      AS job_res_id
                      , jr."WorkOrderNumber"                       AS order_num
@@ -262,13 +267,13 @@ public class McellPackService {
                  ORDER BY jr."ProductionDate" DESC, jr."WorkOrderNumber" DESC
                  LIMIT 200
                 """.formatted(PASS_UNIT_LATERAL, ORIG_JR_LATERAL, BELONGS_TO_JR,
-				String.format(IS_PACK_MATERIAL, "jr.\"Material_id\"")), p);
+			String.format(IS_PACK_MATERIAL, "jr.\"Material_id\"")), p);
 	}
 
 	/** 이 작지(완제품)가 포장 대상으로 삼는 유닛 품목 id 목록 */
 	public List<Map<String, Object>> getUnitMaterials(Integer jobResId, Integer packMatId) {
 		MapSqlParameterSource p = new MapSqlParameterSource()
-				.addValue("matId", resolvePackMatId(jobResId, packMatId));
+																.addValue("matId", resolvePackMatId(jobResId, packMatId));
 		return this.sqlRunner.getRows("""
                 SELECT bc."Material_id" AS mat_id, m."Code" AS mat_code, m."Name" AS mat_name
                   FROM bom b
@@ -293,8 +298,8 @@ public class McellPackService {
 	 */
 	public List<Map<String, Object>> getReadyUnits(Integer jobResId, Integer packMatId) {
 		MapSqlParameterSource p = new MapSqlParameterSource()
-				.addValue("jrId", jobResId)
-				.addValue("matId", resolvePackMatId(jobResId, packMatId));
+																.addValue("jrId", jobResId)
+																.addValue("matId", resolvePackMatId(jobResId, packMatId));
 
 		return this.sqlRunner.getRows(("""
                 SELECT ml.id                                       AS mat_lot_id
@@ -374,9 +379,9 @@ public class McellPackService {
                    AND COALESCE(mp."_status",'a') = 'a'
                  ORDER BY mp."StartTime" DESC, mp."LotIndex" DESC
                 """
-				/* 조원은 스칼라 서브쿼리. LATERAL 로 붙이면 조원 수만큼 박스 행이 복제된다. */
-				.replace("${MEMBER_NAMES}", WorkMemberService.namesSql("mat_produce", "mp.id"))
-				.replace("${MEMBER_IDS}",   WorkMemberService.idsSql("mat_produce", "mp.id"))), p);
+																		 /* 조원은 스칼라 서브쿼리. LATERAL 로 붙이면 조원 수만큼 박스 행이 복제된다. */
+																		 .replace("${MEMBER_NAMES}", WorkMemberService.namesSql("mat_produce", "mp.id"))
+																		 .replace("${MEMBER_IDS}",   WorkMemberService.idsSql("mat_produce", "mp.id"))), p);
 	}
 
 	/**
@@ -394,8 +399,8 @@ public class McellPackService {
 	 */
 	public List<Map<String, Object>> getPackMaterials(Integer jobResId, Integer packMatId) {
 		MapSqlParameterSource p = new MapSqlParameterSource()
-				.addValue("matId", resolvePackMatId(jobResId, packMatId))
-				.addValue("store", STORE_PROD);
+																.addValue("matId", resolvePackMatId(jobResId, packMatId))
+																.addValue("store", STORE_PROD);
 		List<Map<String, Object>> rows = this.sqlRunner.getRows("""
                 SELECT bc."Material_id"                            AS mat_id
                      , cm."Code"                                   AS mat_code
@@ -437,8 +442,8 @@ public class McellPackService {
 	/** 전체 자재 폴백 — 생산창고(17)에 실재고가 있는 2공장 자재 */
 	private List<Map<String, Object>> getFallbackMaterials() {
 		MapSqlParameterSource p = new MapSqlParameterSource()
-				.addValue("store", STORE_PROD)
-				.addValue("factoryId", 2);
+																.addValue("store", STORE_PROD)
+																.addValue("factoryId", 2);
 		return this.sqlRunner.getRows("""
                 SELECT m.id                                        AS mat_id
                      , m."Code"                                    AS mat_code
@@ -540,7 +545,7 @@ public class McellPackService {
 		}
 
 		MapSqlParameterSource bp = new MapSqlParameterSource()
-				.addValue("matId", matId).addValue("unitMatId", asInt(row.get("unit_mat_id")));
+																 .addValue("matId", matId).addValue("unitMatId", asInt(row.get("unit_mat_id")));
 		Map<String, Object> belong = this.sqlRunner.getRow("""
                 SELECT COUNT(*) AS c
                   FROM bom b JOIN bom_comp bc ON bc."BOM_id" = b.id
@@ -591,8 +596,8 @@ public class McellPackService {
 	 */
 	public List<Map<String, Object>> getEquipments(Integer workCenterId) {
 		MapSqlParameterSource p = new MapSqlParameterSource()
-				.addValue("wcId", workCenterId)
-				.addValue("grpId", EQU_GROUP_PACK);
+																.addValue("wcId", workCenterId)
+																.addValue("grpId", EQU_GROUP_PACK);
 		return this.sqlRunner.getRows("""
                 SELECT e.id AS equipment_id, e."Code" AS equipment_code, e."Name" AS equipment_name,
                        e."WorkCenter_id" AS workcenter_id
@@ -636,10 +641,10 @@ public class McellPackService {
 	 */
 	@Transactional
 	public AjaxResult packUnit(Integer jobResId, Integer packMatId, Integer matLotId, String makerLotNo,
-							   Integer actorId, String memberIds, Integer equipmentId,
-							   String startTime, String endTime,
-							   List<ProductionCreateService.BomInput> bomList,
-							   String labelRaw, String spjangcd, User user) {
+														 Integer actorId, String memberIds, Integer equipmentId,
+														 String startTime, String endTime,
+														 List<ProductionCreateService.BomInput> bomList,
+														 String labelRaw, String spjangcd, User user) {
 		AjaxResult r = new AjaxResult();
 		r.success = true;
 
@@ -738,12 +743,12 @@ public class McellPackService {
 
 		// ★ startProduction 을 쓰지 않는다 (§포장 차수는 직접 만든다)
 		Integer mpId = createPackProduce(jrId, actorId, equipmentId, lotNumber,
-				startTime, spjangcd, user);
+			startTime, spjangcd, user);
 
 		// 조원 명단 — 박스(=차수)마다 같은 조가 찍힌다.
 		// 대표(actorId)는 mat_produce.Actor_id 에 이미 들어갔고, 여기에도 1행 남는다.
 		this.workMemberService.save(WorkMemberService.SRC_MAT_PRODUCE,
-				mpId, actorId, memberIds, user, spjangcd);
+			mpId, actorId, memberIds, user, spjangcd);
 
 		// 유닛 로트 1대 지정 소비 (FIFO 아님)
 		AjaxResult cons = this.productionCreateService.consumeLot(mpId, matLotId, 1f, user, spjangcd);
@@ -755,7 +760,7 @@ public class McellPackService {
 		// ── 4. 외부 라벨(MakerLotNo) 기록 ──
 		//   완제품 로트 행에 남긴다. 유닛 로트 쪽에도 비어 있으면 함께 채운다.
 		MapSqlParameterSource mk = new MapSqlParameterSource()
-				.addValue("mk", label).addValue("mpId", mpId).addValue("srcId", matLotId);
+																 .addValue("mk", label).addValue("mpId", mpId).addValue("srcId", matLotId);
 		this.sqlRunner.execute("""
                 UPDATE mat_lot SET "MakerLotNo"=:mk
                  WHERE "SourceTableName"='mat_produce' AND "SourceDataPk"=:mpId
@@ -773,9 +778,9 @@ public class McellPackService {
 		   ★ 1공장(「포장 완제품 입고」·「CK 생산 입고(1공장)」)과 같은 규칙이다.
 		   ★ 박스 라벨을 함께 적는다 — 실물과 대조할 때 이 한 줄이면 끝난다. */
 		MapSqlParameterSource ds = new MapSqlParameterSource()
-				.addValue("mpId", mpId)
-				.addValue("memo", "포장 완제품 입고(2공장) · 유닛 " + lotNumber
-						+ ((label == null || label.isBlank()) ? "" : " · 박스라벨 " + label));
+																 .addValue("mpId", mpId)
+																 .addValue("memo", "포장 완제품 입고(2공장) · 유닛 " + lotNumber
+																										 + ((label == null || label.isBlank()) ? "" : " · 박스라벨 " + label));
 		this.sqlRunner.execute("""
                 UPDATE mat_lot SET "Description" = :memo
                  WHERE "SourceTableName"='mat_produce' AND "SourceDataPk"=:mpId
@@ -796,12 +801,12 @@ public class McellPackService {
 		 *     label 과 값이 달라진다 — 오인식을 되짚을 근거라 따로 남긴다.
 		 */
 		MapSqlParameterSource pl = new MapSqlParameterSource()
-				.addValue("mpId", mpId)
-				.addValue("kind", LABEL_KIND_MCELL)
-				.addValue("lot", label)
-				.addValue("raw", (labelRaw == null || labelRaw.isBlank()) ? label : labelRaw.trim())
-				.addValue("spjangcd", spjangcd)
-				.addValue("userId", user == null ? null : user.getId());
+																 .addValue("mpId", mpId)
+																 .addValue("kind", LABEL_KIND_MCELL)
+																 .addValue("lot", label)
+																 .addValue("raw", (labelRaw == null || labelRaw.isBlank()) ? label : labelRaw.trim())
+																 .addValue("spjangcd", spjangcd)
+																 .addValue("userId", user == null ? null : user.getId());
 		this.sqlRunner.execute("""
                 INSERT INTO pack_label
                        ("MatProduce_id","LabelKind","LotNo","Qty","RawData",
@@ -816,7 +821,7 @@ public class McellPackService {
 
 		// ── 5. 유닛 packed ──
 		MapSqlParameterSource up = new MapSqlParameterSource()
-				.addValue("unitId", unitId).addValue("userId", user.getId());
+																 .addValue("unitId", unitId).addValue("userId", user.getId());
 		this.sqlRunner.execute("""
                 UPDATE mcell_unit
                    SET "State"='packed', "_modified"=now(), "_modifier_id"=:userId
@@ -830,7 +835,7 @@ public class McellPackService {
 		}
 
 		r.data = Map.of("mat_produce_id", mpId, "lot_number", lotNumber,
-				"unit_id", unitId, "job_res_id", jrId);
+			"unit_id", unitId, "job_res_id", jrId);
 		r.message = "포장 완료 · 제품창고 입고";
 		return r;
 	}
@@ -858,18 +863,18 @@ public class McellPackService {
 	 * @return 생성된 mat_produce.id
 	 */
 	private Integer createPackProduce(Integer jrId, Integer actorId, Integer equipmentId,
-									  String lotNumber, String startTime,
-									  String spjangcd, User user) {
+																		String lotNumber, String startTime,
+																		String spjangcd, User user) {
 		MapSqlParameterSource p = new MapSqlParameterSource()
-				.addValue("jrId", jrId)
-				.addValue("wc", WC_PACK)
-				.addValue("store", STORE_PRODUCT)
-				.addValue("lot", lotNumber)
-				.addValue("actorId", actorId)
-				.addValue("equipId", equipmentId)
-				.addValue("st", (startTime == null || startTime.isBlank()) ? null : startTime)
-				.addValue("spjangcd", spjangcd)
-				.addValue("userId", user.getId());
+																.addValue("jrId", jrId)
+																.addValue("wc", WC_PACK)
+																.addValue("store", STORE_PRODUCT)
+																.addValue("lot", lotNumber)
+																.addValue("actorId", actorId)
+																.addValue("equipId", equipmentId)
+																.addValue("st", (startTime == null || startTime.isBlank()) ? null : startTime)
+																.addValue("spjangcd", spjangcd)
+																.addValue("userId", user.getId());
 
 		Map<String, Object> ins = this.sqlRunner.getRow("""
                 INSERT INTO mat_produce
@@ -934,16 +939,16 @@ public class McellPackService {
 	 */
 	@Transactional
 	public AjaxResult startWork(Integer jobResId, Integer actorId, String memberIds,
-								String startTime, User user) {
+															String startTime, User user) {
 		AjaxResult r = new AjaxResult();
 		r.success = true;
 		if (jobResId == null) { r.success = false; r.message = "작업지시가 필요합니다."; return r; }
 
 		MapSqlParameterSource p = new MapSqlParameterSource()
-				.addValue("jrId", jobResId)
-				.addValue("actorId", actorId)
-				.addValue("st", (startTime == null || startTime.isBlank()) ? null : startTime)
-				.addValue("userId", user.getId());
+																.addValue("jrId", jobResId)
+																.addValue("actorId", actorId)
+																.addValue("st", (startTime == null || startTime.isBlank()) ? null : startTime)
+																.addValue("userId", user.getId());
 		this.sqlRunner.execute("""
                 UPDATE job_res
                    SET "State"      = CASE WHEN COALESCE("State",'ordered') = 'ordered'
@@ -972,7 +977,7 @@ public class McellPackService {
 		if (jobResId == null) { r.success = false; r.message = "작업지시가 필요합니다."; return r; }
 
 		MapSqlParameterSource p = new MapSqlParameterSource()
-				.addValue("jrId", jobResId).addValue("userId", user.getId());
+																.addValue("jrId", jobResId).addValue("userId", user.getId());
 		this.sqlRunner.execute("""
                 UPDATE job_res
                    SET "State"='ordered', "StartTime"=NULL, "Manager_id"=NULL,
@@ -1000,7 +1005,7 @@ public class McellPackService {
 		if (mpId == null) { r.success = false; r.message = "취소할 차수가 없습니다."; return r; }
 
 		MapSqlParameterSource p = new MapSqlParameterSource()
-				.addValue("mpId", mpId).addValue("userId", user.getId());
+																.addValue("mpId", mpId).addValue("userId", user.getId());
 
 		Map<String, Object> mp = this.sqlRunner.getRow("""
                 SELECT id, "JobResponse_id" AS jr_id, "LotNumber" AS lot_number, "State" AS state
@@ -1040,7 +1045,7 @@ public class McellPackService {
                                    WHERE lc."SourceTableName"='mat_produce'
                                      AND lc."SourceDataPk"=:mpId)
                     """, new MapSqlParameterSource()
-					.addValue("mpId", mpId).addValue("mk", str(mk.get("mk"))));
+																												.addValue("mpId", mpId).addValue("mk", str(mk.get("mk"))));
 		}
 
 		/* ★ 라벨 행도 지운다. 안 지우면 pack_label."MatProduce_id" 가
@@ -1048,7 +1053,7 @@ public class McellPackService {
 		     같은 유닛을 다시 포장할 때 유니크에 걸리거나 옛 라벨이 조회에 남는다.
 		     (mat_produce 행 자체는 지우지 않으므로 FK 위반은 아니다) */
 		this.sqlRunner.execute(
-				"DELETE FROM pack_label WHERE \"MatProduce_id\"=:mpId AND \"LabelKind\"='" + LABEL_KIND_MCELL + "'", p);
+			"DELETE FROM pack_label WHERE \"MatProduce_id\"=:mpId AND \"LabelKind\"='" + LABEL_KIND_MCELL + "'", p);
 
 		// 산출 정리
 		this.sqlRunner.execute("DELETE FROM mat_lot   WHERE \"SourceTableName\"='mat_produce' AND \"SourceDataPk\"=:mpId", p);
@@ -1075,7 +1080,7 @@ public class McellPackService {
 
 		// 유닛 복귀
 		MapSqlParameterSource lp = new MapSqlParameterSource()
-				.addValue("lot", str(mp.get("lot_number"))).addValue("userId", user.getId());
+																 .addValue("lot", str(mp.get("lot_number"))).addValue("userId", user.getId());
 		Map<String, Object> unit = this.sqlRunner.getRow("""
                 SELECT id FROM mcell_unit
                  WHERE "LotNumber"=:lot AND "State"='packed' AND COALESCE("_status",'a')='a'
@@ -1104,9 +1109,9 @@ public class McellPackService {
 		r.success = true;
 		String col = "end".equals(which) ? "EndTime" : "StartTime";
 		MapSqlParameterSource p = new MapSqlParameterSource()
-				.addValue("mpId", mpId).addValue("val", value).addValue("userId", user.getId());
+																.addValue("mpId", mpId).addValue("val", value).addValue("userId", user.getId());
 		this.sqlRunner.execute("UPDATE mat_produce SET \"" + col + "\"=CAST(:val AS timestamptz), "
-				+ "\"_modified\"=now(), \"_modifier_id\"=:userId WHERE id=:mpId", p);
+														 + "\"_modified\"=now(), \"_modifier_id\"=:userId WHERE id=:mpId", p);
 		return r;
 	}
 
@@ -1121,8 +1126,8 @@ public class McellPackService {
 			return packMatId;
 		}
 		Map<String, Object> row = this.sqlRunner.getRow(
-				"SELECT \"Material_id\" AS mat_id FROM job_res WHERE id = :id",
-				new MapSqlParameterSource().addValue("id", jobResId));
+			"SELECT \"Material_id\" AS mat_id FROM job_res WHERE id = :id",
+			new MapSqlParameterSource().addValue("id", jobResId));
 		if (row == null) throw new IllegalArgumentException("작업지시를 찾을 수 없습니다.");
 		return asInt(row.get("mat_id"));
 	}
@@ -1130,9 +1135,208 @@ public class McellPackService {
 	private Integer getUnitJobRes(Integer unitId) {
 		if (unitId == null) return null;
 		Map<String, Object> row = this.sqlRunner.getRow(
-				"SELECT \"JobResponse_id\" AS jr_id FROM mcell_unit WHERE id=:id",
-				new MapSqlParameterSource().addValue("id", unitId));
+			"SELECT \"JobResponse_id\" AS jr_id FROM mcell_unit WHERE id=:id",
+			new MapSqlParameterSource().addValue("id", unitId));
 		return (row == null) ? null : asInt(row.get("jr_id"));
+	}
+
+
+	// =================================================================
+	// 포장 자재 사진 (공용 attach_file)
+	// =================================================================
+
+	/**
+	 * ★ TableName 만으로 조회하면 안 된다.
+	 *   mat_produce 는 조립·수리·포장(1·2공장)이 전부 쓰는 테이블이라
+	 *   같은 DataPk 에 다른 공정 첨부가 붙을 수 있다. AttachName 을 반드시 함께 건다.
+	 * ★ 공용 FileService.getAttachFile() 을 안 쓴다 — 그쪽은 order by id desc 라
+	 *   찍은 순서의 역순으로 나온다. 포장 사진은 촬영 순서가 의미가 있다.
+	 *   공용 쪽을 고치면 그것을 쓰는 다른 화면이 같이 바뀌므로 여기에 따로 둔다.
+	 */
+	public List<Map<String, Object>> getPhotoList(Integer mpId) {
+		if (mpId == null) return new ArrayList<>();
+		MapSqlParameterSource p = new MapSqlParameterSource()
+																.addValue("pk", mpId)
+																.addValue("tb", ATT_TABLE)
+																.addValue("an", ATT_NAME);
+		return this.sqlRunner.getRows("""
+                SELECT id              AS file_id
+                     , "FileIndex"     AS file_index
+                     , "FileName"      AS file_name
+                     , "FilePath"      AS file_path
+                     , "ExtName"       AS ext_name
+                     , "FileSize"      AS file_size
+                     , "_created"      AS created
+                  FROM attach_file
+                 WHERE "TableName" = :tb AND "DataPk" = :pk AND "AttachName" = :an
+                 ORDER BY "FileIndex", id
+                """, p);
+	}
+
+	/** 사진 1건. TableName·AttachName 을 함께 검증한다 — file_id 만으로 열면 남의 첨부까지 열린다. */
+	public Map<String, Object> getPhoto(Integer fileId) {
+		if (fileId == null) return null;
+		MapSqlParameterSource p = new MapSqlParameterSource()
+																.addValue("id", fileId)
+																.addValue("tb", ATT_TABLE)
+																.addValue("an", ATT_NAME);
+		return this.sqlRunner.getRow("""
+                SELECT id AS file_id, "DataPk" AS mat_produce_id, "FilePath" AS file_path
+                  FROM attach_file
+                 WHERE id = :id AND "TableName" = :tb AND "AttachName" = :an
+                """, p);
+	}
+
+	/**
+	 * 다음 FileIndex = 같은 (TableName, DataPk, AttachName) 안에서 MAX+1.
+	 * FileIndex 는 attach_file 의 NOT NULL 컬럼이고, 여기서는 «표시 순서» 로만 쓴다.
+	 * 파일 겹침을 막는 건 파일명에 붙는 millis 다 — FileIndex 는 삭제 후 재사용된다.
+	 */
+	public int nextPhotoIndex(Integer mpId) {
+		MapSqlParameterSource p = new MapSqlParameterSource()
+																.addValue("pk", mpId)
+																.addValue("tb", ATT_TABLE)
+																.addValue("an", ATT_NAME);
+		Map<String, Object> row = this.sqlRunner.getRow("""
+                SELECT COALESCE(MAX("FileIndex"), 0) + 1 AS nx
+                  FROM attach_file
+                 WHERE "TableName" = :tb AND "DataPk" = :pk AND "AttachName" = :an
+                """, p);
+		Integer nx = (row == null) ? null : asInt(row.get("nx"));
+		return (nx == null) ? 1 : nx;
+	}
+
+	/**
+	 * attach_file 1행 추가.
+	 * FileName(표시명)과 PhysicFileName(실제 파일명)을 같은 값으로 넣는다 —
+	 * 카메라로 찍은 사진이라 «원본 파일명» 이라는 게 없다.
+	 */
+	@Transactional
+	public Integer addPhoto(int mpId, int fileIndex, String fileName, String filePath,
+													String ext, Integer size, User user, String spjangcd) {
+		MapSqlParameterSource p = new MapSqlParameterSource()
+																.addValue("tb", ATT_TABLE)
+																.addValue("pk", mpId)
+																.addValue("an", ATT_NAME)
+																.addValue("fi", fileIndex)
+																.addValue("fn", fileName)
+																.addValue("fp", filePath)
+																.addValue("ex", ext)
+																.addValue("sz", size)
+																.addValue("uid", user == null ? null : user.getId())
+																.addValue("spjangcd", (spjangcd == null || spjangcd.isBlank()) ? "ZZ" : spjangcd);
+		Map<String, Object> row = this.sqlRunner.getRow("""
+                INSERT INTO attach_file
+                    ("TableName","DataPk","AttachName","FileIndex","FileName","PhysicFileName",
+                     "ExtName","FilePath","FileSize",
+                     _status,_created,_creater_id,spjangcd)
+                VALUES (:tb,:pk,:an,:fi,:fn,:fn,:ex,:fp,:sz,'a',now(),:uid,:spjangcd)
+                RETURNING id
+                """, p);
+		return (row == null) ? null : asInt(row.get("id"));
+	}
+
+	/** 사진 1건 삭제 (메타만. 파일 실체는 컨트롤러가 지운다 — 부적합과 같은 분담) */
+	@Transactional
+	public Map<String, Object> deletePhoto(int fileId) {
+		Map<String, Object> row = getPhoto(fileId);
+		if (row == null) throw new IllegalArgumentException("사진을 찾을 수 없습니다.");
+		this.sqlRunner.execute("DELETE FROM attach_file WHERE id = :id",
+			new MapSqlParameterSource().addValue("id", fileId));
+		return row;
+	}
+
+	/** 포장 취소 시 그 박스의 사진 메타를 통째로 지운다 */
+	@Transactional
+	public void deletePhotosOf(Integer mpId) {
+		if (mpId == null) return;
+		MapSqlParameterSource p = new MapSqlParameterSource()
+																.addValue("pk", mpId)
+																.addValue("tb", ATT_TABLE)
+																.addValue("an", ATT_NAME);
+		this.sqlRunner.execute("""
+                DELETE FROM attach_file
+                 WHERE "TableName" = :tb AND "DataPk" = :pk AND "AttachName" = :an
+                """, p);
+	}
+
+	// =================================================================
+	// 「＋ 자재」 후보
+	// =================================================================
+
+	/**
+	 * BOM 밖 자재 후보.
+	 *
+	 * ★ 후보 조건은 getFallbackMaterials() 와 한 글자도 다르면 안 된다.
+	 *   저쪽은 «BOM 이 비었을 때 대신 보여주는 목록», 이쪽은 «BOM 에 더해 넣을 목록» 이라
+	 *   쓰임만 다르고 «포장에 넣을 수 있는 자재» 라는 정의는 하나여야 한다.
+	 *   여기만 창고를 넓히면 목록엔 뜨는데 완료 단계의 store_id != 17 검사에 걸려
+	 *   작업자는 «왜 안 되지» 상태가 된다.
+	 *
+	 * ★ per / default_qty 는 0 이다. BOM 근거가 없으므로 «개당 소요량» 이 성립하지 않는다.
+	 *   화면이 추가 즉시 수동 1 개를 박고 수량은 사람이 정한다.
+	 */
+	public List<Map<String, Object>> getMatCandidates(Integer jobResId, Integer packMatId,
+																										String keyword, String excludeIds) {
+		List<Integer> ex = new ArrayList<>();
+		if (excludeIds != null && !excludeIds.isBlank()) {
+			for (String t : excludeIds.split(",")) {
+				String v = t.trim();
+				if (v.isEmpty()) continue;
+				try { ex.add(Integer.valueOf(v)); } catch (NumberFormatException ignore) { }
+			}
+		}
+		// IN () 은 문법 오류다. 비면 절대 안 맞는 값 하나를 넣어 조건을 무력화한다.
+		if (ex.isEmpty()) ex.add(-1);
+
+		/* ★ 키워드가 없으면 :kw 를 «파라미터로 만들지도 않는다».
+		 *
+		 *   예전엔 `AND (:kw IS NULL OR ... LIKE :kw)` 한 줄로 처리했는데,
+		 *   «? IS NULL» 은 비교 대상이 없어 Postgres 가 그 자리의 타입을 정하지 못하고
+		 *   "매개 변수의 자료형을 알 수가 없습니다" 로 바로 터진다($14 가 그 자리다).
+		 *   CAST(:kw AS varchar) 를 붙여도 되지만(이 파일의 다른 쿼리들이 그렇게 한다),
+		 *   조건절을 통째로 빼면 그 자리가 애초에 안 생기므로 더 확실하다. */
+		String kw = (keyword == null) ? "" : keyword.trim();
+		MapSqlParameterSource p = new MapSqlParameterSource()
+																.addValue("store", STORE_PROD)
+																.addValue("factoryId", 2)
+																.addValue("ex", ex);
+
+		String kwCond = "";
+		if (!kw.isEmpty()) {
+			p.addValue("kw", "%" + kw.toUpperCase() + "%");
+			kwCond = " AND (UPPER(m.\"Code\") LIKE :kw OR UPPER(m.\"Name\") LIKE :kw)";
+		}
+
+		return this.sqlRunner.getRows("""
+                SELECT m.id                                        AS mat_id
+                     , m."Code"                                    AS mat_code
+                     , m."Name"                                    AS mat_name
+                     , un."Name"                                   AS unit
+                     , 0                                           AS per
+                     , 0                                           AS default_qty
+                     , CAST(:store AS INTEGER)                     AS store_id
+                     , sh."Name"                                   AS store_name
+                     , COALESCE(stk.stock, 0)                      AS stock
+                     , 'X'                                         AS fallback
+                  FROM material m
+                  LEFT JOIN unit un ON un.id = m."Unit_id"
+                  LEFT JOIN store_house sh ON sh.id = CAST(:store AS INTEGER)
+                  JOIN LATERAL (
+                        SELECT SUM(ml."CurrentStock") AS stock
+                          FROM mat_lot ml
+                         WHERE ml."Material_id" = m.id
+                           AND ml."StoreHouse_id" = CAST(:store AS INTEGER)
+                  ) stk ON COALESCE(stk.stock,0) > 0
+                 WHERE COALESCE(m."_status",'a') = 'a'
+                   AND COALESCE(m."Factory_id",1) = CAST(:factoryId AS INTEGER)
+                   -- 유닛 본체는 자재가 아니다 (getPackMaterials 와 같은 이유)
+                   AND COALESCE(m."InspectYN",'N') <> 'Y'
+                   AND m.id NOT IN (:ex)
+                """ + kwCond + """
+                 ORDER BY m."Code"
+                 LIMIT 100
+                """, p);
 	}
 
 	private static Integer asInt(Object o) { return (o == null) ? null : ((Number) o).intValue(); }
