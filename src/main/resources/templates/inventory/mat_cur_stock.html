@@ -124,7 +124,10 @@
                     autoGenerateColumns: false,
                     frozenColumns: 0, // 열 고정
                     headersVisibility: wijmo.grid.HeadersVisibility.Column,
-                    selectionMode: wijmo.grid.SelectionMode.None, // 다중 선택 불가
+                    /* 그룹 행을 클릭해 펼치고 접으려면 행 선택이 살아 있어야 편하다.
+                       기존 동작(선택 불가)을 유지하고 싶으면 SelectionMode.None 으로 되돌려도
+                       ± 아이콘 클릭 토글은 그대로 동작한다. */
+                    selectionMode: wijmo.grid.SelectionMode.Row,
                     allowSorting: true, // 정렬 가능
                     formatItem: (sender, e) => {
                         if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
@@ -134,7 +137,8 @@
                     columns: [
                         {binding: 'mat_type_name', header: '품목유형', width: 100, align: 'left', isReadOnly: true},
                         {binding: 'mat_grp_name', header: '품목그룹', width: 120, align: 'left', isReadOnly: true},
-                        {binding: 'mat_code', header: '품목코드', width: 100, align: 'center', isReadOnly: true},
+                        /* ★ 100 → 160. ETC-MFB-... 처럼 잘려서 코드 구분이 안 되던 문제 */
+                        {binding: 'mat_code', header: '품목코드', width: 160, align: 'center', isReadOnly: true},
                         {binding: 'mat_name', header: '품목명', width: 250, align: 'left', isReadOnly: true},
                         {
                             binding: 'stock_price',
@@ -142,7 +146,9 @@
                             width: 120,
                             align: 'right',
                             format: 'n0',
-                            isReadOnly: true
+                            isReadOnly: true,
+                            /* m."CurrentStock" * m."UnitPrice" — 품목 단위 값이라 합계가 아니다 */
+                            aggregate: 'First'
                         },
                         {binding: 'unit_name', header: '단위', width: 70, align: 'center', isReadOnly: true},
                         {
@@ -152,6 +158,7 @@
                             align: 'right',
                             format: 'n0',
                             isReadOnly: true,
+                            aggregate: 'First',
                             visible: false
                         },
                         {
@@ -161,6 +168,7 @@
                             align: 'right',
                             format: 'n0',
                             isReadOnly: true,
+                            aggregate: 'First',
                             visible: false
                         },
                         {
@@ -168,7 +176,11 @@
                             header: '총재고',
                             width: 100,
                             align: 'right',
-                            format: 'n0'
+                            format: 'n0',
+                            /* ★★ 절대 'Sum' 을 쓰지 말 것.
+                               m."CurrentStock" 는 품목 단위 값이라 창고 행마다 같은 값이 중복돼 있다.
+                               창고가 3곳이면 총재고가 3배로 부풀어 보인다. */
+                            aggregate: 'First'
                         },
                         {binding: 'house_name', header: '창고', width: 120, align: 'center', isReadOnly: true},
                         {
@@ -178,6 +190,8 @@
                             align: 'right',
                             format: 'n0',
                             isReadOnly: true,
+                            /* mh."CurrentStock" — 창고 단위 값. 정상이면 합계 = 총재고 */
+                            aggregate: 'Sum'
                         },
                         {binding: 'lot_use_yn', header: '로트관리유무', width: 120, align: 'center', isReadOnly: true},
                         {
@@ -186,7 +200,8 @@
                             width: 100,
                             align: 'right',
                             format: 'n0',
-                            isReadOnly: true
+                            isReadOnly: true,
+                            aggregate: 'Sum'
                         },
                         {
                             binding: 'safety_stock',
@@ -194,29 +209,59 @@
                             width: 100,
                             align: 'right',
                             format: 'n0',
-                            isReadOnly: true
+                            isReadOnly: true,
+                            aggregate: 'First'
                         }
                     ],
-                    itemsSource: new wijmo.collections.CollectionView([]), // 빈 데이터로 초기화
+                    /* ★ 품목코드로 그룹. 서버가 품목 × 창고로 행을 내려주므로
+                       접으면 품목당 한 줄, 펼치면 창고별 내역이 된다.
+                       PropertyGroupDescription 의 두 번째 인자 반환값이 곧 그룹 키다.
+                       m."Code" 가 spjangcd 안에서 유일하다는 전제 — 공장별로 같은 코드가
+                       존재한다면 'mat_code' 대신 'id' 를 키로 쓰고 헤더만 따로 만들어야 한다. */
+                    itemsSource: new wijmo.collections.CollectionView([], {
+                        groupDescriptions: [
+                            new wijmo.collections.PropertyGroupDescription(
+                                'mat_code',
+                                (item, prop) => `${item[prop]}  ${item.mat_name}`
+                            )
+                        ]
+                    }),
                     itemFormatter: (panel, row, col, cell) => {
-                        if (panel.cellType === wijmo.grid.CellType.Cell) {
-                            const item = panel.rows[row].dataItem; // 현재 행 데이터
-                            const column = panel.columns[col]; // 현재 열
+                        if (panel.cellType !== wijmo.grid.CellType.Cell) return;
 
-                            // 'cur_stock' 열에 대해 조건에 따른 클래스 추가
-                            if (column.binding === 'cur_stock' && item.cur_stock < item.safety_stock) {
-                                cell.classList.add('grid-cell-red');
-                            }
+                        const gr = panel.rows[row];
+                        const column = panel.columns[col];
+                        /* 그룹 행의 dataItem 은 CollectionViewGroup 이라 컬럼 값이 없다.
+                           그룹 내 첫 행을 기준으로 판정한다(품목 단위 값이라 어느 행이든 같다). */
+                        const isGroup = gr instanceof wijmo.grid.GroupRow;
+                        const item = isGroup ? (gr.dataItem.items && gr.dataItem.items[0]) : gr.dataItem;
+                        if (!item) return;
 
-                            // 'house_stock' 열에 대해 조건에 따른 클래스 추가
-                            if (column.binding === 'house_stock' && item.house_stock < 0) {
-                                cell.classList.add('redText');
+                        /* 총재고는 품목 단위 값이라 상세 행에 그대로 두면 같은 숫자가
+                           창고 수만큼 반복된다. 그룹 행에만 남기고 상세 행은 비운다.
+                           aggregate 는 데이터에서 계산하므로 셀을 비워도 합계는 그대로다.
+                           ★ classList.add 대신 toggleClass — 셀 DOM 이 재사용되기 때문에
+                             조건이 거짓일 때 떼주지 않으면 스크롤 후 색이 남는다. */
+                        if (column.binding === 'cur_stock') {
+                            if (isGroup) {
+                                wijmo.toggleClass(cell, 'grid-cell-red', item.cur_stock < item.safety_stock);
+                            } else {
+                                cell.textContent = '';
+                                wijmo.toggleClass(cell, 'grid-cell-red', false);
                             }
+                        }
+
+                        // 'house_stock' 열에 대해 조건에 따른 클래스 추가 (상세 행에만)
+                        if (column.binding === 'house_stock') {
+                            wijmo.toggleClass(cell, 'redText', !isGroup && item.house_stock < 0);
                         }
                     }
                 });
                 new FlexGridContextMenu(this.grid);
                 this.grid.downloadFileName = '재고 현황 내역';
+                /* 그룹 헤더는 코드 + 품목명만. 창고 수까지 보고 싶으면
+                   '{value} ({count:n0}개 창고)' 로 바꾼다. */
+                this.grid.groupHeaderFormat = '{value}';
             }
 
             searchDataBind() {
