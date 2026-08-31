@@ -18,7 +18,7 @@ public class MaterialInoutService {
 	SqlRunner sqlRunner;
 
 	public List<Map<String, Object>> getMaterialInout(String srchStartDt, String srchEndDt, String housePk,
-													  String matType, String matGrpPk, String keyword, String spjangcd) {
+																										String matType, String matGrpPk, String keyword, String spjangcd) {
 
 		MapSqlParameterSource param = new MapSqlParameterSource();
 		param.addValue("srchStartDt", srchStartDt);
@@ -106,8 +106,8 @@ public class MaterialInoutService {
 	 *                  수불에는 공장이 없어 품목(material)의 공장으로 건다.
 	 */
 	public List<Map<String, Object>> getMaterialInoutReceipt(String srchStartDt, String srchEndDt, String housePk,
-															 String matType, String matGrpPk, String keyword,
-															 String factoryId, String spjangcd) {
+																													 String matType, String matGrpPk, String keyword,
+																													 String factoryId, String spjangcd) {
 
 		MapSqlParameterSource param = new MapSqlParameterSource();
 		param.addValue("srchStartDt", srchStartDt);
@@ -198,8 +198,8 @@ public class MaterialInoutService {
 	 *                  수불에는 공장이 없어 품목(material)의 공장으로 건다.
 	 */
 	public List<Map<String, Object>> getMaterialInoutIssue(String srchStartDt, String srchEndDt, String housePk,
-														   String matType, String matGrpPk, String keyword,
-														   String factoryId, String spjangcd) {
+																												 String matType, String matGrpPk, String keyword,
+																												 String factoryId, String spjangcd) {
 
 		MapSqlParameterSource param = new MapSqlParameterSource();
 		param.addValue("srchStartDt", srchStartDt);
@@ -288,8 +288,8 @@ public class MaterialInoutService {
 	 *                  수불에는 공장이 없어 품목(material)의 공장으로 건다.
 	 */
 	public List<Map<String, Object>> getMaterialInoutDisposal(String srchStartDt, String srchEndDt, String housePk,
-															  String matType, String matGrpPk, String keyword,
-															  String factoryId, String spjangcd) {
+																														String matType, String matGrpPk, String keyword,
+																														String factoryId, String spjangcd) {
 
 		MapSqlParameterSource param = new MapSqlParameterSource();
 		param.addValue("srchStartDt", srchStartDt);
@@ -621,6 +621,126 @@ public class MaterialInoutService {
 		return items;
 	}
 
+	/**
+	 * 입고검사 내역 목록 (조회 화면 rp_input_test_list 용).
+	 *
+	 * ★ 「미검사」는 판정을 «안 한» 가입고 건이다. 부적합이 아니다.
+	 *   검사결과가 있는 건만 뽑으면 «검사해야 하는데 안 한 건» 이 화면에서
+	 *   사라진다. 그래서 가입고로 남아 있는 건도 같이 내린다.
+	 *
+	 * ★ 판정/사진 필터는 화면이 «받아온 것 안에서» 건다. 서버를 다시 부르면
+	 *   요약(총 N건 중 부적합 M건)의 모집단이 필터마다 흔들린다.
+	 *
+	 * ★ 검사자 이름은 user_profile."Name" 에 있다 — mioTestList 와 같은 규칙이다.
+	 *   auth_user 에는 계정만 있고 한글 이름이 없다.
+	 *   («user» 라는 테이블은 이 DB 에 없다. 그렇게 적었다가 조회가 통째로 깨졌다)
+	 *   mioTestList 는 inner join 이지만 여기서는 left join 이다 —
+	 *   프로필이 없는 계정 때문에 «검사 내역 자체가 사라지면» 안 된다.
+	 *
+	 * ★ (:x IS NULL OR col = :x) 는 첫 자리에 타입 단서가 없어
+	 *   「매개변수의 자료형을 알 수 없습니다」가 난다. CAST 를 붙인다.
+	 *
+	 * @return 오류 시 null (SqlRunner 규약). 호출부가 «자료 없음» 과 구분해야 한다.
+	 */
+	public List<Map<String, Object>> getTestResultList(String srchStartDt, String srchEndDt,
+																										 String housePk, String keyword, String factoryId) {
+
+		MapSqlParameterSource param = new MapSqlParameterSource();
+		param.addValue("srchStartDt", srchStartDt);
+		param.addValue("srchEndDt",   srchEndDt);
+		param.addValue("housePk",     housePk);
+		param.addValue("factoryId",   factoryId);
+		param.addValue("keyword",     keyword);
+
+		/* ★ to_char(..., 'HH24:MI') 의 콜론은 «작은따옴표 안» 이라
+		     명명 파라미터로 잡히지 않는다. 따옴표를 벗기지 말 것. */
+		String sql = """
+				select mi.id                                     as mio_pk
+				     , m."Code"                                  as material_code
+				     , m."Name"                                  as material_name
+				     , u2."Name"                                 as unit_name
+				     , sh."Name"                                 as store_house_name
+				     -- ★ 로트번호는 두 곳에 있을 수 있다.
+				     --   · mat_inout."LotNumber"  — 로트를 입고 건에 직접 적는 경로
+				     --   · mat_lot                — 스캐너 입고(lot_save_by_po)가 만드는 로트.
+				     --                              이 경로는 mat_inout 쪽을 안 채운다.
+				     --   앞쪽만 읽어서, 스캐너로 들어온 건은 로트가 «있는데» 화면에서만
+				     --   비어 보였다. 로트가 여럿이면 먼저 만들어진 것을 대표로 쓴다.
+				     , coalesce(nullif(mi."LotNumber", ''), ml.lot_no) as lot_number
+				     , ml.maker_lot_no                           as maker_lot_no
+				     , to_char(mi."InoutDate", 'yyyy-mm-dd')     as inout_date
+				     , to_char(mi."InoutTime", 'hh24:mi')        as inout_time
+				     , coalesce(mi."InputQty", 0)                as input_qty
+				     , coalesce(mi."PotentialInputQty", 0)       as potential_qty
+				     , fn_code_name('inout_state', mi."State")   as inout_state
+				     , tr.id                                     as test_result_id
+				     , to_char(tr."TestDateTime", 'yyyy-mm-dd')  as test_date
+				     -- ★ 종합판정은 test_result 가 «제자리» 다. 항목이 0건인 검사는
+				     --    test_item_result 만 보면 통째로 사라진다.
+				     --    옛 데이터는 항목 행에만 있으므로 coalesce 로 함께 받는다.
+				     , coalesce(tr."JudgeCode",  tir."JudgeCode")  as judge_code
+				     , coalesce(tr."TestRemark", tir."CharResult") as remark
+				     , coalesce(ts.nm, cu.nm)                    as check_name
+				     , coalesce(pf.cnt, 0)                       as photo_cnt
+				  from mat_inout mi
+				  inner join material m    on m.id  = mi."Material_id"
+				  inner join store_house sh on sh.id = mi."StoreHouse_id"
+				  left join unit u2        on u2.id = m."Unit_id"
+				  -- 한 입고 건에 검사결과는 하나다. 여럿이면 최신 것만 본다.
+				  left join lateral (
+				       select t.* from test_result t
+				        where t."SourceTableName" = 'mat_inout'
+				          and t."SourceDataPk"    = mi.id
+				        order by t.id desc limit 1) tr on true
+				  -- 종합판정·비고는 항목마다 같은 값이 들어간다. 한 줄만 집는다.
+				  left join lateral (
+				       select ti."JudgeCode", ti."CharResult"
+				         from test_item_result ti
+				        where ti."TestResult_id" = tr.id
+				        order by ti.id limit 1) tir on true
+				  left join lateral (
+				       select count(*) cnt from mio_test_file f
+				        where f."MatInout_id" = mi.id and f."_status" = 'a') pf on true
+				  -- 스캐너 입고가 만든 로트. 입고 건당 보통 1건이라 가장 이른 것을 쓴다.
+				  left join lateral (
+				       select l."LotNumber" as lot_no, l."MakerLotNo" as maker_lot_no
+				         from mat_lot l
+				        where l."SourceTableName" = 'mat_inout'
+				          and l."SourceDataPk"    = mi.id
+				        order by l.id limit 1) ml on true
+				  -- 검사자 : user_profile."Name" 이 표시명, 없으면 auth_user.username
+				  left join lateral (
+				       select coalesce(up."Name", au.username) as nm
+				         from auth_user au
+				         left join user_profile up on up."User_id" = au.id
+				        where au.id = tr."Tester_id") ts on true
+				  left join lateral (
+				       select coalesce(up."Name", au.username) as nm
+				         from auth_user au
+				         left join user_profile up on up."User_id" = au.id
+				        where au.id = tr."_creater_id") cu on true
+				 where mi."InOut" = 'in'
+				   and m."Useyn" = '0'
+				   and mi."InoutDate" between cast(:srchStartDt as date) and cast(:srchEndDt as date)
+				   -- 검사 대상만: 검사결과가 있거나, 아직 가입고로 남아 있는 것
+				   and (tr.id is not null or coalesce(mi."PotentialInputQty", 0) > 0)
+				""";
+
+		/* 나머지 조건은 «값이 있을 때만» 붙인다.
+		   getMaterialInoutReceipt 와 같은 방식이다 — 한쪽만 CAST 방식으로 쓰면
+		   빈 값 처리 규칙이 두 벌이 된다. */
+		if (StringUtils.isEmpty(housePk)   == false) sql += " and sh.id = cast(:housePk as Integer) ";
+		if (StringUtils.isEmpty(factoryId) == false) sql += " and m.\"Factory_id\" = cast(:factoryId as Integer) ";
+		if (StringUtils.isEmpty(keyword)   == false) {
+			sql += " and (upper(m.\"Name\") like concat('%%',upper(:keyword),'%%') "
+							 + "   or upper(m.\"Code\") like concat('%%',upper(:keyword),'%%')) ";
+		}
+
+		sql += " order by coalesce(tr.\"TestDateTime\", mi.\"InoutDate\") desc, mi.id desc ";
+
+		return this.sqlRunner.getRows(sql, param);
+	}
+
 	public Map<String, Object> getEffectDate(Integer mioId) {
 
 		MapSqlParameterSource param = new MapSqlParameterSource();
@@ -889,7 +1009,7 @@ public class MaterialInoutService {
 		MapSqlParameterSource p = new MapSqlParameterSource();
 		p.addValue("gtin14", gtin14);
 		p.addValue("gtin13", (gtin14 != null && gtin14.length() == 14 && gtin14.startsWith("0"))
-				? gtin14.substring(1) : gtin14);
+													 ? gtin14.substring(1) : gtin14);
 		p.addValue("spjangcd", (spjangcd == null || spjangcd.isBlank()) ? null : spjangcd);
 
 		return this.sqlRunner.getRow("""
@@ -983,7 +1103,7 @@ public class MaterialInoutService {
 
 	/** 미등록 바코드 자동 학습용 — 스캔한 GTIN 을 품목에 매핑 등록 */
 	public int registerBarcode(Integer materialId, String barcodeType, String gtin, String udiDi,
-							   Integer companyId, String spjangcd, Integer userId) {
+														 Integer companyId, String spjangcd, Integer userId) {
 		return registerBarcode(materialId, barcodeType, gtin, udiDi, companyId, spjangcd, userId, null, null);
 	}
 
@@ -1000,8 +1120,8 @@ public class MaterialInoutService {
 	 *   CHECK 제약이 each 는 반드시 1이 되도록 막고 있어 실수가 걸린다.
 	 */
 	public int registerBarcode(Integer materialId, String barcodeType, String gtin, String udiDi,
-							   Integer companyId, String spjangcd, Integer userId,
-							   String packLevel, java.math.BigDecimal packQty) {
+														 Integer companyId, String spjangcd, Integer userId,
+														 String packLevel, java.math.BigDecimal packQty) {
 		if (materialId == null)
 			throw new IllegalArgumentException("품목을 선택하세요");
 		if ((gtin == null || gtin.isBlank()) && (udiDi == null || udiDi.isBlank()))
@@ -1044,5 +1164,7 @@ public class MaterialInoutService {
                     'a', now(), CAST(:userId AS integer), CAST(:spjangcd AS varchar))
             """, p);
 	}
+
+
 
 }

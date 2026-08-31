@@ -1,0 +1,2170 @@
+<html layout:decorate="~{layout_page}">
+<head>
+  <style>
+      /* ══════════════════════════════════════════════════════════
+         태블릿 전용 화면
+         ────────────────────────────────────────────────────────
+         ★ 이 화면은 태블릿 «전용» 이다. PC 분기를 두지 않는다.
+           예전에는 TabletUtil.isTablet() 결과에 따라 레이아웃이
+           갈렸는데, 같은 기기에서도 창 폭이나 포인터 판정이
+           흔들리면 버튼 크기가 오락가락했다. 기준을 하나로 둔다.
+         ★ body.tablet-mode 는 항상 붙는다(ready 에서 무조건 부여).
+           선택자는 남겨 둔다 — 공통 레이아웃 CSS 와의 우선순위를
+           유지하기 위해서다.
+         ══════════════════════════════════════════════════════════ */
+      :root {
+          --t-ink: #1B2430;
+          --t-muted: #6B7688;
+          --t-line: #E3E8EF;
+          --t-line-soft: #EEF1F6;
+          --t-bg: #F4F6FA;
+          --t-brand: #03428E;
+          --t-brand-soft: #E9F0FA;
+          --t-edit: #2F6FEB;
+          --t-edit-soft: #F0F5FF;
+          --t-danger: #D64545;
+          --t-ok: #157F5F;
+          --t-radius: 10px;
+          --t-tap: 48px;
+      }
+
+      /* 모달 컨테이너: 인라인 px 고정 무력화
+         [class*="modal"] 같은 넓은 선택자는 중첩 팝업까지 물어
+         품목/구매처 조회 팝업의 레이아웃을 깨뜨린다. 쓰지 않는다. */
+      body.tablet-mode .modal,
+      body.tablet-mode .popup-draggable {
+          width: 96vw !important;
+          max-width: 96vw !important;
+          height: auto !important;
+          max-height: 94vh !important;
+          left: 2vw !important;
+          top: 3vh !important;
+          transform: none !important;
+          border-radius: 14px;
+          box-shadow: 0 18px 48px rgba(20, 32, 55, .22);
+          overflow: hidden;
+      }
+
+      /* ★ 모달 높이를 잘라 두고 스크롤을 안 주면
+         하단 버튼(저장/닫기)이 잘려 사라진다. */
+      body.tablet-mode .content_wrap,
+      body.tablet-mode .modal > .modal-body,
+      body.tablet-mode .popup-draggable > .modal-body {
+          max-height: calc(94vh - 62px);
+          overflow-y: auto;
+          -webkit-overflow-scrolling: touch;
+      }
+
+      body.tablet-mode .content_wrap.popup {
+          padding: 14px 16px 0;
+          background: #fff;
+      }
+
+      /* ── 아직 wijmo 로 남아 있는 그리드 ─────────────────────
+         본문 목록(#material-storehouse-grid)과 공통 조회 팝업
+         (품목/구매처)이다. 손가락으로 집을 수 있게 행을 키운다. */
+      body.tablet-mode .modal .wj-flexgrid,
+      body.tablet-mode .popup-draggable .wj-flexgrid {
+          max-height: 44vh;
+      }
+
+      body.tablet-mode .wj-flexgrid {
+          touch-action: pan-x pan-y;
+          border-radius: var(--t-radius);
+          border-color: var(--t-line);
+      }
+
+      body.tablet-mode .wj-flexgrid .wj-cell {
+          min-height: 44px;
+          padding-top: 11px;
+          padding-bottom: 11px;
+          font-size: 14px;
+      }
+
+      body.tablet-mode .wj-flexgrid .wj-colheaders .wj-cell {
+          background: #F2F5FA;
+          font-weight: 700;
+          color: #2A3550;
+      }
+
+      /* ── 터치 타겟 ─────────────────────────────────────────── */
+      body.tablet-mode .btn,
+      body.tablet-mode .btn-popup,
+      body.tablet-mode .btn-delete {
+          min-height: var(--t-tap);
+          min-width: var(--t-tap);
+          padding: 0 18px;
+          font-size: 15px;
+          line-height: var(--t-tap);
+          border-radius: 8px;
+      }
+
+      body.tablet-mode input,
+      body.tablet-mode select,
+      body.tablet-mode textarea {
+          min-height: 46px;
+          font-size: 16px;   /* iOS 자동 확대 방지 — 16px 미만이면 줌인됨 */
+          border-radius: 8px;
+      }
+
+      body.tablet-mode textarea {
+          padding: 8px 10px;
+          line-height: 1.5;
+      }
+
+      /* ── 상단 페이지 헤더 / 검색 카드 ──────────────────────── */
+      body.tablet-mode .page-title-wrap h2 {
+          font-size: 22px;
+          letter-spacing: -.3px;
+      }
+
+      body.tablet-mode .section-top {
+          background: #fff;
+          border: 1px solid var(--t-line);
+          border-radius: var(--t-radius);
+          padding: 8px 12px;
+          margin-bottom: 8px;
+      }
+
+      body.tablet-mode .content_wrap.popup .section-top {
+          padding: 10px 12px;
+      }
+
+      /* 검색조건 + 버튼을 한 줄로. 조건이 많으면 조건만 접힌다 */
+      body.tablet-mode .search-flex-row {
+          display: flex;
+          flex-wrap: nowrap;
+          align-items: flex-end;
+          gap: 10px;
+      }
+
+      body.tablet-mode .search-wrap {
+          display: flex;
+          flex: 1 1 auto;
+          flex-wrap: wrap;
+          align-items: flex-end;
+          gap: 6px 12px;
+          min-width: 0;
+      }
+
+      body.tablet-mode .search-wrap dl { margin: 0; }
+      body.tablet-mode .search-wrap dt {
+          margin: 0 0 2px;
+          font-size: 13px;
+          line-height: 1.2;
+      }
+      body.tablet-mode .search-wrap dd { margin: 0; }
+      body.tablet-mode .search-wrap input,
+      body.tablet-mode .search-wrap select { min-height: 40px; }
+      body.tablet-mode .search-wrap .date-box { display: flex; gap: 6px; margin: 0; }
+
+      /* ── 검색조건 간격 ──────────────────────────────────────
+         ★ 왜 !important 인가
+           기본 스킨(.search-wrap dl)이 dl 에 «폭» 과 «margin» 을 주고 있다.
+           id 로 특이도만 올려서는 폭이 그대로 남아, 라벨+입력칸이 넓은
+           칸 안에 왼쪽으로 붙고 오른쪽 여백이 «간격» 처럼 보인다.
+           스킨이 무엇을 주든 눕히려면 여기서 끊는 수밖에 없다.
+         ★ tablet-mode 여부와 무관하게 적용된다. 위 tablet-mode 규칙은
+           그대로 두되, 실제로 이기는 건 이 블록이다.
+         ★ 간격을 바꿀 곳은 아래 gap 한 줄뿐이다. */
+      #searchForm .search-flex-row {
+          display: flex !important;
+          flex-wrap: wrap;            /* 좁아지면 검색 버튼이 다음 줄로 */
+          align-items: flex-end;
+          justify-content: flex-start !important;   /* 위와 같은 이유 */
+          gap: 8px 10px;
+      }
+
+      #searchForm .search-wrap {
+          display: flex !important;
+          flex: 1 1 auto;
+          flex-wrap: wrap;
+          align-items: flex-end;
+          /* ★ 이 한 줄이 핵심이다.
+               기본 스킨이 .search-wrap 에 justify-content: space-between 을 건다.
+               «선언하지 않은 속성» 은 특이도와 무관하게 스킨 값이 살아남으므로,
+               gap 을 아무리 줄여도 남는 공간이 조건 사이에 균등 배분돼
+               화면 폭에 비례하는 130px 짜리 간격이 생겼다.
+               간격이 «모든 조건에서 똑같고 폭에 따라 변하면» 여기를 의심한다. */
+          justify-content: flex-start !important;
+          align-content: flex-start;
+          gap: 8px 14px;      /* ← 조건 사이 간격. 여기만 고치면 된다 */
+          min-width: 0;
+          width: auto !important;
+      }
+
+      /* 스킨이 준 폭·여백·float 을 전부 눕힌다 — 내용 폭만큼만 차지하게 */
+      #searchForm .search-wrap > dl {
+          display: block !important;
+          float: none !important;
+          flex: 0 0 auto;
+          width: auto !important;
+          min-width: 0 !important;
+          max-width: none !important;
+          margin: 0 !important;
+          padding: 0 !important;
+      }
+
+      #searchForm .search-wrap > dl > dt {
+          display: block !important;
+          float: none !important;
+          width: auto !important;
+          margin: 0 0 2px !important;
+          padding: 0 !important;
+          line-height: 1.2;
+      }
+
+      #searchForm .search-wrap > dl > dd {
+          display: block !important;
+          float: none !important;
+          width: auto !important;
+          margin: 0 !important;
+          padding: 0 !important;
+      }
+
+      #searchForm .search-wrap .date-box {
+          display: flex !important;
+          justify-content: flex-start !important;
+          gap: 6px;
+          margin: 0 !important;
+          padding: 0 !important;
+      }
+      #searchForm .search-wrap .date-box > li {
+          list-style: none;
+          margin: 0 !important;
+          padding: 0 !important;
+          float: none !important;
+          width: auto !important;
+      }
+
+      /* 검색 버튼 — 조건 바로 뒤에 붙인다.
+         ★ margin-left:auto 로 오른쪽 끝에 밀어 두면, 좁은 화면에서
+           버튼만 다음 줄로 넘어갈 때 왼쪽에 빈 띠가 남는다. */
+      #searchForm .button-wrap { flex: 0 0 auto; margin-left: 0; }
+      #searchForm .button-wrap ul { display: flex; gap: 8px; margin: 0; padding: 0; }
+      #searchForm .button-wrap li { list-style: none; margin: 0; }
+
+      /* 상단 기능 버튼 줄 — 한 줄에 다 못 들어가면 접힌다 */
+      body.tablet-mode .section-top .button-wrap {
+          flex: 0 0 auto;
+          margin-left: auto;
+      }
+
+      body.tablet-mode .section-top .button-wrap ul {
+          display: flex;
+          flex-wrap: nowrap;   /* 검색/초기화는 항상 한 줄 */
+          gap: 8px;
+          margin: 0;
+      }
+
+      body.tablet-mode .section-top .button-wrap .btn {
+          white-space: nowrap;
+          min-height: 40px;
+          padding: 0 18px;
+          display: inline-flex;
+          align-items: center;
+      }
+
+      body.tablet-mode .section-top .button-wrap .btn {
+          background: #fff;
+          border: 1px solid var(--t-line);
+          color: var(--t-ink);
+          font-weight: 600;
+      }
+
+      body.tablet-mode .section-top .button-wrap li:first-child .btn,
+      body.tablet-mode .section-top .button-wrap li:nth-child(2) .btn {
+          background: var(--t-brand);
+          border-color: var(--t-brand);
+          color: #fff;
+      }
+
+      /* ── 팝업 하단 버튼바 ──────────────────────────────────── */
+      /* 스티키 푸터는 뒤따르는 형제를 덮는다.
+         버튼바 뒤에 내용이 오는 팝업이 없도록 마크업을 맞춰 둘 것. */
+      body.tablet-mode .popup-button {
+          position: sticky;
+          bottom: 0;
+          background: #fff;
+          padding: 12px 0;
+          margin-top: 12px;
+          border-top: 1px solid var(--t-line);
+          z-index: 10;
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 10px;
+          justify-content: flex-end;
+      }
+
+      body.tablet-mode .popup-button .btn-popup {
+          background: #fff;
+          border: 1px solid var(--t-line);
+          color: var(--t-ink);
+          font-weight: 600;
+      }
+
+      /* 첫 버튼 = 그 팝업의 주행동. 색으로 구분해 둔다 */
+      body.tablet-mode .popup-button .btn-popup:first-of-type {
+          background: var(--t-brand);
+          border-color: var(--t-brand);
+          color: #fff;
+      }
+
+      body.tablet-mode .popup-button .btn-popup:disabled {
+          opacity: .45;
+      }
+
+      /* 스캔 입력창 강조 */
+      body.tablet-mode #scanBarcode {
+          height: 56px !important;
+          font-size: 19px !important;
+          letter-spacing: .5px;
+      }
+
+      /* write-table(입력 폼) 을 태블릿 크기로 */
+      body.tablet-mode .write-table th {
+          font-size: 14px;
+          color: var(--t-muted);
+          font-weight: 600;
+          white-space: nowrap;
+      }
+
+      body.tablet-mode .write-table td {
+          padding: 6px 8px;
+      }
+
+      /* ══════════════════════════════════════════════════════════
+         TGrid — 팝업 안에서 쓰는 <table> 그리드
+         ────────────────────────────────────────────────────────
+         ★ 모달 그리드는 캔버스(wijmo)가 아니라 실제 표로 그린다.
+           가상 스크롤 그리드는 팝업 높이가 바뀔 때마다 invalidate
+           를 불러야 하고, 셀 편집기가 손가락 위치와 어긋난다.
+         ★ 편집 가능한 칸은 «파란 테두리 입력상자» 로 보이게 한다.
+           어디를 만질 수 있는지 표에서 바로 읽혀야 한다.
+         ══════════════════════════════════════════════════════════ */
+      .tg-host { width: 100%; }
+
+      .tg-wrap {
+          border: 1px solid var(--t-line);
+          border-radius: var(--t-radius);
+          background: #fff;
+          overflow: auto;
+          -webkit-overflow-scrolling: touch;
+      }
+
+      table.tg {
+          width: 100%;
+          border-collapse: separate;
+          border-spacing: 0;
+          font-size: 15px;
+          color: var(--t-ink);
+      }
+
+      table.tg thead th {
+          position: sticky;
+          top: 0;
+          z-index: 3;
+          background: #F2F5FA;
+          color: #2A3550;
+          font-weight: 700;
+          font-size: 14px;
+          height: 50px;
+          padding: 0 10px;
+          text-align: center;
+          white-space: nowrap;
+          border-bottom: 1px solid var(--t-line);
+          border-right: 1px solid var(--t-line-soft);
+      }
+
+      table.tg thead th:last-child { border-right: 0; }
+
+      /* 입력 가능한 열 머리 — 예전 wijmo 에서 파란 글씨로 쓰던 표시 */
+      table.tg thead th.tg-h-edit { color: var(--t-edit); }
+      table.tg thead th.tg-h-edit::after {
+          content: '✎';
+          font-size: 12px;
+          margin-left: 4px;
+          opacity: .7;
+      }
+
+      table.tg tbody td {
+          height: 54px;
+          padding: 5px 10px;
+          border-bottom: 1px solid var(--t-line-soft);
+          border-right: 1px solid var(--t-line-soft);
+          vertical-align: middle;
+      }
+
+      table.tg tbody td:last-child { border-right: 0; }
+      table.tg tbody tr:last-child td { border-bottom: 0; }
+      table.tg tbody tr:nth-child(even) { background: #FBFCFE; }
+      table.tg tbody tr.tg-on { background: var(--t-brand-soft); }
+      table.tg tbody tr.tg-on td { border-bottom-color: #CFE0F7; }
+
+      table.tg td.tg-l { text-align: left; }
+      table.tg td.tg-c { text-align: center; }
+      table.tg td.tg-r { text-align: right; font-variant-numeric: tabular-nums; }
+
+      table.tg td.tg-idx,
+      table.tg th.tg-idx {
+          width: 48px;
+          color: var(--t-muted);
+          font-size: 13px;
+          text-align: center;
+          background: #F8FAFC;
+      }
+
+      table.tg td.tg-chk,
+      table.tg th.tg-chk {
+          width: 56px;
+          text-align: center;
+          background: #F8FAFC;
+      }
+
+      table.tg input[type="checkbox"] {
+          width: 24px;
+          height: 24px;
+          min-height: 24px;
+          accent-color: var(--t-brand);
+          margin: 0;
+      }
+
+      /* 셀 안의 입력기 */
+      table.tg .tg-in {
+          width: 100%;
+          min-height: 42px;
+          height: 42px;
+          font-size: 15px;
+          padding: 0 8px;
+          border: 1px solid #B9C7DC;
+          border-radius: 7px;
+          background: var(--t-edit-soft);
+          color: var(--t-ink);
+          box-sizing: border-box;
+      }
+
+      table.tg select.tg-in { padding: 0 4px; }
+      table.tg .tg-in.tg-r { text-align: right; }
+      table.tg .tg-in:focus {
+          outline: none;
+          border-color: var(--t-edit);
+          box-shadow: 0 0 0 3px rgba(47, 111, 235, .16);
+          background: #fff;
+      }
+
+      /* 값이 규칙에 어긋나는 칸 — 저장을 막는 칸이다 */
+      table.tg .tg-bad {
+          border-color: var(--t-danger) !important;
+          background: #FDF1F1 !important;
+      }
+
+      table.tg td.tg-cell-red { background: #FBE4E1; }
+      table.tg td.tg-cell-blue { background: #E1F0F8; }
+      table.tg .tg-warn { color: var(--t-danger); font-weight: 700; }
+      table.tg .tg-dim { color: var(--t-muted); }
+
+      /* O / X 토글 (입고검사 결과) */
+      table.tg .tg-toggle {
+          display: inline-flex;
+          gap: 8px;
+      }
+
+      table.tg .tg-toggle button {
+          width: 62px;
+          height: 44px;
+          border: 1px solid #C3CEDF;
+          background: #fff;
+          border-radius: 8px;
+          font-size: 17px;
+          font-weight: 700;
+          color: var(--t-muted);
+      }
+
+      table.tg .tg-toggle button.on[data-v="O"] {
+          background: var(--t-ok);
+          border-color: var(--t-ok);
+          color: #fff;
+      }
+
+      table.tg .tg-toggle button.on[data-v="X"] {
+          background: var(--t-danger);
+          border-color: var(--t-danger);
+          color: #fff;
+      }
+
+      .tg-empty {
+          text-align: center;
+          color: var(--t-muted);
+          padding: 34px 10px;
+          font-size: 15px;
+      }
+
+      /* 본문 목록 — 높이는 JS(_fitGridHeight)가 «실측» 해서 넣는다.
+         ★ calc(100vh - 330px) 같은 고정식은 검색조건이 한 줄 접히거나
+           KPI 카드가 두 줄이 되는 순간 어긋난다. 화면이 좁을수록 잘 접히고,
+           그때가 하필 세로가 가장 아쉬운 때다.
+         여기 값은 JS 가 돌기 «전» 의 첫 그림용 기본값일 뿐이다. */
+      body.tablet-mode .main-grid {
+          min-height: 180px;
+      }
+
+      /* ══════════════════════════════════════════════════════════
+         사진 첨부 (입고검사)
+         ────────────────────────────────────────────────────────
+         ★ 부적합 등록 화면과 «같은 방식» 이다. 촬영 / 사진첩 두
+           입력을 따로 둔다 — capture="environment" 하나로는 기기에
+           따라 사진첩을 못 고르거나 카메라가 안 열린다.
+         ══════════════════════════════════════════════════════════ */
+      .ph-wrap { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+
+      .ph-item { position: relative; }
+
+      .ph-item img {
+          width: 84px;
+          height: 84px;
+          border-radius: 10px;
+          object-fit: cover;
+          border: 1px solid var(--t-line);
+          background: #F6F8FB;
+          display: block;
+      }
+
+      .ph-item .ph-del {
+          position: absolute;
+          top: -8px;
+          right: -8px;
+          width: 28px;
+          height: 28px;
+          min-height: 28px;
+          border-radius: 50%;
+          border: 2px solid #fff;
+          background: var(--t-danger);
+          color: #fff;
+          font-size: 15px;
+          line-height: 1;
+          padding: 0;
+      }
+
+      /* 이미 저장된 사진과 이번에 고른 사진을 구분해 둔다.
+         저장 버튼을 누르기 전에는 아직 서버에 없다는 뜻이다. */
+      .ph-item.ph-new img { border: 2px solid var(--t-edit); }
+
+      .ph-item .ph-tag {
+          position: absolute;
+          left: 4px;
+          bottom: 4px;
+          background: rgba(47, 111, 235, .92);
+          color: #fff;
+          font-size: 11px;
+          font-weight: 700;
+          padding: 1px 6px;
+          border-radius: 6px;
+      }
+
+      .ph-btns { display: flex; gap: 8px; }
+
+      .ph-btns button {
+          height: 84px;
+          min-width: 84px;
+          padding: 0 12px;
+          border: 1.5px dashed #B8C2CC;
+          border-radius: 10px;
+          background: #F8FAFC;
+          color: var(--t-muted);
+          font-size: 13px;
+          font-weight: 700;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 4px;
+      }
+
+      .ph-btns button span.ic { font-size: 22px; }
+      .ph-empty { color: var(--t-muted); font-size: 14px; }
+
+      /* 사진 크게 보기 */
+      .ph-view {
+          position: fixed;
+          inset: 0;
+          background: rgba(12, 18, 28, .88);
+          z-index: 20000;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 20px;
+      }
+
+      .ph-view img { max-width: 100%; max-height: 100%; border-radius: 10px; }
+
+      /* ── 표 안의 사진 버튼 / 줄별 사진 시트 ────────────────────
+         발주 입고 표는 줄마다 사진이 따로 붙는다. 셀에 썸네일을
+         늘어놓으면 행 높이가 줄마다 달라져 표가 읽히지 않으므로,
+         셀에는 «장수만» 두고 실제 편집은 시트에서 한다. */
+      table.tg .tg-photo {
+          width: 100%;
+          height: 42px;
+          border: 1px solid #B9C7DC;
+          border-radius: 7px;
+          background: var(--t-edit-soft);
+          color: var(--t-ink);
+          font-size: 14px;
+          font-weight: 700;
+          padding: 0 6px;
+      }
+
+      table.tg .tg-photo.on {
+          border-color: var(--t-edit);
+          background: #fff;
+          color: var(--t-edit);
+      }
+
+      .ph-sheet {
+          position: fixed;
+          inset: 0;
+          background: rgba(12, 18, 28, .55);
+          z-index: 19000;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 20px;
+      }
+
+      .ph-sheet .ph-box {
+          background: #fff;
+          border-radius: 14px;
+          width: min(760px, 94vw);
+          max-height: 88vh;
+          overflow: auto;
+          padding: 18px 20px 20px;
+          box-shadow: 0 18px 48px rgba(20, 32, 55, .28);
+      }
+
+      .ph-sheet .ph-hd {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          margin-bottom: 4px;
+      }
+
+      .ph-sheet .ph-hd h3 { font-size: 18px; margin: 0; }
+      .ph-sheet .ph-sub { color: var(--t-muted); font-size: 14px; margin: 0 0 14px; }
+
+      .ph-sheet .ph-done {
+          min-height: 48px;
+          padding: 0 22px;
+          border: 0;
+          border-radius: 8px;
+          background: var(--t-brand);
+          color: #fff;
+          font-size: 15px;
+          font-weight: 700;
+      }
+
+      .ph-view .ph-close {
+          position: absolute;
+          top: 16px;
+          right: 16px;
+          width: 48px;
+          height: 48px;
+          border-radius: 50%;
+          border: 0;
+          background: rgba(255, 255, 255, .16);
+          color: #fff;
+          font-size: 22px;
+      }
+
+      /* 연속 검사 진행 표시 */
+      .test-progress {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          background: var(--t-brand-soft);
+          color: var(--t-brand);
+          font-weight: 700;
+          font-size: 14px;
+          border-radius: 999px;
+          padding: 6px 14px;
+          margin-left: 10px;
+      }
+
+      /* 표 위 요약줄 — 건수/합계를 표 밖에 둔다 */
+      .tg-bar {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin: 0 0 6px;
+          font-size: 14px;
+          color: var(--t-muted);
+      }
+
+      .tg-bar b { color: var(--t-brand); font-size: 15px; }
+
+      /* ══ 카메라 바코드 스캔 ═════════════════════════════════════
+         HID 스캐너(DS2278)가 없는 자리 — 태블릿·폰 내장 카메라로 찍는다.
+         인식값은 #scanBarcode 와 «완전히 같은 경로»(handlePoScan /
+         handleItemScan)로 흘려보낸다. 여기서 따로 처리를 만들면
+         규칙이 두 벌이 되어 한쪽만 고쳤을 때 조용히 갈라진다. */
+      .camscan {
+          margin-top: 8px;
+          border: 1px solid #E5E7EC;
+          border-radius: 8px;
+          padding: 10px;
+          background: #FAFBFC;
+      }
+
+      .camscan-head {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-bottom: 8px;
+          font-weight: 600;
+      }
+
+      .camscan-head .cam-hint {
+          margin-right: auto;
+          font-weight: 400;
+          font-size: 12px;
+          color: #888;
+      }
+
+      .camscan-body {
+          display: flex;
+          gap: 10px;
+          align-items: flex-start;
+      }
+
+      .camwrap {
+          position: relative;
+          flex: 0 0 320px;
+          background: #0d1417;
+          border-radius: 8px;
+          overflow: hidden;
+          aspect-ratio: 4 / 3;
+      }
+
+      .camwrap video {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+      }
+
+      .camwrap .camframe {
+          position: absolute;
+          inset: 14% 8%;
+          border: 3px solid rgba(255, 255, 255, .85);
+          border-radius: 8px;
+          box-shadow: 0 0 0 100vmax rgba(0, 0, 0, .25);
+      }
+
+      .camwrap .camframe.hit {
+          border-color: #31C48D;
+      }
+
+      .camwrap .cammsg {
+          position: absolute;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          padding: 8px 10px;
+          background: rgba(13, 20, 23, .72);
+          color: #fff;
+          font-size: 13px;
+          font-weight: 600;
+          text-align: center;
+      }
+
+      .camlist {
+          flex: 1;
+          min-width: 0;
+          max-height: 240px;
+          overflow: auto;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+      }
+
+      .camrow {
+          display: flex;
+          gap: 8px;
+          align-items: center;
+          padding: 8px 10px;
+          border: 1px solid #E5E7EC;
+          border-radius: 6px;
+          background: #fff;
+      }
+
+      .camrow.ok {
+          border-color: #31C48D;
+          background: #F3FAF7;
+      }
+
+      .camrow.err {
+          border-color: #E02424;
+          background: #FDF2F2;
+      }
+
+      .camrow .cm-t {
+          flex: 1;
+          min-width: 0;
+      }
+
+      .camrow .cm-n {
+          font-size: 13px;
+          font-weight: 600;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+      }
+
+      .camrow .cm-c {
+          font-size: 11px;
+          color: #888;
+          word-break: break-all;
+      }
+
+      body.tablet-mode .camwrap { flex: 0 0 40vw; }
+      body.tablet-mode .camlist { max-height: 30vh; }
+
+      /* 팝업이 좁아지면 영상 아래로 로그가 내려간다 */
+      @media (max-width: 900px) {
+          .camscan-body { flex-direction: column; }
+          .camwrap { flex: 0 0 auto; width: 100%; }
+          .camlist { width: 100%; max-height: 26vh; }
+      }
+
+      /* ══════════════════════════════════════════════════════════
+         입고검사 내역 — 이 화면에만 있는 것
+         ══════════════════════════════════════════════════════════ */
+      /* 요약 카드 — 「몇 건 중 몇 건이 부적합인가」가 이 화면의 첫 질문이다 */
+      .kpi-row { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+
+      .kpi {
+          flex: 1 1 150px;
+          background: #fff;
+          border: 1px solid var(--t-line);
+          border-radius: var(--t-radius);
+          padding: 12px 14px;
+      }
+
+      .kpi .k-label { font-size: 13px; color: var(--t-muted); font-weight: 600; }
+      .kpi .k-value { font-size: 26px; font-weight: 800; margin-top: 2px; letter-spacing: -.5px; }
+      .kpi.ok   .k-value { color: var(--t-ok); }
+      .kpi.ng   .k-value { color: var(--t-danger); }
+      .kpi.wait .k-value { color: #B07A16; }
+
+      /* 판정 배지 — 표에서 적합/부적합이 «색» 으로 먼저 읽혀야 한다 */
+      .jd {
+          display: inline-block;
+          min-width: 62px;
+          padding: 4px 10px;
+          border-radius: 999px;
+          font-size: 13px;
+          font-weight: 700;
+          line-height: 1.6;
+      }
+
+      .jd.ok   { background: #E4F4EC; color: var(--t-ok); }
+      .jd.ng   { background: #FBE4E1; color: var(--t-danger); }
+      .jd.wait { background: #FBF1DC; color: #8A5D00; }
+      .jd.none { background: #F1F3F7; color: var(--t-muted); }
+
+      /* ── 상세 팝업 머리 ─────────────────────────────────────
+         ★ flex + wrap 이면 두 줄째 항목이 첫 줄과 «세로로 안 맞는다».
+           읽는 사람은 열을 따라 눈을 내리는데 위아래 라벨 위치가
+           어긋나 있으면 매번 다시 훑게 된다. grid 로 열을 고정한다.
+         ★ 품목은 길고 «무엇에 대한 화면인지» 를 정하는 값이라
+           한 줄을 통째로 준다. 나머지와 같은 칸에 넣으면 잘리거나
+           그 줄만 폭을 다 먹어 다른 값이 밀린다.
+         ★ 칸 사이 1px 간격 + 배경색으로 선을 만든다. border 를 칸마다
+           주면 모서리에서 두 겹이 된다. */
+      .dt-head {
+          display: grid;
+          /* ★ 4열 «고정». auto-fit 은 폭에 따라 3열이 되기도 해서
+               「입고일·수량·창고·로트번호 / 검사일·검사자·판정」이라는
+               읽는 순서가 무너진다. 줄바꿈 위치가 뜻을 갖는 배치다. */
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 1px;
+          padding: 0;
+          background: var(--t-line);
+          border: 1px solid var(--t-line);
+          border-radius: var(--t-radius);
+          overflow: hidden;
+          margin-bottom: 14px;
+      }
+
+      .dt-head dl {
+          margin: 0 !important;
+          padding: 9px 14px 11px;
+          background: #F7F9FC;
+          min-width: 0;
+          text-align: left !important;
+      }
+
+      /* 품목 — 한 줄 전체. 이 팝업이 «무엇에 대한 것인지» 를 말한다 */
+      .dt-head dl.wide {
+          grid-column: 1 / -1;
+          background: #fff;
+          padding: 12px 14px;
+      }
+
+      .dt-head dt {
+          margin: 0 !important;
+          font-size: 12px;
+          line-height: 1.3;
+          color: var(--t-muted);
+          font-weight: 600;
+          letter-spacing: -.2px;
+          text-align: left !important;
+      }
+
+      .dt-head dd {
+          margin: 3px 0 0 !important;
+          font-size: 15px;
+          line-height: 1.35;
+          font-weight: 700;
+          color: var(--t-ink);
+          text-align: left !important;
+          word-break: break-word;
+      }
+
+      .dt-head dl.wide dd { font-size: 18px; }
+
+      /* 마지막 줄의 빈 칸. 안 채우면 칸 사이 선을 만드는 배경색이
+         회색 덩어리로 드러난다. */
+      .dt-head .fill { background: #F7F9FC; }
+
+      /* 좁은 화면 — 4열은 값이 잘린다. 2열로 접어도 짝이 유지된다
+         (입고일·수량 / 창고·로트번호 / 검사일·검사자 / 판정) */
+      @media (max-width: 720px) {
+          .dt-head { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      }
+      /* 값이 없는 칸(—)은 흐리게. 안 그러면 «있는 값» 과 무게가 같다 */
+      .dt-head dd.dim { color: var(--t-muted); font-weight: 600; }
+
+      .dt-sec { margin-bottom: 14px; }
+      .dt-sec > h4 {
+          font-size: 15px;
+          margin: 0 0 8px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+      }
+
+      .dt-sec > h4 small { color: var(--t-muted); font-weight: 600; font-size: 13px; }
+  </style>
+</head>
+
+<th:block layout:fragment="content">
+  <div class="layout-contents">
+    <div class="page-title-wrap">
+      <div class="left">
+        <h2>입고검사 내역</h2>
+        <a title="북마크" class="bookmark toggle">내 메뉴</a>
+        <label for="Factory_id" class="hide">공장</label>
+        <select style="width: 110px;" id="Factory_id" name="Factory_id"></select>
+      </div>
+      <ul class="page-navi">
+        <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+        <li>발주관리</li>
+        <li>입고검사 내역</li>
+      </ul>
+    </div>
+
+    <section class="section">
+      <div class="section-top">
+        <form id="searchForm" autocomplete="off" style="width: 100%;">
+          <div class="search-flex-row">
+            <div class="search-wrap">
+              <dl>
+                <dt>검사일</dt>
+                <dd>
+                  <ul class="date-box">
+                    <li>
+                      <input type="date" id="srchStartDt" name="srchStartDt">
+                      <label for="srchStartDt" class="hide">시작일</label>
+                    </li>
+                    <li>
+                      <input type="date" id="srchEndDt" name="srchEndDt">
+                      <label for="srchEndDt" class="hide">종료일</label>
+                    </li>
+                  </ul>
+                </dd>
+              </dl>
+              <dl>
+                <dt><label for="cboHouse">창고</label></dt>
+                <dd><select id="cboHouse" name="cboHouse" style="width:150px"></select></dd>
+              </dl>
+              <dl>
+                <dt><label for="cboJudge">판정</label></dt>
+                <dd>
+                  <!-- ★ 「미검사」는 판정을 «안 한» 가입고 건이다.
+                       부적합과 섞이면 안 되므로 필터를 따로 둔다. -->
+                  <select id="cboJudge" name="cboJudge" style="width:130px">
+                    <option value="">전체</option>
+                    <option value="_pass">적합</option>
+                    <option value="_fail">부적합</option>
+                    <option value="_none">미검사(가입고)</option>
+                  </select>
+                </dd>
+              </dl>
+              <dl>
+                <dt><label for="txtMatName">품명</label></dt>
+                <dd><input type="text" id="txtMatName" name="txtMatName" placeholder="품목코드 또는 품목명"></dd>
+              </dl>
+              <dl>
+                <dt><label for="chkPhotoOnly" class="hide">사진</label></dt>
+                <dd>
+                  <label for="chkPhotoOnly"
+                         style="display:flex;align-items:center;gap:8px;font-size:15px;font-weight:600;cursor:pointer;">
+                    <input type="checkbox" id="chkPhotoOnly"
+                           style="width:24px;height:24px;min-height:24px;margin:0;">
+                    사진 있는 건만
+                  </label>
+                </dd>
+              </dl>
+            </div>
+            <div class="button-wrap">
+              <ul>
+                <li><a class="btn" title="검색" id="btnSearch">검색</a></li>
+              </ul>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      <div class="kpi-row">
+        <div class="kpi"><div class="k-label">조회 건수</div><div class="k-value" id="kpiTotal">0</div></div>
+        <div class="kpi ok"><div class="k-label">적합</div><div class="k-value" id="kpiPass">0</div></div>
+        <div class="kpi ng"><div class="k-label">부적합</div><div class="k-value" id="kpiFail">0</div></div>
+        <div class="kpi wait"><div class="k-label">미검사(가입고)</div><div class="k-value" id="kpiNone">0</div></div>
+        <div class="kpi"><div class="k-label">사진 첨부</div><div class="k-value" id="kpiPhoto">0</div></div>
+      </div>
+
+      <p style="margin:0 0 8px;color:#6B7688;font-size:14px;">
+        줄을 한 번 누르면 검사항목별 결과와 사진을 볼 수 있습니다.
+      </p>
+      <div id="test-list-grid"></div>
+    </section>
+  </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+
+  <!-- 상세 팝업 -->
+  <script type="text/x-tmpl" id="testDetailPopup">
+    <div class="content_wrap popup">
+        <div class="dt-head" id="dtHead"></div>
+
+        <div class="dt-sec">
+            <h4>검사 항목 <small id="dtItemCnt"></small></h4>
+            <div id="dt-item-grid"></div>
+        </div>
+
+        <div class="dt-sec">
+            <h4>검사 사진 <small id="dtPhotoCnt"></small></h4>
+            <div class="ph-wrap" id="dtPhotos"></div>
+        </div>
+
+        <div class="popup-button">
+            <button type="button" class="btn-popup" id="modal-close-button">닫기</button>
+        </div>
+    </div>
+  </script>
+
+  <script th:inline="javascript">
+   const factory_id = [[${session.factory_id}]];
+  </script>
+  <script type="text/javascript">
+   // ===== 태블릿 유틸 =====
+   /* ★ 이 화면은 «태블릿 전용» 이다.
+        예전에는 폭+포인터로 PC/태블릿을 갈랐는데, 같은 기기에서도
+        창 폭이나 포인터 판정이 흔들리면 버튼 크기·모달 크기가
+        오락가락했다. 판정을 없애고 항상 태블릿 규칙으로 그린다.
+        (isTablet() 은 호출부가 많아 남겨 두되 항상 true 다) */
+   const TabletUtil = {
+    isTouch() {
+     return true;
+    },
+
+    isTablet() {
+     return true;
+    },
+
+    // 모달 크기: 뷰포트를 넘지 않도록 항상 잘라 준다
+    size(w, h) {
+     return {
+      width: Math.min(w, Math.floor(window.innerWidth * 0.96)),
+      height: Math.min(h, Math.floor(window.innerHeight * 0.94))
+     };
+    },
+
+    applyBodyClass() {
+     document.body.classList.add('tablet-mode');
+    },
+
+    /* 모달 껍데기(PopupDraggable 이 인라인 width/height 를 박아 둔 상자)를 찾는다.
+       ★ 클래스 이름에 기대지 않는다 — 화면마다 .modal / .popup-draggable /
+         무명 div 가 섞여 있어, 선택자로 잡으면 어떤 화면에서는 조용히 빗나간다.
+         «인라인 height 를 가진 조상» 이 곧 그 상자다. */
+    modalShell($content) {
+     const el = $content && $content[0];
+     if (!el) return null;
+     let box = el.parentElement;
+     for (let i = 0; box && box !== document.body && i < 8; i++, box = box.parentElement) {
+      if (box.style && (box.style.height || box.style.width)) return box;
+     }
+     return null;
+    },
+
+    /* 내용만큼만 높이를 갖게 줄인다.
+       ★ 모달을 «내용과 무관하게» 700px 로 열면, 검사항목이 한 줄인 건에서
+         화면 절반이 빈 채로 남는다. 태블릿에서는 그 빈 칸이 표를 밀어내
+         정작 볼 것이 화면 밖으로 나간다.
+       ★ 늘리지는 않는다 — 넘치면 안쪽에서 스크롤하는 편이 안전하다. */
+    shrinkModal($content, extra) {
+     const shell = this.modalShell($content);
+     const el = $content && $content[0];
+     if (!shell || !el) return;
+     const cap = Math.floor(window.innerHeight * 0.94);
+     const chrome = Math.max(0, shell.offsetHeight - el.offsetHeight);   // 타이틀바 등
+     const want = Math.min(cap, el.scrollHeight + chrome + (extra || 0));
+     if (want > 0 && want < shell.offsetHeight) shell.style.height = want + 'px';
+    }
+   };
+
+   window.addEventListener('resize', () => TabletUtil.applyBodyClass());
+
+   /* ══════════════════════════════════════════════════════════════
+      TGrid — 팝업(모달) 전용 <table> 그리드
+      ────────────────────────────────────────────────────────────
+      ★ 모달 안의 그리드는 wijmo FlexGrid 를 쓰지 않는다.
+        캔버스+가상스크롤 방식은 팝업 높이가 바뀔 때마다
+        invalidate() 를 불러 줘야 하고, 태블릿에서는 셀 편집기가
+        손가락 위치와 어긋난다. 여기서는 진짜 <table> 을 그린다.
+      ★ 호출부를 그대로 살리려고 wijmo 의 겉모습을 흉내낸다.
+          itemsSource / collectionView
+          rows[].isSelected / rows[].dataItem / selectedItems
+          refresh() / invalidate() / cellEditEnded.addHandler()
+        그래서 저장 버튼 쪽 코드는 손대지 않아도 된다.
+      ★ 편집 가능한 칸은 «입력상자» 로 보인다. 어디를 만질 수
+        있는지가 표에서 바로 읽혀야 현장에서 헤매지 않는다.
+      ══════════════════════════════════════════════════════════════ */
+
+   /* wijmo.collections.CollectionView 자리에 들어가는 최소 구현.
+      items / sourceCollection / refresh / remove 만 쓰인다. */
+   class TDataView {
+    constructor(items) {
+     this._items = items || [];
+     this.grid = null;
+    }
+
+    get items() {
+     return this._items;
+    }
+
+    set items(v) {
+     this._items = v || [];
+     this.refresh();
+    }
+
+    get sourceCollection() {
+     return this._items;
+    }
+
+    set sourceCollection(v) {
+     this._items = v || [];
+     this.refresh();
+    }
+
+    refresh() {
+     if (this.grid) this.grid.render();
+    }
+
+    remove(item) {
+     const i = this._items.indexOf(item);
+     if (i > -1) this._items.splice(i, 1);
+     this.refresh();
+    }
+
+    push(item) {
+     this._items.push(item);
+     this.refresh();
+    }
+   }
+
+   class TRow {
+    constructor(grid, item, index) {
+     this.grid = grid;
+     this.dataItem = item;
+     this.index = index;
+    }
+
+    get isSelected() {
+     return this.grid._sel.has(this.dataItem);
+    }
+
+    set isSelected(v) {
+     if (v) this.grid._sel.add(this.dataItem);
+     else this.grid._sel.delete(this.dataItem);
+    }
+   }
+
+   class TGrid {
+    /**
+     * @param host   컨테이너 (선택자 / DOM / jQuery)
+     * @param opt.columns      열 정의
+     * @param opt.height       표 영역 최대 높이 (CSS 값, 기본 '42vh')
+     * @param opt.selectable   체크박스 선택 열 사용 여부
+     * @param opt.showIndex    순번 열 사용 여부
+     */
+    constructor(host, opt) {
+     opt = opt || {};
+     this.host = TGrid._el(host);
+     this.host.classList.add('tg-host');
+     this.host.style.height = '';          // 템플릿의 인라인 height 무효화
+
+     this.allColumns = opt.columns || [];
+     this.columns = this.allColumns.filter(c => c.visible !== false);
+     this.selectable = opt.selectable === true;
+     this.showIndex = opt.showIndex !== false;
+     this.emptyText = opt.emptyText || '조회된 자료가 없습니다.';
+     this.height = opt.height || '42vh';
+     this.summary = opt.summary === true;
+     this.onSelectionChanged = opt.onSelectionChanged || null;
+     this.onCellChanged = opt.onCellChanged || null;
+
+     /* wijmo 이벤트 흉내 — addHandler 만 있으면 된다 */
+     this.cellEditEnded = TGrid._event();
+     this.selectionChanged = TGrid._event();
+
+     this._sel = new Set();
+     this._rows = [];
+     this.downloadFileName = '';
+
+     this._build();
+     this.itemsSource = opt.itemsSource || new TDataView([]);
+    }
+
+    /* 표 영역 높이를 나중에 바꾼다.
+       ★ 생성 시 넘긴 height 는 «그때의» 화면 기준이다. 창이 바뀌거나
+         검색조건이 한 줄 접히면 그대로는 화면을 넘거나 남는다. */
+    setHeight(h) {
+     this.height = h;
+     if (this.wrap) this.wrap.style.maxHeight = h;
+    }
+
+    static _el(h) {
+     /* ★ 팝업 안에서는 $content.find() 로 «그 팝업의» 요소를 넘긴다.
+          document.querySelector('#id') 로 찾으면 같은 id 를 쓰는
+          다른 팝업이 열려 있을 때 엉뚱한 곳에 표가 그려진다. */
+     let el = null;
+     if (!h) el = null;
+     else if (typeof h === 'string') el = document.querySelector(h);
+     else if (h.jquery) el = h[0] || null;
+     else el = h;
+     if (!el) throw new Error('TGrid: 표를 그릴 대상을 찾지 못했습니다.');
+     return el;
+    }
+
+    static _event() {
+     return {
+      _h: [],
+      addHandler(fn) {
+       this._h.push(fn);
+      },
+      raise(s, e) {
+       this._h.forEach(fn => fn(s, e));
+      }
+     };
+    }
+
+    /* ── 구조 ────────────────────────────────────────────── */
+    _build() {
+     this.host.innerHTML = '';
+
+     /* ★ 건수는 표 «밖» 에 둔다. 표 안에 합계행을 넣으면
+          스크롤을 내려야 보이는데, 태블릿에서는 저장 버튼과
+          표가 멀어 «몇 건을 저장하는지» 를 놓치기 쉽다. */
+     if (this.summary) {
+      this.bar = document.createElement('div');
+      this.bar.className = 'tg-bar';
+      this.host.appendChild(this.bar);
+     }
+
+     this.wrap = document.createElement('div');
+     this.wrap.className = 'tg-wrap';
+     this.wrap.style.maxHeight = this.height;
+
+     this.table = document.createElement('table');
+     this.table.className = 'tg';
+
+     this.colgroup = document.createElement('colgroup');
+     this.thead = document.createElement('thead');
+     this.tbody = document.createElement('tbody');
+
+     this.table.appendChild(this.colgroup);
+     this.table.appendChild(this.thead);
+     this.table.appendChild(this.tbody);
+     this.wrap.appendChild(this.table);
+     this.host.appendChild(this.wrap);
+
+     this._buildHead();
+    }
+
+    _buildHead() {
+     this.colgroup.innerHTML = '';
+     this.thead.innerHTML = '';
+
+     const tr = document.createElement('tr');
+     let minW = 0;
+
+     const addCol = (w, cls) => {
+      const c = document.createElement('col');
+      if (w) {
+       c.style.width = w + 'px';
+       minW += w;
+      }
+      if (cls) c.className = cls;
+      this.colgroup.appendChild(c);
+     };
+
+     if (this.selectable) {
+      addCol(56);
+      const th = document.createElement('th');
+      th.className = 'tg-chk';
+      const all = document.createElement('input');
+      all.type = 'checkbox';
+      all.addEventListener('change', () => this._toggleAll(all.checked));
+      this._allChk = all;
+      th.appendChild(all);
+      tr.appendChild(th);
+     }
+
+     if (this.showIndex) {
+      addCol(48);
+      const th = document.createElement('th');
+      th.className = 'tg-idx';
+      th.textContent = 'No';
+      tr.appendChild(th);
+     }
+
+     this.columns.forEach(col => {
+      addCol(typeof col.width === 'number' ? col.width : 0);
+      const th = document.createElement('th');
+      th.textContent = col.header || '';
+      if (!TGrid._ro(col)) th.classList.add('tg-h-edit');
+      tr.appendChild(th);
+     });
+
+     this.table.style.minWidth = minW ? minW + 'px' : '';
+     this.thead.appendChild(tr);
+    }
+
+    static _ro(col) {
+     return col.readOnly === true || col.isReadOnly === true || !col.binding;
+    }
+
+    /* ── 데이터 ──────────────────────────────────────────── */
+    set itemsSource(v) {
+     if (Array.isArray(v)) v = new TDataView(v);
+     if (this._cv) this._cv.grid = null;
+     this._cv = v || new TDataView([]);
+     this._cv.grid = this;
+     this._sel.clear();
+     this.render();
+    }
+
+    get itemsSource() {
+     return this._cv;
+    }
+
+    /* wijmo 호출부 호환 */
+    get collectionView() {
+     return this._cv;
+    }
+
+    get rows() {
+     return this._rows;
+    }
+
+    get hostElement() {
+     return this.host;
+    }
+
+    get selectedItems() {
+     return this._cv.items.filter(it => this._sel.has(it));
+    }
+
+    addRow(item) {
+     this._cv.items.push(item);
+     this.render();
+     return item;
+    }
+
+    invalidate() {
+     this.render();
+    }
+
+    refresh() {
+     this.render();
+    }
+
+    selectAll(on) {
+     this._toggleAll(on !== false);
+    }
+
+    _toggleAll(on) {
+     this._cv.items.forEach(it => on ? this._sel.add(it) : this._sel.delete(it));
+     this.render();
+     this._fireSelection();
+    }
+
+    _fireSelection() {
+     if (this.onSelectionChanged) this.onSelectionChanged(this.selectedItems, this);
+     this.selectionChanged.raise(this, {});
+    }
+
+    /* ── 그리기 ──────────────────────────────────────────── */
+    render() {
+     const items = (this._cv && this._cv.items) || [];
+     this._rows = items.map((it, i) => new TRow(this, it, i));
+     this.tbody.innerHTML = '';
+
+     if (!items.length) {
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.className = 'tg-empty';
+      td.colSpan = this.columns.length
+       + (this.selectable ? 1 : 0) + (this.showIndex ? 1 : 0);
+      td.textContent = this.emptyText;
+      tr.appendChild(td);
+      this.tbody.appendChild(tr);
+      this._syncAllChk();
+      this._syncBar();
+      return;
+     }
+
+     items.forEach((item, i) => {
+      const tr = document.createElement('tr');
+      if (this._sel.has(item)) tr.classList.add('tg-on');
+
+      if (this.selectable) {
+       const td = document.createElement('td');
+       td.className = 'tg-chk';
+       const chk = document.createElement('input');
+       chk.type = 'checkbox';
+       chk.checked = this._sel.has(item);
+
+       /* ★ 체크박스와 «줄 탭» 이 같은 함수를 부른다.
+            예전에는 줄을 탭하면 체크박스에 change 이벤트를
+            만들어 보냈는데, 규칙이 두 곳에 생기면 한쪽만
+            고쳤을 때 조용히 갈라진다. 여기 한 곳만 둔다. */
+       const setOn = (on) => {
+        chk.checked = on;
+        if (on) this._sel.add(item);
+        else this._sel.delete(item);
+        tr.classList.toggle('tg-on', on);
+        this._syncAllChk();
+        this._syncBar();
+        this._fireSelection();
+       };
+
+       chk.addEventListener('change', () => setOn(chk.checked));
+       td.appendChild(chk);
+       tr.appendChild(td);
+
+       /* ★ 줄 아무 데나 한 번 탭하면 선택된다.
+            체크박스만 눌러야 했을 때는 24px 짜리 네모를
+            손가락으로 겨냥해야 해서 옆 줄이 눌리기 일쑤였다.
+            입력칸·버튼을 누른 것이면 그쪽 몫이니 비켜 준다. */
+       tr.addEventListener('click', function (ev) {
+        if (ev.target.closest('input, select, textarea, button, a, label')) return;
+        setOn(!chk.checked);
+       });
+      }
+
+      if (this.showIndex) {
+       const td = document.createElement('td');
+       td.className = 'tg-idx';
+       td.textContent = (i + 1).toString();
+       tr.appendChild(td);
+      }
+
+      this.columns.forEach(col => tr.appendChild(this._cell(col, item)));
+      this.tbody.appendChild(tr);
+     });
+
+     this._syncAllChk();
+     this._syncBar();
+    }
+
+    _syncBar() {
+     if (!this.bar) return;
+     const n = (this._cv && this._cv.items.length) || 0;
+     this.bar.innerHTML = '총 <b>' + n + '</b>건'
+      + (this.selectable ? ' · 선택 <b>' + this._sel.size + '</b>건' : '');
+    }
+
+    _syncAllChk() {
+     if (!this._allChk) return;
+     const n = (this._cv && this._cv.items.length) || 0;
+     this._allChk.checked = n > 0 && this._sel.size === n;
+     this._allChk.indeterminate = this._sel.size > 0 && this._sel.size < n;
+    }
+
+    _cell(col, item) {
+     const td = document.createElement('td');
+     td.className = 'tg-' + ((col.align || 'left')[0] === 'r' ? 'r'
+      : (col.align || 'left')[0] === 'c' ? 'c' : 'l');
+
+     if (col.cellClass) {
+      const c = col.cellClass(item, this);
+      if (c) td.classList.add(c);
+     }
+
+     /* 완전 커스텀 셀 — 표시 규칙이 값 하나로 안 끝나는 칸 */
+     if (col.render) {
+      col.render(item, td, this);
+      return td;
+     }
+
+     if (TGrid._ro(col)) {
+      td.textContent = TGrid.fmt(item[col.binding], col);
+      return td;
+     }
+
+     td.appendChild(this._editor(col, item, td));
+     return td;
+    }
+
+    _editor(col, item, td) {
+     const _this = this;
+     const type = col.type || (col.options ? 'select'
+      : (col.format === 'n0' ? 'number' : 'text'));
+     let el;
+
+     if (type === 'select') {
+      el = document.createElement('select');
+      (col.options || []).forEach(o => {
+       const op = document.createElement('option');
+       op.value = o.value;
+       op.textContent = o.text;
+       el.appendChild(op);
+      });
+      el.value = item[col.binding] == null ? '' : String(item[col.binding]);
+     } else {
+      el = document.createElement('input');
+      el.type = (type === 'number') ? 'number' : (type === 'date' ? 'date' : 'text');
+      if (col.min != null) el.min = col.min;
+      if (col.max != null) el.max = col.max;
+      if (col.step != null) el.step = col.step;
+      if (col.placeholder) el.placeholder = col.placeholder;
+      const v = item[col.binding];
+      el.value = (v == null) ? '' : v;
+      if (type === 'number') el.classList.add('tg-r');
+     }
+
+     el.className += ' tg-in';
+     if (col.badWhen && col.badWhen(item, this)) el.classList.add('tg-bad');
+
+     /* 값이 비었을 때 채워 넣을 기본값 — 예전 beginningEdit 자리 */
+     if (col.fillOnFocus) {
+      el.addEventListener('focus', function () {
+       if (el.value === '' || el.value == null) {
+        const d = col.fillOnFocus(item, _this);
+        if (d != null && d !== '') {
+         el.value = d;
+         _this._commit(col, item, el, td);
+        }
+       }
+      });
+     }
+
+     const commit = function () {
+      _this._commit(col, item, el, td);
+     };
+     el.addEventListener('change', commit);
+     if (type === 'text') el.addEventListener('blur', commit);
+
+     return el;
+    }
+
+    _commit(col, item, el, td) {
+     let val = el.value;
+     const type = col.type || (col.options ? 'select'
+      : (col.format === 'n0' ? 'number' : 'text'));
+
+     if (type === 'number') val = (val === '' ? '' : Number(val));
+
+     if (col.onChange) {
+      const r = col.onChange(item, val, this);
+      if (r !== undefined) val = r;      // 보정된 값을 돌려줄 수 있다
+     }
+
+     item[col.binding] = val;
+     if (type === 'number' && val !== '') el.value = val;
+
+     if (col.badWhen) el.classList.toggle('tg-bad', !!col.badWhen(item, this));
+
+     if (this.onCellChanged) this.onCellChanged(item, col, val, this);
+     this.cellEditEnded.raise(this, {col: col, item: item, value: val});
+    }
+
+    static fmt(v, col) {
+     if (v == null || v === '') return '';
+     if (col && col.format === 'n0') {
+      const n = Number(v);
+      return isNaN(n) ? String(v) : n.toLocaleString();
+     }
+     return String(v);
+    }
+   }
+
+   /* ══════════════════════════════════════════════════════════════
+      PhotoUtil — 검사 사진 첨부
+      ────────────────────────────────────────────────────────────
+      부적합 등록 화면(prod_defect_f1)과 «같은 규칙» 을 쓴다.
+      한쪽만 고치면 두 화면의 사진 처리가 조용히 갈라진다.
+
+      ★ 원본을 그대로 보내지 않는다.
+        태블릿 카메라 한 장이 수 MB 라 form-urlencoded 전체가
+        Tomcat maxPostSize(기본 2MB)에 걸린다. 걸리면 예외가 아니라
+        «파라미터가 조용히 잘려» 사진만 사라진다.
+        긴 변 1280px · JPEG 0.7 로 줄인다 (검사 판독에는 충분).
+
+      ★ 사진은 본문 저장과 «분리해서» 한 장씩 보낸다.
+        같은 이유다. 여러 장을 한 번에 실으면 역시 잘린다.
+      ══════════════════════════════════════════════════════════════ */
+   const PhotoUtil = {
+    MAX: 1280,
+    QUALITY: 0.7,
+
+    // 파일 → 축소된 dataURL. 실패하면 원본 dataURL 로 넘어간다.
+    shrink(file, cb) {
+     const MAX = this.MAX, Q = this.QUALITY;
+     const reader = new FileReader();
+     reader.onload = function () {
+      const img = new Image();
+      img.onload = function () {
+       let w = img.width, h = img.height;
+       if (w > MAX || h > MAX) {
+        if (w >= h) {
+         h = Math.round(h * MAX / w);
+         w = MAX;
+        } else {
+         w = Math.round(w * MAX / h);
+         h = MAX;
+        }
+       }
+       const cv = document.createElement('canvas');
+       cv.width = w;
+       cv.height = h;
+       cv.getContext('2d').drawImage(img, 0, 0, w, h);
+       try {
+        cb(cv.toDataURL('image/jpeg', Q));
+       } catch (err) {
+        cb(reader.result);
+       }   // 캔버스 오염 등
+      };
+      img.onerror = function () {
+       cb(reader.result);
+      };
+      img.src = reader.result;
+     };
+     reader.onerror = function () {
+      cb(null);
+     };
+     reader.readAsDataURL(file);
+    },
+
+    /* 여러 장을 «순차» 로 올린다.
+       동시에 던지면 서버 부하도 문제지만 순서가 뒤섞여
+       idx 로 부르는 화면에서 사진 순서가 달라진다.
+       ★ 첫 장이 실패하면 나머지를 시도하지 않는다.
+         엔드포인트가 없거나(404) 권한이 막힌 경우 남은 장수만큼
+         같은 실패를 반복하고, AjaxUtil 이 실패마다 네이티브
+         alert 를 띄워 「확인」을 N 번 누르게 된다.
+         첫 장 실패는 대개 그 줄 하나가 아니라 «경로 자체» 의 문제다.
+         뒤쪽에서 난 실패는 일시적일 수 있으므로 계속 간다. */
+    upload(url, baseParam, list, onDone, onProgress) {
+     if (!list || !list.length) {
+      onDone && onDone(0);
+      return;
+     }
+     let i = 0, failed = 0;
+     (function next() {
+      if (i >= list.length) {
+       onDone && onDone(failed, false);
+       return;
+      }
+      onProgress && onProgress(i + 1, list.length);
+      AjaxUtil.postAsyncData(url, $.extend({}, baseParam, {photo: list[i]}),
+       function (res) {
+        const ok = res && res.success !== false;
+        if (!ok) failed++;
+        if (!ok && i === 0) {
+         // 경로가 막혀 있다 — 남은 장은 시도하지 않는다
+         onDone && onDone(list.length, true);
+         return;
+        }
+        i++;
+        next();
+       });
+     })();
+    },
+
+    // 크게 보기 — 팝업 위에 덮는 단순 오버레이
+    view(src) {
+     const $v = $('<div class="ph-view"><button type="button" class="ph-close">✕</button>'
+      + '<img alt="검사 사진"></div>');
+     $v.find('img').attr('src', src);
+     $v.on('click', function (e) {
+      if (e.target === $v[0] || $(e.target).hasClass('ph-close')) $v.remove();
+     });
+     $('body').append($v);
+    },
+
+    /* ══ 줄별 사진 시트 ══════════════════════════════════════
+       발주 입고 표는 줄마다 사진이 따로 붙는다. 셀 안에서
+       직접 편집하면 행 높이가 줄마다 달라져 표가 무너지므로,
+       셀에는 장수만 두고 편집은 여기서 한다.
+       list 는 base64 배열이며 «그 자리에서» 수정된다 —
+       호출부는 닫힌 뒤 length 만 다시 그리면 된다.
+       ★ 카메라/사진첩 input 을 시트마다 새로 만든다.
+         화면에 하나만 두고 돌려쓰면 어느 줄의 사진인지
+         change 시점에 알 수 없다. */
+    sheet(opt) {
+     const list = opt.list;
+     const $s = $('<div class="ph-sheet"><div class="ph-box">'
+      + '<div class="ph-hd"><h3></h3>'
+      + '<button type="button" class="ph-done">확인</button></div>'
+      + '<p class="ph-sub"></p>'
+      + '<div class="ph-wrap"></div>'
+      + '<input type="file" class="ph-cam" accept="image/*" capture="environment" style="display:none">'
+      + '<input type="file" class="ph-lib" accept="image/*" style="display:none" multiple>'
+      + '</div></div>');
+     $s.find('h3').text(opt.title || '사진');
+     $s.find('.ph-sub').text(opt.subtitle || '');
+
+     const $wrap = $s.find('.ph-wrap');
+     const draw = function () {
+      let html = '';
+      list.forEach(function (src, i) {
+       html += '<div class="ph-item ph-new"><img src="' + src + '" alt="사진">'
+        + '<button type="button" class="ph-del" data-del="' + i + '">×</button></div>';
+      });
+      html += '<div class="ph-btns">'
+       + '<button type="button" class="ph-cam-btn"><span class="ic">📷</span>촬영</button>'
+       + '<button type="button" class="ph-lib-btn"><span class="ic">🖼️</span>사진첩</button>'
+       + '</div>';
+      if (!list.length) html += '<span class="ph-empty">여러 장 첨부할 수 있습니다.</span>';
+      $wrap.html(html);
+      opt.onChange && opt.onChange(list);
+     };
+     draw();
+
+     $wrap.on('click', function (e) {
+      const $t = $(e.target);
+      if ($t.closest('.ph-cam-btn').length) {
+       $s.find('.ph-cam').click();
+       return;
+      }
+      if ($t.closest('.ph-lib-btn').length) {
+       $s.find('.ph-lib').click();
+       return;
+      }
+      const d = $t.attr('data-del');
+      if (d != null) {
+       list.splice(+d, 1);
+       draw();
+       return;
+      }
+      const $img = $t.closest('.ph-item').find('img');
+      if ($img.length) PhotoUtil.view($img.attr('src'));
+     });
+
+     const self = this;
+     const onPicked = function (e) {
+      const files = e.target.files;
+      if (!files || !files.length) return;
+      Array.prototype.forEach.call(files, function (f) {
+       self.shrink(f, function (dataUrl) {
+        if (!dataUrl) {
+         Notify.error('사진을 읽지 못했습니다.');
+         return;
+        }
+        list.push(dataUrl);
+        draw();
+       });
+      });
+      e.target.value = '';   // 같은 파일을 다시 고를 수 있게
+     };
+     $s.find('.ph-cam, .ph-lib').on('change', onPicked);
+
+     const close = function () {
+      $s.remove();
+      opt.onClose && opt.onClose(list);
+     };
+     $s.find('.ph-done').on('click', close);
+     $s.on('click', function (e) {
+      if (e.target === $s[0]) close();
+     });
+
+     $('body').append($s);
+     return $s;
+    }
+   };
+
+
+   /* ══════════════════════════════════════════════════════════════
+      입고검사 내역
+      ────────────────────────────────────────────────────────────
+      ★ 이 화면은 «읽기 전용» 이다. 검사 결과를 고치는 곳은
+        수불전표등록의 「입고검사」 팝업 하나뿐이다. 고치는 길을
+        둘로 만들면 어느 쪽이 진실인지 헷갈린다.
+      ★ 판정은 셋이다 — 적합 / 부적합 / 미검사(가입고).
+        「미검사」는 판정을 «안 한» 것이지 부적합이 아니다.
+        섞어서 세면 부적합률이 부풀려진다.
+      ══════════════════════════════════════════════════════════════ */
+   class inputTestList {
+
+    constructor() {
+     this.url = '/api/inventory/material_inout';
+     this.grid = null;
+     this.rows = [];
+     this.init();
+    }
+
+    /* 판정 텍스트 → 화면 분류.
+       ★ 「부적합」은 「적합」을 문자열로 포함한다. 부정을 «먼저» 본다.
+         indexOf('적합') 로만 세면 부적합이 적합으로 집계된다. */
+    static kind(judge) {
+     const t = String(judge || '').trim();
+     if (!t) return 'none';
+     /* ★ 판정 코드값이 한글 «텍스트» 다(서버가 "부적합" 과 직접 비교한다).
+          그래서 「미검사」 같은 값이 코드로 들어올 수 있는데, 이걸
+          기본 분기로 흘리면 적합으로 세어져 적합률이 부풀려진다. */
+     if (/(미검사|미판정|대기)/.test(t)) return 'none';
+     if (/^(부|불|비)/.test(t) || /(부적합|불합격|불량|부적격)/.test(t)) return 'ng';
+     if (/^(fail|ng|reject)\b/i.test(t)) return 'ng';
+     return 'ok';
+    }
+
+    static badge(judge) {
+     const k = inputTestList.kind(judge);
+     const label = k === 'none' ? '미검사' : (judge || '');
+     const cls = k === 'ok' ? 'ok' : k === 'ng' ? 'ng' : 'wait';
+     return '<span class="jd ' + cls + '">' + label + '</span>';
+    }
+
+    init() {
+     const _this = this;
+
+     TabletUtil.applyBodyClass();
+
+     /* 공장 콤보 — 기본값은 계정의 소속 공장. 없으면 '' = 전체.
+        change 핸들러는 채운 «뒤에» 건다. fillSelectOptions 가 selected_value 를
+        넣으면서 .change() 를 직접 발생시키므로 먼저 걸면 조회가 두 번 나간다. */
+     const myFactory = (factory_id == null || factory_id === '' || Number(factory_id) <= 0)
+      ? '' : String(factory_id);
+     AjaxUtil.fillSelectOptions($('#Factory_id'), 'factory', 'all', myFactory);
+     AjaxUtil.fillSelectOptions($('#cboHouse'), 'store_house', 'all', '');
+
+     $('#srchStartDt').val(CommonUtil.getYYYYMMDD(-30));
+     $('#srchEndDt').val(CommonUtil.getYYYYMMDD());
+
+     this.grid = new TGrid('#test-list-grid', {
+      height: '40vh',          // 첫 그림용. 곧바로 _fitGridHeight 가 덮는다
+      selectable: false,
+      emptyText: '조회된 검사 내역이 없습니다.',
+      columns: [
+       {binding: 'test_date', header: '검사일', width: 110, align: 'center', readOnly: true},
+       {binding: 'material_code', header: '품목코드', width: 110, align: 'left', readOnly: true},
+       {binding: 'material_name', header: '품목명', width: 210, align: 'left', readOnly: true},
+       {binding: 'unit_name', header: '단위', width: 60, align: 'center', readOnly: true},
+       {binding: 'store_house_name', header: '창고', width: 110, align: 'center', readOnly: true},
+       {binding: 'lot_number', header: '로트번호', width: 140, align: 'center', readOnly: true},
+       {binding: 'inout_date', header: '입고일', width: 110, align: 'center', readOnly: true},
+       {
+        /* 확정 입고면 InputQty, 아직 가입고면 PotentialInputQty 가
+           «그 건의 수량» 이다. 한쪽만 보면 미검사 건이 0 으로 보인다. */
+        binding: 'qty',
+        header: '수량',
+        width: 90,
+        align: 'right',
+        readOnly: true,
+        render: function (item, td) {
+         const q = Number(item.input_qty) || Number(item.potential_qty) || 0;
+         td.textContent = q.toLocaleString();
+         if (!Number(item.input_qty)) td.classList.add('tg-dim');
+        }
+       },
+       {
+        binding: 'judge_code',
+        header: '판정',
+        width: 100,
+        align: 'center',
+        readOnly: true,
+        render: function (item, td) {
+         td.innerHTML = inputTestList.badge(item.judge_code);
+        }
+       },
+       {binding: 'check_name', header: '검사자', width: 100, align: 'center', readOnly: true},
+       {
+        binding: 'photo_cnt',
+        header: '사진',
+        width: 90,
+        align: 'center',
+        readOnly: true,
+        render: function (item, td) {
+         const n = Number(item.photo_cnt) || 0;
+         if (!n) {
+          td.innerHTML = '<span class="tg-dim">—</span>';
+          return;
+         }
+         td.innerHTML = '<span style="font-weight:700;color:var(--t-edit)">📷 ' + n + '</span>';
+        }
+       },
+       {binding: 'remark', header: '비고', width: 200, align: 'left', readOnly: true}
+      ],
+      itemsSource: new TDataView([])
+     });
+
+     /* 줄을 한 번 누르면 상세가 열린다.
+        더블탭은 태블릿에서 두 번째 탭이 자주 누락돼 «아무 일도
+        안 일어나는» 상태가 된다. */
+     this.grid.host.addEventListener('click', function (e) {
+      const tr = e.target.closest('tbody tr');
+      if (!tr || !tr.parentNode) return;
+      const idx = Array.prototype.indexOf.call(tr.parentNode.children, tr);
+      const item = _this.grid.itemsSource.items[idx];
+      if (item) _this.showDetail(item);
+     });
+
+     $('#btnSearch').on('click', function () {
+      _this.search();
+     });
+     /* 공장을 바꾸면 곧바로 다시 조회한다 */
+     $('#Factory_id').on('change', function () {
+      _this.search();
+     });
+     $('#chkPhotoOnly').on('change', function () {
+      _this.applyFilter();
+     });
+     $('#cboJudge').on('change', function () {
+      _this.applyFilter();
+     });
+
+
+     $('#searchForm').on('keydown', function (e) {
+      if (e.key === 'Enter') {
+       e.preventDefault();
+       _this.search();
+      }
+     });
+
+     /* 표 높이를 화면에 맞춘다.
+        ★ 창 크기 변화만 듣지 않는다 — 폭이 그대로여도 검색조건이 한 줄
+          접히면(판정 콤보 옵션이 길어지는 등) 표의 top 이 내려간다.
+          ResizeObserver 로 «검색 카드가 커졌을 때» 도 같이 잡는다. */
+     const refit = function () {
+      _this._fitGridHeight();
+     };
+     $(window).on('resize.testlist orientationchange.testlist', refit);
+     if (window.ResizeObserver) {
+      const top = document.querySelector('.section-top');
+      if (top) new ResizeObserver(refit).observe(top);
+     }
+     refit();
+
+     this.search();
+    }
+
+    search() {
+     const _this = this;
+     const param = {
+      srchStartDt: $('#srchStartDt').val(),
+      srchEndDt: $('#srchEndDt').val(),
+      house_pk: $('#cboHouse').val() || '',
+      keyword: $('#txtMatName').val() || '',
+      /* 빈 문자열이어도 반드시 보낸다 — 빈 값 = 전체 */
+      factory_id: $('#Factory_id').val() || ''
+     };
+
+     AjaxUtil.getAsyncData(this.url + '/test_result_list', param, function (res) {
+      if (!res || res.success === false) {
+       Notify.error((res && res.message) || '조회에 실패했습니다.');
+       return;
+      }
+      _this.rows = (res.data) || [];
+      _this.applyFilter();
+     });
+    }
+
+    /* 판정·사진 필터는 «받아 온 것 안에서» 거른다.
+       서버를 다시 부르면 요약 숫자가 필터마다 달라져
+       「전체 중 몇 건」을 읽을 수 없다. */
+    applyFilter() {
+     const want = $('#cboJudge').val();
+     const photoOnly = $('#chkPhotoOnly').is(':checked');
+
+     let list = this.rows.slice();
+     if (want === '_pass') list = list.filter(x => inputTestList.kind(x.judge_code) === 'ok');
+     else if (want === '_fail') list = list.filter(x => inputTestList.kind(x.judge_code) === 'ng');
+     else if (want === '_none') list = list.filter(x => inputTestList.kind(x.judge_code) === 'none');
+     if (photoOnly) list = list.filter(x => Number(x.photo_cnt) > 0);
+
+     this.grid.itemsSource = new TDataView(list);
+     this.drawKpi();
+     /* KPI 숫자가 바뀌면서 카드가 한 줄 늘어날 수 있다 — 그 뒤에 잰다 */
+     this._fitGridHeight();
+    }
+
+    // 요약은 «필터 전 전체» 기준이다. 필터를 걸어도 모집단이 흔들리지 않는다.
+    drawKpi() {
+     const all = this.rows;
+     const cnt = k => all.filter(x => inputTestList.kind(x.judge_code) === k).length;
+     $('#kpiTotal').text(all.length.toLocaleString());
+     $('#kpiPass').text(cnt('ok').toLocaleString());
+     $('#kpiFail').text(cnt('ng').toLocaleString());
+     $('#kpiNone').text(cnt('none').toLocaleString());
+     $('#kpiPhoto').text(all.filter(x => Number(x.photo_cnt) > 0).length.toLocaleString());
+    }
+
+    /* ── 상세 ────────────────────────────────────────────────
+       ★ 새 엔드포인트를 만들지 않는다. 수불전표등록의 검사 팝업이
+         쓰는 /mio_test_list 를 그대로 부른다. 항목별 결과와 사진이
+         이미 한 번에 내려온다 — 조회 경로를 둘로 만들면 한쪽만
+         고쳤을 때 두 화면이 다른 값을 보여준다. */
+
+    /* 목록 표 높이를 «지금 화면» 에 맞춘다.
+       ★ 표의 실제 top 을 재서 화면 바닥까지를 준다. 검색조건이 한 줄
+         접히거나 KPI 카드가 두 줄이 되어도 알아서 따라간다.
+       ★ 최소 180px 은 남긴다 — 그보다 작으면 헤더만 보이고 자료가
+         한 줄도 안 보여, 화면이 «비었다» 고 오해하게 된다. */
+    _fitGridHeight() {
+     if (!this.grid || !this.grid.host) return;
+     const top = this.grid.host.getBoundingClientRect().top;
+     const h = Math.max(180, Math.floor(window.innerHeight - top - 20));
+     this.grid.setHeight(h + 'px');
+    }
+
+    showDetail(row) {
+     const _this = this;
+     const content = tmpl('testDetailPopup', {});
+     const $content = $(content);
+     const modalContainer = new PopupDraggable('입고검사 상세');
+     /* ★ 폭은 화면의 92%, 높이는 내용을 채운 뒤 shrinkModal 이 줄인다.
+          1000x700 고정이면 항목 한 줄짜리 건에서 화면 절반이 빈다. */
+     modalContainer.open(Object.assign(
+      TabletUtil.size(920, Math.floor(window.innerHeight * 0.9)), {$content}));
+
+     const q = Number(row.input_qty) || Number(row.potential_qty) || 0;
+     /* [라벨, 값, 넓게쓸지]
+        ★ 순서가 곧 줄바꿈이다 — 4열 고정이라
+            1줄  품목 (한 줄 전체)
+            2줄  입고일 · 수량 · 창고 · 로트번호   (무엇이 언제 어디로 들어왔나)
+            3줄  검사일 · 검사자 · 판정            (그것을 누가 언제 어떻게 봤나)
+          항목을 더하거나 빼면 이 줄바꿈이 밀린다. */
+     const head = [
+      ['품목', (row.material_code || '') + ' · ' + (row.material_name || ''), true],
+      ['입고일', ((row.inout_date || '') + ' ' + (row.inout_time || '')).trim() || '—'],
+      ['수량', q.toLocaleString() + ' ' + (row.unit_name || '')],
+      ['창고', row.store_house_name || '—'],
+      /* ★ 제조사로트는 «칸을 새로 만들지 않고» 로트번호 아래에 붙인다.
+           4열 고정이라 항목을 하나 늘리면 「검사일·검사자·판정」 줄바꿈이 밀린다.
+           리콜 때 찾는 값이라 없으면 안 되지만, 사내 로트만큼 자주 보지는 않는다. */
+      ['로트번호', (row.lot_number || '—')
+      + (row.maker_lot_no
+       ? '<div style="font-size:12px;font-weight:600;color:var(--muted);margin-top:2px">'
+       + '제조사 ' + $('<div>').text(row.maker_lot_no).html() + '</div>'
+       : '')],
+      ['검사일', row.test_date || '—'],
+      ['검사자', row.check_name || '—'],
+      ['판정', inputTestList.badge(row.judge_code)]
+     ];
+     $content.find('#dtHead').html(head.map(function (h) {
+      // 값이 «—» 뿐이면 흐리게 — 빈 칸과 진짜 값이 같은 무게로 보이면 안 된다
+      const dim = (h[1] === '—') ? ' class="dim"' : '';
+      return '<dl' + (h[2] ? ' class="wide"' : '') + '>'
+       + '<dt>' + h[0] + '</dt><dd' + dim + '>' + h[1] + '</dd></dl>';
+     }).join('') + '<div class="fill"></div>');   // 마지막 줄 빈 칸 메움
+
+     const itemGrid = new TGrid($content.find('#dt-item-grid'), {
+      /* 좁은 화면에서 26vh 는 머리글+한 줄도 안 나온다. 최소치를 둔다. */
+      height: Math.max(150, Math.floor(window.innerHeight * 0.26)) + 'px',
+      selectable: false,
+      emptyText: '검사 항목 기록이 없습니다.',
+      columns: [
+       {binding: 'name', header: '검사항목', width: 320, align: 'left', readOnly: true},
+       {
+        binding: 'result1',
+        header: '결과',
+        width: 200,
+        align: 'center',
+        readOnly: true,
+        render: function (it, td) {
+         const v = it.result1 == null ? '' : String(it.result1);
+         if (it.resultType === 'S') {
+          // 판정형은 O / X 다. 글자만 두면 어느 쪽이 통과인지 안 읽힌다.
+          const cls = v === 'O' ? 'ok' : v === 'X' ? 'ng' : 'none';
+          td.innerHTML = '<span class="jd ' + cls + '">' + (v || '—') + '</span>';
+         } else {
+          td.textContent = v || '—';
+          if (!v) td.classList.add('tg-dim');
+         }
+        }
+       }
+      ],
+      itemsSource: new TDataView([])
+     });
+
+     const $photos = $content.find('#dtPhotos');
+     $photos.html('<span class="ph-empty">불러오는 중…</span>');
+
+     AjaxUtil.getAsyncData(this.url + '/mio_test_list', {mio_id: row.mio_pk}, function (res) {
+      const d = (res && res.data) || {};
+
+      const items = (d.mioList || []).filter(x => x && x.name);
+      itemGrid.itemsSource = new TDataView(items);
+      $content.find('#dtItemCnt').text(items.length ? '(' + items.length + ')' : '(없음)');
+
+      const files = d.files || [];
+      $content.find('#dtPhotoCnt').text(files.length ? '(' + files.length + ')' : '(없음)');
+
+      if (!files.length) {
+       $photos.html('<span class="ph-empty">첨부된 사진이 없습니다.</span>');
+       TabletUtil.shrinkModal($content, 12);
+       return;
+      }
+      /* ★ &t= 로 캐시를 깬다. 사진을 지우고 다시 올렸을 때
+           같은 file_id 가 재사용되면 옛 사진이 그대로 보인다. */
+      $photos.html(files.map(function (f) {
+       const src = _this.url + '/test_photo?file_id=' + f.file_id + '&t=' + Date.now();
+       return '<div class="ph-item"><img src="' + src + '" alt="검사 사진"></div>';
+      }).join(''));
+      /* 사진이 뜨면 높이가 또 바뀐다 — 마지막 한 장을 그린 뒤 다시 잰다 */
+      $photos.find('img').last().on('load error', function () {
+       TabletUtil.shrinkModal($content, 12);
+      });
+      TabletUtil.shrinkModal($content, 12);
+     });
+
+     $photos.on('click', function (e) {
+      const $img = $(e.target).closest('.ph-item').find('img');
+      if ($img.length) PhotoUtil.view($img.attr('src'));
+     });
+    }
+   }
+
+   let page = null;
+   $(document).ready(function () {
+    page = new inputTestList();
+   });
+  </script>
+</th:block>
+</html>
