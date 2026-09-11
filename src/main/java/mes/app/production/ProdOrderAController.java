@@ -97,14 +97,6 @@ public class ProdOrderAController {
 		return result;
 	}
 
-	/** 진행 현황 (목록 더블클릭 모달) */
-	@GetMapping("/progress")
-	public AjaxResult getProgress(@RequestParam("jr_pk") Integer jrPk) {
-		AjaxResult result = new AjaxResult();
-		result.data = this.prodOrderAService.getProgress(jrPk);
-		return result;
-	}
-
 	@Transactional
 	@PostMapping("/save")
 	public AjaxResult saveProdOrderA(
@@ -165,9 +157,7 @@ public class ProdOrderAController {
 
 			jobResRepository.flush();
 
-			/* 이미 유닛이 만들어진 작지는 새 지시량에 맞춰 유닛 수를 맞춘다.
-			   줄었으면 shrinkUnits 가 미착수분을 걷어내고,
-			   늘었으면 initUnits 가 부족분만 채운다(멱등이라 줄어든 경우엔 아무 일도 안 한다). */
+			// 작지 수량이 줄었으면 남는 유닛을 걷어낸다(미착수분만).
 			for (Map<String, Object> owner : this.prodOrderAService.getUnitOwners(id)) {
 				Integer ownerId = ((Number) owner.get("id")).intValue();
 				int target = owner.get("order_qty") == null ? 0
@@ -179,14 +169,6 @@ public class ProdOrderAController {
 					TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
 					result.success = false;
 					result.message = sr.message;
-					return result;
-				}
-
-				AjaxResult ir = this.mcellAssemblyService.initUnits(ownerId, spjangcd, user);
-				if (!ir.success) {
-					TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
-					result.success = false;
-					result.message = ir.message;
 					return result;
 				}
 			}
@@ -315,9 +297,31 @@ public class ProdOrderAController {
 		   부모 없는 실적이 남거나 FK 위반으로 500 이 난다. */
 		int produced = this.prodOrderAService.countProduced(id);
 		if (produced > 0) {
+			// 어느 공정에 실적이 붙었는지까지 알려준다.
+			// 목록은 부모만 보여주므로, 자식에 붙은 실적은 화면에서 확인할 길이 없다.
+			StringBuilder sb = new StringBuilder("생산 실적이 있어 삭제할 수 없습니다.");
+			List<Map<String, Object>> pb = this.prodOrderAService.getProducedBlockers(id);
+			if (pb != null) {
+				int shown = 0;
+				for (Map<String, Object> b : pb) {
+					if (shown >= 5) {
+						sb.append("\n· 외 ").append(pb.size() - shown).append("종");
+						break;
+					}
+					sb.append("\n· ").append(CommonUtil.tryString(b.get("process_name")))
+							.append(" · 실적 ").append(b.get("cnt")).append("건");
+
+					Object gq = b.get("good_qty");
+					if (gq != null && ((Number) gq).doubleValue() > 0) {
+						sb.append(" (양품 ").append(((Number) gq).longValue()).append(")");
+					}
+					shown++;
+				}
+			}
+			sb.append("\n\n실적을 먼저 취소(분해)한 뒤 삭제해 주세요.");
+
 			result.success = false;
-			result.message = "생산 실적이 있어 삭제할 수 없습니다.\n\n"
-					+ "실적을 먼저 취소(분해)한 뒤 삭제해 주세요.";
+			result.message = sb.toString();
 			return result;
 		}
 

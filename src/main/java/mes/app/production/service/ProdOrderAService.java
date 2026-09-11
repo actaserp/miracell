@@ -104,10 +104,11 @@ public class ProdOrderAService {
                 and jr."Parent_id" is null
 				""";
 		/* 공장 필터 — 값이 있을 때만 조건을 붙인다.
-		   ※ wc 는 left join 이라, 워크센터가 없는 지시는 공장을 고른 순간 목록에서 빠진다.
-		     「전체」로 보면 그대로 보이므로 데이터가 사라지는 것은 아니다. */
+		   라우팅이 붙은 지시는 헤더에 워크센터가 없다(공정은 자식이 갖는다).
+		   wc 만 보면 그런 지시가 공장을 고른 순간 목록에서 통째로 빠지므로,
+		   워크센터가 없으면 품목의 공장으로 판단한다. */
 		if (StringUtils.isEmpty(factoryId) == false) {
-			sql += " and wc.\"Factory_id\" = cast(:factoryId as Integer) ";
+			sql += " and coalesce(wc.\"Factory_id\", m.\"Factory_id\") = cast(:factoryId as Integer) ";
 			paramMap.addValue("factoryId", factoryId);
 		}
 		if (StringUtils.isEmpty(workcenterPk) == false) sql += " and jr.\"WorkCenter_id\" = cast(:workcenterPk as Integer) ";
@@ -317,6 +318,7 @@ public class ProdOrderAService {
 				     , mu."LotNumber" as lot_number
 				     , mu."State" as state
 				     , m."Code" as mat_code
+				     , m."Name" as mat_name
 				     , (select count(*) from mcell_unit_step st
 				         where st."McellUnit_id" = mu.id) as step_cnt
 				     , (select count(*) from mcell_unit_step st
@@ -397,6 +399,30 @@ public class ProdOrderAService {
 			                     where st."McellUnit_id" = mu.id
 			                       and (st."State" <> 'wait' or st."MatProduce_id" is not null)) )
 		""", p);
+	}
+
+	/**
+	 * 실적이 붙은 공정 목록(부모 + 자식). 삭제 거부 안내 문구용.
+	 * 공정 단위로 접는다 — 2공장 조립처럼 한 공정에 자식이 여럿이면 같은 줄이 반복된다.
+	 */
+	public List<Map<String, Object>> getProducedBlockers(Integer headerId) {
+		MapSqlParameterSource p = new MapSqlParameterSource().addValue("pid", headerId);
+		try {
+			return sqlRunner.getRows("""
+				select coalesce(pr."Name", wc."Name", '(공정 미지정)') as process_name
+				     , count(*) as cnt
+				     , coalesce(sum(mp."GoodQty"), 0) as good_qty
+				  from mat_produce mp
+				  join job_res jr on jr.id = mp."JobResponse_id"
+				  left join work_center wc on wc.id = jr."WorkCenter_id"
+				  left join process pr on pr.id = wc."Process_id"
+				 where jr.id = :pid or jr."Parent_id" = :pid
+				 group by coalesce(pr."Name", wc."Name", '(공정 미지정)')
+				 order by count(*) desc, 1
+			""", p);
+		} catch (Exception e) {
+			return new java.util.ArrayList<>();
+		}
 	}
 
 	/** 생산 실적 건수(부모 + 자식). 삭제 가드용. */
