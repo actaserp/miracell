@@ -8,6 +8,7 @@ import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -247,37 +248,127 @@ public class McellAssemblyService {
      * 자식 BOM을 가진 것은 하위 스텝이 만들어 오므로 별도 처리(아래 sub 항목).
      * 2공장 소스창고는 InspectYN 으로 갈린다(Y=검사완료 19 / N=생산 17).
      */
+    /**
+     * 스텝 투입자재 편집분 저장.
+     * 수량 가감 · 삭제 · 품목 추가가 일어날 때마다 화면이 즉시 호출한다.
+     * 완료 버튼을 눌러야 반영되던 예전 방식은, 중간에 화면을 벗어나면 편집이 통째로 사라졌다.
+     */
+    @Transactional
+    public AjaxResult saveStepMaterials(Integer stepId, String bomJson, User user) {
+        AjaxResult r = new AjaxResult();
+
+        Map<String, Object> st = getStep(stepId);
+        if (st == null) { r.success = false; r.message = "스텝을 찾을 수 없습니다."; return r; }
+        if ("done".equals(st.get("state"))) {
+            r.success = false;
+            r.message = "완료된 스텝은 투입자재를 바꿀 수 없습니다. 먼저 완료취소(분해)하세요.";
+            return r;
+        }
+
+        MapSqlParameterSource p = new MapSqlParameterSource()
+                .addValue("stepId", stepId)
+                .addValue("json", (bomJson == null || bomJson.isBlank()) ? null : bomJson)
+                .addValue("userId", user.getId());
+        this.sqlRunner.execute("""
+                UPDATE mcell_unit_step
+                   SET "DraftBomJson" = :json, "_modified" = now(), "_modifier_id" = :userId
+                 WHERE id = :stepId
+                """, p);
+
+        r.success = true;
+        return r;
+    }
+
+    /**
+     * 스텝 투입자재.
+     *
+     * 미완료 스텝 → BOM 기본값.
+     * 완료 스텝   → 실제 소비량(mat_lot_cons). BOM 을 다시 계산해 보여주면
+     *               작업자가 고친 수량이나 추가한 품목이 사라진 것처럼 보인다.
+     *               완료된 스텝의 진실은 BOM 이 아니라 실제로 빠져나간 자재다.
+     *
+     * ※ mat_lot_cons 에는 Material_id 가 없다. mat_lot 을 거쳐 품목을 찾는다.
+     *   실적과의 연결은 SourceTableName='mat_produce' + SourceDataPk=MatProduce_id.
+     */
     public List<Map<String, Object>> getStepMaterials(Integer stepId) {
         MapSqlParameterSource p = new MapSqlParameterSource().addValue("stepId", stepId);
         return this.sqlRunner.getRows("""
-                WITH s AS (SELECT "Material_id" AS mat_id, "McellUnit_id" AS unit_id
+                WITH s AS (SELECT "Material_id" AS mat_id, "McellUnit_id" AS unit_id,
+                                  "MatProduce_id" AS mp_id, "DraftBomJson" AS draft_json
                              FROM mcell_unit_step WHERE id = :stepId)
-                SELECT bc."Material_id"                       AS mat_id
-                     , m."Code"                               AS mat_code
-                     , m."Name"                               AS mat_name
-                     , un."Name"                              AS unit
-                     , bc."Amount" / NULLIF(b."OutputAmount",0) AS per
-                     , CEIL(bc."Amount" / NULLIF(b."OutputAmount",0)) AS default_qty
+                -- 작업자가 편집해 둔 구성 (완료 전에도 즉시 저장된다)
+                , draft AS (
+                    SELECT (j->>'matId')::int     AS mat_id
+                         , (j->>'qty')::numeric   AS qty
+                      FROM s, LATERAL jsonb_array_elements(
+                            CASE WHEN COALESCE(s.draft_json,'') = '' THEN '[]'::jsonb
+                                 ELSE s.draft_json::jsonb END) j
+                )
+                -- BOM 기본 구성
+                , bomc AS (
+                    SELECT bc."Material_id" AS mat_id
+                         , bc.id            AS ord
+                         , bc."Amount" / NULLIF(b."OutputAmount",0) AS per
+                      FROM s
+                      JOIN bom b       ON b."Material_id" = s.mat_id AND b."BOMType" = 'manufacturing'
+                      JOIN bom_comp bc ON bc."BOM_id" = b.id
+                )
+                -- 실제 소비분 (완료된 스텝에만 존재)
+                , used AS (
+                    SELECT ml."Material_id" AS mat_id
+                         , SUM(mlc."OutputQty") AS qty
+                      FROM s
+                      JOIN mat_lot_cons mlc
+                        ON mlc."SourceDataPk" = s.mp_id
+                       AND COALESCE(mlc."SourceTableName",'mat_produce') = 'mat_produce'
+                       AND COALESCE(mlc."_status",'a') = 'a'
+                      JOIN mat_lot ml ON ml.id = mlc."MaterialLot_id"
+                     WHERE s.mp_id IS NOT NULL
+                     GROUP BY ml."Material_id"
+                )
+                -- BOM 에 없던 품목을 추가 투입했을 수 있으므로 합집합으로 뽑는다
+                , keys AS (
+                    SELECT mat_id FROM bomc
+                    UNION SELECT mat_id FROM used
+                    UNION SELECT mat_id FROM draft
+                )
+                SELECT k.mat_id
+                     , m."Code"  AS mat_code
+                     , m."Name"  AS mat_name
+                     , un."Name" AS unit
+                     , bomc.per  AS per
+                     -- 우선순위 : 실제 소비(완료) > 편집분(초안) > BOM 기본
+                     , COALESCE(used.qty, draft.qty, CEIL(bomc.per), 0) AS default_qty
+                     , (CASE WHEN used.qty IS NOT NULL OR draft.qty IS NOT NULL
+                             THEN 'Y' ELSE 'N' END) AS is_actual
+                     , (CASE WHEN bomc.mat_id IS NULL   THEN 'Y' ELSE 'N' END) AS is_added
                      , (CASE WHEN COALESCE(m."InspectYN",'N')='Y' THEN 19 ELSE 17 END) AS src_store
-                     , sh."Name"                              AS src_store_name
-                     , COALESCE(stk.stock, 0)                 AS stock
+                     , sh."Name" AS src_store_name
+                     , COALESCE(stk.stock, 0) AS stock
                      , (CASE WHEN EXISTS (SELECT 1 FROM bom b2
-                                           WHERE b2."Material_id" = bc."Material_id"
+                                           WHERE b2."Material_id" = k.mat_id
                                              AND b2."BOMType"='manufacturing')
-                             THEN 'Y' ELSE 'N' END)           AS is_assembly
-                  FROM s
-                  JOIN bom b       ON b."Material_id" = s.mat_id AND b."BOMType" = 'manufacturing'
-                  JOIN bom_comp bc ON bc."BOM_id" = b.id
-                  JOIN material m  ON m.id = bc."Material_id"
+                             THEN 'Y' ELSE 'N' END) AS is_assembly
+                  FROM keys k
+                  JOIN material m   ON m.id = k.mat_id
+                  LEFT JOIN bomc    ON bomc.mat_id = k.mat_id
+                  LEFT JOIN used    ON used.mat_id = k.mat_id
+                  LEFT JOIN draft   ON draft.mat_id = k.mat_id
                   LEFT JOIN unit un ON un.id = m."Unit_id"
                   LEFT JOIN store_house sh
                          ON sh.id = (CASE WHEN COALESCE(m."InspectYN",'N')='Y' THEN 19 ELSE 17 END)
                   LEFT JOIN LATERAL (
                         SELECT SUM(ml."CurrentStock") AS stock FROM mat_lot ml
-                         WHERE ml."Material_id" = bc."Material_id"
+                         WHERE ml."Material_id" = k.mat_id
                            AND ml."StoreHouse_id" = (CASE WHEN COALESCE(m."InspectYN",'N')='Y' THEN 19 ELSE 17 END)
                   ) stk ON true
-                 ORDER BY is_assembly DESC, bc.id
+                 -- 편집분이 있으면 그것이 곧 구성이다. 지운 자재가 BOM 기본으로 되살아나면 안 된다.
+                 -- 단 하위 어셈블리 행은 스텝 트리 표시용이라 항상 남긴다.
+                 WHERE NOT EXISTS (SELECT 1 FROM draft)
+                    OR draft.mat_id IS NOT NULL
+                    OR EXISTS (SELECT 1 FROM bom b3
+                                WHERE b3."Material_id" = k.mat_id AND b3."BOMType" = 'manufacturing')
+                 ORDER BY is_assembly DESC, bomc.ord NULLS LAST, m."Code"
                 """, p);
     }
 
@@ -351,6 +442,82 @@ public class McellAssemblyService {
      * 작지의 유닛을 OrderQty 만큼 만들고, 유닛마다 BOM 트리를 전개해 스텝을 깐다.
      * 이미 만들어져 있으면 부족분만 채운다(멱등).
      */
+    /**
+     * 작지 수량 축소에 맞춰 남는 유닛을 걷어낸다.
+     *
+     * initUnits 는 부족한 만큼만 채우는 멱등 동작이라 「늘리기」는 이미 되지만
+     * 「줄이기」는 아무 처리가 없어, 5대 → 3대로 바꿔도 유닛 5대가 그대로 남았다.
+     *
+     * 규칙
+     *  · 착수하지 않은 유닛만 지운다 — State='wait' + 스텝 전부 'wait' + 실적(MatProduce_id) 없음
+     *  · UnitNo 큰 것부터. 뒤에서 걷어내야 남는 번호가 연속한다
+     *  · 지울 수 있는 대수가 모자라면 아무것도 안 하고 거부. 부분 반영은 화면과 DB 가 어긋난다
+     *
+     * @param targetQty 줄인 뒤의 목표 대수
+     */
+
+    @Transactional
+    public AjaxResult shrinkUnits(Integer jobResId, int targetQty, User user) {
+        AjaxResult r = new AjaxResult();
+        r.success = true;
+
+        MapSqlParameterSource p = new MapSqlParameterSource().addValue("jrId", jobResId);
+
+        // 현재 살아 있는 유닛
+        Integer have = this.sqlRunner.queryForCount("""
+                SELECT COUNT(*) FROM mcell_unit
+                 WHERE "JobResponse_id" = :jrId AND COALESCE("_status",'a') = 'a'
+                """, p);
+        if (have == null) have = 0;
+
+        int excess = have - targetQty;
+        if (excess <= 0) {           // 줄일 것이 없다 (같거나 오히려 늘리는 경우)
+            r.data = Map.of("deleted", 0, "total", have);
+            return r;
+        }
+
+        // 지울 수 있는 유닛 = 손대지 않은 것. UnitNo 큰 것부터.
+        List<Map<String, Object>> free = this.sqlRunner.getRows("""
+                SELECT mu.id, mu."UnitNo"
+                  FROM mcell_unit mu
+                 WHERE mu."JobResponse_id" = :jrId
+                   AND COALESCE(mu."_status",'a') = 'a'
+                   AND mu."State" = 'wait'
+                   AND NOT EXISTS (
+                         SELECT 1 FROM mcell_unit_step st
+                          WHERE st."McellUnit_id" = mu.id
+                            AND (st."State" <> 'wait' OR st."MatProduce_id" IS NOT NULL)
+                       )
+                 ORDER BY mu."UnitNo" DESC
+                """, p);
+
+        int freeCnt = (free == null) ? 0 : free.size();
+        if (freeCnt < excess) {
+            r.success = false;
+            r.message = "이미 착수한 유닛이 있어 수량을 줄일 수 없습니다.\n"
+                    + "현재 " + have + "대 중 미착수 " + freeCnt + "대. "
+                    + "최소 " + (have - freeCnt) + "대까지만 줄일 수 있습니다.";
+            return r;
+        }
+
+        int deleted = 0;
+        for (Map<String, Object> u : free) {
+            if (deleted >= excess) break;
+            Integer unitId = asInt(u.get("id"));
+
+            MapSqlParameterSource up = new MapSqlParameterSource().addValue("unitId", unitId);
+            // 스텝 먼저 (FK 순서)
+            this.sqlRunner.execute(
+                    "DELETE FROM mcell_unit_step WHERE \"McellUnit_id\" = :unitId", up);
+            this.sqlRunner.execute(
+                    "DELETE FROM mcell_unit WHERE id = :unitId", up);
+            deleted++;
+        }
+
+        r.data = Map.of("deleted", deleted, "total", have - deleted);
+        return r;
+    }
+
     @Transactional
     public AjaxResult initUnits(Integer jobResId, String spjangcd, User user) {
         AjaxResult r = new AjaxResult();
@@ -689,18 +856,52 @@ public class McellAssemblyService {
         }
         Collections.reverse(chain);   // 최상위부터
 
+        /* 재작업(ReworkYN) 판정.
+           검사를 거친 유닛을 되돌리는 경우에만 재작업이다.
+           조립 중에 완료를 잘못 눌러 취소하는 것은 단순 되돌리기이므로,
+           전부 'Y' 로 찍으면 멀쩡한 유닛이 재작업 대상으로 표시된다. */
+        Map<String, Object> unitNow = getUnit(unitId);
+        String unitState = (unitNow == null) ? "" : str(unitNow.get("state"));
+        String reworkYn = List.of("inspect_wait", "pass", "reject", "packed").contains(unitState)
+                ? "Y" : "N";
+
         int rolled = 0;
         for (Map<String, Object> s : chain) {
             if (!"done".equals(s.get("state"))) continue;
+            /* 롤백하면 mat_lot_cons 가 사라져 투입 내역을 되짚을 수 없다.
+               분해는 같은 물건을 다시 조립하는 것이므로, 직전 투입 구성을 초안으로
+               옮겨 두어 다시 열었을 때 BOM 기본값으로 되돌아가지 않게 한다. */
+            MapSqlParameterSource keep = new MapSqlParameterSource()
+                    .addValue("stepId", asInt(s.get("step_id")))
+                    .addValue("mpId", asInt(s.get("mp_id")));
+            this.sqlRunner.execute("""
+                    UPDATE mcell_unit_step
+                       SET "DraftBomJson" = COALESCE((
+                             SELECT jsonb_agg(jsonb_build_object('matId', x.mat_id, 'qty', x.qty))::text
+                               FROM (SELECT ml."Material_id" AS mat_id, SUM(mlc."OutputQty") AS qty
+                                       FROM mat_lot_cons mlc
+                                       JOIN mat_lot ml ON ml.id = mlc."MaterialLot_id"
+                                      WHERE mlc."SourceDataPk" = :mpId
+                                        AND COALESCE(mlc."SourceTableName",'mat_produce') = 'mat_produce'
+                                        AND COALESCE(mlc."_status",'a') = 'a'
+                                      GROUP BY ml."Material_id") x
+                           ), "DraftBomJson")
+                     WHERE id = :stepId
+                    """, keep);
+
             AjaxResult rb = rollbackProduce(asInt(s.get("mp_id")), str(s.get("lot_number")), user);
             if (!rb.success) return rb;
             // 분해 = 같은 물건을 다시 조립하는 것. 로트번호와 담당자는 유지해 이력을 잇는다.
             MapSqlParameterSource p = new MapSqlParameterSource()
-                    .addValue("stepId", asInt(s.get("step_id"))).addValue("userId", user.getId());
+                    .addValue("stepId", asInt(s.get("step_id"))).addValue("userId", user.getId())
+                    .addValue("reworkYn", reworkYn);
             this.sqlRunner.execute("""
                     UPDATE mcell_unit_step
                        SET "State"='working', "MatProduce_id"=NULL,
-                           "EndTime"=NULL, "ReworkYN"='Y',
+                           "EndTime"=NULL,
+                           -- 이미 재작업이던 스텝은 그대로 둔다(한 번 재작업이면 계속 재작업)
+                           "ReworkYN"=CASE WHEN :reworkYn='Y' THEN 'Y'
+                                           ELSE COALESCE("ReworkYN",'N') END,
                            "_modified"=now(), "_modifier_id"=:userId
                      WHERE id=:stepId
                     """, p);

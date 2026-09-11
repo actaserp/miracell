@@ -229,6 +229,18 @@
                                     <select class="form-control2" id="cboEquipment" name="cboEquipment"></select>
                                 </td>
                             </tr>
+                            <tr id="rowRouting" style="display:none">
+                                <th style="text-align: center">
+                                    <label>공정 과정</label>
+                                </th>
+                                <td colspan="3">
+                                    <input class="form-control2" id="txtProcessFlow" type="text" readonly
+                                           style="background:#f5f5f5;border:0" />
+                                    <div style="font-size:12px;color:#888;margin-top:4px">
+                                        라우팅이 지정된 품목입니다. 워크센터·설비는 공정별로 자동 배정되므로 여기서 선택하지 않습니다.
+                                    </div>
+                                </td>
+                            </tr>
                             <tr>
                                 <th style="text-align: center">
                                     <label for="txtDescription">비고</label>
@@ -373,7 +385,9 @@
                             Notify.success('삭제되었습니다.');
                             _this.searchMainData();
                         } else {
-                            Notify.success('삭제에 실패하였습니다.');
+                            // 서버가 내려준 사유를 그대로 보여준다.
+                            // (진행중 공정 존재 등 — 예전에는 고정 문구로 덮여 원인을 알 수 없었다)
+                            Alert.alert('', res.message || '삭제에 실패하였습니다.');
                             _this.searchMainData();
                         }
                     }
@@ -402,6 +416,22 @@
                     // $('#srchDt').ax5DatePicker({direction: 'top'});
                     $('production_date').val(today);
 
+                    /* 라우팅이 붙은 품목은 공정을 자식 작지가 나눠 갖는다.
+                       헤더에는 워크센터·설비가 없으므로 콤보를 잠그고 공정 과정을 보여준다.
+                       (콤보를 열어 두면 고른 값이 저장되지 않는데도 반영된 것처럼 보인다) */
+                    function applyRoutingMode(routingId, processFlow) {
+                        const has = !!routingId;
+                        const $wc = $content.find('#cboWorcenter');
+                        const $eq = $content.find('#cboEquipment');
+
+                        $content.find('#rowRouting').toggle(has);
+                        $content.find('#txtProcessFlow').val(processFlow || '');
+
+                        $wc.prop('disabled', has);
+                        $eq.prop('disabled', has);
+                        if (has) { $wc.val(''); $eq.val(''); }
+                    }
+
                     AjaxUtil.fillSelectOptions($content.find('#cboShiftCode'), 'shift', 'choose', false);
                     AjaxUtil.fillSelectOptions($content.find('#cboMaterialGrp'), 'material_group', 'choose', false, 'product,semi');
                     AjaxUtil.fillSelectOptions($content.find('#cboWorcenter'), 'workcenter', 'choose', false);
@@ -422,6 +452,7 @@
                         $content.find('#cboMaterialName').val(data.mat_name);
                         $content.find('#cboWorcenter').val(data.workcenter_id);
                         $content.find('#cboEquipment').val(data.equip_id);
+                        applyRoutingMode(data.routing_id, data.process_flow);
                     } else {
                         $btnMaterialSearch.removeAttr('disabled');
                         $btnMaterialSearch.click(function (e) {
@@ -480,9 +511,11 @@
                         if (result.data != null) {
                             $content.find('#cboWorcenter').val(result.data.workcenter_pk);
                             $content.find('#txtUnit').val(result.data.unit_name);
+                            applyRoutingMode(result.data.routing_id, result.data.process_flow);
                         } else {
                             $content.find('#cboWorcenter').val(null);
                             $content.find('#txtUnit').val(null);
+                            applyRoutingMode(null, null);
                         }
                         //$content.find('#cboWorcenter').val(result.workcenter_pk);
                         //$content.find('#cboEquipment').val(result.equip_pk);
@@ -499,7 +532,8 @@
                             return false;
                         }
 
-                        if (!$('#cboWorcenter').val()) {
+                        // 라우팅 품목은 워크센터를 헤더에 두지 않는다(자식 공정이 갖는다)
+                        if (!$content.find('#cboWorcenter').prop('disabled') && !$('#cboWorcenter').val()) {
                             Alert.alert('', '워크센터를 선택해 주세요.');
                             return false;
                         }

@@ -91,6 +91,24 @@
     #dbWrap .db-kpi.violet .v { color:#7a6ff0; }
     #dbWrap .db-kpi.teal .v { color:#00a3a3; }
 
+    /* 열마다 카드 수와 내용량이 달라, 그냥 두면 열 바닥이 제각각이 된다
+       (중앙 열만 위로 붙어 보이고, 우측 멸균 배치도 혼자 다른 선에서 끝난다).
+       넓은 화면에서는 세 열의 높이를 가장 긴 열에 맞춘다.
+       카드 본문은 이미 overflow-y:auto 라 내용이 넘치면 카드 안에서 스크롤된다.
+       (--col-h 는 스크립트가 채운다) */
+    @media (min-width:1200px) {
+      #dbWrap .db-body > .db-col { height: var(--col-h, auto); }
+      /* 위 카드(공정 현황)도 서로 높이가 달라, 아래 카드가 다른 선에서 시작한다.
+         1·2공장 모두 2행이지만 타일 내용량이 달라 2공장이 더 낮다.
+         우측 열에는 fix 카드가 없으므로, 그 자리를 대신하는 첫 카드(멸균 배치)에
+         같은 높이를 줘야 세 열의 둘째 카드가 나란히 시작한다. */
+      #dbWrap .db-card.fix,
+      #dbWrap .db-body > .db-col:last-child > .db-card:first-child {
+        min-height: var(--fix-h, auto);
+        flex: 0 0 auto;
+      }
+    }
+
     /* ── 본문 3열 ── */
     #dbWrap .db-body { flex:1 1 auto; min-height:0; display:grid;
       grid-template-columns:1.5fr 1fr 1fr; gap:10px; }
@@ -755,6 +773,7 @@
       dbRenderEqu(dbData.equ_running || []);
       dbRenderDefect(dbData.defect_today || []);
       dbRenderAlerts();
+      dbAlignFixCards();
 
     }
 
@@ -1011,6 +1030,35 @@
       }).join('');
     }
 
+    /* 세 열의 높이를 가장 긴 열에 맞춘다.
+       측정 전에 먼저 풀어야 이전 값이 최대치로 남지 않는다.
+       좁은 화면은 열이 세로로 쌓이므로 맞출 이유가 없다. */
+    function dbAlignFixCards() {
+      var wrap = document.getElementById('dbWrap');
+      if (!wrap) return;
+
+      wrap.style.removeProperty('--col-h');
+      wrap.style.removeProperty('--fix-h');
+      if (window.innerWidth < 1200) return;
+
+      // ① 위 카드부터 맞춘다 — 아래 카드의 시작선이 여기서 정해진다
+      //    우측 열은 fix 가 없어 첫 카드를 같이 잰다(측정 대상에서 빠지면 혼자 커진다)
+      var fixes = wrap.querySelectorAll('.db-card.fix');
+      var fixMax = 0;
+      fixes.forEach(function (c) { fixMax = Math.max(fixMax, c.offsetHeight); });
+      if (fixMax > 0) wrap.style.setProperty('--fix-h', fixMax + 'px');
+
+      // ② 그 다음 열 전체 높이를 맞춘다 (①이 반영된 뒤 재야 정확하다)
+      var cols = wrap.querySelectorAll('.db-body > .db-col');
+      var max = 0;
+      cols.forEach(function (c) { max = Math.max(max, c.scrollHeight); });
+      if (max > 0) wrap.style.setProperty('--col-h', max + 'px');
+    }
+    window.addEventListener('resize', function () {
+      clearTimeout(window.__dbAlignT);
+      window.__dbAlignT = setTimeout(dbAlignFixCards, 150);
+    });
+
     /* ── 2공장 유닛 ──
        ★ 여기가 2공장 진척의 진실이다(packed 기준).
          mat_produce 를 세면 한 대가 스텝 대여섯 건으로 흩어진다. */
@@ -1028,12 +1076,20 @@
                 + (label[s.state] || dbEsc(s.state)) + ' ' + dbNum(s.cnt) + '</span>';
       }).join('');
 
+      /* 로트번호만으로는 무슨 물건인지 알 수 없다. 품목명을 앞에 세우고
+         로트번호는 아래 작은 글씨로 둔다. 로트는 조립 최종 완료 때 발번되므로
+         조립중·수리중 유닛은 아직 없을 수 있다 — 그때는 호기로 대신한다. */
       var list = working.length ? working.map(function (u) {
-        return '<div class="r"><span class="nm">' + dbEsc(u.lot_number || ('#' + u.unit_no))
-                + '</span>'
+        var sub = u.lot_number
+                ? dbEsc(u.lot_number)
+                : ('SN-' + String(u.unit_no || 0).padStart(3, '0') + ' · 로트 미발번');
+        return '<div class="r" style="flex-wrap:wrap">'
+                + '<span class="nm">' + dbEsc(u.mat_name || '-') + '</span>'
                 + (u.is_repair === 'Y' ? '<span class="tag warn">수리</span>' : '')
                 + '<span class="tag">' + (label[u.state] || dbEsc(u.state)) + '</span>'
-                + '<span class="sm">' + dbEsc(u.actor_name || '-') + '</span></div>';
+                + '<span class="sm">' + dbEsc(u.actor_name || '-') + '</span>'
+                + '<div class="sm" style="flex:0 0 100%; margin-top:2px">' + sub + '</div>'
+                + '</div>';
       }).join('') : '<div class="empty">작업중인 유닛이 없습니다</div>';
 
       document.getElementById('dbUnits').innerHTML =

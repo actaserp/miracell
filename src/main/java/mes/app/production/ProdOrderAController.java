@@ -13,6 +13,7 @@ import mes.domain.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import org.springframework.security.core.Authentication;
+import org.springframework.transaction.interceptor.TransactionAspectSupport;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -29,6 +30,12 @@ public class ProdOrderAController {
 
 	@Autowired
 	private ProdOrderAService prodOrderAService;
+
+	@Autowired
+	private mes.app.production.service.ProdOrderEditService prodOrderEditService;
+
+	@Autowired
+	private mes.app.production.service.McellAssemblyService mcellAssemblyService;
 
 	@Autowired
 	MaterialRepository materialRepository;
@@ -90,6 +97,14 @@ public class ProdOrderAController {
 		return result;
 	}
 
+	/** 진행 현황 (목록 더블클릭 모달) */
+	@GetMapping("/progress")
+	public AjaxResult getProgress(@RequestParam("jr_pk") Integer jrPk) {
+		AjaxResult result = new AjaxResult();
+		result.data = this.prodOrderAService.getProgress(jrPk);
+		return result;
+	}
+
 	@Transactional
 	@PostMapping("/save")
 	public AjaxResult saveProdOrderA(
@@ -98,7 +113,9 @@ public class ProdOrderAController {
 			@RequestParam(value = "cboEquipment", required=false) Integer cboEquipment,
 			@RequestParam("cboMaterial") Integer cboMaterial,
 			@RequestParam("cboShiftCode") String cboShiftCode,
-			@RequestParam("cboWorcenter") Integer cboWorcenter, // 헤더 기본 워크센터(라우팅 없을 때만 사용)
+			// 헤더 기본 워크센터. 라우팅이 없을 때만 쓴다.
+			// 라우팅 품목은 화면에서 콤보가 잠겨 값이 오지 않으므로 필수로 두면 400 이 난다.
+			@RequestParam(value="cboWorcenter", required=false) Integer cboWorcenter,
 			@RequestParam("txtDescription") String txtDescription,
 			@RequestParam("txtOrderQty") Integer txtOrderQty,
 			@RequestParam("spjangcd") String spjangcd,
@@ -116,18 +133,68 @@ public class ProdOrderAController {
 
 		// 신규 or 수정 검증
 		JobRes header;
-		if (id != null) {
+		boolean isUpdate = (id != null);
+		boolean matChanged = false;
+
+		if (isUpdate) {
 			header = jobResRepository.getJobResById(id);
 			if (!"ordered".equals(header.getState())) {
 				result.success = false;
 				result.message = "지시중 상태에서만 수정 가능합니다.";
 				return result;
 			}
+			matChanged = (header.getMaterialId() == null) || !header.getMaterialId().equals(matPk);
 		} else {
 			header = new JobRes();
 		}
 
 		final boolean hasRouting = (routingPk != null);
+
+		/* ── 수정 + 품목 그대로 + 라우팅 있음 → 자식을 지우지 않고 수량만 갱신한다 ──
+		   자식을 삭제·재생성하면 id 가 바뀌어, 조립 화면이 들고 있던 job_res_id 가
+		   가리키는 행이 사라진다(새로고침하면 0 건, 부모부터 다시 들어가야 보임).
+		   또 유닛을 전부 지웠다 다시 만들게 되어 시리얼·로트가 끊긴다.
+		   updateOrderCascade 는 UPDATE 만 하므로 그대로 재사용한다. */
+		if (isUpdate && !matChanged && routingPk != null) {
+
+			AjaxResult up = prodOrderEditService.updateOrderCascade(
+					id, productionDate, cboShiftCode,
+					cboWorcenter, cboEquipment, (float) txtOrderQty,
+					txtDescription, "N", user);   // 자체재고는 수주 동기화 대상이 아니다
+			if (!up.success) return up;
+
+			jobResRepository.flush();
+
+			/* 이미 유닛이 만들어진 작지는 새 지시량에 맞춰 유닛 수를 맞춘다.
+			   줄었으면 shrinkUnits 가 미착수분을 걷어내고,
+			   늘었으면 initUnits 가 부족분만 채운다(멱등이라 줄어든 경우엔 아무 일도 안 한다). */
+			for (Map<String, Object> owner : this.prodOrderAService.getUnitOwners(id)) {
+				Integer ownerId = ((Number) owner.get("id")).intValue();
+				int target = owner.get("order_qty") == null ? 0
+						: (int) Math.floor(((Number) owner.get("order_qty")).doubleValue());
+
+				AjaxResult sr = this.mcellAssemblyService.shrinkUnits(ownerId, target, user);
+				if (!sr.success) {
+					// 수량 UPDATE 까지 함께 되돌린다
+					TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+					result.success = false;
+					result.message = sr.message;
+					return result;
+				}
+
+				AjaxResult ir = this.mcellAssemblyService.initUnits(ownerId, spjangcd, user);
+				if (!ir.success) {
+					TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+					result.success = false;
+					result.message = ir.message;
+					return result;
+				}
+			}
+
+			result.success = true;
+			result.data = jobResRepository.getJobResById(id);
+			return result;
+		}
 
 		// ===== 헤더 저장 =====
 		header.set_audit(user);
@@ -142,7 +209,12 @@ public class ProdOrderAController {
 		header.setSpjangcd(spjangcd);
 
 		if (!hasRouting) {
-			// 라우팅 없음 → 화면값 사용
+			// 라우팅 없음 → 화면값 사용. 이때는 워크센터가 반드시 있어야 한다.
+			if (cboWorcenter == null) {
+				result.success = false;
+				result.message = "워크센터를 선택해 주세요.";
+				return result;
+			}
 			header.setRouting_id(null);
 			header.setProcessCount(1);
 			header.setWorkCenter_id(cboWorcenter);
@@ -155,7 +227,9 @@ public class ProdOrderAController {
 			return result;
 		}
 
-		// 라우팅 있음 → 공정 목록
+		// ── 라우팅 있음 → 수주(makeProdOrder)와 같은 모양으로 만든다 ──
+		//    헤더는 공정을 갖지 않는 '그릇'이고, 공정은 자식이 들고 있다.
+		//    헤더를 마지막 공정(포장)에 걸면 조립 화면(getWoQueue)이 잡지 못한다.
 		List<RoutingProc> steps = routingProcRepository.findByRoutingIdOrderByProcessOrder(routingPk);
 		if (steps == null || steps.isEmpty()) {
 			result.success = false;
@@ -163,74 +237,56 @@ public class ProdOrderAController {
 			return result;
 		}
 
-		// 마지막 공정 = 헤더
-		RoutingProc last = steps.get(steps.size() - 1);
-		Integer lastProcId = last.getProcessId();
-		Workcenter lastWc = workcenterRepository.findByProcessId(lastProcId);
-		Integer lastWcId = (lastWc != null ? lastWc.getId() : null);
+		// 수정이면 기존 자식을 지우고 다시 전개한다.
+		// (지시량·품목이 바뀌면 자식 수량도 함께 움직여야 한다)
+		// 여기까지 왔다면 신규이거나 품목이 바뀐 수정이다.
+		// 품목이 바뀌면 자식 구성 자체가 달라지므로 지우고 다시 전개한다.
+		if (id != null) {
+			int busy = this.prodOrderAService.countBusyChildren(id);
+			if (busy > 0) {
+				result.success = false;
+				result.message = "이미 착수한 공정이 있어 수정할 수 없습니다.";
+				return result;
+			}
+
+			// 자식을 지우기 전에 그 자식에 매달린 유닛(mcell_unit)을 먼저 걷어낸다.
+			// 유닛이 job_res 를 FK 로 물고 있어, 남겨두면 자식 삭제가 FK 위반으로 터진다.
+			// 착수한 유닛이 하나라도 있으면 shrinkUnits 가 거부하고, 그대로 수정을 중단한다.
+			for (Integer childId : this.prodOrderAService.getChildIds(id)) {
+				AjaxResult ur = this.mcellAssemblyService.shrinkUnits(childId, 0, user);
+				if (!ur.success) {
+					result.success = false;
+					result.message = ur.message;
+					return result;
+				}
+			}
+			// 헤더에 직접 매달린 유닛도 정리 (라우팅 없이 만들어졌던 건)
+			AjaxResult hr = this.mcellAssemblyService.shrinkUnits(id, 0, user);
+			if (!hr.success) {
+				result.success = false;
+				result.message = hr.message;
+				return result;
+			}
+
+			this.prodOrderAService.deleteChildren(id);
+		}
 
 		header.setRouting_id(routingPk);
-		header.setProcessCount(steps.size()); // 전체 공정 수
-		header.setWorkCenter_id(lastWcId);
-		header.setFirstWorkCenter_id(lastWcId);
-		header.setEquipment_id(cboEquipment);   // 설비/교대는 라우팅 있을 땐 화면값 미사용
+		header.setWorkCenter_id(null);        // 헤더는 공정 없음
+		header.setFirstWorkCenter_id(null);
+		header.setEquipment_id(cboEquipment);
 		header.setShiftCode(cboShiftCode);
 
 		header = jobResRepository.save(header); // 트리거가 헤더 번호 생성
 
-		// ===== 자식(전 공정들) 생성: 마지막 공정 제외 =====
-//		for (int i = 0; i < steps.size() - 1; i++) {
-//			RoutingProc step = steps.get(i);
-//			Integer processId = step.getProcessId();
-//
-//			// 공정→워크센터
-//			Workcenter wc = workcenterRepository.findByProcessId(processId);
-//			Integer wcId = (wc != null ? wc.getId() : null);
-//
-//			// ★ 공정 대상(Product) 조회
-//			List<Integer> prodIds = bomProcCompRepository
-//					.findDistinctProductIdsByRoutingAndProcess(routingPk, processId);
-//
-//			Integer stepProductId = null;
-//			if (prodIds != null && !prodIds.isEmpty()) {
-//				// 다수면 헤더 품목과 일치하는 게 있으면 우선, 없으면 첫 번째
-//				stepProductId = prodIds.contains(matPk) ? matPk : prodIds.get(0);
-//			}
-//			if (stepProductId == null) stepProductId = matPk; // fallback
-//
-//			JobRes child = new JobRes();
-//			child.set_audit(user);
-//
-//			child.setProductionDate(prodDate);
-//			child.setProductionPlanDate(prodDate);
-//
-//			// 자식 공정의 대상 품목으로 설정
-//			child.setMaterialId(stepProductId);
-//
-//			// 자식 지시량을 넣게되면 생산해야할것 같아서 일단 뺌
-//			// 자식 수량을 공정 대상에 맞춰 스케일링하려면 아래 참고 섹션 참조
-////			BigDecimal factor = bomRepository.findLevel1Factor(matPk, stepProductId); // 지붕→판넬 2
-////			float childQty = factor != null
-////					? factor.multiply(BigDecimal.valueOf(txtOrderQty)).floatValue()
-////					: (float) txtOrderQty;
-////			child.setOrderQty(childQty);
-//			child.setOrderQty(null);
-//
-//			child.setDescription(txtDescription);
-//			child.setParentId(header.getId());
-//			child.setRouting_id(routingPk);
-//			child.setProcessCount(1);
-//			child.setWorkCenter_id(wcId);
-//			child.setFirstWorkCenter_id(wcId);
-//			child.setEquipment_id(null);
-//			child.setShiftCode(cboShiftCode);
-//			child.setStoreHouse_id(locPk);
-//			child.setState("ordered");
-//			child.setSpjangcd(spjangcd);
-//
-//			jobResRepository.save(child);
-//		}
+		// 공정 자식 전개 — 수주와 동일한 로직을 재사용한다
+		int childCount = prodOrderEditService.explodeProcessRows(
+				header, matPk, (float) txtOrderQty, prodDate, cboShiftCode, spjangcd, user);
 
+		// ProcessCount 만 SQL 로 직접 갱신한다.
+		// 엔티티를 다시 save 하면, 트리거가 INSERT 시 넣은 WorkOrderNumber 를
+		// 영속성 컨텍스트가 모르기 때문에 null 로 덮어쓴다(헤더 번호가 사라진다).
+		this.prodOrderAService.updateProcessCount(header.getId(), childCount);
 
 		result.success = true;
 		result.data = header;
@@ -241,8 +297,9 @@ public class ProdOrderAController {
 
 	@PostMapping("/delete")
 	@Transactional
-	public AjaxResult deleteProdOrderA(@RequestParam("id") Integer id) {
+	public AjaxResult deleteProdOrderA(@RequestParam("id") Integer id, Authentication auth) {
 		AjaxResult result = new AjaxResult();
+		User user = (User) auth.getPrincipal();
 
 		Map<String, Object> row = this.prodOrderAService.getJopResRow(id);
 
@@ -251,6 +308,38 @@ public class ProdOrderAController {
 			result.code = id.toString();
 			return result;
 		}
+
+		/* 실적이 있으면 여기서 막는다.
+		   job_res."State" 만 보는 기존 가드로는 걸러지지 않는다 — 실적이 붙어도
+		   상태가 'ordered' 로 남아 있는 경우가 있어, 그대로 DELETE 하면
+		   부모 없는 실적이 남거나 FK 위반으로 500 이 난다. */
+		int produced = this.prodOrderAService.countProduced(id);
+		if (produced > 0) {
+			result.success = false;
+			result.message = "생산 실적이 있어 삭제할 수 없습니다.\n\n"
+					+ "실적을 먼저 취소(분해)한 뒤 삭제해 주세요.";
+			return result;
+		}
+
+		/* 미착수 유닛은 작지와 함께 정리한다.
+		   유닛은 조립 화면에 들어가는 순간 initUnits 로 만들어지므로,
+		   남겨두면 「지시만 내리고 화면 한 번 열어본」 작지를 영영 못 지운다.
+		   착수한 유닛이 있으면 shrinkUnits 가 거부하고 삭제도 중단된다. */
+		int busyUnits = this.prodOrderAService.countBusyUnits(id);
+		if (busyUnits > 0) {
+			result.success = false;
+			result.message = "이미 착수한 유닛이 " + busyUnits + "대 있어 삭제할 수 없습니다.\n\n"
+					+ "조립 화면에서 분해한 뒤 삭제해 주세요.";
+			return result;
+		}
+
+		for (Integer childId : this.prodOrderAService.getChildIds(id)) {
+			AjaxResult sr = this.mcellAssemblyService.shrinkUnits(childId, 0, user);
+			if (!sr.success) { result.success = false; result.message = sr.message; return result; }
+		}
+		AjaxResult hr = this.mcellAssemblyService.shrinkUnits(id, 0, user);
+		if (!hr.success) { result.success = false; result.message = hr.message; return result; }
+
 		int deletYn = this.prodOrderAService.deleteById(id);
 
 		if (deletYn == -1) {
@@ -259,8 +348,32 @@ public class ProdOrderAController {
 			return result;
 		}
 		if (deletYn == -2) {
+			// 어느 공정이 걸렸는지까지 알려준다.
+			// 목록 화면은 부모만 보여주므로, 자식이 막고 있으면 사용자가 원인을 알 길이 없다.
+			List<Map<String, Object>> blockers = this.prodOrderAService.getDeleteBlockers(id);
+
+			StringBuilder sb = new StringBuilder("진행중인 공정이 있어 삭제할 수 없습니다.");
+			if (blockers != null) {
+				int shown = 0;
+				for (Map<String, Object> b : blockers) {
+					if (shown >= 5) {   // 너무 길어지면 알럿이 화면을 넘는다
+						sb.append("\n· 외 ").append(blockers.size() - shown).append("종");
+						break;
+					}
+					sb.append("\n· ").append(CommonUtil.tryString(b.get("process_name")))
+							.append(" / ").append(CommonUtil.tryString(b.get("state_name")));
+
+					long cnt = b.get("cnt") == null ? 0 : ((Number) b.get("cnt")).longValue();
+					if (cnt > 1) sb.append(" ").append(cnt).append("건");
+
+					shown++;
+				}
+			}
+
+			sb.append("\n\n실적을 먼저 취소(분해)한 뒤 삭제해 주세요.");
+
 			result.success = false;
-			result.message = "공정 중 진행중 건이 있어 삭제할 수 없습니다.";
+			result.message = sb.toString();
 			return result;
 		}
 		if (deletYn <= 0) {

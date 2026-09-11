@@ -413,6 +413,24 @@
                 });
             });
         }
+        /* 조용한 POST — 로딩 딤 없이 보낸다.
+           AjaxUtil.postAsyncData 는 호출마다 showLoading() 으로 전체화면 로더를 띄운다.
+           수량 +/- 처럼 초당 여러 번 나가는 저장에 쓰면 화면이 계속 깜빡인다.
+           그래서 $.ajax 를 직접 쓰되, AjaxUtil 이 붙여 주던 _csrf · spjangcd 는 같이 보낸다.
+           (컨텍스트 패스는 $.ajaxPrefilter 가 자동으로 붙인다) */
+        function apiPostSilent(path, params) {
+            const body = clean(params);
+            body._csrf = $('[name=_csrf]').val();
+            body.spjangcd = sessionStorage.getItem('spjangcd');
+
+            return Promise.resolve($.ajax({
+                url: BASE + path,
+                type: 'POST',
+                dataType: 'json',
+                data: body
+            }));
+        }
+
         /* 공용 콤보 — /api/common/combo (반환: [{value, text}]) */
         function combo(comboType, cond1, cond2, cond3) {
             if (typeof AjaxUtil === 'undefined' || !AjaxUtil.getSyncData) return [];
@@ -796,12 +814,26 @@
                 const [i, bi, dv] = m.dataset.m.split(',').map(Number);
                 const r = stepIdx(i).mats[bi];
                 r.manual = 1; r.qty = Math.max(0, bomQ(r) + dv);
-                renderUnit(); openStep(i); return;
+                /* 전체 재렌더를 하면 아코디언이 닫혔다 열리면서 caret 이 회전 전환을
+                   다시 타 아이콘이 움직여 보인다. 바뀐 숫자만 제자리에서 갱신한다. */
+                syncMatRow(i, bi);
+                saveStepMats(i);
+                return;
             }
             const pd = e.target.closest('[data-pad]');
             if (pd) { const [i, bi] = pd.dataset.pad.split(',').map(Number); openPad(i, bi); return; }
             const rm = e.target.closest('[data-rm]');
-            if (rm) { const [i, bi] = rm.dataset.rm.split(',').map(Number); stepIdx(i).mats.splice(bi, 1); renderUnit(); openStep(i); return; }
+            if (rm) {
+                const [i, bi] = rm.dataset.rm.split(',').map(Number);
+                const r = stepIdx(i).mats[bi];
+                uiConfirm(esc(r.mat_name) + ' 을(를) 투입자재에서 제외합니다.\n\n다시 넣으려면 [＋ 자재]로 추가해야 합니다.',
+                    function () {
+                        stepIdx(i).mats.splice(bi, 1);
+                        renderUnit(); openStep(i);
+                        saveStepMats(i);
+                    }, '제외');
+                return;
+            }
             const ad = e.target.closest('[data-add]');
             if (ad) { openPartSheet(+ad.dataset.add); return; }
         });
@@ -809,6 +841,37 @@
         function openStep(i) {
             const c = document.querySelector('[data-caret="' + i + '"]');
             if (c) { c.classList.add('open'); document.getElementById('sbom' + i).classList.add('open'); }
+        }
+
+        /* 투입자재 편집분 즉시 저장.
+           완료 버튼을 눌러야 반영되던 예전 방식은 화면을 벗어나면 편집이 사라졌다.
+           하위 어셈블리 행은 스텝이 따로 관리하므로 저장 대상에서 뺀다. */
+        const _saveT = {};
+        function saveStepMats(i) {
+            const s = stepIdx(i);
+            if (!s || s.state === 'done') return;
+            const bom = (s.mats || []).filter(r => r.is_assembly !== 'Y')
+                .map(r => ({matId: r.mat_id, qty: bomQ(r)}));
+            clearTimeout(_saveT[i]);
+            _saveT[i] = setTimeout(function () {      // 연타 시 마지막 한 번만
+                apiPostSilent('/step_mat_save', {step_id: s.step_id, bom_json: JSON.stringify(bom)})
+                    .then(function (r) {
+                        if (r && r.success === false) flash(r.message || '투입자재 저장 실패');
+                    })
+                    .catch(function () { flash('투입자재 저장 실패'); });
+            }, 250);
+        }
+
+        /* 수량만 제자리 갱신 (전체 재렌더 방지) */
+        function syncMatRow(i, bi) {
+            const r = stepIdx(i).mats[bi];
+            const q = document.querySelector('[data-pad="' + i + ',' + bi + '"]');
+            if (!q) { renderUnit(); openStep(i); return; }
+            q.textContent = bomQ(r);
+            q.classList.remove('auto');
+            const row = q.closest('.bitem') || q.parentElement.parentElement;
+            const tag = row ? row.querySelector('.autotag') : null;
+            if (tag) tag.textContent = '수정';
         }
 
         /* 투입자재 로드 — 하위 어셈블리도 같은 목록에 포함(서버 정렬: 어셈블리 우선).
@@ -893,6 +956,8 @@
             selE = s.equipment_id || (last ? last.equipment_id : null);
             document.getElementById('startTitle').textContent = '작업 시작 · ' + s.mat_name;
             document.getElementById('startSub').textContent = s.mat_code + ' · 이 어셈블리를 작업할 사람과 설비를 지정하세요';
+            // 어떤 경로로든 비어 있으면 여기서 한 번 읽는다(마지막 방어).
+            if (!WORKERS || !WORKERS.length) WORKERS = fetchWorkersActor() || [];
             document.getElementById('workerOpts').innerHTML = WORKERS.map(w =>
                 '<button class="opt" data-w="' + w.actor_id + '" data-n="' + esc(w.actor_name) + '">' +
                 '<span class="ck"></span>' + esc(w.actor_name) + '</button>').join('');
@@ -984,6 +1049,7 @@
             if (s.mats == null) s.mats = [];
             if (s.mats.some(m => +m.mat_id === +p.mat_id)) { flash('이미 투입된 자재입니다'); return; }
             s.mats.push({mat_id: p.mat_id, mat_code: p.mat_code, mat_name: p.mat_name, per: 1, default_qty: 1, qty: 1, manual: 1, stock: p.stock, src_store_name: ''});
+            saveStepMats(partStep);
             flash('추가 · ' + p.mat_name);
             drawPartList(document.getElementById('partSearch').value.trim().toLowerCase());
             renderUnit(); openStep(partStep);
@@ -1004,6 +1070,7 @@
             else if (k === 'OK') {
                 const [si, bi] = padTarget, r = stepIdx(si).mats[bi];
                 r.manual = 1; r.qty = Math.max(0, parseInt(padVal || '0', 10));
+                saveStepMats(si);
                 hideMask('padMask'); renderUnit(); openStep(si); return;
             } else padVal = (padVal === '0' ? '' : padVal) + k;
             document.getElementById('padDisp').textContent = padVal || '0';
@@ -1278,7 +1345,10 @@
 
         /* ── 재고 새로고침 ── (스텝의 재고 로트 · 투입자재 재고) */
         function stockRefresh() {
-            WORKERS = [];
+            /* 작업자 명단도 함께 다시 읽는다.
+               부팅 때 한 번만 읽으므로, 운영 중에 사람을 추가하면 F5 전까지 안 보인다.
+               ※ 비우기만 하면(예전 동작) 다음 [작업 시작]에서 목록이 통째로 사라진다. */
+            WORKERS = fetchWorkersActor() || [];
             if (scOn('scC') && typeof curU !== 'undefined' && curU) {
                 guard(async () => {
                     await loadSteps();

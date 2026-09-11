@@ -14,19 +14,19 @@ import mes.domain.services.SqlRunner;
 
 @Service
 public class EquipmentService {
-	
+
 	@Autowired
 	SqlRunner sqlRunner;
-	
+
 	// 설비 목록 조회
 	public List<Map<String, Object>> getEquipmentList(Integer group, Integer workcenter, String keyword){
-		
-		MapSqlParameterSource dicParam = new MapSqlParameterSource();        
-        dicParam.addValue("group_id", group);
-        dicParam.addValue("workcenter_id", workcenter);
-        dicParam.addValue("keyword", keyword);
-        
-        String sql = """
+
+		MapSqlParameterSource dicParam = new MapSqlParameterSource();
+		dicParam.addValue("group_id", group);
+		dicParam.addValue("workcenter_id", workcenter);
+		dicParam.addValue("keyword", keyword);
+
+		String sql = """
 			select e.id
              , e."Code"
              , e."Name"
@@ -63,23 +63,94 @@ public class EquipmentService {
             left join depart d on d.id = e."Depart_id" 
             where 1 = 1
 		    """;
-        if (group != null) sql +=" and e.\"EquipmentGroup_id\"= :group_id ";
-        if (workcenter != null) sql +=" and e.\"WorkCenter_id\"= :workcenter_id ";
-        if (StringUtils.hasText(keyword)) sql +=" and upper(e.\"Name\") like concat('%%', :keyword,'%%') ";
-        
-        sql += " order by e.id desc ";
-        List<Map<String, Object>> items = this.sqlRunner.getRows(sql, dicParam);
-        
-        return items;
+		if (group != null) sql +=" and e.\"EquipmentGroup_id\"= :group_id ";
+		if (workcenter != null) sql +=" and e.\"WorkCenter_id\"= :workcenter_id ";
+		if (StringUtils.hasText(keyword)) sql +=" and upper(e.\"Name\") like concat('%%', :keyword,'%%') ";
+
+		sql += " order by e.id desc ";
+		List<Map<String, Object>> items = this.sqlRunner.getRows(sql, dicParam);
+
+		return items;
 	}
-	
+
+	/**
+	 * 설비를 삭제할 수 없게 만드는 첫 번째 참조를 찾아 사람이 읽을 문구로 돌려준다.
+	 * 삭제 가능하면 null.
+	 *
+	 * 순서는 사용자에게 의미 있는 쪽(작업 이력) → 기준정보 순.
+	 * 여기서 못 거르는 참조가 있어도 컨트롤러의 DataIntegrityViolationException
+	 * 처리가 최종 방어를 한다.
+	 */
+	public String findDeleteBlocker(Integer id) {
+
+		if (id == null) return null;
+
+		/* --- (A) DB 가 FK 로 막는 것들 --------------------------------------
+		   equ 를 참조하는 FK 는 아래 4개다(2026-09 확인).
+		     equip_history / haccp_test / haccp_diary / mcell_unit_step
+		   equip_history 는 삭제 로직이 함께 지우므로 여기서 보지 않는다. */
+		if (countRef("mcell_unit_step", "Equipment_id", id) > 0) {
+			return "M-CELL 조립·수리 작업 이력";
+		}
+		if (countRef("haccp_test", "Equipment_id", id) > 0) {
+			return "HACCP 점검 기록";
+		}
+		if (countRef("haccp_diary", "Equipment_id", id) > 0) {
+			return "HACCP 일지";
+		}
+
+		/* --- (B) FK 가 없어 DB 가 막아주지 않는 것들 -------------------------
+		   컬럼만 있고 제약이 없어, 지우면 조용히 미아 데이터가 된다.
+		   DB 대신 여기서 막는다. 해당 컬럼이 없는 환경에서는 countRef 가 0 을
+		   돌려주므로 그냥 통과한다. */
+		if (countRef("mcell_unit", "Equipment_id", id) > 0) {
+			return "M-CELL 유닛 작업 이력";
+		}
+		if (countRef("mat_produce", "Equipment_id", id) > 0) {
+			return "생산 실적";
+		}
+		if (countRef("equ_run", "Equipment_id", id) > 0) {
+			return "설비 가동 이력";
+		}
+		if (countRef("job_res", "Equipment_id", id) > 0) {
+			return "작업지시";
+		}
+		if (countRef("material", "Equipment_id", id) > 0) {
+			return "품목 기준정보";
+		}
+		if (countRef("equ_component", "equ_id", id) > 0) {
+			return "설비 부품정보";
+		}
+		return null;
+	}
+
+	/**
+	 * 참조 건수 조회.
+	 * 테이블·컬럼이 없는 환경(1공장 전용 배포 등)에서도 죽지 않도록 예외를 삼킨다.
+	 * 못 세면 0 으로 보고 넘어가되, 실제 FK 는 DB 가 막아 준다.
+	 */
+	private long countRef(String table, String column, Integer id) {
+		try {
+			MapSqlParameterSource p = new MapSqlParameterSource();
+			p.addValue("id", id);
+
+			String sql = "select count(*) as cnt from \"" + table + "\" where \"" + column + "\" = :id";
+
+			Map<String, Object> row = this.sqlRunner.getRow(sql, p);
+			if (row == null || row.get("cnt") == null) return 0L;   // SqlRunner 는 오류 시 null
+			return ((Number) row.get("cnt")).longValue();
+		} catch (Exception e) {
+			return 0L;
+		}
+	}
+
 	// 설비 상세정보 조회
 	public Map<String, Object> getEquipmentpDetail(int id){
-		
-		MapSqlParameterSource dicParam = new MapSqlParameterSource();        
-        dicParam.addValue("id", id);
-        
-        String sql = """
+
+		MapSqlParameterSource dicParam = new MapSqlParameterSource();
+		dicParam.addValue("id", id);
+
+		String sql = """
 			select e.id
              , e."Code"
              , e."Name"
@@ -115,10 +186,10 @@ public class EquipmentService {
               left join work_center wc  on wc.id = e."WorkCenter_id"   
             where e.id = :id
 		    """;
-        
-        Map<String, Object> item = this.sqlRunner.getRow(sql, dicParam);
-        
-        return item;
+
+		Map<String, Object> item = this.sqlRunner.getRow(sql, dicParam);
+
+		return item;
 	}
 
 	public List<Map<String, Object>> getEquipmentStopList(String dateFrom, String dateTo, String equipment) {
@@ -151,19 +222,19 @@ public class EquipmentService {
             left join stop_cause sc on sc.id = er."StopCause_id"
             where er."StartDate" >= cast(:dateFrom as timestamp) and er."EndDate" <= cast(:dateTo as timestamp)
 			""";
-		
+
 		if (StringUtils.hasText(equipment)) {
 			sql += "  and er.\"Equipment_id\" = :equipment::INTEGER ";
 		}
-		
 
-        sql += """
+
+		sql += """
 		        and er."RunState" = 'X'
 		        order by e."Name", er."StartDate", er."EndDate"
         	   """;
-        
+
 		List<Map<String, Object>> items = this.sqlRunner.getRows(sql, paramMap);
-		
+
 		return items;
 	}
 
@@ -171,7 +242,7 @@ public class EquipmentService {
 
 		MapSqlParameterSource paramMap = new MapSqlParameterSource();
 		paramMap.addValue("id", id);
-		
+
 		String sql = """
 	                select er.id
 	                , to_char(er."StartDate", 'yyyy-mm-dd') as start_date
@@ -199,7 +270,7 @@ public class EquipmentService {
 					""";
 
 		Map<String, Object> items = this.sqlRunner.getRow(sql, paramMap);
-		
+
 		return items;
 	}
 

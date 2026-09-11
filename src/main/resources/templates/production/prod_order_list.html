@@ -298,12 +298,13 @@
                     new FlexGridContextMenu(this.grid);
                     this.grid.downloadFileName = '작업 지시 등록 내역';
 
+                    // 더블클릭 → 진행 현황 모달 (수정은 [수정] 버튼으로)
                     this.grid.hostElement.addEventListener('dblclick', function (e) {
                         let items = _this.grid.selectedItems;
                         if (items.length === 0) {
                             return false;
                         }
-                        $('#btnPlanSave').trigger('click');
+                        _this.showProgress(items[0].id);
                     });
 
                     AjaxUtil.fillSelectOptions($('#cboMatType'), 'system_code', 'all', false, 'mat_type', 'product,semi');
@@ -312,6 +313,126 @@
                     $('#cboMatType').change(function (e) {
                         AjaxUtil.fillSelectOptions($('#cboMatGroup'), 'material_group', 'all', false, $('#cboMatType').val());
                     });
+                }
+
+                /* 진행 현황 모달.
+                   1공장은 차수(mat_produce), 2공장은 유닛(mcell_unit) 으로 실적이 남는다.
+                   공통 축인 공정별 진행을 먼저 보여주고, 2공장이면 유닛 표를 덧붙인다. */
+                showProgress(jrPk) {
+                    if (!jrPk) return;
+
+                    let res = AjaxUtil.getSyncData('/api/production/prod_order_a/progress', {'jr_pk': jrPk});
+                    let d = (res && res.data) ? res.data : null;
+                    if (!d || !d.head) {
+                        Alert.alert('', '진행 정보를 불러오지 못했습니다.');
+                        return;
+                    }
+
+                    const h = d.head;
+                    const esc = (v) => (v === null || v === undefined) ? '' : String(v)
+                        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    const num = (v) => (v === null || v === undefined) ? 0 : Number(v);
+
+                    let html = '<div style="padding:12px 14px">';
+
+                    // 헤더 요약
+                    html += '<table class="table-style1" style="width:100%;margin-bottom:12px">'
+                        + '<colgroup><col width="15%"><col width="35%"><col width="15%"><col width="35%"></colgroup><tbody>'
+                        + '<tr><th>작지번호</th><td>' + esc(h.workorder_number) + '</td>'
+                        + '<th>생산일</th><td>' + esc(h.production_date) + '</td></tr>'
+                        + '<tr><th>제품</th><td>' + esc(h.mat_name) + ' (' + esc(h.mat_code) + ')</td>'
+                        + '<th>지시량</th><td>' + num(h.order_qty) + ' ' + esc(h.unit_name) + '</td></tr>'
+                        + '<tr><th>상태</th><td>' + esc(h.state_name) + '</td>'
+                        + '<th>공정 과정</th><td>' + esc(h.process_flow) + '</td></tr>'
+                        + '</tbody></table>';
+
+                    // 공정별 진행
+                    const isF2 = num(h.factory_id) === 2;
+                    const st = d.unit_stat || {};
+                    const uTotal = num(st.total);
+
+                    /* 2공장은 검사·포장에 자식 작지가 없어 유닛 상태로 진행을 읽는다.
+                       상태 전이 : wait → assembling → inspect_wait → pass/reject → packed */
+                    function f2Done(code) {
+                        const passed = num(st.pass_cnt) + num(st.packed_cnt);
+                        if (code === 'mc01') return passed + num(st.inspect_wait_cnt) + num(st.reject_cnt);
+                        if (code === 'mc02') return passed;
+                        if (code === 'mc03') return num(st.packed_cnt);
+                        return 0;
+                    }
+
+                    html += '<div style="font-weight:600;margin:6px 0">공정별 진행</div>';
+                    const procs = d.procs || [];
+                    if (procs.length === 0) {
+                        html += '<div style="color:#888;padding:8px 0">라우팅이 없는 단일 공정 지시입니다.</div>';
+                    } else {
+                        html += '<table class="table-style1" style="width:100%;margin-bottom:12px">'
+                            + '<thead><tr><th>공정</th><th>지시량</th><th>실적</th><th>진행</th><th>상태</th></tr></thead><tbody>';
+                        procs.forEach(function (r) {
+                            const order = num(r.order_qty);
+                            let done, total;
+                            if (isF2) {
+                                done  = f2Done(r.process_code);
+                                total = uTotal;
+                            } else {
+                                done  = num(r.produced_qty);
+                                total = order;
+                            }
+                            const pct = total > 0 ? Math.round(done / total * 100) : 0;
+
+                            let state = '대기';
+                            if (total > 0 && done >= total) state = '완료';
+                            else if (done > 0 || num(r.working_cnt) > 0) state = '진행중';
+                            if (num(r.row_cnt) === 0 && !isF2) state = '지시 없음';
+
+                            html += '<tr>'
+                                + '<td style="text-align:center">' + esc(r.process_name)
+                                + (num(r.row_cnt) > 1 ? ' <span style="color:#888">(작지 ' + num(r.row_cnt) + '건)</span>' : '') + '</td>'
+                                + '<td style="text-align:center">' + (isF2 ? uTotal : order) + '</td>'
+                                + '<td style="text-align:center">' + done + ' / ' + total + '</td>'
+                                + '<td style="text-align:center">' + pct + '%</td>'
+                                + '<td style="text-align:center">' + state + '</td>'
+                                + '</tr>';
+                        });
+                        html += '</tbody></table>';
+                    }
+
+                    // 2공장 — 유닛 목록
+                    if (isF2) {
+                        const units = d.units || [];
+                        html += '<div style="font-weight:600;margin:6px 0">유닛 (1대 = 1로트)</div>';
+                        if (units.length === 0) {
+                            html += '<div style="color:#888;padding:8px 0">아직 생성된 유닛이 없습니다. 조립 화면에서 작지를 열면 만들어집니다.</div>';
+                        } else {
+                            html += '<div style="max-height:260px;overflow:auto">'
+                                + '<table class="table-style1" style="width:100%">'
+                                + '<thead><tr><th>호기</th><th>로트번호</th><th>품목</th><th>스텝</th><th>상태</th><th>시작</th></tr></thead><tbody>';
+                            const UNIT_STATE = {
+                                'wait': '대기', 'assembling': '조립중', 'inspect_wait': '검사 대기',
+                                'pass': '검사 합격', 'reject': '검사 불합격', 'packed': '포장 완료',
+                                'repairing': '수리중'
+                            };
+                            units.forEach(function (u) {
+                                const label = UNIT_STATE[u.state] || esc(u.state);
+                                const color = (u.state === 'reject') ? ';color:#c00' : '';
+                                html += '<tr>'
+                                    + '<td style="text-align:center">SN-' + String(num(u.unit_no)).padStart(3, '0') + '</td>'
+                                    + '<td style="text-align:center">' + (esc(u.lot_number) || '<span style="color:#bbb">미발번</span>') + '</td>'
+                                    + '<td style="text-align:center">' + esc(u.mat_code) + '</td>'
+                                    + '<td style="text-align:center">' + num(u.step_done) + ' / ' + num(u.step_cnt) + '</td>'
+                                    + '<td style="text-align:center' + color + '">' + label + '</td>'
+                                    + '<td style="text-align:center">' + (esc(u.start_time) || '-') + '</td>'
+                                    + '</tr>';
+                            });
+                            html += '</tbody></table></div>';
+                        }
+                    }
+
+                    html += '</div>';
+
+                    let $content = $(html);
+                    let modal = new PopupDraggable('작업 지시 진행 현황');
+                    modal.open({width: 900, height: 620, $content});
                 }
 
                 searchMainData() {

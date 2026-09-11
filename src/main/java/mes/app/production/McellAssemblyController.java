@@ -133,6 +133,16 @@ public class McellAssemblyController {
         return this.mcellAssemblyService.initUnits(jobResId, spjangcd, (User) auth.getPrincipal());
     }
 
+    /** 투입자재 편집분 즉시 저장 (수량 가감 · 삭제 · 품목 추가) */
+    @PostMapping("/step_mat_save")
+    @Transactional
+    public AjaxResult stepMatSave(
+            @RequestParam("step_id") Integer stepId,
+            @RequestParam(value = "bom_json", required = false) String bomJson,
+            Authentication auth) {
+        return this.mcellAssemblyService.saveStepMaterials(stepId, bomJson, (User) auth.getPrincipal());
+    }
+
     /** 조립 ↔ 재고 투입 전환 */
     @PostMapping("/step_source")
     @Transactional

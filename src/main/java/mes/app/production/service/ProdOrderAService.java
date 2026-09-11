@@ -47,13 +47,13 @@ public class ProdOrderAService {
                 , case when m."PackingUnitQty" > 0 then round((jr."OrderQty" / m."PackingUnitQty")::numeric, 0)
                         else null end as box_qty
 	            , jr."OrderQty" as order_qty
-	            , wc."Name" as workcenter_name, e."Name" as equip_name
+	            , coalesce(wc."Name", last_p.wc_name) as workcenter_name, e."Name" as equip_name
 	            , jr."State" as state, fn_code_name('job_state', jr."State") as state_name
                 , jr."Description" as description
                 , up."Name" as creator
                 , rp."ProcessOrder" as process_order
-			    , coalesce(pr_rt."Code", pr_wc."Code") as process_code
-				, coalesce(pr_rt."Name", pr_wc."Name") as process_name
+			    , coalesce(pr_rt."Code", pr_wc."Code", last_p.proc_code) as process_code
+				, coalesce(pr_rt."Name", pr_wc."Name", last_p.proc_name) as process_name
 			    , jr."ProcessCount" as process_count
 			    , flow.process_flow
 	            from job_res jr
@@ -82,6 +82,23 @@ public class ProdOrderAService {
 					left join process p2 on p2.id = rp2."Process_id"
 					where rp2."Routing_id" = jr."Routing_id"
 				) flow on true
+
+				/* 라우팅 마지막 공정 — 헤더 표시용.
+				   라우팅이 붙은 작지는 공정을 자식이 들고 있고 헤더의 WorkCenter_id 는 비어 있다.
+				   목록의 워크센터·공정 칸이 통째로 비면 사용자가 읽을 것이 없으므로,
+				   그 지시가 최종적으로 산출되는 공정(라우팅의 마지막)을 대신 보여준다.
+				   ※ 표시만 그렇게 하는 것이고 job_res 에는 저장하지 않는다. */
+				left join lateral (
+					select p3."Code" as proc_code, p3."Name" as proc_name, wc3."Name" as wc_name
+					from routing_proc rp3
+					join process p3 on p3.id = rp3."Process_id"
+					left join work_center wc3
+						   on wc3."Process_id" = p3.id
+						  and wc3."Factory_id" = coalesce(m."Factory_id", 1)
+					where rp3."Routing_id" = jr."Routing_id"
+					order by rp3."ProcessOrder" desc
+					limit 1
+				) last_p on jr."WorkCenter_id" is null
                 where jr."ProductionDate" between cast(:dateFrom as date) and cast(:dateTo as date)
                 and jr.spjangcd = :spjangcd
                 and jr."Parent_id" is null
@@ -119,10 +136,18 @@ public class ProdOrderAService {
 				select e.id as equip_pk, e."Name" as equipment_name
 	            , wc.id as workcenter_pk, wc."Name" as workcenter_name
 	            , u."Name" as unit_name
+	            , m."Routing_id" as routing_id
+	            , flow.process_flow
 	            from material m 
 	            left join unit u on u.id = m."Unit_id"
 	            left join work_center wc on wc.id = m."WorkCenter_id"
 	            left join equ e on e.id = m."Equipment_id"
+	            left join lateral (
+	                select string_agg(p2."Name", ' → ' order by rp2."ProcessOrder") as process_flow
+	                from routing_proc rp2
+	                left join process p2 on p2.id = rp2."Process_id"
+	                where rp2."Routing_id" = m."Routing_id"
+	            ) flow on true
 	            where m.id = cast(:matPk as Integer)
 				""";
 
@@ -164,6 +189,8 @@ public class ProdOrderAService {
 	            , jr."State" as state
 	            , fn_code_name('job_state', jr."State") as state_name
                 , jr."Description" as description
+                , jr."Routing_id" as routing_id
+                , flow.process_flow
 	            from job_res jr 
 	            left join material m on m.id = jr."Material_id"
 	            left join mat_grp mg on mg.id = m."MaterialGroup_id"
@@ -171,12 +198,141 @@ public class ProdOrderAService {
 	            left join work_center wc on wc.id = jr."WorkCenter_id"
 	            left join equ e on e.id = jr."Equipment_id"
 	            left join shift sh on sh."Code" = jr."ShiftCode"
+                left join lateral (
+                    select string_agg(p2."Name", ' → ' order by rp2."ProcessOrder") as process_flow
+                    from routing_proc rp2
+                    left join process p2 on p2.id = rp2."Process_id"
+                    where rp2."Routing_id" = jr."Routing_id"
+                ) flow on true
                 where jr.id = cast(:jrPk as Integer)
 				""";
 
 		Map<String, Object> items = this.sqlRunner.getRow(sql, paramMap);
 
 		return items;
+	}
+
+	/**
+	 * 작업지시 진행 현황 (더블클릭 모달용).
+	 *
+	 * 공장에 따라 실적이 남는 곳이 다르다.
+	 *   1공장 : 공정 자식 작지 + 차수(mat_produce)
+	 *   2공장 : 공정 자식 작지 + 유닛(mcell_unit) 1대=1로트
+	 * 공통 축인 「공정별 진행」을 먼저 내리고, 2공장이면 유닛 목록을 덧붙인다.
+	 */
+	public Map<String, Object> getProgress(Integer jrPk) {
+
+		MapSqlParameterSource p = new MapSqlParameterSource().addValue("pid", jrPk);
+
+		Map<String, Object> head = sqlRunner.getRow("""
+			select jr.id
+			     , jr."WorkOrderNumber" as workorder_number
+			     , to_char(jr."ProductionDate",'yyyy-mm-dd') as production_date
+			     , m."Code" as mat_code, m."Name" as mat_name
+			     , coalesce(jr."OrderQty",0) as order_qty
+			     , u."Name" as unit_name
+			     , fn_code_name('job_state', jr."State") as state_name
+			     , coalesce(m."Factory_id", 1) as factory_id
+			     , flow.process_flow
+			  from job_res jr
+			  left join material m on m.id = jr."Material_id"
+			  left join unit u on u.id = m."Unit_id"
+			  left join lateral (
+					select string_agg(p2."Name", ' → ' order by rp2."ProcessOrder") as process_flow
+					from routing_proc rp2
+					left join process p2 on p2.id = rp2."Process_id"
+					where rp2."Routing_id" = jr."Routing_id"
+			  ) flow on true
+			 where jr.id = :pid
+		""", p);
+
+		Map<String, Object> out = new java.util.HashMap<>();
+		if (head == null) return out;
+		out.put("head", head);
+
+		int factoryId = head.get("factory_id") == null ? 1
+				: ((Number) head.get("factory_id")).intValue();
+
+		/* 공정별 진행 — 라우팅을 기준선으로 삼는다.
+		   자식 작지만 나열하면 워크센터를 가진 품목이 없는 공정(2공장 검사)이 통째로 빠진다.
+		   라우팅 공정을 먼저 깔고, 거기에 자식 작지 집계를 붙이는 방식으로 바꿨다. */
+		List<Map<String, Object>> procs = sqlRunner.getRows("""
+			select pr."Code" as process_code
+			     , pr."Name" as process_name
+			     , rp."ProcessOrder" as work_index
+			     , coalesce(c.row_cnt, 0)     as row_cnt
+			     , coalesce(c.order_qty, 0)   as order_qty
+			     , coalesce(c.done_cnt, 0)    as done_cnt
+			     , coalesce(c.working_cnt, 0) as working_cnt
+			     , coalesce(c.produced_qty,0) as produced_qty
+			  from routing_proc rp
+			  join process pr on pr.id = rp."Process_id"
+			  left join lateral (
+					select count(*) as row_cnt
+					     , sum(coalesce(jr2."OrderQty",0)) as order_qty
+					     , count(*) filter (where jr2."State" = 'finished') as done_cnt
+					     , count(*) filter (where jr2."State" = 'working')  as working_cnt
+					     , coalesce(sum(pd.qty), 0) as produced_qty
+					from job_res jr2
+					join work_center wc2 on wc2.id = jr2."WorkCenter_id"
+					left join lateral (
+						/* 실적 = 양품 산출량(GoodQty).
+						   mat_produce."DefectQty" 는 이 시스템에서 채워지지 않는다 —
+						   자재 불량은 defect_regist, 유닛 불량은 insp_result 에 남는다. */
+						select coalesce(sum(mp."GoodQty"),0) as qty
+						from mat_produce mp where mp."JobResponse_id" = jr2.id
+					) pd on true
+					where jr2."Parent_id" = :pid
+					  and wc2."Process_id" = pr.id
+			  ) c on true
+			 where rp."Routing_id" = (select "Routing_id" from job_res where id = :pid)
+			 order by rp."ProcessOrder"
+		""", p);
+		out.put("procs", procs == null ? new java.util.ArrayList<>() : procs);
+
+		// 2공장 — 유닛(1대 = 1로트 = 시리얼)
+		if (factoryId == 2) {
+
+			/* 공정별 실적을 유닛 상태로 읽는다.
+			   2공장은 검사·포장에 자식 작지가 없어 job_res 로는 진행을 알 수 없다.
+			   상태 전이 : wait → assembling → inspect_wait → pass/reject → packed */
+			Map<String, Object> stat = sqlRunner.getRow("""
+				select count(*) as total
+				     , count(*) filter (where mu."State" = 'wait')         as wait_cnt
+				     , count(*) filter (where mu."State" = 'assembling')   as assembling_cnt
+				     , count(*) filter (where mu."State" = 'inspect_wait') as inspect_wait_cnt
+				     , count(*) filter (where mu."State" = 'pass')         as pass_cnt
+				     , count(*) filter (where mu."State" = 'reject')       as reject_cnt
+				     , count(*) filter (where mu."State" = 'packed')       as packed_cnt
+				  from mcell_unit mu
+				  join job_res jr on jr.id = mu."JobResponse_id"
+				 where (jr.id = :pid or jr."Parent_id" = :pid)
+				   and coalesce(mu."_status",'a') = 'a'
+			""", p);
+			out.put("unit_stat", stat);
+
+			List<Map<String, Object>> units = sqlRunner.getRows("""
+				select mu.id
+				     , mu."UnitNo" as unit_no
+				     , mu."LotNumber" as lot_number
+				     , mu."State" as state
+				     , m."Code" as mat_code
+				     , (select count(*) from mcell_unit_step st
+				         where st."McellUnit_id" = mu.id) as step_cnt
+				     , (select count(*) from mcell_unit_step st
+				         where st."McellUnit_id" = mu.id and st."State" = 'done') as step_done
+				     , to_char(mu."StartTime",'yyyy-mm-dd hh24:mi') as start_time
+				  from mcell_unit mu
+				  join job_res jr on jr.id = mu."JobResponse_id"
+				  left join material m on m.id = mu."Material_id"
+				 where (jr.id = :pid or jr."Parent_id" = :pid)
+				   and coalesce(mu."_status",'a') = 'a'
+				 order by mu."UnitNo"
+			""", p);
+			out.put("units", units == null ? new java.util.ArrayList<>() : units);
+		}
+
+		return out;
 	}
 
 	public Map<String, Object> getJopResRow(Integer id) {
@@ -196,6 +352,132 @@ public class ProdOrderAService {
 		return items;
 	}
 
+	/**
+	 * 삭제를 막고 있는 작업지시들(부모 + 자식 중 '지시중'이 아닌 건).
+	 * 없으면 빈 리스트. 화면 안내 문구를 만들기 위한 조회다.
+	 *
+	 * ※ 자식은 부모의 WorkOrderNumber 를 그대로 물려받으므로,
+	 *   그냥 나열하면 같은 줄이 건수만큼 반복된다. 공정·상태로 묶어서 건수로 보여준다.
+	 */
+	public List<Map<String, Object>> getDeleteBlockers(Integer id) {
+
+		MapSqlParameterSource p = new MapSqlParameterSource().addValue("pid", id);
+
+		String sql = """
+			select jr."WorkOrderNumber" as wo_no
+				 , coalesce(p."Name", wc."Name") as process_name
+				 , fn_code_name('job_state', jr."State") as state_name
+				 , count(*) as cnt
+			  from job_res jr
+			  left join work_center wc on wc.id = jr."WorkCenter_id"
+			  left join process p on p.id = wc."Process_id"
+			 where (jr.id = :pid or jr."Parent_id" = :pid)
+			   and jr."State" <> 'ordered'
+			 group by jr."WorkOrderNumber", coalesce(p."Name", wc."Name"), jr."State"
+			 order by count(*) desc, 2, 3
+		""";
+
+		return this.sqlRunner.getRows(sql, p);
+	}
+
+	/**
+	 * 착수한 유닛 수(부모 + 자식).
+	 * 스텝을 하나라도 손댔거나 실적이 붙은 유닛은 작지와 함께 지울 수 없다.
+	 */
+	public int countBusyUnits(Integer headerId) {
+		MapSqlParameterSource p = new MapSqlParameterSource().addValue("pid", headerId);
+		return sqlRunner.queryForCount("""
+			select count(*)
+			  from mcell_unit mu
+			  join job_res jr on jr.id = mu."JobResponse_id"
+			 where (jr.id = :pid or jr."Parent_id" = :pid)
+			   and coalesce(mu."_status",'a') = 'a'
+			   and ( mu."State" <> 'wait'
+			         or exists (select 1 from mcell_unit_step st
+			                     where st."McellUnit_id" = mu.id
+			                       and (st."State" <> 'wait' or st."MatProduce_id" is not null)) )
+		""", p);
+	}
+
+	/** 생산 실적 건수(부모 + 자식). 삭제 가드용. */
+	public int countProduced(Integer headerId) {
+		MapSqlParameterSource p = new MapSqlParameterSource().addValue("pid", headerId);
+		try {
+			return sqlRunner.queryForCount("""
+				select count(*)
+				  from mat_produce mp
+				 where mp."JobResponse_id" in (
+				         select id from job_res where id = :pid or "Parent_id" = :pid)
+			""", p);
+		} catch (Exception e) {
+			return 0;   // 컬럼 구성이 다른 환경에서도 삭제 자체는 막지 않는다
+		}
+	}
+
+	/**
+	 * 유닛(mcell_unit)이 매달린 작지들과 각자의 현재 지시량.
+	 * 유닛은 헤더가 아니라 공정 자식(조립)에 붙으므로 헤더만 봐서는 알 수 없다.
+	 */
+	public List<Map<String, Object>> getUnitOwners(Integer headerId) {
+		MapSqlParameterSource p = new MapSqlParameterSource().addValue("pid", headerId);
+		return sqlRunner.getRows("""
+			select jr.id, coalesce(jr."OrderQty", 0) as order_qty
+			  from job_res jr
+			 where (jr.id = :pid or jr."Parent_id" = :pid)
+			   and exists (
+			         select 1 from mcell_unit mu
+			          where mu."JobResponse_id" = jr.id
+			            and coalesce(mu."_status",'a') = 'a'
+			       )
+			 order by jr.id
+		""", p);
+	}
+
+	/**
+	 * 전개 후 공정 수 갱신.
+	 * 엔티티 재저장을 피하려고 SQL 로 직접 쓴다 — save 로 하면 트리거가 넣은
+	 * WorkOrderNumber 가 null 로 덮여 헤더 번호가 사라진다.
+	 */
+	public void updateProcessCount(Integer jobResId, int count) {
+		MapSqlParameterSource p = new MapSqlParameterSource()
+				.addValue("id", jobResId).addValue("c", count);
+		sqlRunner.execute("""
+			update job_res set "ProcessCount" = :c where id = :id
+		""", p);
+	}
+
+	/** 자식 작지 id 목록. 재전개 전 유닛 정리에 쓴다. */
+	public List<Integer> getChildIds(Integer parentId) {
+		MapSqlParameterSource p = new MapSqlParameterSource().addValue("pid", parentId);
+		List<Map<String, Object>> rows = sqlRunner.getRows("""
+			select id from job_res where "Parent_id" = :pid order by id
+		""", p);
+		List<Integer> ids = new java.util.ArrayList<>();
+		if (rows != null) {
+			for (Map<String, Object> r : rows) {
+				if (r.get("id") != null) ids.add(((Number) r.get("id")).intValue());
+			}
+		}
+		return ids;
+	}
+
+	/** 착수(지시중이 아님)한 자식 수. 수정 전 가드용. */
+	public int countBusyChildren(Integer parentId) {
+		MapSqlParameterSource p = new MapSqlParameterSource().addValue("pid", parentId);
+		return sqlRunner.queryForCount("""
+			select count(*) from job_res
+			 where "Parent_id" = :pid and "State" <> 'ordered'
+		""", p);
+	}
+
+	/** 자식 작지 일괄 삭제. 재전개 직전에만 쓴다(호출 전 countBusyChildren 확인 필수). */
+	public int deleteChildren(Integer parentId) {
+		MapSqlParameterSource p = new MapSqlParameterSource().addValue("pid", parentId);
+		return sqlRunner.execute("""
+			delete from job_res where "Parent_id" = :pid
+		""", p);
+	}
+
 	public int deleteById(Integer id) {
 
 		MapSqlParameterSource p = new MapSqlParameterSource().addValue("pid", id);
@@ -210,6 +492,7 @@ public class ProdOrderAService {
 		}
 
 		// 2) not-ordered 존재 체크 (부모 + 자식)
+		//    걸린 건의 상세는 컨트롤러가 getDeleteBlockers 로 따로 조회해 안내한다.
 		int notOrdered = sqlRunner.queryForCount("""
             select count(*) from job_res
              where (id = :pid or "Parent_id" = :pid)

@@ -343,10 +343,13 @@ public class DashBoardMainService {
 				     , mu."UnitNo"      AS unit_no
 				     , mu."LotNumber"   AS lot_number
 				     , mu."State"       AS state
-				     , m."Name"         AS mat_name
+				     -- 유닛 자신의 품목을 먼저 쓴다. 작지 품목(완제품)과 다를 수 있고,
+				     -- 화면에는 지금 조립중인 물건의 이름이 나와야 한다.
+				     , COALESCE(mm."Name", m."Name") AS mat_name
 				     , pe."Name"        AS actor_name
 				     , CASE WHEN mu."McellRepair_id" IS NOT NULL THEN 'Y' ELSE 'N' END AS is_repair
 				  FROM mcell_unit mu
+				  LEFT JOIN material mm ON mm.id = mu."Material_id"
 				  LEFT JOIN job_res  jr ON jr.id = mu."JobResponse_id"
 				  LEFT JOIN material m  ON m.id  = jr."Material_id"
 				  LEFT JOIN person   pe ON pe.id = mu."Actor_id"

@@ -25,6 +25,9 @@ public class ProdOrderEditService {
 	SqlRunner sqlRunner;
 
 	@Autowired
+	mes.app.production.service.McellAssemblyService mcellAssemblyService;
+
+	@Autowired
 	MaterialRepository materialRepository;
 	@Autowired
 	RoutingProcRepository routingProcRepository;
@@ -116,15 +119,23 @@ public class ProdOrderEditService {
 		sql += """
         		)
 	            , q as (
+	                /* 수주 1건 = 1행. 분할지시(작지 여러 건)는 합계로 접는다.
+	                   ※ 예전에는 group by 에 jr."Description" 이 들어 있어, 메모가 다른
+	                     작지마다 그룹이 갈리고 그 수만큼 수주가 여러 줄로 보였다.
+	                     각 줄이 자기 그룹만 세는 탓에 잔여량이 실제보다 크게 나와
+	                     이미 다 내린 수주에 지시를 또 내릴 수 있었다. */
 	                select s.id as suju_id
 	                , sum(jr."OrderQty") as ordered_qty
-	                , jr."Description" as memo
+	                -- 메모는 집계 축이 아니다. 여러 건이면 최근 작지 것을 대표로 보여준다.
+	                , (array_agg(jr."Description" order by jr.id desc)
+	                     filter (where coalesce(jr."Description",'') <> ''))[1] as memo
 	                from job_res jr 
 	                inner join s on s.id = jr."SourceDataPk" 
 	                and jr."SourceTableName"='suju' 
 	                and jr."Material_id" = s."Material_id"
 	                where jr."State" <>'canceled'
-	                group by s.id, jr."Description"
+	                and jr."Parent_id" is null
+	                group by s.id
 	            )
 	            select s.id
 	            , s."JumunNumber"
@@ -425,8 +436,14 @@ public class ProdOrderEditService {
 		if (suju != null) { suju.setConfirm("1"); suju.setState("ordered"); sujuRepository.save(suju); }
 	}
 
-	private int explodeProcessRows(JobRes header, Integer rootMatPk, Float orderQty,
-								   Timestamp prodDate, String shiftCode, String spjangcd, User user) {
+	/**
+	 * 라우팅·BOM 을 전개해 공정 자식 작지를 만든다. 생성된 자식 수를 돌려준다.
+	 *
+	 * 수주(makeProdOrder)와 자체재고(ProdOrderAController)가 같은 전개를 쓰도록 공개했다.
+	 * 전개 규칙이 두 벌이 되면 한쪽만 고쳐져 화면마다 작지 모양이 달라진다.
+	 */
+	public int explodeProcessRows(JobRes header, Integer rootMatPk, Float orderQty,
+								  Timestamp prodDate, String shiftCode, String spjangcd, User user) {
 
 		Material rootMat = materialRepository.getMaterialById(rootMatPk);
 		Integer routingId = rootMat.getRoutingId();
@@ -707,6 +724,43 @@ public class ProdOrderEditService {
 					suju.setSujuQty2(Math.max(0d, newSujuQty - reserved));
 					sujuRepository.save(suju);
 					sujuSynced = true;
+				}
+			}
+		}
+
+		/* ── (5-2) 유닛 수 맞추기 ──
+		   job_res."OrderQty" 만 고치면 2공장 유닛(mcell_unit)은 그대로 남는다.
+		   3대 지시를 2대로 줄여도 유닛 3대가 남고, 4대로 늘려도 3대에 머문다.
+		   여기서 맞춰 두면 조립 화면은 새로고침만으로 바뀐 대수를 본다.
+
+		   ※ 위 UPDATE 는 JPA save 라 아직 flush 전이다. 아래 조회는 순수 JDBC 이므로
+		     flush 하지 않으면 바뀌기 전 지시량을 읽는다. */
+		if (qtyChanged) {
+			jobResRepository.flush();
+
+			MapSqlParameterSource pu = new MapSqlParameterSource().addValue("pid", jobresId);
+			List<Map<String, Object>> owners = sqlRunner.getRows("""
+                SELECT jr.id, COALESCE(jr."OrderQty",0) AS order_qty, jr.spjangcd
+                  FROM job_res jr
+                 WHERE (jr.id = :pid OR jr."Parent_id" = :pid)
+                   AND EXISTS (SELECT 1 FROM mcell_unit mu
+                                WHERE mu."JobResponse_id" = jr.id
+                                  AND COALESCE(mu."_status",'a') = 'a')
+                 ORDER BY jr.id
+                """, pu);
+
+			if (owners != null) {
+				for (Map<String, Object> o : owners) {
+					Integer ownerId = ((Number) o.get("id")).intValue();
+					int unitTarget = o.get("order_qty") == null ? 0
+							: (int) Math.floor(((Number) o.get("order_qty")).doubleValue());
+
+					AjaxResult sr = mcellAssemblyService.shrinkUnits(ownerId, unitTarget, user);
+					if (!sr.success) return sr;
+
+					AjaxResult ir = mcellAssemblyService.initUnits(
+							ownerId, str(o.get("spjangcd")), user);
+					if (!ir.success) return ir;
 				}
 			}
 		}
