@@ -1088,6 +1088,22 @@
       return d + '|' + a + '|' + e + '|' + m;
     }
 
+    /** 이 박스(mp_id)가 지금 속해 있는 작업을 찾는다.
+     ★ 키로 찾으면 안 된다 — sessKey 의 첫 조각이 start_time 의 날짜라,
+     시작시각을 다른 날로 옮기는 순간 그 박스는 「다른 작업」이 된다.
+     키를 다시 계산해 따라가는 방법도 있지만, 박스를 직접 찾는 편이
+     키 규칙이 바뀌어도 안 깨진다. */
+    function sessOfBox(mpId) {
+      if (mpId == null) return null;
+      for (var i = 0; i < SESSIONS.length; i++) {
+        var bs = SESSIONS[i].boxes || [];
+        for (var j = 0; j < bs.length; j++) {
+          if (String(bs[j].mp_id) === String(mpId)) return SESSIONS[i];
+        }
+      }
+      return null;
+    }
+
     /** 작업 소요시간(분). 종료가 없으면(작업중) null — 「0분」으로 보이면 안 끝난 걸 끝난 걸로 읽는다 */
     function workMin(s) {
       if (!s.start_time || !s.end_time) return null;
@@ -1335,6 +1351,10 @@
     }
 
     function renderCHead() {
+      /* SESS 는 목록 갱신으로 풀릴 수 있다. 없으면 그릴 것도 없다 —
+         여기서 막지 않으면 SESS.boxes 에서 TypeError 가 나고, 그 예외가
+         jQuery success 콜백 안에서 터져 로딩이 안 닫힌다(무한 로딩). */
+      if (!SESS) return;
       document.getElementById('cHead').innerHTML =
               '<div class="infopill tap" id="pickWorker"><span>작업자</span><b>' + esc(whoOf(SESS) || '선택') + '</b></div>' +
               '<div class="infopill tap" id="pickEquip"><span>설비</span><b>' + esc(SESS.equipment_name || '미지정') + '</b></div>' +
@@ -1435,6 +1455,10 @@
     }
 
     function renderCBody() {
+      /* SESS 는 목록 갱신으로 풀릴 수 있다. 없으면 그릴 것도 없다 —
+         여기서 막지 않으면 SESS.boxes 에서 TypeError 가 나고, 그 예외가
+         jQuery success 콜백 안에서 터져 로딩이 안 닫힌다(무한 로딩). */
+      if (!SESS) return;
       var html = renderPhase();
       var L = allMats();
 
@@ -1558,6 +1582,10 @@
 
 
     function renderCAction() {
+      /* SESS 는 목록 갱신으로 풀릴 수 있다. 없으면 그릴 것도 없다 —
+         여기서 막지 않으면 SESS.boxes 에서 TypeError 가 나고, 그 예외가
+         jQuery success 콜백 안에서 터져 로딩이 안 닫힌다(무한 로딩). */
+      if (!SESS) return;
       var bar = document.getElementById('cAction');
       var badStore = allMats().filter(function (m) {
         return m.store_id != null && num(m.store_id) !== 17 && num(matQty[m.mat_id]) > 0;
@@ -1789,11 +1817,14 @@
           resetBox();                     // 다음 박스로 이어간다 — 작업자·설비는 유지
           loadB(function () {
             // 첫 박스가 붙으면 로컬 작업이 서버 파생 작업과 합류한다
-            var s = SESSIONS.filter(function (x) {
-              return x.key === SESS.key;
-            })[0];
-            if (s) SESS = s;
-            renderC();
+            // SESS 가 풀려 있으면 key 를 읽다 터진다 — renderC 도 SESS 를 전제한다
+            if (SESS) {
+              var s = SESSIONS.filter(function (x) { return x.key === SESS.key; })[0];
+              if (s) SESS = s;
+              renderC();
+            } else {
+              renderB();
+            }
             flash(lot + ' 포장 완료 — 다음 박스를 준비하세요');
           });
         }
@@ -2519,7 +2550,11 @@
 
     /* ══ 포장 완료 박스 상세 ══ */
     function openDone(mpId, from) {
-      var src = from || SESS.boxes;
+      /* SESS 는 목록이 갱신되면서 풀릴 수 있다(buildSessions 가 못 찾으면 null).
+         예전엔 여기서 바로 SESS.boxes 를 읽어 TypeError 가 났고,
+         그 예외가 jQuery success 콜백 안에서 터지는 바람에 AjaxUtil 이
+         로딩을 닫지 못해 화면이 무한 로딩으로 멈췄다. */
+      var src = from || (SESS && SESS.boxes) || [];
       curDone = src.filter(function (x) {
         return String(x.mp_id) === String(mpId);
       })[0];
@@ -2853,22 +2888,36 @@
       var v = fmtDate(editDate) + ' ' + document.getElementById('tH').textContent + ':' + document.getElementById('tM').textContent;
       hideMask('timeMask');
       if (timeWhich === 'sess') {
+        if (!SESS) { flash('작업이 선택되어 있지 않습니다'); return; }
         SESS.start_time = v;
         renderCHead();
         return;
       }
       if (!curDone) return;
-      var d = curDone;
-      post(API + '/pack_time', {mat_produce_id: d.mp_id, which: timeWhich, value: v}, function (r) {
+      var d = curDone, mpId = d.mp_id, key = SESS && SESS.key;
+      post(API + '/pack_time', {mat_produce_id: mpId, which: timeWhich, value: v}, function (r) {
         if (r === null) return;
-        if (timeWhich === 'start') d.start_time = v; else d.end_time = v;
-        openDone(d.mp_id);
+        /* 서버를 먼저 다시 읽고, 그 결과로 상세를 다시 그린다.
+           예전엔 openDone 을 먼저 불러 옛 목록으로 그린 뒤 loadB 로 덮었다.
+           같은 값이면 티가 안 났지만, 그 사이 SESS 가 풀리면 터졌다. */
         loadB(function () {
-          var s = SESSIONS.filter(function (x) {
-            return x.key === SESS.key;
-          })[0];
-          if (s) SESS = s;
-          renderCBody();
+          /* 시작시각의 날짜를 바꿨다면 이 박스는 다른 작업으로 옮겨가 있다.
+             박스를 따라가서 그 작업을 연다 — 화면과 데이터를 일치시킨다. */
+          var s = sessOfBox(mpId);
+          if (!s && key) s = SESSIONS.filter(function (x) { return x.key === key; })[0];
+          if (s) {
+            var moved = (key && s.key !== key);
+            SESS = s;
+            renderC();                 // 헤더까지 다시 그린다(작업 시간대가 바뀌었다)
+            openDone(mpId);
+            if (moved) flash('날짜가 바뀌어 다른 작업으로 옮겨졌습니다');
+          } else {
+            /* 박스도 작업도 못 찾으면 상세를 붙들고 있을 근거가 없다 */
+            SESS = null;
+            hideMask('doneMask');
+            renderB();
+            flash('작업 목록을 다시 불러왔습니다');
+          }
         });
       });
     };
@@ -3090,7 +3139,7 @@
   <!-- 스테퍼 길게 누르기 (조립·수리 화면과 동일) -->
   <style>
     .mstep button, .dateedit button, .timeedit button {
-      touch-action: manipulation;
+      touch-action: none;
       -webkit-user-select: none;
       user-select: none;
       -webkit-touch-callout: none;
@@ -3115,6 +3164,29 @@
         }
       }
 
+      /* ── 한 번 누르면 반드시 한 번 먹게 한다 ──
+         예전에는 브라우저가 만들어 주는 click 을 기다렸다.
+         그런데 이 버튼들은 스크롤되는 시트(max-height:88dvh) 안에 있어서,
+         누르는 순간 손가락이 1~2px 만 밀려도 브라우저가 스크롤로 판정하고
+         click 을 아예 취소해 버린다. 시트 아래쪽 버튼(▼ ◀)일수록
+         스크롤 여지가 커서 「위는 되는데 아래는 안 된다」가 된다.
+         그래서 pointerdown 에서 즉시 처리하고, 뒤따라오는 진짜 click 은
+         중복 실행을 막기 위해 삼킨다. */
+      function fire(btn) {
+        btn.__firedAt = Date.now();
+        btn.click();                 // 합성 click → isTrusted:false → 아래 가드를 통과
+      }
+
+      document.addEventListener('click', function (e) {
+        var b = e.target.closest ? e.target.closest(SEL) : null;
+        if (!b) return;
+        // pointerdown 으로 이미 처리한 버튼의 네이티브 click 만 무시한다
+        if (e.isTrusted && b.__firedAt && Date.now() - b.__firedAt < 900) {
+          e.stopPropagation();
+          e.preventDefault();
+        }
+      }, true);
+
       function tick(x, y) {
         var el = document.elementFromPoint(x, y);
         var b = (el && el.closest) ? el.closest(SEL) : null;
@@ -3122,7 +3194,7 @@
           stop();
           return;
         }
-        b.click();
+        fire(b);
       }
 
       document.addEventListener('pointerdown', function (e) {
@@ -3132,13 +3204,17 @@
         var x = e.clientX, y = e.clientY;
         stop();
         curBtn = btn;
+        /* 브라우저가 이 제스처를 스크롤로 가져가지 못하게 한다.
+           CSS 의 touch-action:none 과 짝이다. */
+        if (e.cancelable) e.preventDefault();
+        fire(btn);                   // ★ 즉시 1회 반영
         END_EVENTS.forEach(function (ev) {
           btn.addEventListener(ev, stop);
         });
         holdTimer = setTimeout(function () {
           repeatTimer = setInterval(function () {
             tick(x, y);
-          }, 90);
+          }, 80);
           maxTimer = setTimeout(stop, 8000);
         }, 400);
         window.addEventListener('pointerup', stop, {once: true, capture: true});

@@ -9,8 +9,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * ①생산형 공용 조회 서비스 (조립·블리스터·융착·포장). 화면은 process_id 만 바꿔 공용.
@@ -326,8 +330,260 @@ public class ProductionWorkService {
         return this.sqlRunner.getRows(sql, p);
     }
 
+    /** 구버전 호출부 호환 — 초안 없이 BOM 기본값만. */
     public List<Map<String, Object>> getBomDefault(Integer materialId, Float qty,
                                                    Integer cleanStore, String prodDate) {
+        return getBomDefault(materialId, qty, cleanStore, prodDate, null);
+    }
+
+    /**
+     * BOM 기본값 + 투입 초안(mat_produce."DraftBomJson") 덮어쓰기.
+     *
+     * SQL 은 건드리지 않고 결과에 초안을 얹는다 —
+     * 거대한 BOM 쿼리에 CTE 를 끼워 넣는 것보다 되돌리기 쉽고, 초안이 없으면
+     * 기존 동작과 완전히 같다.
+     *
+     *   draft_qty : 초안에 적힌 절대 수량 (화면이 per 로 재계산하지 않게 하는 값)
+     *   is_draft  : 'Y' 면 초안에서 온 값
+     *   is_added  : 'Y' 면 BOM 에 없는 추가 투입분
+     */
+    public List<Map<String, Object>> getBomDefault(Integer materialId, Float qty,
+                                                   Integer cleanStore, String prodDate,
+                                                   Integer mpId) {
+        List<Map<String, Object>> rows = getBomDefaultRaw(materialId, qty, cleanStore, prodDate);
+
+        Map<Integer, DraftRow> draft = loadDraftBom(mpId);
+        if (draft.isEmpty()) return rows;
+
+        List<Map<String, Object>> out = new ArrayList<>();
+        Set<Integer> seen = new HashSet<>();
+        for (Map<String, Object> r : rows) {
+            Map<String, Object> m = new LinkedHashMap<>(r);
+            Integer mid = r.get("mat_id") == null ? null : ((Number) r.get("mat_id")).intValue();
+            seen.add(mid);
+            DraftRow d = draft.get(mid);
+            m.put("is_added", "N");
+            if (d != null) {
+                m.put("draft_qty", d.qty);
+                m.put("default_qty", d.qty);
+                m.put("is_draft", "Y");
+                /* 작업자가 고친 줄만 'Y'. 화면은 이 값만 잠그고,
+                   나머지는 per×수량 자동계산으로 되돌린다. */
+                m.put("is_manual", d.manual ? "Y" : "N");
+            } else {
+                /* 초안이 있는데 이 자재가 빠져 있다 = 작업자가 뺀 것.
+                   BOM 기본으로 되살리면 지운 자재가 다시 나타난다. */
+                m.put("draft_qty", 0d);
+                m.put("default_qty", 0d);
+                m.put("is_draft", "Y");
+                m.put("is_manual", "N");
+            }
+            out.add(m);
+        }
+
+        // BOM 에 없던 추가 투입분을 행으로 만들어 붙인다
+        List<Integer> extra = new ArrayList<>();
+        for (Integer mid : draft.keySet()) if (!seen.contains(mid)) extra.add(mid);
+        if (!extra.isEmpty()) {
+            MapSqlParameterSource ep = new MapSqlParameterSource().addValue("ids", extra);
+            List<Map<String, Object>> infos = this.sqlRunner.getRows("""
+                    SELECT m.id                       AS mat_id
+                         , m."Code"                   AS mat_code
+                         , m."Name"                   AS mat_name
+                         , u."Name"                   AS unit
+                         , mg."MaterialType"          AS mat_type
+                         , COALESCE(m."LotUseYN",'N') AS lot_use_yn
+                         , (CASE WHEN COALESCE(m."SterilizationYN",'N')='Y'  THEN 18
+                                 WHEN mg."MaterialType" IN ('semi','product') THEN 5
+                                 WHEN COALESCE(m."WashYN",'N')='Y'           THEN 5
+                                 ELSE 17 END)         AS src_store
+                      FROM material m
+                      LEFT JOIN unit u ON u.id = m."Unit_id"
+                      LEFT JOIN mat_grp mg ON mg.id = m."MaterialGroup_id"
+                     WHERE m.id IN (:ids)
+                     ORDER BY m."Code"
+                    """, ep);
+            for (Map<String, Object> i : infos) {
+                Map<String, Object> m = new LinkedHashMap<>(i);
+                Integer mid = ((Number) i.get("mat_id")).intValue();
+                DraftRow d = draft.get(mid);
+                m.put("per", 0d);
+                m.put("draft_qty", d.qty);
+                m.put("default_qty", d.qty);
+                m.put("is_draft", "Y");
+                /* BOM 에 없는 추가 투입분은 per 가 없어 자동계산 자체가 불가능하다.
+                   항상 수동으로 둔다. */
+                m.put("is_manual", "Y");
+                m.put("is_added", "Y");
+                m.put("stock", 0);
+                out.add(m);
+            }
+        }
+        return out;
+    }
+
+    /** 초안 한 줄. qty = 그때 투입한 수량, manual = 작업자가 직접 고친 줄인지. */
+    private static class DraftRow {
+        double qty;
+        boolean manual;
+        DraftRow(double q, boolean m) { this.qty = q; this.manual = m; }
+    }
+
+    /** DraftBomJson → {matId: DraftRow}. 없거나 깨졌으면 빈 맵. */
+    private Map<Integer, DraftRow> loadDraftBom(Integer mpId) {
+        Map<Integer, DraftRow> map = new LinkedHashMap<>();
+        if (mpId == null) return map;
+        Map<String, Object> row = this.sqlRunner.getRow(
+                "SELECT \"DraftBomJson\" AS j FROM mat_produce WHERE id = :mpId",
+                new MapSqlParameterSource().addValue("mpId", mpId));
+        if (row == null || row.get("j") == null) return map;
+        String json = String.valueOf(row.get("j"));
+        if (json.isBlank()) return map;
+        try {
+            List<Map<String, Object>> arr =
+                    new com.fasterxml.jackson.databind.ObjectMapper().readValue(json, List.class);
+            for (Map<String, Object> e : arr) {
+                Object mid = e.get("matId");
+                Object q = e.get("qty");
+                if (mid == null) continue;
+                /* manual 이 없는 초안 = 이 기능 이전에 저장된 것.
+                   구분할 근거가 없으니 수동으로 본다(값을 잃는 쪽보다 안전하다). */
+                Object mn = e.get("manual");
+                boolean manual = (mn == null) || Boolean.parseBoolean(String.valueOf(mn));
+                map.put(((Number) mid).intValue(),
+                        new DraftRow(q == null ? 0d : Double.parseDouble(String.valueOf(q)), manual));
+            }
+        } catch (Exception ignore) {
+            /* 초안이 깨졌으면 없는 셈 친다 — 조회가 실패하는 것보다 낫다 */
+        }
+        return map;
+    }
+
+    /**
+     * 완료취소 직전 스냅샷.
+     *
+     * 초안은 이미 시작·완료 때 저장돼 있지만 그건 「화면이 보낸 값」이다.
+     * 서버가 FIFO 로 실제 차감한 결과와 다를 수 있어(로트 부족 등), 수량은
+     * mat_lot_cons 를 진실로 삼는다. 다만 manual 플래그는 실제 차감에는 없는
+     * 정보이므로 기존 초안에서 그대로 물려받는다 —
+     * 안 그러면 취소할 때마다 「무엇을 손댔는지」가 사라진다.
+     */
+    public void snapshotDraftOnCancel(Integer mpId, User user) {
+        if (mpId == null) return;
+
+        List<Map<String, Object>> used = this.sqlRunner.getRows("""
+                SELECT ml."Material_id" AS mat_id, SUM(mlc."OutputQty") AS qty
+                  FROM mat_lot_cons mlc
+                  JOIN mat_lot ml ON ml.id = mlc."MaterialLot_id"
+                 WHERE mlc."SourceDataPk" = :mpId
+                   AND COALESCE(mlc."SourceTableName",'mat_produce') = 'mat_produce'
+                   AND COALESCE(mlc."_status",'a') = 'a'
+                 GROUP BY ml."Material_id"
+                """, new MapSqlParameterSource().addValue("mpId", mpId));
+
+        // 실제 차감이 없으면(예약만 하고 끝난 차수) 기존 초안을 그대로 둔다
+        if (used == null || used.isEmpty()) return;
+
+        Map<Integer, DraftRow> prev = loadDraftBom(mpId);
+
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (Map<String, Object> u : used) {
+            Integer mid = ((Number) u.get("mat_id")).intValue();
+            double q = u.get("qty") == null ? 0d : ((Number) u.get("qty")).doubleValue();
+            DraftRow p0 = prev.get(mid);
+            Map<String, Object> r = new LinkedHashMap<>();
+            r.put("matId", mid);
+            r.put("qty", q);
+            r.put("manual", p0 != null && p0.manual);
+            rows.add(r);
+        }
+
+        try {
+            String json = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(rows);
+            this.sqlRunner.execute("""
+                    UPDATE mat_produce
+                       SET "DraftBomJson" = :json,
+                           "_modified" = now(), "_modifier_id" = :userId
+                     WHERE id = :mpId
+                    """, new MapSqlParameterSource()
+                    .addValue("mpId", mpId)
+                    .addValue("json", json)
+                    .addValue("userId", user == null ? null : user.getId()));
+        } catch (Exception ignore) {
+            /* 스냅샷 실패로 완료취소 자체를 막지는 않는다. 기존 초안이 남는다. */
+        }
+    }
+
+    /**
+     * 차수 시작/종료 시각 수정.
+     * 준 값만 바꾼다(널이면 기존 유지). 앞뒤가 뒤집히면 거부한다.
+     */
+    @Transactional
+    public AjaxResult updateItemTime(Integer mpId, String startTime, String endTime, User user) {
+        AjaxResult r = new AjaxResult();
+        if (mpId == null) {
+            r.success = false;
+            r.message = "차수를 찾을 수 없습니다.";
+            return r;
+        }
+
+        MapSqlParameterSource p = new MapSqlParameterSource()
+                .addValue("mpId", mpId)
+                .addValue("st", (startTime == null || startTime.isBlank()) ? null : startTime)
+                .addValue("et", (endTime == null || endTime.isBlank()) ? null : endTime);
+
+        // 바뀐 뒤의 값으로 앞뒤를 검사한다 — 한쪽만 보내와도 맞물려야 한다
+        Map<String, Object> chk = this.sqlRunner.getRow("""
+                SELECT COALESCE(CAST(:st AS timestamp), "StartTime") AS s
+                     , COALESCE(CAST(:et AS timestamp), "EndTime")   AS e
+                  FROM mat_produce WHERE id = :mpId
+                """, p);
+        if (chk == null) {
+            r.success = false;
+            r.message = "차수를 찾을 수 없습니다.";
+            return r;
+        }
+        Object s0 = chk.get("s"), e0 = chk.get("e");
+        if (s0 != null && e0 != null && s0 instanceof java.sql.Timestamp
+                && e0 instanceof java.sql.Timestamp
+                && ((java.sql.Timestamp) s0).after((java.sql.Timestamp) e0)) {
+            r.success = false;
+            r.message = "시작이 완료보다 늦을 수 없습니다.";
+            return r;
+        }
+
+        p.addValue("userId", user == null ? null : user.getId());
+        this.sqlRunner.execute("""
+                UPDATE mat_produce
+                   SET "StartTime" = COALESCE(CAST(:st AS timestamp), "StartTime")
+                     , "EndTime"   = COALESCE(CAST(:et AS timestamp), "EndTime")
+                     , "_modified" = now(), "_modifier_id" = :userId
+                 WHERE id = :mpId
+                """, p);
+
+        r.success = true;
+        return r;
+    }
+
+    /** 투입 초안 저장. 화면이 bom_json 을 보내는 지점(작업시작·완료)에서 부른다. */
+    public void saveDraftBom(Integer mpId, String bomJson, User user) {
+        if (mpId == null) return;
+        MapSqlParameterSource p = new MapSqlParameterSource()
+                .addValue("mpId", mpId)
+                .addValue("json", (bomJson == null || bomJson.isBlank()) ? null : bomJson)
+                .addValue("userId", user == null ? null : user.getId());
+        /* 빈 값이면 기존 초안을 지우지 않는다.
+           화면이 자재 편집 없이 수량만 고쳐 보낼 수 있기 때문이다. */
+        this.sqlRunner.execute("""
+                UPDATE mat_produce
+                   SET "DraftBomJson" = COALESCE(:json, "DraftBomJson"),
+                       "_modified" = now(), "_modifier_id" = :userId
+                 WHERE id = :mpId
+                """, p);
+    }
+
+    private List<Map<String, Object>> getBomDefaultRaw(Integer materialId, Float qty,
+                                                       Integer cleanStore, String prodDate) {
         MapSqlParameterSource p = new MapSqlParameterSource();
         p.addValue("materialId", materialId);
         p.addValue("qty", qty == null ? 0f : qty);
@@ -449,10 +705,24 @@ public class ProductionWorkService {
                   LEFT JOIN wash_work_item wi ON ml."SourceTableName" = 'wash_work_item'
                                              AND wi.id = ml."SourceDataPk"
                   LEFT JOIN wash_work ww ON ww.id = wi."WashWork_id"
+                  /* ★ 정렬을 BOM 등록순(bc.id)에 맞춘다.
+                     작업중은 getBomDefault 가 ORDER BY bc.id 로 내려주는데
+                     여기만 품목코드순이면, 완료를 누르는 순간 자재 줄 순서가
+                     뒤바뀌어 작업자가 다른 화면을 본 것처럼 느낀다.
+                     BOM 에 없는 추가 투입분은 ord 가 NULL → 맨 뒤로 보낸다. */
+                  LEFT JOIN LATERAL (
+                        SELECT MIN(bc.id) AS ord
+                          FROM mat_produce mp
+                          JOIN bom b       ON b."Material_id" = mp."Material_id"
+                                          AND b."BOMType" = 'manufacturing'
+                          JOIN bom_comp bc ON bc."BOM_id" = b.id
+                                          AND bc."Material_id" = m.id
+                         WHERE mp.id = :mpId
+                  ) bo ON true
                  WHERE mlc."SourceTableName" = 'mat_produce'
                    AND mlc."SourceDataPk" = :mpId
-                 GROUP BY m.id, m."Code", m."Name", u."Name", mg."MaterialType"
-                 ORDER BY m."Code"
+                 GROUP BY m.id, m."Code", m."Name", u."Name", mg."MaterialType", bo.ord
+                 ORDER BY bo.ord NULLS LAST, m."Code"
                 """;
         return this.sqlRunner.getRows(sql, p);
     }

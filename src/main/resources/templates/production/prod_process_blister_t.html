@@ -626,7 +626,9 @@
 
         /* 서버 소비 페이로드 = 용기 반제품(per×수량) + 부가자재 BOM. 용기도 BOM 구성품으로 함께 FIFO 차감. */
         function inputPayload(it) {
-            const rows = it.bom.map(b => ({matId: b.mat_id, qty: bomQ(b, it.qty)}));
+            /* manual = 작업자가 직접 고친 줄. 서버가 초안에 함께 담아,
+               완료취소 후에도 고친 줄만 잠기고 나머지는 자동계산이 살아난다. */
+            const rows = it.bom.map(b => ({matId: b.mat_id, qty: bomQ(b, it.qty), manual: !!b.manual}));
             if (it.ves) {
                 const v = {matId: it.ves.mat_id, qty: vesNeed(it)};
                 /* 로트를 직접 지정했으면 함께 보낸다. 없으면 서버가 FIFO 로 차감(기존 동작). */
@@ -650,18 +652,33 @@
         }
 
         /* 산출품목(PK) 투입 = 용기 반제품(FIFO 로트) + 부가자재 BOM. 서버가 per·재고·mat_type 내려줌 */
-        function loadBomDefault(matId, prodDate) {
+        /* mpId 를 주면 서버가 그 차수의 투입 초안(DraftBomJson)을 얹어 내려준다.
+           완료취소 후 다시 열어도 직전에 넣은 수량·추가 자재가 그대로 살아난다.
+           용기(semi)는 초안 수량을 쓰지 않는다 — 로트 배분은 vesLot 이 따로 들고 있다. */
+        function loadBomDefault(matId, prodDate, mpId) {
             const empty = {ves: null, vesLots: [], vesLot: null, bom: []};
             if (!matId) return empty;
-            const r = apiGet('/bom_default', {
+            const q = {
                 material_id: matId, qty: 1,               // per 만 쓰므로 qty=1 로 호출
                 clean_store: CTX.cleanStore, production_date: prodDate || todayStr()
-            });
-            const rows = (r.data || []).map(b => ({
-                mat_id: b.mat_id, code: b.mat_code, name: b.mat_name,
-                per: num(b.per) || 1, qty: 0, manual: false, stock: num(b.stock),
-                store: b.src_store_name || '재고', mat_type: b.mat_type || 'raw'
-            }));
+            };
+            if (mpId) q.mp_id = mpId;
+            const r = apiGet('/bom_default', q);
+            const rows = (r.data || [])
+                // 초안에서 빠진 자재 = 작업자가 뺀 것. 단 용기(semi)는 항상 남긴다.
+                .filter(b => (b.mat_type === 'semi')
+                    || !(b.is_draft === 'Y' && num(b.draft_qty) <= 0))
+                .map(b => ({
+                    mat_id: b.mat_id, code: b.mat_code, name: b.mat_name,
+                    per: num(b.per) || 1,
+                    /* 작업자가 직접 고친 줄만 값을 잠근다. 손대지 않은 줄은
+                       0·자동으로 되돌려 per×수량 계산이 다시 살아난다. */
+                    qty: (b.is_manual === 'Y' && b.mat_type !== 'semi') ? num(b.draft_qty) : 0,
+                    manual: (b.is_manual === 'Y' && b.mat_type !== 'semi'),
+                    added: b.is_added === 'Y',
+                    stock: num(b.stock),
+                    store: b.src_store_name || '재고', mat_type: b.mat_type || 'raw'
+                }));
             // 용기 = BOM 내 반제품(semi). 없으면 null. 나머지 = 부가자재.
             const vi = rows.findIndex(x => x.mat_type === 'semi');
             let ves = null, vesLots = [], vesLot = null;
@@ -765,7 +782,7 @@
             return (r.data || []).map(i => {
                 const done = (i.state === 'finished' || i.state === 'done');
                 // 완료분: 실제 차감된 투입자재(mat_lot_cons) 읽기전용. 용기(semi)는 veslot, 나머지는 부가자재.
-                const inp = done ? consumedToInputs(i.mp_id) : loadBomDefault(i.mat_id, curD.date);
+                const inp = done ? consumedToInputs(i.mp_id) : loadBomDefault(i.mat_id, curD.date, i.mp_id);
                 return {
                     mp_id: i.mp_id, mat_id: i.mat_id, vcode: i.mat_code, vname: i.mat_name,
                     wo: i.order_num || null, job_res_id: i.job_res_id || null,
@@ -1686,11 +1703,36 @@
         document.getElementById('timeOk').onclick = () => {
             const ds = `${editDate.getFullYear()}-${String(editDate.getMonth() + 1).padStart(2, '0')}-${String(editDate.getDate()).padStart(2, '0')}`;
             const v = ds + ' ' + document.getElementById('tH').textContent + ':' + document.getElementById('tM').textContent;
+            const lab = (timeWhich === 'start' ? '시작' : '종료');
+
+            /* 앞뒤 뒤집힘은 보내기 전에 막는다(서버도 한 번 더 검사한다) */
+            if (timeWhich === 'start' && timeTarget.end && v > timeTarget.end) { flash('시작이 종료보다 늦을 수 없습니다'); return; }
+            if (timeWhich === 'end' && timeTarget.start && v < timeTarget.start) { flash('종료가 시작보다 빠를 수 없습니다'); return; }
+
+            /* ★ 차수(mp_id)가 있으면 서버에 저장한다.
+               예전에는 여기서 자바스크립트 객체만 고치고 「저장」 토스트를 띄웠다.
+               완료 전이면 item_finish 가 시간을 함께 보내 우연히 저장됐지만,
+               완료된 차수를 고치면 새로고침과 동시에 사라졌다. */
+            if (timeTarget.mp_id) {
+                const p = {mp_id: timeTarget.mp_id};
+                if (timeWhich === 'start') p.start_time = v; else p.end_time = v;
+                apiPost('/item_update_time', p, () => {
+                    if (timeWhich === 'start') timeTarget.start = v; else timeTarget.end = v;
+                    hideMask('timeMask');
+                    renderItems();
+                    renderCrews();
+                    flash(lab + ' 저장 ' + pillT(v));
+                });
+                return;
+            }
+
+            /* 작업조 카드에는 저장할 차수가 없다(조 시간은 용기 실적에서 나온다).
+               화면에만 반영하고, 저장된 것처럼 보이지 않게 문구를 달리한다. */
             if (timeWhich === 'start') timeTarget.start = v; else timeTarget.end = v;
             hideMask('timeMask');
             renderItems();
             renderCrews();
-            flash((timeWhich === 'start' ? '시작' : '종료') + ' 저장 ' + pillT(v));
+            flash(lab + ' ' + pillT(v) + ' (화면에만 반영)');
         };
 
         /* 넘패드 (PK/BOM 공용) */
@@ -2086,7 +2128,7 @@
     <!-- 스텝퍼 롱프레스 자동증감 -->
     <style>
         .stepper button, .bstep button, .dateedit button, .timeedit button {
-            touch-action: manipulation;
+            touch-action: none;
             -webkit-user-select: none;
             user-select: none;
             -webkit-touch-callout: none;
@@ -2111,6 +2153,29 @@
                 }
             }
 
+            /* ── 한 번 누르면 반드시 한 번 먹게 한다 ──
+               예전에는 브라우저가 만들어 주는 click 을 기다렸다.
+               그런데 이 버튼들은 스크롤되는 시트(max-height:88dvh) 안에 있어서,
+               누르는 순간 손가락이 1~2px 만 밀려도 브라우저가 스크롤로 판정하고
+               click 을 아예 취소해 버린다. 시트 아래쪽 버튼(▼ ◀)일수록
+               스크롤 여지가 커서 「위는 되는데 아래는 안 된다」가 된다.
+               그래서 pointerdown 에서 즉시 처리하고, 뒤따라오는 진짜 click 은
+               중복 실행을 막기 위해 삼킨다. */
+            function fire(btn) {
+                btn.__firedAt = Date.now();
+                btn.click();                 // 합성 click → isTrusted:false → 아래 가드를 통과
+            }
+
+            document.addEventListener('click', function (e) {
+                var b = e.target.closest ? e.target.closest(SEL) : null;
+                if (!b) return;
+                // pointerdown 으로 이미 처리한 버튼의 네이티브 click 만 무시한다
+                if (e.isTrusted && b.__firedAt && Date.now() - b.__firedAt < 900) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                }
+            }, true);
+
             function tick(x, y) {
                 var el = document.elementFromPoint(x, y);
                 var b = (el && el.closest) ? el.closest(SEL) : null;
@@ -2118,7 +2183,7 @@
                     stop();
                     return;
                 }
-                b.click();
+                fire(b);
             }
 
             document.addEventListener('pointerdown', function (e) {
@@ -2128,6 +2193,10 @@
                 var x = e.clientX, y = e.clientY;
                 stop();
                 curBtn = btn;
+                /* 브라우저가 이 제스처를 스크롤로 가져가지 못하게 한다.
+                   CSS 의 touch-action:none 과 짝이다. */
+                if (e.cancelable) e.preventDefault();
+                fire(btn);                   // ★ 즉시 1회 반영
                 END_EVENTS.forEach(function (ev) {
                     btn.addEventListener(ev, stop);
                 });

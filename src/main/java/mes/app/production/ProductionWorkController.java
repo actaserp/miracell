@@ -147,14 +147,22 @@ public class ProductionWorkController {
     }
 
     /** BOM 기본값 — 용기 선택+수량 입력 시 서버가 소요자재 목록을 내려줌 */
+    /**
+     * BOM 기본값.
+     * mp_id 를 주면 그 차수에 저장된 투입 초안(DraftBomJson)을 덮어씌워 내려준다.
+     *   · 초안이 있는 자재  → default_qty = 초안값, is_draft='Y'
+     *   · 초안에만 있는 자재 → BOM 에 없어도 행으로 내려간다(추가 투입분)
+     * 완료취소로 mat_lot_cons 가 지워져도 직전 투입 구성이 그대로 살아난다.
+     */
     @GetMapping("/bom_default")
     public AjaxResult bomDefault(
             @RequestParam("material_id") Integer materialId,
             @RequestParam("qty") Float qty,
             @RequestParam(value = "clean_store", defaultValue = "5") Integer cleanStore,
-            @RequestParam(value = "production_date", required = false) String productionDate) {
+            @RequestParam(value = "production_date", required = false) String productionDate,
+            @RequestParam(value = "mp_id", required = false) Integer mpId) {
         AjaxResult r = new AjaxResult();
-        r.data = this.productionWorkService.getBomDefault(materialId, qty, cleanStore, productionDate);
+        r.data = this.productionWorkService.getBomDefault(materialId, qty, cleanStore, productionDate, mpId);
         return r;
     }
 
@@ -221,6 +229,8 @@ public class ProductionWorkController {
         User user = (User) auth.getPrincipal();
         AjaxResult flip = this.productionWorkService.itemStart(mpId, qty, defectQty, user);
         if (flip == null || flip.success == false) return flip;
+        // 화면이 보낸 투입 구성을 초안으로 남긴다 — 완료취소 후 복원의 근거
+        this.productionWorkService.saveDraftBom(mpId, bomJson, user);
         // BOM 예약 (실패 시 예외 → 트랜잭션 롤백)
         return this.productionCreateService.reserveInput(mpId, parseBom(bomJson), cleanStore, user);
     }
@@ -281,9 +291,42 @@ public class ProductionWorkController {
 
         // 시작된 차수가 있으면 그걸 완료(세척 패턴), 없으면 장비 원샷
         if (mpId != null) {
+            // 완료 직전 구성을 초안에 덮어쓴다. 시작 후 수량을 고쳤다면 이 값이 최신이다.
+            this.productionWorkService.saveDraftBom(mpId, bomJson, user);
             return this.productionCreateService.finishProduction(mpId, req, user);
         }
-        return this.productionCreateService.createProduction(req, user);
+        AjaxResult cr = this.productionCreateService.createProduction(req, user);
+        /* 원샷(시작 없이 완료)은 여기서 차수가 처음 생긴다.
+           생성된 mp_id 를 받아 초안을 남겨야 이후 완료취소에서 복원된다. */
+        if (cr != null && cr.success && cr.data instanceof Map) {
+            Object newMp = ((Map<?, ?>) cr.data).get("mp_id");
+            if (newMp instanceof Number) {
+                this.productionWorkService.saveDraftBom(((Number) newMp).intValue(), bomJson, user);
+            }
+        }
+        return cr;
+    }
+
+    /**
+     * 시작/종료 시각 수정.
+     *
+     * 그동안 조립·블리스터·융착 화면은 시간 시트에서 고친 값을 자바스크립트
+     * 객체에만 넣고 「저장」 토스트를 띄웠다. 완료 전이라면 item_finish 가
+     * start_time/end_time 을 함께 보내 우연히 저장됐지만, 완료된 차수를 고치면
+     * 보낼 곳이 없어 새로고침과 동시에 사라졌다 — 「될 때도 있고 안 될 때도 있다」.
+     * 세척(/wash/item_update_time)·M-CELL(/step_time) 과 같은 자리를 만들어 준다.
+     *
+     * 완료된 차수도 수정할 수 있다. 실적 시각은 오히려 완료 후에 바로잡는 일이 많다.
+     */
+    @PostMapping("/item_update_time")
+    @Transactional
+    public AjaxResult itemUpdateTime(
+            @RequestParam("mp_id") Integer mpId,
+            @RequestParam(value = "start_time", required = false) String startTime,
+            @RequestParam(value = "end_time", required = false) String endTime,
+            Authentication auth) {
+        User user = (User) auth.getPrincipal();
+        return this.productionWorkService.updateItemTime(mpId, startTime, endTime, user);
     }
 
     /**
@@ -321,6 +364,11 @@ public class ProductionWorkController {
         this.sqlRunner.execute("""
             DELETE FROM mat_inout WHERE "SourceTableName"='mat_produce' AND "SourceDataPk"=:mpId
             """, p);
+        /* ★ 롤백 전에 스냅샷. mat_lot_cons 가 지워지면 실제 투입을 되짚을 수 없다.
+             수량은 실제 차감을 진실로 삼고, 「무엇을 손댔는지」(manual)는
+             기존 초안에서 물려받는다. */
+        this.productionWorkService.snapshotDraftOnCancel(mpId, user);
+
         // 투입 차감 롤백: 이 차수의 mat_lot_cons + mat_consu + 그 out 이력
         this.sqlRunner.execute("""
             DELETE FROM mat_inout

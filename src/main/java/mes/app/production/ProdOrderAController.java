@@ -97,6 +97,14 @@ public class ProdOrderAController {
 		return result;
 	}
 
+	/** 진행 현황 (목록 더블클릭 모달). ProdOrderAService.getProgress 와 짝. */
+	@GetMapping("/progress")
+	public AjaxResult getProgress(@RequestParam("jr_pk") Integer jrPk) {
+		AjaxResult result = new AjaxResult();
+		result.data = this.prodOrderAService.getProgress(jrPk);
+		return result;
+	}
+
 	@Transactional
 	@PostMapping("/save")
 	public AjaxResult saveProdOrderA(
