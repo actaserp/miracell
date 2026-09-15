@@ -160,7 +160,18 @@ public class DashBoardMainService {
 				     , pr."Code"                                                   AS code
 				     , pr."Name"                                                   AS name
 				     , COALESCE(pr."Factory_id", 1)                                AS factory_id
-				     , COUNT(*) FILTER (WHERE mp.st <> 'finished' AND mp.end_time IS NULL) AS working_cnt
+				     /* ★ 2공장 조립(mc01)·수리(mc04)의 「작업중」은 mat_produce 로 셀 수 없다.
+				          mat_produce 는 스텝을 «완료할 때» 생기는 실적이라, 덜 닫힌 행이 남아 있으면
+				          아무도 손대고 있지 않은데 영원히 작업중으로 잡힌다.
+				          이 공정들은 «작업 시작»을 눌러야 작업자가 지정되고 스텝이 working 이 된다.
+				          그러니 진행중인 스텝 수가 곧 작업중 건수다. */
+				     , CASE WHEN pr."Code" IN ('mc01','mc04') THEN (
+				           SELECT COUNT(*) FROM mcell_unit_step st
+				            JOIN mcell_unit mu ON mu.id = st."McellUnit_id"
+				           WHERE st."State" = 'working'
+				             AND COALESCE(mu._status,'a') = 'a')
+				            ELSE COUNT(*) FILTER (WHERE mp.st <> 'finished' AND mp.end_time IS NULL)
+				       END                                                           AS working_cnt
 				     , COALESCE(SUM(mp.good) FILTER (
 				           WHERE mp.work_date = CURRENT_DATE
 				             AND (mp.st = 'finished' OR mp.end_time IS NOT NULL)), 0) AS today_good
@@ -172,8 +183,18 @@ public class DashBoardMainService {
 				           WHERE mp.work_date = CURRENT_DATE
 				             AND (mp.st = 'finished' OR mp.end_time IS NOT NULL)
 				             AND mp.is_product = 'N'), 0)                            AS today_good_semi
-				     , COALESCE(STRING_AGG(DISTINCT pe."Name", ', ') FILTER (
-				           WHERE mp.st <> 'finished' AND mp.end_time IS NULL), '')  AS workers
+				     /* 작업자도 같은 기준. 예전에는 «완료된» 실적의 담당자를 끌어와,
+				        지금 아무 작업도 안 하는 사람이 현재 작업자로 표시됐다. */
+				     , CASE WHEN pr."Code" IN ('mc01','mc04') THEN COALESCE((
+				           SELECT STRING_AGG(DISTINCT pe2."Name", ', ')
+				             FROM mcell_unit_step st
+				             JOIN mcell_unit mu ON mu.id = st."McellUnit_id"
+				             LEFT JOIN person pe2 ON pe2.id = st."Actor_id"
+				            WHERE st."State" = 'working'
+				              AND COALESCE(mu._status,'a') = 'a'), '')
+				            ELSE COALESCE(STRING_AGG(DISTINCT pe."Name", ', ') FILTER (
+				                     WHERE mp.st <> 'finished' AND mp.end_time IS NULL), '')
+				       END                                                           AS workers
 				     /* ★ 검사(mc02)는 mat_produce 를 만들지 않는다 — 판정만 하는 공정이라
 				          산출 품목이 없다. 세척·멸균과 같은 계열이고, 그래서 today_good 이
 				          영원히 0 이었다(검사를 아무리 해도 「0건」으로 굳었다).
@@ -343,13 +364,10 @@ public class DashBoardMainService {
 				     , mu."UnitNo"      AS unit_no
 				     , mu."LotNumber"   AS lot_number
 				     , mu."State"       AS state
-				     -- 유닛 자신의 품목을 먼저 쓴다. 작지 품목(완제품)과 다를 수 있고,
-				     -- 화면에는 지금 조립중인 물건의 이름이 나와야 한다.
-				     , COALESCE(mm."Name", m."Name") AS mat_name
+				     , m."Name"         AS mat_name
 				     , pe."Name"        AS actor_name
 				     , CASE WHEN mu."McellRepair_id" IS NOT NULL THEN 'Y' ELSE 'N' END AS is_repair
 				  FROM mcell_unit mu
-				  LEFT JOIN material mm ON mm.id = mu."Material_id"
 				  LEFT JOIN job_res  jr ON jr.id = mu."JobResponse_id"
 				  LEFT JOIN material m  ON m.id  = jr."Material_id"
 				  LEFT JOIN person   pe ON pe.id = mu."Actor_id"

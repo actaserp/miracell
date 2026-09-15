@@ -696,6 +696,18 @@
       setTimeout(fit, 200);
       setTimeout(fit, 600);
       if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
+      /* 탭을 여러 개 열면 이 iframe 이 display:none 으로 숨는다.
+         숨은 상태에서 잰 좌표는 전부 0 이라 avail 이 음수가 되고,
+         하한선(320px)이 그대로 굳어 화면이 잘린 것처럼 보인다.
+         → 다시 보이는 순간에 재계산한다. */
+      if (window.IntersectionObserver) {
+        new IntersectionObserver(function (es) {
+          es.forEach(function (e) { if (e.isIntersecting) { fit(); requestAnimationFrame(fit); } });
+        }).observe(root);
+      }
+      document.addEventListener('visibilitychange', function () {
+        if (!document.hidden) fit();
+      });
     })();
 
     /* ═══════════════════════════════════════════════════════════════════════
@@ -720,6 +732,18 @@
     var SRCLAB = {order: '수주', stock: '자재재고', auto: '작지 없음'};
 
     var PACK_CTX = {}, WORKERS = [], EQUIPS = [], COUNTRIES = [], PRODUCTS = [];
+
+    /* 설비가 하나뿐이면 고를 것이 없다. 화면이 열릴 때 그 하나를 눌러 둔다.
+       기존 클릭 핸들러를 그대로 쓰므로 선택 표시·확인버튼 활성화가 함께 처리된다.
+       이미 고른 것이 있으면 건드리지 않는다. */
+    function autoPickSingleEquip() {
+      var box = document.getElementById('equipOpts');
+      if (!box) return;
+      var opts = box.querySelectorAll('.opt');
+      if (opts.length !== 1) return;
+      if (box.querySelector('.opt.sel')) return;
+      opts[0].click();
+    }
     var WORKERS_LOADED = false, EQUIPS_LOADED = false, COUNTRIES_LOADED = false;
     var PK_WAIT = [];        // 포장 대기 = 멸균창고 PK 로트 (A화면 카드)
     var FILTERBAG_LOTS = []; // 필터백 멸균필
@@ -4708,6 +4732,7 @@
               ? EQUIPS.map(function (e) {
                 return '<button class="opt" data-e="' + e.equipId + '">' + esc(e.name) +
                         (e.code ? ' <span class="sub">' + esc(e.code) + '</span>' : '') + '</button>';
+                autoPickSingleEquip();
               }).join('')
               : '<div class="emptysess" style="width:100%">' +
               (EQUIPS_LOADED ? '이 워크센터에 등록된 포장대가 없습니다' : '설비를 불러오는 중…') + '</div>';

@@ -281,7 +281,10 @@ public class ProdOrderAService {
 						   mat_produce."DefectQty" 는 이 시스템에서 채워지지 않는다 —
 						   자재 불량은 defect_regist, 유닛 불량은 insp_result 에 남는다. */
 						select coalesce(sum(mp."GoodQty"),0) as qty
-						from mat_produce mp where mp."JobResponse_id" = jr2.id
+						from mat_produce mp
+						where mp."JobResponse_id" = jr2.id
+						  -- 분해(완료취소)된 실적은 논리삭제(_status='d')로 남는다
+						  and coalesce(mp."_status",'a') = 'a' 
 					) pd on true
 					where jr2."Parent_id" = :pid
 					  and wc2."Process_id" = pr.id
@@ -416,7 +419,10 @@ public class ProdOrderAService {
 				  join job_res jr on jr.id = mp."JobResponse_id"
 				  left join work_center wc on wc.id = jr."WorkCenter_id"
 				  left join process pr on pr.id = wc."Process_id"
-				 where jr.id = :pid or jr."Parent_id" = :pid
+				 where (jr.id = :pid or jr."Parent_id" = :pid)
+				   -- 분해(완료취소)는 mat_produce 를 논리삭제(_status='d')한다.
+				   -- 빼먹으면 이미 취소한 실적까지 세어 영영 삭제할 수 없게 된다.
+				   and coalesce(mp."_status",'a') <> 'd' 
 				 group by coalesce(pr."Name", wc."Name", '(공정 미지정)')
 				 order by count(*) desc, 1
 			""", p);
@@ -434,6 +440,8 @@ public class ProdOrderAService {
 				  from mat_produce mp
 				 where mp."JobResponse_id" in (
 				         select id from job_res where id = :pid or "Parent_id" = :pid)
+				   -- 분해로 논리삭제된 실적(_status='d')은 제외한다
+				   and coalesce(mp."_status",'a') <> 'd' 
 			""", p);
 		} catch (Exception e) {
 			return 0;   // 컬럼 구성이 다른 환경에서도 삭제 자체는 막지 않는다

@@ -460,6 +460,20 @@
             setTimeout(fit, 200);
             setTimeout(fit, 600);
             if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
+
+            /* 탭을 여러 개 열면 이 iframe 이 display:none 으로 숨는다.
+               숨은 상태에서 잰 좌표는 전부 0 이라 avail 이 음수가 되고,
+               하한선(320px)이 그대로 굳어 화면이 잘린 것처럼 보인다.
+               리사이즈 전까지 다시 잴 계기가 없던 것이 원인이다.
+               → 다시 보이는 순간에 재계산한다. */
+            if (window.IntersectionObserver) {
+                new IntersectionObserver(function (es) {
+                    es.forEach(function (e) { if (e.isIntersecting) { fit(); requestAnimationFrame(fit); } });
+                }).observe(root);
+            }
+            document.addEventListener('visibilitychange', function () {
+                if (!document.hidden) fit();
+            });
         })();
 
         /* =====================================================================

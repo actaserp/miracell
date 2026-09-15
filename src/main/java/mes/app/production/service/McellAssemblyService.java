@@ -868,26 +868,14 @@ public class McellAssemblyService {
         int rolled = 0;
         for (Map<String, Object> s : chain) {
             if (!"done".equals(s.get("state"))) continue;
-            /* 롤백하면 mat_lot_cons 가 사라져 투입 내역을 되짚을 수 없다.
-               분해는 같은 물건을 다시 조립하는 것이므로, 직전 투입 구성을 초안으로
-               옮겨 두어 다시 열었을 때 BOM 기본값으로 되돌아가지 않게 한다. */
-            MapSqlParameterSource keep = new MapSqlParameterSource()
-                    .addValue("stepId", asInt(s.get("step_id")))
-                    .addValue("mpId", asInt(s.get("mp_id")));
-            this.sqlRunner.execute("""
-                    UPDATE mcell_unit_step
-                       SET "DraftBomJson" = COALESCE((
-                             SELECT jsonb_agg(jsonb_build_object('matId', x.mat_id, 'qty', x.qty))::text
-                               FROM (SELECT ml."Material_id" AS mat_id, SUM(mlc."OutputQty") AS qty
-                                       FROM mat_lot_cons mlc
-                                       JOIN mat_lot ml ON ml.id = mlc."MaterialLot_id"
-                                      WHERE mlc."SourceDataPk" = :mpId
-                                        AND COALESCE(mlc."SourceTableName",'mat_produce') = 'mat_produce'
-                                        AND COALESCE(mlc."_status",'a') = 'a'
-                                      GROUP BY ml."Material_id") x
-                           ), "DraftBomJson")
-                     WHERE id = :stepId
-                    """, keep);
+            /* 분해하면 투입자재 편집분을 지워 BOM 기본값으로 되돌린다.
+               분해는 자재를 바꾸려고 하는 경우가 많아, 직전 편집분이 남아 있으면
+               작업자가 기본 구성을 다시 확인할 수 없다. (2공장 요청)
+               ※ 실제 소비 내역은 mat_lot_cons 롤백으로 함께 정리되므로
+                 여기서 초안만 비우면 다음 조회가 BOM 기준으로 계산된다. */
+            this.sqlRunner.execute(
+                    "UPDATE mcell_unit_step SET \"DraftBomJson\" = NULL WHERE id = :stepId",
+                    new MapSqlParameterSource().addValue("stepId", asInt(s.get("step_id"))));
 
             AjaxResult rb = rollbackProduce(asInt(s.get("mp_id")), str(s.get("lot_number")), user);
             if (!rb.success) return rb;

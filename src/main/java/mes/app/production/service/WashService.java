@@ -223,12 +223,18 @@ public class WashService {
                  , u."Name"                      AS unit
                  , COALESCE(SUM(ml."CurrentStock"), 0) AS stock
               FROM material m
-              JOIN mat_lot ml ON ml."Material_id" = m.id
+              -- LEFT JOIN 이어야 재고 0 인 품목도 목록에 남는다.
+              -- INNER 로 걸면 세척 대상인데도 화면에서 통째로 사라져
+              -- 「왜 안 보이지」가 된다. 재고는 숫자로 보여주고 판단은 현장이 한다.
+              LEFT JOIN mat_lot ml ON ml."Material_id" = m.id
                              AND ml."StoreHouse_id" = :storeProd
                              AND ml."CurrentStock" > 0
               LEFT JOIN unit u ON u.id = m."Unit_id"
              WHERE COALESCE(m."WashYN", 'N') = 'Y'
-               AND m."_status" = 'a'
+               -- material._status 는 대부분 비어 있다(논리삭제를 쓰지 않는 마스터).
+               -- COALESCE 없이 비교하면 null 인 품목이 통째로 빠진다.
+               -- 다른 화면들은 모두 COALESCE 로 감싸고 있어 여기만 달랐다.
+               AND COALESCE(m."_status", 'a') = 'a'
                AND (CAST(:keyword AS VARCHAR) IS NULL
                     OR m."Name" LIKE CAST(:keyword AS VARCHAR)
                     OR m."Code" LIKE CAST(:keyword AS VARCHAR))

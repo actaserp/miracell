@@ -371,6 +371,20 @@
             try { window.parent.addEventListener('resize', fit); } catch (e) {}
             fit(); requestAnimationFrame(fit); setTimeout(fit, 200); setTimeout(fit, 600);
             if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
+
+            /* 탭을 여러 개 열면 이 iframe 이 display:none 으로 숨는다.
+               숨은 상태에서 잰 좌표는 전부 0 이라 avail 이 음수가 되고,
+               하한선(320px)이 그대로 굳어 화면이 잘린 것처럼 보인다.
+               리사이즈 전까지 다시 잴 계기가 없던 것이 원인이다.
+               → 다시 보이는 순간에 재계산한다. */
+            if (window.IntersectionObserver) {
+                new IntersectionObserver(function (es) {
+                    es.forEach(function (e) { if (e.isIntersecting) { fit(); requestAnimationFrame(fit); } });
+                }).observe(root);
+            }
+            document.addEventListener('visibilitychange', function () {
+                if (!document.hidden) fit();
+            });
         })();
 
         /* ==========================================================
@@ -440,6 +454,18 @@
         const WD = ['일', '월', '화', '수', '목', '금', '토'];
         const STLAB = {wait: '대기', working: '작업중', done: '완료'};
         let WORKERS = [];   // combo('person')      — 시트 열 때 1회 캐시
+        /* 설비가 하나뿐이면 고를 것이 없다. 화면이 열릴 때 그 하나를 눌러 둔다.
+           기존 클릭 핸들러를 그대로 쓰므로 선택 표시·확인버튼 활성화가 함께 처리된다.
+           이미 고른 것이 있으면 건드리지 않는다. */
+        function autoPickSingleEquip() {
+            var box = document.getElementById('equipOpts');
+            if (!box) return;
+            var opts = box.querySelectorAll('.opt');
+            if (opts.length !== 1) return;
+            if (box.querySelector('.opt.sel')) return;
+            opts[0].click();
+        }
+
         let EQUIPS = [];    // combo('equipment', WC)
 
         function num(v) {
@@ -1034,6 +1060,7 @@
             document.getElementById('equipOpts').innerHTML = EQUIPS.length
                 ? EQUIPS.map(x => `<button class="opt" data-e="${x.value}" data-n="${x.text}" data-c="${x.code || ''}">${x.text}${x.code ? ` <span class="sub">${x.code}</span>` : ''}</button>`).join('')
                 : `<div class="emptybox">${WC ? '이 공정 워크센터에 등록된 설비가 없습니다' : '워크센터를 찾지 못했습니다 (process.Code 확인)'}</div>`;
+            autoPickSingleEquip();
             document.getElementById('crewOk').disabled = true;
             showMask('crewMask');
         }

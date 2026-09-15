@@ -925,7 +925,9 @@
                  헤더·푸터가 한 박자 엉뚱한 자리에 남는 편이 더 나빴다. */
             window.LayoutState = (function () {
                 let collapsed = false;
-                function apply() {
+                /* fromResize : resize 로 들어온 재계산인가.
+                   true 면 아래에서 resize 를 다시 쏘지 않는다 — 쏘면 무한 루프가 된다. */
+                function apply(fromResize) {
                     $('#navbarBarMenu2 .open_menu').toggleClass('menu_open', collapsed);
                     $('.menu_area').toggleClass('hidden', collapsed);
                     $('.dashboard-layout-header').toggleClass('header-collapsed', collapsed);
@@ -980,7 +982,12 @@
                     $('.tab-content .tab-pane').css('height', '100%');
                     $('.nth-tabs-frame').css('height', '100%');
 
-                    if (!collapsed) {
+                    /* ★ 메뉴 애니메이션(320ms)이 끝난 뒤 iframe 에 새 폭을 알린다.
+                         단 «사용자 토글» 로 들어왔을 때만이다.
+                         resize 핸들러(adjustMenu)가 부른 refresh 에서도 쏘면
+                           resize → adjustMenu → refresh → apply → resize …
+                         가 끝없이 돌아, 탭이 늘수록 브라우저가 멈춘다. */
+                    if (!collapsed && !fromResize) {
                         setTimeout(function () { $(window).trigger('resize'); }, 320);
                     }
 
@@ -1008,10 +1015,10 @@
                     }
                 }
                 return {
-                    set(v) { collapsed = !!v; apply(); },
+                    set(v) { collapsed = !!v; apply(false); },   // 사용자 토글 — resize 재전파
                     toggle() { this.set(!collapsed); },
                     get() { return collapsed; },
-                    refresh() { apply(); }      // 상태는 그대로, 치수만 다시 계산
+                    refresh() { apply(true); }  // 치수만 재계산 — resize 재전파 금지
                 };
             })();
 
@@ -1024,9 +1031,17 @@
 
                ★ load 도 듣지 않는다. load 는 이미지까지 다 받은 뒤라 늦게 오는데,
                  그 시점에 레이아웃을 바꾸면 이미 보인 화면이 움직여 깜빡임이 된다. */
+            /* ★ 연타·드래그 대비 디바운스.
+                 refresh() → apply() 는 열린 iframe 을 전부 훑는다. 탭이 늘수록 무거워지고,
+                 창을 끌거나 메뉴를 연달아 누르면 그 호출이 겹쳐 메인 스레드가 멎는다
+                 (F12 조차 안 먹는 상태가 된다). 마지막 한 번만 돌린다. */
+            let _adjMenuT = null;
             function adjustMenu() {
-                // 접힘 여부는 건드리지 않고 치수만 다시 맞춘다
-                if (window.LayoutState) window.LayoutState.refresh();
+                clearTimeout(_adjMenuT);
+                _adjMenuT = setTimeout(function () {
+                    // 접힘 여부는 건드리지 않고 치수만 다시 맞춘다
+                    if (window.LayoutState) window.LayoutState.refresh();
+                }, 120);
             }
             $(window).off('resize.layout').on('resize.layout', adjustMenu);
 
@@ -1052,7 +1067,16 @@
                  첫 탭 iframe 이 아직 로드 중이면 .layout-contents 를 못 찾으므로
                  몇 박자 뒤에 다시 맞춘다. 같은 값을 다시 넣는 것은 무해하다. */
             (function initLayoutContents() {
+                /* ★ sync 는 iframe 마다 resize 를 쏘고, 각 화면의 fit() 이 그것을 받아
+                     부모·자식 문서를 통째로 훑는다. 탭이 5개면 한 번에 5번 돈다.
+                     아래 load 핸들러가 탭을 열 때마다 이것을 부르므로,
+                     메뉴를 연타하면 호출이 겹쳐 브라우저가 멎었다. 마지막 한 번만 돌린다. */
+                let _syncT = null;
                 const sync = function () {
+                    clearTimeout(_syncT);
+                    _syncT = setTimeout(_syncNow, 120);
+                };
+                const _syncNow = function () {
                     /* ★ 치수(width/left)도 같이 맞춘다.
                          apply() 는 «토글할 때만» 도는데, 새로고침 직후에는
                          .con_area 에 width/left 인라인이 없다.
@@ -1069,7 +1093,10 @@
                     /* ★ iframe 안쪽에 «크기가 바뀌었다» 고 알린다.
                          .con_area 폭을 고쳐도 iframe 내부 스크립트(폭 기준 미디어쿼리
                          계산, 그리드 열 수 등)는 resize 를 받아야 다시 계산한다. */
-                    $('.con_area iframe').each(function () {
+                    /* 보이는 탭에만 알린다.
+                       숨은 iframe 은 좌표가 전부 0 이라 fit() 이 헛계산만 하고 버린다.
+                       다시 보일 때는 각 화면의 IntersectionObserver 가 스스로 맞춘다. */
+                    $('.tab-pane.active iframe').each(function () {
                         try { $(this.contentWindow).trigger('resize'); } catch (e) {}
                     });
                 };

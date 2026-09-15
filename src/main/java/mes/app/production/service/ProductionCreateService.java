@@ -1026,9 +1026,20 @@ public class ProductionCreateService {
         jr.setDefectQty(toF(sum == null ? null : sum.get("defect_qty")));
 
         boolean complete = (packedCnt >= unitCnt);
+
+        /* 아무 작업도 남지 않았으면 지시중(ordered)까지 되돌린다.
+           예전에는 finished → working 만 열어 주고 working 에서는 내려오지 않아,
+           실적을 전부 분해해도 작지가 영원히 'working' 으로 남았다.
+           그러면 생산실적현황·진행현황에 계속 진행중으로 잡히고,
+           삭제도 「진행중인 공정이 있어…」로 막힌다. */
+        boolean untouched = !complete && isJobResUntouched(jrId);
+
         if (complete) {
             jr.setState("finished");
             jr.setEndTime(DateUtil.getNowTimeStamp());
+        } else if (untouched) {
+            jr.setState("ordered");
+            jr.setEndTime(null);
         } else if ("finished".equals(jr.getState())) {
             jr.setState("working");
             jr.setEndTime(null);
@@ -1036,6 +1047,37 @@ public class ProductionCreateService {
         jr.set_audit(user);
         this.jobResRepository.save(jr);
     }
+
+    /**
+     * 손댄 흔적이 하나도 없는 작지인가.
+     *
+     * 살아 있는 실적(mat_produce)도, 착수한 유닛·스텝도 없으면
+     * 지시만 내려놓은 상태와 같다 — 분해로 전부 되돌린 경우가 여기 해당한다.
+     *
+     * ※ 분해는 mat_produce 를 논리삭제(_status='d')한다. 조건을 빠뜨리면
+     *   이미 취소한 실적을 살아 있다고 보고 영영 되돌아오지 못한다.
+     */
+    private boolean isJobResUntouched(Integer jrId) {
+        MapSqlParameterSource p = new MapSqlParameterSource().addValue("jrId", jrId);
+        Map<String, Object> r = this.sqlRunner.getRow("""
+                SELECT (SELECT COUNT(*) FROM mat_produce mp
+                         WHERE mp."JobResponse_id" = :jrId
+                           AND COALESCE(mp."_status",'a') <> 'd')            AS produce_cnt
+                     , (SELECT COUNT(*) FROM mcell_unit mu
+                         WHERE mu."JobResponse_id" = :jrId
+                           AND mu."State" <> 'wait')                          AS busy_unit
+                     , (SELECT COUNT(*) FROM mcell_unit_step st
+                         JOIN mcell_unit mu2 ON mu2.id = st."McellUnit_id"
+                        WHERE mu2."JobResponse_id" = :jrId
+                          AND (st."State" <> 'wait' OR st."MatProduce_id" IS NOT NULL)) AS busy_step
+                """, p);
+        if (r == null) return false;
+        return num(r.get("produce_cnt")) == 0
+                && num(r.get("busy_unit"))   == 0
+                && num(r.get("busy_step"))   == 0;
+    }
+
+    private long num(Object o) { return (o == null) ? 0L : ((Number) o).longValue(); }
 
     /**
      * 기존 롤업(recalcJobResAndCheckComplete)이 못 덮는 두 경우를 보정한다.

@@ -43,10 +43,9 @@
 	width: 87%;
 
 }
-.nth-tabs,.tab-content,.tab-pane{
-	height: calc(100% - 30px);
-	/*min-width: 1200px;*/
-}
+.nth-tabs{ height: calc(100% - 30px); }
+.tab-content,.tab-pane{ height: 100%; }
+
 .nth-tabs-content{
 	width:100%;
 	height: calc(100% - 42px);
@@ -55,7 +54,11 @@
 }
 .nth-tabs-frame{
 	width:100%;
-	height: calc(100% - 38px);
+	/* 탭바는 .tab-content 가 이미 뺐다. 여기서 또 빼면 38px 이 남는다.
+	   iframe 은 기본이 inline 이라 baseline 여백도 생긴다 → block 으로 고정. */
+	height: 100%;
+	display: block;
+	border: 0;
 	position: relative;
 	overflow-x: hidden;
 }
