@@ -1340,40 +1340,41 @@
         </div>
     </script>
 
+    <!-- 라벨 1장 = 70 x 50mm 용지 1장. 포장 화면(prod_process_opack_*)과 같은 규격이다.
+         ★ 「보관방법」 칸은 뺐다 — 값을 채운 적이 없고, 70mm 에서는 한 칸이 아깝다.
+         ★ 일시는 앞 10자(날짜)만 쓴다. 원본은 "2026-08-13 15:49:49.485 +0900" 라
+           그대로 두면 칸을 넘겨 줄이 밀린다.
+         ★ 페이지 나눔은 .lb 가 @page 와 같은 크기라 CSS 가 알아서 한다 —
+           예전의 page-break div 는 빈 장을 만들어 뺐다. -->
     <script type="text/x-tmpl" id="barcode_table_tmpl">
-        <table class="table_1" style="width: 400px;border-collapse: collapse;">
+        <div class="lb"><table class="lbt">
+            <colgroup><col class="c1"><col class="c2"><col class="c3"><col class="c4"></colgroup>
             <tr>
-                <td class="tac">품목코드</td>
-                <td>{%=o.MaterialCode%}</td>
-                <td class="tac">보관방법</td>
-                <td></td>
+                <td class="k">품목코드</td>
+                <td colspan="3">{%=o.MaterialCode%}</td>
             </tr>
             <tr>
-                <td class="tac">품명</td>
-                <td colspan="3">{%=o.MaterialName%}</td>
+                <td class="k">품명</td>
+                <td colspan="3" class="nm">{%=o.MaterialName%}</td>
             </tr>
             <tr>
-                <td class="tac">LOT수량</td>
+                <td class="k">LOT수량</td>
                 <td>{%=o.InputQty%}</td>
-                <td class="tac">포장단위</td>
+                <td class="k">포장단위</td>
                 <td>{%=o.UnitName%}</td>
             </tr>
-
             <tr>
-                <td class="tac">입고일자</td>
-                <td colspan="3">{%=o.InputDateTime%}</td>
+                <td class="k">입고일자</td>
+                <td colspan="3">{%=String(o.InputDateTime||'').substring(0, 10)%}</td>
             </tr>
             <tr>
-                <td class="tac">유효기한</td>
-                <td colspan="3">{%=o.EffectiveDate%}</td>
+                <td class="k">유효기한</td>
+                <td colspan="3">{%=String(o.EffectiveDate||'').substring(0, 10)%}</td>
             </tr>
             <tr>
-                <td colspan="4" class="barcode_td">
-                </td>
+                <td colspan="4" class="bc barcode_td"></td>
             </tr>
-        </table>
-        <div style="width:auto;height;0px;page-break-before:always;line-height:5px;">&nbsp;</div>
-
+        </table></div>
     </script>
 
     <script type="text/x-tmpl" id="scan_input_tmpl">
@@ -2260,8 +2261,8 @@
 
                     let url = _this.url + '/save_balju_return';
                     let items = _this.baljuReturnGrid.rows
-                        .filter(row => row.isSelected)
-                        .map(row => row.dataItem);
+                    .filter(row => row.isSelected)
+                    .map(row => row.dataItem);
 
                     console.log(items);
 
@@ -2441,8 +2442,8 @@
                     if (e.target?.type === 'checkbox') {
                         setTimeout(() => {
                             let items = _this.baljuInputGrid.rows
-                                .filter(row => row.isSelected)
-                                .map(row => row.dataItem);
+                            .filter(row => row.isSelected)
+                            .map(row => row.dataItem);
 
                             items.forEach(item => {
                                 if ((!item.inputQty || item.inputQty === '') && item.SujuQty) {
@@ -2500,8 +2501,8 @@
 
                     let url = _this.url + '/save_balju';
                     let items = _this.baljuInputGrid.rows
-                        .filter(row => row.isSelected)
-                        .map(row => row.dataItem);
+                    .filter(row => row.isSelected)
+                    .map(row => row.dataItem);
 
                     console.log(items);
 
@@ -2558,8 +2559,8 @@
                 $content.find('#btnCompletionMat').on('click', function () {
                     let url = _this.url + '/force-complete';
                     let items = _this.baljuInputGrid.rows
-                        .filter(row => row.isSelected)
-                        .map(row => row.dataItem);
+                    .filter(row => row.isSelected)
+                    .map(row => row.dataItem);
 
                     console.log(items);
 
@@ -3113,59 +3114,175 @@
                 });
             }
 
+            /* ── 라벨 규격 — 70 x 50mm 라벨지 ──
+               ★ 포장 화면(prod_process_opack_bsc / _mcell)과 «같은 규격» 이다.
+                 예전 400px 은 물리 치수가 아니라 96dpi 환산 105.8mm 였다 —
+                 70mm 용지에는 들어가지 않는다. 치수를 mm 로 잡는다.
+               ★ 인쇄에서 1px = 1/96 inch 로 고정이므로 mm ↔ px 는 3.7795 배다.
+               [세로] 여백 3 + 5행 22.4 + 바코드칸 20.4 ≈ 47mm (50mm 안에 여유 3mm) */
+            get LB() {
+                var MM = 96 / 25.4;
+                return {
+                    MM: MM,
+                    pageW: 70, pageH: 50,      // mm — 용지
+                    padX: 1, padY: 1.5,        // mm — 라벨 안쪽 여백
+                    barMaxW: 66 * MM,          // px — 바코드 총폭(quiet zone 포함)
+                    barH: 15 * MM,             // px — 바 높이 15mm
+                    fontSize: 11,              // px — HRI ≈ 2.9mm
+                    minX: 0.25 * MM            // px — CODE128 최소 X-dimension
+                };
+            }
+
+            /* 인쇄 문서 CSS.
+               ★ #print_css 를 그대로 쓰지 않는다. 그건 이 화면 전체(그리드 포함)의
+                 인쇄 규칙이라 @page 를 70x50 으로 바꾸면 «화면 인쇄» 까지 망가진다.
+                 라벨 인쇄는 자기 CSS 를 따로 갖는다.
+               ★ @page 로 용지를 못 박는다. 안 박으면 드라이버가 A4 로 잡아
+                 70mm 라벨 한가운데에 작게 찍힌다. */
+            get LABEL_CSS() {
+                var L = this.LB;
+                return '*{box-sizing:border-box}' +
+                    '@page{size:' + L.pageW + 'mm ' + L.pageH + 'mm;margin:0}' +
+                    "html,body{margin:0;padding:0;background:#fff;color:#000;" +
+                    "font-family:'Noto Sans KR',-apple-system,system-ui,sans-serif}" +
+                    '.lb{width:' + L.pageW + 'mm;height:' + L.pageH + 'mm;' +
+                    'padding:' + L.padY + 'mm ' + L.padX + 'mm;overflow:hidden;' +
+                    'page-break-after:always;break-after:page}' +
+                    '.lb:last-child{page-break-after:auto;break-after:auto}' +
+                    '.lbt{width:100%;border-collapse:collapse;table-layout:fixed}' +
+                    '.lbt td{border:.2mm solid #000;text-align:center;padding:0 .5mm;' +
+                    'font-size:2.5mm;line-height:1.15;height:4.2mm;overflow:hidden}' +
+                    '.lbt td.k{font-weight:700;background:#f2f2f2}' +
+                    '.lbt td.nm{font-size:2.3mm;height:5.6mm;word-break:break-all}' +
+                    '.lbt td.bc{padding:1mm .5mm;height:auto}' +
+                    '.lbt col.c1{width:14mm}.lbt col.c2{width:23mm}' +
+                    '.lbt col.c3{width:14mm}.lbt col.c4{width:17mm}' +
+                    '.lbt svg{display:block;margin:0 auto;max-width:100%;height:auto}';
+            }
+
+            /**
+             * 로트 하나를 CODE128 로 그린다.
+             *
+             * ★ width 를 2 로 고정하지 않는다. 용지 폭이 먼저이고 배율이 따라간다 —
+             *   total = X x (모듈수 + 20) = 66mm  →  X = 66 / (모듈수 + 20).
+             *   quiet zone 을 10X 로 두어 GS1 권고(10X 또는 2.5mm)를 자동 충족시킨다.
+             *   두 번 그린다(1배로 모듈 수 측정 → 본배율).
+             *   실측: 178모듈 0.333mm / 233모듈 0.261mm.
+             *   255모듈(약 22자)부터는 0.240mm 로 최소규격(0.25mm)을 깬다.
+             *
+             * ★ margin 은 quiet zone(양옆 흰 여백)이다 — 없으면 스캐너가 시작점을 못 잡는다.
+             *
+             * @return 적용된 X-dimension(mm). 실패하면 0.
+             */
+            drawLot(el, lot) {
+                if (!el || typeof JsBarcode === 'undefined') return 0;
+                let L = this.LB;
+                let v = String(lot == null ? '' : lot).replace(/\s+/g, '');
+                if (!v) return 0;
+
+                let base = {
+                    format: 'CODE128', height: L.barH, displayValue: true,
+                    font: 'monospace', textAlign: 'center', textPosition: 'bottom',
+                    textMargin: 2, fontSize: L.fontSize,
+                    background: '#ffffff', lineColor: '#000000'
+                };
+                try {
+                    // 1차 — 모듈 수 측정. width:1, margin:0 이므로 svg 폭(px)이 곧 모듈 수다.
+                    JsBarcode(el, v, Object.assign({}, base, {width: 1, margin: 0, displayValue: false}));
+                    let modules = parseFloat(el.getAttribute('width') || '0');
+                    if (!(modules > 0)) return 0;
+
+                    /* 2차 — 용지에 맞춘 배율. quiet zone 은 10X.
+                       ★ margin 은 «네 변 모두» 에 붙는다. 통짜로 주면 세로로도
+                         2 x 10w(약 6.7mm)가 더해져 라벨이 50mm 를 넘고,
+                         .lb 의 overflow:hidden 에 바닥선이 잘린다(실제로 그랬다).
+                         quiet zone 은 좌우만 있으면 되므로 marginLeft/Right 만 준다. */
+                    let w = Math.round((L.barMaxW / (modules + 20)) * 1000) / 1000;
+                    JsBarcode(el, v, Object.assign({}, base, {width: w, margin: 0, marginLeft: 10 * w, marginRight: 10 * w}));
+                    return w / L.MM;
+                } catch (e) {
+                    console.error('barcode render failed', v, e);
+                    return 0;
+                }
+            }
+
             showBarcodePrint(barcodeItems) {
 
                 let _this = this;
                 let content = tmpl('barcode_tmpl', {});
                 let $content = $(content);
                 let modalContainer = new PopupDraggable('바코드 출력');
-                modalContainer.open(Object.assign(TabletUtil.size(470, 700), {$content}));
+                modalContainer.open(Object.assign(TabletUtil.size(540, 760), {$content}));
                 let $barcodeDiv = $content.find('#barcodeDiv');
 
+                /* 미리보기와 인쇄가 «같은 CSS» 를 쓴다 — 예전에는 화면이 400px 표,
+                   인쇄가 별도 규칙이라 현장에서 크기가 다르게 보였다.
+                   @page 만 뺀다(미리보기는 용지 설정이 필요 없다). */
+                if (!document.getElementById('lbPreviewCss')) {
+                    /* ★ 화면에서만 확대한다. 70x50mm 는 실물로 작아 태블릿에서 값 확인이 어렵다.
+                       ★ transform 은 레이아웃 박스를 바꾸지 않으므로, 넘치는 높이
+                         (50mm x (S-1))를 margin 으로 되돌려 아래 라벨과 겹치지 않게 한다.
+                       ★ 인쇄 문서(iframe)는 이 style 을 쓰지 않는다 — 출력물은 언제나 70x50mm 다. */
+                    let S = 1.7;
+                    let st = document.createElement('style');
+                    st.id = 'lbPreviewCss';
+                    st.textContent = this.LABEL_CSS.replace(/@page\{[^}]*\}/, '') +
+                        '#barcodeDiv{text-align:center;overflow-x:auto}' +
+                        '#barcodeDiv .lb{border:1px dashed #999;background:#fff;' +
+                        'transform:scale(' + S + ');transform-origin:top center;' +
+                        'margin:0 auto ' + (50 * (S - 1) + 4).toFixed(1) + 'mm}';
+                    document.head.appendChild(st);
+                }
+
                 $.each(barcodeItems, function (idx, item) {
-                    let svg_id = "barcode_" + item.LotNumber;
-                    let svg = "<div class='col-12'><svg id='" + svg_id + "'></svg></div>";
-
-                    let tmp_table = tmpl('barcode_table_tmpl', item);
-                    let $tmp_table = $(tmp_table);
-                    $tmp_table.find('.barcode_td').append(svg);
-
-                    $barcodeDiv.append($tmp_table);
+                    let $tmp = $(tmpl('barcode_table_tmpl', item));
+                    $tmp.find('.barcode_td')
+                    .append("<svg id='barcode_" + idx + "'></svg>");
+                    $barcodeDiv.append($tmp);
                 });
 
+                /* ★ 70mm 용지에 못 들어가는 로트를 조용히 넘기지 않는다.
+                     X 가 0.25mm 미만이면 인쇄는 되지만 스캐너가 놓치기 시작한다. */
+                let tight = [];
                 $.each(barcodeItems, function (idx, item) {
-                    let svg_id = "#barcode_" + item.LotNumber;
-
-                    // use options
-                    JsBarcode(svg_id, item.LotNumber, {
-                        format: 'code128', // 바코드 포맷 / default: code128 / options: EAN, UPC, CODE39, ITF-14, MSI, Pharmacode, Codabar (각 옵션들에 대한 설명은 사이트 참조)
-                        width: 2, // 너비 / default: 2
-                        height: 100, // 높이 / default: 100
-                        displayValue: true, // 텍스트 표시 여부 / default: true
-                        text: item.LotNumber, // 데이터 대신 특정 텍스트 표시 / default: undefined
-                        fontOptions: '', // 폰트 설정 / default: '' / options: bold, italic, bold italic
-                        font: 'monospace', // 폰트 / default: monospace / options: fantasy, etc... 사이트 참조
-                        textAlign: 'center', // 텍스트 위치 / default: center / options: left, center, right
-                        textPosition: 'bottom', // 텍스트 위치 / default: bottom / options: top, bottom
-                        textMargin: 2, // 바코드와 텍스트 사이 여백 / default: 2
-                        fontSize: 20, // 폰트 크기 / default: 20
-                        background: '#ffffff', // 바코드 배경 색 / default: #ffffff
-                        lineColor: '#000000', // 바코드 라인 색 / default: #000000
-                        margin: 10, // 바코드 영역 주변 여백 / default: 10
-                    });
+                    let x = _this.drawLot(document.getElementById('barcode_' + idx), item.LotNumber);
+                    if (x && x < 0.25) tight.push(item.LotNumber);
                 });
-
-                let $btnPopPrintBarcode = $content.find('#btnPopPrintBarcode');
+                if (tight.length) {
+                    Alert.alert('바코드 규격 경고',
+                        '로트가 길어 바코드가 최소규격(0.25mm) 미만입니다 — ' + tight[0] +
+                        (tight.length > 1 ? ' 외 ' + (tight.length - 1) + '건' : ''));
+                }
 
                 // 바코드 인쇄 버튼 클릭
-                $btnPopPrintBarcode.click(function (e) {
-                    var popupWindow = window.open("barcode_print", "_blank", "width=400px");
-                    let css = $('#print_css')[0].outerHTML;
+                $content.find('#btnPopPrintBarcode').click(function (e) {
+                    /* ★ 새 창(window.open) 대신 숨긴 iframe 에 찍는다.
+                         태블릿에서 팝업이 차단되면 새 창 방식은 아무 반응 없이 끝난다.
+                         iframe 은 문서가 통째로 분리돼 화면 CSS 와도 싸우지 않는다. */
+                    let fr = document.getElementById('labelPrintFrame');
+                    if (!fr) {
+                        fr = document.createElement('iframe');
+                        fr.id = 'labelPrintFrame';
+                        fr.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;' +
+                            'border:0;visibility:hidden';
+                        document.body.appendChild(fr);
+                    }
+                    let doc = fr.contentWindow.document;
+                    doc.open();
+                    doc.write('<!doctype html><html><head><meta charset="utf-8">' +
+                        '<title>LOT 바코드</title><style>' + _this.LABEL_CSS + '</style>' +
+                        '</head><body>' + $barcodeDiv.html() + '</body></html>');
+                    doc.close();
 
-                    let html = $barcodeDiv.html();
-                    popupWindow.document.write(css);
-                    popupWindow.document.write(html);
-                    popupWindow.print();
+                    // 문서가 그려질 틈을 준다. 바로 print() 하면 빈 페이지가 나오는 기기가 있다
+                    setTimeout(function () {
+                        try {
+                            fr.contentWindow.focus();
+                            fr.contentWindow.print();
+                        } catch (err) {
+                            Alert.alert('인쇄 오류', '인쇄를 시작할 수 없습니다.');
+                        }
+                    }, 250);
                 });
             }
 
@@ -3327,13 +3444,13 @@
                 const $scan = $content.find('#scanBarcode');
 
                 $scan.attr('lang', 'en')
-                    .attr('autocapitalize', 'off')
-                    .attr('autocorrect', 'off')
-                    .attr('spellcheck', 'false')
-                    .css('ime-mode', 'disabled')
-                    .on('compositionstart', function (e) {
-                        e.preventDefault();
-                    });
+                .attr('autocapitalize', 'off')
+                .attr('autocorrect', 'off')
+                .attr('spellcheck', 'false')
+                .css('ime-mode', 'disabled')
+                .on('compositionstart', function (e) {
+                    e.preventDefault();
+                });
 
                 // ── 태블릿 전용 : DS2278(HID 키보드) 입력은 받되 소프트 키보드는 숨긴다 ──
                 if (TabletUtil.isTablet()) {
@@ -3470,8 +3587,8 @@
                 $content.find('#btnScanRowDelete').on('click', function () {
                     let cv = _this.scanResultGrid.itemsSource;
                     let selected = _this.scanResultGrid.rows
-                        .filter(r => r.isSelected)
-                        .map(r => r.dataItem);
+                    .filter(r => r.isSelected)
+                    .map(r => r.dataItem);
                     if (selected.length === 0) {
                         Alert.alert('', '삭제할 행을 선택하세요.');
                         return;
