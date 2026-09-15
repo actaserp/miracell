@@ -459,6 +459,10 @@
 
                             let pop = new PopMatComponent();
                             pop.material_type = 'product,semi';
+                            /* 화면 상단에서 고른 공장을 팝업 기본값으로 넘긴다.
+                               «전체»면 '' 이라 팝업도 전체로 열린다.
+                               (팝업은 factory_id 를 받을 준비가 되어 있는데 아무도 넘겨 주지 않았다) */
+                            pop.factory_id = $('#Factory_id').val() || '';
                             pop.show(function (item) {
                                 $content.find('#cboMaterial').val(item.id);
                                 $content.find('#cboMaterialGrp').val(item.MaterialGroup_id);
