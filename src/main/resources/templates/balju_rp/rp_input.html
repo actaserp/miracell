@@ -1341,9 +1341,9 @@
     </script>
 
     <!-- 라벨 1장 = 70 x 50mm 용지 1장. 포장 화면(prod_process_opack_*)과 같은 규격이다.
-         ★ 「보관방법」 칸은 뺐다 — 값을 채운 적이 없고, 70mm 에서는 한 칸이 아깝다.
-         ★ 일시는 앞 10자(날짜)만 쓴다. 원본은 "2026-08-13 15:49:49.485 +0900" 라
-           그대로 두면 칸을 넘겨 줄이 밀린다.
+         ★ 포장 라벨(prod_process_opack_*)과 «같은 3행 구성» 이다 — 품목코드·수량 / 품명 / LOT NO.
+           보관방법·입고일자·유효기한은 뺐다. 값을 채운 적이 없거나(보관방법),
+           라벨을 붙인 뒤 실물에서 확인할 일이 없어(일자) 양식 통일을 우선했다.
          ★ 페이지 나눔은 .lb 가 @page 와 같은 크기라 CSS 가 알아서 한다 —
            예전의 page-break div 는 빈 장을 만들어 뺐다. -->
     <script type="text/x-tmpl" id="barcode_table_tmpl">
@@ -1351,25 +1351,20 @@
             <colgroup><col class="c1"><col class="c2"><col class="c3"><col class="c4"></colgroup>
             <tr>
                 <td class="k">품목코드</td>
-                <td colspan="3">{%=o.MaterialCode%}</td>
+                <td>{%=o.MaterialCode%}</td>
+                <td class="k">수량</td>
+                <td>{%=o.InputQty%}</td>
             </tr>
             <tr>
                 <td class="k">품명</td>
                 <td colspan="3" class="nm">{%=o.MaterialName%}</td>
             </tr>
+            <!-- ★ 여기 들어가는 값은 «MES 로트» 다.
+                 제조사 로트가 붙어 있는 자재는 showBarcodePrint 가 MakerLotNo 를 보고
+                 출력 자체를 건너뛰므로, 이 라벨이 나온다는 것은 «실물에 번호가 없다» 는 뜻이다. -->
             <tr>
-                <td class="k">LOT수량</td>
-                <td>{%=o.InputQty%}</td>
-                <td class="k">포장단위</td>
-                <td>{%=o.UnitName%}</td>
-            </tr>
-            <tr>
-                <td class="k">입고일자</td>
-                <td colspan="3">{%=String(o.InputDateTime||'').substring(0, 10)%}</td>
-            </tr>
-            <tr>
-                <td class="k">유효기한</td>
-                <td colspan="3">{%=String(o.EffectiveDate||'').substring(0, 10)%}</td>
+                <td class="k">LOT NO.</td>
+                <td colspan="3">{%=o.LotNumber%}</td>
             </tr>
             <tr>
                 <td colspan="4" class="bc barcode_td"></td>
@@ -2261,8 +2256,8 @@
 
                     let url = _this.url + '/save_balju_return';
                     let items = _this.baljuReturnGrid.rows
-                    .filter(row => row.isSelected)
-                    .map(row => row.dataItem);
+                        .filter(row => row.isSelected)
+                        .map(row => row.dataItem);
 
                     console.log(items);
 
@@ -2442,8 +2437,8 @@
                     if (e.target?.type === 'checkbox') {
                         setTimeout(() => {
                             let items = _this.baljuInputGrid.rows
-                            .filter(row => row.isSelected)
-                            .map(row => row.dataItem);
+                                .filter(row => row.isSelected)
+                                .map(row => row.dataItem);
 
                             items.forEach(item => {
                                 if ((!item.inputQty || item.inputQty === '') && item.SujuQty) {
@@ -2501,8 +2496,8 @@
 
                     let url = _this.url + '/save_balju';
                     let items = _this.baljuInputGrid.rows
-                    .filter(row => row.isSelected)
-                    .map(row => row.dataItem);
+                        .filter(row => row.isSelected)
+                        .map(row => row.dataItem);
 
                     console.log(items);
 
@@ -2559,8 +2554,8 @@
                 $content.find('#btnCompletionMat').on('click', function () {
                     let url = _this.url + '/force-complete';
                     let items = _this.baljuInputGrid.rows
-                    .filter(row => row.isSelected)
-                    .map(row => row.dataItem);
+                        .filter(row => row.isSelected)
+                        .map(row => row.dataItem);
 
                     console.log(items);
 
@@ -3119,7 +3114,7 @@
                  예전 400px 은 물리 치수가 아니라 96dpi 환산 105.8mm 였다 —
                  70mm 용지에는 들어가지 않는다. 치수를 mm 로 잡는다.
                ★ 인쇄에서 1px = 1/96 inch 로 고정이므로 mm ↔ px 는 3.7795 배다.
-               [세로] 여백 3 + 5행 22.4 + 바코드칸 20.4 ≈ 47mm (50mm 안에 여유 3mm) */
+               [세로] 여백 3 + 3행 14 + 바코드칸 25.4 ≈ 42.4mm (50mm 안에 여유 7.6mm) */
             get LB() {
                 var MM = 96 / 25.4;
                 return {
@@ -3127,8 +3122,8 @@
                     pageW: 70, pageH: 50,      // mm — 용지
                     padX: 1, padY: 1.5,        // mm — 라벨 안쪽 여백
                     barMaxW: 66 * MM,          // px — 바코드 총폭(quiet zone 포함)
-                    barH: 15 * MM,             // px — 바 높이 15mm
-                    fontSize: 11,              // px — HRI ≈ 2.9mm
+                    barH: 20 * MM,             // px — 바 높이 20mm (포장 라벨과 동일)
+                    fontSize: 12,              // px — HRI ≈ 3.2mm
                     minX: 0.25 * MM            // px — CODE128 최소 X-dimension
                 };
             }
@@ -3237,7 +3232,7 @@
                 $.each(barcodeItems, function (idx, item) {
                     let $tmp = $(tmpl('barcode_table_tmpl', item));
                     $tmp.find('.barcode_td')
-                    .append("<svg id='barcode_" + idx + "'></svg>");
+                        .append("<svg id='barcode_" + idx + "'></svg>");
                     $barcodeDiv.append($tmp);
                 });
 
@@ -3444,13 +3439,13 @@
                 const $scan = $content.find('#scanBarcode');
 
                 $scan.attr('lang', 'en')
-                .attr('autocapitalize', 'off')
-                .attr('autocorrect', 'off')
-                .attr('spellcheck', 'false')
-                .css('ime-mode', 'disabled')
-                .on('compositionstart', function (e) {
-                    e.preventDefault();
-                });
+                    .attr('autocapitalize', 'off')
+                    .attr('autocorrect', 'off')
+                    .attr('spellcheck', 'false')
+                    .css('ime-mode', 'disabled')
+                    .on('compositionstart', function (e) {
+                        e.preventDefault();
+                    });
 
                 // ── 태블릿 전용 : DS2278(HID 키보드) 입력은 받되 소프트 키보드는 숨긴다 ──
                 if (TabletUtil.isTablet()) {
@@ -3587,8 +3582,8 @@
                 $content.find('#btnScanRowDelete').on('click', function () {
                     let cv = _this.scanResultGrid.itemsSource;
                     let selected = _this.scanResultGrid.rows
-                    .filter(r => r.isSelected)
-                    .map(r => r.dataItem);
+                        .filter(r => r.isSelected)
+                        .map(r => r.dataItem);
                     if (selected.length === 0) {
                         Alert.alert('', '삭제할 행을 선택하세요.');
                         return;
