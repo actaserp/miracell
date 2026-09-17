@@ -2705,7 +2705,7 @@
                 /* 이 입고건에 «이미 저장된» 로트와, 그중 쓰인 것이 있는지.
                    계산·저장 버튼이 이 값을 보고 갈린다. */
                 let savedLots = [];
-                let usedLots  = [];
+                let usedLots = [];
                 /* 사용 판정 : 서버가 내려주는 값 중 하나라도 «쓴 흔적» 을 말하면 사용으로 본다.
                    ★ CurrentStock 이 InputQty 보다 적으면 어딘가로 빠져나간 것이다.
                      used_qty / cons_cnt 를 내려주는 서버라면 그 값이 더 정확하다. */
@@ -2721,7 +2721,7 @@
                 let fnLoadLotList = function (mio_pk) {
                     let fnsuccess = function (result) {
                         savedLots = result.data || [];
-                        usedLots  = savedLots.filter(isUsedLot);
+                        usedLots = savedLots.filter(isUsedLot);
                         /* ★ 예전에는 로트가 있기만 하면 계산을 막았다.
                              그런데 스캔 입고로 만들어진 로트가 남아 있으면 다시 계산할 방법이
                              없어, 사람이 그 위에 계산 결과를 얹어 «중복 입고» 가 생겼다
@@ -2764,7 +2764,10 @@
                         Alert.confirm('로트 재발번',
                             '이미 저장된 로트 ' + savedLots.length + '건이 있습니다.\n'
                             + '기존 로트를 지우고 새로 발번합니다. 계속할까요?',
-                            function () { replaceMode = true; $btnLotCalc.click(); });
+                            function () {
+                                replaceMode = true;
+                                $btnLotCalc.click();
+                            });
                         return;
                     }
                     _this.matLotGrid.itemsSource.sourceCollection = [];
@@ -2837,7 +2840,10 @@
                     let skipped = 0;
                     $.each(lotItems, function (idx, lotItem) {
                         if (!lotItem.LotNumber) return;
-                        if (lotItem.MakerLotNo) { skipped++; return; }   // 라벨 있음 — 출력 안 함
+                        if (lotItem.MakerLotNo) {
+                            skipped++;
+                            return;
+                        }   // 라벨 있음 — 출력 안 함
                         barcodeItems.push(lotItem);
                     });
 
@@ -3193,7 +3199,12 @@
                          .lb 의 overflow:hidden 에 바닥선이 잘린다(실제로 그랬다).
                          quiet zone 은 좌우만 있으면 되므로 marginLeft/Right 만 준다. */
                     let w = Math.round((L.barMaxW / (modules + 20)) * 1000) / 1000;
-                    JsBarcode(el, v, Object.assign({}, base, {width: w, margin: 0, marginLeft: 10 * w, marginRight: 10 * w}));
+                    JsBarcode(el, v, Object.assign({}, base, {
+                        width: w,
+                        margin: 0,
+                        marginLeft: 10 * w,
+                        marginRight: 10 * w
+                    }));
                     return w / L.MM;
                 } catch (e) {
                     console.error('barcode render failed', v, e);
@@ -3287,7 +3298,8 @@
                 let content = tmpl('scan_input_tmpl', {});
                 let $content = $(content);
                 let modalContainer = new PopupDraggable('스캐너 입고');
-                modalContainer.open(Object.assign(TabletUtil.size(1100, 640), {$content}));
+                /* 컬럼이 10개라 1100 으로는 가로 스크롤이 생겨 「상태」가 잘렸다. */
+                modalContainer.open(Object.assign(TabletUtil.size(1280, 640), {$content}));
 
                 // 입고창고 옵션 채우기
                 AjaxUtil.fillSelectOptions($content.find('#scanStoreHouse'), 'store_house', 'choose', '3'); //자재 창고가 기본
@@ -3320,22 +3332,25 @@
                         }
                     },
                     columns: [
-                        {binding: 'JumunNumber', header: '발주번호', width: 130, align: 'center', isReadOnly: true},
+                        /* ── 컬럼 폭 ──────────────────────────────────────────
+                           10개라 1100px 모달에서는 가로 스크롤이 생겨 「상태」가 잘렸다.
+                           모달을 1280 으로 넓히고, 고정폭을 줄이고, 품목명이 남는 폭을 먹게 한다. */
+                        {binding: 'JumunNumber', header: '발주번호', width: 115, align: 'center', isReadOnly: true},
                         {binding: 'materialCode', header: '품목코드', width: 90, align: 'center', isReadOnly: true},
-                        {binding: 'materialName', header: '품목명', width: 180, align: 'left', isReadOnly: true},
-                        {binding: 'unit', header: '단위', width: 55, align: 'center', isReadOnly: true},
                         {
-                            binding: 'baljuQty',
-                            header: '발주수량',
-                            width: 80,
-                            align: 'right',
-                            format: 'n0',
+                            binding: 'materialName',
+                            header: '품목명',
+                            width: '*',
+                            minWidth: 140,
+                            align: 'left',
                             isReadOnly: true
                         },
+                        {binding: 'unit', header: '단위', width: 50, align: 'center', isReadOnly: true},
+                        {binding: 'baljuQty', header: '발주', width: 65, align: 'right', format: 'n0', isReadOnly: true},
                         {
                             binding: 'receivedQty',
                             header: '기입고',
-                            width: 75,
+                            width: 65,
                             align: 'right',
                             format: 'n0',
                             isReadOnly: true
@@ -3343,24 +3358,19 @@
                         {
                             binding: 'remainQty',
                             header: '미입고',
-                            width: 75,
+                            width: 65,
                             align: 'right',
                             format: 'n0',
                             isReadOnly: true
                         },
-                        {binding: 'lotNumber', header: '사내로트(빈칸=자동)', width: 150, align: 'center', isReadOnly: false},
+                        /* 사내로트는 비워 두면 서버가 채번한다 — 손으로 넣는 일이 드물어 좁게 둔다. */
+                        {binding: 'lotNumber', header: '사내로트(자동)', width: 120, align: 'center', isReadOnly: false},
                         /* 바코드 (10) 에서 자동으로 채워진다. 없으면 박스에 적힌 값을 직접 입력.
                            리콜 때 「그 제조사 로트」로 모아 보려면 이 칸이 있어야 한다 */
-                        {binding: 'makerLotNo', header: '제조사로트', width: 150, align: 'center', isReadOnly: false},
+                        {binding: 'makerLotNo', header: '제조사로트', width: 130, align: 'center', isReadOnly: false},
+                        {binding: 'effectiveDate', header: '유효기간', width: 105, align: 'center', isReadOnly: false},
                         {
-                            binding: 'effectiveDate',
-                            header: '유효기간(YYYY-MM-DD)',
-                            width: 140,
-                            align: 'center',
-                            isReadOnly: false
-                        },
-                        {
-                            binding: 'inputQty', header: '입고수량', width: 90, align: 'right', isReadOnly: false,
+                            binding: 'inputQty', header: '입고수량', width: 85, align: 'right', isReadOnly: false,
                             editor: new wijmo.input.InputNumber(document.createElement('div'), {
                                 format: 'n0', min: 0, step: 1
                             })
@@ -3432,20 +3442,31 @@
                 });
 
                 // 수량 수동 수정 시 합계 갱신
-                this.scanResultGrid.cellEditEnded.addHandler(function () {
+                this.scanResultGrid.cellEditEnded.addHandler(function (sender, e) {
+                    /* ★ 제조사로트를 손으로 넣었으면 사내로트도 같은 값으로 채운다.
+                         실물에 붙은 번호가 매입처 것 하나뿐인데 사내 번호를 따로 채번하면,
+                         현장이 화면의 LI-… 로는 그 상자를 찾을 수 없다.
+                         (바코드로 찍는 경로는 이미 두 칸을 같이 채우고 있었는데,
+                          글자로 인쇄된 로트를 타이핑하는 경로만 빠져 있었다)
+                       ※ 사내로트를 이미 손으로 지정해 뒀으면 건드리지 않는다. */
+                    try {
+                        const b = sender.columns[e.col].binding;
+                        const it = sender.rows[e.row].dataItem;
+                        if (b === 'makerLotNo' && it && it.makerLotNo && !it.lotNumber) {
+                            it.lotNumber = String(it.makerLotNo).trim();
+                            sender.collectionView.refresh();
+                        }
+                    } catch (err) {
+                    }
                     _this.updateScanSummary($content);
                 });
 
                 const $scan = $content.find('#scanBarcode');
 
-                $scan.attr('lang', 'en')
-                    .attr('autocapitalize', 'off')
-                    .attr('autocorrect', 'off')
-                    .attr('spellcheck', 'false')
-                    .css('ime-mode', 'disabled')
-                    .on('compositionstart', function (e) {
-                        e.preventDefault();
-                    });
+                /* ★ 한글 자판으로 깨져 들어오는 값을 되돌린다(ㅣㅑ-… → li-…).
+                     스캐너는 키보드처럼 키를 눌러 보내므로 IME 가 한글 모드면 한글이 된다.
+                     ScanUtil(common.js) 이 lang/IME 차단과 역변환을 함께 건다. */
+                ScanUtil.bindScanInput($scan);
 
                 // ── 태블릿 전용 : DS2278(HID 키보드) 입력은 받되 소프트 키보드는 숨긴다 ──
                 if (TabletUtil.isTablet()) {
@@ -3475,7 +3496,14 @@
                 $content.find('#scanBarcode').on('keydown', function (e) {
                     if (e.key !== 'Enter' && e.keyCode !== 13) return;
                     e.preventDefault();
-                    const raw = $(this).val().trim();
+                    /* ★ 한글로 깨져 들어온 값을 되돌린다(ㅣㅑ-… → li-…).
+                         역변환은 소문자를 만들므로 대문자로 올린다 —
+                         같은 바코드가 대소문자만 달리 등록되는 것을 막는다. */
+                    let raw = ScanUtil.hanToEng($(this).val().trim());
+                    if (/[a-z]/.test(raw) && raw !== raw.toUpperCase()
+                        && /[\u3131-\u318E\uAC00-\uD7A3]/.test($(this).val())) {
+                        raw = raw.toUpperCase();
+                    }
                     $(this).val('');
                     if (!raw) return;
                     /* ★ 두 종류가 같은 칸으로 들어온다.
@@ -3535,9 +3563,23 @@
                         if (!confirm(skipped + '개 품목은 스캔되지 않아 제외됩니다. 계속할까요?')) return;
                     }
 
+                    /* ★ 같은 발주 라인이 로트별로 여러 줄일 수 있다.
+                         줄 하나씩 비교하면 50+50=100 이 발주 60 을 넘어도 통과한다.
+                         발주 라인(bh_id) 단위로 합계를 내어 검사한다. */
+                    const sumByLine = {};
                     for (const it of targets) {
-                        if (Number(it.inputQty) > Number(it.remainQty)) {
-                            Alert.alert('', `미입고수량(${it.remainQty})을 초과했습니다. (${it.materialName})`);
+                        const k = String(it.bh_id);
+                        sumByLine[k] = (sumByLine[k] || 0) + (Number(it.inputQty) || 0);
+                    }
+                    for (const it of targets) {
+                        const total = sumByLine[String(it.bh_id)];
+                        if (total > Number(it.remainQty)) {
+                            Alert.alert('', `미입고수량(${it.remainQty})을 초과했습니다. `
+                                + `합계 ${total} (${it.materialName})`);
+                            return;
+                        }
+                        if (!(Number(it.inputQty) > 0)) {
+                            Alert.alert('', `입고수량을 입력하세요. (${it.materialName})`);
                             return;
                         }
                         if (!it.effectiveDate || !/^\d{4}-\d{2}-\d{2}$/.test(it.effectiveDate)) {
@@ -3861,31 +3903,99 @@
                         return;
                     }
 
-                    const line = cv.sourceCollection.find(it =>
+                    /* 발주에 있는 품목인지부터 확인한다(줄이 여러 개일 수 있다). */
+                    const sameMat = cv.sourceCollection.filter(it =>
                         String(it.Material_id) === String(d.material_id));
-                    if (!line) {
+                    if (!sameMat.length) {
                         fail('발주에 없는 품목입니다 · ' + (d.material_name || ''), 'error');
                         return;
                     }
 
-                    /* ★ 수량은 «발주 미입고수량» 을 기본으로 채운다.
-                         예전에는 1스캔 = pack_qty 로 «누적» 했다. 33개들이 3박스면
-                         세 번 찍어야 99가 되는데, 실제로는 박스마다 로트가 같아
-                         나눠 세는 의미가 없으면서 손만 세 번 갔다.
-                         더구나 자체 출력 바코드는 GS1 이 아니라 pack_qty 가 1 이어서
-                         99개짜리 로트를 찍어도 1개로 잡혔다.
+                    /* ★ 한 발주 라인에 로트가 여러 개 올 수 있다.
+                         100개 발주에 50개짜리 두 박스가 서로 다른 로트로 오는 식이다.
+                         예전에는 품목으로 줄 하나를 찾아 덮어써서, 두 번째 로트를 찍으면
+                         첫 로트 번호가 그대로 남고 한 줄로 합쳐져 버렸다.
+                         로트가 다르면 «줄을 하나 더» 만든다. 수량은 사람이 나눠 넣는다. */
+                    const scanLot = parsed.lot || '';
+                    let line = null;
 
-                         이제 첫 스캔에서 미입고수량을 통째로 채우고, 다르면 사람이 고친다.
-                         그리드의 «입고수량» 칸은 편집 가능하다.
-                       ★ 두 번째 스캔부터는 수량을 건드리지 않는다 —
-                         사람이 고쳐 둔 값을 스캔 한 번에 되돌려 놓으면 안 된다. */
-                    const remain = Number(line.remainQty) || 0;
-                    if (!line.confirmed) {
-                        line.inputQty = remain;                       // 발주 잔량이 기본값
-                        line.statusText = '확인 ' + remain + '/' + remain + ' (수정 가능)';
+                    if (scanLot) {
+                        line = sameMat.find(it => String(it.makerLotNo || '') === String(scanLot));
+                        if (!line) {
+                            /* ★ 아직 로트가 안 붙은 «빈 줄» 이 있으면 그것부터 쓴다.
+                                 발주를 올리면 품목마다 줄이 하나 생기는데, 바로 새 줄을 만들면
+                                 그 원본이 0개짜리로 남아 화면에 빈 줄이 떠 있게 된다.
+                                 첫 로트는 원본 줄에 채우고, 두 번째부터 줄을 늘린다. */
+                            line = sameMat.find(it => !it.makerLotNo && !it.confirmed);
+                        }
+                        if (!line) {
+                            const base = sameMat[0];
+                            const used = sameMat.reduce((a, it) => a + (Number(it.inputQty) || 0), 0);
+                            const rest = Math.max(0, (Number(base.remainQty) || 0) - used);
+                            if (rest <= 0) {
+                                fail('미입고수량을 모두 채웠습니다 · ' + (d.material_name || ''), 'error');
+                                return;
+                            }
+                            line = Object.assign({}, base, {
+                                lotNumber: '', makerLotNo: '',
+                                /* ★ 유효기간도 «헤더 기본값» 으로 되돌린다.
+                                     앞 줄을 복사해 만들기 때문에, 그냥 두면 앞 로트의
+                                     유효기간이 그대로 따라온다 —
+                                     (17) 이 있는 바코드 다음에 (11) 만 있는 것을 찍으면
+                                     덮어쓸 값이 없어 앞 로트의 날짜가 남았다. */
+                                effectiveDate: ($content.find('#scanHeaderExp').val() || ''),
+                                inputQty: 0, confirmed: false, statusText: '대기'
+                            });
+                            cv.sourceCollection.push(line);
+                        }
+                        /* 줄을 정했으면 로트를 바로 새긴다 — 다음 스캔이 이 줄을 찾아온다. */
+                        if (!line.makerLotNo) line.makerLotNo = scanLot;
+                        if (!line.lotNumber) line.lotNumber = scanLot;
                     } else {
-                        /* 이미 확정된 줄을 다시 찍었다 — 수량은 그대로 두고 재확인만 알린다.
-                           박스를 여러 번 찍는 현장 습관을 수량 오류로 만들지 않는다. */
+                        /* 로트가 없는 바코드(EAN-13 등)는 예전처럼 첫 줄을 쓴다. */
+                        line = sameMat[0];
+                    }
+
+                    /* ── 수량 기본값 ─────────────────────────────────────────
+                       바코드에 로트가 «있느냐 없느냐» 로 갈린다.
+
+                       [로트 있음 — GS1 (10)]
+                         로트를 제조사가 정한다. 22개가 22개 로트로 왔으면 22번 찍어야 하고,
+                         한 로트로 왔으면 한 번이다. 실물이 정하는 것이지 우리가 정하지 않는다.
+                         그래서 한 번 찍을 때마다 그 바코드가 가리키는 만큼(pack_qty)만 «누적» 한다.
+                         같은 로트를 또 찍으면 더하고, 다른 로트면 위에서 이미 줄을 나눴다.
+
+                       [로트 없음 — EAN-13 등]
+                         로트는 우리가 채번한다. 입고 건 하나가 곧 로트 하나이므로
+                         한 번 찍고 발주 잔량을 통째로 채운다. 22번 찍을 이유가 없다.
+
+                       ※ 어느 쪽이든 그리드의 «입고수량» 칸은 편집 가능하다 —
+                         실물이 발주와 다를 때 사람이 고친다. */
+                    const remain = Number(line.remainQty) || 0;
+                    const others = cv.sourceCollection
+                        .filter(it => it !== line && String(it.Material_id) === String(line.Material_id))
+                        .reduce((a, it) => a + (Number(it.inputQty) || 0), 0);
+                    const myRest = Math.max(0, remain - others);   // 이 줄이 가져갈 수 있는 몫
+
+                    if (scanLot) {
+                        /* 로트 있음 — pack_qty 씩 누적 */
+                        const pack = Math.max(1, Number(d.pack_qty) || 1);
+                        const cur = line.confirmed ? (Number(line.inputQty) || 0) : 0;
+                        const next = Math.min(cur + pack, myRest);   // 발주 잔량을 넘기지 않는다
+
+                        if (line.confirmed && next === cur) {
+                            line.statusText = '한도 ' + cur + '/' + remain + ' (발주 잔량 초과)';
+                        } else {
+                            line.inputQty = next;
+                            line.statusText = (line.confirmed ? '누적 ' : '확인 ')
+                                + next + '/' + remain + ' (수정 가능)';
+                        }
+                    } else if (!line.confirmed) {
+                        /* 로트 없음 — 첫 스캔에 남은 몫 전량 */
+                        line.inputQty = myRest;
+                        line.statusText = '확인 ' + myRest + '/' + remain + ' (수정 가능)';
+                    } else {
+                        /* 같은 바코드를 또 찍었다. 사람이 고쳐 둔 값을 되돌리지 않는다. */
                         const cur = Number(line.inputQty) || 0;
                         line.statusText = '재확인 ' + cur + '/' + remain;
                     }
@@ -3901,7 +4011,7 @@
                          사실은 따로 알아야 한다(자체 발번과 구분). */
                     if (parsed.lot) {
                         if (!line.makerLotNo) line.makerLotNo = parsed.lot;
-                        if (!line.lotNumber)  line.lotNumber  = parsed.lot;
+                        if (!line.lotNumber) line.lotNumber = parsed.lot;
                     }
                     /* ★ 유효기간은 «라벨의 (17)» 이 먼저다.
                          예전에는 서버가 준 effective_date 만 썼는데, 그 값은

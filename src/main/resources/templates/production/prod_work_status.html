@@ -513,17 +513,25 @@
             let last = null, body = '';
             rows.forEach(function(u){
                 body += wsDay(u.prod_date, last); last = u.prod_date;
-                const running = !u.end_time;
-                body += '<div class="ws-card'+(running?' run':' done')+'" onclick="wsOpenUnit('+u.pk+',\'assembly\')">'
+                /* * 「작업중」은 지금 붙잡고 있는 스텝이 있을 때다(step_run > 0).
+                     end_time 은 스텝 완료 실적(mat_produce)의 MAX 라, 한 단계도
+                     끝내지 않은 유닛은 시작 전이어도 비어 있다 - 손도 안 댄 0/11 이
+                     「작업중」으로 떴다. 시작했다 멈춘 건은 「진행」으로 따로 본다. */
+                const stRun   = Number(u.step_run || 0);
+                const running = stRun > 0;
+                const paused  = !running && !u.end_time && Number(u.step_done || 0) > 0;
+                body += '<div class="ws-card'+(running?' run':(paused?' wait':' done'))+'" onclick="wsOpenUnit('+u.pk+',\'assembly\')">'
                     + '<div class="c-mat">'+esc(u.mat_name||'-')+'</div>'
                     + '<div class="c-code">'+esc(u.lot_number||'-')+'</div>'
                     + wsStepLine(u.pk)
                     + '<div class="c-qty">'
-                    +   (running ? '<span class="q-plan">'+num(u.step_done)+' / '+num(u.step_total)+' 단계</span>'
+                    +   ((running||paused) ? '<span class="q-plan">'+num(u.step_done)+' / '+num(u.step_total)+' 단계</span>'
                         : '1<span class="c-lot">대</span>')+'</div>'
                     + '<div class="c-meta">'+esc(u.worker||'-')+'</div>'
                     + '<div class="c-meta">'+esc(u.start_short||'-')+' ~ '
-                    +   (running ? '<span class="run-t">작업중</span>' : esc(u.end_short||'-'))+'</div>'
+                    +   (running ? '<span class="run-t">작업중</span>'
+                        : paused ? '<span class="run-t">진행</span>'
+                            : esc(u.end_short||'-'))+'</div>'
                     + (Number(u.rework_cnt) ? '<div class="c-foot"><span class="ws-chip wait">재조립</span></div>' : '')
                     + '</div>';
             });
@@ -626,7 +634,7 @@
                 + '<div><div class="k">작업지시</div><div class="v">'+esc(u.wo||'-')+'</div></div>'
                 + '<div><div class="k">작업자</div><div class="v">'+esc(u.worker||'-')+'</div></div>'
                 + '<div><div class="k">설비</div><div class="v">'+esc(u.equipment||'-')+'</div></div>'
-                + '<div><div class="k">작업시각</div><div class="v">'+esc(u.start_time||'-')+'<br>~ '+esc(u.end_time||'작업중')+'</div></div>'
+                + '<div><div class="k">작업시각</div><div class="v">'+esc(u.start_time||'-')+'<br>~ '+esc(u.end_time||(u.start_time?'작업중':'-'))+'</div></div>'
                 + '</div>';
             html += '<div class="ws-sub-h">투입 자재</div>';
             html += cons.length
@@ -742,7 +750,7 @@
                 + '<div><div class="k">상태</div><div class="v">'+esc(WS_USTATE[u.unit_state]||u.unit_state||'-')+'</div></div>'
                 + '<div><div class="k">작업자</div><div class="v">'+esc(u.worker||'-')+'</div></div>'
                 + '<div><div class="k">설비</div><div class="v">'+esc(u.equipment||'-')+'</div></div>'
-                + '<div><div class="k">작업시각</div><div class="v">'+esc(u.start_time||'-')+'<br>~ '+esc(u.end_time||'작업중')+'</div></div>'
+                + '<div><div class="k">작업시각</div><div class="v">'+esc(u.start_time||'-')+'<br>~ '+esc(u.end_time||(u.start_time?'작업중':'-'))+'</div></div>'
                 + (u.src_lot?'<div><div class="k">원 로트</div><div class="v">'+esc(u.src_lot)+'</div></div>':'')
                 + '</div>';
             if(u.reject_reason) html += '<div class="ws-banner">불합격 사유 · '+esc(u.reject_reason)+'</div>';

@@ -118,12 +118,21 @@ public class MaterialMoveScanService {
               JOIN material m     ON m.id  = ml."Material_id"
               LEFT JOIN unit u    ON u.id  = m."Unit_id"
               JOIN store_house sh ON sh.id = ml."StoreHouse_id"
-             WHERE UPPER(ml."LotNumber") = UPPER(CAST(:key AS varchar))
+             /* ★ 사내 로트(LotNumber)뿐 아니라 제조사 로트(MakerLotNo)로도 찾는다.
+                  실물 상자에 붙어 있는 번호가 매입처 라벨뿐인 경우가 많은데,
+                  LotNumber 만 보면 그 상자를 스캔해도 «없는 로트» 가 되어
+                  현장이 화면에서 눈으로 골라야 했다. */
+             WHERE (UPPER(ml."LotNumber") = UPPER(CAST(:key AS varchar))
+                 OR UPPER(COALESCE(ml."MakerLotNo",'')) = UPPER(CAST(:key AS varchar)))
                AND ml."StoreHouse_id" = CAST(:storeId AS integer)
                AND COALESCE(ml._status,'a') = 'a'
                AND (CAST(:matId AS integer) IS NULL OR ml."Material_id" = CAST(:matId AS integer))
                AND (CAST(:spjangcd AS varchar) IS NULL OR ml.spjangcd = CAST(:spjangcd AS varchar))
-             ORDER BY ml."InputDateTime" ASC, ml.id ASC
+             /* 사내 로트로 맞은 행이 먼저. 제조사 로트는 매입처가 다르면 같은 번호가
+                생길 수 있어, 겹칠 때는 사내 번호 쪽을 우선한다. 그다음은 FIFO. */
+             ORDER BY CASE WHEN UPPER(ml."LotNumber") = UPPER(CAST(:key AS varchar))
+                           THEN 0 ELSE 1 END
+                    , ml."InputDateTime" ASC, ml.id ASC
 			""";
 
 		List<Map<String, Object>> rows = this.sqlRunner.getRows(sql, p);

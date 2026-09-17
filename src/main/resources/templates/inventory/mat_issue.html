@@ -3654,16 +3654,21 @@
                 const $input = $content.find('#siInput');
                 setTimeout(() => $input.focus(), 100);
 
+                /* ★ 한글 자판으로 깨져 들어오는 값을 되돌린다(ㅣㅑ-… → li-…).
+                     스캐너는 키보드처럼 키를 눌러 보내므로 IME 가 한글 모드면 한글이 된다.
+                     ScanUtil(common.js) 이 IME 차단과 역변환을 함께 건다. */
+                ScanUtil.bindScanInput($input);
+
                 // 스캐너는 값 끝에 Enter 를 보낸다
                 $input.on('keydown', function (e) {
                     if (e.key === 'Enter' || e.keyCode === 13) {
                         e.preventDefault();
-                        _this.handleScan($input.val());
+                        _this.handleScan(ScanUtil.hanToEng($input.val()));
                         $input.val('').focus();
                     }
                 });
                 $content.find('#siAdd').on('click', function () {
-                    _this.handleScan($input.val());
+                    _this.handleScan(ScanUtil.hanToEng($input.val()));
                     $input.val('').focus();
                 });
 
@@ -3948,7 +3953,14 @@
                         }
                         Notify.success('불출 완료 · ' + (res.data && res.data.move_no || ''));
                         _this.modal.close();
+                        /* ★ 불출하면 재고가 줄었으므로 뒤 목록을 다시 읽어야 한다.
+                             onDone 은 호출부가 넘겨 줄 때만 동작하는데 아무도 넘기지 않아,
+                             저장해도 화면은 예전 재고를 그대로 보여주고 있었다.
+                             넘겨준 콜백이 있으면 그것을, 없으면 목록을 직접 새로고침한다. */
                         if (typeof _this.onDone === 'function') _this.onDone();
+                        else if (window.page && typeof page.searchDataBind === 'function') {
+                            page.searchDataBind();
+                        }
                     });
                 });
             }

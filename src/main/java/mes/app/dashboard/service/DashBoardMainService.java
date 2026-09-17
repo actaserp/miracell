@@ -346,11 +346,32 @@ public class DashBoardMainService {
 	 *   mat_produce 를 세면 한 대가 스텝 대여섯 건으로 흩어진다.
 	 */
 	public List<Map<String, Object>> getUnitStates(String spjangcd) {
+		/* ★ 상태마다 「언제 것을 세느냐」가 다르다.
+		     - 진행 중인 재공(assembling·inspect_wait·reject·repairing)
+		       → 날짜와 무관하게 전부. 어제 조립하다 만 유닛도 지금 걸려 있는 물건이다.
+		     - 완료분(pass·packed)
+		       → 오늘 것만. 누적으로 세면 매일 늘어나기만 해 「오늘 얼마나 했나」를 못 본다.
+		     - 미착수(wait)
+		       → 아예 빼낸다. 조립 화면에서 작지를 열기만 해도 유닛이 만들어지므로
+		         대기 수십 대가 늘 떠 있어 다른 숫자를 묻어 버린다.
+		   ※ 「조립중」은 유닛 상태가 아니라 실제로 붙잡고 있는 스텝으로 가른다.
+		     작업 시작을 눌러야 State='working' 이 되므로 그것이 진짜 작업중이다.
+		     시작했다 멈춘 유닛은 'paused'(진행)로 따로 낸다. */
 		String sql = """
-				SELECT mu."State"  AS state
-				     , COUNT(*)    AS cnt
+				SELECT CASE
+				         WHEN mu."State" = 'assembling' AND EXISTS (
+				              SELECT 1 FROM mcell_unit_step st
+				               WHERE st."McellUnit_id" = mu.id AND st."State" = 'working')
+				           THEN 'assembling'
+				         WHEN mu."State" = 'assembling' THEN 'paused'
+				         ELSE mu."State"
+				       END          AS state
+				     , COUNT(*)     AS cnt
 				  FROM mcell_unit mu
 				 WHERE COALESCE(mu._status,'a') = 'a'
+				   AND mu."State" <> 'wait'
+				   AND (mu."State" NOT IN ('pass','packed')
+				        OR COALESCE(mu."EndTime", mu."_modified", mu."_created")::date = CURRENT_DATE)
 				 GROUP BY 1
 				 ORDER BY 1
 				""";
@@ -475,14 +496,31 @@ public class DashBoardMainService {
 				         WHERE factory_id = 1
 				           AND proc_code = 'bsc05'
 				           AND is_product = 'Y')                                    AS f1_today_good
+				     /* ★ 오늘 포장한 대수. 누적으로 세면 매일 늘어나기만 해
+				          「오늘 얼마나 했나」를 보는 자리에 전체 재고가 찍힌다.
+				          1공장 완제품(f1_today_good)이 오늘 기준이라 나란히 두려면 같아야 한다. */
 				     , (SELECT COUNT(*) FROM mcell_unit mu
-				         WHERE COALESCE(mu._status,'a')='a' AND mu."State" = 'packed')     AS f2_packed
+				         WHERE COALESCE(mu._status,'a')='a' AND mu."State" = 'packed'
+				           AND COALESCE(mu."EndTime", mu."_modified", mu."_created")::date = CURRENT_DATE)
+				                                                                            AS f2_packed
 				     , (SELECT COUNT(*) FROM job_res jr
 				         WHERE COALESCE(jr._status,'a')='a' AND jr."Parent_id" IS NULL
 				           AND COALESCE(jr."State",'') NOT IN ('finished'))                AS open_orders
-				     , (SELECT COUNT(*) FROM mat_produce mp2
-				         WHERE COALESCE(mp2._status,'a')='a'
-				           AND mp2."State" <> 'finished' AND mp2."EndTime" IS NULL)        AS working_sessions
+				     /* ★ 지금 돌아가는 작업 수.
+				          1공장은 차수(mat_produce)가 곧 작업 단위라 EndTime 이 비면 작업중이 맞다.
+				          2공장은 다르다 — mat_produce 는 스텝을 «완료할 때» 생기는 실적이라,
+				          덜 닫힌 행이 남으면 아무도 손대고 있지 않은데 영원히 작업중으로 잡힌다.
+				          그래서 2공장 몫은 working 스텝 수로 센다(작업 시작을 눌러야 working 이 된다). */
+				     , ( (SELECT COUNT(*) FROM mat_produce mp2
+				           JOIN job_res jr2 ON jr2.id = mp2."JobResponse_id"
+				           LEFT JOIN material m2 ON m2.id = jr2."Material_id"
+				          WHERE COALESCE(mp2._status,'a')='a'
+				            AND mp2."State" <> 'finished' AND mp2."EndTime" IS NULL
+				            AND COALESCE(m2."Factory_id", 1) <> 2)
+				       + (SELECT COUNT(*) FROM mcell_unit_step st
+				           JOIN mcell_unit mu2 ON mu2.id = st."McellUnit_id"
+				          WHERE st."State" = 'working'
+				            AND COALESCE(mu2._status,'a') = 'a') )                        AS working_sessions
 				     , (SELECT COALESCE(SUM(COALESCE(d."DefectQty",0)),0) FROM defect_regist d
 				         WHERE d."State"='confirmed' AND d."DefectDate" = CURRENT_DATE)    AS today_defect
 				     , (SELECT COUNT(*) FROM equ_run er WHERE er."EndDate" IS NULL)        AS equ_running

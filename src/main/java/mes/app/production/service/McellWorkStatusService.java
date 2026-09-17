@@ -102,7 +102,7 @@ public class McellWorkStatusService {
                      -- 스텝 작업자가 있으면 그쪽이 진실. 없으면 유닛 담당자
                      , COALESCE(tm.step_workers, pe."Name") AS worker
                      , COALESCE(tm.step_equips,  e."Name")  AS equipment
-                     , to_char(COALESCE(tm.et, tm.st, mu."StartTime", mu."_created"), 'yyyy-mm-dd') AS prod_date
+                     , to_char(COALESCE(tm.et, tm.st, mu."StartTime"), 'yyyy-mm-dd') AS prod_date
                      , to_char(COALESCE(tm.st, mu."StartTime"), 'yyyy-mm-dd hh24:mi') AS start_time
                      , to_char(tm.et, 'yyyy-mm-dd hh24:mi')  AS end_time
                      , to_char(COALESCE(tm.st, mu."StartTime"), 'mm-dd hh24:mi') AS start_short
@@ -113,6 +113,14 @@ public class McellWorkStatusService {
                          WHERE us."McellUnit_id" = mu.id)                        AS step_total
                      , (SELECT COUNT(*) FROM mcell_unit_step us
                          WHERE us."McellUnit_id" = mu.id AND us."State" = 'done') AS step_done
+                     /* ★ 지금 «누가 붙잡고 있는» 스텝 수.
+                          화면은 예전에 end_time 이 비면 작업중으로 봤는데,
+                          end_time 은 mat_produce(스텝 완료 실적)의 MAX 라
+                          아직 아무 스텝도 «완료» 하지 않은 유닛은 항상 NULL 이다.
+                          그래서 손도 안 댄 0/11 짜리가 「작업중」 으로 떴다.
+                          작업 시작을 눌러야 State='working' 이 되므로 이 값이 진짜 기준이다. */
+                     , (SELECT COUNT(*) FROM mcell_unit_step us
+                         WHERE us."McellUnit_id" = mu.id AND us."State" = 'working') AS step_run
                      , (SELECT COUNT(*) FROM mcell_unit_step us
                          WHERE us."McellUnit_id" = mu.id AND us."ReworkYN" = 'Y') AS rework_cnt
                   FROM mcell_unit mu
@@ -122,14 +130,20 @@ public class McellWorkStatusService {
                   LEFT JOIN equ      e  ON e.id  = mu."Equipment_id"
                 %s
                  WHERE mu."McellRepair_id" IS NULL
-                   AND COALESCE(tm.et, tm.st, mu."StartTime", mu."_created") BETWEEN :date_from AND :date_to
+                   /* ★ 여기는 «실적» 화면이다. 손대지 않은 유닛은 실적이 아니다.
+                        조립 화면에서 작지를 열기만 해도 initUnits 가 유닛을 만드는데,
+                        예전 조건은 마지막이 mu."_created" 라 그 «만들어진 날짜» 로 걸려
+                        아무도 시작하지 않은 대기 유닛이 실적 목록에 올라왔다.
+                        시작한 흔적(스텝 시작·완료·유닛 StartTime)이 있는 것만 본다. */
+                   AND COALESCE(tm.et, tm.st, mu."StartTime") IS NOT NULL
+                   AND COALESCE(tm.et, tm.st, mu."StartTime") BETWEEN :date_from AND :date_to
                    -- 유닛 담당자뿐 아니라 스텝을 실제로 한 사람으로도 걸린다
                    AND (CAST(:actor_pk AS integer) IS NULL
                         OR mu."Actor_id" = CAST(:actor_pk AS integer)
                         OR EXISTS (SELECT 1 FROM mcell_unit_step us2
                                     WHERE us2."McellUnit_id" = mu.id
                                       AND us2."Actor_id" = CAST(:actor_pk AS integer)))
-                 ORDER BY COALESCE(tm.et, tm.st, mu."StartTime", mu."_created") DESC, mu."UnitNo"
+                 ORDER BY COALESCE(tm.et, tm.st, mu."StartTime") DESC, mu."UnitNo"
                 """.formatted(UNIT_TIME);
 
         return nz(this.sqlRunner.getRows(sql, p));

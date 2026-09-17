@@ -378,17 +378,27 @@
             rows.forEach(function (u) {
                 body += wsDay(u.prod_date, last);
                 last = u.prod_date;
-                const running = !u.end_time;
                 const stTotal = Number(u.step_total || 0), stDone = Number(u.step_done || 0);
-                body += '<div class="ws-card' + (running ? ' run' : ' done') + '" onclick="wsOpenUnit(' + u.pk + ',\'assembly\')">'
+                const stRun   = Number(u.step_run   || 0);
+                /* ★ «작업중» 은 지금 누가 붙잡고 있는 스텝이 있을 때다(step_run > 0).
+                     예전에는 end_time 이 비면 작업중으로 봤는데, end_time 은
+                     mat_produce(스텝 완료 실적)의 MAX 라 아직 아무 스텝도 완료하지 않은
+                     유닛은 항상 비어 있다 — 손도 안 댄 0/11 짜리가 「작업중」 으로 떴다.
+                   ※ 시작은 했는데 지금 멈춰 있는 유닛(done 은 있고 working 은 없음)은
+                     «진행» 으로 따로 표시한다. */
+                const running = stRun > 0;
+                const paused  = !running && !u.end_time && stDone > 0;
+                body += '<div class="ws-card' + (running ? ' run' : (paused ? ' wait' : ' done')) + '" onclick="wsOpenUnit(' + u.pk + ',\'assembly\')">'
                     + '<div class="c-mat">' + esc(u.mat_name || '-') + '</div>'
                     + '<div class="c-code">' + esc(u.lot_number || '-') + '</div>'
                     + '<div class="c-qty">'
-                    + (running ? '<span class="q-plan">' + stDone + ' / ' + stTotal + ' 단계</span>' : '1<span class="c-lot">대</span>')
+                    + ((running || paused) ? '<span class="q-plan">' + stDone + ' / ' + stTotal + ' 단계</span>' : '1<span class="c-lot">대</span>')
                     + '</div>'
                     + '<div class="c-meta">' + esc(u.worker || '-') + (u.equipment ? ' · ' + esc(u.equipment) : '') + '</div>'
                     + '<div class="c-meta">' + esc(u.start_short || '-') + ' ~ '
-                    + (running ? '<span class="run-t">작업중</span>' : esc(u.end_short || '-')) + '</div>'
+                    + (running ? '<span class="run-t">작업중</span>'
+                        : paused ? '<span class="run-t">진행</span>'
+                            : esc(u.end_short || '-')) + '</div>'
                     + (Number(u.rework_cnt) ? '<div class="c-foot"><span class="ws-chip wait">재조립</span></div>' : '')
                     + '</div>';
             });
@@ -529,7 +539,12 @@
                 + '<div><div class="k">상태</div><div class="v">' + esc(WS_USTATE[u.unit_state] || u.unit_state || '-') + '</div></div>'
                 + '<div><div class="k">작업자</div><div class="v">' + esc(u.worker || '-') + '</div></div>'
                 + '<div><div class="k">설비</div><div class="v">' + esc(u.equipment || '-') + '</div></div>'
-                + '<div><div class="k">작업시각</div><div class="v">' + esc(u.start_time || '-') + '<br>~ ' + esc(u.end_time || '작업중') + '</div></div>'
+                /* ★ 끝 시각이 비었다고 «작업중» 은 아니다.
+                     end_time 은 스텝 완료 실적(mat_produce)의 MAX 라,
+                     아직 한 단계도 끝내지 않은 유닛은 시작 전이어도 비어 있다.
+                     시작조차 안 했으면 «-» 로 두고, 시작한 흔적이 있을 때만 작업중으로 본다. */
+                + '<div><div class="k">작업시각</div><div class="v">' + esc(u.start_time || '-')
+                + '<br>~ ' + esc(u.end_time || (u.start_time ? '작업중' : '-')) + '</div></div>'
                 + (u.src_lot ? '<div><div class="k">원 로트</div><div class="v">' + esc(u.src_lot) + '</div></div>' : '')
                 + '</div>';
 
@@ -712,7 +727,12 @@
                 + '<div><div class="k">작업지시</div><div class="v">' + esc(u.wo || '-') + '</div></div>'
                 + '<div><div class="k">작업자</div><div class="v">' + esc(u.worker || '-') + '</div></div>'
                 + '<div><div class="k">설비</div><div class="v">' + esc(u.equipment || '-') + '</div></div>'
-                + '<div><div class="k">작업시각</div><div class="v">' + esc(u.start_time || '-') + '<br>~ ' + esc(u.end_time || '작업중') + '</div></div>'
+                /* ★ 끝 시각이 비었다고 «작업중» 은 아니다.
+                     end_time 은 스텝 완료 실적(mat_produce)의 MAX 라,
+                     아직 한 단계도 끝내지 않은 유닛은 시작 전이어도 비어 있다.
+                     시작조차 안 했으면 «-» 로 두고, 시작한 흔적이 있을 때만 작업중으로 본다. */
+                + '<div><div class="k">작업시각</div><div class="v">' + esc(u.start_time || '-')
+                + '<br>~ ' + esc(u.end_time || (u.start_time ? '작업중' : '-')) + '</div></div>'
                 + (u.src_lot ? '<div><div class="k">원 로트</div><div class="v">' + esc(u.src_lot) + '</div></div>' : '')
                 + '</div>';
 

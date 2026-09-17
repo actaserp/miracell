@@ -285,34 +285,34 @@ var CommonUtil = {
         return str;
     },
     formatYYYYMMDD: function (p_date) {
-	    let m = p_date.getMonth() + 1;
-	    let day = p_date.getDate();
-	    if (m < 10) {
-	        m = "0" + m;
-	    }
-	    if (day < 10) {
-	        day = "0" + day;
-	    }
-	    var str = p_date.getFullYear() + '-' + m + '-' + day;
-	    return str;
+        let m = p_date.getMonth() + 1;
+        let day = p_date.getDate();
+        if (m < 10) {
+            m = "0" + m;
+        }
+        if (day < 10) {
+            day = "0" + day;
+        }
+        var str = p_date.getFullYear() + '-' + m + '-' + day;
+        return str;
     },
     formatYYYYMMDDhhmmss: function (p_date) {
-	    let m = this.zeoPadding(p_date.getMonth() + 1, 2);
-	    let day = this.zeoPadding(p_date.getDate(), 2);
-	    let hh = this.zeoPadding(p_date.getHours(), 2);
-	    let mm = this.zeoPadding(p_date.getMinutes(), 2);
-	    let ss = this.zeoPadding(p_date.getSeconds(), 2);
-	    
-	    var str = p_date.getFullYear() + '-' + m + '-' + day + ' ' + hh + ':' + mm + ':' + ss;
-	    return str;
+        let m = this.zeoPadding(p_date.getMonth() + 1, 2);
+        let day = this.zeoPadding(p_date.getDate(), 2);
+        let hh = this.zeoPadding(p_date.getHours(), 2);
+        let mm = this.zeoPadding(p_date.getMinutes(), 2);
+        let ss = this.zeoPadding(p_date.getSeconds(), 2);
+
+        var str = p_date.getFullYear() + '-' + m + '-' + day + ' ' + hh + ':' + mm + ':' + ss;
+        return str;
     },
     zeoPadding: function (number, length){
-		var str = '' + number;
-	    while (str.length < length) {
-	      str = '0' + str;
-	    }
-  		return str;
-	},
+        var str = '' + number;
+        while (str.length < length) {
+            str = '0' + str;
+        }
+        return str;
+    },
     //from to 숫자 입력값 유효성 체크(title 입력 필요)
     checkValidNumberRange: function (from, to) {
         if (Number(from.val()) > Number(to.val())) {
@@ -337,7 +337,7 @@ var CommonUtil = {
         return true;
     },
     CommaNumber: function (value) {
-        // 수치값인 경우 3자리 기준으로 콤마를 넣어서 출력한다. 
+        // 수치값인 경우 3자리 기준으로 콤마를 넣어서 출력한다.
         // 12345678.2345 -> 12,345,678.2345
         if (value == null)
             return null;
@@ -1021,6 +1021,87 @@ let FormUtil = {
 };
 
 
+/**
+ * 바코드 스캔값 정규화 — 한글 자판으로 깨져 들어온 값을 영문으로 되돌린다.
+ *
+ * 증상 : 「LI-20260916-0001」 을 찍었는데 「ㅣㅑ-20260916-0001」 로 들어온다.
+ *        USB 스캐너(예: Zebra DS2278)는 키보드처럼 키를 눌러 보내므로,
+ *        윈도우 IME 가 한글 모드면 그 키가 한글로 바뀐다.
+ *        스캐너의 Emulate Keypad(Alt+Numpad)를 켜도 브라우저 입력창에서는
+ *        입력 속도를 못 따라가거나 IME 가 끼어들어 그대로 깨지는 경우가 있다
+ *        (메모장에서는 멀쩡한데 브라우저에서만 깨지는 이유다).
+ *
+ * 두벌식 자판은 키 ↔ 자모가 1:1 이라 되돌릴 수 있다.
+ *
+ * ★ 한글이 하나라도 섞였을 때만 변환한다.
+ *   로트·품목 바코드는 영숫자와 -_ / . 뿐이므로, 한글이 있다는 것 자체가
+ *   「잘못 들어왔다」 는 신호다. 정상 입력은 건드리지 않는다.
+ * ★ 조합된 음절(리)은 초성·중성·종성으로 분해한 뒤 되돌린다.
+ *   조합되지 않은 낱자(ㅣ, ㅑ)는 표로 직접 바꾼다.
+ */
+var ScanUtil = {
+    _CHO: ['r','R','s','e','E','f','a','q','Q','t','T','d','w','W','c','z','x','v','g'],
+    _JUNG: ['k','o','i','O','j','p','u','P','h','hk','ho','hl','y','n','nj','np','nl','b','m','ml','l'],
+    _JONG: ['','r','R','rt','s','sw','sg','e','f','fr','fa','fq','ft','fx','fv','fg','a','q','qt','t','T','d','w','c','z','x','v','g'],
+    _JAMO: {
+        'ㄱ':'r','ㄲ':'R','ㄳ':'rt','ㄴ':'s','ㄵ':'sw','ㄶ':'sg','ㄷ':'e','ㄸ':'E',
+        'ㄹ':'f','ㄺ':'fr','ㄻ':'fa','ㄼ':'fq','ㄽ':'ft','ㄾ':'fx','ㄿ':'fv','ㅀ':'fg',
+        'ㅁ':'a','ㅂ':'q','ㅃ':'Q','ㅄ':'qt','ㅅ':'t','ㅆ':'T','ㅇ':'d','ㅈ':'w','ㅉ':'W',
+        'ㅊ':'c','ㅋ':'z','ㅌ':'x','ㅍ':'v','ㅎ':'g',
+        'ㅏ':'k','ㅐ':'o','ㅑ':'i','ㅒ':'O','ㅓ':'j','ㅔ':'p','ㅕ':'u','ㅖ':'P',
+        'ㅗ':'h','ㅘ':'hk','ㅙ':'ho','ㅚ':'hl','ㅛ':'y','ㅜ':'n','ㅝ':'nj','ㅞ':'np',
+        'ㅟ':'nl','ㅠ':'b','ㅡ':'m','ㅢ':'ml','ㅣ':'l'
+    },
+
+    /** 한글이 섞여 있으면 영문 자판값으로 되돌린다. 아니면 원본 그대로. */
+    hanToEng: function (src) {
+        if (src == null) return src;
+        var s = String(src);
+        if (!/[\u3131-\u318E\uAC00-\uD7A3]/.test(s)) return s;   // 한글 없음
+
+        var out = '';
+        for (var i = 0; i < s.length; i++) {
+            var ch = s[i], code = s.charCodeAt(i);
+            if (code >= 0xAC00 && code <= 0xD7A3) {          // 조합된 음절
+                var idx = code - 0xAC00;
+                out += this._CHO[Math.floor(idx / 588)]
+                    +  this._JUNG[Math.floor((idx % 588) / 28)]
+                    +  this._JONG[idx % 28];
+            } else if (this._JAMO[ch] !== undefined) {       // 낱자
+                out += this._JAMO[ch];
+            } else {
+                out += ch;
+            }
+        }
+        return out;
+    },
+
+    /**
+     * 스캔 입력칸에 한글 방지 처리를 건다.
+     *  - IME 조합을 막고(compositionstart)
+     *  - 그래도 들어온 한글은 hanToEng 로 되돌린다.
+     * 화면마다 반복하던 lang/autocomplete 설정도 여기서 한다.
+     *
+     * 사용 : ScanUtil.bindScanInput($('#scanBarcode'));
+     */
+    bindScanInput: function ($el) {
+        if (!$el || !$el.length) return $el;
+        $el.attr('lang', 'en')
+            .attr('autocomplete', 'off')
+            .attr('autocapitalize', 'off')
+            .attr('autocorrect', 'off')
+            .attr('spellcheck', 'false')
+            .css('ime-mode', 'disabled')
+            .on('compositionstart', function (e) { e.preventDefault(); });
+        /* ★ 입력 도중(input)에는 값을 건드리지 않는다.
+             스캐너는 수십 ms 안에 전체 문자열을 밀어 넣는데, 그 사이에 this.value 를
+             바꾸면 커서가 앞으로 튀어 뒷글자가 유실되거나 순서가 섞인다.
+             (발주 바코드 PO… 가 통째로 인식되지 않던 원인)
+             되돌리기는 Enter 시점에 hanToEng 로 한 번만 한다. */
+        return $el;
+    }
+};
+
 let AjaxUtil = {
     showLoading: function () {
         try {
@@ -1053,9 +1134,9 @@ let AjaxUtil = {
             }
             //Notify.error(message);
             Alert.alert('Error', message);
-            
+
         }
-        
+
     },
     getSyncData: function (url, p_data, fn_failure) {
         let items = null;
@@ -1107,7 +1188,7 @@ let AjaxUtil = {
         });
     },
 
-    // POST저장시에는 성공여부를 확인하여 분기하는 루틴이 많으므로, items만 리턴할 것이 아니라 
+    // POST저장시에는 성공여부를 확인하여 분기하는 루틴이 많으므로, items만 리턴할 것이 아니라
     // 성공여부와 메시지도 리턴한다
     postSyncData: function (url, param_data, fn_failure) {
         let result = null;
@@ -1435,7 +1516,7 @@ let AjaxUtil = {
             data.cond3 = cond3;
         }
         let ret = AjaxUtil.getSyncData('/api/common/combo', data);
-        
+
         return ret.data == null ? []: ret.data;
     },
     getSelectDataWithNull: function (combo_type, null_option, condition1, condition2, condition3) {
@@ -1472,7 +1553,7 @@ let AjaxUtil = {
             let option = $('<option>');
             option.val(row['value']).text(row['text']);
             Object.keys(row).forEach(function (key) {
-                
+
                 if (key != 'value' && key != 'text') {
                     option.data(key, row[key]);
                 }
@@ -1635,15 +1716,15 @@ let AjaxUtil = {
                 document.body.appendChild(a);
                 a.click();
                 window.URL.revokeObjectURL(url);
-                //alert('your file has downloaded!'); 
+                //alert('your file has downloaded!');
                 downloadmask.close();
                 //Notify.success('다운로드 성공');
             }).catch(() => {
-                let message = '에러가 발생했습니다.관리자에게 문의 주세요.';
-                //Notify.error(message);
-                Alert.alert('Error', message);
-                downloadmask.close();
-            });
+            let message = '에러가 발생했습니다.관리자에게 문의 주세요.';
+            //Notify.error(message);
+            Alert.alert('Error', message);
+            downloadmask.close();
+        });
 
         //let url = yullin.getUrl({ api: api_url + '?' + param + '=' + val });
         //var link = document.createElement("a");
@@ -2179,7 +2260,7 @@ DataValidation.timeCheck = function (hours, minutes) {
     if (i == 0) {
         return hours + ":" + minutes;
     } else {
-            /*alert*/("Invalid Time Format.");
+        /*alert*/("Invalid Time Format.");
         return "";
     }
 }
@@ -2195,7 +2276,7 @@ DataValidation.validateTime = function (obj) {
     let sMinutes;
 
     if (timeValue == "") {
-            /*alert*/("Invalid Time format.");
+        /*alert*/("Invalid Time format.");
         obj.value = "";
         return false;
     }
