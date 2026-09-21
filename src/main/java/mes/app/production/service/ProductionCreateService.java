@@ -996,6 +996,26 @@ public class ProductionCreateService {
             // 1공장 — 기존 롤업 그대로 재사용
             this.productionResultService.recalcJobResAndCheckComplete(jrId, user);
             patchJobResState(jrId, user);
+
+            /* ★ 아무것도 남지 않았으면 지시중(ordered)까지 되돌린다.
+                 위 두 롤업은 finished 로 닫거나 working 으로 여는 것만 하고,
+                 working 에서 내려오는 길이 없다.
+
+                 2공장 하위 반제품 작지가 여기로 온다 — 유닛은 상위 조립 작지에만
+                 붙고 하위에는 없어서 unitCnt 가 0 이기 때문이다.
+                 그래서 분해로 실적을 전부 지워도 자식들이 'working' 으로 남았고,
+                 삭제 가드가 「진행중인 공정이 있다」며 계속 막았다. */
+            if (isJobResUntouched(jrId)) {
+                MapSqlParameterSource rp = new MapSqlParameterSource()
+                        .addValue("jrId", jrId).addValue("userId", user.getId());
+                this.sqlRunner.execute("""
+                        UPDATE job_res
+                           SET "State" = 'ordered', "EndTime" = NULL,
+                               "_modified" = now(), "_modifier_id" = :userId
+                         WHERE id = :jrId
+                           AND "State" <> 'ordered'
+                        """, rp);
+            }
             return;
         }
 

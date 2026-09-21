@@ -320,7 +320,19 @@ public class McellInspectService {
                      , ${MEMBER_IDS}                            AS member_ids
                      , to_char(r."EndTime",'yyyy-mm-dd hh24:mi') AS judged_at
                      , COALESCE(h.tries,0) AS try_cnt
+                     /* ★ 이 판정이 «지난 조립» 것인가.
+                          조립 → 검사 합격 → 조립 분해 → 재조립 으로 오면 마지막 회차가
+                          옛 합격으로 남아 있어, 검사대기인 유닛에 「합격」 칩이 붙어 보였다.
+                          최종 조립을 마칠 때 mcell_unit."EndTime" 이 새로 찍히므로,
+                          판정 시각이 그보다 이르면 지금 물건이 아니라 뜯기 전 물건의 판정이다.
+                          화면은 이 값을 보고 판정을 «이전» 으로 흐리게 보여 준다.
+                          (판정 자체는 이력으로 남긴다 — 「합격 후 분해」 도 추적돼야 한다) */
+                     , CASE WHEN r."EndTime" IS NOT NULL
+                             AND u."EndTime" IS NOT NULL
+                             AND r."EndTime" < u."EndTime"
+                            THEN 'Y' ELSE 'N' END      AS stale
                   FROM insp_form f
+                  CROSS JOIN (SELECT "EndTime" FROM mcell_unit WHERE id = :unitId) u
                   JOIN insp_form_mat fm ON fm."InspForm_id"=f.id AND fm."Material_id"=:matId
                   LEFT JOIN LATERAL (
                         SELECT x.* FROM insp_result x
@@ -624,7 +636,13 @@ public class McellInspectService {
 
         boolean anyFail = false, allPass = true;
         for (Map<String, Object> f : forms) {
-            Object v = f.get("verdict");
+            /* ★ 재조립 «이전» 의 판정은 없는 것으로 본다.
+                 getUnitFormStates 는 양식마다 마지막 회차를 주는데, 분해 후 다시 검사하지 않은
+                 양식은 그 마지막 회차가 뜯기 전 물건의 판정이다.
+                 그걸 그대로 세면 재조립 후 한 양식만 다시 검사해도 나머지 옛 합격과 합쳐져
+                 유닛이 합격으로 넘어갔다 — 「분해하면 처음부터 다시 검사」 가 뚫린다.
+                 화면이 「(이전)」 으로 흐리게 보이는 것과 같은 기준(stale)을 쓴다. */
+            Object v = "Y".equals(f.get("stale")) ? null : f.get("verdict");
             if ("fail".equals(v)) anyFail = true;
             if (!"pass".equals(v)) allPass = false;
         }
@@ -637,7 +655,7 @@ public class McellInspectService {
             List<String> lines = new ArrayList<>();
             List<String> tags = new ArrayList<>();
             for (Map<String, Object> f : forms) {
-                if (!"fail".equals(f.get("verdict"))) continue;
+                if (!"fail".equals(f.get("verdict")) || "Y".equals(f.get("stale"))) continue;
                 String fn = str(f.get("form_name"));
                 String fr = str(f.get("fail_reason"));
                 lines.add(fn + " : " + ((fr == null || fr.isBlank()) ? "불합격" : fr));

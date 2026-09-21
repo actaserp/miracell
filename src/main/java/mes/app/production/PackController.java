@@ -152,12 +152,12 @@ public class PackController {
 	 */
 	@GetMapping("/ck_mat_candidates")
 	public AjaxResult ckMatCandidates(
-		@RequestParam("mp_id") Integer mpId,
-		@RequestParam(value = "jr_pk",         required = false) Integer jrPk,
-		@RequestParam(value = "ck_material_id", required = false) Integer ckMaterialId,
-		@RequestParam(value = "keyword",       required = false) String keyword,
-		@RequestParam(value = "saved_only",    required = false, defaultValue = "false") boolean savedOnly,
-		@RequestParam(value = "spjangcd",      required = false) String spjangcd) {
+			@RequestParam("mp_id") Integer mpId,
+			@RequestParam(value = "jr_pk",         required = false) Integer jrPk,
+			@RequestParam(value = "ck_material_id", required = false) Integer ckMaterialId,
+			@RequestParam(value = "keyword",       required = false) String keyword,
+			@RequestParam(value = "saved_only",    required = false, defaultValue = "false") boolean savedOnly,
+			@RequestParam(value = "spjangcd",      required = false) String spjangcd) {
 		AjaxResult r = new AjaxResult();
 		r.data = this.packService.getCkMatCandidates(mpId, ckMaterialId, jrPk, keyword, savedOnly, spjangcd);
 		r.success = true;
@@ -375,13 +375,17 @@ public class PackController {
 			@RequestParam("allocations") String allocationsJson,
 			@RequestParam(value = "start_time", required = false) String startTime,
 			@RequestParam(value = "end_time", required = false) String endTime,
+			// 현장이 고친 박스 수 — 비우면 서버가 BOM 으로 계산한다
+			@RequestParam(value = "inbox_qty",  required = false) Float inboxQty,
+			@RequestParam(value = "carton_cap", required = false) Float cartonCap,
 			@RequestParam("spjangcd") String spjangcd,
 			Authentication auth) {
 
 		User user = (User) auth.getPrincipal();
 		List<Map<String, Object>> allocations = CommonUtil.loadJsonListMap(allocationsJson);
 
-		AjaxResult r = this.packService.packFinish(mpId, allocations, startTime, endTime, user, spjangcd);
+		AjaxResult r = this.packService.packFinish(mpId, allocations, startTime, endTime,
+				inboxQty, cartonCap, user, spjangcd);
 		if (!r.success) rollback();
 		return r;
 	}

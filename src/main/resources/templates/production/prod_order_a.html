@@ -375,15 +375,22 @@
                 }
 
                 //삭제
-                deleteOrder(id) {
+                deleteOrder(id, confirmInsp) {
                     let _this = this;
                     let url = '/api/production/prod_order_a/delete';
                     let data = {'id': id}
+                    if (confirmInsp) data.confirm_insp = 'Y';
 
                     let fnSuccess = function (res) {
                         if (res.success) {
                             Notify.success('삭제되었습니다.');
                             _this.searchMainData();
+                        } else if (res.code === 'CONFIRM_INSP') {
+                            /* 검사 판정 기록이 남은 작지 — 한 번 더 묻고, 동의하면 같이 지운다.
+                               (서버가 전부 분해된 유닛만 여기까지 보내므로 판정은 이미 무효다) */
+                            Alert.confirm('', res.message, function () {
+                                _this.deleteOrder(id, true);
+                            });
                         } else {
                             // 서버가 내려준 사유를 그대로 보여준다.
                             // (진행중 공정 존재 등 — 예전에는 고정 문구로 덮여 원인을 알 수 없었다)
@@ -454,6 +461,17 @@
                         $content.find('#cboEquipment').val(data.equip_id);
                         applyRoutingMode(data.routing_id, data.process_flow);
                     } else {
+                        /* 신규 등록은 대부분 주간조다. 매번 고르게 하면 손만 한 번 더 가고,
+                           빠뜨리면 저장에서 막힌다. 다른 조는 필요할 때 바꾸면 된다.
+                           ※ 콤보에 'day' 값이 없으면 아무 일도 일어나지 않는다(빈 채로 둔다). */
+                        const $shift = $content.find('#cboShiftCode');
+                        if (!$shift.val()) {
+                            const $day = $shift.find('option').filter(function () {
+                                return $(this).text().indexOf('주간') >= 0;
+                            }).first();
+                            if ($day.length) $shift.val($day.val());
+                        }
+
                         $btnMaterialSearch.removeAttr('disabled');
                         $btnMaterialSearch.click(function (e) {
 

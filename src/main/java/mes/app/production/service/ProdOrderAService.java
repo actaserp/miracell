@@ -3,6 +3,7 @@ package mes.app.production.service;
 import java.util.List;
 import java.util.Map;
 
+import mes.domain.services.CommonUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.stereotype.Service;
@@ -389,6 +390,81 @@ public class ProdOrderAService {
 	 * 착수한 유닛 수(부모 + 자식).
 	 * 스텝을 하나라도 손댔거나 실적이 붙은 유닛은 작지와 함께 지울 수 없다.
 	 */
+	/**
+	 * 검사 판정이 남아 있는 유닛 수(부모 + 자식).
+	 *
+	 * ★ 분해는 확정된 판정(Verdict 있음)을 지우지 않고 이력으로 남긴다 —
+	 *   「합격했다가 분해 → 재검사」 가 추적돼야 하기 때문이다.
+	 *   그래서 전부 분해해도 유닛은 wait 인데 insp_result 가 유닛을 FK 로 물고 있어,
+	 *   작지 삭제가 유닛을 지우는 순간 FK 위반으로 터졌다.
+	 *   판정은 실적과 같은 무게의 기록이므로, 있으면 작지를 지우지 않는다.
+	 */
+	public int countInspected(Integer headerId) {
+		MapSqlParameterSource p = new MapSqlParameterSource().addValue("pid", headerId);
+		return sqlRunner.queryForCount("""
+			select count(distinct mu.id)
+			  from mcell_unit mu
+			  join job_res jr on jr.id = mu."JobResponse_id"
+			 where (jr.id = :pid or jr."Parent_id" = :pid)
+			   and exists (select 1 from insp_result ir where ir."McellUnit_id" = mu.id)
+		""", p);
+	}
+
+	/**
+	 * 작지(부모+자식)에 매달린 유닛들의 검사 판정을 지운다. 지운 건수를 돌려준다.
+	 *
+	 * ★ 여기까지 오는 유닛은 «전부 분해된» 것뿐이다(countBusyUnits 가 먼저 막는다).
+	 *   분해하는 순간 그 판정은 효력을 잃었으므로, 지우는 것은 무효가 된 기록이다.
+	 * ★ 그래도 흔적은 남긴다 — sys_log 에 «누가 · 어느 작지 · 어떤 판정» 을 한 줄로.
+	 *   화면은 없어도 나중에 「그 검사 기록 어디 갔냐」 에 답할 수 있어야 한다.
+	 */
+	public int deleteInspections(Integer headerId, Integer userId) {
+		MapSqlParameterSource p = new MapSqlParameterSource()
+				.addValue("pid", headerId).addValue("uid", userId);
+
+		// 지우기 전에 요약을 남긴다
+		Map<String, Object> sum = sqlRunner.getRow("""
+			select count(*) as cnt
+			     , string_agg(coalesce(mu."LotNumber", 'SN-' || mu."UnitNo")
+			                  || ':' || coalesce(ir."Verdict", '-'), ', ' order by ir.id) as detail
+			  from insp_result ir
+			  join mcell_unit mu on mu.id = ir."McellUnit_id"
+			  join job_res jr on jr.id = mu."JobResponse_id"
+			 where jr.id = :pid or jr."Parent_id" = :pid
+		""", p);
+		int cnt = (sum == null || sum.get("cnt") == null) ? 0 : ((Number) sum.get("cnt")).intValue();
+		if (cnt == 0) return 0;
+
+		p.addValue("detail", CommonUtil.tryString(sum.get("detail")));
+		p.addValue("cnt", cnt);
+		sqlRunner.execute("""
+			insert into sys_log("Type","Source","Message",_created)
+			select 'info', 'prod_order_a/delete',
+			       '작지 삭제로 검사 판정 ' || :cnt || '건 삭제 · 작지 ' || coalesce(jr."WorkOrderNumber",'?')
+			       || ' · user#' || :uid || ' · ' || :detail,
+			       now()
+			  from job_res jr where jr.id = :pid
+		""", p);
+
+		// 항목 → 판정 순서(FK)
+		sqlRunner.execute("""
+			delete from insp_result_item
+			 where "InspResult_id" in (
+			       select ir.id from insp_result ir
+			         join mcell_unit mu on mu.id = ir."McellUnit_id"
+			         join job_res jr on jr.id = mu."JobResponse_id"
+			        where jr.id = :pid or jr."Parent_id" = :pid)
+		""", p);
+		sqlRunner.execute("""
+			delete from insp_result ir
+			 using mcell_unit mu, job_res jr
+			 where mu.id = ir."McellUnit_id"
+			   and jr.id = mu."JobResponse_id"
+			   and (jr.id = :pid or jr."Parent_id" = :pid)
+		""", p);
+		return cnt;
+	}
+
 	public int countBusyUnits(Integer headerId) {
 		MapSqlParameterSource p = new MapSqlParameterSource().addValue("pid", headerId);
 		return sqlRunner.queryForCount("""
@@ -510,6 +586,38 @@ public class ProdOrderAService {
 		return sqlRunner.execute("""
 			delete from job_res where "Parent_id" = :pid
 		""", p);
+	}
+
+	/**
+	 * 삭제 가능 여부만 본다(지우지 않는다).
+	 *   0  삭제 가능
+	 *  -1  부모가 아님
+	 *  -2  지시중이 아닌 공정이 있음
+	 *
+	 * ★ deleteById 와 같은 조건이지만 «검사만» 하는 이유 —
+	 *   삭제 흐름이 「유닛 정리 → 작지 삭제」 순서인데, 작지 삭제가 -2 로 거부되면
+	 *   유닛만 사라지고 작지는 남는다. -2 는 예외가 아니라 정상 반환이라
+	 *   @Transactional 이 붙어 있어도 롤백되지 않기 때문이다.
+	 *   그래서 유닛에 손대기 «전에» 이 검사를 먼저 통과시킨다.
+	 */
+	public int checkDeletable(Integer id) {
+
+		MapSqlParameterSource p = new MapSqlParameterSource().addValue("pid", id);
+
+		int isParent = sqlRunner.queryForCount("""
+            select count(*) from job_res
+            where id = :pid and "Parent_id" is null
+        """, p);
+		if (isParent == 0) return -1;
+
+		int notOrdered = sqlRunner.queryForCount("""
+            select count(*) from job_res
+             where (id = :pid or "Parent_id" = :pid)
+               and "State" <> 'ordered'
+        """, p);
+		if (notOrdered > 0) return -2;
+
+		return 0;
 	}
 
 	public int deleteById(Integer id) {

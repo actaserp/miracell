@@ -324,19 +324,92 @@
     <script th:inline="none">
         /* 높이 자동 맞춤 */
         (function () {
-            const root = document.querySelector('.ms-wash-root'); if (!root) return;
-            function localBelow() { let below = 0, node = root; while (node && node !== document.body) { let sib = node.nextElementSibling; while (sib) { const r = sib.getBoundingClientRect(); if (r.height > 0 && getComputedStyle(sib).position !== 'fixed') below += r.height; sib = sib.nextElementSibling; } node = node.parentElement; } let fx = 0; document.querySelectorAll('body *').forEach(el => { if (root.contains(el)) return; const cs = getComputedStyle(el); if (cs.position !== 'fixed' && cs.position !== 'sticky') return; const r = el.getBoundingClientRect(); if (r.height > 0 && r.height < innerHeight * 0.5 && r.bottom > innerHeight - 2) fx = Math.max(fx, r.height); }); return Math.max(below, fx); }
-            function availBottom() { let bottom = window.innerHeight; try { const fe = window.frameElement; if (fe) { const pWin = window.parent, pDoc = pWin.document; const feTop = fe.getBoundingClientRect().top; let flow = 0, node = fe; while (node && node !== pDoc.body) { let sib = node.nextElementSibling; while (sib) { const cs = pWin.getComputedStyle(sib), r = sib.getBoundingClientRect(); if (r.height > 0 && cs.position !== 'fixed' && cs.position !== 'absolute') flow += r.height; sib = sib.nextElementSibling; } node = node.parentElement; } let fx = 0; pDoc.querySelectorAll('body *').forEach(el => { if (el === fe || el.contains(fe)) return; const cs = pWin.getComputedStyle(el); if (cs.position !== 'fixed' && cs.position !== 'sticky' && cs.position !== 'absolute') return; const r = el.getBoundingClientRect(); if (r.height > 0 && r.height <= 160 && r.top > feTop && r.bottom > pWin.innerHeight - 40) fx = Math.max(fx, r.bottom - r.top); }); bottom = Math.min(bottom, (pWin.innerHeight - Math.max(flow, fx)) - feTop); } } catch (e) {} return bottom; }
-            function fit() { const top = root.getBoundingClientRect().top; const avail = availBottom() - top - localBelow(); root.style.setProperty('--wash-h', Math.max(320, Math.floor(avail)) + 'px'); }
-            window.addEventListener('resize', fit); window.addEventListener('orientationchange', fit); try { window.parent.addEventListener('resize', fit); } catch (e) {}
-            fit(); requestAnimationFrame(fit); setTimeout(fit, 200); setTimeout(fit, 600); if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
+            const root = document.querySelector('.ms-wash-root');
+            if (!root) return;
+
+            function localBelow() {
+                let below = 0, node = root;
+                while (node && node !== document.body) {
+                    let sib = node.nextElementSibling;
+                    while (sib) {
+                        const r = sib.getBoundingClientRect();
+                        if (r.height > 0 && getComputedStyle(sib).position !== 'fixed') below += r.height;
+                        sib = sib.nextElementSibling;
+                    }
+                    node = node.parentElement;
+                }
+                let fx = 0;
+                document.querySelectorAll('body *').forEach(el => {
+                    if (root.contains(el)) return;
+                    const cs = getComputedStyle(el);
+                    if (cs.position !== 'fixed' && cs.position !== 'sticky') return;
+                    const r = el.getBoundingClientRect();
+                    if (r.height > 0 && r.height < innerHeight * 0.5 && r.bottom > innerHeight - 2) fx = Math.max(fx, r.height);
+                });
+                return Math.max(below, fx);
+            }
+
+            function availBottom() {
+                let bottom = window.innerHeight;
+                try {
+                    const fe = window.frameElement;
+                    if (fe) {
+                        const pWin = window.parent, pDoc = pWin.document;
+                        const feTop = fe.getBoundingClientRect().top;
+                        let flow = 0, node = fe;
+                        while (node && node !== pDoc.body) {
+                            let sib = node.nextElementSibling;
+                            while (sib) {
+                                const cs = pWin.getComputedStyle(sib), r = sib.getBoundingClientRect();
+                                if (r.height > 0 && cs.position !== 'fixed' && cs.position !== 'absolute') flow += r.height;
+                                sib = sib.nextElementSibling;
+                            }
+                            node = node.parentElement;
+                        }
+                        let fx = 0;
+                        pDoc.querySelectorAll('body *').forEach(el => {
+                            if (el === fe || el.contains(fe)) return;
+                            const cs = pWin.getComputedStyle(el);
+                            if (cs.position !== 'fixed' && cs.position !== 'sticky' && cs.position !== 'absolute') return;
+                            const r = el.getBoundingClientRect();
+                            if (r.height > 0 && r.height <= 160 && r.top > feTop && r.bottom > pWin.innerHeight - 40) fx = Math.max(fx, r.bottom - r.top);
+                        });
+                        bottom = Math.min(bottom, (pWin.innerHeight - Math.max(flow, fx)) - feTop);
+                    }
+                } catch (e) {
+                }
+                return bottom;
+            }
+
+            function fit() {
+                const top = root.getBoundingClientRect().top;
+                const avail = availBottom() - top - localBelow();
+                root.style.setProperty('--wash-h', Math.max(320, Math.floor(avail)) + 'px');
+            }
+
+            window.addEventListener('resize', fit);
+            window.addEventListener('orientationchange', fit);
+            try {
+                window.parent.addEventListener('resize', fit);
+            } catch (e) {
+            }
+            fit();
+            requestAnimationFrame(fit);
+            setTimeout(fit, 200);
+            setTimeout(fit, 600);
+            if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
             /* 탭을 여러 개 열면 이 iframe 이 display:none 으로 숨는다.
                숨은 상태에서 잰 좌표는 전부 0 이라 avail 이 음수가 되고,
                하한선(320px)이 그대로 굳어 화면이 잘린 것처럼 보인다.
                → 다시 보이는 순간에 재계산한다. */
             if (window.IntersectionObserver) {
                 new IntersectionObserver(function (es) {
-                    es.forEach(function (e) { if (e.isIntersecting) { fit(); requestAnimationFrame(fit); } });
+                    es.forEach(function (e) {
+                        if (e.isIntersecting) {
+                            fit();
+                            requestAnimationFrame(fit);
+                        }
+                    });
                 }).observe(root);
             }
             document.addEventListener('visibilitychange', function () {
@@ -359,44 +432,93 @@
         const CTX = Object.assign({spjangcd: 'ZZ', dayRange: 30}, window.INSP_CTX || {});
         const REPEAT_INLINE_MAX = 5;
 
-        function clean(o) { const p = {}; Object.keys(o || {}).forEach(k => { if (o[k] !== null && o[k] !== undefined && o[k] !== '') p[k] = o[k]; }); return p; }
+        function clean(o) {
+            const p = {};
+            Object.keys(o || {}).forEach(k => {
+                if (o[k] !== null && o[k] !== undefined && o[k] !== '') p[k] = o[k];
+            });
+            return p;
+        }
+
         function apiGet(path, params) {
             if (typeof AjaxUtil === 'undefined' || !AjaxUtil.getSyncData) throw new Error('AjaxUtil 미로드 — 공용 스크립트 로드 순서를 확인하세요');
             const r = AjaxUtil.getSyncData(BASE + path, clean(params)) || {};
             if (r.success === false) throw new Error(r.message || '조회에 실패했습니다');
             return r.data;
         }
+
         function apiPost(path, params) {
             return new Promise(function (resolve, reject) {
-                if (typeof AjaxUtil === 'undefined' || !AjaxUtil.postAsyncData) { reject(new Error('AjaxUtil 미로드')); return; }
+                if (typeof AjaxUtil === 'undefined' || !AjaxUtil.postAsyncData) {
+                    reject(new Error('AjaxUtil 미로드'));
+                    return;
+                }
                 AjaxUtil.postAsyncData(BASE + path, clean(params), function (r) {
                     r = r || {};
-                    if (r.success === false) { reject(new Error(r.message || '처리에 실패했습니다')); return; }
+                    if (r.success === false) {
+                        reject(new Error(r.message || '처리에 실패했습니다'));
+                        return;
+                    }
                     resolve(r);
                 });
             });
         }
+
         function combo(t, c1) {
             if (typeof AjaxUtil === 'undefined' || !AjaxUtil.getSyncData) return [];
-            const r = AjaxUtil.getSyncData('/api/common/combo', {combo_type: t, cond1: c1 || '', cond2: '', cond3: ''}) || {};
-            if (t === 'person') return (r.data || []).map(x => ({value: x.value, text: x.text, code: x.Code || '',
-                factory: String(x.Factory_id || x.factory_id || '')}));
+            const r = AjaxUtil.getSyncData('/api/common/combo', {
+                combo_type: t,
+                cond1: c1 || '',
+                cond2: '',
+                cond3: ''
+            }) || {};
+            if (t === 'person') return (r.data || []).map(x => ({
+                value: x.value, text: x.text, code: x.Code || '',
+                factory: String(x.Factory_id || x.factory_id || '')
+            }));
             return (r.data || []).map(x => ({value: x.value, text: x.text}));
         }
+
         async function guard(fn) {
-            try { document.body.style.cursor = 'progress'; return await fn(); }
-            catch (e) { flash(e.message || String(e)); console.error('[inspect]', e); }
-            finally { document.body.style.cursor = ''; }
+            try {
+                document.body.style.cursor = 'progress';
+                return await fn();
+            } catch (e) {
+                flash(e.message || String(e));
+                console.error('[inspect]', e);
+            } finally {
+                document.body.style.cursor = '';
+            }
         }
 
         /* ── 기준 데이터 ── */
         const UST = {inspect_wait: '검사대기', inspecting: '검사중', pass: '합격', reject: '조립복귀', packed: '포장완료'};
         let WORKERS = [];
 
-        function todayStr() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
-        function shiftDay(b, n) { const d = new Date(b + 'T00:00:00'); d.setDate(d.getDate() + n); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
-        function esc(s) { return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c])); }
-        function num(v) { const n = parseFloat(v); return isNaN(n) ? 0 : n; }
+        function todayStr() {
+            const d = new Date();
+            return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+        }
+
+        function shiftDay(b, n) {
+            const d = new Date(b + 'T00:00:00');
+            d.setDate(d.getDate() + n);
+            return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+        }
+
+        function esc(s) {
+            return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;'
+            }[c]));
+        }
+
+        function num(v) {
+            const n = parseFloat(v);
+            return isNaN(n) ? 0 : n;
+        }
 
         /* ── 상태 ── */
         let ORDERS = [], curO = null, UNITS = [], curU = null;
@@ -414,6 +536,7 @@
                 drawQueue();
             });
         }
+
         function drawQueue() {
             const list = ORDERS.filter(o => filter === 'all' || o.state === filter);
             document.getElementById('qcnt').textContent = list.length + '건';
@@ -433,10 +556,16 @@
                     '<div class="blk"><span class="lab">복귀</span><span class="val r">' + num(o.reject_cnt) + '</span></div></div></div>';
             }).join('') || '<div style="grid-column:1/-1;text-align:center;color:var(--ink-2);font-weight:700;padding:40px">검사 대상이 없습니다. 조립을 먼저 완료하세요.</div>';
         }
-        document.getElementById('qgrid').addEventListener('click', e => { const c = e.target.closest('.wo'); if (c) openOrder(+c.dataset.id); });
+
+        document.getElementById('qgrid').addEventListener('click', e => {
+            const c = e.target.closest('.wo');
+            if (c) openOrder(+c.dataset.id);
+        });
         document.querySelectorAll('.qfilter button').forEach(b => b.addEventListener('click', () => {
             document.querySelectorAll('.qfilter button').forEach(x => x.classList.remove('on'));
-            b.classList.add('on'); filter = b.dataset.f; drawQueue();
+            b.classList.add('on');
+            filter = b.dataset.f;
+            drawQueue();
         }));
         document.getElementById('btnSearch').addEventListener('click', renderQueue);
         (function initDates() {
@@ -445,12 +574,24 @@
             document.getElementById('dTo').value = t;
         })();
 
-        const SC = {A: document.getElementById('scA'), B: document.getElementById('scB'), C: document.getElementById('scC')};
-        function show(k) { for (const x in SC) SC[x].classList.toggle('hide', x !== k); }
+        const SC = {
+            A: document.getElementById('scA'),
+            B: document.getElementById('scB'),
+            C: document.getElementById('scC')
+        };
+
+        function show(k) {
+            for (const x in SC) SC[x].classList.toggle('hide', x !== k);
+        }
+
         document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', () => {
             const to = b.dataset.back;
-            if (to === 'A') { renderQueue(); show('A'); }
-            else { renderUnits().then(() => show('B')); }
+            if (to === 'A') {
+                renderQueue();
+                show('A');
+            } else {
+                renderUnits().then(() => show('B'));
+            }
         }));
 
         /* ══════════ B. 유닛 목록 ══════════ */
@@ -458,7 +599,11 @@
             curO = ORDERS.find(o => +o.job_res_id === +jobResId);
             return renderUnits().then(() => show('B'));
         }
-        function unitState(u) { return u.state; }
+
+        function unitState(u) {
+            return u.state;
+        }
+
         /* 양식 1건의 검사자 표시 이름 — 대표 + 조원 전원 (조립 BSC 와 동일 규칙) */
         function formWho(f) {
             const t = (f && f.member_names && String(f.member_names).trim())
@@ -468,11 +613,21 @@
 
         function ckChip(f) {
             const nm = esc(f.form_name);
+            /* ★ 재조립 전의 판정이면 «이전» 으로 흐리게 보인다.
+                 조립 → 합격 → 분해 → 재조립 으로 오면 마지막 회차가 옛 합격이라,
+                 검사대기인 유닛에 「합격」이 떠서 이미 끝난 것처럼 읽혔다.
+                 지우지 않고 남기는 이유 — 「한 번 합격했다가 다시 왔다」는 것은
+                 검사원이 알아야 할 맥락이다. */
+            if (f.stale === 'Y' && f.verdict) {
+                return '<span class="ckchip" style="opacity:.55">' + nm + ' '
+                    + (f.verdict === 'pass' ? '합격' : '불합격') + '(이전)</span>';
+            }
             if (f.verdict === 'pass') return '<span class="ckchip pass">' + nm + ' 합격</span>';
             if (f.verdict === 'fail') return '<span class="ckchip fail">' + nm + ' 불합격</span>';
             if (f.result_id) return '<span class="ckchip prog">' + nm + ' 진행</span>';
             return '<span class="ckchip">' + nm + ' 대기</span>';
         }
+
         function renderUnits() {
             return guard(async () => {
                 UNITS = apiGet('/unit_list', {job_res_id: curO.job_res_id}) || [];
@@ -502,22 +657,34 @@
                     || '<div class="emptysess" style="grid-column:1/-1">검사 대상 유닛이 없습니다.</div>';
             });
         }
-        document.getElementById('uGrid').addEventListener('click', e => { const u = e.target.closest('.unit'); if (u) openUnit(+u.dataset.i); });
+
+        document.getElementById('uGrid').addEventListener('click', e => {
+            const u = e.target.closest('.unit');
+            if (u) openUnit(+u.dataset.i);
+        });
 
         /* ══════════ C. 유닛 검사 ══════════ */
         function openUnit(i) {
             return guard(async () => {
                 curU = UNITS[i];
                 FORMS = curU.forms || [];
-                if (!FORMS.length) { flash('이 품목에 연결된 검사 양식이 없습니다. «양식»에서 지정하세요.'); return; }
-                const next = FORMS.find(f => f.verdict !== 'pass') || FORMS[0];
+                if (!FORMS.length) {
+                    flash('이 품목에 연결된 검사 양식이 없습니다. «양식»에서 지정하세요.');
+                    return;
+                }
+                /* 이전 회차의 합격은 «끝난 것» 이 아니다 — 재조립했으니 다시 받아야 한다.
+                   그걸 건너뛰면 재검사 없이 지나가 버린다. */
+                const next = FORMS.find(f => f.verdict !== 'pass' || f.stale === 'Y') || FORMS[0];
                 curForm = next.form_id;
-                histView = null; histItems = null;
-                const sc = document.getElementById('cGrid').closest('.bscroll'); if (sc) sc.scrollTop = 0;
+                histView = null;
+                histItems = null;
+                const sc = document.getElementById('cGrid').closest('.bscroll');
+                if (sc) sc.scrollTop = 0;
                 await loadDetail();
                 show('C');
             });
         }
+
         async function loadDetail() {
             DET = apiGet('/result_detail', {unit_id: curU.unit_id, form_id: curForm});
             ITEMS = {};
@@ -528,25 +695,56 @@
             });
             renderUnit();
         }
-        function curFormMeta() { return FORMS.find(f => +f.form_id === +curForm) || {}; }
-        function formItems() { return (DET && DET.form && DET.form.items) || []; }
-        function itemKey(it, rep) { return it.item_id + '_' + rep; }
-        function got(it, rep) { return ITEMS[itemKey(it, rep)] || {}; }
-        function needCount() { return formItems().reduce((a, it) => a + Math.max(1, num(it.repeat_count)), 0); }
-        function gotCount() { return Object.keys(ITEMS).filter(k => ITEMS[k].result).length; }
-        function failCount() { return Object.keys(ITEMS).filter(k => ITEMS[k].result === 'fail').length; }
+
+        function curFormMeta() {
+            return FORMS.find(f => +f.form_id === +curForm) || {};
+        }
+
+        function formItems() {
+            return (DET && DET.form && DET.form.items) || [];
+        }
+
+        function itemKey(it, rep) {
+            return it.item_id + '_' + rep;
+        }
+
+        function got(it, rep) {
+            return ITEMS[itemKey(it, rep)] || {};
+        }
+
+        function needCount() {
+            return formItems().reduce((a, it) => a + Math.max(1, num(it.repeat_count)), 0);
+        }
+
+        function gotCount() {
+            return Object.keys(ITEMS).filter(k => ITEMS[k].result).length;
+        }
+
+        function failCount() {
+            return Object.keys(ITEMS).filter(k => ITEMS[k].result === 'fail').length;
+        }
+
         /** `라벨|공구` 줄 목록 파싱 */
         function specList(it) {
             return String(it.spec_options || '').split(/\r?\n/)
                 .map(l => l.trim()).filter(Boolean)
-                .map(l => { const a = l.split('|'); return {label: a[0].trim(), tool: (a[1] || '').trim()}; });
+                .map(l => {
+                    const a = l.split('|');
+                    return {label: a[0].trim(), tool: (a[1] || '').trim()};
+                });
         }
+
         /* 규격 선택지가 있으면 반복횟수와 무관하게 '회차별 기록' 방식 */
-        function isProgressive(it) { return specList(it).length > 0 || num(it.repeat_count) > REPEAT_INLINE_MAX; }
+        function isProgressive(it) {
+            return specList(it).length > 0 || num(it.repeat_count) > REPEAT_INLINE_MAX;
+        }
+
         /* 회차별 규격 — 직전 회차 규격을 이어받고, 바꾸면 다음 회차부터 적용 */
         let SPEC = {};
+
         function curSpec(it) {
-            const opts = specList(it); if (!opts.length) return null;
+            const opts = specList(it);
+            if (!opts.length) return null;
             if (SPEC[it.item_id]) return SPEC[it.item_id];
             for (let k = num(it.repeat_count); k >= 1; k--) {
                 const g = got(it, k);
@@ -554,7 +752,10 @@
             }
             return opts[0];
         }
-        function judgedRes() { return DET && DET.result && DET.result.verdict; }
+
+        function judgedRes() {
+            return DET && DET.result && DET.result.verdict;
+        }
 
         /** 수치 항목 자동 판정 */
         function autoJudge(it, v) {
@@ -574,7 +775,9 @@
             const who = [];
             FORMS.forEach(f => {
                 formWho(f).split(',').map(x => x.trim()).filter(Boolean)
-                    .forEach(n => { if (!who.includes(n)) who.push(n); });
+                    .forEach(n => {
+                        if (!who.includes(n)) who.push(n);
+                    });
             });
             document.getElementById('cSub').textContent =
                 (curO.mat_name || '') + ' · ' + (curO.order_num || '') +
@@ -583,7 +786,11 @@
             document.getElementById('cLot').textContent = curU.lot_number || '';
             document.getElementById('cLotPill').style.display = curU.lot_number ? '' : 'none';
 
-            if (histView !== null) { renderHistDetail(); if (_sc) _sc.scrollTop = 0; return; }
+            if (histView !== null) {
+                renderHistDetail();
+                if (_sc) _sc.scrollTop = 0;
+                return;
+            }
 
             let html = '';
             // 수리품은 신규 조립품과 이력이 다르다. 검사자가 먼저 알아야 할 정보라 맨 위에 둔다.
@@ -606,9 +813,16 @@
             }
             html += '<div class="tabbar">' + FORMS.map(f => {
                 let ts = '대기', cls = '';
-                if (f.verdict === 'pass') { ts = '합격'; cls = 'pass'; }
-                else if (f.verdict === 'fail') { ts = '불합격'; cls = 'fail'; }
-                else if (f.result_id) ts = '진행중';
+                // 재조립 전의 판정은 «이전» — 이번 물건은 아직 판정받지 않았다
+                if (f.stale === 'Y' && f.verdict) {
+                    ts = (f.verdict === 'pass' ? '합격' : '불합격') + '(이전)';
+                } else if (f.verdict === 'pass') {
+                    ts = '합격';
+                    cls = 'pass';
+                } else if (f.verdict === 'fail') {
+                    ts = '불합격';
+                    cls = 'fail';
+                } else if (f.result_id) ts = '진행중';
                 const fw = formWho(f);
                 return '<button class="' + (+f.form_id === +curForm ? 'on' : '') + '" data-tab="' + f.form_id + '">' +
                     esc(f.form_name) + '<span class="ts ' + cls + '">' + ts + '</span>' +
@@ -681,7 +895,13 @@
             prog.forEach(it => {
                 const total = num(it.repeat_count);
                 let done = 0, bad = 0;
-                for (let k = 1; k <= total; k++) { const g = got(it, k); if (g.result) { done++; if (g.result === 'fail') bad++; } }
+                for (let k = 1; k <= total; k++) {
+                    const g = got(it, k);
+                    if (g.result) {
+                        done++;
+                        if (g.result === 'fail') bad++;
+                    }
+                }
                 html += '<div class="auto-box"><div style="flex:1"><div style="font-size:13px;color:var(--ink-2);font-weight:700">' +
                     esc(it.item_name) + ' 진행' + (bad ? ' · 불 ' + bad + '회' : '') + '</div>' +
                     '<div class="big" style="font-size:24px">' + done + ' / ' + total + '</div>' +
@@ -728,6 +948,7 @@
             html += '<div class="auto-box"><div class="ic" style="background:' + (bad2 ? 'var(--red-bg)' : allDone ? 'var(--green-bg)' : 'var(--surface-2)') + '">' + (bad2 ? '✕' : allDone ? '✓' : '…') + '</div>' +
                 '<div style="flex:1"><div style="font-size:13px;color:var(--ink-2);font-weight:700">종합 판정 · ' + g2 + '/' + need + ' 입력</div>' +
                 '<div class="big" style="color:' + col + ';font-size:24px">' + verdict + '</div></div>' +
+                '<button class="btn ghost" id="cancelCur">검사 취소</button>' +
                 '<button class="btn ghost" id="resetCur">초기화</button>' +
                 '<button class="btn primary" id="commitJudge" ' + (allDone ? '' : 'disabled') + '>이 검사 확정</button></div>';
             return html;
@@ -777,8 +998,12 @@
             if (hd) {
                 uiConfirm('이 검사 이력을 삭제합니다.\n최신 회차를 지우면 유닛 판정이 다시 계산되고,\n합격이 풀리면 로트가 생산창고로 돌아갑니다.', function () {
                     guard(async () => {
-                        const r = await apiPost('/result_delete', {result_id: +hd.dataset.histdel, spjangcd: CTX.spjangcd});
-                        histView = null; histItems = null;
+                        const r = await apiPost('/result_delete', {
+                            result_id: +hd.dataset.histdel,
+                            spjangcd: CTX.spjangcd
+                        });
+                        histView = null;
+                        histItems = null;
                         await refreshUnitAfterJudge();
                         flash(r.message || '이력 삭제');
                     });
@@ -794,13 +1019,32 @@
                 });
                 return;
             }
-            if (e.target.closest('[data-histback]')) { histView = null; histItems = null; renderUnit(); return; }
-            if (e.target.closest('[data-histedit]')) { copyFromHistory(); return; }
+            if (e.target.closest('[data-histback]')) {
+                histView = null;
+                histItems = null;
+                renderUnit();
+                return;
+            }
+            if (e.target.closest('[data-histedit]')) {
+                copyFromHistory();
+                return;
+            }
 
             const tab = e.target.closest('[data-tab]');
-            if (tab) { curForm = +tab.dataset.tab; histView = null; guard(loadDetail); return; }
-            if (e.target.closest('[data-who]')) { openWho(); return; }
-            if (e.target.closest('[data-recheck]')) { doRecheck(); return; }
+            if (tab) {
+                curForm = +tab.dataset.tab;
+                histView = null;
+                guard(loadDetail);
+                return;
+            }
+            if (e.target.closest('[data-who]')) {
+                openWho();
+                return;
+            }
+            if (e.target.closest('[data-recheck]')) {
+                doRecheck();
+                return;
+            }
 
             const sp = e.target.closest('[data-spec]');
             if (sp) {
@@ -808,7 +1052,10 @@
                 const itemId = +raw.slice(0, ci), label = raw.slice(ci + 1);
                 const it = formItems().find(x => +x.item_id === itemId);
                 const o = specList(it).find(x => x.label === label);
-                if (o) { SPEC[itemId] = o; renderUnit(); }
+                if (o) {
+                    SPEC[itemId] = o;
+                    renderUnit();
+                }
                 return;
             }
             const ck = e.target.closest('[data-chk]') || e.target.closest('[data-cyc]');
@@ -819,19 +1066,38 @@
                 return;
             }
             const vb = e.target.closest('[data-val]');
-            if (vb) { const [itemId, rep] = vb.dataset.val.split(','); openVal(+itemId, +rep); return; }
+            if (vb) {
+                const [itemId, rep] = vb.dataset.val.split(',');
+                openVal(+itemId, +rep);
+                return;
+            }
 
             const cd = e.target.closest('[data-cycdel]');
             if (cd) {
                 const [itemId, rep] = cd.dataset.cycdel.split(',');
                 guard(async () => {
-                    await apiPost('/item_delete', {result_id: DET.result.result_id, form_item_id: itemId, repeat_no: rep});
-                    await loadDetail(); flash(rep + '회차 삭제');
+                    await apiPost('/item_delete', {
+                        result_id: DET.result.result_id,
+                        form_item_id: itemId,
+                        repeat_no: rep
+                    });
+                    await loadDetail();
+                    flash(rep + '회차 삭제');
                 });
                 return;
             }
-            if (e.target.id === 'resetCur') { resetCurrent(); return; }
-            if (e.target.id === 'commitJudge') { commitJudge(); return; }
+            if (e.target.id === 'cancelCur') {
+                cancelCurrent();
+                return;
+            }
+            if (e.target.id === 'resetCur') {
+                resetCurrent();
+                return;
+            }
+            if (e.target.id === 'commitJudge') {
+                commitJudge();
+                return;
+            }
         });
 
         /** 항목 결과 저장 — 수치 항목은 값으로 자동 판정 */
@@ -850,8 +1116,10 @@
                     spec_label: (sp && sp.label) || '', spec_tool: (sp && sp.tool) || '',
                     actor_id: DET.result.actor_id, spjangcd: CTX.spjangcd
                 });
-                ITEMS[itemKey(it, rep)] = {result: res, value: val,
-                    spec_label: sp && sp.label, spec_tool: sp && sp.tool};
+                ITEMS[itemKey(it, rep)] = {
+                    result: res, value: val,
+                    spec_label: sp && sp.label, spec_tool: sp && sp.tool
+                };
                 renderUnit();
             });
         }
@@ -862,11 +1130,40 @@
                     const keys = Object.keys(ITEMS);
                     for (const k of keys) {
                         const [itemId, rep] = k.split('_');
-                        await apiPost('/item_delete', {result_id: DET.result.result_id, form_item_id: itemId, repeat_no: rep});
+                        await apiPost('/item_delete', {
+                            result_id: DET.result.result_id,
+                            form_item_id: itemId,
+                            repeat_no: rep
+                        });
                     }
-                    await loadDetail(); flash('초기화');
+                    await loadDetail();
+                    flash('초기화');
                 });
             }, '초기화');
+        }
+
+        /* 검사 취소 — 판정 전 회차를 통째로 버린다.
+           취소가 없으면 중간에 멈춰야 할 때 회차를 닫으려고 «판정을 넣어야» 했고,
+           그러면 실제로 하지 않은 합격·불합격이 품질 기록에 남는다.
+           결론이 없는 입력은 증거가 아니므로 버리는 편이 정직하다.
+           ※ 판정이 난 회차는 여기서 못 지운다(이 버튼은 판정 전 화면에만 있다).
+           ※ 서버는 기존 /result_delete 를 그대로 쓴다 — 회차 삭제 후 유닛 판정을 다시 계산한다.
+             조립이 이 유닛의 분해를 «검사 진행 중» 이라며 막고 있었다면 여기서 풀린다. */
+        function cancelCurrent() {
+            if (!DET || !DET.result || !DET.result.result_id) return;
+            if (judgedRes()) {
+                flash('이미 판정한 검사는 취소할 수 없습니다.');
+                return;
+            }
+            uiConfirm('이 검사를 취소합니다.\n\n입력한 값은 모두 버려지고, 이 양식은 검사 전 상태로 돌아갑니다.', function () {
+                guard(async () => {
+                    await apiPost('/result_delete', {result_id: DET.result.result_id, spjangcd: CTX.spjangcd});
+                    histView = null;
+                    histItems = null;
+                    await refreshUnitAfterJudge();
+                    flash('검사를 취소했습니다.');
+                });
+            }, '검사 취소');
         }
 
         function commitJudge() {
@@ -890,7 +1187,10 @@
         async function refreshUnitAfterJudge() {
             await renderUnits();
             const u = UNITS.find(x => +x.unit_id === +curU.unit_id);
-            if (u) { curU = u; FORMS = u.forms || []; }
+            if (u) {
+                curU = u;
+                FORMS = u.forms || [];
+            }
             await loadDetail();
         }
 
@@ -910,7 +1210,8 @@
         /** 이력 회차를 복사해 새 회차로 (원본 보존) */
         function copyFromHistory() {
             const src = (histItems || []).slice();
-            histView = null; histItems = null;
+            histView = null;
+            histItems = null;
             guard(async () => {
                 await apiPost('/recheck', {
                     unit_id: curU.unit_id, form_id: curForm,
@@ -931,15 +1232,24 @@
         }
 
         /* ══════════ 시트 ══════════ */
-        function showMask(id) { document.getElementById(id).classList.add('show'); }
-        function hideMask(id) { document.getElementById(id).classList.remove('show'); }
+        function showMask(id) {
+            document.getElementById(id).classList.add('show');
+        }
+
+        function hideMask(id) {
+            document.getElementById(id).classList.remove('show');
+        }
+
         document.querySelectorAll('.mask').forEach(m => m.addEventListener('click', e => {
             if (e.target === m || e.target.closest('[data-close]')) m.classList.remove('show');
         }));
 
         /* 검사자 배정 — 여러 명. 첫 선택자가 대표(Actor). 조립(BSC)과 동일 규약 */
         let selWorkers = [];
-        function whoSel() { return selWorkers.length ? selWorkers[0].id : null; }
+
+        function whoSel() {
+            return selWorkers.length ? selWorkers[0].id : null;
+        }
 
         function openWho() {
             if (!WORKERS.length) WORKERS = fetchWorkers();   /* 소속 공장 인원만 */
@@ -948,7 +1258,9 @@
             if (DET.result && DET.result.actor_id) {
                 selWorkers.push({id: String(DET.result.actor_id), name: DET.result.actor_name || ''});
                 String(DET.result.member_ids || '').split(',').map(x => x.trim()).filter(Boolean)
-                    .forEach(id => { if (!selWorkers.some(w => w.id === id)) selWorkers.push({id, name: ''}); });
+                    .forEach(id => {
+                        if (!selWorkers.some(w => w.id === id)) selWorkers.push({id, name: ''});
+                    });
             }
             document.getElementById('whoTitle').textContent = curFormMeta().form_name + ' 검사자 배정';
             document.getElementById('whoOpts').innerHTML = WORKERS.map(w =>
@@ -958,10 +1270,16 @@
             paintWhoOpts();
             showMask('whoMask');
         }
+
         document.getElementById('whoOpts').addEventListener('click', e => {
-            const b = e.target.closest('[data-w]'); if (!b) return;
+            const b = e.target.closest('[data-w]');
+            if (!b) return;
             const id = b.dataset.w, name = b.dataset.n, k = selWorkers.findIndex(x => x.id === id);
-            if (k >= 0) { selWorkers.splice(k, 1); } else { selWorkers.push({id, name}); }
+            if (k >= 0) {
+                selWorkers.splice(k, 1);
+            } else {
+                selWorkers.push({id, name});
+            }
             paintWhoOpts();
         });
 
@@ -974,19 +1292,23 @@
             });
             document.getElementById('whoOk').disabled = !selWorkers.length;
         }
+
         document.getElementById('whoOk').onclick = function () {
             hideMask('whoMask');
             guard(async () => {
                 await apiPost('/result_start', {
                     unit_id: curU.unit_id, form_id: curForm,
-                    actor_id  : whoSel(),                                                /* 대표 = Actor_id */
+                    actor_id: whoSel(),                                                /* 대표 = Actor_id */
                     member_ids: selWorkers.slice(1).map(w => w.id).filter(Boolean).join(','),
                     spjangcd: CTX.spjangcd
                 });
                 await loadDetail();
                 await renderUnits();
                 const u = UNITS.find(x => +x.unit_id === +curU.unit_id);
-                if (u) { curU = u; FORMS = u.forms || []; }
+                if (u) {
+                    curU = u;
+                    FORMS = u.forms || [];
+                }
                 renderUnit();
                 flash('검사자 배정');
             });
@@ -994,9 +1316,12 @@
 
         /* 측정값 넘패드 */
         let valItem = null, valRep = null, valBuf = '';
+
         function openVal(itemId, rep) {
-            const it = formItems().find(x => +x.item_id === +itemId); if (!it) return;
-            valItem = itemId; valRep = rep;
+            const it = formItems().find(x => +x.item_id === +itemId);
+            if (!it) return;
+            valItem = itemId;
+            valRep = rep;
             valBuf = got(it, rep).value || '';
             document.getElementById('padLab').textContent = it.item_name + (num(it.repeat_count) > 1 ? ' — ' + rep + '회' : '') + ' 측정값';
             document.getElementById('padDisp').textContent = valBuf || '-';
@@ -1004,14 +1329,19 @@
             if (ub) ub.textContent = it.unit || 'mm';
             showMask('padMask');
         }
+
         document.querySelector('#padMask .keys').addEventListener('click', e => {
-            const k = e.target.dataset.k; if (!k) return;
+            const k = e.target.dataset.k;
+            if (!k) return;
             const it = formItems().find(x => +x.item_id === +valItem);
             if (k === 'C') valBuf = '';
             else if (k === 'bs') valBuf = valBuf.slice(0, -1);
-            else if (k === 'dot') { if (valBuf.indexOf('.') < 0) valBuf += (valBuf === '' ? '0.' : '.'); }
-            else if (k === 'unit') { const u = (it && it.unit) || 'mm'; if (valBuf && valBuf.indexOf(u) < 0) valBuf += u; }
-            else if (k === 'OK') {
+            else if (k === 'dot') {
+                if (valBuf.indexOf('.') < 0) valBuf += (valBuf === '' ? '0.' : '.');
+            } else if (k === 'unit') {
+                const u = (it && it.unit) || 'mm';
+                if (valBuf && valBuf.indexOf(u) < 0) valBuf += u;
+            } else if (k === 'OK') {
                 hideMask('padMask');
                 const cur = got(it, valRep);
                 saveItem(valItem, valRep, cur.result, valBuf);
@@ -1025,18 +1355,22 @@
             let m = document.getElementById('reasonMask');
             if (!m) {
                 m = document.createElement('div');
-                m.id = 'reasonMask'; m.className = 'mask';
+                m.id = 'reasonMask';
+                m.className = 'mask';
                 m.innerHTML = '<div class="sheet"><div class="body"><div class="sh"><h3>불합격 사유</h3><button class="x" data-close>✕</button></div>' +
                     '<div style="color:var(--ink-2);font-weight:700;font-size:13.5px;margin:2px 2px 12px">조립으로 복귀시킬 때 작업자에게 전달됩니다.</div>' +
                     '<input id="reasonInput" style="width:100%;height:58px;border:1px solid var(--line);border-radius:14px;padding:0 16px;font-size:18px;font-weight:700;background:var(--surface-2)" placeholder="예: ROTOR 진동 과다"/>' +
                     '<button class="ok" id="reasonOk">불합격 확정</button></div></div>';
                 document.body.appendChild(m);
-                m.addEventListener('click', e => { if (e.target === m || (e.target.closest && e.target.closest('[data-close]'))) m.classList.remove('show'); });
+                m.addEventListener('click', e => {
+                    if (e.target === m || (e.target.closest && e.target.closest('[data-close]'))) m.classList.remove('show');
+                });
             }
             m.querySelector('#reasonInput').value = '';
             m.querySelector('#reasonOk').onclick = function () {
                 const v = m.querySelector('#reasonInput').value.trim();
-                m.classList.remove('show'); onOk(v);
+                m.classList.remove('show');
+                onOk(v);
             };
             m.classList.add('show');
         }
@@ -1055,23 +1389,41 @@
                     '<button id="confirmOk" style="flex:1;height:52px;border-radius:14px;border:none;background:#0E7C86;color:#fff;font-weight:800;font-size:16px">확인</button>' +
                     '</div></div>';
                 document.body.appendChild(m);
-                m.addEventListener('click', e => { if (e.target === m) m.style.display = 'none'; });
+                m.addEventListener('click', e => {
+                    if (e.target === m) m.style.display = 'none';
+                });
             }
             m.querySelector('#confirmMsg').textContent = msg;
             const ok = m.querySelector('#confirmOk'), cancel = m.querySelector('#confirmCancel');
             ok.textContent = okLabel || '확인';
-            const close = function () { m.style.display = 'none'; ok.onclick = null; cancel.onclick = null; };
-            ok.onclick = function () { close(); onOk && onOk(); };
+            const close = function () {
+                m.style.display = 'none';
+                ok.onclick = null;
+                cancel.onclick = null;
+            };
+            ok.onclick = function () {
+                close();
+                onOk && onOk();
+            };
             cancel.onclick = close;
             m.style.display = 'flex';
         }
 
         /* 토스트 */
         let tT;
+
         function flash(m) {
             let t = document.getElementById('toast');
-            if (!t) { t = document.createElement('div'); t.id = 'toast'; t.style.cssText = 'position:fixed;left:50%;bottom:110px;transform:translateX(-50%);background:#15222B;color:#fff;padding:14px 22px;border-radius:14px;font-weight:700;z-index:120;box-shadow:0 12px 30px -10px rgba(0,0,0,.5);transition:opacity .3s;max-width:90vw;text-align:center'; document.body.appendChild(t); }
-            t.textContent = m; t.style.opacity = '1'; clearTimeout(tT); tT = setTimeout(() => t.style.opacity = '0', 1900);
+            if (!t) {
+                t = document.createElement('div');
+                t.id = 'toast';
+                t.style.cssText = 'position:fixed;left:50%;bottom:110px;transform:translateX(-50%);background:#15222B;color:#fff;padding:14px 22px;border-radius:14px;font-weight:700;z-index:120;box-shadow:0 12px 30px -10px rgba(0,0,0,.5);transition:opacity .3s;max-width:90vw;text-align:center';
+                document.body.appendChild(t);
+            }
+            t.textContent = m;
+            t.style.opacity = '1';
+            clearTimeout(tT);
+            tT = setTimeout(() => t.style.opacity = '0', 1900);
         }
 
         /* ══════════ 양식 관리 (PC) ══════════ */
@@ -1086,8 +1438,11 @@
             guard(async () => {
                 fMats = apiGet('/form_materials') || [];
                 FLIST = apiGet('/form_list', {spjangcd: CTX.spjangcd}) || [];
-                fCur = null; fItems = []; fSelMats = [];
-                drawFormList(); drawFormEditor();
+                fCur = null;
+                fItems = [];
+                fSelMats = [];
+                drawFormList();
+                drawFormEditor();
                 showMask('formMask');
             });
         });
@@ -1105,20 +1460,31 @@
         }
 
         document.getElementById('fList').addEventListener('click', e => {
-            const r = e.target.closest('[data-f]'); if (!r) return;
+            const r = e.target.closest('[data-f]');
+            if (!r) return;
             guard(async () => {
                 const d = apiGet('/form_detail', {form_id: +r.dataset.f});
                 fCur = d;
                 fItems = (d.items || []).map(x => Object.assign({}, x));
                 fSelMats = (d.materials || []).map(m => +m.mat_id);
-                drawFormList(); drawFormEditor();
+                drawFormList();
+                drawFormEditor();
             });
         });
 
         document.getElementById('fNew').addEventListener('click', () => {
-            fCur = {form_id: null, form_code: '', form_name: '', use_yn: 'Y', seq_no: (FLIST.length + 1), description: ''};
-            fItems = []; fSelMats = [];
-            drawFormList(); drawFormEditor();
+            fCur = {
+                form_id: null,
+                form_code: '',
+                form_name: '',
+                use_yn: 'Y',
+                seq_no: (FLIST.length + 1),
+                description: ''
+            };
+            fItems = [];
+            fSelMats = [];
+            drawFormList();
+            drawFormEditor();
         });
 
         /* ── 항목 도움말 ── */
@@ -1138,15 +1504,24 @@
             spec: ['규격 선택지', '회차마다 어떤 규격·공구로 시험했는지 남겨야 할 때만 씁니다. 보통은 비워둡니다.\n\n한 줄에 하나씩, 「라벨|공구」 형식으로 적습니다.\n  BSC 30 - 30 추|30ml 추\n  BSC 60 - 60 추|60ml 추\n  BMSC - 60 추|60ml 추\n\n선택지를 넣으면 반복횟수가 적어도 «회차별 기록» 방식으로 바뀝니다.\n작업자가 고른 규격은 다음 회차에도 이어지고, 바꾸면 그 다음 회차부터 적용됩니다.'],
             upper: ['상한', '판정방식이 «수치»일 때, 이 값보다 크면 불합격입니다.\n비워두면 위쪽 제한이 없습니다.']
         };
-        function hlp(k) { return '<span class="hlp" data-hlp="' + k + '">?</span>'; }
+
+        function hlp(k) {
+            return '<span class="hlp" data-hlp="' + k + '">?</span>';
+        }
 
         /* 도움말 툴팁 — 마우스오버로 표시. body 에 띄워 스크롤 영역에 잘리지 않는다. */
         (function () {
             let tip = null;
+
             function ensure() {
-                if (!tip) { tip = document.createElement('div'); tip.id = 'hlpTip'; document.body.appendChild(tip); }
+                if (!tip) {
+                    tip = document.createElement('div');
+                    tip.id = 'hlpTip';
+                    document.body.appendChild(tip);
+                }
                 return tip;
             }
+
             function place(el) {
                 const t = ensure(), r = el.getBoundingClientRect();
                 t.style.display = 'block';
@@ -1158,10 +1533,12 @@
                 t.style.left = left + 'px';
                 t.style.top = Math.max(10, top) + 'px';
             }
+
             document.addEventListener('mouseover', e => {
                 const el = e.target.closest && e.target.closest('[data-hlp]');
                 if (!el) return;
-                const d = HELP[el.dataset.hlp]; if (!d) return;
+                const d = HELP[el.dataset.hlp];
+                if (!d) return;
                 const t = ensure();
                 t.innerHTML = '<b></b>';
                 t.firstChild.textContent = d[0];
@@ -1171,7 +1548,9 @@
             document.addEventListener('mouseout', e => {
                 if (e.target.closest && e.target.closest('[data-hlp]') && tip) tip.style.display = 'none';
             });
-            document.addEventListener('scroll', () => { if (tip) tip.style.display = 'none'; }, true);
+            document.addEventListener('scroll', () => {
+                if (tip) tip.style.display = 'none';
+            }, true);
         })();
 
         function drawFormEditor() {
@@ -1200,7 +1579,10 @@
         /* 저장·삭제는 모달 하단 고정 바에 (PC 기준 크기) */
         function drawFormActions() {
             const bar = document.getElementById('fActions');
-            if (!fCur) { bar.innerHTML = '<span style="color:var(--ink-2);font-weight:700;font-size:13px">양식을 선택하거나 새로 만드세요.</span>'; return; }
+            if (!fCur) {
+                bar.innerHTML = '<span style="color:var(--ink-2);font-weight:700;font-size:13px">양식을 선택하거나 새로 만드세요.</span>';
+                return;
+            }
             bar.innerHTML =
                 (fCur.form_id ? '<button class="pcbtn danger" id="fDel">삭제</button>' : '') +
                 '<span style="flex:1;font-size:12.5px;color:var(--ink-2);font-weight:700">' +
@@ -1240,45 +1622,82 @@
             el.style.height = 'auto';
             el.style.height = Math.min(150, Math.max(44, el.scrollHeight + 2)) + 'px';
         }
-        function growAll() { document.querySelectorAll('#fEdit textarea').forEach(autoGrow); }
+
+        function growAll() {
+            document.querySelectorAll('#fEdit textarea').forEach(autoGrow);
+        }
 
         document.getElementById('fEdit').addEventListener('input', e => {
-            const t = e.target.closest('[data-fi]'); if (!t) return;
+            const t = e.target.closest('[data-fi]');
+            if (!t) return;
             const [i, k] = t.dataset.fi.split(',');
             fItems[+i][k] = t.value;
             autoGrow(t);
         });
         document.getElementById('fEdit').addEventListener('change', e => {
-            const t = e.target.closest('[data-fi]'); if (!t) return;
+            const t = e.target.closest('[data-fi]');
+            if (!t) return;
             const [i, k] = t.dataset.fi.split(',');
             fItems[+i][k] = t.value;
-            if (k === 'judge_type') { syncMats(); drawFormEditor(); }
+            if (k === 'judge_type') {
+                syncMats();
+                drawFormEditor();
+            }
         });
         document.getElementById('fEdit').addEventListener('click', e => {
-            const up = e.target.closest('[data-fup]'), dn = e.target.closest('[data-fdn]'), rm = e.target.closest('[data-frm]');
+            const up = e.target.closest('[data-fup]'), dn = e.target.closest('[data-fdn]'),
+                rm = e.target.closest('[data-frm]');
             if (up || dn) {
                 const i = +((up || dn).dataset.fup || (up || dn).dataset.fdn), j = i + (up ? -1 : 1);
                 if (j < 0 || j >= fItems.length) return;
-                const t = fItems[i]; fItems[i] = fItems[j]; fItems[j] = t;
-                syncMats(); drawFormEditor(); return;
+                const t = fItems[i];
+                fItems[i] = fItems[j];
+                fItems[j] = t;
+                syncMats();
+                drawFormEditor();
+                return;
             }
-            if (rm) { fItems.splice(+rm.dataset.frm, 1); syncMats(); drawFormEditor(); return; }
+            if (rm) {
+                fItems.splice(+rm.dataset.frm, 1);
+                syncMats();
+                drawFormEditor();
+                return;
+            }
             if (e.target.id === 'fAddItem') {
-                fItems.push({item_name: '', criteria: '', method: '육안', judge_type: 'ox', repeat_count: 1, unit: '', lower_limit: null, upper_limit: null, spec_options: ''});
-                syncMats(); drawFormEditor(); return;
+                fItems.push({
+                    item_name: '',
+                    criteria: '',
+                    method: '육안',
+                    judge_type: 'ox',
+                    repeat_count: 1,
+                    unit: '',
+                    lower_limit: null,
+                    upper_limit: null,
+                    spec_options: ''
+                });
+                syncMats();
+                drawFormEditor();
+                return;
             }
         });
 
         document.getElementById('fActions').addEventListener('click', e => {
-            if (e.target.id === 'fSave') { saveFormNow(); return; }
+            if (e.target.id === 'fSave') {
+                saveFormNow();
+                return;
+            }
             if (e.target.id === 'fDel') {
                 uiConfirm('이 검사 양식을 삭제할까요?', function () {
                     guard(async () => {
                         const r = await apiPost('/form_delete', {form_id: fCur.form_id});
                         flash(r.message || '삭제되었습니다');
                         FLIST = apiGet('/form_list', {spjangcd: CTX.spjangcd}) || [];
-                        fCur = null; fItems = []; fSelMats = [];
-                        drawFormList(); drawFormEditor(); drawFormActions();
+                        fCur = null;
+                        fItems = [];
+                        fSelMats = [];
+                        drawFormList();
+                        drawFormEditor();
+                        drawFormActions();
                     });
                 }, '삭제');
             }
@@ -1297,9 +1716,15 @@
 
         function saveFormNow() {
             syncMats();
-            if (!fCur.form_name || !fCur.form_name.trim()) { flash('검사명을 입력하세요'); return; }
+            if (!fCur.form_name || !fCur.form_name.trim()) {
+                flash('검사명을 입력하세요');
+                return;
+            }
             const items = fItems.filter(x => (x.item_name || '').trim() !== '');
-            if (!items.length) { flash('검사 항목을 1개 이상 등록하세요'); return; }
+            if (!items.length) {
+                flash('검사 항목을 1개 이상 등록하세요');
+                return;
+            }
             guard(async () => {
                 const p = {
                     form_code: fCur.form_code || '', form_name: fCur.form_name.trim(),
@@ -1316,7 +1741,8 @@
                 fCur = apiGet('/form_detail', {form_id: id});
                 fItems = (fCur.items || []).map(x => Object.assign({}, x));
                 fSelMats = (fCur.materials || []).map(m => +m.mat_id);
-                drawFormList(); drawFormEditor();
+                drawFormList();
+                drawFormEditor();
             });
         }
 
@@ -1349,8 +1775,13 @@
         /* ★ function 선언으로 둔다. 부팅 때 작업자를 미리 읽는 화면(2공장 조립·검사)이 있는데
            이 블록은 스크립트 끝에 있어서, var 로 두면 그 시점엔 값이 아직 undefined 다.
            공장 없이 조회가 나가고 그 결과가 그대로 굳는다. */
-        function workerApi()       { return '/api/production/inspect/workers'; }
-        function workerFactoryId() { return 2; }
+        function workerApi() {
+            return '/api/production/inspect/workers';
+        }
+
+        function workerFactoryId() {
+            return 2;
+        }
 
         /* 공용 콤보를 직접 부른다 — 화면마다 combo() 유무가 달라 여기서 자체 호출한다.
            cond1 = 공장(Factory_id). ComboService.person 이 이 조건을 받는다.
@@ -1365,12 +1796,14 @@
             return (r.data || []).map(function (x) {
                 return {
                     value: x.value,
-                    text : x.text,
-                    code : x.code || x.Code || '',
+                    text: x.text,
+                    code: x.code || x.Code || '',
                     factory: String(x.Factory_id != null ? x.Factory_id
                         : (x.factory_id != null ? x.factory_id : ''))
                 };
-            }).filter(function (w) { return w.value != null && w.text; });
+            }).filter(function (w) {
+                return w.value != null && w.text;
+            });
         }
 
         function fetchWorkerRows() {
@@ -1378,7 +1811,11 @@
 
             /* ① 공용 콤보 (기본 경로) */
             var list = [];
-            try { list = comboPerson(workerFactoryId()); } catch (e) { list = []; }
+            try {
+                list = comboPerson(workerFactoryId());
+            } catch (e) {
+                list = [];
+            }
 
             /* ② 콤보가 비면 공정 전용 /workers 로 폴백 (포장처럼 자체 엔드포인트가 있는 화면용) */
             if (!list.length) {
@@ -1389,32 +1826,42 @@
                         spjangcd: (typeof CTX !== 'undefined' && CTX && CTX.spjangcd) ? CTX.spjangcd : 'ZZ'
                     }) || {};
                     rows = r.data || (Array.isArray(r) ? r : []);
-                } catch (e2) { rows = []; }
+                } catch (e2) {
+                    rows = [];
+                }
                 if (!Array.isArray(rows)) rows = [];
                 list = rows.map(function (w) {
                     var id = (w.worker_id != null) ? w.worker_id
-                        : (w.actor_id  != null) ? w.actor_id
+                        : (w.actor_id != null) ? w.actor_id
                             : (w.person_id != null) ? w.person_id
                                 : (w.id != null) ? w.id : w.value;
                     return {
                         value: id,
-                        text : w.name || w.actor_name || w.text || '',
-                        code : w.code || '',
+                        text: w.name || w.actor_name || w.text || '',
+                        code: w.code || '',
                         factory: String(w.factory_id != null ? w.factory_id
                             : (w.Factory_id != null ? w.Factory_id : ''))
                     };
-                }).filter(function (w) { return w.value != null && w.text; });
+                }).filter(function (w) {
+                    return w.value != null && w.text;
+                });
                 if (list.length) console.warn('[workers] 공용 콤보가 비어 ' + workerApi() + ' 로 폴백했습니다.');
             }
 
             /* ③ 응답에 공장이 실려 있으면 화면에서 한 번 더 거른다 (2차 방어).
                   공장 미지정자는 어느 화면에서도 보이도록 남긴다 — 서버 조건과 같은 방침. */
-            var f = list.filter(function (w) { return !w.factory || w.factory === String(workerFactoryId()); });
+            var f = list.filter(function (w) {
+                return !w.factory || w.factory === String(workerFactoryId());
+            });
             if (f.length) list = f;
             return list;
         }
+
         /* {value,text,code} 형태로 쓰는 화면용 */
-        function fetchWorkers() { return fetchWorkerRows(); }
+        function fetchWorkers() {
+            return fetchWorkerRows();
+        }
+
         /* {actor_id,actor_name} 형태로 쓰는 화면용 */
         function fetchWorkersActor() {
             return fetchWorkerRows().map(function (w) {

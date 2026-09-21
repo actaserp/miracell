@@ -205,14 +205,58 @@ public class DashBoardMainService {
 				              · reject 를 빼면 검사했지만 떨어진 대수가 증발한다
 				          대기 대수(inspect_wait)는 이 공정의 「작업중」으로 쓴다 —
 				          검사 자리에 물건이 와 있다는 뜻이다. */
+				     /* ★ 「오늘 판정한 대수」다. 다른 공정의 today_good 이 오늘 기준이라
+				          검사만 누적으로 세면 나란히 놓인 숫자의 의미가 서로 달라진다
+				          (8월에 검사한 대수가 9월 화면에 계속 얹혀 있었다).
+				          판정 시각은 검사 회차(insp_result)에 남으므로 그것으로 자른다 —
+				          유닛의 _modified 는 포장·분해 같은 다른 일로도 움직여 기준이 못 된다. */
 				     , CASE WHEN pr."Code" = 'mc02' THEN (
-				           SELECT COUNT(*) FROM mcell_unit mu
+				           SELECT COUNT(DISTINCT mu.id) FROM mcell_unit mu
 				            WHERE COALESCE(mu._status,'a') = 'a'
-				              AND mu."State" IN ('pass','reject','packed')) END      AS unit_done
+				              AND mu."State" IN ('pass','reject','packed')
+				              AND EXISTS (SELECT 1 FROM insp_result ir
+				                           WHERE ir."McellUnit_id" = mu.id
+				                             AND COALESCE(ir._status,'a') = 'a'
+				                             AND COALESCE(ir."_modified", ir."_created")::date
+				                                 = CURRENT_DATE)) END                 AS unit_done
 				     , CASE WHEN pr."Code" = 'mc02' THEN (
 				           SELECT COUNT(*) FROM mcell_unit mu
 				            WHERE COALESCE(mu._status,'a') = 'a'
 				              AND mu."State" = 'inspect_wait') END                   AS unit_waiting
+				     /* ★ 검사 «진행중» — 판정 없이 회차만 열린 유닛.
+				          예전에는 검사대기(물건이 와 있음)를 작업중으로 셌는데,
+				          조립과 같은 원칙이라면 «시작해야» 작업중이다.
+				          대기는 unit_waiting 으로 따로 보여 준다. */
+				     , CASE WHEN pr."Code" = 'mc02' THEN (
+				           SELECT COUNT(DISTINCT ir."McellUnit_id") FROM insp_result ir
+				             JOIN mcell_unit mu ON mu.id = ir."McellUnit_id"
+				            WHERE COALESCE(ir._status,'a') = 'a'
+				              AND ir."Verdict" IS NULL
+				              AND COALESCE(mu._status,'a') = 'a'
+				              AND mu."State" = 'inspect_wait') END                   AS unit_inspecting
+				     /* ★ 2공장 조립(mc01)·포장(mc03)·수리(mc04)의 「오늘 얼마나 했나」.
+				          mat_produce 를 세면 안 된다 — 조립은 스텝마다 실적이 생겨서
+				          한 대를 만드는 동안 11~13건이 쌓인다. 두 단계만 끝내도 「2개」로
+				          보여 두 대를 만든 것처럼 읽혔다. 2공장의 단위는 «유닛 1대» 다.
+				            조립 완료 = 최상위까지 끝나 검사 대기로 넘어간 대수
+				                       (그 뒤 공정으로 간 pass·reject·packed 도 조립은 끝낸 것이다)
+				            포장 완료 = packed
+				            수리 완료 = «수리를 거친» 유닛 중 수리가 끝난 것
+				                       ★ 조립과 같은 조건으로 묶으면 안 된다 —
+				                         조립만 한 유닛이 수리 카드에도 그대로 잡힌다.
+				                         McellRepair_id 가 있어야 수리를 거친 유닛이다.
+				          검사(mc02)는 위 unit_done 이 이미 같은 일을 한다. */
+				     , CASE WHEN pr."Code" IN ('mc01','mc03','mc04') THEN (
+				           SELECT COUNT(*) FROM mcell_unit mu
+				            WHERE COALESCE(mu._status,'a') = 'a'
+				              AND COALESCE(mu."EndTime", mu."_modified")::date = CURRENT_DATE
+				              AND CASE pr."Code"
+				                    WHEN 'mc03' THEN mu."State" = 'packed'
+				                    WHEN 'mc04' THEN mu."McellRepair_id" IS NOT NULL
+				                                     AND mu."State" <> 'repairing'
+				                    ELSE mu."State" IN ('inspect_wait','pass','reject','packed')
+				                  END
+				       ) END                                                          AS unit_today
 				  FROM process pr
 				  LEFT JOIN work_center wc ON wc."Process_id" = pr.id
 				  LEFT JOIN mp ON mp.wc = wc.id
@@ -385,10 +429,20 @@ public class DashBoardMainService {
 				     , mu."UnitNo"      AS unit_no
 				     , mu."LotNumber"   AS lot_number
 				     , mu."State"       AS state
-				     , m."Name"         AS mat_name
+				     /* 유닛 자신의 품목을 먼저 쓴다. 작지 품목(완제품)과 다를 수 있고,
+				        화면에는 지금 조립중인 물건의 이름이 나와야 한다. */
+				     , COALESCE(mm."Name", m."Name") AS mat_name
 				     , pe."Name"        AS actor_name
 				     , CASE WHEN mu."McellRepair_id" IS NOT NULL THEN 'Y' ELSE 'N' END AS is_repair
+				     /* ★ 스텝 진척. 로트번호만으로는 「어디까지 왔나」를 알 수 없어,
+				          한 대를 며칠에 걸쳐 조립하는 동안 화면이 늘 같아 보였다. */
+				     , (SELECT COUNT(*) FROM mcell_unit_step st
+				         WHERE st."McellUnit_id" = mu.id)                  AS step_total
+				     , (SELECT COUNT(*) FROM mcell_unit_step st
+				         WHERE st."McellUnit_id" = mu.id
+				           AND st."State" = 'done')                        AS step_done
 				  FROM mcell_unit mu
+				  LEFT JOIN material mm ON mm.id = mu."Material_id"
 				  LEFT JOIN job_res  jr ON jr.id = mu."JobResponse_id"
 				  LEFT JOIN material m  ON m.id  = jr."Material_id"
 				  LEFT JOIN person   pe ON pe.id = mu."Actor_id"

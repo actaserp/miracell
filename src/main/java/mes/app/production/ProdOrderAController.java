@@ -285,9 +285,48 @@ public class ProdOrderAController {
 
 
 
+	/**
+	 * 삭제 거부 응답을 만든다(사전 검사와 실제 삭제가 같은 문구를 쓰도록).
+	 *   -1 공정(자식) 자체를 지우려 한 경우
+	 *   -2 지시중이 아닌 공정이 남아 있는 경우 — 어느 공정인지까지 적는다.
+	 *      목록은 부모만 보여주므로, 자식이 막고 있으면 사용자가 원인을 알 길이 없다.
+	 */
+	private AjaxResult deleteBlocked(int code, Integer id, AjaxResult result) {
+		result.success = false;
+
+		if (code == -1) {
+			result.message = "공정은 삭제할 수 없습니다.";
+			return result;
+		}
+
+		List<Map<String, Object>> blockers = this.prodOrderAService.getDeleteBlockers(id);
+		StringBuilder sb = new StringBuilder("진행중인 공정이 있어 삭제할 수 없습니다.");
+		if (blockers != null) {
+			int shown = 0;
+			for (Map<String, Object> b : blockers) {
+				if (shown >= 5) {   // 너무 길어지면 알럿이 화면을 넘는다
+					sb.append("\n· 외 ").append(blockers.size() - shown).append("종");
+					break;
+				}
+				sb.append("\n· ").append(CommonUtil.tryString(b.get("process_name")))
+						.append(" / ").append(CommonUtil.tryString(b.get("state_name")));
+
+				long cnt = b.get("cnt") == null ? 0 : ((Number) b.get("cnt")).longValue();
+				if (cnt > 1) sb.append(" ").append(cnt).append("건");
+				shown++;
+			}
+		}
+		sb.append("\n\n실적을 먼저 취소(분해)한 뒤 삭제해 주세요.");
+
+		result.message = sb.toString();
+		return result;
+	}
+
 	@PostMapping("/delete")
 	@Transactional
-	public AjaxResult deleteProdOrderA(@RequestParam("id") Integer id, Authentication auth) {
+	public AjaxResult deleteProdOrderA(@RequestParam("id") Integer id,
+									   @RequestParam(value = "confirm_insp", required = false) String confirmInsp,
+									   Authentication auth) {
 		AjaxResult result = new AjaxResult();
 		User user = (User) auth.getPrincipal();
 
@@ -345,6 +384,36 @@ public class ProdOrderAController {
 			return result;
 		}
 
+		/* 검사 판정이 남은 유닛 — 분해해도 판정은 이력으로 남는다.
+		   그대로 유닛을 지우면 insp_result 의 FK 에 걸려 500 이 났다.
+
+		   여기 오는 유닛은 «전부 분해된» 것뿐이라(위 가드) 판정은 이미 효력을 잃었다.
+		   현장이 작지를 지우고 싶어 하므로 막지 않되, 한 번 확인을 받는다.
+		     1차 호출 → CONFIRM_INSP 로 돌려 화면이 묻게 한다
+		     2차 호출(confirm_insp=Y) → 판정을 지우고(sys_log 에 흔적) 계속 진행 */
+		int inspected = this.prodOrderAService.countInspected(id);
+		if (inspected > 0 && !"Y".equals(confirmInsp)) {
+			result.success = false;
+			result.code = "CONFIRM_INSP";
+			result.message = "검사 판정 기록이 있는 유닛이 " + inspected + "대 있습니다.\n\n"
+					+ "모두 분해되어 판정은 이미 무효입니다.\n"
+					+ "작업지시를 삭제하면 이 판정 기록도 함께 삭제됩니다.\n\n계속하시겠습니까?";
+			return result;
+		}
+
+		/* ★ 남은 가드(job_res."State")를 «유닛에 손대기 전에» 먼저 통과시킨다.
+		     예전에는 유닛을 비운 뒤 deleteById 를 불렀는데, 거기서 -2 로 거부되면
+		     유닛만 사라지고 작지는 그대로 남았다. -2 는 예외가 아니라 정상 반환이라
+		     @Transactional 이 붙어 있어도 롤백되지 않기 때문이다.
+		     그 탓에 삭제에 실패한 작지를 다시 열면 유닛이 없어 빈 화면이 떴다. */
+		int pre = this.prodOrderAService.checkDeletable(id);
+		if (pre != 0) return deleteBlocked(pre, id, result);
+
+		// 확인을 받았으면 판정부터 지운다 — 유닛이 FK 로 물려 있어 먼저 치워야 한다
+		if (inspected > 0) {
+			this.prodOrderAService.deleteInspections(id, user.getId());
+		}
+
 		for (Integer childId : this.prodOrderAService.getChildIds(id)) {
 			AjaxResult sr = this.mcellAssemblyService.shrinkUnits(childId, 0, user);
 			if (!sr.success) { result.success = false; result.message = sr.message; return result; }
@@ -354,40 +423,8 @@ public class ProdOrderAController {
 
 		int deletYn = this.prodOrderAService.deleteById(id);
 
-		if (deletYn == -1) {
-			result.success = false;
-			result.message = "공정은 삭제할 수 없습니다.";
-			return result;
-		}
-		if (deletYn == -2) {
-			// 어느 공정이 걸렸는지까지 알려준다.
-			// 목록 화면은 부모만 보여주므로, 자식이 막고 있으면 사용자가 원인을 알 길이 없다.
-			List<Map<String, Object>> blockers = this.prodOrderAService.getDeleteBlockers(id);
+		if (deletYn < 0) return deleteBlocked(deletYn, id, result);
 
-			StringBuilder sb = new StringBuilder("진행중인 공정이 있어 삭제할 수 없습니다.");
-			if (blockers != null) {
-				int shown = 0;
-				for (Map<String, Object> b : blockers) {
-					if (shown >= 5) {   // 너무 길어지면 알럿이 화면을 넘는다
-						sb.append("\n· 외 ").append(blockers.size() - shown).append("종");
-						break;
-					}
-					sb.append("\n· ").append(CommonUtil.tryString(b.get("process_name")))
-							.append(" / ").append(CommonUtil.tryString(b.get("state_name")));
-
-					long cnt = b.get("cnt") == null ? 0 : ((Number) b.get("cnt")).longValue();
-					if (cnt > 1) sb.append(" ").append(cnt).append("건");
-
-					shown++;
-				}
-			}
-
-			sb.append("\n\n실적을 먼저 취소(분해)한 뒤 삭제해 주세요.");
-
-			result.success = false;
-			result.message = sb.toString();
-			return result;
-		}
 		if (deletYn <= 0) {
 			result.success = false;
 			result.message = "삭제할 작업지시가 없습니다.";

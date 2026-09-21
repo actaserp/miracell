@@ -337,8 +337,8 @@ public class PackService {
 	 *     자기 세션(excludeMpId)은 가용으로 친다.
 	 */
 	public List<Map<String, Object>> getSterilizedLots(String kind, Integer materialId,
-																										 String keyword, String spjangcd,
-																										 Integer excludeMpId, boolean excludeOrdered) {
+													   String keyword, String spjangcd,
+													   Integer excludeMpId, boolean excludeOrdered) {
 		MapSqlParameterSource p = new MapSqlParameterSource();
 		p.addValue("sterilStore", STORE_STERIL);
 		p.addValue("kind",     isBlank(kind)    ? null : kind);
@@ -438,8 +438,8 @@ public class PackService {
 	 *   → CK 지시가 목록에 안 뜨면 그 작지의 WorkCenter_id 부터 확인할 것.
 	 */
 	public List<Map<String, Object>> getOrderList(String dateFrom, String dateTo,
-																								String item, boolean includeComp,
-																								String spjangcd) {
+												  String item, boolean includeComp,
+												  String spjangcd) {
 		MapSqlParameterSource p = new MapSqlParameterSource();
 		p.addValue("dateFrom", dateFrom);
 		p.addValue("dateTo",   dateTo);
@@ -575,7 +575,7 @@ public class PackService {
 		for (Map<String, Object> r : rows) {
 			Integer matId = toInt(r.get("product_mat_id"));
 			Map<String, Float> spec = (matId == null) ? null
-																	: cache.computeIfAbsent(matId, id -> getKitSpec(id, spjangcd));
+					: cache.computeIfAbsent(matId, id -> getKitSpec(id, spjangcd));
 			if (spec == null) {
 				r.put("pk_per", 1f);
 				r.put("ck_per", 1f);
@@ -732,8 +732,8 @@ public class PackService {
 	 * @param savedOnly true 면 ①만 — 세션 열 때 복원용으로 부른다(검색 안 함)
 	 */
 	public List<Map<String, Object>> getCkMatCandidates(Integer mpId, Integer ckMaterialId,
-																											Integer jrPk, String keyword,
-																											boolean savedOnly, String spjangcd) {
+														Integer jrPk, String keyword,
+														boolean savedOnly, String spjangcd) {
 		if (ckMaterialId == null && jrPk != null) ckMaterialId = resolveCkMaterial(jrPk);
 		if (mpId == null) return Collections.emptyList();
 
@@ -1074,8 +1074,8 @@ public class PackService {
                AND COALESCE(mp."Material_id",0) = COALESCE(hdr."Material_id", jr."Material_id")
              ORDER BY mp."LotIndex"
             """.replace("__PHASE__", PHASE_SQL)
-																		/* 조원은 스칼라 서브쿼리. LATERAL 로 붙이면 조원 수만큼 세션 행이 복제된다. */
-																		.replace("${MEMBER_NAMES}", WorkMemberService.namesSql("mat_produce", "mp.id")), p);
+				/* 조원은 스칼라 서브쿼리. LATERAL 로 붙이면 조원 수만큼 세션 행이 복제된다. */
+				.replace("${MEMBER_NAMES}", WorkMemberService.namesSql("mat_produce", "mp.id")), p);
 	}
 
 	/**
@@ -1191,8 +1191,8 @@ public class PackService {
 		//   한 줄로 저장된다. 화면은 그 줄을 보고 조달 방식을 복원한다 —
 		//   mode 를 담을 컬럼을 따로 두지 않은 이유다(투입 자재 자체가 곧 방식이다).
 		Integer ckMatIdForUi = "ckstock".equals(str(session == null ? null : session.get("job_kind")))
-														 ? toInt(session.get("product_mat_id"))
-														 : (jrPk == null ? null : resolveCkMaterial(jrPk));
+				? toInt(session.get("product_mat_id"))
+				: (jrPk == null ? null : resolveCkMaterial(jrPk));
 		data.put("ck_material_id", ckMatIdForUi);
 
 		// 작지 잔여 (이 세션 제외) — 화면이 PK 수량 상한 안내에 쓴다
@@ -1284,7 +1284,7 @@ public class PackService {
 	// =========================================================================
 
 	public AjaxResult packStart(Integer jrId, Integer equipmentId, Integer workerId,
-															String memberIds, User user, String spjangcd) {
+								String memberIds, User user, String spjangcd) {
 		AjaxResult result = new AjaxResult();
 		result.success = true;
 
@@ -1299,7 +1299,7 @@ public class PackService {
 		MaterialProduce mp = createSessionMp(jr, productMatId, equipmentId, workerId, user, spjangcd);
 		// 조원 명단. 대표(workerId)는 위 mat_produce.Actor_id 에 이미 들어갔고, 여기에도 1행 남는다.
 		this.workMemberService.save(WorkMemberService.SRC_MAT_PRODUCE,
-			mp.getId(), workerId, memberIds, user, spjangcd);
+				mp.getId(), workerId, memberIds, user, spjangcd);
 		startEquRun(jr, equipmentId, workerId, user, spjangcd);
 
 		// ★ PK 자동배정 — 작지에 연결된 PK 품목을 멸균창고에서 FIFO 로 잡는다
@@ -1338,7 +1338,7 @@ public class PackService {
 	 *      순서를 바꾸면 잔여가 배수만큼 빨리 소진돼 두 번째 세션이 PK 를 못 잡는다.
 	 */
 	private Map<String, Object> autoAssignPkLots(MaterialProduce mp, JobRes jr,
-																							 User user, String spjangcd) {
+												 User user, String spjangcd) {
 		Map<String, Object> out = new HashMap<>();
 		out.put("auto_pk_qty", 0f);
 		out.put("auto_pk_cnt", 0);
@@ -1364,7 +1364,7 @@ public class PackService {
 		float need = remainUnits * pkPer;
 
 		List<Map<String, Object>> lots =
-			getSterilizedLots("pk", pkMatId, null, spjangcd, mp.getId(), false);
+				getSterilizedLots("pk", pkMatId, null, spjangcd, mp.getId(), false);
 
 		float assigned = 0f;
 		int cnt = 0;
@@ -1374,7 +1374,7 @@ public class PackService {
 			if (avail <= 0) continue;
 			float take = Math.min(avail, need);
 			insertAllocItem(null, mp.getId(), toInt(lot.get("mat_id")), take,
-				toInt(lot.get("mat_lot_id")), "N", "pk", spjangcd, user);
+					toInt(lot.get("mat_lot_id")), "N", "pk", spjangcd, user);
 			assigned += take;
 			need     -= take;
 			cnt++;
@@ -1386,7 +1386,7 @@ public class PackService {
 			out.put("auto_pk_note", "멸균창고에 사용 가능한 PK 로트가 없습니다. 멸균 BI 판정을 먼저 완료하세요.");
 		else if (need > EPS)
 			out.put("auto_pk_note", "멸균 재고가 부족해 PK " + fmt(assigned) + " 만 잡았습니다. (부족 "
-																+ fmt(need) + " · 완제품 1개당 PK " + fmt(pkPer) + ")");
+					+ fmt(need) + " · 완제품 1개당 PK " + fmt(pkPer) + ")");
 		return out;
 	}
 
@@ -1483,9 +1483,9 @@ public class PackService {
 	 *     어중간한 지시량이 남으면 나중에 잔여 계산이 계속 어긋난다.
 	 */
 	public AjaxResult packStartNoJob(Integer productMatId, Float orderQty,
-																	 List<Map<String, Object>> pkLots,
-																	 Integer equipmentId, Integer workerId, String memberIds,
-																	 String prodDateStr, User user, String spjangcd) {
+									 List<Map<String, Object>> pkLots,
+									 Integer equipmentId, Integer workerId, String memberIds,
+									 String prodDateStr, User user, String spjangcd) {
 		AjaxResult result = new AjaxResult();
 		result.success = true;
 
@@ -1514,7 +1514,7 @@ public class PackService {
 			float avail = toFloat(lot.get("avail"));
 			if (avail < qty)
 				return fail(result, "PK 로트 재고 부족 — " + lot.get("lot_no")
-															+ " (필요 " + fmt(qty) + " / 가용 " + fmt(avail) + ")");
+						+ " (필요 " + fmt(qty) + " / 가용 " + fmt(avail) + ")");
 			Integer mid = toInt(lot.get("mat_id"));
 			if (pkMatId == null) pkMatId = mid;
 			else if (!pkMatId.equals(mid))
@@ -1533,14 +1533,14 @@ public class PackService {
 		Float pkUnits = unitsFromPk(pkSum, pkPer);
 		if (pkUnits == null)
 			return fail(result, "PK 수량(" + fmt(pkSum) + ")이 완제품 1개당 " + fmt(pkPer)
-														+ "개로 나눠떨어지지 않습니다. 담은 수량을 조정해주세요.");
+					+ "개로 나눠떨어지지 않습니다. 담은 수량을 조정해주세요.");
 
 		float planQty = (orderQty != null && orderQty > 0) ? orderQty : pkUnits;
 		if (planQty <= 0) return fail(result, "포장 수량이 0 입니다.");
 
 		Timestamp now = DateUtil.getNowTimeStamp();
 		Timestamp prodDate = isBlank(prodDateStr)
-													 ? now : Timestamp.valueOf(LocalDate.parse(prodDateStr).atStartOfDay());
+				? now : Timestamp.valueOf(LocalDate.parse(prodDateStr).atStartOfDay());
 
 		Material product = this.materialRepository.getMaterialById(productMatId);
 		Integer wcId = getPackWorkCenterId();
@@ -1585,13 +1585,13 @@ public class PackService {
 
 		MaterialProduce mp = createSessionMp(child, productMatId, equipmentId, workerId, user, spjangcd);
 		this.workMemberService.save(WorkMemberService.SRC_MAT_PRODUCE,
-			mp.getId(), workerId, memberIds, user, spjangcd);
+				mp.getId(), workerId, memberIds, user, spjangcd);
 		startEquRun(child, equipmentId, workerId, user, spjangcd);
 
 		// ★ 고른 PK 를 바로 저장 — 화면 메모리로 들고 가지 않는다
 		for (Map<String, Object> lot : resolved)
 			insertAllocItem(null, mp.getId(), toInt(lot.get("mat_id")), toFloat(lot.get("_qty")),
-				toInt(lot.get("mat_lot_id")), "N", "pk", spjangcd, user);
+					toInt(lot.get("mat_lot_id")), "N", "pk", spjangcd, user);
 
 		Map<String, Object> data = new HashMap<>();
 		data.put("mp_id",      mp.getId());
@@ -1656,8 +1656,8 @@ public class PackService {
 	 *   반제품을 제품창고에 낸 것처럼 실적에 남는다.
 	 */
 	private MaterialProduce createSessionMp(JobRes jr, Integer productMatId,
-																					Integer equipmentId, Integer workerId,
-																					User user, String spjangcd) {
+											Integer equipmentId, Integer workerId,
+											User user, String spjangcd) {
 		Timestamp now = DateUtil.getNowTimeStamp();
 		Workcenter wc = this.workcenterRepository.getWorkcenterById(jr.getWorkCenter_id());
 
@@ -1694,7 +1694,7 @@ public class PackService {
 	}
 
 	private void startEquRun(JobRes jr, Integer equipmentId, Integer workerId,
-													 User user, String spjangcd) {
+							 User user, String spjangcd) {
 		EquRun er = new EquRun();
 		er.setEquipmentId(equipmentId);
 		er.setStartDate(DateUtil.getNowTimeStamp());
@@ -1726,7 +1726,7 @@ public class PackService {
 	 * @param pkLots [{mat_lot_id, qty}]  ★qty 는 PK 낱개
 	 */
 	public AjaxResult savePkLots(Integer mpId, List<Map<String, Object>> pkLots,
-															 User user, String spjangcd) {
+								 User user, String spjangcd) {
 		AjaxResult result = new AjaxResult();
 		result.success = true;
 
@@ -1753,7 +1753,7 @@ public class PackService {
 			float avail = toFloat(lot.get("avail"));
 			if (avail < qty)
 				return fail(result, "PK 로트 재고 부족 — " + lot.get("lot_no")
-															+ " (필요 " + fmt(qty) + " / 가용 " + fmt(avail) + ")");
+						+ " (필요 " + fmt(qty) + " / 가용 " + fmt(avail) + ")");
 			Integer mid = toInt(lot.get("mat_id"));
 			if (pkMatId == null) pkMatId = mid;
 			else if (!pkMatId.equals(mid))
@@ -1774,7 +1774,7 @@ public class PackService {
 
 		for (Map<String, Object> lot : resolved)
 			insertAllocItem(null, mpId, toInt(lot.get("mat_id")), toFloat(lot.get("_qty")),
-				toInt(lot.get("mat_lot_id")), "N", "pk", spjangcd, user);
+					toInt(lot.get("mat_lot_id")), "N", "pk", spjangcd, user);
 
 		// ★ 완제품 환산 — 화면 표시·검증용
 		float pkPer = getKitSpec(mp.getMaterialId(), spjangcd).get("pk_per");
@@ -1829,7 +1829,7 @@ public class PackService {
 	 *   ★ 여기서는 합계 검증을 하지 않는다(입력 중이므로). 검증은 packFinish 에서.
 	 */
 	public AjaxResult saveAllocations(Integer mpId, List<Map<String, Object>> allocations,
-																		User user, String spjangcd) {
+									  User user, String spjangcd) {
 		AjaxResult result = new AjaxResult();
 		result.success = true;
 
@@ -1880,9 +1880,20 @@ public class PackService {
 	 *                      ck_mat_lot_id,                        // mode='stock'
 	 *                      items:[{mat_id, qty, mat_lot_id}]}]   // mode='produce'
 	 */
+	/**
+	 * @param inboxQtyOverride  현장이 실제로 쓴 인박스 수. 비우면 BOM(IN BOX 비율 × 완제품 수).
+	 * @param cartonCapOverride 이번 작업의 카톤 1개당 완제품 수. 비우면 BOM(1 / OUT BOX 비율).
+	 *
+	 * ★ 박스는 실물이 BOM 과 다르게 쓰이는 일이 잦다(「이번엔 카톤에 6개씩 넣었다」).
+	 *   BOM 으로만 계산하면 재고가 실물과 어긋나므로 화면에서 고칠 수 있게 했다.
+	 * ★ 카톤은 «개수» 가 아니라 «입수» 를 받는다 — 카톤은 국가별로 나뉘고 박스마다
+	 *   로트가 발번되므로, 입수만 바꾸면 국가별 박스 수와 로트가 그대로 다시 계산된다.
+	 *   개수를 직접 받으면 «어느 나라 박스를 몇 개로» 를 따로 정해야 한다.
+	 */
 	public AjaxResult packFinish(Integer mpId, List<Map<String, Object>> allocations,
-															 String startTimeStr, String endTimeStr,
-															 User user, String spjangcd) {
+								 String startTimeStr, String endTimeStr,
+								 Float inboxQtyOverride, Float cartonCapOverride,
+								 User user, String spjangcd) {
 		AjaxResult result = new AjaxResult();
 		result.success = true;
 
@@ -1918,10 +1929,10 @@ public class PackService {
 
 		Timestamp now = DateUtil.getNowTimeStamp();
 		Timestamp startTs = isBlank(startTimeStr) ? mp.getStartTime()
-													: Timestamp.valueOf(LocalDateTime.parse(startTimeStr, DTM));
+				: Timestamp.valueOf(LocalDateTime.parse(startTimeStr, DTM));
 		if (startTs == null) startTs = now;
 		Timestamp endTs = isBlank(endTimeStr) ? now
-												: Timestamp.valueOf(LocalDateTime.parse(endTimeStr, DTM));
+				: Timestamp.valueOf(LocalDateTime.parse(endTimeStr, DTM));
 
 		// ── PK 검증 (kit 세션만) ──
 		List<Map<String, Object>> pkResolved = new ArrayList<>();
@@ -1949,7 +1960,7 @@ public class PackService {
 				float avail = toFloat(lot.get("avail"));
 				if (avail < qty)
 					return fail(result, "PK 로트 재고 부족 — " + lot.get("lot_no")
-																+ " (필요 " + fmt(qty) + " / 가용 " + fmt(avail) + ")");
+							+ " (필요 " + fmt(qty) + " / 가용 " + fmt(avail) + ")");
 				Map<String, Object> row = new HashMap<>(lot);
 				row.put("_qty", qty);
 				pkResolved.add(row);
@@ -1961,7 +1972,7 @@ public class PackService {
 			Float u = unitsFromPk(pkSum, pkPer);
 			if (u == null)
 				return fail(result, "담긴 PK 수량(" + fmt(pkSum) + ")이 완제품 1개당 " + fmt(pkPer)
-															+ "개로 나눠떨어지지 않습니다. PK 로트를 다시 담아주세요.");
+						+ "개로 나눠떨어지지 않습니다. PK 로트를 다시 담아주세요.");
 			units = u;
 		}
 		if (units <= 0) return fail(result, "수량이 0 입니다.");
@@ -1971,8 +1982,8 @@ public class PackService {
 		float ckNeed   = units * ckPer;
 		if (!ckStock && Math.abs(allocSum - ckNeed) > EPS)
 			return fail(result, "CK 배분 합계(" + fmt(allocSum) + ")가 필요 수량("
-														+ fmt(ckNeed) + " = 완제품 " + fmt(units) + " × " + fmt(ckPer)
-														+ ")과 다릅니다.");
+					+ fmt(ckNeed) + " = 완제품 " + fmt(units) + " × " + fmt(ckPer)
+					+ ")과 다릅니다.");
 
 		// ── IN BOX 검증 (kit 세션만) ── qty_per 는 완제품 1개당이라 units 를 곱한다
 		Map<String, Object> boxSpec = getBoxSpec(mp.getMaterialId(), spjangcd);
@@ -1981,11 +1992,13 @@ public class PackService {
 		Integer inboxMatId = ckStock ? null : (inbox == null ? null : toInt(inbox.get("mat_id")));
 		float inboxNeed = 0f;
 		if (inboxMatId != null) {
-			inboxNeed = toFloat(inbox.get("qty_per")) * units;
+			inboxNeed = (inboxQtyOverride != null && inboxQtyOverride > 0)
+					? inboxQtyOverride
+					: (float) Math.ceil(toFloat(inbox.get("qty_per")) * units);   // 박스는 낱개로 쓴다
 			float have = stockInStores(inboxMatId, CK_SRC_STORES);
 			if (have < inboxNeed)
 				return fail(result, "IN BOX 재고가 부족합니다. (필요 " + fmt(inboxNeed)
-															+ " / 재고 " + fmt(have) + ")");
+						+ " / 재고 " + fmt(have) + ")");
 		}
 
 		// ── CK produce 모드 자재 사전 검증 (한꺼번에) ──
@@ -2008,7 +2021,7 @@ public class PackService {
 			if (have < e.getValue()) {
 				Material m = this.materialRepository.getMaterialById(e.getKey());
 				shortages.add((m != null ? m.getName() : ("자재" + e.getKey()))
-												+ " (필요 " + fmt(e.getValue()) + " / 재고 " + fmt(have) + ")");
+						+ " (필요 " + fmt(e.getValue()) + " / 재고 " + fmt(have) + ")");
 			}
 		}
 		if (!shortages.isEmpty())
@@ -2021,9 +2034,9 @@ public class PackService {
 		for (Map<String, Object> lot : pkResolved) {
 			float qty = toFloat(lot.get("_qty"));
 			consumeFixedLot(toInt(lot.get("mat_lot_id")), qty, toFloat(lot.get("avail")),
-				mp, user, spjangcd);
+					mp, user, spjangcd);
 			writeConsumeRecord(jr, mp, toInt(lot.get("mat_id")), qty, STORE_STERIL,
-				str(lot.get("lot_no")), "PK 투입(멸균창고)", startTs, endTs, user, spjangcd);
+					str(lot.get("lot_no")), "PK 투입(멸균창고)", startTs, endTs, user, spjangcd);
 		}
 
 		// ── 소비 : IN BOX ──
@@ -2033,7 +2046,7 @@ public class PackService {
 				return fail(result, "IN BOX 재고가 부족합니다. (부족 " + fmt(cr.remain) + ")");
 			for (Map.Entry<Integer, Float> e : cr.byStore.entrySet())
 				writeConsumeRecord(jr, mp, inboxMatId, e.getValue(), e.getKey(), null,
-					"인박스 포장자재 투입", startTs, endTs, user, spjangcd);
+						"인박스 포장자재 투입", startTs, endTs, user, spjangcd);
 		}
 
 		// ── 국가별 CK 생산 / 투입 ──
@@ -2096,8 +2109,8 @@ public class PackService {
 				// ★ 'N' = 세션 차수가 아니라 CK 산출 차수. 목록·롤업이 이 값으로 가른다.
 				ckMp.setLastProcessYN("N");
 				ckLotNo = !isBlank(str(ar.get("ck_lot")))
-										? str(ar.get("ck_lot"))
-										: this.lotService.make_production_lot_in_number("CK");
+						? str(ar.get("ck_lot"))
+						: this.lotService.make_production_lot_in_number("CK");
 				ckMp.setLotNumber(ckLotNo);
 				ckMp.setSpjangcd(spjangcd);
 				ckMp.setInputQty(ckQty);
@@ -2137,18 +2150,18 @@ public class PackService {
 						float avail = toFloat(lot.get("avail"));
 						if (avail < qty)
 							return fail(result, ckPrefix(country) + matName + " — 멸균 로트 재고 부족 (필요 "
-																		+ fmt(qty) + " / 가용 " + fmt(avail) + ")");
+									+ fmt(qty) + " / 가용 " + fmt(avail) + ")");
 						consumeFixedLot(fixedLotId, qty, avail, ckMp, user, spjangcd);
 						writeConsumeRecord(jr, ckMp, matId, qty, STORE_STERIL, str(lot.get("lot_no")),
-							"CK 생산 투입" + ctag + " 멸균로트", startTs, endTs, user, spjangcd);
+								"CK 생산 투입" + ctag + " 멸균로트", startTs, endTs, user, spjangcd);
 					} else {
 						ConsumeResult cr = consumeFifoMulti(matId, CK_SRC_STORES, qty, ckMp, user, spjangcd);
 						if (cr.remain > 0)
 							return fail(result, ckPrefix(country) + matName
-																		+ " — 재고가 부족합니다. (부족 " + fmt(cr.remain) + ")");
+									+ " — 재고가 부족합니다. (부족 " + fmt(cr.remain) + ")");
 						for (Map.Entry<Integer, Float> e : cr.byStore.entrySet())
 							writeConsumeRecord(jr, ckMp, matId, e.getValue(), e.getKey(), null,
-								"CK 생산 투입" + ctag, startTs, endTs, user, spjangcd);
+									"CK 생산 투입" + ctag, startTs, endTs, user, spjangcd);
 					}
 				}
 
@@ -2156,7 +2169,7 @@ public class PackService {
 				//   여기엔 어느 공장에서 나온 로트인지를 남긴다 — 2공장(M-CELL)도
 				//   같은 mat_lot 에 로트를 만들기 때문에 이 구분이 없으면 섞여 보인다.
 				receiveLot(ckMatId, ckLotNo, null, ckQty, STORE_CK_OUT,
-					"mat_produce", ckMp.getId(), "CK 생산 입고(1공장)", user, spjangcd);
+						"mat_produce", ckMp.getId(), "CK 생산 입고(1공장)", user, spjangcd);
 				ckLotId = findLotIdBySource(ckMp.getId(), STORE_CK_OUT);
 			}
 
@@ -2169,8 +2182,8 @@ public class PackService {
 					return fail(result, "CK 로트 재고 부족 — " + ckLotNo);
 				consumeFixedLot(ckLotId, ckQty, toFloat(lot.get("avail")), mp, user, spjangcd);
 				writeConsumeRecord(jr, mp, usedCkMatId, ckQty, STORE_CK_OUT, ckLotNo,
-					("stock".equals(mode) ? "CK 자체재고 투입" : "CK 투입") + ctag,
-					startTs, endTs, user, spjangcd);
+						("stock".equals(mode) ? "CK 자체재고 투입" : "CK 투입") + ctag,
+						startTs, endTs, user, spjangcd);
 			}
 
 			MapSqlParameterSource up = new MapSqlParameterSource();
@@ -2226,7 +2239,9 @@ public class PackService {
 		// ── 카톤 발번도 여기서 함께 한다 ──
 		//   ④가 아니라 여기서 낸다. 작업 순서가 「완제품 산출 → 카톤 라벨 출력 → ④완료」라
 		//   ④에서 내면 출력 시점에 번호가 없다.
-		float cap = toFloat(boxSpec.get("outbox_cap"));
+		float cap = (cartonCapOverride != null && cartonCapOverride > 0)
+				? cartonCapOverride
+				: toFloat(boxSpec.get("outbox_cap"));
 		float cartonCnt = issueCountryLotsAndCartons(mp, units, cap, ckPer, outStoreId, user, spjangcd);
 		String cartonLot = getCartonLot(mpId);
 
@@ -2388,7 +2403,7 @@ public class PackService {
 			if (ckMpId == null) continue;
 			rollbackProduce(ckMpId);
 			this.sqlRunner.execute("DELETE FROM mat_produce WHERE id = :ckMpId",
-				new MapSqlParameterSource().addValue("ckMpId", ckMpId));
+					new MapSqlParameterSource().addValue("ckMpId", ckMpId));
 		}
 
 		// 배분은 지우지 않고 계획으로 되돌린다 — 입력을 잃지 않는다
@@ -2475,7 +2490,7 @@ public class PackService {
 	 * @param labels [{kind:'ckpk'|'inbox', gtin, lot, date, expiry, qty, raw}]
 	 */
 	public AjaxResult labelScan(Integer mpId, List<Map<String, Object>> labels,
-															User user, String spjangcd) {
+								User user, String spjangcd) {
 		AjaxResult result = new AjaxResult();
 		result.success = true;
 
@@ -2534,7 +2549,7 @@ public class PackService {
 		Set<String> pkUdiSet = getPkUdiSet(mpId);
 		if (!isBlank(udiLot) && !pkUdiSet.isEmpty() && !containsLot(pkUdiSet, udiLot))
 			warns.add("스캔 라벨(" + udiLot + ")이 투입 PK 로트의 UDI("
-									+ String.join(", ", pkUdiSet) + ") 어느 것과도 다릅니다.");
+					+ String.join(", ", pkUdiSet) + ") 어느 것과도 다릅니다.");
 
 		/*
 		 * ★ 거절 모드면 여기서 멈춘다 — 저장 전이라 아무 흔적도 남지 않는다.
@@ -2695,7 +2710,7 @@ public class PackService {
 
 		Timestamp now = DateUtil.getNowTimeStamp();
 		Timestamp endTs = isBlank(endTimeStr) ? now
-												: Timestamp.valueOf(LocalDateTime.parse(endTimeStr, DTM));
+				: Timestamp.valueOf(LocalDateTime.parse(endTimeStr, DTM));
 
 		Map<String, Object> boxSpec = getBoxSpec(mp.getMaterialId(), spjangcd);
 		float units = mp.getGoodQty() == null ? 0f : mp.getGoodQty();   // ★ 완제품 단위
@@ -2714,13 +2729,13 @@ public class PackService {
 			float have = stockInStores(outboxMatId, CK_SRC_STORES);
 			if (have < cartonCnt)
 				return fail(result, "OUT BOX 재고가 부족합니다. (필요 " + fmt(cartonCnt)
-															+ " / 재고 " + fmt(have) + ")");
+						+ " / 재고 " + fmt(have) + ")");
 			ConsumeResult cr = consumeFifoMulti(outboxMatId, CK_SRC_STORES, cartonCnt, mp, user, spjangcd);
 			if (cr.remain > 0)
 				return fail(result, "OUT BOX 재고가 부족합니다. (부족 " + fmt(cr.remain) + ")");
 			for (Map.Entry<Integer, Float> e : cr.byStore.entrySet())
 				writeConsumeRecord(jr, mp, outboxMatId, e.getValue(), e.getKey(), null,
-					"아웃박스(카톤) 포장자재 투입", mp.getStartTime(), endTs, user, spjangcd);
+						"아웃박스(카톤) 포장자재 투입", mp.getStartTime(), endTs, user, spjangcd);
 		}
 
 		// ── 세션 완료 ──
@@ -2766,8 +2781,8 @@ public class PackService {
 	 * @return 이 차수의 총 카톤 수
 	 */
 	private float issueCountryLotsAndCartons(MaterialProduce mp, float units, float cap,
-																					 float ckPer, Integer outStoreId,
-																					 User user, String spjangcd) {
+											 float ckPer, Integer outStoreId,
+											 User user, String spjangcd) {
 		Integer mpId = mp.getId();
 		if (cap <= 0) cap = 4f;
 		if (ckPer <= 0) ckPer = 1f;
@@ -2783,7 +2798,7 @@ public class PackService {
 		// 배분이 없으면 예전처럼 로트 하나. 국가를 안 쓰는 현장도 있으므로 막지 않는다
 		if (allocs == null || allocs.isEmpty()) {
 			receiveLot(mp.getMaterialId(), mp.getLotNumber(), null, units, outStoreId,
-				"mat_produce", mpId, "포장 완제품 입고", user, spjangcd);
+					"mat_produce", mpId, "포장 완제품 입고", user, spjangcd);
 			float cnt = cartonCount(units, cap);
 			issueCartonLabel(mp, cnt, null, spjangcd, user);
 			return cnt;
@@ -2815,7 +2830,7 @@ public class PackService {
 			String lotNo  = named ? mp.getLotNumber() + "-" + country : mp.getLotNumber();
 
 			receiveLot(mp.getMaterialId(), lotNo, null, qty, outStoreId,
-				"mat_produce", mpId, "포장 완제품 입고" + ckTag(country), user, spjangcd);
+					"mat_produce", mpId, "포장 완제품 입고" + ckTag(country), user, spjangcd);
 
 			Integer matLotId = findLotIdByNumber(lotNo, mpId);
 
@@ -2838,8 +2853,8 @@ public class PackService {
 				float boxQty = Math.min(cap, remain);
 				remain -= boxQty;
 				String cartonNo = cartonBase
-														+ (named ? "-" + country : "")
-														+ String.format("-%02d", no);
+						+ (named ? "-" + country : "")
+						+ String.format("-%02d", no);
 
 				MapSqlParameterSource cp = new MapSqlParameterSource();
 				cp.addValue("mpId", mpId);
@@ -2852,7 +2867,7 @@ public class PackService {
 				// ★ 사람이 읽는 출처 기록. mat_lot."Description"(「포장 완제품 입고」 등)과 같은 규칙 —
 				//   조인이 끊기거나 코드 마스터가 비어도 이 한 줄이면 어디서 생긴 행인지 안다.
 				cp.addValue("memo", "카톤 포장" + ckTag(country)
-															+ " · " + lotNo + " · " + no + "/" + cnt + "박스");
+						+ " · " + lotNo + " · " + no + "/" + cnt + "박스");
 				cp.addValue("spjangcd", spjangcd);
 				cp.addValue("userId", user == null ? null : user.getId());
 				this.sqlRunner.execute("""
@@ -2884,15 +2899,15 @@ public class PackService {
 	 *   풀면 라벨 저장 전체가 흔들린다. 그래서 건드리지 않는다.
 	 */
 	private void issueCartonLabel(MaterialProduce mp, float cartonCnt, String base,
-																String spjangcd, User user) {
+								  String spjangcd, User user) {
 		if (cartonCnt <= 0) return;
 		String exist = getCartonLot(mp.getId());
 		String lot = !isBlank(exist) ? exist
-									 : !isBlank(base)          ? base
-											 : this.lotService.make_production_lot_in_number(CARTON_LOT_PREFIX);
+				: !isBlank(base)          ? base
+				: this.lotService.make_production_lot_in_number(CARTON_LOT_PREFIX);
 		saveLabel(mp.getId(), "carton",
-			getExpectedGtin(mp.getMaterialId(), spjangcd), lot,
-			null, null, cartonCnt, null, spjangcd, user);
+				getExpectedGtin(mp.getMaterialId(), spjangcd), lot,
+				null, null, cartonCnt, null, spjangcd, user);
 	}
 
 	/** 로트번호로 이 차수의 산출 로트 id. 국가별로 N행이라 findLotIdBySource 로는 못 가른다 */
@@ -3138,7 +3153,7 @@ public class PackService {
 		Map<String, Object> r = this.sqlRunner.getRow("""
             SELECT (__PHASE__) AS phase FROM mat_produce mp WHERE mp.id = :mpId
             """.replace("__PHASE__", PHASE_SQL),
-			new MapSqlParameterSource().addValue("mpId", mpId));
+				new MapSqlParameterSource().addValue("mpId", mpId));
 		return r == null ? "pk" : str(r.get("phase"));
 	}
 
@@ -3174,7 +3189,7 @@ public class PackService {
 	// =========================================================================
 
 	private void writeAllocations(Integer mpId, List<Map<String, Object>> allocations,
-																String spjangcd, User user) {
+								  String spjangcd, User user) {
 		MapSqlParameterSource dp = new MapSqlParameterSource().addValue("mpId", mpId);
 		// 생산되지 않은(plan) 배분만 교체한다.
 		// ★ PK 행은 PackAlloc_id 가 NULL 이고 MatProduce_id 로 매달려 있어 여기서 안 지워진다.
@@ -3205,7 +3220,7 @@ public class PackService {
 			// ★ 출처 기록 — Qty 가 CK 낱개 기준이라는 점을 행 자체에 남긴다.
 			//   완제품 단위와 헷갈려 잘못 읽는 사고가 반복되는 값이다.
 			p.addValue("memo", "포장 국가배분" + ckTag(countryCodeOf(a))
-													 + " · CK 낱개 " + fmt(qty));
+					+ " · CK 낱개 " + fmt(qty));
 			p.addValue("spjangcd", spjangcd);
 			p.addValue("userId", userId);
 
@@ -3225,7 +3240,7 @@ public class PackService {
 				if (iq <= 0) continue;
 				Integer lotId = toInt(it.get("mat_lot_id"));
 				insertAllocItem(allocId, null, toInt(it.get("mat_id")), iq, lotId,
-					lotId != null ? "Y" : "N", "ck", spjangcd, user);
+						lotId != null ? "Y" : "N", "ck", spjangcd, user);
 			}
 		}
 	}
@@ -3237,8 +3252,8 @@ public class PackService {
 	 * @param sterile  'Y' = 지정 멸균로트(필터백). PK 행은 'N' — PK 여부는 itemKind 가 말한다
 	 */
 	private void insertAllocItem(Integer allocId, Integer mpId, Integer matId, float qty,
-															 Integer matLotId, String sterile, String itemKind,
-															 String spjangcd, User user) {
+								 Integer matLotId, String sterile, String itemKind,
+								 String spjangcd, User user) {
 		if (matId == null || qty <= 0) return;
 		if (allocId == null && mpId == null) return;   // CHECK 제약(둘 중 하나)
 		MapSqlParameterSource p = new MapSqlParameterSource();
@@ -3253,8 +3268,8 @@ public class PackService {
 		//   ck = 배분에 매달린 CK 구성자재 / pk = 세션에 직접 매달린 투입 PK 로트.
 		//   ItemKind 만 보고 판단하다 헷갈리는 일이 많아 행 자체에 남긴다.
 		p.addValue("memo", ("pk".equals(itemKind) ? "포장 담긴 PK 로트" : "CK 구성자재")
-												 + " · " + fmt(qty)
-												 + ("Y".equals(sterile) ? " · 지정 멸균로트" : ""));
+				+ " · " + fmt(qty)
+				+ ("Y".equals(sterile) ? " · 지정 멸균로트" : ""));
 		p.addValue("spjangcd", spjangcd);
 		p.addValue("userId", user == null ? null : user.getId());
 		this.sqlRunner.execute("""
@@ -3308,7 +3323,7 @@ public class PackService {
 	 *     stores 순서대로 훑고, 각 창고 안에서는 InputDateTime ASC.
 	 */
 	private ConsumeResult consumeFifoMulti(Integer matId, int[] stores, float qty,
-																				 MaterialProduce mp, User user, String spjangcd) {
+										   MaterialProduce mp, User user, String spjangcd) {
 		ConsumeResult out = new ConsumeResult();
 		float remain = qty;
 
@@ -3402,7 +3417,7 @@ public class PackService {
 
 	/** 지정 로트에서만 차감 (FIFO 대체 없음) */
 	private void consumeFixedLot(Integer matLotId, float qty, float currentStock,
-															 MaterialProduce mp, User user, String spjangcd) {
+								 MaterialProduce mp, User user, String spjangcd) {
 		MatLotCons mlc = new MatLotCons();
 		mlc.setMaterialLotId(matLotId);
 		mlc.setOutputDateTime(DateUtil.getNowTimeStamp());
@@ -3423,8 +3438,8 @@ public class PackService {
 	 *   out 에 InputQty 를 넣으면 차감이 아니라 가산된다(2공장에서 재고가 2배로 부푼 사고).
 	 */
 	private void receiveLot(Integer matId, String lotNumber, String makerLotNo, float qty,
-													Integer storeId, String srcTable, Integer srcPk, String memo,
-													User user, String spjangcd) {
+							Integer storeId, String srcTable, Integer srcPk, String memo,
+							User user, String spjangcd) {
 		Timestamp now = DateUtil.getNowTimeStamp();
 
 		MaterialLot lot = new MaterialLot();
@@ -3463,9 +3478,9 @@ public class PackService {
 
 	/** mat_consu + mat_inout(out) — 자재 1종 × 창고 1곳당 1건 */
 	private void writeConsumeRecord(JobRes jr, MaterialProduce mp, Integer matId, float qty,
-																	Integer storeId, String lotNumber, String desc,
-																	Timestamp startTs, Timestamp endTs,
-																	User user, String spjangcd) {
+									Integer storeId, String lotNumber, String desc,
+									Timestamp startTs, Timestamp endTs,
+									User user, String spjangcd) {
 		MaterialConsume mc = new MaterialConsume();
 		mc.setJobResponseId(jr.getId());
 		mc.setMaterialId(matId);
@@ -3653,8 +3668,8 @@ public class PackService {
 	 *   labelCancel / packWorkCancel / packDelete 만 의도적으로 지운다.
 	 */
 	private void saveLabel(Integer mpId, String kind, String gtin, String lot,
-												 String date, String expiry, Float qty, String raw,
-												 String spjangcd, User user) {
+						   String date, String expiry, Float qty, String raw,
+						   String spjangcd, User user) {
 		if (mpId == null || isBlank(kind)) return;
 
 		MapSqlParameterSource p = new MapSqlParameterSource();
@@ -3687,15 +3702,15 @@ public class PackService {
 
 	/** 스캔 라벨 2행 (ckpk + inbox). carton 은 여기로 안 들어온다 */
 	private void saveScanLabels(Integer mpId, List<Map<String, Object>> labels,
-															String spjangcd, User user) {
+								String spjangcd, User user) {
 		if (labels == null) return;
 		for (Map<String, Object> l : labels) {
 			String kind = str(l.get("kind"));
 			if (!"ckpk".equals(kind) && !"inbox".equals(kind)) continue;
 			saveLabel(mpId, kind, str(l.get("gtin")), str(l.get("lot")),
-				str(l.get("date")), str(l.get("expiry")),
-				l.get("qty") == null ? null : toFloat(l.get("qty")),
-				str(l.get("raw")), spjangcd, user);
+					str(l.get("date")), str(l.get("expiry")),
+					l.get("qty") == null ? null : toFloat(l.get("qty")),
+					str(l.get("raw")), spjangcd, user);
 		}
 	}
 
@@ -3716,7 +3731,7 @@ public class PackService {
 		if (workCenterId == null) return STORE_PRODUCT;
 		MapSqlParameterSource p = new MapSqlParameterSource().addValue("wcId", workCenterId);
 		Map<String, Object> row = this.sqlRunner.getRow(
-			"SELECT \"ProcessStoreHouse_id\" AS sh FROM work_center WHERE id = :wcId", p);
+				"SELECT \"ProcessStoreHouse_id\" AS sh FROM work_center WHERE id = :wcId", p);
 		Integer sh = (row == null) ? null : toInt(row.get("sh"));
 		return (sh != null) ? sh : STORE_PRODUCT;
 	}

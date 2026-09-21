@@ -1588,7 +1588,53 @@
       });
     }
 
+    /* 인박스 1통에 들어가는 완제품 수 — BOM 의 IN BOX 비율(완제품 1개당)의 역수.
+       예전 화면은 «인박스 1통 = 완제품 1개» 로 가정했는데, IN BOX 가 0.5 인 품목은
+       한 통에 완제품 2개가 들어간다. 그 가정 탓에 「인박스 80 ÷ 8입」 같은 문구가 나왔다.
+       ※ 서버 소비량(IN BOX = 비율 × 완제품 수)은 원래 맞게 계산되고 있었다.
+         틀린 것은 화면 표시뿐이다. */
+    function fgPerInbox() {
+      var ib = curO && curO.boxSpec && curO.boxSpec.inbox;
+      var q = num(ib && ib.qty_per);
+      return q > 0 ? Math.max(1, Math.round(1 / q)) : 1;
+    }
+    function inboxCountOf(units) {
+      if (curS && curS.inboxOverride) return curS.inboxOverride;   // 현장이 고친 값
+      return Math.ceil((units || 0) / fgPerInbox());
+    }
+
+    /* ② 에서 박스 수를 고친다.
+       실물 포장은 BOM 과 다르게 되는 일이 잦다(「이번엔 카톤에 6개씩」).
+       BOM 으로만 빼면 박스 재고가 실물과 어긋나므로 여기서 받아 서버에 넘긴다.
+       ★ 카톤은 «입수» 를 고친다 — 카톤은 국가별로 나뉘고 박스마다 로트가 붙어서,
+         입수만 바꾸면 국가별 박스 수와 로트가 알아서 다시 계산된다. */
+    function editInboxQty() {
+      var cur = inboxCountOf(unitsForCk());
+      openPad('인박스 수 (BOM ' + Math.ceil(unitsForCk() / fgPerInbox()) + ')', cur, 99999, function (v) {
+        v = Math.floor(num(v));
+        curS.inboxOverride = v > 0 ? v : null;
+        renderCAction();
+      });
+    }
+    function editCartonCap() {
+      var bomCap = num(curS && curS.outboxCap) || num(curO && curO.boxSpec && curO.boxSpec.outbox_cap) || 4;
+      openPad('카톤 1개당 완제품 수 (BOM ' + bomCap + ')', outboxCap(), 99999, function (v) {
+        v = Math.floor(num(v));
+        curS.capOverride = v > 0 ? v : null;
+        renderCAction();
+      });
+    }
+
+    /* 카톤 1개에 들어가는 «완제품» 수(= 1 / OUT BOX 비율).
+       이름과 달리 인박스 수가 아니다 — 인박스 1통 = 완제품 1개인 품목에서만 같아진다. */
     function outboxCap() {
+      // 현장이 고친 입수(②에서 지정) → 이미 만들어진 카톤의 실제 입수 → BOM
+      if (curS && curS.capOverride) return curS.capOverride;
+      if (curS && curS.cartons && curS.cartons.length) {
+        var mx = 0;
+        curS.cartons.forEach(function (c) { mx = Math.max(mx, num(c.inboxQty)); });
+        if (mx > 0) return mx;
+      }
       if (curS && curS.outboxCap) return curS.outboxCap;
       return num((curO && curO.boxSpec && curO.boxSpec.outbox_cap)) || 4;
     }
@@ -2557,11 +2603,17 @@
       }).length;
       var part = cartons.length - full;
 
+      var fpi = fgPerInbox();
+      var ibCnt = inboxCountOf(units);
       var html = '<div class="part"><div class="id"><span class="pn">인박스</span>' +
-              '<span class="pc">완제품 ' + units + '개 = 인박스 ' + units + ' (완제품 1개당 인박스 1개) · ②에서 소비됨</span></div>' +
-              '<span class="done-tag">' + units + ' 박스</span></div>' +
+              '<span class="pc">완제품 ' + units + '개' +
+              (fpi > 1 ? ' ÷ ' + fpi + '입 = 인박스 ' + ibCnt : ' = 인박스 ' + ibCnt + ' (완제품 1개당 인박스 1개)') +
+              ' · ②에서 소비됨</span></div>' +
+              '<span class="done-tag">' + ibCnt + ' 박스</span></div>' +
               '<div class="part"><div class="id"><span class="pn">카톤(아웃박스)</span>' +
-              '<span class="pc">인박스 ' + units + ' ÷ ' + cap + '입 = 카톤 ' + cartons.length +
+              '<span class="pc">완제품 ' + units + ' ÷ ' + cap + '입' +
+              (fpi > 1 ? '(인박스 ' + Math.round(cap / fpi) + '통)' : '') +
+              ' = 카톤 ' + cartons.length +
               (part ? ' (동일수량 ' + full + ' + 잔여 ' + part + ')' : '') +
               ' · OUT BOX ' + cartons.length + '개 소비</span></div>' +
               '<span class="done-tag">' + cartons.length + ' 박스</span></div>';
@@ -2584,7 +2636,8 @@
       var btns = '';
       if (full > 0) btns += '<button class="btn primary" id="bcCartonFull" style="flex:1;min-height:56px">🗳 카톤 동일수량 바코드 (' + full + '장)</button>';
       if (part > 0) btns += '<button class="btn ghost" id="bcCartonPart" style="flex:1;min-height:56px">카톤 잔여 분리 (' + part + '장)</button>';
-      if (!btns) btns = '<div class="emptysess" style="flex:1">카톤 1개(인박스 ' + cap + ')를 채우려면 완제품 ' + cap + '개가 필요합니다</div>';
+      if (!btns) btns = '<div class="emptysess" style="flex:1">카톤 1개를 채우려면 완제품 ' + cap + '개' +
+              (fpi > 1 ? '(인박스 ' + Math.round(cap / fpi) + '통)' : '') + '가 필요합니다</div>';
       html += '<div class="printrow">' + btns + '</div>';
       return html;
     }
@@ -2683,7 +2736,9 @@
       // ── ④ 아웃박스 ──
       if (vph === 'outbox' || curS.st === 'done') {
         html += '<div class="secline">④ 아웃박스(카톤) <span class="ln"></span>' +
-                '<span>인박스 ' + outboxCap() + '입 = 카톤 1</span></div>';
+                '<span>완제품 ' + outboxCap() + '개' +
+                (fgPerInbox() > 1 ? '(인박스 ' + Math.round(outboxCap() / fgPerInbox()) + '통)' : '') +
+                ' = 카톤 1</span></div>';
         html += cartonBlock(ro);
       }
 
@@ -2760,13 +2815,24 @@
            이전에는 「배분합계 == PK 낱개」를 검사해,
            BOM 마다 투입 개수가 달라도 전부 같은 개수를 요구했다. */
         var okAlloc = !pkOdd() && Math.abs(allocRemain()) < 0.0001 && (curS.allocations || []).length > 0;
-        bar.innerHTML = actsum('CK ' + fmtQ(unitsForCk() * ckPerV()) + '개',
-                        '인박스 ' + fmtQ(unitsForCk()) + '통 → 완제품 ' + fmtQ(unitsForCk()) +
-                        '개 · ' + allocSummary()) +
+        var u2 = unitsForCk();
+        var ibN = inboxCountOf(u2), capN = outboxCap();
+        var ctN = capN > 0 ? Math.ceil(u2 / capN) : 0;
+        var chip = function (id, txt, edited) {
+          return '<button class="btn ghost" id="' + id + '" style="min-height:44px;font-weight:800' +
+                  (edited ? ';border-color:var(--teal);color:var(--teal-d)' : '') + '">' + txt + (edited ? ' ✎' : '') + '</button>';
+        };
+        bar.innerHTML = actsum('완제품 ' + fmtQ(u2) + '개 · CK ' + fmtQ(u2 * ckPerV()) + '개', allocSummary()) +
+                (isCkStock() ? '' :
+                        chip('boxInbox', '인박스 ' + ibN, !!curS.inboxOverride) +
+                        chip('boxCarton', '카톤 ' + capN + '입 · ' + ctN + '박스', !!curS.capOverride)) +
                 '<button class="btn ghost" id="cDelete">삭제</button>' +
                 '<button class="btn primary" id="packDone"' + (okAlloc ? '' : ' disabled') + '>인박스 · CK 반영 · 완제품 산출</button>';
         document.getElementById('packDone').onclick = doPackFinish;
         document.getElementById('cDelete').onclick = askDelete;
+        var bI = document.getElementById('boxInbox'), bC = document.getElementById('boxCarton');
+        if (bI) bI.onclick = editInboxQty;
+        if (bC) bC.onclick = editCartonCap;
         return;
       }
 
@@ -3187,13 +3253,17 @@
 
       var msg = ckStock
               ? 'CK ' + allocTotal() + ' EA 를 생산해 생산창고에 재고로 남깁니다.\n구성자재가 소비됩니다.'
-              : 'PK ' + pkTotal() + ' · CK ' + fmtQ(ckTotal()) + ' · IN BOX ' + fmtQ(unitsNow()) + ' 소비.\n' +
+              : 'PK ' + pkTotal() + ' · CK ' + fmtQ(ckTotal()) + ' · IN BOX ' + inboxCountOf(unitsNow()) + ' 소비.\n' +
+              '카톤 ' + outboxCap() + '입 · ' + Math.ceil(unitsNow() / (outboxCap() || 1)) + '박스로 나뉩니다.\n' +
               '라벨 스캔은 다음 단계입니다.';
 
       uiConfirm(msg, function () {
         post('/pack_finish', {
           mp_id: curS.mpId, allocations: JSON.stringify(built.rows),
-          start_time: curS.start || '', end_time: nowHM()
+          start_time: curS.start || '', end_time: nowHM(),
+          // 고친 값만 보낸다 — 비우면 서버가 BOM 으로 계산한다
+          inbox_qty:  curS.inboxOverride || '',
+          carton_cap: curS.capOverride   || ''
         }, ckStock ? 'CK 생산 완료 · 재고 입고' : '완제품 산출 완료 → 라벨 스캔', reopen);
       }, ckStock ? 'CK 생산' : '완제품 산출');
     }

@@ -868,12 +868,15 @@
           };
         }
         if (p.code === 'mc02') {
-          /* 검사 대기 = 검사 자리에 물건이 와 있다는 뜻. 이게 이 공정의 「작업중」이다.
-             mat_produce 가 없어 working_cnt 는 늘 0 이다.
-             서버가 unit_waiting 을 내리면 그걸 쓰고, 없으면 unit_states 로 센다. */
+          /* ★ 검사도 «시작해야» 작업중이다 — 조립과 같은 원칙.
+               예전에는 검사대기(물건이 와 있음)를 작업중으로 셌는데,
+               아무도 검사하지 않아도 초록으로 떠 「작업중 1대 · 검사대기」 가 됐다.
+               작업중 = 판정 없이 회차가 열린 유닛(unit_inspecting),
+               대기   = 검사를 기다리는 유닛(unit_waiting) 은 부제로만 알린다. */
           var wq = (p.unit_waiting === null || p.unit_waiting === undefined)
                   ? unitCnt(['inspect_wait']) : dbNum(p.unit_waiting);
-          return {cnt: wq, who: '검사대기'};
+          var ing = dbNum(p.unit_inspecting);
+          return {cnt: ing, who: '검사중', wait: wq};
         }
         return {cnt: dbNum(p.working_cnt), who: p.workers || '-'};
       };
@@ -896,6 +899,12 @@
           var done = (p.unit_done === null || p.unit_done === undefined)
                   ? unitCnt(['pass', 'reject', 'packed']) : dbNum(p.unit_done);
           qtyHtml = done.toLocaleString() + '<small>대</small>';
+        } else if (p.unit_today !== null && p.unit_today !== undefined) {
+          /* ★ 2공장 조립·포장·수리는 「대」로 센다.
+             mat_produce 를 세면 조립 한 대가 스텝 11~13건으로 흩어져,
+             두 단계만 끝내도 「2개」가 되어 두 대를 만든 것처럼 읽혔다.
+             서버가 unit_today(오늘 그 공정을 통과한 대수)를 내려준다. */
+          qtyHtml = dbNum(p.unit_today).toLocaleString() + '<small>대</small>';
         } else {
           qtyHtml = good.toLocaleString() + '<small>개</small>';
         }
@@ -912,8 +921,13 @@
                 + '<div class="zn"><i></i>' + dbEsc(p.name) + '</div>'
                 + bodyHtml
                 + '<div class="zw">' + (working
-                        ? '작업중 ' + working + '건 · ' + dbEsc(w.who)
-                        : '<span style="color:#c2c9d4">대기</span>') + '</div>'
+                        /* 2공장은 유닛 단위라 「건」이 아니라 「대」다. */
+                        ? '작업중 ' + working
+                        + ((p.unit_today !== null && p.unit_today !== undefined)
+                        || p.code === 'mc02' ? '대 · ' : '건 · ')
+                        + dbEsc(w.who)
+                        : (w.wait ? '<span style="color:#b7791f">검사대기 ' + w.wait + '대</span>'
+                                : '<span style="color:#c2c9d4">대기</span>')) + '</div>'
                 + '</div>';
       };
 
@@ -1063,9 +1077,14 @@
        ★ 여기가 2공장 진척의 진실이다(packed 기준).
          mat_produce 를 세면 한 대가 스텝 대여섯 건으로 흩어진다. */
     function dbRenderUnits(states, working) {
+      /* paused = 조립을 시작했다가 지금은 아무도 붙잡고 있지 않은 유닛.
+         서버가 「working 스텝이 있는 것」만 조립중으로 세고 나머지를 이쪽으로 보낸다.
+         wait(미착수)는 서버에서 아예 빼고 보낸다 — 작지를 열기만 해도 유닛이 생겨
+         수십 대가 늘 떠 있었고, 그 숫자가 다른 배지를 묻어 버렸다. */
       var label = {
-        wait: '대기', assembling: '조립중', inspect_wait: '검사대기',
-        pass: '합격', reject: '불합격', packed: '포장완료', repairing: '수리중'
+        assembling: '조립중', paused: '조립 진행', inspect_wait: '검사대기',
+        pass: '합격', reject: '불합격', packed: '포장완료', repairing: '수리중',
+        wait: '미착수'
       };
 
       var chips = states.map(function (s) {
@@ -1083,6 +1102,10 @@
         var sub = u.lot_number
                 ? dbEsc(u.lot_number)
                 : ('SN-' + String(u.unit_no || 0).padStart(3, '0') + ' · 로트 미발번');
+        /* 스텝 진척을 덧붙인다. 한 대를 며칠에 걸쳐 조립하는 동안
+           로트번호만 보이면 화면이 늘 같아 보여 「어디까지 왔나」를 알 수 없었다. */
+        var tot = dbNum(u.step_total), dn = dbNum(u.step_done);
+        if (tot) sub += ' · ' + dn + '/' + tot + ' 단계';
         return '<div class="r" style="flex-wrap:wrap">'
                 + '<span class="nm">' + dbEsc(u.mat_name || '-') + '</span>'
                 + (u.is_repair === 'Y' ? '<span class="tag warn">수리</span>' : '')

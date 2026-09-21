@@ -185,6 +185,11 @@
 
                                             if (!isBookmarked) { // ✅ 북마크 추가 시
                                                 $('a[href="#' + objid + '"]').closest('li').attr('data-isbookmark', 'true');
+                                                /* ★ 전체 메뉴의 항목도 같이 갱신한다.
+                                                     그 속성은 페이지를 연 시점의 값이라 그대로 굳는데,
+                                                     전체 메뉴로 다시 들어갈 때 그 값을 탭에 넘긴다 —
+                                                     갱신하지 않으면 방금 바꾼 상태가 되돌아간 것처럼 보인다. */
+                                                $('a[data-objid="' + menuCode + '"]').attr('data-bookmark', 'true');
 
                                                 // 1️⃣ 북마크 메뉴 추가
                                                 if ($('#bookmark-menu a[data-objid="' + menuCode + '"]').length === 0) {
@@ -202,6 +207,8 @@
 
                                             } else { // ✅ 북마크 제거 시
                                                 $('a[href="#' + objid + '"]').closest('li').attr('data-isbookmark', 'false');
+                                                // 전체 메뉴 항목도 같이 되돌린다(위 주석 참고)
+                                                $('a[data-objid="' + menuCode + '"]').attr('data-bookmark', 'false');
 
                                                 // 1️⃣ 북마크 메뉴 제거
                                                 $('#bookmark-menu a[data-objid="' + menuCode + '"]').parent('li').remove();

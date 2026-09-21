@@ -787,7 +787,14 @@
 
                 let objid = $(this).data('objid');
                 let title = $(this).text();
-                let bookmark = $(this).data('bookmark');
+                /* ★ 북마크 여부는 «지금» 의 내 메뉴 목록에서 읽는다.
+                     data-bookmark 는 페이지를 연 시점의 값이라 그대로 굳는다 —
+                     화면 안에서 별표를 눌러 추가해도 이 속성은 안 바뀌어,
+                     전체 메뉴로 다시 들어가면 「북마크 안 됨」 으로 떠 또 누르게 됐다.
+                     (내 메뉴에 그 항목이 있다 = 북마크다. nth-tabs 가 토글할 때
+                      #bookmark-menu 를 같이 갱신하므로 이 목록이 늘 최신이다) */
+                let bookmark = $('#bookmark-menu a[data-objid="' + objid + '"]').length
+                    ? 'true' : String($(this).data('bookmark'));
 
                 if (nthTabs.isExistsTab('#' + objid)) {
                     nthTabs.toggleTab('#' + objid);

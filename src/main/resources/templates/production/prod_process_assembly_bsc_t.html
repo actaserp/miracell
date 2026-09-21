@@ -539,6 +539,7 @@
             return {
                 mat_id: src.mat_id, vcode: src.vcode, vname: src.vname,
                 wo: src.wo || null, job_res_id: src.job_res_id || null,
+                plan: num(src.plan),
                 qty: 0, st: 'wait', start: null, end: null, open: false,
                 mp_id: null, bom: loadBomDefault(src.mat_id, prodDate)
             };
@@ -609,6 +610,20 @@
         }
 
         /* 확정 작업조의 용기(차수) 목록 */
+        /* 작업지시별 지시량 — item_list 에는 지시량이 없어, 다시 열면 카드에서 사라졌다.
+           같은 날의 작지 목록에서 찾아 붙인다(날짜당 한 번만 읽는다). */
+        let _planMap = null, _planDate = null;
+        function planOf(jobResId) {
+            if (!jobResId) return 0;
+            if (_planDate !== curD.date || !_planMap) {
+                _planMap = {};
+                _planDate = curD.date;
+                const w = apiGet('/work_orders', {process_id: PROC_ID, date: curD.date, spjangcd: CTX.spjangcd});
+                (w.data || []).forEach(v => { _planMap[v.job_res_id] = num(v.order_qty); });
+            }
+            return _planMap[jobResId] || 0;
+        }
+
         function loadServerItems(crew) {
             const r = apiGet('/item_list', {
                 process_id: PROC_ID, date: curD.date,
@@ -619,6 +634,7 @@
                 return {
                     mp_id: i.mp_id, mat_id: i.mat_id, vcode: i.mat_code, vname: i.mat_name,
                     wo: i.order_num || null, job_res_id: i.job_res_id || null,
+                    plan: planOf(i.job_res_id),
                     lot: i.lot_no || null,
                     qty: num(i.good_qty), defQty: num(i.defect_qty),
                     st: done ? 'done' : (i.state || 'done'),
@@ -857,6 +873,10 @@
                 }
             }
             const woBadge = it.wo ? '' : `<span class="wobadge free">작지없음</span>`;
+            /* 몇 개를 만들어야 하는지 — 선택 시트에서만 보이고 담으면 사라졌다. */
+            const planTag = (it.wo && it.plan)
+                ? `<span style="margin-left:8px;font-size:12px;font-weight:800;color:var(--ink-2)">지시 ${it.plan}</span>`
+                : '';
             const times = (it.st === 'wait') ? '' : `<div class="vtimes">
           <span class="tp" data-vtime="start" data-vi="${i}">시작 <b>${pillT(it.start)}</b></span>
           <span class="tp" data-vtime="end" data-vi="${i}">종료 <b>${pillT(it.end)}</b></span></div>`;
@@ -884,7 +904,7 @@
       <div class="vhead">
         <button class="caret ${it.open ? 'open' : ''}" data-toggle="${i}">▶</button>
         <div class="vid" data-toggle="${i}"><div class="pn">${it.vname}</div>
-          <div class="sub"><span class="pc">${it.vcode}</span>${woBadge}</div></div>
+          <div class="sub"><span class="pc">${it.vcode}</span>${woBadge}${planTag}</div></div>
         <span class="st-badge ${it.st}">${STLAB[it.st]}</span>
         ${ctrl}${(it.lot && it.st === 'done') ? `<span class="autotag" style="font-size:12px;font-weight:800;color:var(--teal-d);background:var(--teal-bg);border:1px solid var(--teal);white-space:nowrap">LOT ${it.lot}</span>` : ''}${actions}
         ${times}

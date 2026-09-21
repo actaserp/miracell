@@ -136,7 +136,26 @@ public class McellAssemblyService {
                      , to_char(mu."RejectAt", 'yyyy-mm-dd hh24:mi') AS reject_at
                      , COALESCE(s.total, 0)                         AS step_total
                      , COALESCE(s.done,  0)                         AS step_done
+                     /* ★ 이번 조립에 대해 판정이 난 양식 수 / 전체 양식 수.
+                          분해 경고를 유닛 전체 합격(pass)일 때만 띄우면, 양식 2개 중 1개만
+                          합격한 유닛은 아무 말 없이 뜯겼다 — 그 합격도 무효가 되는데.
+                          «이번 조립» = 판정 시각이 조립 완료(mu.EndTime) 이후인 것.
+                          검사 화면이 이전 판정을 「(이전)」 으로 거르는 것과 같은 기준이다. */
+                     , COALESCE(ic.judged, 0)                       AS insp_judged
+                     , COALESCE(ic.total,  0)                       AS insp_total
                   FROM mcell_unit mu
+                  LEFT JOIN LATERAL (
+                        SELECT (SELECT COUNT(*) FROM insp_form_mat fm
+                                  JOIN insp_form f ON f.id = fm."InspForm_id"
+                                 WHERE fm."Material_id" = mu."Material_id"
+                                   AND COALESCE(f."UseYN",'Y') = 'Y'
+                                   AND COALESCE(f."_status",'a') = 'a')      AS total
+                             , (SELECT COUNT(DISTINCT ir."InspForm_id") FROM insp_result ir
+                                 WHERE ir."McellUnit_id" = mu.id
+                                   AND ir."Verdict" IS NOT NULL
+                                   AND COALESCE(ir._status,'a') = 'a'
+                                   AND (mu."EndTime" IS NULL OR ir."EndTime" >= mu."EndTime")) AS judged
+                  ) ic ON true
                   LEFT JOIN LATERAL (
                         SELECT COUNT(*) AS total, COUNT(*) FILTER (WHERE st."State"='done') AS done
                           FROM mcell_unit_step st
@@ -844,6 +863,25 @@ public class McellAssemblyService {
         if (st == null) { r.success = false; r.message = "스텝을 찾을 수 없습니다."; return r; }
         Integer unitId = asInt(st.get("unit_id"));
 
+        /* ★ 검사가 «진행 중» 이면 분해하지 않는다.
+             아래에서 판정 없는 회차(Verdict IS NULL)를 지우는데, 그게 바로
+             검사원이 지금 입력하고 있는 기록이다. 조립에서 분해를 누르는 순간
+             검사 화면의 입력이 말없이 사라졌다.
+             분해를 막으면 작지 삭제도 자연히 막힌다(유닛이 wait 로 내려가지 않으므로).
+           ※ 판정이 끝난 회차(pass·fail)는 이력이라 지우지 않으므로 여기서 막을 이유가 없다. */
+        int inspecting = this.sqlRunner.queryForCount("""
+                SELECT COUNT(*) FROM insp_result
+                 WHERE "McellUnit_id" = :unitId
+                   AND "Verdict" IS NULL
+                   AND COALESCE(_status,'a') = 'a'
+                """, new MapSqlParameterSource().addValue("unitId", unitId));
+        if (inspecting > 0) {
+            r.success = false;
+            r.message = "이 유닛은 검사가 진행 중입니다.\n"
+                    + "검사 화면에서 판정을 마치거나 «검사 취소» 한 뒤 분해하세요.";
+            return r;
+        }
+
         // 조상 체인 수집 (자신 포함), 최상위가 앞에 오도록 정렬
         List<Map<String, Object>> chain = new ArrayList<>();
         chain.add(st);
@@ -856,14 +894,19 @@ public class McellAssemblyService {
         }
         Collections.reverse(chain);   // 최상위부터
 
-        /* 재작업(ReworkYN) 판정.
-           검사를 거친 유닛을 되돌리는 경우에만 재작업이다.
-           조립 중에 완료를 잘못 눌러 취소하는 것은 단순 되돌리기이므로,
-           전부 'Y' 로 찍으면 멀쩡한 유닛이 재작업 대상으로 표시된다. */
+        /* 재작업(ReworkYN) 판정 — «검사가 돌려보낸» 것만이다.
+           재작업은 「여기가 잘못됐으니 다시 하세요」라는 지시가 있어야 성립한다.
+           그 지시를 내리는 곳은 검사뿐이므로 기준은 reject 하나다.
+
+           ★ pass·packed 는 뺀다 — 합격품을 조립에서 스스로 뜯는 것은
+             재작업이 아니라 그냥 분해다. 사유도 조립 쪽 판단이다.
+           ★ inspect_wait 도 아니다 — 검사를 «기다리는» 상태이지 받은 것이 아니다.
+             최종 조립을 마치면 자동으로 이 상태가 되므로, 검사 전에 분해한 것까지
+             재작업으로 잡혀 버렸다.
+           ※ 수리(mc04)는 출하 후 반품 건이라 이 경로와 무관하다. */
         Map<String, Object> unitNow = getUnit(unitId);
         String unitState = (unitNow == null) ? "" : str(unitNow.get("state"));
-        String reworkYn = List.of("inspect_wait", "pass", "reject", "packed").contains(unitState)
-                ? "Y" : "N";
+        String reworkYn = "reject".equals(unitState) ? "Y" : "N";
 
         int rolled = 0;
         for (Map<String, Object> s : chain) {
@@ -883,10 +926,18 @@ public class McellAssemblyService {
             MapSqlParameterSource p = new MapSqlParameterSource()
                     .addValue("stepId", asInt(s.get("step_id"))).addValue("userId", user.getId())
                     .addValue("reworkYn", reworkYn);
+            /* ★ 분해한 스텝은 «대기» 로 되돌린다.
+                 예전에는 'working' 으로 두어 「작업 시작은 눌러 둔」 상태가 남았다.
+                 그러면 전부 분해해도 유닛이 계속 조립중으로 잡혀
+                 작지 삭제가 「이미 착수한 유닛이 있다」며 막혔다.
+                 분해는 그 단계를 없던 일로 하는 것이므로, 다시 할 때는
+                 작업자·설비부터 새로 지정하는 것이 맞다.
+               ※ StartTime·Actor_id 도 비운다 — 남겨 두면 시작하지 않은 스텝에
+                 예전 작업자가 붙어 있어 작업실적현황이 어긋난다. */
             this.sqlRunner.execute("""
                     UPDATE mcell_unit_step
-                       SET "State"='working', "MatProduce_id"=NULL,
-                           "EndTime"=NULL,
+                       SET "State"='wait', "MatProduce_id"=NULL,
+                           "StartTime"=NULL, "EndTime"=NULL, "Actor_id"=NULL, "Equipment_id"=NULL,
                            -- 이미 재작업이던 스텝은 그대로 둔다(한 번 재작업이면 계속 재작업)
                            "ReworkYN"=CASE WHEN :reworkYn='Y' THEN 'Y'
                                            ELSE COALESCE("ReworkYN",'N') END,
@@ -908,16 +959,49 @@ public class McellAssemblyService {
         this.sqlRunner.execute("""
                 DELETE FROM insp_result WHERE "McellUnit_id"=:unitId AND "Verdict" IS NULL
                 """, up);
+        /* ★ 남은 작업이 하나도 없으면 «대기» 로 되돌린다.
+             예전에는 무조건 'assembling' 으로 찍어, 모든 스텝을 분해해 빈 유닛이
+             되어도 「조립 중인 물건」으로 남았다. 그 탓에 작지 삭제가
+             「이미 착수한 유닛이 있다」며 막혔고, 대시보드에도 조립중으로 잡혔다.
+
+             기준은 스텝이다 — 하나라도 손댄 흔적(완료·진행·실적)이 있으면 조립중,
+             전부 wait 이고 실적도 없으면 아무 일도 없던 상태와 같다. */
         this.sqlRunner.execute("""
-                UPDATE mcell_unit
-                   SET "State"='assembling', "EndTime"=NULL,
+                UPDATE mcell_unit mu
+                   SET "State" = CASE WHEN EXISTS (
+                                        SELECT 1 FROM mcell_unit_step st
+                                         WHERE st."McellUnit_id" = mu.id
+                                           AND (st."State" <> 'wait'
+                                                OR st."MatProduce_id" IS NOT NULL))
+                                      THEN 'assembling' ELSE 'wait' END
+                     , "EndTime"=NULL,
                        "_modified"=now(), "_modifier_id"=:userId
-                 WHERE id=:unitId AND "State" <> 'packed'
+                 WHERE mu.id=:unitId AND mu."State" <> 'packed'
                 """, up);
 
+        /* ★ 스텝·유닛을 모두 정리한 «뒤에» 작지 롤업을 한 번 더 돌린다.
+             rollbackProduce 안에서도 부르지만, 그때는 아직 이 스텝이 done/working 이라
+             「손댄 흔적이 있다」고 판단해 작지가 ordered 로 내려오지 못한다.
+             (분해를 전부 마쳐도 job_res 만 working 으로 남아 삭제가 막히던 원인)
+             유닛이 매달린 작지와 그 부모를 함께 재계산한다 —
+             2공장은 유닛이 조립 자식에 붙고 그 위에 헤더 작지가 있다. */
+        Map<String, Object> jrRow = this.sqlRunner.getRow("""
+                SELECT mu."JobResponse_id" AS jr_id
+                     , jr."Parent_id"      AS parent_id
+                  FROM mcell_unit mu
+                  LEFT JOIN job_res jr ON jr.id = mu."JobResponse_id"
+                 WHERE mu.id = :unitId
+                """, new MapSqlParameterSource().addValue("unitId", unitId));
+        if (jrRow != null && jrRow.get("jr_id") != null) {
+            this.productionCreateService.recalcJobRes(asInt(jrRow.get("jr_id")), user);
+            if (jrRow.get("parent_id") != null) {
+                this.productionCreateService.recalcJobRes(asInt(jrRow.get("parent_id")), user);
+            }
+        }
+
         r.message = rolled > 1
-                ? ("상위 어셈블리 " + (rolled - 1) + "개도 함께 분해되었습니다. 자재 교체 후 다시 완료하세요.")
-                : "분해 완료 · 자재를 교체하고 다시 완료하세요.";
+                ? ("상위 어셈블리 " + (rolled - 1) + "개도 함께 분해되었습니다. 작업을 다시 시작하세요.")
+                : "분해 완료 · 작업을 다시 시작하세요.";
         r.data = Map.of("rolled", rolled);
         return r;
     }
