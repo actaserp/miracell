@@ -1175,6 +1175,8 @@
 
             showBomCompList(bom_id) {
                 let _this = this;
+                // 오른쪽에 지금 보이는 BOM — 구성품을 지우거나 고친 뒤 이 id 로 다시 부른다
+                this.curBomId = bom_id;
 
                 let param = {
                     'id': bom_id
@@ -1475,16 +1477,13 @@
                     if (res.success) {
                         Alert.alert('', '삭제되었습니다');
 
-                        let grid = wijmo.Control.getControl('#bomcomp-grid'); // 그리드 객체 가져오기
-                        let selection = grid.selection; // 현재 선택된 셀의 정보 가져오기
-
-                        if (selection.row > -1) { // 선택된 행이 있을 경우
-                            let item = grid.rows[selection.row].dataItem; // 선택된 행의 데이터 가져오기
-
-                            if (item) {
-                                let id = item.id; // ID 값 가져오기
-                                _this.showBomCompList(id);
-                            }
+                        /* ★ 오른쪽에 보이던 BOM 을 다시 부른다.
+                             예전에는 오른쪽 구성품 그리드에서 선택 행을 읽어 그 id 로 불렀는데,
+                             그건 «구성품» id 라 엉뚱한 BOM 의 구성이 뜨거나 비었다.
+                             (왼쪽 선택이 풀린 것처럼 보이던 원인) */
+                        if (_this.curBomId) {
+                            _this.showBomCompList(_this.curBomId);
+                            if (_this.showBomCompTreeList) _this.showBomCompTreeList(_this.curBomId);
                         }
 
                         /*  let items = page.gridBom.getList("selected");
