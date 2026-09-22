@@ -28,6 +28,8 @@
                 <a title="북마크" class="bookmark toggle">
                     내 메뉴
                 </a>
+                <label for="hdrFactory" class="hide">공장</label>
+                <select style="width: 110px;" id="hdrFactory" name="hdrFactory"></select>
             </div>
             <ul class="page-navi">
                 <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
@@ -102,18 +104,18 @@
                         <button type="button" class="btn-excellt btn-default" id="btnBomNew">등록
                         </button>
                         <button type="button" class="btn-danger y_write_auth" id="btnBomDelete"
-                                >삭제
+                        >삭제
                         </button>
                         <button type="button" class="btn-delete btn-edit btn-default" id="btnBomEdit"
-                                >수정
+                        >수정
                         </button>
                         <button type="button" class="btn-excellt btn-default y_write_auth" id="btnBomReplicate"
                                 data-labelCd="복제"
-                                >
+                        >
                         </button>
                         <button type="button" class="btn-excellt btn-default y_write_auth" id="btnBomRevision"
                                 data-labelCd="개정"
-                                >
+                        >
                         </button>
                         <a class="btn" title="엑셀 업로드" id="btnShowUpload" style="width: 86px;">
                             엑셀 업로드
@@ -142,7 +144,7 @@
                                     <ul>
                                         <li>
                                             <button type="button" class="btn-excellt btn-default" id="btnBomCompNew"
-                                                    ><i
+                                            ><i
                                                     class="fas fa-plus"></i>등록
                                             </button>
                                         </li>
@@ -150,14 +152,14 @@
                                         <li>
                                             <button type="button" class="btn-delete btn-danger y_write_auth"
                                                     id="btnBomCompDelete"
-                                                    ><i
+                                            ><i
                                                     class="fas fa-trash"></i>삭제
                                             </button>
                                         </li>
 
                                         <li>
                                             <button type="button" class="btn-edit btn-default" id="btnBomCompEdit"
-                                                    ><i
+                                            ><i
                                                     class="fas fa-edit"></i>수정
                                             </button>
                                         </li>
@@ -270,7 +272,7 @@
                 </table>
 
                 <div class="grid_box" style="margin-top: 10px;">
-                    <div id="material-search-grid" style="height: 250px; max-height: 250px;"></div>
+                    <div id="material-search-grid" style="height: 200px;"></div>
                 </div>
 
               <table class="write-table">
@@ -389,7 +391,27 @@
 
     <!-- 구성품목 등록 스크립트 -->
     <script type="text/x-tmpl" id="bomMaterialTemplate">
-        <div class="content_wrap popup">
+        <style>
+            /* 구성품목 창 — 가운데만 스크롤하고 버튼은 항상 아래에 둔다.
+               예전에는 1025×750 고정에 스크롤 영역이 없어, 화면이 작거나 창을 줄이면
+               필요수량·저장 버튼이 잘려 보이지 않았다. */
+            #bomMatPop { height: 100%; display: flex; flex-direction: column; min-height: 0; }
+            #bomMatPop > .table-wrap { flex: 1 1 auto; min-height: 0; overflow: auto; padding-right: 2px; }
+            #bomMatPop > .popup-button { flex: 0 0 auto; padding-top: 10px; }
+            #bomMatPop .write-table { width: 100%; table-layout: fixed; }
+            #bomMatPop .write-table th { width: 90px; }
+            #bomMatPop #material-search-grid { height: 240px; }
+            /* 비고는 한 줄 높이로 — 대부분 짧게 쓰고, 길게 쓸 때는 모서리를 끌어 늘린다 */
+            #bomMatPop textarea { height: 32px; min-height: 32px; resize: vertical; }
+            /* 좁은 화면 — 4칸 표를 한 줄에 한 항목씩 쌓는다 */
+            @media (max-width: 700px) {
+                #bomMatPop .write-table, #bomMatPop .write-table tbody,
+                #bomMatPop .write-table tfoot, #bomMatPop .write-table tr { display: block; width: 100%; }
+                #bomMatPop .write-table th, #bomMatPop .write-table td { display: block; width: 100%; text-align: left !important; }
+                #bomMatPop #material-search-grid { height: 200px; }
+            }
+        </style>
+        <div class="content_wrap popup" id="bomMatPop">
             <!--<header>
                 <h4 id="popTitle">
                 {% if (o.id!='') { %}
@@ -430,11 +452,10 @@
                             <th style="text-align: center">
                                 <label for="txtProductName">품목명</label>
                             </th>
-                            <td>
+                            <td colspan="2">
                                 <input class="form-control2" type="text" id="keyword" name="keyword" />
                             </td>
-                           &nbsp;
-                            <td colspan="2" style="text-align: center;">
+                            <td style="text-align: center;">
                                 <button type="button" class="btn-default" id="btnMatSearch" title="검색">검색</button>
                             </td>
                         </tr>
@@ -442,7 +463,7 @@
                 </table>
 
                 <div class="grid_box" style="margin-top: 10px;">
-                    <div id="material-search-grid" style="height: 250px; max-height: 250px;"></div>
+                    <div id="material-search-grid" style="height: 200px;"></div>
                 </div>
 
 
@@ -502,6 +523,10 @@
 <th:block layout:fragment="scripts">
     <th:block th:replace="/common/columns_setting :: columns_setting"></th:block>
 
+    <script th:inline="javascript">
+        /* 로그인 사용자의 소속 공장. 없으면 null → «전체» 가 기본값이 된다 */
+        const hdrFactoryId = [[${session.factory_id}]];
+    </script>
     <script type="text/javascript">
 
         class BOMPage {
@@ -645,7 +670,10 @@
                     headersVisibility: wijmo.grid.HeadersVisibility.Column,
                     autoGenerateColumns: false,
                     showMarquee: true,
-                    isReadOnly: false, // 편집 가능하도록 변경
+                    /* 그리드 안에서는 고치지 않는다 — 구성품은 등록/수정 창이나 텍스트입력으로만 바꾼다.
+                       열어 두면 더블클릭 한 번에 셀이 편집 상태가 되어, 저장되지도 않는 값을
+                       고친 것처럼 보였다. */
+                    isReadOnly: true,
                     allowSorting: true, // 정렬 비활성화 (선택 사항)
                     formatItem: (sender, e) => {
                         if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
@@ -914,7 +942,43 @@
                 } else {
                     modalContainer = new PopupDraggable('구성 품목 수정');
                 }
-                modalContainer.open({width: 1025, height: 750, $content});
+                /* 화면보다 크게 열지 않는다(여백 40px). 내용은 창 안에서 스크롤된다. */
+                const popH = Math.max(420, Math.min(530, window.innerHeight - 40));   // 최대 600
+                modalContainer.open({
+                    width:  Math.max(360, Math.min(900, window.innerWidth  - 40)),
+                    height: popH,
+                    $content
+                });
+
+                /* 창 틀이 안쪽 영역의 높이를 잡아 주지 않으면 CSS 만으로는 스크롤이 안 생긴다.
+                   높이가 정해진 가장 가까운 조상(창 본문)을 찾아 그 안에 딱 맞춘다.
+                   창 모서리를 끌어 크기를 바꾸면 ResizeObserver 가 다시 맞춘다. */
+                (function fitBomMatPop() {
+                    const pop = document.getElementById('bomMatPop');
+                    if (!pop) return;
+                    /* ★ 기준은 «팝업 틀» 이다 — 화면 위에 떠 있는(fixed/absolute) 가장 가까운 조상.
+                         예전에는 「높이가 박힌 가장 가까운 조상」을 찾다가 팝업 뒤의 페이지 본문
+                         (레이아웃 스크립트가 인라인 높이를 넣어 둔 요소)을 잡아, 그 높이만큼
+                         내용을 늘리는 바람에 팝업이 화면 끝까지 커졌다. */
+                    let frame = pop.parentElement;
+                    while (frame && frame !== document.body) {
+                        const pos = getComputedStyle(frame).position;
+                        if (pos === 'fixed' || pos === 'absolute') break;
+                        frame = frame.parentElement;
+                    }
+                    const sized = frame && frame !== document.body && frame.style && frame.style.height;
+                    const fit = function () {
+                        if (!sized) {                       // 틀 높이를 모르면 연 크기 기준으로 고정
+                            pop.style.height = (popH - 70) + 'px';
+                            return;
+                        }
+                        const top = pop.getBoundingClientRect().top - frame.getBoundingClientRect().top;
+                        pop.style.height = Math.max(240, frame.clientHeight - top - 8) + 'px';
+                    };
+                    fit();
+                    // 틀 모서리를 끌어 크기를 바꾸면 다시 맞춘다(틀 높이가 박혀 있을 때만)
+                    if (sized && window.ResizeObserver) new ResizeObserver(fit).observe(frame);
+                })();
                 /*modalContainer.open({width: 600, height: 540, $content});*/
 
                 let $MaterialName = $content.find('#MaterialName');
@@ -1236,6 +1300,9 @@
                     'bom_type': $('#cboBOMType').val(),
                     'mat_name': $('#txtMatName').val(),
                     'not_past_flag': $('#not_past_flag').is(':checked') ? 'Y' : '',
+                    /* 상단 공장 콤보 — BOM 행에는 공장 정보가 없어 화면에서 거를 수 없다.
+                       서버(bom/read)가 품목(material.Factory_id)으로 걸러야 동작한다. */
+                    'factory_id': hdrFactoryVal(),
                     spjangcd: sessionStorage.getItem('spjangcd'),
                 };
 
@@ -1474,13 +1541,24 @@
                     return;
                 }
 
-                let url = '/api/definition/bom?action=save_bom_comp_all';
+                /* ★ 예전 주소(/api/definition/bom?action=save_bom_comp_all)는 컨트롤러에 없어
+                     붙여넣고 저장해도 아무 일도 일어나지 않았다. 실제 엔드포인트로 바꾼다.
+                   ★ 서버가 줄마다 검증하고, 하나라도 틀리면 기존 구성을 그대로 둔 채
+                     «몇 행이 왜 틀렸는지» 를 돌려준다. */
+                let url = '/api/definition/bom/save_bom_comp_all';
                 let data = {
                     'bom_id': bom_id,
                     'lines': txtbox,
                 };
                 let fnDeleteSuccessCallback = function (res) {
-                    Alert.alert('', '저장되었습니다.');
+                    if (!res || res.success === false) {
+                        Alert.alert('', (res && res.message) || '저장하지 못했습니다.');
+                        return;
+                    }
+                    Alert.alert('', res.message || '저장되었습니다.');
+                    $('#txtCopyText').val('');
+                    _this.showBomCompList(bom_id);
+                    if (_this.showBomCompTreeList) _this.showBomCompTreeList(bom_id);
                 };
 
                 AjaxUtil.postAsyncData(url, data, fnDeleteSuccessCallback);
@@ -1931,6 +2009,37 @@
 
         });
 
+
+        /* ── 상단 공장 콤보 ─────────────────────────────────────────────
+           ★ id 를 hdrFactory 로 따로 둔다 — 이 화면의 등록/수정 폼에 이미
+             factory_id(Factory_id) 선택칸이 있어, 같은 id 면 서로 값을 덮어쓴다.
+           ★ 조회 API 가 공장 조건을 받지 않아 «받아온 목록을 화면에서» 거른다.
+             행마다 factory_name 이 실려 오므로 콤보의 표시 이름과 맞춰 본다.
+             (서버가 factory_id 를 받게 되면 그쪽이 먼저 걸러 주고, 여기는 그대로 통과한다) */
+        function hdrFactoryVal() { return $('#hdrFactory').val() || ''; }
+        function hdrFactoryFilter(rows) {
+            const v = hdrFactoryVal();
+            if (!v || !Array.isArray(rows)) return rows;
+            const t = $('#hdrFactory option:selected').text().trim();
+            return rows.filter(r =>
+                String(r.factory_id ?? r.Factory_id ?? '') === String(v) ||
+                String(r.factory_name ?? '').trim() === t);
+        }
+        function hdrFactoryInit(onChange) {
+            const my = (hdrFactoryId == null || hdrFactoryId === '' || Number(hdrFactoryId) <= 0)
+                ? '' : String(hdrFactoryId);
+            AjaxUtil.fillSelectOptions($('#hdrFactory'), 'factory', 'all', my);
+            // ★ 채운 «뒤에» 건다 — fillSelectOptions 가 기본값을 넣으며 change 를 직접 일으켜
+            //   먼저 걸면 조회가 두 번 나간다. 대신 여기서 한 번 불러 기본 공장을 반영한다.
+            $('#hdrFactory').on('change', onChange);
+            onChange();
+        }
+
+        $(function () {
+            hdrFactoryInit(function () {
+                if (page) page.searchBomList();
+            });
+        });
     </script>
 
 

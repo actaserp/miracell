@@ -15,6 +15,8 @@
                 <a title="북마크" class="bookmark toggle">
                     내 메뉴
                 </a>
+                <label for="hdrFactory" class="hide">공장</label>
+                <select style="width: 110px;" id="hdrFactory" name="hdrFactory"></select>
             </div>
             <ul class="page-navi">
                 <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
@@ -115,7 +117,7 @@
                                             </th>
                                             <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
                                                 <select  id="factory_id" name="factory_id"
-                                                        style="width: 100%;"></select>
+                                                         style="width: 100%;"></select>
                                             </td>
 
                                         </tr>
@@ -239,6 +241,10 @@
     <th:block th:replace="/common/ax5_uploader :: ax5_uploader"></th:block>
     <th:block th:replace="/common/upload_one_image_box :: upload_one_image_box"></th:block>
     <th:block th:replace="/common/popup_select_user_code :: popup_select_user_code"></th:block>
+    <script th:inline="javascript">
+        /* 로그인 사용자의 소속 공장. 없으면 null → «전체» 가 기본값이 된다 */
+        const hdrFactoryId = [[${session.factory_id}]];
+    </script>
     <script type="text/javascript">
 
 
@@ -289,10 +295,11 @@
                 },
                 async: false,
                 success: function (data) {
-                    data2 = data.data;
+                    // 상단 공장 콤보 — onload 첫 조회가 필터 없이 그리드를 덮어써 기본 공장이 안 먹었다
+                    data2 = hdrFactoryFilter(data.data);
                 },
                 error: function (jqXHR, textStatus, errorThrown) {
-                   /* console.error('Error fetching log_count data:', textStatus, errorThrown);*/
+                    /* console.error('Error fetching log_count data:', textStatus, errorThrown);*/
                 }
             })
 
@@ -328,33 +335,34 @@
 
                 setSelectValue('factory_id', selectedItem. factory_name);
 
-                 /*setButtonState();*/
+                /*setButtonState();*/
                 showProcDefectType(selectedItem.id);
                 showProcStopCause(selectedItem.id);
             });
 
             theGrid.rowHeaders.columns.splice(0, 1);
             /*  new FlexGridContextMenu(theGrid);*/
-            showProcDefectType();
-            showProcStopCause();
+            // 목록을 새로 그릴 때는 선택이 없으므로 빈 표로 시작한다(이전 공정 목록이 남지 않게)
+            showProcDefectType(null, true);
+            showProcStopCause(null, true);
         }
 
 
-      /* function setButtonState() {
-            let pk = $('#id').val();
-            $('#btnNew').prop('disabled', false);
-            $('#btnSave').prop('disabled', false);
-            if (pk) {
-                $('#btnDel').prop('disabled', false);
-                $('#btnSaveDefectType').prop('disabled', false);
-                $('#btnSaveStopCause').prop('disabled', false);
-            }
-            else {
-                $('#btnDel').prop('disabled', true);
-                $('#btnSaveDefectType').prop('disabled', true);
-                $('#btnSaveStopCause').prop('disabled', true);
-            }
-        }*/
+        /* function setButtonState() {
+              let pk = $('#id').val();
+              $('#btnNew').prop('disabled', false);
+              $('#btnSave').prop('disabled', false);
+              if (pk) {
+                  $('#btnDel').prop('disabled', false);
+                  $('#btnSaveDefectType').prop('disabled', false);
+                  $('#btnSaveStopCause').prop('disabled', false);
+              }
+              else {
+                  $('#btnDel').prop('disabled', true);
+                  $('#btnSaveDefectType').prop('disabled', true);
+                  $('#btnSaveStopCause').prop('disabled', true);
+              }
+          }*/
 
         // 공정 목록 조회
         function searchMainData() {
@@ -391,7 +399,7 @@
             //     }
             // });
 
-/*            setButtonState();*/
+            /*            setButtonState();*/
         }
 
         // 공정 상세정보 조회
@@ -408,6 +416,7 @@
 
 
         function grid_binding(data) {
+            data = hdrFactoryFilter(data);   // 상단 공장 콤보
             if (!Array.isArray(data)) {
                 console.error('데이터가 배열 형식이 아닙니다:', data);
                 return;
@@ -515,13 +524,16 @@
         }
 
         // 공정별부적합유형
-        function showProcDefectType(idx) {
+        function showProcDefectType(idx, noFallback) {
             let data2 = [];
             let _this = this;
-            let id = idx;
-            /*console.log('id값 확인',id);*/
+            /* ★ id 가 없으면 폼에 선택된 공정을 쓴다.
+                 저장 후 새로고침이 인자 없이 불러, 방금 저장한 목록이 빈 표로 바뀌었다.
+               ★ 그래도 없으면(선택된 공정이 없음) 요청하지 않고 빈 표만 그린다.
+                 서버는 proc_pk 를 필수로 받아, 빈 값으로 부르면 매번 400 이 났다. */
+            let id = idx || (noFallback ? '' : ($('#id').val() || ''));
 
-            $.ajax({
+            if (id) $.ajax({
                 url: '/api/definition/process/proc_defect_type_list',
                 type: 'GET',
                 data: {
@@ -630,13 +642,16 @@
 
 
         // 공정별비가동유형
-        function showProcStopCause(idx) {
+        function showProcStopCause(idx, noFallback) {
             let data2 = [];
             let _this = this;
-            let id = idx;
-            /*console.log('id값 확인',id);*/
+            /* ★ id 가 없으면 폼에 선택된 공정을 쓴다.
+                 저장 후 새로고침이 인자 없이 불러, 방금 저장한 목록이 빈 표로 바뀌었다.
+               ★ 그래도 없으면(선택된 공정이 없음) 요청하지 않고 빈 표만 그린다.
+                 서버는 proc_pk 를 필수로 받아, 빈 값으로 부르면 매번 400 이 났다. */
+            let id = idx || (noFallback ? '' : ($('#id').val() || ''));
 
-            $.ajax({
+            if (id) $.ajax({
                 url: '/api/definition/process/proc_stop_cause_list',
                 type: 'GET',
                 data: {
@@ -978,7 +993,7 @@
 
                     saveDefectType();
                 } else {
-                   Alert.alert('삭제할 행을 선택하세요.');
+                    Alert.alert('삭제할 행을 선택하세요.');
                 }
             });
 
@@ -1043,6 +1058,35 @@
             });
         });
 
+
+        /* ── 상단 공장 콤보 ─────────────────────────────────────────────
+           ★ id 를 hdrFactory 로 따로 둔다 — 이 화면의 등록/수정 폼에 이미
+             factory_id(Factory_id) 선택칸이 있어, 같은 id 면 서로 값을 덮어쓴다.
+           ★ 조회 API 가 공장 조건을 받지 않아 «받아온 목록을 화면에서» 거른다.
+             행마다 factory_name 이 실려 오므로 콤보의 표시 이름과 맞춰 본다.
+             (서버가 factory_id 를 받게 되면 그쪽이 먼저 걸러 주고, 여기는 그대로 통과한다) */
+        function hdrFactoryVal() { return $('#hdrFactory').val() || ''; }
+        function hdrFactoryFilter(rows) {
+            const v = hdrFactoryVal();
+            if (!v || !Array.isArray(rows)) return rows;
+            const t = $('#hdrFactory option:selected').text().trim();
+            return rows.filter(r =>
+                String(r.factory_id ?? r.Factory_id ?? '') === String(v) ||
+                String(r.factory_name ?? '').trim() === t);
+        }
+        function hdrFactoryInit(onChange) {
+            const my = (hdrFactoryId == null || hdrFactoryId === '' || Number(hdrFactoryId) <= 0)
+                ? '' : String(hdrFactoryId);
+            AjaxUtil.fillSelectOptions($('#hdrFactory'), 'factory', 'all', my);
+            // ★ 채운 «뒤에» 건다 — fillSelectOptions 가 기본값을 넣으며 change 를 직접 일으켜
+            //   먼저 걸면 조회가 두 번 나간다. 대신 여기서 한 번 불러 기본 공장을 반영한다.
+            $('#hdrFactory').on('change', onChange);
+            onChange();
+        }
+
+        $(function () {
+            hdrFactoryInit(searchMainData);
+        });
     </script>
 </th:block>
 </html>

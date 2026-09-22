@@ -16,6 +16,8 @@
                 <a title="북마크" class="bookmark toggle">
                     내메뉴
                 </a>
+                <label for="hdrFactory" class="hide">공장</label>
+                <select style="width: 110px;" id="hdrFactory" name="hdrFactory"></select>
             </div>
             <ul class="page-navi">
                 <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
@@ -277,6 +279,10 @@
     <th:block th:replace="/common/upload_one_image_box :: upload_one_image_box"></th:block>
     <th:block th:replace="/common/popup_select_user_code :: popup_select_user_code"></th:block>
 
+    <script th:inline="javascript">
+        /* 로그인 사용자의 소속 공장. 없으면 null → «전체» 가 기본값이 된다 */
+        const hdrFactoryId = [[${session.factory_id}]];
+    </script>
     <script type="text/javascript">
 
         var theGrid;
@@ -323,7 +329,8 @@
                 },
                 async: false,
                 success: function (data) {
-                    data2 = data.data.map(item => {
+                    // 상단 공장 콤보 — onload 첫 조회가 필터 없이 그리드를 덮어써 기본 공장이 안 먹었다
+                    data2 = hdrFactoryFilter(data.data).map(item => {
                         let groupName = '기타근무';
                         if (item.person_group_id == 1) groupName = '주간근무';
                         else if (item.person_group_id == 2) groupName = '야간근무';
@@ -382,7 +389,7 @@
             theGrid.hostElement.addEventListener('dblclick', function (e) {
                 let selectedItem = theGrid.selectedItems[0];
                 document.getElementById('id').value = selectedItem.id;
-console.log(selectedItem);
+                console.log(selectedItem);
 
                 document.getElementById('Code').value = selectedItem.person_code;
                 document.getElementById('Name').value = selectedItem.person_name;
@@ -394,13 +401,13 @@ console.log(selectedItem);
                     let selectElement = document.getElementById(selectId);
                     if (selectElement) {
                         for (let option of selectElement.options) {
-                          /*  if (selectId === 'work_division') {
-                                // 'work_division'은 value로 비교
-                                option.selected = option.value == valueToMatch;
-                            } else {
-                                // 나머지는 text로 비교*/
-                                option.selected = option.text === valueToMatch;
-                          /*  }*/
+                            /*  if (selectId === 'work_division') {
+                                  // 'work_division'은 value로 비교
+                                  option.selected = option.value == valueToMatch;
+                              } else {
+                                  // 나머지는 text로 비교*/
+                            option.selected = option.text === valueToMatch;
+                            /*  }*/
                         }
                     }
                 }
@@ -480,6 +487,7 @@ console.log(selectedItem);
         }
 
         function grid_binding(data) {
+            data = hdrFactoryFilter(data);   // 상단 공장 콤보
             if (!Array.isArray(data)) {
                 console.error('데이터가 배열 형식이 아닙니다:', data);
                 return;
@@ -710,6 +718,33 @@ console.log(selectedItem);
 
         });
 
+
+        /* ── 상단 공장 콤보 ─────────────────────────────────────────────
+           ★ id 를 hdrFactory 로 따로 둔다 — 이 화면의 등록/수정 폼에 이미
+             factory_id(Factory_id) 선택칸이 있어, 같은 id 면 서로 값을 덮어쓴다.
+           ★ 조회 API 가 공장 조건을 받지 않아 «받아온 목록을 화면에서» 거른다.
+             행마다 factory_name 이 실려 오므로 콤보의 표시 이름과 맞춰 본다.
+             (서버가 factory_id 를 받게 되면 그쪽이 먼저 걸러 주고, 여기는 그대로 통과한다) */
+        function hdrFactoryVal() { return $('#hdrFactory').val() || ''; }
+        function hdrFactoryFilter(rows) {
+            const v = hdrFactoryVal();
+            if (!v || !Array.isArray(rows)) return rows;
+            const t = $('#hdrFactory option:selected').text().trim();
+            return rows.filter(r =>
+                String(r.factory_id ?? r.Factory_id ?? '') === String(v) ||
+                String(r.factory_name ?? '').trim() === t);
+        }
+        function hdrFactoryInit(onChange) {
+            const my = (hdrFactoryId == null || hdrFactoryId === '' || Number(hdrFactoryId) <= 0)
+                ? '' : String(hdrFactoryId);
+            AjaxUtil.fillSelectOptions($('#hdrFactory'), 'factory', 'all', my);
+            // ★ 채운 «뒤에» 건다 — fillSelectOptions 가 기본값을 넣으며 change 를 직접 일으켜
+            //   먼저 걸면 조회가 두 번 나간다. 대신 여기서 한 번 불러 기본 공장을 반영한다.
+            $('#hdrFactory').on('change', onChange);
+            onChange();
+        }
+
+        $(function () { hdrFactoryInit(searchMainData); });
     </script>
 
 </th:block>

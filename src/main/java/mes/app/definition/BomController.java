@@ -44,10 +44,10 @@ import javax.transaction.Transactional;
 @RestController
 @RequestMapping("/api/definition/bom")
 public class BomController {
-	
+
 	@Autowired
-	SqlRunner sqlRunner;	
-	
+	SqlRunner sqlRunner;
+
 	@Autowired
 	BomService bomService;
 
@@ -75,11 +75,11 @@ public class BomController {
 	@Autowired
 	UnitPriceService unitPriceService;
 
-    @Autowired
-    private BomRepository bomRepository;
+	@Autowired
+	private BomRepository bomRepository;
 
-    @Autowired
-    private BomComponentRepository bomComponentRepository;
+	@Autowired
+	private BomComponentRepository bomComponentRepository;
 
 	@RequestMapping("/read")
 	public AjaxResult getMaterialList(
@@ -88,16 +88,18 @@ public class BomController {
 			@RequestParam(value="bom_type", required=false) String bom_type,
 			@RequestParam(value="mat_name", required=false) String mat_name,
 			@RequestParam(value="not_past_flag", required=false) String not_past_flag,
+			// 상단 공장 콤보 — 비우면 전체
+			@RequestParam(value="factory_id", required=false) Integer factory_id,
 			@RequestParam(value ="spjangcd") String spjangcd
-			) {
-		
-		AjaxResult result = new AjaxResult();  
-        result.data = this.bomService.getBomMaterialList(mat_type,mat_group,bom_type, mat_name, not_past_flag,spjangcd);
-		return result;
-	}	
-		
+	) {
 
-	
+		AjaxResult result = new AjaxResult();
+		result.data = this.bomService.getBomMaterialList(mat_type,mat_group,bom_type, mat_name, not_past_flag, factory_id, spjangcd);
+		return result;
+	}
+
+
+
 	@PostMapping("/save")
 	public AjaxResult saveBom(
 			@RequestParam(value="id", required = false) Integer id,
@@ -109,34 +111,34 @@ public class BomController {
 			@RequestParam(value="Version") String version,
 			@RequestParam(value="OutputAmount") float outputAmount,
 			@RequestParam(value ="spjangcd") String spjangcd,
-			Authentication auth	
-			) {				
-		
+			Authentication auth
+	) {
+
 		User user = (User)auth.getPrincipal();
-		
+
 		AjaxResult result = new AjaxResult();
-		
+
 		startDate = startDate + " 00:00:00";
 		endDate = endDate + " 23:59:59";
-		
+
 		Timestamp startTs = Timestamp.valueOf(startDate);
 		Timestamp endTs = Timestamp.valueOf(endDate);
-		
+
 		boolean isSameVersion = this.bomService.checkSameVersion(id, materialId, bomType, version);
-		
+
 		if (isSameVersion==true) {
 			result.success = false;
 			result.message="중복된 BOM버전이 존재합니다.";
 			return result;
 		}
-		
+
 		boolean isDuplicated = this.bomService.checkDuplicatePeriod(id, materialId, bomType, startDate, endDate);
 		if (isDuplicated) {
 			result.success = false;
 			result.message="기간이 겹치는 동일 제품의 \\n BOM이 존재합니다.";
-			return result;			
+			return result;
 		}
-		
+
 		Bom bom = null;
 		if (id!=null) {
 			bom = this.bomService.getBom(id);
@@ -145,8 +147,8 @@ public class BomController {
 			if (StringUtils.hasText(version)==false) {
 				version = "1.0";
 			}
-		}		
-		
+		}
+
 		bom.setName(name);
 		bom.setMaterialId(materialId);
 		bom.setOutputAmount(outputAmount);
@@ -158,31 +160,31 @@ public class BomController {
 		bom.setSpjangcd(spjangcd);
 
 
-		this.bomService.saveBom(bom);		
+		this.bomService.saveBom(bom);
 		result.data = bom.getId();
-		
+
 		return result;
-		
-	}	
-	
+
+	}
+
 	@RequestMapping("/detail")
 	public AjaxResult getBomDetail(
 			@RequestParam(value="id") int id
-			) {
-		AjaxResult result = new AjaxResult();		
-        result.data = this.bomService.getBomDetail(id);		
-		return result;		
+	) {
+		AjaxResult result = new AjaxResult();
+		result.data = this.bomService.getBomDetail(id);
+		return result;
 	}
-	
+
 	@RequestMapping("/bom_delete")
 	public AjaxResult deleteBom(
 			@RequestParam(value="id") int id
-			) {
-		
-		MapSqlParameterSource paramMap = new MapSqlParameterSource();		
-		AjaxResult result = new AjaxResult();		
+	) {
+
+		MapSqlParameterSource paramMap = new MapSqlParameterSource();
+		AjaxResult result = new AjaxResult();
 		String sql = "delete from bom where id=:id ";
-		paramMap.addValue("id", id);		
+		paramMap.addValue("id", id);
 		int iRowEffected = this.sqlRunner.execute(sql, paramMap);
 		String compsql = "delete from bom_comp where \"BOM_id\"=:id ";
 		paramMap.addValue("id", id);
@@ -197,7 +199,7 @@ public class BomController {
 		result.data = totRowEffected;
 		return result;
 	}
-	
+
 	/*@RequestMapping("/material_save")
 	public AjaxResult bomComponentSave(
 			@RequestParam(value="id" , required = false) Integer id,
@@ -206,17 +208,17 @@ public class BomController {
 			@RequestParam(value="Amount") float amt,
 			@RequestParam(value="_order",required = false) Integer _order,
 			@RequestParam(value="Description",required = false) String description,
-			Authentication auth			
+			Authentication auth
 			) {
-		
+
 		User user = (User)auth.getPrincipal();
 		AjaxResult result = new AjaxResult();
-		
+
 		BomComponent bomComponent = null;
-		
+
 		if (id !=null) {
 			// 기존 데이터를 가져온다
-			bomComponent = this.bomService.getBomComponent(id);			
+			bomComponent = this.bomService.getBomComponent(id);
 		}else {
 			//동일한 데이터가 있는지 검사해서 중복이 있으면 리턴
 			//신규데이터를 등록한다
@@ -225,31 +227,31 @@ public class BomController {
 				result.success=false;
 				result.message = "이미 존재하는 품목입니다.";
 				return result;
-			}			
+			}
 			bomComponent = new BomComponent();
 		}
-		
+
 		bomComponent.setBomId(bom_id);
 		bomComponent.setMaterialId(materialId);
 		bomComponent.setAmount(amt);
 		bomComponent.set_order(_order);
-		bomComponent.setDescription(description);		
+		bomComponent.setDescription(description);
 		bomComponent.set_audit(user);
-		
+
 		bomComponent = this.bomService.saveBomComponent(bomComponent);
 		result.data = bomComponent.getId();
-		return result;		
+		return result;
 	}*/
 
 	@RequestMapping("/material_save")
 	public AjaxResult bomComponentSave(
-		@RequestParam(value="id" , required = false) Integer id,
-		@RequestParam(value="BOM_id") int bom_id,
-		@RequestParam(value="Material_id") int materialId,
-		@RequestParam(value="Amount") float amt,
-		@RequestParam(value="_order",required = false) Integer _order,
-		@RequestParam(value="Description",required = false) String description,
-		Authentication auth
+			@RequestParam(value="id" , required = false) Integer id,
+			@RequestParam(value="BOM_id") int bom_id,
+			@RequestParam(value="Material_id") int materialId,
+			@RequestParam(value="Amount") float amt,
+			@RequestParam(value="_order",required = false) Integer _order,
+			@RequestParam(value="Description",required = false) String description,
+			Authentication auth
 	) {
 
 		User user = (User)auth.getPrincipal();
@@ -302,32 +304,41 @@ public class BomController {
 	}
 
 
+	/** 텍스트(엑셀 복사) 일괄 저장 — 기존 구성을 전부 바꾼다. 검증 실패 시 아무것도 바꾸지 않는다. */
+	@PostMapping("/save_bom_comp_all")
+	public AjaxResult saveBomCompAll(
+			@RequestParam("bom_id") int bomId,
+			@RequestParam("lines") String lines,
+			Authentication auth) {
+		return this.bomService.saveAllBomComp(bomId, lines, (User) auth.getPrincipal());
+	}
+
 	@RequestMapping("/material_detail")
-    public AjaxResult bomComponentDetail(
-    		@RequestParam(value="id") int id    		
-    		) {
-    	AjaxResult result = new AjaxResult();    	
-    	result.data = this.bomService.getBomComponentDetail(id);    	
-    	return result;
-    }	
-	
+	public AjaxResult bomComponentDetail(
+			@RequestParam(value="id") int id
+	) {
+		AjaxResult result = new AjaxResult();
+		result.data = this.bomService.getBomComponentDetail(id);
+		return result;
+	}
+
 	// BOM 삭제
 	@PostMapping("/material_delete")
 	public AjaxResult deleteBomComponent(
 			@RequestParam(value="id") int id
-			) {
-		AjaxResult result = new AjaxResult();		
+	) {
+		AjaxResult result = new AjaxResult();
 		result.data = this.bomService.deleteBomComponent(id);
 		// bom_comp 테이블 삭제
 
-		return result;		
+		return result;
 	}
-		
-	
+
+
 	@RequestMapping("/bom_comp_list")
 	public AjaxResult getBomCompList(
 			@RequestParam(value="id") Integer id
-			) {
+	) {
 		AjaxResult result = new AjaxResult();
 		String sql = """
 	            select bc.id
@@ -347,39 +358,39 @@ public class BomController {
 	            left join mat_grp mg on m."MaterialGroup_id" =mg.id
 	            where bc."BOM_id" = :bom_id
 	            order by bc."_order"
-	    """;		
+	    """;
 		MapSqlParameterSource paramMap = new MapSqlParameterSource();
 		paramMap.addValue("bom_id", id);
 		result.data = this.sqlRunner.getRows(sql, paramMap);
-		
-		return result;		
+
+		return result;
 	}
-	
+
 	@RequestMapping("/material_tree_list")
 	public AjaxResult getComponentTreeList(
 			@RequestParam(value="id") Integer id
-			) {		
-		AjaxResult result = new AjaxResult();		
-		result.data = this.bomService.getBomComponentTreeList(id);		
-		return result;		
-	}	
-	
-	
+	) {
+		AjaxResult result = new AjaxResult();
+		result.data = this.bomService.getBomComponentTreeList(id);
+		return result;
+	}
+
+
 	@PostMapping("/bom_replicate")
 	public AjaxResult bomReplicate(
 			@RequestParam(value="id") int bom_id,
 			Authentication auth
-			) {		
-		
-		User user = (User)auth.getPrincipal();				
+	) {
+
+		User user = (User)auth.getPrincipal();
 		return this.bomService.bomReplicate(bom_id, user);
-	}	
-	
+	}
+
 	@PostMapping("/bom_revision")
 	public AjaxResult bomRevision(
 			@RequestParam(value="id") int bom_id,
 			Authentication auth
-			) {		
+	) {
 		User user = (User)auth.getPrincipal();
 		return this.bomService.bomRevision(bom_id, user);
 	}

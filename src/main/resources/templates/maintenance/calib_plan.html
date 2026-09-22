@@ -1,0 +1,539 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        .wj-header { text-align: center !important; }
+
+        /* 월 칸 표시 — ● 예정 / ✓ 완료 / ✕ 부적합 / 빨간 ● 지연 */
+        .cal-plan  { color: #1f2937; font-size: 15px; }
+        .cal-late  { color: #dc2626; font-size: 15px; font-weight: 800; }
+        .cal-done  { color: #16a34a; font-weight: 800; }
+        .cal-fail  { color: #dc2626; font-weight: 800; }
+        .cal-clip  { font-size: 11px; margin-left: 2px; color: #64748b; }
+        .cal-cur   { background: #fffbea !important; }          /* 이번 달 열 */
+        .cal-legend { display: flex; gap: 14px; align-items: center; font-size: 13px; color: #475569; }
+        .cal-legend b { font-size: 15px; }
+
+        #theGrid { height: calc(100vh - 290px); min-height: 320px; }
+    </style>
+</head>
+
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>교정계획점검표</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+                <label for="hdrFactory" class="hide">공장</label>
+                <select style="width: 110px;" id="hdrFactory" name="hdrFactory"></select>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>기준정보</li>
+                <li>교정계획점검표</li>
+            </ul>
+        </div>
+
+        <section class="section">
+            <div class="section-top">
+                <div class="search-wrap">
+                    <dl>
+                        <dt><label for="cboYear">연도</label></dt>
+                        <dd><div class="srch-box"><select class="form-control2" id="cboYear" style="width:100px"></select></div></dd>
+                    </dl>
+                    <dl>
+                        <dt><label for="txtKeyword">계측기명/번호</label></dt>
+                        <dd><div class="srch-box"><input type="text" class="form-control2" id="txtKeyword"></div></dd>
+                    </dl>
+                    <dl>
+                        <dt><label for="chkUnused">&nbsp;</label></dt>
+                        <dd><label style="white-space:nowrap"><input type="checkbox" id="chkUnused"> 사용 안 함 포함</label></dd>
+                    </dl>
+                    <dl>
+                        <dt><span class="eq"></span></dt>
+                        <dd>
+                            <li>
+                                <a class="btn btn-delete" title="검색" id="btnSearch">
+                                    <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘"> 검색
+                                </a>
+                            </li>
+                        </dd>
+                    </dl>
+                </div>
+
+                <div class="button-wrap" style="display:flex; justify-content:space-between; align-items:center; margin-top:8px">
+                    <div class="cal-legend">
+                        <span><b class="cal-plan">●</b> 예정</span>
+                        <span><b class="cal-late">●</b> 지연(예정월이 지났는데 미점검)</span>
+                        <span><b class="cal-done">✓</b> 완료</span>
+                        <span><b class="cal-fail">✕</b> 부적합</span>
+                        <span style="color:#94a3b8">· 칸을 누르면 결과를 입력합니다</span>
+                    </div>
+                    <ul>
+                        <li><button type="button" class="btn-excellt btn-default" id="btnNew"><i class="fas fa-plus"></i> 계측기 등록</button></li>
+                        <li><button type="button" class="btn-excellt btn-default" id="btnEdit">수정</button></li>
+                        <li><button type="button" class="btn-excellt btn-default" id="btnDel">삭제</button></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="container-fluid">
+                <div id="theGrid"></div>
+            </div>
+        </section>
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <th:block th:replace="/common/ax5_uploader :: ax5_uploader"></th:block>
+
+    <!-- 계측기 등록/수정 -->
+    <script type="text/x-tmpl" id="instTemplate">
+        <div class="content_wrap popup" id="instPop">
+            <div class="table-wrap">
+                <table class="write-table" style="width:100%; table-layout:fixed">
+                    <colgroup><col style="width:110px"><col><col style="width:110px"><col></colgroup>
+                    <tbody>
+                    <tr>
+                        <th>관리번호</th>
+                        <td><input class="form-control2" id="i_mgmt" value="{%=o.mgmt_no||''%}" placeholder="예) KM-MRM-M017"></td>
+                        <th>기기번호</th>
+                        <td><input class="form-control2" id="i_dev" value="{%=o.device_no||''%}"></td>
+                    </tr>
+                    <tr>
+                        <th>*계측기명</th>
+                        <td colspan="3"><input class="form-control2" id="i_name" value="{%=o.name||''%}" placeholder="예) 세척기 3호기 1조 타이머"></td>
+                    </tr>
+                    <tr>
+                        <th>*주기(개월)</th>
+                        <td><input class="form-control2" type="number" min="1" id="i_cycle" value="{%=o.cycle_month||12%}"></td>
+                        <th>*기준월</th>
+                        <td><input class="form-control2" type="month" id="i_base" value="{%=o.base_ym||''%}"></td>
+                    </tr>
+                    <tr>
+                        <th>공장</th>
+                        <td><select class="form-control2" id="i_factory"></select></td>
+                        <th>사용</th>
+                        <td>
+                            <select class="form-control2" id="i_use">
+                                <option value="Y">사용</option>
+                                <option value="N">사용 안 함</option>
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>정렬순서</th>
+                        <td><input class="form-control2" type="number" id="i_sort" value="{%=o.sort_no==null?'':o.sort_no%}"></td>
+                        <td colspan="2" style="color:#64748b; font-size:12px">비우면 관리번호·기기번호 순</td>
+                    </tr>
+                    <tr>
+                        <th>비고</th>
+                        <td colspan="3"><input class="form-control2" id="i_desc" value="{%=o.description||''%}"></td>
+                    </tr>
+                    </tbody>
+                </table>
+                <p style="margin-top:8px; color:#64748b; font-size:12px; line-height:1.6">
+                    기준월부터 주기마다 ● 가 찍힙니다. 예) 기준월 2026-02, 주기 24 → 2026-02, 2028-02, …
+                </p>
+            </div>
+            <div class="popup-button">
+                <button type="button" class="btn-popup" id="i_save">저장</button>
+                <button type="button" class="btn-popup" id="i_close">닫기</button>
+            </div>
+        </div>
+    </script>
+
+    <!-- 월별 결과 입력 -->
+    <script type="text/x-tmpl" id="recTemplate">
+        <div class="content_wrap popup" id="recPop">
+            <div class="table-wrap">
+                <p style="margin-bottom:8px; font-weight:700">{%=o.title%}</p>
+                <table class="write-table" style="width:100%; table-layout:fixed">
+                    <colgroup><col style="width:110px"><col><col style="width:110px"><col></colgroup>
+                    <tbody>
+                    <tr>
+                        <th>대상월</th>
+                        <td><input class="form-control2" value="{%=o.plan_ym%}" readonly></td>
+                        <th>*점검일</th>
+                        <td><input class="form-control2" type="date" id="r_date" value="{%=o.done_date||''%}"></td>
+                    </tr>
+                    <tr>
+                        <th>*결과</th>
+                        <td>
+                            <select class="form-control2" id="r_result">
+                                <option value="pass">적합</option>
+                                <option value="fail">부적합</option>
+                            </select>
+                        </td>
+                        <th>교정기관</th>
+                        <td><input class="form-control2" id="r_agency" value="{%=o.agency||''%}"></td>
+                    </tr>
+                    <tr>
+                        <th>성적서번호</th>
+                        <td><input class="form-control2" id="r_cert" value="{%=o.cert_no||''%}"></td>
+                        <th id="r_descLabel">비고</th>
+                        <td><input class="form-control2" id="r_desc" value="{%=o.description||''%}"></td>
+                    </tr>
+                    <tr>
+                        <th>성적서 첨부</th>
+                        <td colspan="3">
+                            <div id="calUploadDiv"></div>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="popup-button">
+                <button type="button" class="btn-popup" id="r_save">저장</button>
+                <button type="button" class="btn-popup" id="r_delete" style="display:none">결과 삭제</button>
+                <button type="button" class="btn-popup" id="r_close">닫기</button>
+            </div>
+        </div>
+    </script>
+
+    <script th:inline="javascript">
+        /* 로그인 사용자의 소속 공장. 없으면 null → «전체» 가 기본값이 된다 */
+        const hdrFactoryId = [[${session.factory_id}]];
+    </script>
+
+    <script type="text/javascript">
+        const API = '/api/definition/calib';
+        /* 첨부 키 = 계측기 + 대상월 (서버 CalibService 와 같아야 한다).
+           결과가 없어도 첨부할 수 있게 결과 id 가 아니라 이 둘로 붙인다. */
+        const ATT_TABLE = 'CALIB';
+        const attName = ym => 'cert_' + ym.replace('-', '');
+
+        let grid = null;
+        let INST = [];          // 계측기
+        let REC = {};           // instrument_id → { 'YYYY-MM': record }
+        let FILES = {};         // instrument_id → { 'YYYY-MM': 첨부 수 }
+        let YEAR = new Date().getFullYear();
+
+        const pad2 = n => (n < 10 ? '0' : '') + n;
+        const ym = (y, m) => y + '-' + pad2(m);
+        const NOW_YM = ym(new Date().getFullYear(), new Date().getMonth() + 1);
+        const spj = () => sessionStorage.getItem('spjangcd');
+
+        /* ── 예정 계산 ─────────────────────────────────────────────
+           예정월 = 기준월 + 주기 × n. 저장하지 않고 매번 계산한다 —
+           엑셀처럼 해마다 ● 를 옮겨 찍을 필요가 없다. */
+        function isPlanned(inst, y, m) {
+            if (!inst.base_ym || !inst.cycle_month) return false;
+            const b = inst.base_ym.split('-');
+            const diff = (y * 12 + m) - (Number(b[0]) * 12 + Number(b[1]));
+            return diff >= 0 && diff % Number(inst.cycle_month) === 0;
+        }
+
+        /* 칸 상태: done / fail / late / plan / '' */
+        function cellState(inst, m) {
+            const key = ym(YEAR, m);
+            const rec = (REC[inst.id] || {})[key];
+            if (rec && rec.done_date) return rec.result === 'fail' ? 'fail' : 'done';
+            if (isPlanned(inst, YEAR, m)) return key < NOW_YM ? 'late' : 'plan';
+            return '';
+        }
+
+        // ── 조회 ─────────────────────────────────────────────────
+        function search() {
+            AjaxUtil.getAsyncData(API + '/plan', {
+                year: YEAR,
+                factory_id: $('#hdrFactory').val() || '',
+                keyword: $('#txtKeyword').val() || '',
+                include_unused: $('#chkUnused').is(':checked') ? 'Y' : '',
+                spjangcd: spj()
+            }, function (res) {
+                const d = (res && res.data) || {};
+                INST = d.instruments || [];
+                REC = {};
+                (d.records || []).forEach(r => {
+                    (REC[r.instrument_id] = REC[r.instrument_id] || {})[r.plan_ym] = r;
+                });
+                FILES = {};
+                (d.files || []).forEach(f => {
+                    (FILES[f.instrument_id] = FILES[f.instrument_id] || {})[f.plan_ym] = Number(f.file_cnt) || 0;
+                });
+                bind();
+            });
+        }
+
+        function bind() {
+            const rows = INST.map((i, idx) => {
+                const row = Object.assign({no: idx + 1}, i);
+                for (let m = 1; m <= 12; m++) row['m' + m] = cellState(i, m);
+                return row;
+            });
+            grid.itemsSource = new wijmo.collections.CollectionView(rows);
+            grid.invalidate();   // 이번 달 열 강조를 연도에 맞춰 다시 그린다
+        }
+
+        function buildGrid() {
+            const cols = [
+                {binding: 'no',          header: 'NO.',             width: 50,  align: 'center'},
+                {binding: 'mgmt_no',     header: '관리번호',         width: 140, align: 'center'},
+                {binding: 'device_no',   header: '기기번호',         width: 110, align: 'center'},
+                {binding: 'name',        header: '장비 및 계측기명', width: 220, align: 'left'},
+                {binding: 'cycle_month', header: '주기(M)',          width: 70,  align: 'center'}
+            ];
+            for (let m = 1; m <= 12; m++) cols.push({binding: 'm' + m, header: m + '월', width: 56, align: 'center'});
+
+            grid = new wijmo.grid.FlexGrid('#theGrid', {
+                autoGenerateColumns: false,
+                isReadOnly: true,
+                selectionMode: wijmo.grid.SelectionMode.Row,
+                headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                frozenColumns: 5,
+                columns: cols,
+                formatItem: function (s, e) {
+                    if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+                        const b = s.columns[e.col].binding;
+                        if (/^m\d+$/.test(b) && ym(YEAR, Number(b.slice(1))) === NOW_YM) e.cell.classList.add('cal-cur');
+                        return;
+                    }
+                    if (e.panel.cellType !== wijmo.grid.CellType.Cell) return;
+                    const b = s.columns[e.col].binding;
+                    if (!/^m\d+$/.test(b)) return;
+
+                    const m = Number(b.slice(1));
+                    const it = s.rows[e.row].dataItem;
+                    const st = it[b];
+                    const rec = (REC[it.id] || {})[ym(YEAR, m)];
+                    // 성적서는 결과와 상관없이 붙을 수 있다 — 어느 상태든 📎 를 함께 보인다
+                    const clip = ((FILES[it.id] || {})[ym(YEAR, m)] || 0) > 0 ? '<span class="cal-clip">📎</span>' : '';
+                    const html = ({
+                        plan: '<span class="cal-plan">●</span>',
+                        late: '<span class="cal-late">●</span>',
+                        done: '<span class="cal-done">✓</span>',
+                        fail: '<span class="cal-fail">✕</span>'
+                    }[st] || '') + clip;
+                    e.cell.innerHTML = html;
+                    e.cell.style.cursor = 'pointer';
+                    if (ym(YEAR, m) === NOW_YM) e.cell.classList.add('cal-cur');
+                    if (rec && rec.done_date) e.cell.title = rec.done_date + (rec.agency ? ' · ' + rec.agency : '');
+                }
+            });
+
+            // 월 칸 클릭 → 결과 입력
+            grid.hostElement.addEventListener('click', function (ev) {
+                const ht = grid.hitTest(ev);
+                if (ht.cellType !== wijmo.grid.CellType.Cell) return;
+                const b = grid.columns[ht.col].binding;
+                if (!/^m\d+$/.test(b)) return;
+                const it = grid.rows[ht.row].dataItem;
+                openRecord(it, Number(b.slice(1)));
+            });
+        }
+
+        // ── 계측기 ───────────────────────────────────────────────
+        function selectedInst() {
+            const it = grid && grid.collectionView && grid.collectionView.currentItem;
+            if (!it) { Alert.alert('', '계측기를 먼저 선택하세요.'); return null; }
+            return it;
+        }
+
+        function openInstrument(data) {
+            data = data || {};
+            const $content = $(tmpl('instTemplate', data));
+            const modal = new PopupDraggable(data.id ? '계측기 수정' : '계측기 등록');
+            modal.open({
+                width:  Math.min(720, window.innerWidth - 40),
+                height: Math.min(440, window.innerHeight - 40),
+                $content
+            });
+
+            // 공장 — 새로 등록하면 상단에서 고른 공장이 기본값
+            AjaxUtil.fillSelectOptions($content.find('#i_factory'), 'factory', 'choose',
+                data.factory_id != null ? String(data.factory_id) : ($('#hdrFactory').val() || ''));
+
+            /* 선택값은 열고 나서 넣는다 — 템플릿 태그 안에 {% %} 를 쓰면
+               Thymeleaf 가 속성으로 읽어 페이지 전체가 안 열린다. */
+            $content.find('#i_use').val(data.use_yn === 'N' ? 'N' : 'Y');
+
+            $content.find('#i_close').on('click', () => modal.close());
+            $content.find('#i_save').on('click', function () {
+                AjaxUtil.postAsyncData(API + '/instrument_save', {
+                    id: data.id || '',
+                    mgmt_no: $content.find('#i_mgmt').val(),
+                    device_no: $content.find('#i_dev').val(),
+                    name: $content.find('#i_name').val(),
+                    cycle_month: $content.find('#i_cycle').val(),
+                    base_ym: $content.find('#i_base').val(),
+                    factory_id: $content.find('#i_factory').val() || '',
+                    use_yn: $content.find('#i_use').val(),
+                    sort_no: $content.find('#i_sort').val(),
+                    description: $content.find('#i_desc').val(),
+                    spjangcd: spj()
+                }, function (res) {
+                    if (!res.success) { Alert.alert('', res.message); return; }
+                    Notify.success(res.message || '저장했습니다.');
+                    modal.close();
+                    search();
+                });
+            });
+        }
+
+        function deleteInstrument() {
+            const it = selectedInst(); if (!it) return;
+            Alert.confirm('', it.name + ' 을(를) 삭제합니다.', function () {
+                AjaxUtil.postAsyncData(API + '/instrument_delete', {id: it.id}, function (res) {
+                    if (!res.success) { Alert.alert('', res.message); return; }
+                    Notify.success(res.message);
+                    search();
+                });
+            });
+        }
+
+        // ── 월별 결과 ────────────────────────────────────────────
+        function openRecord(inst, m) {
+            const key = ym(YEAR, m);
+            const rec = (REC[inst.id] || {})[key] || {};
+            const planned = isPlanned(inst, YEAR, m);
+
+            const go = function () {
+                const data = Object.assign({}, rec, {
+                    plan_ym: key,
+                    title: [inst.mgmt_no, inst.device_no, inst.name].filter(Boolean).join(' · ')
+                });
+                const $content = $(tmpl('recTemplate', data));
+                const modal = new PopupDraggable('교정 결과 · ' + key);
+                modal.open({
+                    width:  Math.min(760, window.innerWidth - 40),
+                    height: Math.min(460, window.innerHeight - 40),
+                    $content
+                });
+
+                // 선택값·버튼은 열고 나서 넣는다(템플릿 태그 안 {% %} 금지 — Thymeleaf 파싱 오류)
+                /* 결과는 대부분 적합이라 새로 넣을 때 적합이 기본값이다.
+                   부적합이면 조치 내용을 반드시 적게 한다 — 부적합 기록에 조치가 비어 있으면
+                   심사 지적 사항이 된다(ISO 13485 7.6: 이전 측정 결과의 유효성 평가·조치). */
+                const $res = $content.find('#r_result'), $desc = $content.find('#r_desc');
+                const syncFail = function () {
+                    const fail = $res.val() === 'fail';
+                    $content.find('#r_descLabel').text(fail ? '*조치 내용' : '비고');
+                    $desc.attr('placeholder', fail ? '예) 조정 후 재교정 / 폐기·교체 / 영향 평가 결과' : '');
+                };
+                $res.val(rec.result || 'pass').on('change', syncFail);
+                // 점검일도 새로 넣을 때는 오늘이 기본값 — 대부분 성적서를 받은 날 바로 입력한다.
+                // (toISOString 은 UTC 라 오전 9시 전에는 어제로 찍힌다 — 로컬 날짜로 만든다)
+                if (!rec.done_date) {
+                    const t = new Date();
+                    $content.find('#r_date').val(t.getFullYear() + '-' + pad2(t.getMonth() + 1) + '-' + pad2(t.getDate()));
+                }
+                syncFail();
+                let recId = rec.id || null;
+                if (recId) $content.find('#r_delete').show();
+                makeUploader(inst.id, key);   // 결과가 없어도 바로 첨부할 수 있다
+
+                $content.find('#r_close').on('click', function () { modal.close(); search(); });
+
+                $content.find('#r_save').on('click', function () {
+                    if ($res.val() === 'fail' && !$desc.val().trim()) {
+                        Alert.alert('', '부적합이면 조치 내용을 입력하세요.');
+                        $desc.focus();
+                        return;
+                    }
+                    AjaxUtil.postAsyncData(API + '/record_save', {
+                        instrument_id: inst.id,
+                        plan_ym: key,
+                        done_date: $content.find('#r_date').val(),
+                        result: $content.find('#r_result').val(),
+                        agency: $content.find('#r_agency').val(),
+                        cert_no: $content.find('#r_cert').val(),
+                        description: $content.find('#r_desc').val(),
+                        spjangcd: spj()
+                    }, function (res) {
+                        if (!res.success) { Alert.alert('', res.message); return; }
+                        Notify.success(res.message || '저장했습니다.');
+                        if (!recId && res.data && res.data.id) {
+                            recId = res.data.id;
+                            $content.find('#r_delete').show();
+                        }
+                    });
+                });
+
+                $content.find('#r_delete').on('click', function () {
+                    if (!recId) return;
+                    Alert.confirm('', key + ' 결과를 삭제합니다.\n첨부한 성적서는 그대로 남습니다.', function () {
+                        AjaxUtil.postAsyncData(API + '/record_delete', {id: recId}, function (res) {
+                            if (!res.success) { Alert.alert('', res.message); return; }
+                            Notify.success(res.message);
+                            modal.close();
+                            search();
+                        });
+                    });
+                });
+            };
+
+            // 예정이 아닌 달 — 임시 교정·재교정일 수 있으니 막지는 않고 한 번 묻는다
+            if (!planned && !rec.id) {
+                Alert.confirm('', key + ' 은(는) 교정 예정월이 아닙니다.\n그래도 결과를 입력하시겠습니까?', go);
+            } else {
+                go();
+            }
+        }
+
+        /* 성적서 첨부 — 멸균 배치와 같은 공용 업로더(ax5FileUploadClass).
+           파일 실체·저장 경로는 공용 첨부(attach_file)가 맡는다.
+           키는 «계측기 + 대상월» 이라 결과를 저장하지 않아도 붙일 수 있다. */
+        function makeUploader(instId, planYm) {
+            let canWrite = true;
+            try { if (typeof userinfo !== 'undefined' && userinfo.can_write) canWrite = !!userinfo.can_write(); }
+            catch (e) { canWrite = true; }
+
+            new ax5FileUploadClass('calUploadDiv', instId, {
+                table_name:   ATT_TABLE,
+                attach_name:  attName(planYm),
+                accept_files: 'pdf,jpg,jpeg,png,xlsx,xls,doc,docx,hwp',
+                multiple:     true,
+                max_count:    10,
+                file_size:    50,
+                can_write:    canWrite,
+                // 다른 화면 업로더와 element id 가 겹치지 않게 고유 접두어
+                divFileUpload:      'calUploadInner',
+                btnAddFile:         'calAddFile',
+                btnRemoveAllFile:   'calRemoveAll',
+                btnDownloadAllFile: 'calDownloadAll',
+                fileUploadBox:      'calUploadBox',
+                inputFileId:        'calFileIds',
+                inputDataPk:        'calDataPk',
+                upload_callback:     function () { },
+                delete_callback:     function () { },
+                file_click_callback: function () { }
+            });
+        }
+
+        // ── 초기화 ───────────────────────────────────────────────
+        $(function () {
+            // 연도 — 올해 기준 앞뒤 3년
+            const y0 = new Date().getFullYear();
+            for (let y = y0 - 3; y <= y0 + 3; y++) {
+                $('#cboYear').append('<option value="' + y + '"' + (y === y0 ? ' selected' : '') + '>' + y + '년</option>');
+            }
+            $('#cboYear').on('change', function () {
+                YEAR = Number(this.value);
+                search();
+            });
+
+            buildGrid();
+
+            $('#btnSearch').on('click', search);
+            $('#txtKeyword').on('keypress', e => {
+                if (e.keyCode === 13) search();
+            });
+            $('#chkUnused').on('change', search);
+            $('#btnNew').on('click', () => openInstrument());
+            $('#btnEdit').on('click', () => {
+                const it = selectedInst();
+                if (it) openInstrument(it);
+            });
+            $('#btnDel').on('click', deleteInstrument);
+
+            // 상단 공장 콤보 — 로그인 사용자 소속 공장이 기본. 채운 «뒤에» change 를 건다
+            const my = (hdrFactoryId == null || hdrFactoryId === '' || Number(hdrFactoryId) <= 0) ? '' : String(hdrFactoryId);
+            AjaxUtil.fillSelectOptions($('#hdrFactory'), 'factory', 'all', my);
+            $('#hdrFactory').on('change', search);
+            search();
+        });
+    </script>
+</th:block>
+</html>
