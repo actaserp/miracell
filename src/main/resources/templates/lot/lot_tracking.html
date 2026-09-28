@@ -1,96 +1,96 @@
 <html layout:decorate="~{layout_page}">
 <head>
   <style>
-      .wj-header {
-          text-align: center !important;
-      }
-      .lot-info-table th {
-          width: 110px;
-          white-space: nowrap;
-      }
-      .toggle-bar {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          margin: 6px 0;
-          font-weight: 600;
-      }
-      /* 상단 검색+기본정보 컴팩트화 (스크롤 최소화) */
-      .lot-top.section {
-          padding-top: 8px;
-          padding-bottom: 8px;
-      }
-      .lot-top .section-top {
-          margin-bottom: 6px;
-      }
-      .lot-top caption {
-          display: none;          /* 'LOT 기본정보' 캡션 숨김 */
-      }
-      .lot-top .lot-info-table {
-          margin-bottom: 0;
-      }
-      .lot-top .lot-info-table th,
-      .lot-top .lot-info-table td {
-          padding-top: 3px;
-          padding-bottom: 3px;
-      }
-      .lot-top .lot-info-table .form-control2 {
-          height: 28px;
-      }
+    .wj-header {
+      text-align: center !important;
+    }
+    .lot-info-table th {
+      width: 110px;
+      white-space: nowrap;
+    }
+    .toggle-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 6px 0;
+      font-weight: 600;
+    }
+    /* 상단 검색+기본정보 컴팩트화 (스크롤 최소화) */
+    .lot-top.section {
+      padding-top: 8px;
+      padding-bottom: 8px;
+    }
+    .lot-top .section-top {
+      margin-bottom: 6px;
+    }
+    .lot-top caption {
+      display: none;          /* 'LOT 기본정보' 캡션 숨김 */
+    }
+    .lot-top .lot-info-table {
+      margin-bottom: 0;
+    }
+    .lot-top .lot-info-table th,
+    .lot-top .lot-info-table td {
+      padding-top: 3px;
+      padding-bottom: 3px;
+    }
+    .lot-top .lot-info-table .form-control2 {
+      height: 28px;
+    }
 
-      /* ── 검색줄 정렬 ─────────────────────────────
-         칸마다 라벨 유무·줄 수가 달라 기본 정렬로는 높이가 제각각이 된다.
-         바닥 기준으로 맞춰 입력창·버튼·결과가 한 줄에 서게 한다 */
-      .lot-top .search-wrap {
-          align-items: flex-end;
-      }
-      .lot-top .search-wrap dl {
-          margin-bottom: 0;
-      }
+    /* ── 검색줄 정렬 ─────────────────────────────
+       칸마다 라벨 유무·줄 수가 달라 기본 정렬로는 높이가 제각각이 된다.
+       바닥 기준으로 맞춰 입력창·버튼·결과가 한 줄에 서게 한다 */
+    .lot-top .search-wrap {
+      align-items: flex-end;
+    }
+    .lot-top .search-wrap dl {
+      margin-bottom: 0;
+    }
 
-      /* 스캔 힌트 — 입력 dd 안에 두면 그 칸만 두 줄이 되어 행 전체가 틀어진다.
-         별도 dl 로 빼고 입력창 baseline 에 맞춘다 */
-      .scan-hint {
-          font-size: 12px;
-          color: #888;
-          white-space: nowrap;
-      }
-      .scan-hint-dl dd {
-          padding-bottom: 6px;
-      }
+    /* 스캔 힌트 — 입력 dd 안에 두면 그 칸만 두 줄이 되어 행 전체가 틀어진다.
+       별도 dl 로 빼고 입력창 baseline 에 맞춘다 */
+    .scan-hint {
+      font-size: 12px;
+      color: #888;
+      white-space: nowrap;
+    }
+    .scan-hint-dl dd {
+      padding-bottom: 6px;
+    }
 
-      /* 한 라벨에 완제품 로트가 여럿 걸렸을 때만 뜨는 선택 박스 */
-      #candWrap {
-          display: none;
-      }
-      #candWrap .form-control2 {
-          height: 34px;
-          min-width: 240px;
-      }
+    /* 한 라벨에 완제품 로트가 여럿 걸렸을 때만 뜨는 선택 박스 */
+    #candWrap {
+      display: none;
+    }
+    #candWrap .form-control2 {
+      height: 34px;
+      min-width: 240px;
+    }
 
-      /* 조회 결과 — 오른쪽 끝.
-         h2 는 페이지 타이틀과 같은 태그라 전역 margin 을 물고 온다 → strong 사용 */
-      .lot-result {
-          margin-left: auto;
-      }
-      .lot-result dd {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          height: 34px;
-          font-size: 15px;
-      }
+    /* 조회 결과 — 오른쪽 끝.
+       h2 는 페이지 타이틀과 같은 태그라 전역 margin 을 물고 온다 → strong 사용 */
+    .lot-result {
+      margin-left: auto;
+    }
+    .lot-result dd {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      height: 34px;
+      font-size: 15px;
+    }
 
-      /* 스캔 키가 사내 LOT 이 아닐 때(박스라벨·카톤) 표시하는 배지 */
-      .match-badge {
-          display: none;
-          padding: 2px 8px;
-          border-radius: 10px;
-          background: #eef4ff;
-          color: #2b5fd9;
-          font-size: 12px;
-          font-weight: 600;
-      }
+    /* 스캔 키가 사내 LOT 이 아닐 때(박스라벨·카톤) 표시하는 배지 */
+    .match-badge {
+      display: none;
+      padding: 2px 8px;
+      border-radius: 10px;
+      background: #eef4ff;
+      color: #2b5fd9;
+      font-size: 12px;
+      font-weight: 600;
+    }
   </style>
 </head>
 
@@ -275,440 +275,474 @@
 
 <th:block layout:fragment="scripts">
   <script type="text/javascript">
-   /* GS1-128 → (10) 로트 추출. 괄호표기 / 원시 element string 둘 다.
-      포장 화면(prod_process_opack_*)과 같은 함수다 — 현장에서 같은 바코드를
-      포장에서도 트래킹에서도 찍기 때문에 파싱이 어긋나면 한쪽만 조회된다. */
-   function pickLot(raw) {
-    raw = String(raw || '').trim();
-    if (!raw) return '';
-    var m;
-    if (raw.indexOf('(') >= 0) {
-     if ((m = raw.match(/\(10\)([^()\u001d]+)/))) return m[1].trim();
-     return raw;
-    }
-    var GS = '\u001d';
-    var s = raw.replace(/^\]C1/, '').replace(/^\u001d/, '');
-    var FIXED = {'00':18,'01':14,'02':14,'11':6,'12':6,'13':6,'15':6,'16':6,'17':6,'20':2};
-    var i = 0;
-    while (i < s.length) {
-     if (s[i] === GS) { i++; continue; }
-     var ai = s.substr(i, 2); i += 2;
-     var flen = FIXED[ai];
-     if (flen != null) {
-      if (ai === '10') return s.substr(i, flen);
-      i += flen;
-     } else {
-      var g = s.indexOf(GS, i), end = (g < 0 ? s.length : g);
-      var v = s.substring(i, end); i = end;
-      if (ai === '10') return v.trim();
-     }
-    }
-    return raw;
-   }
-
-   class LotTrackingPage {
-    constructor() {
-     this.url = '/api/lot/lot_tracking';
-     this.matTrackingGrid = null;
-     this.inoutGrid = null;
-     this.productTrackingGrid = null;
-     this.shipmentGrid = null;
-     this.packGrid = null;
-     this.lot_detail = null;
-     this.candidates = [];      // 스캔 키 하나에 걸린 로트 후보들(로트번호 단위 그룹)
-    }
-
-    init() {
-     let _this = this;
-
-     this.initMatTracking();
-     this.initProductTracking();
-
-     this.$spanLotNumber = $('#spanLotNumber');
-     this.$spanMatchBadge = $('#spanMatchBadge');
-     this.$LotNumber = $('#LotNumber');
-     this.$lotForm = $('#lotForm');
-     this.$candWrap = $('#candWrap');
-     this.$candidate = $('#lotCandidate');
-
-     // 바코드 스캐너 / Tab 키 입력
-     this.$LotNumber.keydown(function (e) {
-      if (e.keyCode == 9) {
-       _this.loadLotDetail();
+    /* GS1-128 → (10) 로트 추출. 괄호표기 / 원시 element string 둘 다.
+       포장 화면(prod_process_opack_*)과 같은 함수다 — 현장에서 같은 바코드를
+       포장에서도 트래킹에서도 찍기 때문에 파싱이 어긋나면 한쪽만 조회된다. */
+    function pickLot(raw) {
+      raw = String(raw || '').trim();
+      if (!raw) return '';
+      var m;
+      if (raw.indexOf('(') >= 0) {
+        if ((m = raw.match(/\(10\)([^()\u001d]+)/))) return m[1].trim();
+        return raw;
       }
-     });
-
-     // Enter 입력
-     this.$LotNumber.on('keypress', function (e) {
-      if (e.keyCode === 13) {
-       if (_this.$LotNumber.val() !== '') {
-        _this.loadLotDetail();
-       }
+      var GS = '\u001d';
+      var s = raw.replace(/^\]C1/, '').replace(/^\u001d/, '');
+      var FIXED = {'00':18,'01':14,'02':14,'11':6,'12':6,'13':6,'15':6,'16':6,'17':6,'20':2};
+      var i = 0;
+      while (i < s.length) {
+        if (s[i] === GS) { i++; continue; }
+        var ai = s.substr(i, 2); i += 2;
+        var flen = FIXED[ai];
+        if (flen != null) {
+          if (ai === '10') return s.substr(i, flen);
+          i += flen;
+        } else {
+          var g = s.indexOf(GS, i), end = (g < 0 ? s.length : g);
+          var v = s.substring(i, end); i = end;
+          if (ai === '10') {
+            /* ★ 가변 AI 는 끝을 GS 구분자로 안다. 구분자 없이 다음 AI 가 이어 붙은 라벨이 많아
+               (예: …10 6E28IV1 11 260528) 그대로 자르면 뒤엣것까지 로트에 딸려 들어간다.
+               «고정길이 AI + 그 길이만큼의 숫자» 가 «맨 뒤» 에 붙어 있으면 거기서 끊는다.
+               앞에서부터 찾으면 로트 안의 숫자에 먼저 걸린다(6E28IV1 의 '1'). */
+            for (var tai in FIXED) {
+              var tlen = FIXED[tai], need = 2 + tlen;
+              if (v.length <= need) continue;
+              var tail = v.substr(v.length - need);
+              if (tail.substr(0, 2) === tai && /^\d+$/.test(tail.substr(2))) {
+                v = v.substring(0, v.length - need);
+                break;
+              }
+            }
+            return v.trim();
+          }
+        }
       }
-     });
+      return raw;
+    }
 
-     // 검색버튼
-     $('#btnMainSearch').click(function (e) {
-      if (_this.$LotNumber.val() !== '') {
-       _this.loadLotDetail();
+    class LotTrackingPage {
+      constructor() {
+        this.url = '/api/lot/lot_tracking';
+        this.matTrackingGrid = null;
+        this.inoutGrid = null;
+        this.productTrackingGrid = null;
+        this.shipmentGrid = null;
+        this.packGrid = null;
+        this.lot_detail = null;
+        this.candidates = [];      // 스캔 키 하나에 걸린 로트 후보들(로트번호 단위 그룹)
       }
-     });
 
-     // 후보 선택 — 이미 받아 둔 상세를 그대로 쓴다(재조회 없음)
-     this.$candidate.on('change', function () {
-      let g = _this.candidates[Number($(this).val())];
-      if (g) _this.applyLot(g);
-     });
-    }
+      init() {
+        let _this = this;
 
-    /* 평면 데이터를 Wijmo 트리(childItemsPath)용 계층 구조로 변환.
+        this.initMatTracking();
+        this.initProductTracking();
 
-       ★ 키는 로트번호가 아니라 서버가 내려주는 node_key / parent_key 다.
-         PK·FK 가 같은 로트번호를 공유하기 때문에(공정도메인 기준 §1)
-         로트번호만으로 묶으면 한쪽 가지가 조용히 사라지고
-         같은 노드가 부모 밑에 두 번 매달린다. 키에 품목 id 를 붙여 가른다.
+        this.$spanLotNumber = $('#spanLotNumber');
+        this.$spanMatchBadge = $('#spanMatchBadge');
+        this.$LotNumber = $('#LotNumber');
+        /* ★ 스캐너는 키보드처럼 키를 눌러 보낸다. IME 가 한글 모드면 그대로 한글이 된다
+           (6E28IV1 → 6ㄸ28ㅑㅍ1). ScanUtil 이 IME 차단과 역변환을 맡는다. */
+        if (window.ScanUtil && ScanUtil.bindScanInput) ScanUtil.bindScanInput(this.$LotNumber);
+        // 열리자마자 바로 찍을 수 있게 커서를 둔다(스캐너는 커서가 있어야 값이 들어간다)
+        setTimeout(function () { _this.$LotNumber.trigger('focus'); }, 0);
+        this.$lotForm = $('#lotForm');
+        this.$candWrap = $('#candWrap');
+        this.$candidate = $('#lotCandidate');
 
-       ★ map 등록은 「먼저 온 것 우선」이고, 노드 자체는 map 이 아니라 별도 배열로
-         돈다. 예전처럼 map 에서 노드를 꺼내 쓰면 키가 겹치는 순간 행이 통째로
-         사라지는데, 이러면 최소한 뿌리로라도 남아 눈에 보인다. */
-    buildTree(flatData, parentKey, selfKey) {
-     if (!flatData || flatData.length === 0) return [];
+        // 바코드 스캐너 / Tab 키 입력
+        this.$LotNumber.keydown(function (e) {
+          if (e.keyCode == 9) {
+            _this.loadLotDetail();
+          }
+        });
 
-     let map = {};
-     let nodes = [];
-     let roots = [];
+        // Enter 입력
+        this.$LotNumber.on('keypress', function (e) {
+          if (e.keyCode === 13) {
+            if (_this.$LotNumber.val() !== '') {
+              _this.loadLotDetail();
+            }
+          }
+        });
 
-     flatData.forEach(function (row) {
-      let node = Object.assign({}, row);
-      node.items = [];
-      nodes.push(node);
-      let k = row[selfKey];
-      if (k != null && k !== '' && map[k] === undefined) map[k] = node;
-     });
+        // 검색버튼
+        $('#btnMainSearch').click(function (e) {
+          if (_this.$LotNumber.val() !== '') {
+            _this.loadLotDetail();
+          }
+        });
 
-     nodes.forEach(function (node) {
-      let pk = node[parentKey];
-      let parent = (pk == null || pk === '') ? null : map[pk];
-      if (parent && parent !== node) {
-       parent.items.push(node);
-      } else {
-       roots.push(node);
+        // 후보 선택 — 이미 받아 둔 상세를 그대로 쓴다(재조회 없음)
+        this.$candidate.on('change', function () {
+          let g = _this.candidates[Number($(this).val())];
+          if (g) _this.applyLot(g);
+        });
       }
-     });
 
-     return roots;
-    }
+      /* 평면 데이터를 Wijmo 트리(childItemsPath)용 계층 구조로 변환.
 
-    // 재료추적, 원재료 입고정보
-    initMatTracking() {
-     // 재료추적 (트리)
-     this.matTrackingGrid = new wijmo.grid.FlexGrid('#mat-tracking-grid', {
-      autoGenerateColumns: false,
-      isReadOnly: true,
-      showMarquee: true,
-      childItemsPath: 'items',
-      columns: [
-       { binding: 'mat_name', header: '품목(재료)', width: 250, align: 'left' },
-       { binding: 'p_mat_name', header: '생산품', width: 250, align: 'left' },
-       { binding: 'lot_number', header: '품목LOT(재료)', width: 250, align: 'left' },
-       { binding: 'p_lot_number', header: '생산품LOT', width: 200, align: 'center' },
-       { binding: 'unit_name', header: '단위', width: 80, align: 'center' },
-       { binding: 'lot_consume_qty', header: 'LOT투입수량', width: 110, align: 'right', format: 'n0' },
-       /* 이 로트가 소비된 차수의 종료 시각. 리콜 범위를 자를 때 쓴다.
-          뿌리 행은 소비된 적이 없어 빈칸 — 생성일로 채우면 한 칸에 두 의미가 섞인다 */
-       { binding: 'used_time', header: '사용일시', width: 160, align: 'center' },
-       { binding: 'WorkOrderNumber', header: '작업지시번호', width: 140, align: 'center' }
-      ]
-     });
-     this.matTrackingGrid.rowHeaders.columns.splice(0, 1);
+         ★ 키는 로트번호가 아니라 서버가 내려주는 node_key / parent_key 다.
+           PK·FK 가 같은 로트번호를 공유하기 때문에(공정도메인 기준 §1)
+           로트번호만으로 묶으면 한쪽 가지가 조용히 사라지고
+           같은 노드가 부모 밑에 두 번 매달린다. 키에 품목 id 를 붙여 가른다.
 
-     // 원재료 입고정보
-     this.inoutGrid = new wijmo.grid.FlexGrid('#mat-inout-grid', {
-      autoGenerateColumns: false,
-      isReadOnly: true,
-      showMarquee: true,
-      columns: [
-       { binding: 'lot_number', header: '품목LOT', width: 170, align: 'center' },
-       { binding: 'mat_name', header: '품목', width: 270, align: 'left' },
-       { binding: 'InoutDate', header: '입고일', width: 150, align: 'center' },
-       { binding: 'InputQty', header: '입고량', width: 150, align: 'right', format: 'n0' },
-       { binding: 'company_name', header: '매입처', width: 150, align: 'center' },
-       { binding: 'EffectiveDate', header: '유효일자', width: 150, align: 'center' },
-       { binding: 'input_type_name', header: '입고구분', width: 110, align: 'center' },
-       /* 시드로 들어온 로트는 mat_inout 행이 없어 매입처·구분이 빈다.
-          입고 경위는 mat_lot."Description" 에만 남아 있어 이 칸이 유일한 단서다 */
-       { binding: 'lot_desc', header: '비고', width: 180, align: 'left' }
-      ]
-     });
-     this.inoutGrid.rowHeaders.columns.splice(0, 1);
-    }
+         ★ map 등록은 「먼저 온 것 우선」이고, 노드 자체는 map 이 아니라 별도 배열로
+           돈다. 예전처럼 map 에서 노드를 꺼내 쓰면 키가 겹치는 순간 행이 통째로
+           사라지는데, 이러면 최소한 뿌리로라도 남아 눈에 보인다. */
+      buildTree(flatData, parentKey, selfKey) {
+        if (!flatData || flatData.length === 0) return [];
 
-    // 제품추적, 포장정보, 제품출하정보
-    initProductTracking() {
-     // 제품추적 (트리)
-     this.productTrackingGrid = new wijmo.grid.FlexGrid('#product-tracking-grid', {
-      autoGenerateColumns: false,
-      isReadOnly: true,
-      showMarquee: true,
-      childItemsPath: 'items',
-      columns: [
-       { binding: 'mat_name', header: '생산품', width: 250, align: 'left' },
-       { binding: 'p_mat_name', header: '품목(재료)', width: 250, align: 'left' },
-       { binding: 'lot_number', header: '생산품LOT', width: 250, align: 'left' },
-       { binding: 'p_lot_number', header: '재료LOT', width: 150, align: 'center' },
-       { binding: 'unit_name', header: '단위', width: 80, align: 'center' },
-       { binding: 'lot_consume_qty', header: 'LOT투입수량', width: 110, align: 'right', format: 'n0' },
-       { binding: 'used_time', header: '사용일시', width: 130, align: 'center' },
-       { binding: 'wo', header: '작업지시번호', width: 130, align: 'center' }
-      ]
-     });
-     this.productTrackingGrid.rowHeaders.columns.splice(0, 1);
+        let map = {};
+        let nodes = [];
+        let roots = [];
 
-     /* 포장정보
-        산출 = 이 로트가 포장으로 나온 것 (그 박스에 붙은 라벨)
-        투입 = 이 로트가 포장에 담긴 것   (담긴 완제품 로트와 그 박스라벨)
-        제품추적 트리는 부모 로트까지만 보여줘서 "실물 어느 박스에 있나" 를 답하지 못한다 */
-     this.packGrid = new wijmo.grid.FlexGrid('#pack-info-grid', {
-      autoGenerateColumns: false,
-      isReadOnly: true,
-      showMarquee: true,
-      columns: [
-       { binding: 'role', header: '구분', width: 60, align: 'center' },
-       { binding: 'process_name', header: '공정', width: 90, align: 'center' },
-       { binding: 'pack_time', header: '포장일시', width: 160, align: 'center' },
-       { binding: 'WorkOrderNumber', header: '작업지시번호', width: 130, align: 'center' },
-       { binding: 'mat_name', header: '완제품', width: 160, align: 'left' },
-       { binding: 'prod_lot', header: '완제품LOT', width: 160, align: 'center' },
-       { binding: 'good_qty', header: '포장수량', width: 90, align: 'right', format: 'n0' },
-       /* pack_carton 을 센 값. 국가별 로트를 조회하면 그 국가 박스만 세어진다.
-          pack_label 의 carton "Qty" 는 차수 전체라 국가별 화면에서 과하게 나온다 */
-       { binding: 'box_cnt', header: '박스수', width: 80, align: 'right', format: 'n0' },
-       /* 라벨 · 카톤 줄 */
-       { binding: 'label_kind_name', header: '구분상세', width: 130, align: 'center' },
-       { binding: 'label_lot', header: '라벨·카톤LOT', width: 200, align: 'center' },
-       { binding: 'country_code', header: '국가', width: 60, align: 'center' },
-       { binding: 'ship_state', header: '출고상태', width: 90, align: 'center' },
-       { binding: 'gtin', header: 'GTIN', width: 140, align: 'center' },
-       { binding: 'label_qty', header: '수량', width: 80, align: 'right', format: 'n0' },
-       /* 투입 줄 */
-       { binding: 'src_mat_name', header: '투입품목', width: 220, align: 'left' },
-       { binding: 'src_lot', header: '투입LOT', width: 200, align: 'center' },
-       { binding: 'src_qty', header: '투입수량', width: 90, align: 'right', format: 'n0' }
-      ]
-     });
-     this.packGrid.rowHeaders.columns.splice(0, 1);
+        flatData.forEach(function (row) {
+          let node = Object.assign({}, row);
+          node.items = [];
+          nodes.push(node);
+          let k = row[selfKey];
+          if (k != null && k !== '' && map[k] === undefined) map[k] = node;
+        });
 
-     // 제품출하정보
-     this.shipmentGrid = new wijmo.grid.FlexGrid('#product-shipment-grid', {
-      autoGenerateColumns: false,
-      isReadOnly: true,
-      showMarquee: true,
-      columns: [
-       { binding: 'lot_number', header: '품목LOT', width: 150, align: 'center' },
-       { binding: 'mat_name', header: '품목', width: 250, align: 'left' },
-       { binding: 'ShipDate', header: '출하일', width: 150, align: 'center' },
-       { binding: 'company_name', header: '고객사', width: 150, align: 'left' },
-       { binding: 'Qty', header: '출하량', width: 100, align: 'right', format: 'n0' },
-       { binding: 'shipment_state', header: '출하상태', width: 150, align: 'center' }
-      ]
-     });
-     this.shipmentGrid.rowHeaders.columns.splice(0, 1);
-    }
+        nodes.forEach(function (node) {
+          let pk = node[parentKey];
+          let parent = (pk == null || pk === '') ? null : map[pk];
+          if (parent && parent !== node) {
+            parent.items.push(node);
+          } else {
+            roots.push(node);
+          }
+        });
 
-    setGridData(grid, data) {
-     grid.itemsSource = new wijmo.collections.CollectionView(data || []);
-    }
-
-    clearAll() {
-     this.lot_detail = null;
-     this.candidates = [];
-     this.$lotForm[0].reset();
-     this.$spanLotNumber.text('');
-     this.$spanMatchBadge.hide().text('');
-     this.$candWrap.hide();
-     this.$candidate.empty();
-
-     this.setGridData(this.matTrackingGrid, []);
-     this.setGridData(this.inoutGrid, []);
-     this.setGridData(this.productTrackingGrid, []);
-     this.setGridData(this.packGrid, []);
-     this.setGridData(this.shipmentGrid, []);
-    }
-
-    /* 스캔 키 → 사내 로트.
-       서버가 ① 사내 LOT ② 박스라벨(MakerLotNo) ③ 포장 라벨(카톤 등) 순으로 찾는다.
-       포장된 실물에 붙는 번호가 사내 로트번호와 다르기 때문에 ②③ 없이는
-       현장에서 박스를 찍었을 때 아무것도 안 나온다. */
-    loadLotDetail() {
-     let _this = this;
-     let key = pickLot(this.$LotNumber.val());
-     if (!key) return;
-
-     this.clearAll();
-
-     let data = { action: 'lot_detail', lot_number: key, exact: 'N' };
-
-     let fnsuccess = function (result) {
-      if (result.success === false) {
-       Alert.alert('LOT추적오류', result.message || '조회 중 오류가 발생했습니다.');
-       return;
+        return roots;
       }
-      let rows = result.data || [];
-      if (rows.length === 0) {
-       Alert.alert('LOT추적오류',
-        '해당 LOT정보가 없습니다.\n(사내 LOT · 박스라벨 · 카톤번호로 조회할 수 있습니다)');
-       return;
+
+      // 재료추적, 원재료 입고정보
+      initMatTracking() {
+        // 재료추적 (트리)
+        this.matTrackingGrid = new wijmo.grid.FlexGrid('#mat-tracking-grid', {
+          autoGenerateColumns: false,
+          isReadOnly: true,
+          showMarquee: true,
+          childItemsPath: 'items',
+          columns: [
+            { binding: 'mat_name', header: '품목(재료)', width: 250, align: 'left' },
+            { binding: 'p_mat_name', header: '생산품', width: 250, align: 'left' },
+            { binding: 'lot_number', header: '품목LOT(재료)', width: 250, align: 'left' },
+            { binding: 'p_lot_number', header: '생산품LOT', width: 200, align: 'center' },
+            { binding: 'unit_name', header: '단위', width: 80, align: 'center' },
+            { binding: 'lot_consume_qty', header: 'LOT투입수량', width: 110, align: 'right', format: 'n0' },
+            /* 이 로트가 소비된 차수의 종료 시각. 리콜 범위를 자를 때 쓴다.
+               뿌리 행은 소비된 적이 없어 빈칸 — 생성일로 채우면 한 칸에 두 의미가 섞인다 */
+            { binding: 'used_time', header: '사용일시', width: 160, align: 'center' },
+            { binding: 'WorkOrderNumber', header: '작업지시번호', width: 140, align: 'center' }
+          ]
+        });
+        this.matTrackingGrid.rowHeaders.columns.splice(0, 1);
+
+        // 원재료 입고정보
+        this.inoutGrid = new wijmo.grid.FlexGrid('#mat-inout-grid', {
+          autoGenerateColumns: false,
+          isReadOnly: true,
+          showMarquee: true,
+          columns: [
+            { binding: 'lot_number', header: '품목LOT', width: 170, align: 'center' },
+            { binding: 'mat_name', header: '품목', width: 270, align: 'left' },
+            { binding: 'InoutDate', header: '입고일', width: 150, align: 'center' },
+            { binding: 'InputQty', header: '입고량', width: 150, align: 'right', format: 'n0' },
+            { binding: 'company_name', header: '매입처', width: 150, align: 'center' },
+            { binding: 'EffectiveDate', header: '유효일자', width: 150, align: 'center' },
+            { binding: 'input_type_name', header: '입고구분', width: 110, align: 'center' },
+            /* 시드로 들어온 로트는 mat_inout 행이 없어 매입처·구분이 빈다.
+               입고 경위는 mat_lot."Description" 에만 남아 있어 이 칸이 유일한 단서다 */
+            { binding: 'lot_desc', header: '비고', width: 180, align: 'left' }
+          ]
+        });
+        this.inoutGrid.rowHeaders.columns.splice(0, 1);
       }
-      _this.setCandidates(rows);
-      // ★ setCandidates 가 로트번호로 묶어 둔 첫 그룹을 편다 (행이 아니다)
-      _this.applyLot(_this.candidates[0]);
-     };
-     let fnfailure = function (req, status, error) {
-     };
-     AjaxUtil.getAsyncData(this.url + '/lot_detail', data, fnsuccess, fnfailure);
+
+      // 제품추적, 포장정보, 제품출하정보
+      initProductTracking() {
+        // 제품추적 (트리)
+        this.productTrackingGrid = new wijmo.grid.FlexGrid('#product-tracking-grid', {
+          autoGenerateColumns: false,
+          isReadOnly: true,
+          showMarquee: true,
+          childItemsPath: 'items',
+          columns: [
+            { binding: 'mat_name', header: '생산품', width: 250, align: 'left' },
+            { binding: 'p_mat_name', header: '품목(재료)', width: 250, align: 'left' },
+            { binding: 'lot_number', header: '생산품LOT', width: 250, align: 'left' },
+            { binding: 'p_lot_number', header: '재료LOT', width: 150, align: 'center' },
+            { binding: 'unit_name', header: '단위', width: 80, align: 'center' },
+            { binding: 'lot_consume_qty', header: 'LOT투입수량', width: 110, align: 'right', format: 'n0' },
+            { binding: 'used_time', header: '사용일시', width: 130, align: 'center' },
+            { binding: 'wo', header: '작업지시번호', width: 130, align: 'center' }
+          ]
+        });
+        this.productTrackingGrid.rowHeaders.columns.splice(0, 1);
+
+        /* 포장정보
+           산출 = 이 로트가 포장으로 나온 것 (그 박스에 붙은 라벨)
+           투입 = 이 로트가 포장에 담긴 것   (담긴 완제품 로트와 그 박스라벨)
+           제품추적 트리는 부모 로트까지만 보여줘서 "실물 어느 박스에 있나" 를 답하지 못한다 */
+        this.packGrid = new wijmo.grid.FlexGrid('#pack-info-grid', {
+          autoGenerateColumns: false,
+          isReadOnly: true,
+          showMarquee: true,
+          columns: [
+            { binding: 'role', header: '구분', width: 60, align: 'center' },
+            { binding: 'process_name', header: '공정', width: 90, align: 'center' },
+            { binding: 'pack_time', header: '포장일시', width: 160, align: 'center' },
+            { binding: 'WorkOrderNumber', header: '작업지시번호', width: 130, align: 'center' },
+            { binding: 'mat_name', header: '완제품', width: 160, align: 'left' },
+            { binding: 'prod_lot', header: '완제품LOT', width: 160, align: 'center' },
+            { binding: 'good_qty', header: '포장수량', width: 90, align: 'right', format: 'n0' },
+            /* pack_carton 을 센 값. 국가별 로트를 조회하면 그 국가 박스만 세어진다.
+               pack_label 의 carton "Qty" 는 차수 전체라 국가별 화면에서 과하게 나온다 */
+            { binding: 'box_cnt', header: '박스수', width: 80, align: 'right', format: 'n0' },
+            /* 라벨 · 카톤 줄 */
+            { binding: 'label_kind_name', header: '구분상세', width: 130, align: 'center' },
+            { binding: 'label_lot', header: '라벨·카톤LOT', width: 200, align: 'center' },
+            { binding: 'country_code', header: '국가', width: 60, align: 'center' },
+            { binding: 'ship_state', header: '출고상태', width: 90, align: 'center' },
+            { binding: 'gtin', header: 'GTIN', width: 140, align: 'center' },
+            { binding: 'label_qty', header: '수량', width: 80, align: 'right', format: 'n0' },
+            /* 투입 줄 */
+            { binding: 'src_mat_name', header: '투입품목', width: 220, align: 'left' },
+            { binding: 'src_lot', header: '투입LOT', width: 200, align: 'center' },
+            { binding: 'src_qty', header: '투입수량', width: 90, align: 'right', format: 'n0' }
+          ]
+        });
+        this.packGrid.rowHeaders.columns.splice(0, 1);
+
+        // 제품출하정보
+        this.shipmentGrid = new wijmo.grid.FlexGrid('#product-shipment-grid', {
+          autoGenerateColumns: false,
+          isReadOnly: true,
+          showMarquee: true,
+          columns: [
+            { binding: 'lot_number', header: '품목LOT', width: 150, align: 'center' },
+            { binding: 'mat_name', header: '품목', width: 250, align: 'left' },
+            { binding: 'ShipDate', header: '출하일', width: 150, align: 'center' },
+            { binding: 'company_name', header: '고객사', width: 150, align: 'left' },
+            { binding: 'Qty', header: '출하량', width: 100, align: 'right', format: 'n0' },
+            { binding: 'shipment_state', header: '출하상태', width: 150, align: 'center' }
+          ]
+        });
+        this.shipmentGrid.rowHeaders.columns.splice(0, 1);
+      }
+
+      setGridData(grid, data) {
+        grid.itemsSource = new wijmo.collections.CollectionView(data || []);
+      }
+
+      clearAll() {
+        this.lot_detail = null;
+        this.candidates = [];
+        this.$lotForm[0].reset();
+        this.$spanLotNumber.text('');
+        this.$spanMatchBadge.hide().text('');
+        this.$candWrap.hide();
+        this.$candidate.empty();
+
+        this.setGridData(this.matTrackingGrid, []);
+        this.setGridData(this.inoutGrid, []);
+        this.setGridData(this.productTrackingGrid, []);
+        this.setGridData(this.packGrid, []);
+        this.setGridData(this.shipmentGrid, []);
+      }
+
+      /* 스캔 키 → 사내 로트.
+         서버가 ① 사내 LOT ② 박스라벨(MakerLotNo) ③ 포장 라벨(카톤 등) 순으로 찾는다.
+         포장된 실물에 붙는 번호가 사내 로트번호와 다르기 때문에 ②③ 없이는
+         현장에서 박스를 찍었을 때 아무것도 안 나온다. */
+      loadLotDetail() {
+        let _this = this;
+        /* 한글로 깨져 들어온 값을 되돌린 뒤 GS1 에서 로트를 뽑는다.
+           순서가 중요하다 — 한글 상태로는 AI 숫자까지 어긋나 파싱 자체가 안 된다. */
+        let scanned = this.$LotNumber.val();
+        if (window.ScanUtil && ScanUtil.hanToEng) {
+          const hadHangul = /[\u3131-\u318E\uAC00-\uD7A3]/.test(scanned);
+          scanned = ScanUtil.hanToEng(scanned);
+          /* ★ 모음은 Shift 를 눌러도 같은 글자라 대소문자를 복원할 수 없다
+             (ㅑ·ㅍ → i·v). 로트는 대문자로 쓰므로 깨져 들어온 경우만 올린다.
+             6ㄸ28ㅑㅍ1 → 6E28iv1 → 6E28IV1 */
+          if (hadHangul) {
+            scanned = scanned.toUpperCase();
+            this.$LotNumber.val(scanned);   // 화면에도 되돌린 값을 보여 준다
+          }
+        }
+        let key = pickLot(scanned);
+        if (!key) return;
+
+        this.clearAll();
+
+        let data = { action: 'lot_detail', lot_number: key, exact: 'N' };
+
+        let fnsuccess = function (result) {
+          if (result.success === false) {
+            Alert.alert('LOT추적오류', result.message || '조회 중 오류가 발생했습니다.');
+            return;
+          }
+          let rows = result.data || [];
+          if (rows.length === 0) {
+            Alert.alert('LOT추적오류',
+                    '해당 LOT정보가 없습니다.\n(사내 LOT · 박스라벨 · 카톤번호로 조회할 수 있습니다)');
+            return;
+          }
+          _this.setCandidates(rows);
+          // ★ setCandidates 가 로트번호로 묶어 둔 첫 그룹을 편다 (행이 아니다)
+          _this.applyLot(_this.candidates[0]);
+        };
+        let fnfailure = function (req, status, error) {
+        };
+        AjaxUtil.getAsyncData(this.url + '/lot_detail', data, fnsuccess, fnfailure);
+      }
+
+      /* 한 박스라벨(UDI)이 완제품 로트 여러 건에 붙어 있을 수 있다 —
+         PK 로트를 섞어 포장하면 같은 UDI 가 여러 차수에 기록된다.
+         첫 건만 보여주고 끝내면 옆 로트를 못 찾으므로 고를 수 있게 남긴다.
+
+         ★ 후보의 단위는 「사내 로트번호」다. mat_lot 행이 아니다.
+         세척은 새 채번 없이(WashService.newLot) 원 번호를 그대로 물려
+         클린룸·부적합창고 행을 새로 만든다. 4회 세척하면 같은 번호로 5행이 된다.
+         그런데 이력 5탭은 전부 로트번호로 돌기 때문에 행을 골라 봐야 결과가 같다 —
+         고를 것은 번호뿐이다. 창고별로 흩어진 재고는 콤보가 아니라
+         「보관창고 / 현재고량」 칸에서 갈라 보여준다. */
+      setCandidates(rows) {
+        // ① 로트번호(+품목)로 묶는다. 품목까지 보는 이유 : 번호를 공유하는 로트가 있으면
+        //    번호만으로 묶었다가 서로 다른 품목이 한 줄로 합쳐진다
+        let groups = [], idx = {};
+        rows.forEach(function (r) {
+          let key = (r.LotNumber || '') + '|' + (r.mat_id == null ? '' : r.mat_id);
+          let g = idx[key];
+          if (!g) { g = idx[key] = { rep: r, rows: [] }; groups.push(g); }
+          g.rows.push(r);
+          // 대표 = 가장 먼저 생긴 행(= 원본). 세척 산출 행은 그 뒤에 만들어진다
+          if (Number(r.ml_id) < Number(g.rep.ml_id)) g.rep = r;
+        });
+
+        // ② 창고별 재고 합계. 세척은 생산창고에서 빼 클린룸으로 옮기는 것이라
+        //    합계가 보존된다 — 더해서 「이 로트가 지금 통틀어 얼마 남았나」가 나온다
+        groups.forEach(function (g) {
+          let sum = 0, byStore = {}, order = [];
+          g.rows.forEach(function (r) {
+            let v = Number(r.CurrentStock);
+            if (isNaN(v)) return;
+            sum += v;
+            let s = r.store_name || '(창고미상)';
+            if (byStore[s] === undefined) { byStore[s] = 0; order.push(s); }
+            byStore[s] += v;
+          });
+          g.stock_sum = sum;
+          // 재고가 남은 창고만 적는다. 다 쓴 창고까지 적으면 줄만 길어진다
+          let parts = order.filter(function (s) { return byStore[s] > 0; })
+                  .map(function (s) { return s + ' ' + byStore[s]; });
+          g.store_text = parts.length ? parts.join(' · ') : (g.rep.store_name || '');
+          g.row_count = g.rows.length;
+        });
+
+        this.candidates = groups;
+        if (groups.length <= 1) { this.$candWrap.hide(); this.$candidate.empty(); return; }
+
+        // ③ 여기까지 와서 2건 이상이면 진짜로 로트번호가 다른 경우다 —
+        //    박스라벨 하나에 완제품 로트가 여럿 걸린 상황. 번호를 보여줘야 한다
+        let $c = this.$candidate.empty();
+        groups.forEach(function (g, i) {
+          let r = g.rep, parts = [];
+          if (r.LotNumber) parts.push(r.LotNumber);
+          if (r.mat_name)  parts.push(r.mat_name);
+          if (g.store_text) parts.push(g.store_text);
+          if (parts.length === 0) parts.push('#' + (i + 1));
+          $c.append($('<option>').val(i).text(parts.join(' · ')));
+        });
+        this.$candWrap.show();
+      }
+
+      /* ★ 인자는 setCandidates 가 만든 「그룹」(= 로트번호 하나)이다.
+         폼은 대표 행(원본)으로 채우되, 현재고량·보관창고 두 칸만 덮어쓴다.
+         세척 로트를 대표 행 그대로 두면 생산창고 잔량만 보이고
+         클린룸에 있는 실물이 화면에서 사라진다. */
+      applyLot(g) {
+        let row = (g && g.rep) ? g.rep : g;   // 하위호환 — 행을 그대로 넘겨도 동작
+        this.lot_detail = row;
+        this.$lotForm[0].reset();
+        FormUtil.BindDataForm(row, this.$lotForm);
+
+        if (g && g.rows && g.rows.length > 1) {
+          this.$lotForm.find('#CurrentStock').val(g.stock_sum);
+          this.$lotForm.find('#store_name').val(g.store_text);
+        }
+
+        this.$spanLotNumber.text('LOT : ' + (row.LotNumber || ''));
+        if (row.match_by && row.match_by !== 'lot') {
+          this.$spanMatchBadge
+                  .text((row.match_by_name || '라벨') + ' ' + (row.matched_key || '') + ' →')
+                  .show();
+        } else {
+          this.$spanMatchBadge.hide().text('');
+        }
+
+        if (this.candidates.length > 1) {
+          let idx = this.candidates.indexOf(g);
+          if (idx >= 0) this.$candidate.val(String(idx));
+        }
+
+        this.loadHistory();
+      }
+
+      loadHistory() {
+        let _this = this;
+        let mat_type = this.lot_detail.mat_type;
+        let lot_number = _this.lot_detail.LotNumber;   // ★ 환산된 사내 로트번호
+
+        let data = {
+          action: 'lot_history',
+          mat_type: mat_type,
+          lot_number: lot_number
+        };
+
+        let fnsuccess = function (result) {
+          if (result.success) {
+            // 평면 데이터를 트리로 변환 후 바인딩
+            let matTree = _this.buildTree(result.data.m_item, 'parent_key', 'node_key');
+            let prodTree = _this.buildTree(result.data.p_item, 'parent_key', 'node_key');
+
+            _this.setGridData(_this.matTrackingGrid, matTree);
+            _this.setGridData(_this.productTrackingGrid, prodTree);
+
+            _this.setGridData(_this.inoutGrid, result.data.inout_list);
+            _this.setGridData(_this.shipmentGrid, result.data.shipment_list);
+            _this.setGridData(_this.packGrid, result.data.pack_list);
+
+            // 트리 전체 펼치기
+            _this.matTrackingGrid.collapseGroupsToLevel(99);
+            _this.productTrackingGrid.collapseGroupsToLevel(99);
+          }
+        };
+
+        AjaxUtil.getAsyncData(this.url + '/lot_history', data, fnsuccess);
+      }
     }
 
-    /* 한 박스라벨(UDI)이 완제품 로트 여러 건에 붙어 있을 수 있다 —
-       PK 로트를 섞어 포장하면 같은 UDI 가 여러 차수에 기록된다.
-       첫 건만 보여주고 끝내면 옆 로트를 못 찾으므로 고를 수 있게 남긴다.
+    document.readyState === 'complete' ? init() : window.onload = init;
 
-       ★ 후보의 단위는 「사내 로트번호」다. mat_lot 행이 아니다.
-       세척은 새 채번 없이(WashService.newLot) 원 번호를 그대로 물려
-       클린룸·부적합창고 행을 새로 만든다. 4회 세척하면 같은 번호로 5행이 된다.
-       그런데 이력 5탭은 전부 로트번호로 돌기 때문에 행을 골라 봐야 결과가 같다 —
-       고를 것은 번호뿐이다. 창고별로 흩어진 재고는 콤보가 아니라
-       「보관창고 / 현재고량」 칸에서 갈라 보여준다. */
-    setCandidates(rows) {
-     // ① 로트번호(+품목)로 묶는다. 품목까지 보는 이유 : 번호를 공유하는 로트가 있으면
-     //    번호만으로 묶었다가 서로 다른 품목이 한 줄로 합쳐진다
-     let groups = [], idx = {};
-     rows.forEach(function (r) {
-      let key = (r.LotNumber || '') + '|' + (r.mat_id == null ? '' : r.mat_id);
-      let g = idx[key];
-      if (!g) { g = idx[key] = { rep: r, rows: [] }; groups.push(g); }
-      g.rows.push(r);
-      // 대표 = 가장 먼저 생긴 행(= 원본). 세척 산출 행은 그 뒤에 만들어진다
-      if (Number(r.ml_id) < Number(g.rep.ml_id)) g.rep = r;
-     });
+    function init() {
+      let page = new LotTrackingPage();
+      page.init();
 
-     // ② 창고별 재고 합계. 세척은 생산창고에서 빼 클린룸으로 옮기는 것이라
-     //    합계가 보존된다 — 더해서 「이 로트가 지금 통틀어 얼마 남았나」가 나온다
-     groups.forEach(function (g) {
-      let sum = 0, byStore = {}, order = [];
-      g.rows.forEach(function (r) {
-       let v = Number(r.CurrentStock);
-       if (isNaN(v)) return;
-       sum += v;
-       let s = r.store_name || '(창고미상)';
-       if (byStore[s] === undefined) { byStore[s] = 0; order.push(s); }
-       byStore[s] += v;
+      // 보기/감추기 토글
+      $('#btnMaterialToggle').click(function (e) {
+        $("#divMaterialTracking").toggle(300);
       });
-      g.stock_sum = sum;
-      // 재고가 남은 창고만 적는다. 다 쓴 창고까지 적으면 줄만 길어진다
-      let parts = order.filter(function (s) { return byStore[s] > 0; })
-      .map(function (s) { return s + ' ' + byStore[s]; });
-      g.store_text = parts.length ? parts.join(' · ') : (g.rep.store_name || '');
-      g.row_count = g.rows.length;
-     });
 
-     this.candidates = groups;
-     if (groups.length <= 1) { this.$candWrap.hide(); this.$candidate.empty(); return; }
-
-     // ③ 여기까지 와서 2건 이상이면 진짜로 로트번호가 다른 경우다 —
-     //    박스라벨 하나에 완제품 로트가 여럿 걸린 상황. 번호를 보여줘야 한다
-     let $c = this.$candidate.empty();
-     groups.forEach(function (g, i) {
-      let r = g.rep, parts = [];
-      if (r.LotNumber) parts.push(r.LotNumber);
-      if (r.mat_name)  parts.push(r.mat_name);
-      if (g.store_text) parts.push(g.store_text);
-      if (parts.length === 0) parts.push('#' + (i + 1));
-      $c.append($('<option>').val(i).text(parts.join(' · ')));
-     });
-     this.$candWrap.show();
+      $('#btnProductToggle').click(function (e) {
+        $("#divProductTracking").toggle(300);
+      });
     }
-
-    /* ★ 인자는 setCandidates 가 만든 「그룹」(= 로트번호 하나)이다.
-       폼은 대표 행(원본)으로 채우되, 현재고량·보관창고 두 칸만 덮어쓴다.
-       세척 로트를 대표 행 그대로 두면 생산창고 잔량만 보이고
-       클린룸에 있는 실물이 화면에서 사라진다. */
-    applyLot(g) {
-     let row = (g && g.rep) ? g.rep : g;   // 하위호환 — 행을 그대로 넘겨도 동작
-     this.lot_detail = row;
-     this.$lotForm[0].reset();
-     FormUtil.BindDataForm(row, this.$lotForm);
-
-     if (g && g.rows && g.rows.length > 1) {
-      this.$lotForm.find('#CurrentStock').val(g.stock_sum);
-      this.$lotForm.find('#store_name').val(g.store_text);
-     }
-
-     this.$spanLotNumber.text('LOT : ' + (row.LotNumber || ''));
-     if (row.match_by && row.match_by !== 'lot') {
-      this.$spanMatchBadge
-      .text((row.match_by_name || '라벨') + ' ' + (row.matched_key || '') + ' →')
-      .show();
-     } else {
-      this.$spanMatchBadge.hide().text('');
-     }
-
-     if (this.candidates.length > 1) {
-      let idx = this.candidates.indexOf(g);
-      if (idx >= 0) this.$candidate.val(String(idx));
-     }
-
-     this.loadHistory();
-    }
-
-    loadHistory() {
-     let _this = this;
-     let mat_type = this.lot_detail.mat_type;
-     let lot_number = _this.lot_detail.LotNumber;   // ★ 환산된 사내 로트번호
-
-     let data = {
-      action: 'lot_history',
-      mat_type: mat_type,
-      lot_number: lot_number
-     };
-
-     let fnsuccess = function (result) {
-      if (result.success) {
-       // 평면 데이터를 트리로 변환 후 바인딩
-       let matTree = _this.buildTree(result.data.m_item, 'parent_key', 'node_key');
-       let prodTree = _this.buildTree(result.data.p_item, 'parent_key', 'node_key');
-
-       _this.setGridData(_this.matTrackingGrid, matTree);
-       _this.setGridData(_this.productTrackingGrid, prodTree);
-
-       _this.setGridData(_this.inoutGrid, result.data.inout_list);
-       _this.setGridData(_this.shipmentGrid, result.data.shipment_list);
-       _this.setGridData(_this.packGrid, result.data.pack_list);
-
-       // 트리 전체 펼치기
-       _this.matTrackingGrid.collapseGroupsToLevel(99);
-       _this.productTrackingGrid.collapseGroupsToLevel(99);
-      }
-     };
-
-     AjaxUtil.getAsyncData(this.url + '/lot_history', data, fnsuccess);
-    }
-   }
-
-   document.readyState === 'complete' ? init() : window.onload = init;
-
-   function init() {
-    let page = new LotTrackingPage();
-    page.init();
-
-    // 보기/감추기 토글
-    $('#btnMaterialToggle').click(function (e) {
-     $("#divMaterialTracking").toggle(300);
-    });
-
-    $('#btnProductToggle').click(function (e) {
-     $("#divProductTracking").toggle(300);
-    });
-   }
   </script>
 </th:block>
 </html>

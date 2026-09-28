@@ -1131,6 +1131,30 @@ public class PackService {
 			session.put("ck_per",   kit.get("ck_per"));  // ★ 완제품 1개당 CK
 			session.put("pk_found", kit.get("pk_found"));
 			session.put("ck_found", kit.get("ck_found"));
+
+			/* ★ «실제로 소비한» 인박스 수.
+			     현장이 ②에서 박스 수를 고칠 수 있는데(BOM 40 → 실제 41), 고친 값을
+			     따로 저장하지 않아 화면을 다시 열면 BOM 계산값이 나왔다.
+			     소비 실적(mat_lot_cons)에는 41 이 남아 있으므로 그것을 읽어 준다.
+			     아직 ②를 마치지 않았으면 행이 없어 null 이고, 화면은 BOM 으로 계산한다. */
+			Object ibObj = (productMatId == null) ? null : getBoxSpec(productMatId, spjangcd).get("inbox");
+			Integer inboxMatId = (ibObj instanceof Map)
+					? toInt(((Map<String, Object>) ibObj).get("mat_id")) : null;
+			if (inboxMatId != null) {
+				Map<String, Object> used = this.sqlRunner.getRow("""
+						SELECT SUM(mlc."OutputQty") AS qty
+						  FROM mat_lot_cons mlc
+						  JOIN mat_lot ml ON ml.id = mlc."MaterialLot_id"
+						 WHERE mlc."SourceTableName" = 'mat_produce'
+						   AND mlc."SourceDataPk" = :mpId
+						   AND ml."Material_id" = :inboxMatId
+						   AND COALESCE(mlc."_status",'a') = 'a'
+						""", new MapSqlParameterSource()
+						.addValue("mpId", mpId).addValue("inboxMatId", inboxMatId));
+				if (used != null && used.get("qty") != null) {
+					session.put("inbox_used", toFloat(used.get("qty")));
+				}
+			}
 		}
 		data.put("session", session);
 
@@ -1888,7 +1912,6 @@ public class PackService {
 	 *   BOM 으로만 계산하면 재고가 실물과 어긋나므로 화면에서 고칠 수 있게 했다.
 	 * ★ 카톤은 «개수» 가 아니라 «입수» 를 받는다 — 카톤은 국가별로 나뉘고 박스마다
 	 *   로트가 발번되므로, 입수만 바꾸면 국가별 박스 수와 로트가 그대로 다시 계산된다.
-	 *   개수를 직접 받으면 «어느 나라 박스를 몇 개로» 를 따로 정해야 한다.
 	 */
 	public AjaxResult packFinish(Integer mpId, List<Map<String, Object>> allocations,
 								 String startTimeStr, String endTimeStr,

@@ -1599,7 +1599,11 @@
       return q > 0 ? Math.max(1, Math.round(1 / q)) : 1;
     }
     function inboxCountOf(units) {
-      if (curS && curS.inboxOverride) return curS.inboxOverride;   // 현장이 고친 값
+      if (curS && curS.inboxOverride) return curS.inboxOverride;   // 이번에 고친 값
+      /* ★ 이미 ②를 마쳤으면 «실제로 소비한» 수를 쓴다.
+           현장이 40 을 41 로 고쳐 저장해도, 화면을 다시 열면 BOM 계산값 40 이 나왔다.
+           서버가 소비 실적에서 읽어 inbox_used 로 내려 준다. */
+      if (curS && num(curS.inboxUsed) > 0) return num(curS.inboxUsed);
       return Math.ceil((units || 0) / fgPerInbox());
     }
 
@@ -1731,6 +1735,7 @@
       curS.serverPhase = s.phase || 'pk';
       curS.jobKind = s.job_kind || 'kit';               // kit | ckstock
       curS.outboxCap = num(s.outbox_cap) || outboxCap();
+      curS.inboxUsed = num(s.inbox_used);   // 실제로 소비한 인박스 수(②를 마친 뒤에만 있다)
       curS.units = num(s.units);
       curS.orderQty = num(s.order_qty);
       curS.makerLot = s.maker_lot || null;

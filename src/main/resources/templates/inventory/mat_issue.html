@@ -646,10 +646,11 @@
                 </div>
                 <div class="si-list-wrap" style="max-height:200px">
                     <table class="si-table">
-                        <colgroup><col style="width:38px"><col><col style="width:90px"><col style="width:110px"></colgroup>
+                        <colgroup><col style="width:38px"><col><col style="width:96px"><col style="width:90px"><col style="width:110px"></colgroup>
                         <thead><tr>
                             <th><input type="checkbox" id="irLotAll"/></th>
-                            <th>로트</th><th class="tar">잔여</th><th class="tar">담을 수량</th>
+                            <!-- 같은 로트가 날짜만 달리 여러 번 들어올 수 있다 -->
+                            <th>로트</th><th>입고일</th><th class="tar">잔여</th><th class="tar">담을 수량</th>
                         </tr></thead>
                         <tbody id="irLotRows"></tbody>
                     </table>
@@ -1124,16 +1125,20 @@
                 <table class="si-table">
                     <colgroup>
                         <col style="width:34px"><col style="width:90px"><col>
-                        <col style="width:150px"><col style="width:90px"><col style="width:110px"><col style="width:40px">
+                        <col style="width:150px"><col style="width:96px">
+                        <col style="width:90px"><col style="width:110px"><col style="width:40px">
                     </colgroup>
                     <thead>
                     <tr>
                         <th>#</th><th>품목코드</th><th>품목</th><th>로트</th>
+                        <!-- 같은 로트가 날짜만 달리 여러 번 들어올 수 있다.
+                             입고일이 없으면 왜 같은 줄이 둘인지 알 수 없고, 선입선출 순서도 안 보인다. -->
+                        <th>입고일</th>
                         <th class="tar">재고</th><th class="tar">이동량</th><th></th>
                     </tr>
                     </thead>
                     <tbody id="siRows">
-                    <tr class="si-empty"><td colspan="7">스캔한 항목이 여기에 쌓입니다.</td></tr>
+                    <tr class="si-empty"><td colspan="8">스캔한 항목이 여기에 쌓입니다.</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -1658,7 +1663,7 @@
                         }
                     },
                     columns: [
-                        {binding: 'mio_pk', header: '입고번호', width: 80, align: 'center', visible:false},
+                        {binding: 'mio_pk', header: '입고번호', width: 80, align: 'center', visible: false},
                         {binding: 'store_house_name', header: '창고', width: 80, align: 'center'},
                         {binding: 'inout', header: '입출', width: 60, align: 'center'},
                         {binding: 'material_type', header: '품목유형', width: 80, align: 'center'},
@@ -1777,7 +1782,7 @@
                     _this.grid.itemsSource = new wijmo.collections.CollectionView(result.data);
 
                     if (window.selectedGridId) {
-                        GridUtil.selectRowById(_this.grid, window.selectedGridId, { idField: 'mio_pk' });
+                        GridUtil.selectRowById(_this.grid, window.selectedGridId, {idField: 'mio_pk'});
                         window.selectedGridId = null;
                     }
                 }
@@ -1790,9 +1795,9 @@
                 let form = $content.find('#materialInoutForm');
 
                 let modalContainer = null;
-                if(!data){
+                if (!data) {
                     modalContainer = new PopupDraggable('불출 등록');
-                } else{
+                } else {
                     modalContainer = new PopupDraggable('수정');
                 }
 
@@ -2176,11 +2181,19 @@
                         {binding: 'product_code', header: '제품코드', width: 100, align: 'left', isReadOnly: true},
                         {binding: 'product_name', header: '제품명', width: 150, align: 'left', isReadOnly: true},
                         {binding: 'unit', header: '단위', width: 60, align: 'center', isReadOnly: true},
-                        {binding: 'SujuQty', header: '발주 수량', width: 80, align: 'right', format: 'n0', isReadOnly: true},
+                        {
+                            binding: 'SujuQty',
+                            header: '발주 수량',
+                            width: 80,
+                            align: 'right',
+                            format: 'n0',
+                            isReadOnly: true
+                        },
                         {binding: 'SujuQty2', header: '기입고 수량', width: 90, align: 'right', isReadOnly: true},
                         {binding: 'DueDate', header: '납기예정일', width: 100, align: 'center', isReadOnly: true},
                         {binding: 'StoreHouse_id', header: '납품 창고', width: 90, align: 'center', isReadOnly: false},
-                        {binding: 'inputQty', header: '입고 수량', width: 100, align: 'right', isReadOnly: false,
+                        {
+                            binding: 'inputQty', header: '입고 수량', width: 100, align: 'right', isReadOnly: false,
                             editor: new wijmo.input.InputNumber(document.createElement('div'), {
                                 format: 'n0', // 정수 형식
                                 min: 0,       // 최소값 설정
@@ -2284,11 +2297,26 @@
                         {binding: 'product_code', header: '제품코드', width: 100, align: 'left', isReadOnly: true},
                         {binding: 'product_name', header: '제품명', width: 150, align: 'left', isReadOnly: true},
                         {binding: 'unit', header: '단위', width: 60, align: 'center', isReadOnly: true},
-                        {binding: 'SujuQty', header: '발주 수량', width: 80, align: 'right', format: 'n0', isReadOnly: true},
+                        {
+                            binding: 'SujuQty',
+                            header: '발주 수량',
+                            width: 80,
+                            align: 'right',
+                            format: 'n0',
+                            isReadOnly: true
+                        },
                         {binding: 'SujuQty2', header: '기입고 수량', width: 90, align: 'right', isReadOnly: true},
                         {binding: 'DueDate', header: '납기예정일', width: 100, align: 'center', isReadOnly: true},
-                        {binding: 'StoreHouse_id', header: '납품 창고', width: 90, align: 'center',dataMap: storeHouseMap, isReadOnly: false},
-                        {binding: 'inputQty', header: '입고 수량', width: 100, align: 'right', isReadOnly: false,
+                        {
+                            binding: 'StoreHouse_id',
+                            header: '납품 창고',
+                            width: 90,
+                            align: 'center',
+                            dataMap: storeHouseMap,
+                            isReadOnly: false
+                        },
+                        {
+                            binding: 'inputQty', header: '입고 수량', width: 100, align: 'right', isReadOnly: false,
                             editor: new wijmo.input.InputNumber(document.createElement('div'), {
                                 format: 'n0', // 정수 형식
                                 min: 0,       // 최소값 설정
@@ -2829,7 +2857,7 @@
                         return;
                     }
 
-                    if(!$judgGroup.val()){
+                    if (!$judgGroup.val()) {
                         Alert.alert('검사저장', '종합 판정을 선택하세요.', function () {
                         });
                         return;
@@ -3226,7 +3254,10 @@
                     const q = Number(item.move_qty || 0);
                     if (q > 0) items.push({mat_id: item.mat_id, qty: q});
                 });
-                if (!items.length) { Alert.alert('', '이동수량 변경이 없습니다.'); return false; }
+                if (!items.length) {
+                    Alert.alert('', '이동수량 변경이 없습니다.');
+                    return false;
+                }
 
                 const c = new LotMoveConfirm(from, to, items, function () {
                     _this.modalContainer.close();
@@ -3345,15 +3376,22 @@
         }
 
 
-
         /* 이 화면에는 esc / spjangcd 헬퍼가 없어 여기서 정의한다.
            전역에 이미 있으면 그것을 쓴다. */
         function esc(s) {
             if (s === null || s === undefined) return '';
             return String(s).replace(/[&<>"']/g, function (c) {
-                return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+                return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c];
             });
         }
+
+        /* 입고일시를 날짜만 남긴다. 같은 로트가 여러 번 들어오면 이 값으로 구분하고,
+           선입선출 순서(오래된 것부터)도 이걸로 눈에 보인다. */
+        function ymd(v) {
+            if (!v) return '';
+            return String(v).replace('T', ' ').slice(0, 10);
+        }
+
         function SPJ() {
             if (typeof SPJANGCD !== 'undefined' && SPJANGCD) return SPJANGCD;
             const el = document.querySelector('[name=spjangcd], #spjangcd');
@@ -3387,7 +3425,9 @@
             }
 
             /* GS1-128 파싱은 BarcodeCam 과 공유한다 — 스캐너 입력도 같은 경로를 탄다 */
-            parseGs1(raw) { return BarcodeCam.parse(raw); }
+            parseGs1(raw) {
+                return BarcodeCam.parse(raw);
+            }
 
             /* ── 스캔 1건 처리 ────────────────────────────────────── */
             handleScan(raw) {
@@ -3422,7 +3462,9 @@
                     }
                     // 같은 로트번호가 창고 안에 여러 행일 수 있다(이전 불출·세척이 쪼갠 흔적).
                     // 전부 담되 오래된 것부터 — 서버가 이미 InputDateTime ASC 로 준다.
-                    lots.forEach(function (l) { _this.addRow(l); });
+                    lots.forEach(function (l) {
+                        _this.addRow(l);
+                    });
                     _this.beep(true);
                     /* 카메라를 보고 있으면 화면을 내리지 않고도 쌓인 건수를 안다 */
                     if (_this.stream) _this.camMsg('담았습니다 · ' + (lots[0].lot_number || ''));
@@ -3432,7 +3474,10 @@
             addRow(l) {
                 // 이미 담긴 로트면 다시 담지 않는다. 수량은 손으로 고치는 것이 원칙.
                 const dup = this.rows.find(r => r.found && r.mat_lot_id === l.mat_lot_id);
-                if (dup) { this.flashRow(dup.key); return; }
+                if (dup) {
+                    this.flashRow(dup.key);
+                    return;
+                }
 
                 const stock = Number(l.stock || 0);
                 this.rows.push({
@@ -3444,6 +3489,7 @@
                     mat_name: l.mat_name,
                     unit_name: l.unit_name || '',
                     stock: stock,
+                    input_dt: l.input_dt || '',   // 같은 로트가 날짜만 달리 들어올 수 있다
                     qty: stock                 // ★ 전량이 기본. 필요하면 손으로 줄인다
                 });
                 this.render();
@@ -3461,7 +3507,7 @@
             render() {
                 const $tb = this.$content.find('#siRows');
                 if (!this.rows.length) {
-                    $tb.html('<tr class="si-empty"><td colspan="7">스캔한 항목이 여기에 쌓입니다.</td></tr>');
+                    $tb.html('<tr class="si-empty"><td colspan="8">스캔한 항목이 여기에 쌓입니다.</td></tr>');
                     this.updateSummary();
                     return;
                 }
@@ -3470,7 +3516,7 @@
                     if (!r.found) {
                         html += '<tr class="si-row-bad" data-k="' + r.key + '">'
                             + '<td data-label="#">' + (idx + 1) + '</td>'
-                            + '<td colspan="3" data-label="품목">확인되지 않는 로트 · <span class="si-lot">'
+                            + '<td colspan="4" data-label="품목">확인되지 않는 로트 · <span class="si-lot">'
                             + esc(r.scan_key) + '</span></td>'
                             + '<td class="tar" data-label="재고">—</td>'
                             + '<td class="tar" data-label="이동량">—</td>'
@@ -3485,6 +3531,7 @@
                         + '<td data-label="품목">' + esc(r.mat_name || '')
                         + (zero ? '<span class="si-tag">재고 없음</span>' : '') + '</td>'
                         + '<td class="si-lot" data-label="로트">' + esc(r.lot_number || '') + '</td>'
+                        + '<td data-label="입고일">' + esc(ymd(r.input_dt)) + '</td>'
                         + '<td class="tar" data-label="재고">' + this.num(r.stock) + '</td>'
                         + '<td class="tar" data-label="이동량"><input type="number" class="si-qty" data-q="' + r.key + '"'
                         + ' value="' + r.qty + '" min="0" max="' + r.stock + '"'
@@ -3513,7 +3560,9 @@
             }
 
             /* 소리·진동은 BarcodeCam 과 같은 신호를 쓴다 */
-            beep(ok) { BarcodeCam.beep(ok); }
+            beep(ok) {
+                BarcodeCam.beep(ok);
+            }
 
             /* ── 카메라 연속 스캔 ─────────────────────────────────
                BarcodeCam 공통 모듈에 위임한다. 여기서는 「어디에 그릴지」와
@@ -3529,19 +3578,30 @@
                         _this.hitFrame();
                         _this.handleScan(raw);
                     },
-                    onStatus(m) { _this.camMsg(m); },
-                    onError(m) { Alert.alert('카메라', m); _this.closeCam(); }
+                    onStatus(m) {
+                        _this.camMsg(m);
+                    },
+                    onError(m) {
+                        Alert.alert('카메라', m);
+                        _this.closeCam();
+                    }
                 });
                 return this._cam;
             }
 
             async startCam() {
                 const $box = this.$content.find('#siVideoBox');
-                if (this.cam().isRunning()) { this.closeCam(); return; }   // 다시 누르면 닫힘
+                if (this.cam().isRunning()) {
+                    this.closeCam();
+                    return;
+                }   // 다시 누르면 닫힘
 
                 $box.show();
                 const ok = await this.cam().start();
-                if (!ok) { $box.hide(); return; }
+                if (!ok) {
+                    $box.hide();
+                    return;
+                }
 
                 this.$content.find('#siCam').text('📷 닫기');
                 this.syncCamTools();
@@ -3577,7 +3637,9 @@
                 this.$content.find('#siVCount').text(this.rows.length + '건');
             }
 
-            stopCam() { this.closeCam(); }     // 기존 호출부 호환
+            stopCam() {
+                this.closeCam();
+            }     // 기존 호출부 호환
 
             /* ── 불출 ────────────────────────────────────────────── */
             submit() {
@@ -3586,11 +3648,20 @@
                     .filter(r => r.found && Number(r.qty) > 0)
                     .map(r => ({mat_lot_id: r.mat_lot_id, qty: Number(r.qty)}));
 
-                if (!lines.length) { Alert.alert('', '불출할 항목이 없습니다.'); return; }
+                if (!lines.length) {
+                    Alert.alert('', '불출할 항목이 없습니다.');
+                    return;
+                }
 
                 const from = this.$from.val(), to = this.$to.val();
-                if (!from || !to) { Alert.alert('', '창고를 선택하세요.'); return; }
-                if (from === to) { Alert.alert('', '출발창고와 도착창고가 같습니다.'); return; }
+                if (!from || !to) {
+                    Alert.alert('', '창고를 선택하세요.');
+                    return;
+                }
+                if (from === to) {
+                    Alert.alert('', '출발창고와 도착창고가 같습니다.');
+                    return;
+                }
 
                 const bad = this.rows.filter(r => !r.found).length;
                 const total = lines.reduce((a, l) => a + l.qty, 0);
@@ -3672,9 +3743,15 @@
                     $input.val('').focus();
                 });
 
-                $content.find('#siCam').on('click', function () { _this.startCam(); });
-                $content.find('#siCamStop').on('click', function () { _this.closeCam(); });
-                $content.find('#siZoom').on('input', function () { _this.cam().zoom(+this.value); });
+                $content.find('#siCam').on('click', function () {
+                    _this.startCam();
+                });
+                $content.find('#siCamStop').on('click', function () {
+                    _this.closeCam();
+                });
+                $content.find('#siZoom').on('input', function () {
+                    _this.cam().zoom(+this.value);
+                });
                 $content.find('#siTorch').on('click', function () {
                     _this._torch = !_this._torch;
                     _this.cam().torch(_this._torch);
@@ -3687,7 +3764,10 @@
                     if (!r) return;
                     let v = Number(this.value || 0);
                     if (v < 0) v = 0;
-                    if (v > r.stock) { v = r.stock; this.value = v; }   // 재고 초과 금지
+                    if (v > r.stock) {
+                        v = r.stock;
+                        this.value = v;
+                    }   // 재고 초과 금지
                     r.qty = v;
                     _this.updateSummary();
                 });
@@ -3701,25 +3781,33 @@
                 $content.find('#siClear').on('click', function () {
                     if (!_this.rows.length) return;
                     Alert.confirm('', '스캔 목록을 모두 지웁니다.', function () {
-                        _this.rows = []; _this.render();
+                        _this.rows = [];
+                        _this.render();
                     });
                 });
 
-                $content.find('#siSubmit').on('click', function () { _this.submit(); });
+                $content.find('#siSubmit').on('click', function () {
+                    _this.submit();
+                });
                 $content.find('#siClose').on('click', function () {
                     _this.stopCam();
                     _this.modal.close();
                 });
                 /* 헤더의 ✕ 나 ESC 로 닫는 경로도 있다.
                    그때 카메라를 안 끄면 랜프가 켜진 채로 남는다. */
-                $content.closest('.ax5modal').on('remove', function () { _this.stopCam(); });
-                $(document).one('ax5modal-close.siCam', function () { _this.stopCam(); });
+                $content.closest('.ax5modal').on('remove', function () {
+                    _this.stopCam();
+                });
+                $(document).one('ax5modal-close.siCam', function () {
+                    _this.stopCam();
+                });
 
                 // 창고를 바꾸면 이미 담긴 로트는 의미가 달라진다
                 this.$from.on('change', function () {
                     if (!_this.rows.length) return;
                     Alert.confirm('', '출발창고를 바꾸면 스캔 목록이 초기화됩니다.', function () {
-                        _this.rows = []; _this.render();
+                        _this.rows = [];
+                        _this.render();
                     });
                 });
             }
@@ -3727,7 +3815,9 @@
 
         /* ── 바코드 불출 이력 · 취소 ──────────────────────────────── */
         class ScanIssueHistory {
-            constructor() { this.API = '/api/inventory/move_scan'; }
+            constructor() {
+                this.API = '/api/inventory/move_scan';
+            }
 
             open() {
                 const _this = this;
@@ -3738,8 +3828,12 @@
 
                 $content.find('#shFrom').val(CommonUtil.getYYYYMMDD(-7));
                 $content.find('#shTo').val(CommonUtil.getYYYYMMDD());
-                $content.find('#shSearch').on('click', function () { _this.load(); });
-                $content.find('#shClose').on('click', function () { _this.modal.close(); });
+                $content.find('#shSearch').on('click', function () {
+                    _this.load();
+                });
+                $content.find('#shClose').on('click', function () {
+                    _this.modal.close();
+                });
 
                 $content.on('click', '[data-cancel]', function () {
                     const id = this.dataset.cancel;
@@ -3797,7 +3891,6 @@
                 });
             }
         }
-
 
 
         /* ── 수동 불출 · 로트 배분 확인 ────────────────────────────
@@ -3881,7 +3974,10 @@
                     if (!r) return;
                     let v = Number(this.value || 0);
                     if (v < 0) v = 0;
-                    if (v > r.stock) { v = r.stock; this.value = v; }
+                    if (v > r.stock) {
+                        v = r.stock;
+                        this.value = v;
+                    }
                     r.qty = v;
                     _this.sum();
                 });
@@ -3889,8 +3985,12 @@
                     _this.rows = _this.rows.filter(x => x.key !== this.dataset.del);
                     _this.draw();
                 });
-                $content.find('#lcCancel').on('click', function () { _this.modal.close(); });
-                $content.find('#lcOk').on('click', function () { _this.submit(); });
+                $content.find('#lcCancel').on('click', function () {
+                    _this.modal.close();
+                });
+                $content.find('#lcOk').on('click', function () {
+                    _this.submit();
+                });
             }
 
             draw() {
@@ -3930,7 +4030,10 @@
                 const _this = this;
                 const lines = this.rows.filter(r => Number(r.qty) > 0)
                     .map(r => ({mat_lot_id: r.mat_lot_id, qty: Number(r.qty)}));
-                if (!lines.length) { Alert.alert('', '이동할 로트가 없습니다.'); return; }
+                if (!lines.length) {
+                    Alert.alert('', '이동할 로트가 없습니다.');
+                    return;
+                }
 
                 const total = lines.reduce((a, l) => a + l.qty, 0);
                 let msg = '로트 ' + lines.length + '건 · 총 ' + total.toLocaleString() + '개를 불출합니다.';
@@ -3965,7 +4068,6 @@
                 });
             }
         }
-
 
 
         /* ══════════════════════════════════════════════════════════════
@@ -4036,7 +4138,9 @@
                 });
                 this.lastFrom = this.$from.val();
 
-                $content.find('#irAdd').on('click', function () { _this.addPicked(); });
+                $content.find('#irAdd').on('click', function () {
+                    _this.addPicked();
+                });
                 // ★ 담은 행을 빼면 로트 목록의 「잔여」가 그만큼 다시 늘어야 한다.
                 //   drawLots 가 rows 를 기준으로 잔여를 계산하므로 같이 그려준다.
                 $content.on('click', '[data-irdel]', function () {
@@ -4054,8 +4158,12 @@
                     const on = Number(this.value || 0) > 0;
                     $content.find('.ir-chk[data-lot="' + this.dataset.lotq + '"]').prop('checked', on);
                 });
-                $content.find('#irClose').on('click', function () { _this.modal.close(); });
-                $content.find('#irSave').on('click', function () { _this.save(); });
+                $content.find('#irClose').on('click', function () {
+                    _this.modal.close();
+                });
+                $content.find('#irSave').on('click', function () {
+                    _this.save();
+                });
 
                 this.render();
             }
@@ -4083,7 +4191,7 @@
                     $box.show();
                     this.$content.find('#irLotTitle').text(matName + ' — 로트 재고 없음');
                     this.$content.find('#irLotRows').html(
-                        '<tr class="si-empty"><td colspan="4">이 창고에 재고가 있는 로트가 없습니다.</td></tr>');
+                        '<tr class="si-empty"><td colspan="5">이 창고에 재고가 있는 로트가 없습니다.</td></tr>');
                     return;
                 }
 
@@ -4101,6 +4209,7 @@
                         + '<td class="si-lot" data-label="로트">' + esc(l.lot_number || '')
                         + (l.effective_date ? '<span class="si-tag">~' + String(l.effective_date).substring(0, 10) + '</span>' : '')
                         + '</td>'
+                        + '<td data-label="입고일">' + esc(ymd(l.input_dt)) + '</td>'
                         + '<td class="tar" data-label="잔여">' + Number(left).toLocaleString() + '</td>'
                         + '<td class="tar" data-label="담을 수량"><input type="number" class="si-qty" data-lotq="'
                         + l.mat_lot_id + '" min="0" max="' + left + '" value="'
@@ -4117,16 +4226,25 @@
             addPicked() {
                 const _this = this;
                 const matId = this.$content.find('#irMatId').val();
-                if (!matId) { Alert.alert('', '품목을 먼저 조회하세요.'); return; }
+                if (!matId) {
+                    Alert.alert('', '품목을 먼저 조회하세요.');
+                    return;
+                }
 
                 const $chk = this.$content.find('.ir-chk:checked');
-                if (!$chk.length) { Alert.alert('', '담을 로트를 선택하세요.'); return; }
+                if (!$chk.length) {
+                    Alert.alert('', '담을 로트를 선택하세요.');
+                    return;
+                }
 
                 let added = 0, skipped = 0;
                 $chk.each(function () {
                     const lotId = Number(this.dataset.lot);
                     const q = Number(_this.$content.find('[data-lotq="' + lotId + '"]').val() || 0);
-                    if (q <= 0) { skipped++; return; }
+                    if (q <= 0) {
+                        skipped++;
+                        return;
+                    }
 
                     const lot = _this.lots.find(x => Number(x.mat_lot_id) === lotId);
                     if (!lot) return;
@@ -4142,7 +4260,10 @@
                     added++;
                 });
 
-                if (!added) { Alert.alert('', '담을 수량이 0 입니다.'); return; }
+                if (!added) {
+                    Alert.alert('', '담을 수량이 0 입니다.');
+                    return;
+                }
                 this.render();
                 this.drawLots();     // 잔여 재계산
                 if (skipped) Notify.success(added + '건 담김 (수량 0 인 ' + skipped + '건 제외)');
@@ -4170,11 +4291,20 @@
 
             save() {
                 const _this = this;
-                if (!this.rows.length) { Alert.alert('', '불출할 항목이 없습니다.'); return; }
+                if (!this.rows.length) {
+                    Alert.alert('', '불출할 항목이 없습니다.');
+                    return;
+                }
 
                 const from = this.$from.val(), to = this.$to.val();
-                if (!from || !to) { Alert.alert('', '창고를 선택하세요.'); return; }
-                if (from === to) { Alert.alert('', '불출창고와 입고창고가 같습니다.'); return; }
+                if (!from || !to) {
+                    Alert.alert('', '창고를 선택하세요.');
+                    return;
+                }
+                if (from === to) {
+                    Alert.alert('', '불출창고와 입고창고가 같습니다.');
+                    return;
+                }
 
                 const total = this.rows.reduce((a, r) => a + Number(r.qty || 0), 0);
                 const fromName = this.$from.find('option:selected').text();

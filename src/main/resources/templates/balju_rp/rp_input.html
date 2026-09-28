@@ -2705,7 +2705,7 @@
                 /* 이 입고건에 «이미 저장된» 로트와, 그중 쓰인 것이 있는지.
                    계산·저장 버튼이 이 값을 보고 갈린다. */
                 let savedLots = [];
-                let usedLots = [];
+                let usedLots  = [];
                 /* 사용 판정 : 서버가 내려주는 값 중 하나라도 «쓴 흔적» 을 말하면 사용으로 본다.
                    ★ CurrentStock 이 InputQty 보다 적으면 어딘가로 빠져나간 것이다.
                      used_qty / cons_cnt 를 내려주는 서버라면 그 값이 더 정확하다. */
@@ -2721,7 +2721,7 @@
                 let fnLoadLotList = function (mio_pk) {
                     let fnsuccess = function (result) {
                         savedLots = result.data || [];
-                        usedLots = savedLots.filter(isUsedLot);
+                        usedLots  = savedLots.filter(isUsedLot);
                         /* ★ 예전에는 로트가 있기만 하면 계산을 막았다.
                              그런데 스캔 입고로 만들어진 로트가 남아 있으면 다시 계산할 방법이
                              없어, 사람이 그 위에 계산 결과를 얹어 «중복 입고» 가 생겼다
@@ -2764,10 +2764,7 @@
                         Alert.confirm('로트 재발번',
                             '이미 저장된 로트 ' + savedLots.length + '건이 있습니다.\n'
                             + '기존 로트를 지우고 새로 발번합니다. 계속할까요?',
-                            function () {
-                                replaceMode = true;
-                                $btnLotCalc.click();
-                            });
+                            function () { replaceMode = true; $btnLotCalc.click(); });
                         return;
                     }
                     _this.matLotGrid.itemsSource.sourceCollection = [];
@@ -2840,10 +2837,7 @@
                     let skipped = 0;
                     $.each(lotItems, function (idx, lotItem) {
                         if (!lotItem.LotNumber) return;
-                        if (lotItem.MakerLotNo) {
-                            skipped++;
-                            return;
-                        }   // 라벨 있음 — 출력 안 함
+                        if (lotItem.MakerLotNo) { skipped++; return; }   // 라벨 있음 — 출력 안 함
                         barcodeItems.push(lotItem);
                     });
 
@@ -3199,12 +3193,7 @@
                          .lb 의 overflow:hidden 에 바닥선이 잘린다(실제로 그랬다).
                          quiet zone 은 좌우만 있으면 되므로 marginLeft/Right 만 준다. */
                     let w = Math.round((L.barMaxW / (modules + 20)) * 1000) / 1000;
-                    JsBarcode(el, v, Object.assign({}, base, {
-                        width: w,
-                        margin: 0,
-                        marginLeft: 10 * w,
-                        marginRight: 10 * w
-                    }));
+                    JsBarcode(el, v, Object.assign({}, base, {width: w, margin: 0, marginLeft: 10 * w, marginRight: 10 * w}));
                     return w / L.MM;
                 } catch (e) {
                     console.error('barcode render failed', v, e);
@@ -3337,37 +3326,18 @@
                            모달을 1280 으로 넓히고, 고정폭을 줄이고, 품목명이 남는 폭을 먹게 한다. */
                         {binding: 'JumunNumber', header: '발주번호', width: 115, align: 'center', isReadOnly: true},
                         {binding: 'materialCode', header: '품목코드', width: 90, align: 'center', isReadOnly: true},
-                        {
-                            binding: 'materialName',
-                            header: '품목명',
-                            width: '*',
-                            minWidth: 140,
-                            align: 'left',
-                            isReadOnly: true
-                        },
+                        {binding: 'materialName', header: '품목명', width: '*', minWidth: 140, align: 'left', isReadOnly: true},
                         {binding: 'unit', header: '단위', width: 50, align: 'center', isReadOnly: true},
-                        {binding: 'baljuQty', header: '발주', width: 65, align: 'right', format: 'n0', isReadOnly: true},
-                        {
-                            binding: 'receivedQty',
-                            header: '기입고',
-                            width: 65,
-                            align: 'right',
-                            format: 'n0',
-                            isReadOnly: true
-                        },
-                        {
-                            binding: 'remainQty',
-                            header: '미입고',
-                            width: 65,
-                            align: 'right',
-                            format: 'n0',
-                            isReadOnly: true
-                        },
+                        {binding: 'baljuQty',    header: '발주',  width: 65, align: 'right', format: 'n0', isReadOnly: true},
+                        {binding: 'receivedQty', header: '기입고', width: 65, align: 'right', format: 'n0', isReadOnly: true},
+                        {binding: 'remainQty',   header: '미입고', width: 65, align: 'right', format: 'n0', isReadOnly: true},
                         /* 사내로트는 비워 두면 서버가 채번한다 — 손으로 넣는 일이 드물어 좁게 둔다. */
                         {binding: 'lotNumber', header: '사내로트(자동)', width: 120, align: 'center', isReadOnly: false},
                         /* 바코드 (10) 에서 자동으로 채워진다. 없으면 박스에 적힌 값을 직접 입력.
                            리콜 때 「그 제조사 로트」로 모아 보려면 이 칸이 있어야 한다 */
                         {binding: 'makerLotNo', header: '제조사로트', width: 130, align: 'center', isReadOnly: false},
+                        /* 라벨의 (11) 제조일자 — 유효기간을 계산한 근거라 같이 보여 준다 */
+                        {binding: 'mfgDate', header: '제조일자', width: 95, align: 'center', isReadOnly: true},
                         {binding: 'effectiveDate', header: '유효기간', width: 105, align: 'center', isReadOnly: false},
                         {
                             binding: 'inputQty', header: '입고수량', width: 85, align: 'right', isReadOnly: false,
@@ -3456,8 +3426,7 @@
                             it.lotNumber = String(it.makerLotNo).trim();
                             sender.collectionView.refresh();
                         }
-                    } catch (err) {
-                    }
+                    } catch (err) {}
                     _this.updateScanSummary($content);
                 });
 
@@ -3950,7 +3919,7 @@
                         }
                         /* 줄을 정했으면 로트를 바로 새긴다 — 다음 스캔이 이 줄을 찾아온다. */
                         if (!line.makerLotNo) line.makerLotNo = scanLot;
-                        if (!line.lotNumber) line.lotNumber = scanLot;
+                        if (!line.lotNumber)  line.lotNumber  = scanLot;
                     } else {
                         /* 로트가 없는 바코드(EAN-13 등)는 예전처럼 첫 줄을 쓴다. */
                         line = sameMat[0];
@@ -3980,7 +3949,7 @@
                     if (scanLot) {
                         /* 로트 있음 — pack_qty 씩 누적 */
                         const pack = Math.max(1, Number(d.pack_qty) || 1);
-                        const cur = line.confirmed ? (Number(line.inputQty) || 0) : 0;
+                        const cur  = line.confirmed ? (Number(line.inputQty) || 0) : 0;
                         const next = Math.min(cur + pack, myRest);   // 발주 잔량을 넘기지 않는다
 
                         if (line.confirmed && next === cur) {
@@ -4011,7 +3980,7 @@
                          사실은 따로 알아야 한다(자체 발번과 구분). */
                     if (parsed.lot) {
                         if (!line.makerLotNo) line.makerLotNo = parsed.lot;
-                        if (!line.lotNumber) line.lotNumber = parsed.lot;
+                        if (!line.lotNumber)  line.lotNumber  = parsed.lot;
                     }
                     /* ★ 유효기간은 «라벨의 (17)» 이 먼저다.
                          예전에는 서버가 준 effective_date 만 썼는데, 그 값은
@@ -4020,12 +3989,32 @@
                          우리 계산을 쓰면 실물과 시스템이 어긋난다 —
                          (17)281231 라벨을 찍었는데 2026-08-17 이 들어갔다.
                        ★ 라벨에 (17)이 없을 때만(EAN-13 등) 서버 값으로 떨어진다. */
+                    /* 유효기간 — 라벨에 있는 값이 최우선.
+                       ★ (17) 유효기한이 없고 (11) 제조일자만 있는 라벨이 많다.
+                         그때는 «제조일자 + 품목 유효일수» 로 계산한다.
+                         예전에는 (11) 을 버려서 오늘 날짜 기준으로 잡혔는데,
+                         자재는 만들어진 지 한참 뒤에 들어오므로 실제보다 길게 나왔다.
+                         (예: 제조 2026-05-28 · 유효일수 1826 → 2031-05-27) */
                     const labelExp = parsed && parsed.expDate ? parsed.expDate : '';
+                    const mfg      = parsed && parsed.mfgDate ? parsed.mfgDate : '';
+                    const vd       = Number(d.valid_days) || 0;
+                    const addDays  = function (ymd, days) {
+                        const t = new Date(ymd + 'T00:00:00');
+                        if (isNaN(t)) return '';
+                        t.setDate(t.getDate() + days);
+                        const p2 = n => (n < 10 ? '0' : '') + n;
+                        return t.getFullYear() + '-' + p2(t.getMonth() + 1) + '-' + p2(t.getDate());
+                    };
+
                     if (labelExp) {
                         line.effectiveDate = labelExp;          // 라벨 값이 최우선 — 덮어쓴다
+                    } else if (mfg && vd > 0) {
+                        const calc = addDays(mfg, vd - 1);      // 제조일 당일부터 세므로 하루 뺀다
+                        if (calc) line.effectiveDate = calc;
                     } else if (d.effective_date && !line.effectiveDate) {
                         line.effectiveDate = d.effective_date;
                     }
+                    if (mfg) line.mfgDate = mfg;               // 화면에 참고로 보여 준다
 
                     cv.refresh();
                     _this.updateScanSummary($content);

@@ -105,6 +105,7 @@ public class NotificationService {
             left join factory f on f.id = up."Factory_id" and f.spjangcd = up.spjangcd
             left join depart d on d.id = up."Depart_id" and d.spjangcd = up.spjangcd
             where au.spjangcd = :spjangcd
+            and au.is_active = true
 		    """;
 
         if (group!=null){
