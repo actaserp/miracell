@@ -798,6 +798,12 @@
         }
 
         /* 확정 작업조의 PK(차수) 목록 */
+        /* ★ 투입자재 목록의 펼침/접힘 상태 (mp_id → true/false)
+             PK 추가·완료·새로고침 때마다 목록을 서버에서 다시 만들면서 open 이 기본값
+             (완료=펼침)으로 돌아가, 닫아 둔 목록이 다시 펼쳐졌다.
+             → 사람이 한 번이라도 펼치거나 닫은 차수는 그 상태를 기억해 다시 그릴 때 쓴다. */
+        const OPEN_ST = {};
+
         function loadServerItems(crew) {
             const iq = {
                 process_id: PROC_ID, date: curD.date,
@@ -815,7 +821,8 @@
                     lot: i.lot_no || null,
                     qty: num(i.good_qty), defQty: num(i.defect_qty),
                     st: done ? 'done' : (i.state || 'done'),
-                    start: i.start_time, end: i.end_time, open: done,
+                    start: i.start_time, end: i.end_time,
+                    open: (i.mp_id != null && i.mp_id in OPEN_ST) ? OPEN_ST[i.mp_id] : done,
                     ves: inp.ves, vesLots: inp.vesLots, vesLot: inp.vesLot, bom: inp.bom
                 };
             });
@@ -1152,6 +1159,7 @@
             if (tg) {
                 const it = curC.items[+tg.dataset.toggle];
                 it.open = !it.open;
+                if (it.mp_id != null) OPEN_ST[it.mp_id] = it.open;   // ★ 상태 기억
                 renderItems();
                 return;
             }
@@ -1494,6 +1502,7 @@
                 const v = mkVes(src, curD.date);
                 v.mp_id = (r.data && r.data.mat_produce_id) || null;
                 v.open = true;
+                if (v.mp_id != null) OPEN_ST[v.mp_id] = true;
                 curC.items.push(v);
                 curC._draft = false;
                 // 선택 시트가 열려 있을 때만(FREE/조립) 목록 갱신. WO 직접담기는 시트를 열지 않음.
@@ -2189,15 +2198,15 @@
                그래서 pointerdown 에서 즉시 처리하고, 뒤따라오는 진짜 click 은
                중복 실행을 막기 위해 삼킨다. */
             function fire(btn) {
-                btn.__firedAt = Date.now();
+                window.__stepFiredAt = Date.now();   // ★ 요소가 아니라 전역 — 카드가 다시 그려져도 가드가 유지된다
                 btn.click();                 // 합성 click → isTrusted:false → 아래 가드를 통과
             }
 
             document.addEventListener('click', function (e) {
-                var b = e.target.closest ? e.target.closest(SEL) : null;
-                if (!b) return;
+                /* ★ 대상과 상관없이 삼킨다 — 수량을 바꾸면 카드가 다시 그려져(innerHTML) 진짜 click 이
+                   새 버튼(또는 다른 요소)에 떨어져 가드를 통과 → 2번 증감되던 문제 */
                 // pointerdown 으로 이미 처리한 버튼의 네이티브 click 만 무시한다
-                if (e.isTrusted && b.__firedAt && Date.now() - b.__firedAt < 900) {
+                if (e.isTrusted && Date.now() - (window.__stepFiredAt || 0) < 900) {
                     e.stopPropagation();
                     e.preventDefault();
                 }
@@ -2232,7 +2241,7 @@
                         tick(x, y);
                     }, 80);
                     maxTimer = setTimeout(stop, 8000);
-                }, 400);
+                }, 550);
                 window.addEventListener('pointerup', stop, {once: true, capture: true});
                 window.addEventListener('touchend', stop, {once: true, capture: true});
             });
@@ -2240,6 +2249,115 @@
             document.addEventListener('visibilitychange', function () {
                 if (document.hidden) stop();
             });
+        })();
+    </script>
+    <!-- ★ 시간 수정 시트(▲▼ ◀▶) 탭 보장 — 모든 공정 화면 공통
+         증상 : 태블릿에서 ▼·◀ 처럼 시트 아래쪽 버튼이 «분명히 버튼을 눌렀는데» 안 먹는다.
+         원인 : 화면마다 스테퍼 스크립트가 제각각이었다.
+                · touch-action 이 manipulation 이거나 아예 빠진 화면 → 손가락이 1~2px 만
+                  밀려도 브라우저가 시트 스크롤로 판정해 click 을 취소
+                · pointerdown 처리 없이 click 만 기다리는 화면
+                · 버튼이 84×52 로 작아 가장자리를 누르면 빗나감
+         해결 : 이 블록이 시간·날짜 버튼만 «먼저»(window 캡처 단계) 가로채서
+                누르는 즉시 1회 반영하고, 길게 누르면 반복한다. 뒤따르는 진짜 click 은 삼킨다.
+                기존 화면별 스테퍼 스크립트에는 이벤트가 가지 않으므로 중복 실행이 없다. -->
+    <style>
+        .timeedit button, .dateedit button {
+            touch-action: none !important;
+            -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+        }
+        .tcol button { width: 96px !important; height: 60px !important; }
+        .dateedit .dbtn { width: 64px !important; height: 58px !important; }
+    </style>
+    <script th:inline="none">
+        (function () {
+            var SEL = '.timeedit button, .dateedit button';
+            var hold = null, rep = null, cap = null, lastAt = 0;
+
+            function stop() {
+                clearTimeout(hold); clearInterval(rep); clearTimeout(cap);
+                hold = rep = cap = null;
+            }
+
+            function fire(b) {
+                lastAt = Date.now();
+                b.click();                       // 합성 click(isTrusted:false) → 화면의 시간 로직 실행
+            }
+
+            window.addEventListener('pointerdown', function (e) {
+                if (e.button != null && e.button > 0) return;
+                var b = e.target && e.target.closest ? e.target.closest(SEL) : null;
+                if (!b || b.disabled) return;
+                e.stopPropagation();             // 화면별 스테퍼 스크립트로 넘기지 않는다(중복 방지)
+                if (e.cancelable) e.preventDefault();
+                stop();
+                fire(b);                         // 즉시 1회
+                var x = e.clientX, y = e.clientY;
+                hold = setTimeout(function () {
+                    rep = setInterval(function () {
+                        var el = document.elementFromPoint(x, y);
+                        var bb = el && el.closest ? el.closest(SEL) : null;
+                        if (bb) fire(bb); else stop();
+                    }, 90);
+                    cap = setTimeout(stop, 8000);
+                }, 450);
+            }, true);
+
+            ['pointerup', 'pointercancel', 'touchend', 'touchcancel', 'mouseup', 'blur'].forEach(function (ev) {
+                window.addEventListener(ev, stop, true);
+            });
+            document.addEventListener('visibilitychange', function () { if (document.hidden) stop(); });
+
+            // 위에서 이미 처리한 탭의 진짜 click 은 삼킨다
+            window.addEventListener('click', function (e) {
+                if (!e.isTrusted) return;
+                var b = e.target && e.target.closest ? e.target.closest(SEL) : null;
+                if (b && Date.now() - lastAt < 900) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                }
+            }, true);
+        })();
+
+        /* ★ 일반 버튼(완료취소 · 시작 · 삭제 · 하단 버튼 등) 탭 보장 — 모든 공정 화면 공통
+           스크롤되는 목록·시트 안에서는 누르는 동안 손가락이 1~2px 만 밀려도
+           브라우저가 스크롤로 판정해 click 을 취소한다. 그래서 «눌렀는데 안 먹는» 버튼이 생겼다.
+           → 손을 뗄 때 같은 버튼 위이고 10px 이내로만 움직였으면 한 번 눌린 것으로 처리.
+             많이 움직였으면 스크롤로 보고 무시한다(스크롤은 그대로 된다).
+           ★ 뒤따르는 진짜 click 은 «대상과 상관없이» 700ms 동안 삼킨다.
+             버튼이 확인창을 띄우면 그 진짜 click 이 새로 뜬 확인창 바깥(배경)에 떨어져
+             확인창이 곧바로 닫혀 버렸다 — 「완료취소가 안 눌린다」의 원인. */
+        (function () {
+            var SKIP = '.stepper button, .mstep button, .bstep button, .lotstep button, .timeedit button, .dateedit button';
+            var tapBtn = null, tx = 0, ty = 0, lastTap = 0;
+            window.addEventListener('pointerdown', function (e) {
+                tapBtn = null;
+                if (e.pointerType === 'mouse') return;          // 마우스는 click 이 정상 동작
+                var b = e.target && e.target.closest ? e.target.closest('button') : null;
+                if (!b || b.disabled || b.closest(SKIP)) return;
+                tapBtn = b;
+                tx = e.clientX;
+                ty = e.clientY;
+            }, true);
+            window.addEventListener('pointerup', function (e) {
+                var b = tapBtn;
+                tapBtn = null;
+                if (!b || b.disabled || !b.isConnected) return;
+                if (Math.abs(e.clientX - tx) > 10 || Math.abs(e.clientY - ty) > 10) return;
+                var hit = document.elementFromPoint(e.clientX, e.clientY);
+                if (!hit || !b.contains(hit)) return;
+                lastTap = Date.now();
+                b.click();                                      // 합성 click (isTrusted:false)
+            }, true);
+            window.addEventListener('pointercancel', function () {
+                tapBtn = null;
+            }, true);
+            window.addEventListener('click', function (e) {
+                if (e.isTrusted && Date.now() - lastTap < 700) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                }
+            }, true);
         })();
     </script>
 </th:block>

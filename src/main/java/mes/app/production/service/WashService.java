@@ -744,6 +744,13 @@ public class WashService {
              WHERE id = :itemId
             """, p);
 
+        // ★ 시작 날짜가 바뀌면 작업일(WashDate)도 따라간다 — 첫 화면이 작업일로 묶기 때문.
+        //   (자정을 넘기는 작업은 없다는 전제. 종료시각 수정은 작업일을 건드리지 않는다)
+        if (s != null) {
+            Map<String, Object> moved = moveItemToDate(itemId, it, s.toLocalDateTime().toLocalDate(), user);
+            if (moved != null) r.data = moved;
+        }
+
         // equ_run 시간도 함께 보정
         if (it.get("EquRun_id") != null) {
             MapSqlParameterSource ep = new MapSqlParameterSource();
@@ -757,6 +764,98 @@ public class WashService {
                 """, ep);
         }
         return r;
+    }
+
+    /**
+     * 품목을 다른 작업일로 옮긴다. 날짜가 같으면 아무것도 안 하고 null.
+     *
+     * 세척 품목은 «작업일 + 작업자 + 세척기» 헤더(wash_work)에 속해 있어 날짜만 바꿀 수 없다.
+     *   ① 새 날짜에 같은 작업자·세척기 헤더가 있으면 → 품목을 그리로 옮긴다.
+     *      원래 헤더에 남은 품목이 없으면 원래 헤더는 지운다(조 편성도 정리).
+     *   ② 없고, 원래 헤더에 이 품목 하나뿐이면 → 헤더의 날짜만 바꾼다(조 편성 그대로 유지).
+     *   ③ 없고, 원래 헤더에 다른 품목도 있으면 → 새 날짜 헤더를 만들어 옮긴다.
+     *      이때 조원 명단은 옮기지 않는다(주 작업자만). 필요하면 화면에서 다시 편성.
+     * 로트번호(날짜가 들어 있음)는 바꾸지 않는다 — 이미 라벨·다음 공정·추적에 쓰인다.
+     */
+    private Map<String, Object> moveItemToDate(Integer itemId, Map<String, Object> it,
+                                               LocalDate newDate, User user) {
+        if (it.get("WashWork_id") == null) return null;
+        int oldWorkId = ((Number) it.get("WashWork_id")).intValue();
+        Map<String, Object> work = getWorkRow(oldWorkId);
+        if (work == null || work.get("WashDate") == null) return null;
+        LocalDate oldDate = ((java.sql.Date) work.get("WashDate")).toLocalDate();
+        if (oldDate.equals(newDate)) return null;
+
+        MapSqlParameterSource p = new MapSqlParameterSource();
+        p.addValue("itemId", itemId);
+        p.addValue("oldWorkId", oldWorkId);
+        p.addValue("date", newDate);
+        p.addValue("actorId", work.get("Actor_id"));
+        p.addValue("equipmentId", work.get("Equipment_id"));
+        p.addValue("spjangcd", work.get("spjangcd"));
+        p.addValue("inStore", work.get("InStoreHouse_id"));
+        p.addValue("outStore", work.get("OutStoreHouse_id"));
+        p.addValue("userId", user.getId());
+
+        Map<String, Object> target = this.sqlRunner.getRow("""
+            SELECT id FROM wash_work
+             WHERE "WashDate" = :date AND "Actor_id" = :actorId
+               AND "Equipment_id" IS NOT DISTINCT FROM :equipmentId
+               AND spjangcd = :spjangcd AND "_status" = 'a' AND id <> :oldWorkId
+             ORDER BY id LIMIT 1
+            """, p);
+        Map<String, Object> others = this.sqlRunner.getRow("""
+            SELECT COUNT(*) AS c FROM wash_work_item
+             WHERE "WashWork_id" = :oldWorkId AND "_status" = 'a' AND id <> :itemId
+            """, p);
+        boolean alone = others == null || ((Number) others.get("c")).intValue() == 0;
+
+        int newWorkId;
+        if (target != null && target.get("id") != null) {                       // ①
+            newWorkId = ((Number) target.get("id")).intValue();
+            p.addValue("newWorkId", newWorkId);
+            this.sqlRunner.execute("""
+                UPDATE wash_work_item SET "WashWork_id" = :newWorkId,
+                       "_modified" = now(), "_modifier_id" = :userId
+                 WHERE id = :itemId
+                """, p);
+            if (alone) {
+                this.sqlRunner.execute("""
+                    UPDATE wash_work SET "_status" = 'd', "_modified" = now(), "_modifier_id" = :userId
+                     WHERE id = :oldWorkId
+                    """, p);
+                this.workMemberService.clear(WorkMemberService.SRC_WASH_WORK, oldWorkId);
+            }
+        } else if (alone) {                                                       // ②
+            newWorkId = oldWorkId;
+            this.sqlRunner.execute("""
+                UPDATE wash_work SET "WashDate" = :date, "_modified" = now(), "_modifier_id" = :userId
+                 WHERE id = :oldWorkId
+                """, p);
+        } else {                                                                  // ③
+            Map<String, Object> row = this.sqlRunner.getRow("""
+                INSERT INTO wash_work
+                    ("WashDate", "Actor_id", "Equipment_id", "InStoreHouse_id", "OutStoreHouse_id",
+                     "_status", "_created", "_creater_id", spjangcd)
+                VALUES (:date, :actorId, :equipmentId, :inStore, :outStore,
+                        'a', now(), :userId, :spjangcd)
+                RETURNING id
+                """, p);
+            newWorkId = ((Number) row.get("id")).intValue();
+            p.addValue("newWorkId", newWorkId);
+            this.sqlRunner.execute("""
+                UPDATE wash_work_item SET "WashWork_id" = :newWorkId,
+                       "_modified" = now(), "_modifier_id" = :userId
+                 WHERE id = :itemId
+                """, p);
+        }
+
+        Map<String, Object> d = new HashMap<>();
+        d.put("moved", true);
+        d.put("work_id", newWorkId);
+        d.put("old_work_id", oldWorkId);
+        d.put("date", newDate.toString());
+        return d;
     }
 
     // =================================================================

@@ -43,7 +43,8 @@
       --shadow:0 1px 0 rgba(21,34,43,.04),0 8px 24px -16px rgba(21,34,43,.28)}
     *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
     .ms-wash-root{font-family:"Pretendard","Noto Sans KR",-apple-system,sans-serif;color:var(--ink);font-size:17px;line-height:1.45;-webkit-font-smoothing:antialiased;flex:1 1 auto;min-height:0;height:var(--wash-h,100%);max-height:var(--wash-h,none);display:flex;flex-direction:column}
-    .ms-wash-root .app{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;background:var(--bg);border-radius:12px;overflow:hidden}
+    .ms-wash-root{min-width:0;max-width:100%;overflow-x:hidden}
+    .ms-wash-root .app{flex:1 1 auto;min-height:0;min-width:0;display:flex;flex-direction:column;background:var(--bg);border-radius:12px;overflow:hidden}
     .screen{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden}.screen.hide{display:none}
 
     .wrap{padding:22px 20px 28px;max-width:1180px;margin:0 auto;width:100%;overflow:auto;-webkit-overflow-scrolling:touch;flex:1 1 auto;min-height:0}
@@ -169,6 +170,20 @@
     .actionbar .actsum{display:flex;flex-direction:column;margin-right:auto}
     .actionbar .actsum .l{font-size:12.5px;color:var(--ink-2);font-weight:700}
     .actionbar .actsum .v{font-size:21px;font-weight:800;font-variant-numeric:tabular-nums}
+    /* ★ 하단 버튼 영역은 한 줄로 유지한다.
+         예전엔 flex-wrap:wrap 이라 폭이 줄면(태블릿에서 좌측 메뉴를 열면) 주 버튼이
+         두 번째 줄로 떨어져 바가 두 배로 높아졌다.
+         → 줄바꿈 금지 · 요약 글자는 말줄임 · 좁은 폭에서는 버튼을 작게 */
+    #cAction{flex-wrap:nowrap}
+    #cAction .actsum{flex:1 1 auto;min-width:0;margin-right:0}
+    #cAction .actsum .l, #cAction .actsum .v{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    #cAction > :not(.actsum){flex:0 0 auto;white-space:nowrap}
+    @media (max-width:1100px){
+      #cAction{gap:8px;padding-left:14px;padding-right:14px}
+      #cAction .btn{padding:0 14px;font-size:16px;min-height:54px;border-radius:14px}
+      #cAction .btn.primary{padding:0 18px}
+      #cAction .actsum .v{font-size:18px}
+    }
     .btn{min-height:var(--tap);padding:0 24px;border-radius:16px;border:none;cursor:pointer;font-size:18px;font-weight:800;display:inline-flex;align-items:center;gap:8px}
     .btn.ghost{background:var(--surface-2);color:var(--ink-2);border:1px solid var(--line)}.btn.ghost:active{background:var(--line)}
     .btn.primary{background:var(--teal);color:#fff;padding:0 32px;box-shadow:0 8px 18px -8px rgba(14,124,134,.7)}.btn.primary:active{background:var(--teal-d)}
@@ -209,7 +224,7 @@
     .dateedit .dval{min-width:200px;text-align:center;font-size:22px;font-weight:800;font-variant-numeric:tabular-nums}
     .timeedit{display:flex;align-items:center;justify-content:center;gap:6px;margin:8px 0}
     .tcol{display:flex;flex-direction:column;align-items:center;gap:8px}
-    .tcol button{width:84px;height:52px;border-radius:14px;border:1px solid var(--line);background:var(--surface-2);font-size:24px;font-weight:700;cursor:pointer}
+    .tcol button{width:96px;height:60px;border-radius:14px;border:1px solid var(--line);background:var(--surface-2);font-size:24px;font-weight:700;cursor:pointer}
     .tcol .tv{font-size:42px;font-weight:800;font-variant-numeric:tabular-nums;width:84px;text-align:center}
     .tsep{font-size:40px;font-weight:800;padding-bottom:4px}
 
@@ -648,7 +663,9 @@
       }
 
       function availBottom() {
-        let bottom = window.innerHeight;
+        /* ★ innerHeight 는 가로 스크롤바 높이까지 포함한다. 태블릿에서 메뉴를 열어
+             본문 폭이 줄면 가로 스크롤바가 생겨 그만큼 하단이 가려졌다 → clientHeight */
+        let bottom = document.documentElement.clientHeight || window.innerHeight;
         try {
           const fe = window.frameElement;
           if (fe) {
@@ -680,9 +697,54 @@
         return bottom;
       }
 
+      let _lastH = '';
       function fit() {
         const top = root.getBoundingClientRect().top;
-        root.style.setProperty('--wash-h', Math.max(320, Math.floor(availBottom() - top - localBelow())) + 'px');
+        const h = Math.max(320, Math.floor(availBottom() - top - localBelow())) + 'px';
+        if (h !== _lastH) {      // 같은 값이면 건드리지 않는다(ResizeObserver 무한루프 방지)
+          _lastH = h;
+          root.style.setProperty('--wash-h', h);
+        }
+        /* ★ 보정 — 계산에 안 잡힌 무언가(접힌 상단·스크롤바·레이아웃 여백)로
+             root 바닥이 보이는 영역 밖으로 나가 있으면 그만큼 줄인다. */
+        const over = Math.ceil(root.getBoundingClientRect().bottom - availBottom());
+        if (over > 0) {
+          const h2 = Math.max(320, parseInt(_lastH, 10) - over) + 'px';
+          if (h2 !== _lastH) {
+            _lastH = h2;
+            root.style.setProperty('--wash-h', h2);
+          }
+        }
+      }
+
+      /* ★ 태블릿에서 좌측 메뉴를 열면 window resize 없이 본문 폭만 줄어든다.
+           폭이 줄면 상단(탭·헤더)이 두 줄로 접혀 root 가 아래로 밀리는데
+           높이는 예전 값 그대로라 하단 버튼 영역이 화면 밖으로 내려갔다.
+         → 폭·위치 변화를 ResizeObserver 로 잡고, 메뉴 열고 닫는 애니메이션이
+           끝날 때도 다시 잰다. */
+      let _raf = 0;
+      function fitSoon() {
+        cancelAnimationFrame(_raf);
+        _raf = requestAnimationFrame(fit);
+      }
+      if (window.ResizeObserver) {
+        const ro = new ResizeObserver(fitSoon);
+        ro.observe(document.body);
+        if (root.parentElement) ro.observe(root.parentElement);
+        try {
+          const fe = window.frameElement;
+          if (fe) {
+            const pRo = new window.parent.ResizeObserver(fitSoon);
+            pRo.observe(window.parent.document.body);
+            pRo.observe(fe);
+          }
+        } catch (e) {
+        }
+      }
+      document.addEventListener('transitionend', fitSoon, true);
+      try {
+        if (window.frameElement) window.parent.document.addEventListener('transitionend', fitSoon, true);
+      } catch (e) {
       }
 
       window.addEventListener('resize', fit);
@@ -924,6 +986,36 @@
         onOk && onOk();
       };
       cancel.onclick = close;
+      m.style.display = 'flex';
+    }
+
+    /** 국가 선택 시트 — 배분 줄의 국가는 작업자가 직접 고른다(자동 지정 없음) */
+    function uiPickCountry(list, onPick) {
+      var m = document.getElementById('ctryPickMask');
+      if (!m) {
+        m = document.createElement('div');
+        m.id = 'ctryPickMask';
+        m.style.cssText = 'position:fixed;inset:0;background:rgba(21,34,43,.45);display:none;align-items:center;justify-content:center;z-index:100;padding:24px';
+        m.innerHTML = '<div style="background:#fff;border-radius:20px;max-width:440px;width:100%;padding:22px 20px 16px;box-shadow:0 20px 50px -12px rgba(0,0,0,.4)">' +
+                '<div style="font-size:18px;font-weight:800;margin-bottom:14px">국가 선택</div>' +
+                '<div id="ctryPickList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;max-height:50vh;overflow:auto;-webkit-overflow-scrolling:touch"></div>' +
+                '<button id="ctryPickCancel" style="margin-top:14px;width:100%;height:50px;border-radius:14px;border:1px solid #D8E0E5;background:#F4F7F9;color:#5A6B76;font-weight:800;font-size:16px">취소</button></div>';
+        document.body.appendChild(m);
+        m.addEventListener('click', function (e) {
+          if (e.target === m || e.target.id === 'ctryPickCancel') m.style.display = 'none';
+        });
+      }
+      var box = m.querySelector('#ctryPickList');
+      box.innerHTML = list.map(function (c, i) {
+        return '<button data-pick="' + i + '" style="height:56px;border-radius:12px;border:1px solid #D8E0E5;background:#fff;font-weight:800;font-size:16px;color:#15222B">' +
+                esc(c.name || c.code) + '<div style="font-size:12px;font-weight:600;color:#5A6B76">' + esc(c.code) + '</div></button>';
+      }).join('');
+      box.onclick = function (e) {
+        var b = e.target.closest('[data-pick]');
+        if (!b) return;
+        m.style.display = 'none';
+        onPick(list[+b.dataset.pick]);
+      };
       m.style.display = 'flex';
     }
 
@@ -1788,7 +1880,9 @@
       curS.allocations = ((curDetail && curDetail.allocations) || []).map(function (a) {
         return {
           allocId: a.alloc_id, country: a.country, countryId: a.country_id,
-          qty: num(a.qty) / _ap, ckLot: a.ck_lot, ckState: a.ck_state || 'plan', ckMpId: a.ck_mp_id
+          qty: num(a.qty) / _ap, ckLot: a.ck_lot, ckState: a.ck_state || 'plan', ckMpId: a.ck_mp_id,
+          // CK 실적 — 서버가 ck_qty 를 내려주면 복원한다(BOM 과 같으면 null)
+          ckActual: (a.ck_qty != null && a.ck_qty !== '' && num(a.ck_qty) !== num(a.qty)) ? num(a.ck_qty) : null
         };
       });
 
@@ -1875,26 +1969,8 @@
       if (!locked() && !curS.allocations.length) {
         if (isCkStock()) {
           curS.allocations.push({country: NO_CTRY, countryId: null, qty: 0, ckState: 'plan'});
-        } else if (COUNTRIES.length) {
-          // ★ v3.4 : ①단계(pk)에서도 만든다 — 국가·수량을 먼저 정하고
-          //   그 수량에 맞춰 PK 를 담는 순서로 바뀌었다.
-          var first = COUNTRIES.filter(function (c) {
-            return c.useYn !== 'N';
-          })[0];
-          if (first) {
-            //   이미 담긴 PK 가 있으면 그걸 따르고(=기존 세션 복원),
-            //   없으면 작지 잔여를 CK 단위로 환산해 초깃값으로 깔아둔다.
-            //   ★ 완제품 단위다 — 담긴 PK 를 환산하거나, 없으면 작지 잔여 그대로
-            var q0 = (pkTotal() > 0)
-                    ? Math.round(pkTotal() / pkPerV())
-                    : Math.round(num(curS.orderRemain));
-            curS.allocations.push({
-              country: first.code, countryId: first.id,
-              qty: Math.max(0, q0), pkReq: Math.round(Math.max(0, q0) * pkPerV()), ckState: 'plan'
-            });
-            scheduleAllocSave();
-          }
         }
+        // ★ 완제품 포장은 국가를 자동으로 깔지 않는다 — 작업자가 직접 선택한다.
       }
     }
 
@@ -2145,7 +2221,95 @@
      *   (서버가 ck_per 를 또 곱하지 않는다 — v3.3 주석 참고).
      */
     function ckDefaultQty(country, m) {
-      return m.qtyPer * allocQtyOf(country) * allocPer();
+      var a = (curS.allocations || []).filter(function (x) {
+        return x.country === country;
+      })[0];
+      // ★ CK 실적 수량 기준 — 실적을 고치면 투입자재 기본값도 따라간다
+      return m.qtyPer * (a ? ckActOf(a) : 0);
+    }
+
+    /* ══════════════════════════════════════════════════════════════════
+      CK 실적 수량
+        BOM 은 기본값일 뿐이다 — 완제품 5 · PK 5 에 CK 6 이 들어갈 수도 있다.
+        남는 CK 는 재고·불량이 아니라 «완제품에 포함되어 나간 것»으로 본다.
+        a.ckActual  사람이 고친 CK 수 (null 이면 BOM = 완제품 × ck_per)
+        ★ 완제품 수(PK)를 바꾸면 BOM 으로 되돌린다(덮어쓰기).
+      ══════════════════════════════════════════════════════════════════ */
+    function ckBomOf(a) {
+      return Math.round((a && a.qty || 0) * allocPer());
+    }
+
+    function ckActOf(a) {
+      if (!a) return 0;
+      return (a.ckActual != null && !isCkStock()) ? a.ckActual : ckBomOf(a);
+    }
+
+    function ckActTotal() {
+      return (curS.allocations || []).reduce(function (t, a) {
+        return t + ckActOf(a);
+      }, 0);
+    }
+
+    /* ══════════════════════════════════════════════════════════════════
+      수량 연쇄 규칙 (PK → CK → 투입자재) — 한 가지로 통일
+        · 각 단계 기본값은 바로 위 단계 × BOM 이다.
+        · 손으로 고친 값은 «위 단계가 그대로인 동안만» 유지된다.
+        · 위 단계 수량이 바뀌면 그 아래 수정값은 전부 BOM 으로 되돌리고 알린다.
+            PK(완제품) 변경 → CK 실적 + 그 국가 투입자재 수정값 초기화
+            CK 실적 변경    → 그 국가 투입자재 수정값 초기화
+        · 「해제」(체크를 끈 자재)는 수량이 아니라 «안 쓴다»는 결정이라 유지한다.
+      ══════════════════════════════════════════════════════════════════ */
+
+    /** 그 국가의 투입자재 수정값을 BOM(자동)으로 되돌린다. 되돌린 종 수를 돌려준다 */
+    function resetCkMatsOf(country) {
+      var n = 0, pre = country + '|';
+      Object.keys(curS.ckManual || {}).forEach(function (k) {
+        if (k.indexOf(pre) !== 0) return;
+        delete curS.ckManual[k];
+        if (curS.ckQty) delete curS.ckQty[k];
+        n++;
+      });
+      return n;
+    }
+
+    function cascadeMsg(what, ck, mats) {
+      var parts = [];
+      if (ck) parts.push('CK 실적');
+      if (mats) parts.push('투입자재 ' + mats + '종');
+      if (parts.length) flash(what + ' 수량이 바뀌어 ' + parts.join('·') + '을 BOM 기준으로 되돌렸습니다');
+    }
+
+    function setCkActual(a, v) {
+      if (!a) return;
+      var before = ckActOf(a);
+      v = Math.max(0, v | 0);
+      a.ckActual = (v === ckBomOf(a)) ? null : v;
+      if (ckActOf(a) !== before) cascadeMsg('CK', false, resetCkMatsOf(a.country));
+    }
+
+    /** 완제품(PK) 수가 바뀌면 CK 실적과 투입자재 수정값을 BOM 으로 되돌린다 */
+    function resetCkActual(a) {
+      if (!a) return;
+      var ck = a.ckActual != null;
+      a.ckActual = null;
+      cascadeMsg('PK', ck, resetCkMatsOf(a.country));
+    }
+
+    function ckActRow(a, ro) {
+      if (isCkStock() || !a) return '';
+      var bom = ckBomOf(a), act = ckActOf(a), diff = act - bom;
+      var diffTag = diff ? ' <span style="font-size:12.5px;color:var(--amber);font-weight:800">BOM 대비 ' + (diff > 0 ? '+' : '') + diff + '</span>' : '';
+      var ctrl = ro
+              ? '<span class="done-tag">' + act + ' EA</span>'
+              : '<div class="mstep" data-ckact="' + esc(a.country) + '"><button class="minus">−</button>' +
+              '<div class="n" data-ckactpad="' + esc(a.country) + '">' + act + '</div>' +
+              '<button class="plus">+</button></div>';
+      // ★ 투입자재 줄(.mat)과 같은 카드·스테퍼 모양을 쓴다. BOM 과 다르면 앰버로 표시
+      return '<div class="browhead">CK 실적 수량<span class="ln"></span></div>' +
+              '<div class="mat on"' + (diff ? ' style="border-color:var(--amber);background:linear-gradient(180deg,var(--amber-bg),#FFF)"' : '') + '>' +
+              '<div class="mid"><div class="mn">CK 실적 ' + act + ' EA' + diffTag + '</div>' +
+              '<div class="mc">BOM ' + bom + ' EA · 완제품 수와 별개로 실제 들어간 CK 수량</div></div>' +
+              ctrl + '</div>';
     }
 
     /**
@@ -2277,9 +2441,45 @@
       });
     }
 
+    /* ══════════════════════════════════════════════════════════════════
+      배분 «채울 수 있는 상한» — 첫 국가 · 국가 추가 · 잔여 버튼이 전부 이 하나를 쓴다
+        ① min(작지 잔여, 멸균 PK 로 만들 수 있는 완제품)
+           PK 후보를 아직 못 읽었으면 작지 잔여만 본다
+        ② PK 가 이미 확정됐으므로 담은 PK 환산 완제품
+      ══════════════════════════════════════════════════════════════════ */
+    function allocCapUnits() {
+      if (phase() !== 'pk') return unitsNow();
+      /* ★ 이미 담긴 PK 는 자동 채움이 절대 줄이지 않는다 — 상한의 바닥으로 둔다.
+         작지 잔여가 0 으로 오는 세션(작지 없는 낱개 세션 · 잔여 계산 0)에서는
+         상한이 0 → 국가 수량 0 → PK FIFO 목표 0 → 담긴 PK 가 전부 풀리던 문제가 있었다. */
+      var held = Math.floor(pkTotal() / pkPerV());
+      var plan = Math.max(0, Math.round(num(curS.orderRemain)));
+      var stock = PK_OPTS.length ? feasibleUnits() : null;
+      var cap;
+      if (plan > 0) cap = (stock == null) ? plan : Math.min(plan, stock);
+      else cap = (stock == null) ? held : stock;     // 작지 잔여를 모르면 재고(못 읽었으면 담긴 PK)
+      return Math.max(cap, held);
+    }
+
+    /** 아직 어느 국가에도 안 나눈 완제품 수 */
+    function allocLeftUnits() {
+      return Math.max(0, Math.round(allocCapUnits() - allocTotal()));
+    }
+
+    /** 잔여 버튼이 채울 줄 — 0 인 줄이 먼저, 없으면 마지막 줄 */
+    function allocFillTarget() {
+      var al = curS.allocations || [];
+      for (var i = 0; i < al.length; i++) if (!(al[i].qty > 0)) return al[i];
+      return al[al.length - 1] || null;
+    }
+
     function allocTools() {
-      return '<div class="mat-tools"><button data-allocadd="1">＋ 국가 추가</button>' +
-              '<button data-allocfill="1">잔여 자동배분</button></div>';
+      var left = allocLeftUnits(), tgt = allocFillTarget();
+      // ★ 누르기 전에 «몇 개가 어디로» 가는지 보이게 한다. 채울 게 없으면 숨긴다
+      var fill = (left > 0 && tgt)
+              ? '<button data-allocfill="1">남은 ' + left + '개 → ' + esc(allocLabel(tgt)) + '</button>'
+              : '';
+      return '<div class="mat-tools"><button data-allocadd="1">＋ 국가 추가</button>' + fill + '</div>';
     }
 
     /** 이 국가의 투입자재 중 재고가 모자란 것이 있는가 */
@@ -2330,7 +2530,7 @@
                           co.flag + ' ' + esc(co.name) + '</option>';
                 }).join('') + '</select>';
 
-        var ckQ2 = (a.qty || 0) * allocPer();
+        var ckQ2 = ckActOf(a);   // CK 실적(고치지 않았으면 BOM)
         var sub = hideCk ? (isCkStock() ? ('수량 ' + (a.qty || 0) + ' EA')
                         : ('완제품 ' + fmtQ(a.qty || 0) + '개 · PK ' + fmtQ((a.qty || 0) * pkPerV()) +
                                 ' · CK ' + fmtQ(ckQ2)))
@@ -2435,6 +2635,10 @@
 
     /** 카드 본문 — 조달방식 선택 + CK 투입자재 목록 */
     function ckBody(a, ro, reviewOnly, mode, sl) {
+      return ckActRow(a, ro) + ckBodyInner(a, ro, reviewOnly, mode, sl);
+    }
+
+    function ckBodyInner(a, ro, reviewOnly, mode, sl) {
       var list = ckInputs();
       if (!list.length)
         return '<div class="region-warn">⚠ CK 반제품 BOM 구성자재를 찾을 수 없습니다. BOM 등록을 확인하세요.</div>';
@@ -3040,13 +3244,17 @@
     function setAllocPk(a, pk) {
       if (!a) return;
       a.pkReq = Math.max(0, pk | 0);
-      a.qty = Math.floor(a.pkReq / pkPerV());
+      var q = Math.floor(a.pkReq / pkPerV());
+      if (q !== a.qty) resetCkActual(a);
+      a.qty = q;
     }
 
     /** 통 수를 직접 정할 때(맞추기·국가추가) 요청 PK 도 같이 맞춘다 */
     function setAllocUnits(a, units) {
       if (!a) return;
-      a.qty = Math.max(0, units | 0);
+      var q = Math.max(0, units | 0);
+      if (q !== a.qty) resetCkActual(a);
+      a.qty = q;
       a.pkReq = Math.round(a.qty * pkPerV());
     }
 
@@ -3086,13 +3294,12 @@
          그 멸균 로트가 다른 조에게 예약된 채로 묶인다.
          planPk 는 사람이 배분을 건드렸을 때만 불린다(세션 열 때는 안 불린다) —
          그래서 여기서 비워도 방금 연 화면의 PK 가 날아갈 일은 없다. */
-      if (target <= 0) {
-        if (!(curS.pkLots || []).length) return false;
-        curS.pkLots = [];
-        _pkShort = 0;
-        _pkDirty = true;
-        return true;
-      }
+      /* ★ 국가를 다 지워도 담긴 PK 는 그대로 둔다.
+         세션을 열면 국가 없이 PK 만 담긴 상태로 시작하므로, 국가를 지웠을 때
+         그 «시작 상태»로 돌아가는 게 맞다. 예전에는 여기서 PK 를 전부 풀어서
+         국가를 하나 넣었다 지우는 것만으로 담긴 PK 가 사라졌다.
+         PK 를 비우려면 「PK 담기」 블록에서 직접 비운다. */
+      if (target <= 0) return false;
       if (target === pkTotal()) return false;           // 이미 맞다
 
       var r = fifoSplit(target);
@@ -3163,10 +3370,14 @@
         /* ★ v3.5 : 화면의 a.qty 는 «완제품» 개수다.
            pack_alloc."Qty" 는 CK 개수라 여기서 ×ck_per 해서 보낸다.
            서버 packFinish 의 검증식(배분합계 == 완제품 × ck_per)이 이 값을 본다. */
-        var ckQ = a.qty * allocPer();
+        var ckBom = a.qty * allocPer();
+        var ckQ = ckActOf(a);       // ★ 실제로 소비할 CK 수
         var row = {
           country: a.country, country_id: (c ? c.id : null), country_name: (c ? c.name : null),
-          qty: ckQ, mode: mode, ck_lot: a.ckLot || ckLotFor(a.country), items: []
+          /* qty 는 BOM 값 그대로 — 서버 검증식(배분합계 == 완제품 × ck_per)과 완제품 수 계산용.
+             ck_qty 는 실적 CK 수 — 서버가 CK 생산·소비 수량으로 쓴다(비우면 qty). */
+          qty: ckBom, ck_qty: (ckQ !== ckBom ? ckQ : ''),
+          mode: mode, ck_lot: a.ckLot || ckLotFor(a.country), items: []
         };
 
         if (mode === 'stock') {
@@ -3258,7 +3469,8 @@
 
       var msg = ckStock
               ? 'CK ' + allocTotal() + ' EA 를 생산해 생산창고에 재고로 남깁니다.\n구성자재가 소비됩니다.'
-              : 'PK ' + pkTotal() + ' · CK ' + fmtQ(ckTotal()) + ' · IN BOX ' + inboxCountOf(unitsNow()) + ' 소비.\n' +
+              : 'PK ' + pkTotal() + ' · CK ' + fmtQ(ckActTotal()) +
+              (ckActTotal() !== Math.round(ckTotal()) ? ' (BOM ' + fmtQ(ckTotal()) + ')' : '') + ' · IN BOX ' + inboxCountOf(unitsNow()) + ' 소비.\n' +
               '카톤 ' + outboxCap() + '입 · ' + Math.ceil(unitsNow() / (outboxCap() || 1)) + '박스로 나뉩니다.\n' +
               '라벨 스캔은 다음 단계입니다.';
 
@@ -3369,22 +3581,32 @@
         var used = (curS.allocations || []).map(function (x) {
           return x.country;
         });
-        var next = COUNTRIES.filter(function (c) {
+        var cand = COUNTRIES.filter(function (c) {
           return used.indexOf(c.code) < 0 && c.useYn !== 'N';
-        })[0];
-        if (!next) {
+        });
+        if (!cand.length) {
           flash(COUNTRIES_LOADED ? '추가할 국가가 없습니다 — [국가 관리]에서 등록하세요' : '국가 목록을 읽는 중입니다');
           return;
         }
-        curS.allocations.push({
-          country: next.code, countryId: next.id,
-          qty: 0, pkReq: 0, ckState: 'plan'
+        // ★ 국가는 자동으로 고르지 않는다 — 작업자가 선택
+        uiPickCountry(cand, function (next) {
+          if (!curS || locked()) return;
+          /* ★ 국가를 추가하면 남은 만큼(재고 한도 안에서) 바로 채운다.
+             첫 국가든 두 번째든 규칙이 같다 — 필요하면 줄이면 된다.
+             예) 계획 80 · 미국 40 으로 줄임 → 캐나다 추가 = 40 */
+          var q0 = allocLeftUnits();
+          var pk0 = Math.round(q0 * pkPerV());
+          if (!q0 && curS.allocations.length) flash('남은 수량이 없어 0개로 추가했습니다');
+          curS.allocations.push({
+            country: next.code, countryId: next.id,
+            qty: q0, pkReq: pk0, ckState: 'plan'
+          });
+          ckOpenMap[ckOpenKey(next.code)] = true;
+          renderCBody();
+          renderCAction();
+          scheduleAllocSave();
+          schedulePkSync();
         });
-        ckOpenMap[ckOpenKey(next.code)] = true;
-        renderCBody();
-        renderCAction();
-        scheduleAllocSave();
-        schedulePkSync();
         return;
       }
       if (e.target.closest('[data-allocfill]')) {
@@ -3392,28 +3614,18 @@
              ① 배분이 먼저니 «작지 잔여 × ck_per» 를 목표로 채운다
              ② PK 가 고정돈 뒤니 «필요 CK − 배분합계» 를 채운다 */
         //  ① 작지 잔여(완제품) − 이미 배분한 완제품 / ② 담은 PK 환산 − 배분
-        var rem = (phase() === 'pk')
-                ? Math.max(0, Math.round(num(curS.orderRemain)) - allocTotal())
-                : Math.round(allocRemain());
+        var rem = allocLeftUnits();   // ★ 첫 국가·국가 추가와 같은 기준
         if (!rem) {
           flash('추가로 배분할 수량이 없습니다');
           return;
         }
         if (!curS.allocations.length) {
-          var first = COUNTRIES.filter(function (c) {
-            return c.useYn !== 'N';
-          })[0];
-          if (!first) {
-            flash('등록된 국가가 없습니다');
-            return;
-          }
-          curS.allocations.push({
-            country: first.code, countryId: first.id,
-            qty: Math.max(0, rem), pkReq: Math.round(Math.max(0, rem) * pkPerV()), ckState: 'plan'
-          });
+          // ★ 배분 줄이 없으면 국가부터 고르게 한다(자동 지정 없음)
+          flash('먼저 [＋ 국가 추가]로 국가를 선택하세요');
+          return;
         } else {
-          var last = curS.allocations[curS.allocations.length - 1];
-          setAllocUnits(last, Math.max(0, (last.qty || 0) + rem));
+          var tgt = allocFillTarget();   // 0 인 줄 → 없으면 마지막 줄
+          setAllocUnits(tgt, Math.max(0, (tgt.qty || 0) + rem));
         }
         renderCBody();
         renderCAction();
@@ -3496,6 +3708,35 @@
         }
         return;
       }
+      // ── CK 실적 수량 ──
+      var actStep = e.target.closest('[data-ckact]');
+      if (actStep && (e.target.classList.contains('plus') || e.target.classList.contains('minus'))) {
+        var actA = (curS.allocations || []).filter(function (x) {
+          return x.country === actStep.dataset.ckact;
+        })[0];
+        if (actA) {
+          setCkActual(actA, ckActOf(actA) + (e.target.classList.contains('plus') ? 1 : -1));
+          renderCBody();
+          renderCAction();
+          scheduleAllocSave();
+        }
+        return;
+      }
+      var actPad = e.target.closest('[data-ckactpad]');
+      if (actPad) {
+        var actA2 = (curS.allocations || []).filter(function (x) {
+          return x.country === actPad.dataset.ckactpad;
+        })[0];
+        if (actA2) {
+          openPad(allocLabel(actA2) + ' · CK 실적 수량', ckActOf(actA2), 99999, function (v) {
+            setCkActual(actA2, v);
+            renderCBody();
+            renderCAction();
+            scheduleAllocSave();
+          });
+        }
+        return;
+      }
       var ckStep = e.target.closest('[data-ckqty]');
       if (ckStep && (e.target.classList.contains('plus') || e.target.classList.contains('minus'))) {
         var kk = ckStep.dataset.ckqty, dd = e.target.classList.contains('plus') ? 1 : -1;
@@ -3543,9 +3784,10 @@
       }
 
       // 카톤 바코드 (인쇄용 — DB 에 남기지 않는다)
-      if (e.target.id === 'bcCartonFull' || e.target.id === 'bcCartonPart') {
+      var cbtn = e.target.closest ? e.target.closest('#bcCartonFull, #bcCartonPart') : null;
+      if (cbtn) {
         var cartons = cartonList();
-        var wantFull = e.target.id === 'bcCartonFull';
+        var wantFull = cbtn.id === 'bcCartonFull';
         var target = cartons.filter(function (c) {
           return wantFull ? c.fullYn !== 'N' : c.fullYn === 'N';
         });
@@ -5711,16 +5953,22 @@
          스크롤 여지가 커서 「위는 되는데 아래는 안 된다」가 된다.
          그래서 pointerdown 에서 즉시 처리하고, 뒤따라오는 진짜 click 은
          중복 실행을 막기 위해 삼킨다. */
+      /* ★ 마지막 pointerdown 처리 시각 — 버튼 요소가 아니라 전역에 둔다.
+         수량을 바꾸면 카드가 다시 그려져(innerHTML) 버튼이 새 요소로 바뀌므로,
+         요소에 붙여 두면 뒤따르는 네이티브 click 이 새 버튼에 떨어져
+         가드를 통과 → 2번 카운트되던 문제가 있었다(태블릿). */
+      var lastFiredAt = 0;
+
       function fire(btn) {
-        btn.__firedAt = Date.now();
+        lastFiredAt = window.__stepFiredAt = Date.now();
         btn.click();                 // 합성 click → isTrusted:false → 아래 가드를 통과
       }
 
       document.addEventListener('click', function (e) {
-        var b = e.target.closest ? e.target.closest(SEL) : null;
-        if (!b) return;
+        /* ★ 대상과 상관없이 삼킨다 — 수량을 바꾸면 카드가 다시 그려져(innerHTML) 진짜 click 이
+                   새 버튼(또는 다른 요소)에 떨어져 가드를 통과 → 2번 증감되던 문제 */
         // pointerdown 으로 이미 처리한 버튼의 네이티브 click 만 무시한다
-        if (e.isTrusted && b.__firedAt && Date.now() - b.__firedAt < 900) {
+        if (e.isTrusted && Date.now() - lastFiredAt < 900) {
           e.stopPropagation();
           e.preventDefault();
         }
@@ -5755,7 +6003,7 @@
             tick(x, y);
           }, 80);
           maxTimer = setTimeout(stop, 8000);
-        }, 400);
+        }, 550);
         window.addEventListener('pointerup', stop, {once: true, capture: true});
         window.addEventListener('touchend', stop, {once: true, capture: true});
       });
@@ -5763,6 +6011,111 @@
       document.addEventListener('visibilitychange', function () {
         if (document.hidden) stop();
       });
+    })();
+  </script>
+  <!-- ★ 시간 수정 시트(▲▼ ◀▶) 탭 보장 — 모든 공정 화면 공통
+       증상 : 태블릿에서 ▼·◀ 처럼 시트 아래쪽 버튼이 «분명히 버튼을 눌렀는데» 안 먹는다.
+       원인 : 화면마다 스테퍼 스크립트가 제각각이었다.
+              · touch-action 이 manipulation 이거나 아예 빠진 화면 → 손가락이 1~2px 만
+                밀려도 브라우저가 시트 스크롤로 판정해 click 을 취소
+              · pointerdown 처리 없이 click 만 기다리는 화면
+              · 버튼이 84×52 로 작아 가장자리를 누르면 빗나감
+       해결 : 이 블록이 시간·날짜 버튼만 «먼저»(window 캡처 단계) 가로채서
+              누르는 즉시 1회 반영하고, 길게 누르면 반복한다. 뒤따르는 진짜 click 은 삼킨다.
+              기존 화면별 스테퍼 스크립트에는 이벤트가 가지 않으므로 중복 실행이 없다. -->
+  <style>
+    .timeedit button, .dateedit button {
+      touch-action: none !important;
+      -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+    }
+    .tcol button { width: 96px !important; height: 60px !important; }
+    .dateedit .dbtn { width: 64px !important; height: 58px !important; }
+  </style>
+  <script th:inline="none">
+    (function () {
+      var SEL = '.timeedit button, .dateedit button';
+      var hold = null, rep = null, cap = null, lastAt = 0;
+
+      function stop() {
+        clearTimeout(hold); clearInterval(rep); clearTimeout(cap);
+        hold = rep = cap = null;
+      }
+
+      function fire(b) {
+        lastAt = Date.now();
+        b.click();                       // 합성 click(isTrusted:false) → 화면의 시간 로직 실행
+      }
+
+      window.addEventListener('pointerdown', function (e) {
+        if (e.button != null && e.button > 0) return;
+        var b = e.target && e.target.closest ? e.target.closest(SEL) : null;
+        if (!b || b.disabled) return;
+        e.stopPropagation();             // 화면별 스테퍼 스크립트로 넘기지 않는다(중복 방지)
+        if (e.cancelable) e.preventDefault();
+        stop();
+        fire(b);                         // 즉시 1회
+        var x = e.clientX, y = e.clientY;
+        hold = setTimeout(function () {
+          rep = setInterval(function () {
+            var el = document.elementFromPoint(x, y);
+            var bb = el && el.closest ? el.closest(SEL) : null;
+            if (bb) fire(bb); else stop();
+          }, 90);
+          cap = setTimeout(stop, 8000);
+        }, 450);
+      }, true);
+
+      ['pointerup', 'pointercancel', 'touchend', 'touchcancel', 'mouseup', 'blur'].forEach(function (ev) {
+        window.addEventListener(ev, stop, true);
+      });
+      document.addEventListener('visibilitychange', function () { if (document.hidden) stop(); });
+
+      // 위에서 이미 처리한 탭의 진짜 click 은 삼킨다
+      window.addEventListener('click', function (e) {
+        if (!e.isTrusted) return;
+        var b = e.target && e.target.closest ? e.target.closest(SEL) : null;
+        if (b && Date.now() - lastAt < 900) {
+          e.stopPropagation();
+          e.preventDefault();
+        }
+      }, true);
+    })();
+
+    /* ★ 일반 버튼(완료취소 · 시작 · 삭제 · 하단 버튼 등) 탭 보장 — 모든 공정 화면 공통
+       스크롤되는 목록·시트 안에서는 누르는 동안 손가락이 1~2px 만 밀려도
+       브라우저가 스크롤로 판정해 click 을 취소한다. 그래서 «눌렀는데 안 먹는» 버튼이 생겼다.
+       → 손을 뗄 때 같은 버튼 위이고 10px 이내로만 움직였으면 한 번 눌린 것으로 처리.
+         많이 움직였으면 스크롤로 보고 무시한다(스크롤은 그대로 된다).
+       ★ 뒤따르는 진짜 click 은 «대상과 상관없이» 700ms 동안 삼킨다.
+         버튼이 확인창을 띄우면 그 진짜 click 이 새로 뜬 확인창 바깥(배경)에 떨어져
+         확인창이 곧바로 닫혀 버렸다 — 「완료취소가 안 눌린다」의 원인. */
+    (function () {
+      var SKIP = '.stepper button, .mstep button, .bstep button, .lotstep button, .timeedit button, .dateedit button';
+      var tapBtn = null, tx = 0, ty = 0, lastTap = 0;
+      window.addEventListener('pointerdown', function (e) {
+        tapBtn = null;
+        if (e.pointerType === 'mouse') return;          // 마우스는 click 이 정상 동작
+        var b = e.target && e.target.closest ? e.target.closest('button') : null;
+        if (!b || b.disabled || b.closest(SKIP)) return;
+        tapBtn = b; tx = e.clientX; ty = e.clientY;
+      }, true);
+      window.addEventListener('pointerup', function (e) {
+        var b = tapBtn;
+        tapBtn = null;
+        if (!b || b.disabled || !b.isConnected) return;
+        if (Math.abs(e.clientX - tx) > 10 || Math.abs(e.clientY - ty) > 10) return;
+        var hit = document.elementFromPoint(e.clientX, e.clientY);
+        if (!hit || !b.contains(hit)) return;
+        lastTap = Date.now();
+        b.click();                                      // 합성 click (isTrusted:false)
+      }, true);
+      window.addEventListener('pointercancel', function () { tapBtn = null; }, true);
+      window.addEventListener('click', function (e) {
+        if (e.isTrusted && Date.now() - lastTap < 700) {
+          e.stopPropagation();
+          e.preventDefault();
+        }
+      }, true);
     })();
   </script>
 </th:block>

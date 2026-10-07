@@ -1274,21 +1274,33 @@
             const b = e.target.closest('[data-t]');
             if (!b) return;
             const H = document.getElementById('tH'), M = document.getElementById('tM');
-            let h = +H.textContent, m = +M.textContent;
-            if (b.dataset.t === 'h+') h = (h + 1) % 24;
-            if (b.dataset.t === 'h-') h = (h + 23) % 24;
-            if (b.dataset.t === 'm+') m = (m + 1) % 60;
-            if (b.dataset.t === 'm-') m = (m + 59) % 60;
-            H.textContent = String(h).padStart(2, '0');
-            M.textContent = String(m).padStart(2, '0');
+            /* ★ 자리올림/자리내림 — 실제 시각으로 더하고 빼서 시·날짜까지 맞춘다.
+               예전에는 10:00 에서 분 ▼ → 10:59, 00:30 에서 시 ▼ → 23:30(날짜 그대로)처럼
+               «내렸는데 시간이 늦어지는» 문제가 있었다. */
+            var step = {'h+': 60, 'h-': -60, 'm+': 1, 'm-': -1}[b.dataset.t] || 0;
+            var d = new Date(editDate.getFullYear(), editDate.getMonth(), editDate.getDate(),
+                +H.textContent, +M.textContent);
+            d.setMinutes(d.getMinutes() + step);
+            editDate = new Date(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), d.getMinutes());
+            H.textContent = String(d.getHours()).padStart(2, '0');
+            M.textContent = String(d.getMinutes()).padStart(2, '0');
+            document.getElementById('tDate').textContent = fmtDEdit(editDate);
         });
         document.getElementById('timeOk').onclick = () => {
             const ds = `${editDate.getFullYear()}-${String(editDate.getMonth() + 1).padStart(2, '0')}-${String(editDate.getDate()).padStart(2, '0')}`;
             const v = ds + ' ' + document.getElementById('tH').textContent + ':' + document.getElementById('tM').textContent;
             const p = {item_id: timeTarget.item_id};
             if (timeWhich === 'start') p.start_time = v; else p.end_time = v;
-            apiPost('/item_update_time', p, () => {
+            apiPost('/item_update_time', p, (r) => {
                 hideMask('timeMask');
+                /* ★ 시작 날짜를 바꾸면 서버가 품목을 그 날짜의 작업으로 옮긴다(moved).
+                     지금 보고 있는 작업(curW)에서는 빠졌으므로 첫 화면으로 돌아가 다시 읽는다. */
+                if (r && r.data && r.data.moved) {
+                    refreshDays();
+                    show('A');
+                    flash('작업일을 ' + r.data.date + ' 로 옮겼습니다');
+                    return;
+                }
                 refreshItems();
                 flash((timeWhich === 'start' ? '시작' : '종료') + ' 저장 ' + pillT(v));
             });
@@ -1613,15 +1625,15 @@
                그래서 pointerdown 에서 즉시 처리하고, 뒤따라오는 진짜 click 은
                중복 실행을 막기 위해 삼킨다. */
             function fire(btn) {
-                btn.__firedAt = Date.now();
+                window.__stepFiredAt = Date.now();   // ★ 요소가 아니라 전역 — 카드가 다시 그려져도 가드가 유지된다
                 btn.click();                 // 합성 click → isTrusted:false → 아래 가드를 통과
             }
 
             document.addEventListener('click', function (e) {
-                var b = e.target.closest ? e.target.closest(SEL) : null;
-                if (!b) return;
+                /* ★ 대상과 상관없이 삼킨다 — 수량을 바꾸면 카드가 다시 그려져(innerHTML) 진짜 click 이
+                   새 버튼(또는 다른 요소)에 떨어져 가드를 통과 → 2번 증감되던 문제 */
                 // pointerdown 으로 이미 처리한 버튼의 네이티브 click 만 무시한다
-                if (e.isTrusted && b.__firedAt && Date.now() - b.__firedAt < 900) {
+                if (e.isTrusted && Date.now() - (window.__stepFiredAt || 0) < 900) {
                     e.stopPropagation();
                     e.preventDefault();
                 }
@@ -1656,7 +1668,7 @@
                         tick(x, y);
                     }, 80);
                     maxTimer = setTimeout(stop, 8000);
-                }, 400);
+                }, 550);
                 window.addEventListener('pointerup', stop, {once: true, capture: true});
                 window.addEventListener('touchend', stop, {once: true, capture: true});
             });
@@ -1664,6 +1676,116 @@
             document.addEventListener('visibilitychange', function () {
                 if (document.hidden) stop();
             });
+        })();
+    </script>
+    <!-- ★ 시간 수정 시트(▲▼ ◀▶) 탭 보장 — 모든 공정 화면 공통
+         증상 : 태블릿에서 ▼·◀ 처럼 시트 아래쪽 버튼이 «분명히 버튼을 눌렀는데» 안 먹는다.
+         원인 : 화면마다 스테퍼 스크립트가 제각각이었다.
+                · touch-action 이 manipulation 이거나 아예 빠진 화면 → 손가락이 1~2px 만
+                  밀려도 브라우저가 시트 스크롤로 판정해 click 을 취소
+                · pointerdown 처리 없이 click 만 기다리는 화면
+                · 버튼이 84×52 로 작아 가장자리를 누르면 빗나감
+         해결 : 이 블록이 시간·날짜 버튼만 «먼저»(window 캡처 단계) 가로채서
+                누르는 즉시 1회 반영하고, 길게 누르면 반복한다. 뒤따르는 진짜 click 은 삼킨다.
+                기존 화면별 스테퍼 스크립트에는 이벤트가 가지 않으므로 중복 실행이 없다. -->
+    <style>
+        .timeedit button, .dateedit button {
+            touch-action: none !important;
+            -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+        }
+        .tcol button { width: 96px !important; height: 60px !important; }
+        .dateedit .dbtn { width: 64px !important; height: 58px !important; }
+        /* ★ 토스트(알림)는 터치를 받지 않는다.
+             토스트는 사라진 뒤에도 투명한 채로 화면 하단(bottom:110px · z-index 60)에 남아
+             시트(z-index 40)의 ▼ 버튼·하단 버튼 위를 덮고 있었다. 그래서 «버튼이 보이는데
+             눌러도 안 먹는» 일이 생겼다 — 알림이 한 번이라도 뜬 뒤에만 생겨서 들쭉날쭉했다. */
+        #toast, #packToast { pointer-events: none !important; }
+    </style>
+    <script th:inline="none">
+        (function () {
+            var SEL = '.timeedit button, .dateedit button';
+            var hold = null, rep = null, cap = null, lastAt = 0;
+
+            function stop() {
+                clearTimeout(hold); clearInterval(rep); clearTimeout(cap);
+                hold = rep = cap = null;
+            }
+
+            function fire(b) {
+                lastAt = Date.now();
+                b.click();                       // 합성 click(isTrusted:false) → 화면의 시간 로직 실행
+            }
+
+            window.addEventListener('pointerdown', function (e) {
+                if (e.button != null && e.button > 0) return;
+                var b = e.target && e.target.closest ? e.target.closest(SEL) : null;
+                if (!b || b.disabled) return;
+                e.stopPropagation();             // 화면별 스테퍼 스크립트로 넘기지 않는다(중복 방지)
+                if (e.cancelable) e.preventDefault();
+                stop();
+                fire(b);                         // 즉시 1회
+                var x = e.clientX, y = e.clientY;
+                hold = setTimeout(function () {
+                    rep = setInterval(function () {
+                        var el = document.elementFromPoint(x, y);
+                        var bb = el && el.closest ? el.closest(SEL) : null;
+                        if (bb) fire(bb); else stop();
+                    }, 90);
+                    cap = setTimeout(stop, 8000);
+                }, 450);
+            }, true);
+
+            ['pointerup', 'pointercancel', 'touchend', 'touchcancel', 'mouseup', 'blur'].forEach(function (ev) {
+                window.addEventListener(ev, stop, true);
+            });
+            document.addEventListener('visibilitychange', function () { if (document.hidden) stop(); });
+
+            // 위에서 이미 처리한 탭의 진짜 click 은 삼킨다
+            window.addEventListener('click', function (e) {
+                if (!e.isTrusted) return;
+                var b = e.target && e.target.closest ? e.target.closest(SEL) : null;
+                if (b && Date.now() - lastAt < 900) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                }
+            }, true);
+        })();
+
+        /* ★ 일반 버튼(완료취소 · 시작 · 삭제 · 하단 버튼 등) 탭 보장 — 모든 공정 화면 공통
+           스크롤되는 목록·시트 안에서는 누르는 동안 손가락이 1~2px 만 밀려도
+           브라우저가 스크롤로 판정해 click 을 취소한다. 그래서 «눌렀는데 안 먹는» 버튼이 생겼다.
+           → 손을 뗄 때 같은 버튼 위이고 10px 이내로만 움직였으면 한 번 눌린 것으로 처리.
+             많이 움직였으면 스크롤로 보고 무시한다(스크롤은 그대로 된다).
+           ★ 뒤따르는 진짜 click 은 «대상과 상관없이» 700ms 동안 삼킨다.
+             버튼이 확인창을 띄우면 그 진짜 click 이 새로 뜬 확인창 바깥(배경)에 떨어져
+             확인창이 곧바로 닫혀 버렸다 — 「완료취소가 안 눌린다」의 원인. */
+        (function () {
+            var SKIP = '.stepper button, .mstep button, .bstep button, .lotstep button, .timeedit button, .dateedit button';
+            var tapBtn = null, tx = 0, ty = 0, lastTap = 0;
+            window.addEventListener('pointerdown', function (e) {
+                tapBtn = null;
+                if (e.pointerType === 'mouse') return;          // 마우스는 click 이 정상 동작
+                var b = e.target && e.target.closest ? e.target.closest('button') : null;
+                if (!b || b.disabled || b.closest(SKIP)) return;
+                tapBtn = b; tx = e.clientX; ty = e.clientY;
+            }, true);
+            window.addEventListener('pointerup', function (e) {
+                var b = tapBtn;
+                tapBtn = null;
+                if (!b || b.disabled || !b.isConnected) return;
+                if (Math.abs(e.clientX - tx) > 10 || Math.abs(e.clientY - ty) > 10) return;
+                var hit = document.elementFromPoint(e.clientX, e.clientY);
+                if (!hit || !b.contains(hit)) return;
+                lastTap = Date.now();
+                b.click();                                      // 합성 click (isTrusted:false)
+            }, true);
+            window.addEventListener('pointercancel', function () { tapBtn = null; }, true);
+            window.addEventListener('click', function (e) {
+                if (e.isTrusted && Date.now() - lastTap < 700) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                }
+            }, true);
         })();
     </script>
 </th:block>

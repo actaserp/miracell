@@ -1177,6 +1177,7 @@ public class PackService {
                  , pa."Country_id" AS country_id, pa."Qty" AS qty, pa."CkLotNumber" AS ck_lot
                  , pa."CkMatProduce_id" AS ck_mp_id, COALESCE(pa."CkState",'plan') AS ck_state
                  , pa."CkMaterial_id" AS ck_mat_id
+                 , pa."CkQty" AS ck_qty                  -- ★ CK 실적(NULL = BOM = Qty)
               FROM pack_alloc pa
              WHERE pa."MatProduce_id" = :mpId AND COALESCE(pa._status,'a')='a'
              ORDER BY pa.id
@@ -2075,6 +2076,7 @@ public class PackService {
 		// ── 국가별 CK 생산 / 투입 ──
 		List<Map<String, Object>> allocRows = this.sqlRunner.getRows("""
             SELECT pa.id AS alloc_id, pa."CountryCode" AS country, pa."Qty" AS qty,
+                   pa."CkQty" AS ck_qty,
                    pa."CkLotNumber" AS ck_lot, COALESCE(pa."CkState",'plan') AS ck_state
               FROM pack_alloc pa
              WHERE pa."MatProduce_id" = :mpId AND COALESCE(pa._status,'a')='a'
@@ -2090,7 +2092,12 @@ public class PackService {
 			Integer allocId = toInt(ar.get("alloc_id"));
 			String country  = str(ar.get("country"));
 			String ctag     = ckTag(country);      // "(KR)" 또는 "" (국가 미지정)
-			float ckQty     = toFloat(ar.get("qty"));   // ★ CK 낱개
+			/* ★ CK 실적 수량. BOM(Qty)은 배분 검증·국가별 완제품 수 계산에만 쓰고,
+			     실제 CK 생산·소비는 실적(CkQty)으로 한다. 남는 CK 는 재고·불량이 아니라
+			     완제품에 포함되어 나간 것으로 본다 — 예) 완제품 5 · PK 5 · CK 6 */
+			float ckQty     = (toFloat(ar.get("ck_qty")) > 0)
+					? toFloat(ar.get("ck_qty"))
+					: toFloat(ar.get("qty"));          // ★ CK 낱개
 			if (ckQty <= 0 || "produced".equals(str(ar.get("ck_state")))) continue;
 
 			Map<String, Object> src = byCountry.get(country);
@@ -3239,19 +3246,25 @@ public class PackService {
 			p.addValue("code", countryCodeOf(a));       // ★ 빈 값 → NO_COUNTRY (NOT NULL 회피)
 			p.addValue("name", str(a.get("country_name")));
 			p.addValue("qty", qty);
+			// ★ CK 실적 — BOM(Qty)과 다를 때만 남긴다. 비었거나 같으면 NULL
+			float ckAct = toFloat(a.get("ck_qty"));
+			Float ckQtyCol = (ckAct > 0 && Math.abs(ckAct - qty) > EPS) ? ckAct : null;
+			p.addValue("ckQty", ckQtyCol);
 			p.addValue("ckLot", str(a.get("ck_lot")));
 			// ★ 출처 기록 — Qty 가 CK 낱개 기준이라는 점을 행 자체에 남긴다.
 			//   완제품 단위와 헷갈려 잘못 읽는 사고가 반복되는 값이다.
 			p.addValue("memo", "포장 국가배분" + ckTag(countryCodeOf(a))
-					+ " · CK 낱개 " + fmt(qty));
+					+ " · CK 낱개 " + fmt(qty)
+					+ (ckQtyCol != null ? " · CK 실적 " + fmt(ckQtyCol) : ""));
 			p.addValue("spjangcd", spjangcd);
 			p.addValue("userId", userId);
 
 			Map<String, Object> row = this.sqlRunner.getRow("""
                 INSERT INTO pack_alloc
-                       ("MatProduce_id","Country_id","CountryCode","CountryName","Qty","CkLotNumber",
+                       ("MatProduce_id","Country_id","CountryCode","CountryName","Qty","CkQty","CkLotNumber",
                         "CkState","Description",_status,_created,_creater_id,spjangcd)
-                VALUES (:mpId, CAST(:countryId AS integer), :code, :name, CAST(:qty AS float8), :ckLot,
+                VALUES (:mpId, CAST(:countryId AS integer), :code, :name, CAST(:qty AS float8),
+                        CAST(:ckQty AS float8), :ckLot,
                         'plan',:memo,'a',now(),CAST(:userId AS integer),CAST(:spjangcd AS varchar))
                 RETURNING id
                 """, p);

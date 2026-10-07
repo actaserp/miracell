@@ -557,11 +557,21 @@ public class ProductionWorkService {
                 UPDATE mat_produce
                    SET "StartTime" = COALESCE(CAST(:st AS timestamp), "StartTime")
                      , "EndTime"   = COALESCE(CAST(:et AS timestamp), "EndTime")
+                     /* ★ 시작 날짜가 바뀌면 작업일(ProductionDate)도 따라간다.
+                          첫 화면·작업조·작업일보가 ProductionDate 로 묶기 때문.
+                          (자정을 넘기는 작업은 없다는 전제. 종료 수정은 작업일을 건드리지 않는다.
+                           로트번호는 바꾸지 않는다 — 이미 라벨·다음 공정·추적에 쓰인다) */
+                     , "ProductionDate" = COALESCE(CAST(:st AS timestamp)::date, "ProductionDate")
                      , "_modified" = now(), "_modifier_id" = :userId
                  WHERE id = :mpId
                 """, p);
 
         r.success = true;
+        if (startTime != null && !startTime.isBlank()) {
+            Map<String, Object> d = new LinkedHashMap<>();
+            d.put("work_date", startTime.substring(0, 10));
+            r.data = d;
+        }
         return r;
     }
 
@@ -791,7 +801,11 @@ public class ProductionWorkService {
                      , COALESCE(prod.crew_cnt, 0)              AS crew_cnt
                      , COALESCE(prod.done_cnt, 0)              AS done_cnt
                      , COALESCE(prod.working_cnt, 0)           AS working_cnt
-                     , CASE WHEN COALESCE(prod.chasu_cnt,0) = 0 THEN 'wait'
+                     /* ★ 작지가 마감(finished)이면 양품 수와 관계없이 완료다.
+                          예전에는 양품 ≥ 지시량일 때만 done 이라, 덜 만들고 마감한 작지가
+                          「작업중」으로 내려와 화면의 「완료」 필터에서 빠졌다. */
+                     , CASE WHEN jr."State" = 'finished' THEN 'done'
+                            WHEN COALESCE(prod.chasu_cnt,0) = 0 THEN 'wait'
                             WHEN COALESCE(prod.good_qty,0) >= COALESCE(jr."OrderQty",0)
                                  AND COALESCE(jr."OrderQty",0) > 0 THEN 'done'
                             ELSE 'working' END                 AS state
@@ -828,13 +842,17 @@ public class ProductionWorkService {
                       ★ 형제 작지(같은 Parent_id)이면서 WorkIndex 가 더 큰 것만 본다.
                         Parent_id 가 없는 자체 재고 생산지시는 라우팅이 없어
                         이 조건에 걸리지 않는다 — 그건 그 품목 하나만 만드는 지시다. */
-                   AND NOT EXISTS (
+                   /* ★ 단, 이 작지 자체가 완료(finished)면 감추지 않는다.
+                        감출 대상은 «재고로 대체돼 미완으로 남은» 앞 공정 작지뿐이다.
+                        예전에는 블리스터를 끝낸 뒤 융착·포장이 완료되면
+                        완료된 블리스터 작지까지 목록에서 사라졌다. */
+                   AND (jr."State" = 'finished' OR NOT EXISTS (
                          SELECT 1 FROM job_res nx
                           WHERE jr."Parent_id" IS NOT NULL
                             AND nx."Parent_id" = jr."Parent_id"
                             AND nx."WorkIndex" > jr."WorkIndex"
                             AND nx."State" = 'finished'
-                   )
+                   ))
                    AND (CAST(:dateFrom AS date) IS NULL OR jr."ProductionDate"::date >= CAST(:dateFrom AS date))
                    AND (CAST(:dateTo   AS date) IS NULL OR jr."ProductionDate"::date <= CAST(:dateTo   AS date))
                  ORDER BY jr."ProductionDate" DESC, jr."WorkOrderNumber" DESC
