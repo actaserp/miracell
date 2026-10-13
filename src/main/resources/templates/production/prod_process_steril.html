@@ -1024,7 +1024,8 @@
                 // 제품(코드)별 그룹
                 const groups = {};
                 ls.forEach(l => {
-                    (groups[l.mat] = groups[l.mat] || {mat: l.mat, matNm: l.matNm, qty: 0, pk: []});
+                    (groups[l.mat] = groups[l.mat] || {mat: l.mat, matNm: l.matNm, qty: 0, pk: [], maker: ''});
+                    if (l.maker && !groups[l.mat].maker) groups[l.mat].maker = l.maker;
                     groups[l.mat].qty += (l.useQty != null ? l.useQty : l.qty);
                     groups[l.mat].pk.push(l.lot);
                 });
@@ -1036,13 +1037,11 @@
                 $('#strQty').text(this._qtyOf(b));
 
                 // ── UDI 로트번호 ──
-                //   배치당 1개. BI PASS 시 [배치 상세]에서 확정되며 배치의 모든 멸균필 로트에 부여된다.
-                //   확정 전에는 제안값만 회색으로 보여준다(여기서 입력하지 않는다).
-                const udi = b.maker_lot_no || '';
-                $('#strUdi').html(udi
-                    ? '<strong>' + udi + '</strong>'
-                    : '<strong class="muted">' + this._udiProposal(b) + '</strong>' +
-                    '<span class="muted" style="margin-left:8px;">(제안값 — BI 판정 시 [배치 상세]에서 확정)</span>');
+                //   ★ 품목별 1개. 품목이 달라도 같이 멸균하므로 BI PASS 시 [배치 상세]에서 품목마다 직접 입력한다.
+                const withMk = gl.filter(g => g.maker);
+                $('#strUdi').html(withMk.length
+                    ? withMk.map(g => '<strong>' + g.maker + '</strong> <span class="muted">' + g.matNm + '</span>').join('<br>')
+                    : '<strong class="muted">—</strong><span class="muted" style="margin-left:8px;">(BI 판정 시 [배치 상세]에서 품목별 입력)</span>');
 
                 // ── 담긴 제품 목록 (읽기 전용) ──
                 $('#strLot').html(gl.length ? gl.map(g =>
@@ -1053,7 +1052,23 @@
                     '</div>').join('') : '<span class="muted">담긴 로트 없음</span>');
             }
 
-            /** UDI 로트번호 제안값 — 계열 접두어 + 멸균일(yyyymmdd)
+            /** ★ 담긴 로트를 품목별로 — UDI 로트번호는 품목마다 하나 */
+            _matGroups(b) {
+                const g = {}, out = [];
+                this._lotsOf(b).forEach(l => {
+                    const k = String(l.matId);
+                    if (!g[k]) {
+                        g[k] = {matId: l.matId, matNm: l.matNm, qty: 0, lots: [], maker: ''};
+                        out.push(g[k]);
+                    }
+                    g[k].qty += this._num(l.qty);
+                    g[k].lots.push(l.lot);
+                    if (!g[k].maker && l.maker) g[k].maker = l.maker;
+                });
+                return out;
+            }
+
+            /** UDI 로트번호 제안값 (현재 미사용 — 작업자가 직접 입력) — 계열 접두어 + 멸균일(yyyymmdd)
              *  BSC 계열 = BLD(혈액), BmSC 계열 = BMJ(골수). 배치에 계열은 섞이지 않는다. */
             _udiProposal(b) {
                 const names = this._lotsOf(b).map(l => String(l.matNm || '')).join(' ');
@@ -2170,9 +2185,11 @@
                     id: d.batch_id, batch_no: d.batch_no, date: d.steril_date, state: d.state,
                     machine: d.equip_name || '-', worker: this._username(),
                     bi: d.bi_result, maker_lot_no: d.maker_lot_no, start: d.start_time, end: d.end_time,
+                    used_cnt: _this._num(d.used_cnt),
                     equipment_id: d.equipment_id,
                     items: (d.items || []).map(l => ({
                         id: l.item_id, matLotId: l.mat_lot_id, lot: l.lot_no, mat: l.mat_code, matNm: l.mat_name,
+                        matId: l.mat_id, maker: l.maker_lot_no || '',
                         qty: _this._num(l.qty), useQty: _this._num(l.qty), avail: _this._num(l.lot_avail),
                         sterilYN: (l.state === 'moved' ? 'Y' : (l.state === 'scrapped' ? 'X' : 'N'))
                     })),
@@ -2236,7 +2253,9 @@
                     '<button class="b-btn" data-act="start" style="background:#4caf50;color:#fff;border-color:#4caf50;">시작</button>' +
                     '<button class="b-btn" data-act="finish" style="background:#1976d2;color:#fff;border-color:#1976d2;">종료</button>' +
                     '<button class="b-btn" data-act="save">저장</button>' +
-                    (judged ? '<button class="b-btn" data-act="cancel" style="color:#c62828;border-color:#e0b4b0;">판정 취소</button>' : '') +
+                    (judged ? (b.used_cnt > 0
+                        ? '<button class="b-btn" disabled title="멸균필 로트가 다음 공정에서 이미 사용됨" style="opacity:.45;cursor:not-allowed;">판정 취소 불가 (다음 공정 사용)</button>'
+                        : '<button class="b-btn" data-act="cancel" style="color:#c62828;border-color:#e0b4b0;">판정 취소</button>') : '') +
                     (editable ? '<button class="b-btn" data-act="delete" style="margin-left:auto;color:#c62828;border-color:#e0b4b0;">작업 삭제</button>' : '') +
                     '</div>';
                 // 배치 정보 (멸균기·시작·종료 수정 가능 → 저장)
@@ -2279,6 +2298,10 @@
                     h += '<div style="padding:12px;"><b style="color:' + (b.bi === 'pass' ? '#2e7d32' : '#c62828') + ';">' +
                         (b.bi === 'pass' ? '음성 — 합격 · 멸균필 · 멸균창고 이동 완료' : '양성 — 불합격 · 전량 폐기 처리됨') + '</b>' +
                         (b.maker_lot_no ? ' <span class="muted">· UDI 로트번호 ' + b.maker_lot_no + '</span>' : '') +
+                        (b.bi === 'pass' ? '<table class="work-table" style="margin-top:8px;"><thead><tr><th>품목</th><th style="width:110px;">수량</th><th style="width:240px;">UDI 로트번호</th></tr></thead><tbody>' +
+                            this._matGroups(b).map(g => '<tr><td>' + g.matNm + '</td><td style="text-align:right;">' + g.qty + ' EA</td>' +
+                                '<td><input type="text" class="makerLotInput" data-matid="' + g.matId + '" data-matnm="' + String(g.matNm).replace(/"/g, '&quot;') + '" value="' + (g.maker || '') + '" style="height:32px;width:100%;"></td></tr>').join('') +
+                            '</tbody></table><div style="text-align:right;margin-top:6px;"><button class="b-btn" data-act="mksave">UDI 로트번호 수정 저장</button></div>' : '') +
                         '<div class="muted" style="margin-top:6px;">판정 후에도 멸균일지 탭에서 USB 데이터로 일지를 작성할 수 있습니다.</div></div>';
                 } else if (!ls.length) {
                     h += '<p class="muted" style="padding:14px;">담긴 로트가 없습니다. 로트를 담은 뒤 BI 판정을 입력하세요.</p>';
@@ -2288,9 +2311,13 @@
                     h += '<div style="padding:12px; display:flex; gap:12px; align-items:center; flex-wrap:wrap;">' +
                         '<strong>BI 색상 변화</strong>' +
                         '<button class="judge-btn pass" data-act="pass">음성 (합격)</button>' +
-                        '<button class="judge-btn fail" data-act="fail">양성 (불합격)</button>' +
-                        '<span style="margin-left:auto;">UDI 로트번호 <input type="text" id="makerLotInput" value="' + (b.maker_lot_no || this._udiProposal(b)) + '" style="height:34px;width:200px;" placeholder="BMJ20260722"></span></div>' +
-                        '<p class="muted" style="margin:0 12px 12px;">합격 시 위 UDI 로트번호가 이 배치의 멸균필 로트에 부여됩니다.</p>';
+                        '<button class="judge-btn fail" data-act="fail">양성 (불합격)</button></div>' +
+                        '<div style="padding:0 12px 4px;"><table class="work-table"><thead><tr><th>품목</th><th style="width:110px;">수량</th><th style="width:240px;">UDI 로트번호</th></tr></thead><tbody>' +
+                        this._matGroups(b).map(g => '<tr><td>' + g.matNm + ' <span class="muted">(' + g.lots.length + '로트)</span></td>' +
+                            '<td style="text-align:right;">' + g.qty + ' EA</td>' +
+                            '<td><input type="text" class="makerLotInput" data-matid="' + g.matId + '" data-matnm="' + String(g.matNm).replace(/"/g, '&quot;') + '" value="' + (g.maker || '') + '" placeholder="UDI 로트번호 입력" style="height:32px;width:100%;"></td></tr>').join('') +
+                        '</tbody></table></div>' +
+                        '<p class="muted" style="margin:4px 12px 12px;">합격 시 품목마다 입력한 UDI 로트번호가 그 품목의 멸균필 로트에 부여됩니다. 비워 두고 판정한 뒤 나중에 수정해도 됩니다.</p>';
                 }
                 $('#batchDetail').html(h);
                 this.sterilJudge = b.bi ? (b.bi === 'pass' ? 'PASS' : 'FAIL') : null;
@@ -2400,20 +2427,34 @@
                     return;
                 }
 
+                if (act === 'mksave') {   // ★ 판정 후 UDI 로트번호만 수정
+                    const lots = {}, miss = [];
+                    $('.makerLotInput').each(function () {
+                        const v = ($(this).val() || '').trim();
+                        lots[$(this).data('matid')] = v;
+                    });
+                    _this._post('/maker_lot_save', {batch_id: b.id, maker_lots: JSON.stringify(lots)}, function () {
+                        if (typeof Notify !== 'undefined') Notify.success('UDI 로트번호를 수정했습니다');
+                        _this.openBatch(b.id);
+                        _this.searchMainData();
+                    });
+                    return;
+                }
                 if (act === 'pass') {
-                    const maker = ($('#makerLotInput').val() || '').trim();
-                    if (!maker) {
-                        Alert.alert('', 'UDI 로트번호를 입력하세요.');
-                        return;
-                    }
-                    Alert.confirm('', 'BI 합격 — 담긴 로트를 멸균창고로 이동(멸균필)합니다. UDI 로트번호: ' + maker, function () {
+                    const lots = {}, miss = [], txt = [];
+                    $('.makerLotInput').each(function () {
+                        const v = ($(this).val() || '').trim(), nm = $(this).data('matnm');
+                        lots[$(this).data('matid')] = v;   // 비워도 된다(판정 후 수정 가능)
+                        txt.push(nm + ' : ' + (v || '(미입력)'));
+                    });
+                    Alert.confirm('', 'BI 합격 — 담긴 로트를 멸균창고로 이동(멸균필)합니다.\n' + txt.join('\n'), function () {
                         _this._post('/bi_judge', {
                             batch_id: b.id,
                             result: 'pass',
-                            maker_lot_no: maker,
+                            maker_lots: JSON.stringify(lots),
                             spjangcd: _this._sp()
                         }, function () {
-                            if (typeof Notify !== 'undefined') Notify.success('멸균 완료 · 멸균창고 이동 · 로트 ' + maker);
+                            if (typeof Notify !== 'undefined') Notify.success('멸균 완료 · 멸균창고 이동 · 품목별 UDI 로트번호 부여');
                             _this.openBatch(b.id);
                             _this.searchMainData();
                             _this.renderWaitList();

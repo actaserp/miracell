@@ -145,11 +145,11 @@
         .actionbar .actsum{display:flex;flex-direction:column;margin-right:auto;min-width:0}
         .actionbar .actsum .l{font-size:12.5px;color:var(--ink-2);font-weight:700}
         .actionbar .actsum .v{font-size:19px;font-weight:800;font-variant-numeric:tabular-nums}
-        .btn{min-height:var(--tap);padding:0 24px;border-radius:16px;border:none;cursor:pointer;font-size:18px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;gap:8px}
-        .btn.ghost{background:var(--surface-2);color:var(--ink-2);border:1px solid var(--line)}.btn.ghost:active{background:var(--line)}
-        .btn.primary{background:var(--teal);color:#fff;padding:0 26px;box-shadow:0 8px 18px -8px rgba(14,124,134,.7)}.btn.primary:active{background:var(--teal-d)}
-        .btn.start{background:var(--teal);color:#fff;flex:1;justify-content:center;font-size:20px}
-        .btn:disabled{background:var(--line)!important;color:var(--ink-2)!important;box-shadow:none;cursor:default}
+        .rbtn{min-height:var(--tap);padding:0 24px;border-radius:16px;border:none;cursor:pointer;font-size:18px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+        .rbtn.ghost{background:var(--surface-2);color:var(--ink-2);border:1px solid var(--line)}.rbtn.ghost:active{background:var(--line)}
+        .rbtn.primary{background:var(--teal);color:#fff;padding:0 26px;box-shadow:0 8px 18px -8px rgba(14,124,134,.7)}.rbtn.primary:active{background:var(--teal-d)}
+        .rbtn.start{background:var(--teal);color:#fff;flex:1;justify-content:center;font-size:20px}
+        .rbtn:disabled{background:var(--line)!important;color:var(--ink-2)!important;box-shadow:none;cursor:default}
 
         .mask{position:fixed;inset:0;background:rgba(21,34,43,.42);display:none;z-index:40;align-items:flex-end}
         .mask.show{display:flex;animation:fade .15s ease}@keyframes fade{from{opacity:0}to{opacity:1}}
@@ -177,6 +177,39 @@
         .prow.added .pchk{background:var(--teal);color:#fff;border-color:var(--teal)}
         .prow.nostock{opacity:.5;background:var(--surface-2)}
         .prow.nostock .pcode{color:var(--red)}
+        /* ★ 자재 트리 · 자주 쓰는 부품 */
+        .tgrp{font-size:12.5px;font-weight:800;color:var(--ink-2);margin:6px 2px 0;display:flex;align-items:center;gap:6px}
+        .tgrp .ln{flex:1;height:1px;background:var(--line)}
+        .prow.tnode{padding-left:calc(14px + var(--d,0) * 22px)}
+        .prow.tnode .tcar{width:28px;height:28px;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);
+            display:grid;place-items:center;font-size:12px;color:var(--ink-2);flex:0 0 auto;transition:transform .15s}
+        .prow.tnode .tcar.open{transform:rotate(90deg);background:var(--teal-bg);border-color:var(--teal);color:var(--teal-d)}
+        .prow.tnode .tcar.leaf{visibility:hidden}
+        .uttree{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
+        .utrow{cursor:default}
+        .utbtn{flex:0 0 auto;width:40px;height:40px;border-radius:10px;border:1.5px solid var(--line);background:var(--surface);font-size:18px;font-weight:900;cursor:pointer;margin-left:6px}
+        .bplink{color:var(--teal-d);font-weight:800;cursor:pointer;text-decoration:underline}
+        .bplist{margin-top:4px;padding:6px 8px;background:var(--surface-2);border-radius:8px;font-size:12px;line-height:1.6}
+        .utbtn.b{width:auto;padding:0 10px;font-size:13px;color:var(--purple,#6d28d9);border-color:#c4b5fd}
+        .bdmask{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:60;display:flex;align-items:flex-end;justify-content:center}
+        .bdsheet{background:#fff;border-radius:18px 18px 0 0;padding:18px;width:min(720px,100vw);max-height:86dvh;display:flex;flex-direction:column;gap:10px}
+        .bdsheet h3{margin:0;font-size:18px}.bdsheet .bdhint{font-size:13px;color:var(--ink-2);font-weight:700}
+        .bdlist{overflow:auto;display:flex;flex-direction:column;gap:6px}
+        .bdrow{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:12px;padding:8px 10px}
+        .bdrow.short{border-color:var(--red);background:var(--red-bg)}
+        .bdrow .nm{flex:1;min-width:0}.bdrow .nm b{display:block;font-size:14.5px}.bdrow .nm span{font-size:12px;color:var(--ink-2);font-weight:700}
+        .bdrow .st{display:flex;align-items:center}.bdrow .st button{width:40px;height:40px;border:1px solid var(--line);background:#fff;font-size:18px;font-weight:900}
+        .bdrow .st .q{width:52px;text-align:center;font-weight:900;font-size:17px}
+        .bdbtns{display:flex;gap:8px}.bdbtns button{flex:1;height:52px;border-radius:14px;border:1.5px solid var(--line);background:#fff;font-weight:900;font-size:16px}
+        .bdbtns .ok{background:var(--teal);border-color:var(--teal);color:#fff}
+        .utbtn.p{color:var(--teal-d);border-color:var(--teal)}.utbtn.m{color:var(--red);border-color:#f3b4b4}
+        .utb{font-size:11.5px;font-weight:900;border-radius:6px;padding:1px 6px;margin-left:6px}
+        .utb.p{background:var(--teal-bg);color:var(--teal-d)}.utb.m{background:var(--red-bg);color:var(--red)}
+        .utfold{border:1px solid var(--line);background:var(--surface);border-radius:8px;height:28px;padding:0 10px;font-weight:800;font-size:12px;color:var(--ink-2);cursor:pointer}
+        .prow .lv{font-size:11px;font-weight:800;color:var(--ink-2);background:var(--surface-2);border-radius:6px;padding:1px 6px;margin-right:4px}
+        .prow .fav{color:var(--amber);font-weight:800;margin-right:2px}
+        .ubadge.repaired{background:var(--green-bg);color:var(--green)}
+        .unit[data-st="repaired"] .edge{background:var(--green)}
         .itag{font-size:11.5px;font-weight:800;padding:3px 9px;border-radius:999px;flex:0 0 auto}
         .itag.move{background:var(--teal-bg);color:var(--teal-d)}.itag.new{background:var(--amber-bg);color:var(--amber)}
         .itag.no{background:var(--red-bg);color:var(--red)}
@@ -192,6 +225,8 @@
         @media (max-width:680px){.qgrid{grid-template-columns:1fr}}
         @media (prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important}}
 
+        .prow .fstar{font-size:24px;line-height:1;color:#cbd5e1;padding:6px 8px 6px 0;cursor:pointer;flex:0 0 auto}
+        .prow .fstar.on{color:var(--amber)}
     </style>
 
     <div class="ms-wash-root">
@@ -273,12 +308,13 @@
                 <button class="opt" data-c="spec">사양변경</button>
             </div>
 
-            <div class="fieldlab">원 M-CELL 로트 <span style="color:var(--ink-2);font-weight:700">(사내 로트 또는 외부 라벨)</span></div>
+            <div class="fieldlab">원 로트 <span style="color:var(--ink-2);font-weight:700">(제품 · 어셈블리 · 단품 · 부품 — 사내 로트 또는 외부 라벨)</span></div>
             <div style="display:flex;gap:10px">
                 <input id="regLot" class="txin" style="flex:1;font-weight:800;font-variant-numeric:tabular-nums;background:var(--surface-2)"
                        placeholder="예: MC20022N-260701-004" autocomplete="off"/>
                 <button class="opt" id="regScan" style="display:none;border-color:var(--teal);color:#fff;background:var(--teal)">📷</button>
                 <button class="opt" id="regFind" style="border-color:var(--teal);color:var(--teal-d);background:var(--teal-bg)">조회</button>
+                <button class="opt" id="regNoLot" style="white-space:nowrap">번호 없이 접수</button>
             </div>
 
             <!-- 카메라 스캔 -->
@@ -301,6 +337,13 @@
                 <input class="txin" id="regTgtKw" placeholder="품목코드 / 품명 검색" autocomplete="off"/>
                 <div class="picklist" id="regTgtList" style="max-height:28dvh"></div>
             </div>
+
+            <div class="fieldlab">포장 상태 <span style="color:var(--ink-2);font-weight:700">(반품은 대개 본체만 옵니다)</span></div>
+            <div class="opts" id="regBox">
+                <button class="opt sel" data-b="N">본체만 (박스 없음)</button>
+                <button class="opt" data-b="Y">박스째 들어옴</button>
+            </div>
+            <div id="regRetBox" style="display:none"></div>
 
             <div class="fieldlab">사유 / 메모</div>
             <input id="regNote" class="txin" placeholder="예: 전원 불량 반품" autocomplete="off"/>
@@ -383,7 +426,7 @@
 
             var CAT = {return: '반품', spec: '사양변경'};
             var UST = {wait: '수리대기', repairing: '수리중', inspect_wait: '검사대기',
-                pass: '검사합격', packed: '포장완료', reject: '재작업'};
+                pass: '검사합격', packed: '포장완료', reject: '재작업', repaired: '수리완료'};
 
             function api(path, params) {
                 try {
@@ -477,8 +520,9 @@
                 }
                 qgrid.innerHTML = ORDERS.map(function (o) {
                     var title = o.reason || (o.cat === 'spec' ? '사양 변경' : '반품 입고');
-                    var mat = o.src_code || '';
-                    if (o.tgt_code && o.tgt_code !== o.src_code) mat += ' → ' + o.tgt_code;
+                    // ★ 품목명을 함께 — 코드만으로는 무엇을 수리 중인지 알기 어렵다
+                    var mat = (o.src_name || o.src_code || '') + (o.src_name && o.src_code ? ' (' + o.src_code + ')' : '');
+                    if (o.tgt_code && o.tgt_code !== o.src_code) mat += ' → ' + (o.tgt_name || o.tgt_code);
                     // 한 접수에 여러 대가 묶인 경우에만 몇 호기인지 밝힌다
                     var no = num(o.sibling_cnt) > 1 ? ' #' + String(o.unit_no).padStart(2, '0') : '';
                     var res = o.result_lot || (o.lot_mode === 'new' ? '완료 시 발번' : o.src_lot);
@@ -576,7 +620,7 @@
                 // 접수 취소는 아직 손대지 않은 유닛에서만. 서버도 같은 조건으로 막는다.
                 document.getElementById('btnRegCancel').style.display = (u.state === 'wait') ? '' : 'none';
 
-                var locked = ['inspect_wait', 'pass', 'packed'].indexOf(u.state) >= 0;
+                var locked = ['inspect_wait', 'pass', 'packed', 'repaired'].indexOf(u.state) >= 0;
                 var html = '';
 
                 // 원 M-CELL 로트 투입 (계보)
@@ -625,9 +669,12 @@
                         : '') +
                     (locked ? '' : '<button class="assign" data-who>' + (uWho ? '변경' : '배정') + '</button>') + '</div>';
 
+                // ★ 장비 구성 (BOM 트리) — 조립 화면처럼 계층으로. 노드에서 바로 ＋투입 / −회수
+                html += unitTreeHtml(u, locked);
+
                 // 자재 가감
                 var mats = u.mats || [];
-                var plus = mats.filter(function (m) { return m.dir === '+'; });
+                var plus = mats.filter(function (m) { return m.dir === '+' && m.state !== 'nested'; });
                 var minus = mats.filter(function (m) { return m.dir === '-'; });
                 html += '<div class="secline">투입 자재 (＋추가 / −차감 자유 조정) <span class="ln"></span><span>＋' + plus.length + ' / −' + minus.length + '</span></div>';
                 /* 담기 버튼을 목록 위에 둔다.
@@ -646,7 +693,16 @@
                     var atCap = (cap != null) && num(m.qty) >= cap;
                     var short = isPlus && num(m.stock) < num(m.qty);
                     var sub;
-                    if (isPlus) {
+                    if (m.state === 'nested') {
+                        sub = '수리 중 조립 · 로트 ' + esc(m.build_lot || '') + ' · <b>상위 어셈블리 조립에 들어감</b> (직접 투입 아님)';
+                    } else if (isPlus && m.build_mp_id) {
+                        // ★ 부품 목록은 길어서 개수만 — 눌러서 펼친다
+                        var bp = m.build_parts ? String(m.build_parts).split(', ') : [];
+                        var bOpen = !!bpOpen[m.rmat_id];
+                        sub = '수리 중 조립 · 로트 ' + esc(m.build_lot || '') +
+                            (bp.length ? ' · <span class="bplink" data-bp="' + m.rmat_id + '">부품 ' + bp.length + '종 ' + (bOpen ? '▲' : '▼') + '</span>' : '') +
+                            (bOpen ? '<div class="bplist">' + bp.map(esc).join('<br>') + '</div>' : '');
+                    } else if (isPlus) {
                         sub = '추가 투입 · 생산창고 재고 ' + qtyTxt(m.stock) + (short ? ' (부족)' : '');
                     } else if (cap != null) {
                         // '원 로트' 라고만 쓰면 부품 자신의 로트로 읽힌다. 둘을 구분해서 적는다.
@@ -663,14 +719,16 @@
                         sub = '회수 → 생산창고 재입고 · 조립 이력이 없어 상한 없음';
                     }
                     // 이미 소비된 행은 이력이라 잠근다 (재작업 때 1차 투입이 여기 해당)
-                    var frozen = (m.state === 'applied');
+                    var frozen = (m.state === 'applied' || m.state === 'nested');
+                    var built = !!m.build_mp_id;
                     return '<div class="mrow ' + (isPlus ? 'plus' : 'minus') + (frozen ? ' frozen' : '') + '">' +
                         '<div class="dir">' + (isPlus ? '＋' : '−') + '</div>' +
                         '<div class="id"><div class="mn">' + esc(m.mat_name) +
-                        (frozen ? ' <span class="fz">반영됨</span>' : '') + '</div>' +
+                        (frozen ? ' <span class="fz">' + (m.state === 'nested' ? '상위 조립에 포함' : '반영됨') + '</span>' : '') + '</div>' +
                         '<div class="mc' + (short ? ' short' : '') + '">' + esc(m.mat_code) + ' · ' + sub + '</div></div>' +
-                        (locked || frozen
-                            ? '<span class="stepper"><span class="q">' + qtyTxt(m.qty) + '</span></span>'
+                        (locked || frozen || built
+                            ? '<span class="stepper"><span class="q">' + qtyTxt(m.qty) + '</span></span>' +
+                            (built && !locked && !frozen ? '<button class="rm" data-mrm="' + m.rmat_id + '">✕</button>' : '')
                             : '<div class="stepper" data-mstep="' + m.rmat_id + '"><button class="minus">−</button>' +
                             '<div class="q">' + qtyTxt(m.qty) + '</div>' +
                             '<button class="plus"' + (atCap ? ' disabled' : '') + '>+</button></div>' +
@@ -686,29 +744,147 @@
                 if (sc) sc.scrollTop = keep;
             }
 
+            /* ★ 장비 구성 트리 — 이 수리 품목의 BOM 을 조립 화면처럼 계층으로 보여 준다.
+                 노드마다 지금 담긴 ＋/− 수량을 붙이고, ＋ / − 버튼으로 바로 담는다.
+                 (자재 시트를 열지 않아도 되게) */
+            var utOpen = {}, UT_UNIT = null, utFold = false;
+            function ensureTree() {
+                if (TREE_UNIT !== curU.id) {
+                    TREE = api('/bom_tree', {unit_id: curU.id}) || [];
+                    TREE_UNIT = curU.id;
+                }
+                if (UT_UNIT !== curU.id) {
+                    UT_UNIT = curU.id; utOpen = {};
+                    TREE.forEach(function (t) { if (t.depth <= 1) utOpen[t.sort_key] = true; });
+                }
+                return TREE;
+            }
+            function unitTreeHtml(u, locked) {
+                var t = ensureTree();
+                var nodes = t.filter(function (n) { return n.depth > 0; });
+                var html = '<div class="secline">장비 구성 (BOM 트리) <span class="ln"></span>' +
+                    '<button class="utfold" data-utfold>' + (utFold ? '펼치기' : '접기') + '</button></div>';
+                if (utFold) return html;
+                if (!nodes.length) return html + '<div class="emptybox">이 품목(' + esc(u.mat_code || '') + ')의 BOM 이 없습니다. «＋ 자재 추가» 의 «전체 자재» 에서 고르세요.</div>';
+                var cnt = {};
+                (u.mats || []).forEach(function (m) {
+                    if (m.state === 'applied') return;
+                    var c = cnt[m.mat_id] || (cnt[m.mat_id] = {p: 0, m: 0});
+                    if (m.dir === '+') c.p += num(m.qty); else c.m += num(m.qty);
+                });
+                var hidden = function (n) {
+                    var parts = String(n.sort_key).split('.');
+                    for (var i = 2; i < parts.length; i++) if (!utOpen[parts.slice(0, i).join('.')]) return true;
+                    return false;
+                };
+                html += '<div class="uttree">' + nodes.filter(function (n) { return !hidden(n); }).map(function (n) {
+                    var c = cnt[n.mat_id] || {p: 0, m: 0};
+                    var car = '<span class="tcar' + (n.has_children ? (utOpen[n.sort_key] ? ' open' : '') : ' leaf') + '" data-utk="' + esc(n.sort_key) + '">▶</span>';
+                    var badge = (c.p ? '<span class="utb p">＋' + qtyTxt(c.p) + '</span>' : '') + (c.m ? '<span class="utb m">−' + qtyTxt(c.m) + '</span>' : '');
+                    return '<div class="prow tnode utrow" style="--d:' + (n.depth - 1) + '">' + car +
+                        '<div class="pid"><div class="pnm"><span class="lv">L' + n.depth + '</span>' + esc(n.mat_name) + badge + '</div>' +
+                        '<div class="pcode">' + esc(n.mat_code) + ' · 단위수량 ' + qtyTxt(n.qty_per) + ' · 재고 ' + qtyTxt(n.stock) +
+                        (n.has_children ? ' · 어셈블리' : '') + '</div></div>' +
+                        (locked ? '' : (n.has_children ? '<button class="utbtn b" data-utbuild="' + esc(n.sort_key) + '" title="부품으로 조립해서 투입">조립</button>' : '') +
+                            '<button class="utbtn p" data-utadd="+" data-m="' + n.mat_id + '" data-stock="' + num(n.stock) + '">＋</button>' +
+                            '<button class="utbtn m" data-utadd="-" data-m="' + n.mat_id + '">−</button>') + '</div>';
+                }).join('') + '</div>';
+                return html;
+            }
+            document.getElementById('cGrid').addEventListener('click', function (e) {
+                var f = e.target.closest('[data-utfold]');
+                if (f) { utFold = !utFold; renderUnit(); return; }
+                var c = e.target.closest('[data-utk]');
+                if (c) { utOpen[c.dataset.utk] = !utOpen[c.dataset.utk]; renderUnit(); return; }
+                var bb = e.target.closest('[data-utbuild]');
+                if (bb) { openBuild(bb.dataset.utbuild); return; }
+                var b = e.target.closest('[data-utadd]');
+                if (!b) return;
+                var dir = b.dataset.utadd;
+                if (dir === '+' && num(b.dataset.stock) <= 0) { flash('생산창고에 재고가 없습니다'); return; }
+                post('/mat_add', {unit_id: curU.id, material_id: +b.dataset.m, dir: dir, qty: 1, spjangcd: SPJANGCD}, function () {
+                    curU = api('/unit_detail', {unit_id: curU.id}) || curU;
+                    FREQ = null; TREE_UNIT = null;
+                    renderUnit();
+                });
+            });
+
+            /* ★ 수리 중 어셈블리 조립 (B안) — 재고가 없는 어셈블리를 여기서 부품으로 만든다.
+                 BOM 바로 아래 부품을 단위수량으로 채워 보여 주고, 실제로 쓴 수량을 고쳐서 확정.
+                 확정하면 부품 소비 → 어셈블리 로트 1개 → 이 수리에 ＋투입 (수리 완료 때 그 로트를 소비) */
+            function openBuild(sortKey) {
+                if (curU.state !== 'repairing') { flash('수리 시작(작업자 배정) 후 조립할 수 있습니다'); return; }
+                var node = TREE.find(function (t) { return t.sort_key === sortKey; });
+                if (!node) return;
+                var kids = TREE.filter(function (t) {
+                    return t.depth === node.depth + 1 && String(t.sort_key).indexOf(sortKey + '.') === 0;
+                }).map(function (t) { return {mat_id: t.mat_id, mat_name: t.mat_name, mat_code: t.mat_code, stock: num(t.stock), qty: num(t.qty_per) || 1, asm: t.has_children}; });
+                if (!kids.length) { flash('이 어셈블리의 BOM 부품이 없습니다'); return; }
+                var m = document.createElement('div');
+                m.className = 'bdmask';
+                function draw() {
+                    var short = kids.some(function (k) { return k.qty > k.stock; });
+                    m.innerHTML = '<div class="bdsheet"><h3>어셈블리 조립 · ' + esc(node.mat_name) + '</h3>' +
+                        '<div class="bdhint">생산창고 부품으로 1개를 조립해 바로 투입합니다. 실제로 쓴 수량으로 고치세요 (0 = 안 씀).<br>' +
+                        '하위 어셈블리 재고가 없으면 먼저 그 어셈블리를 «조립» 하세요. 현재 재고 ' + qtyTxt(node.stock) + '</div>' +
+                        '<div class="bdlist">' + kids.map(function (k, i) {
+                            return '<div class="bdrow' + (k.qty > k.stock ? ' short' : '') + '"><div class="nm"><b>' + esc(k.mat_name) + (k.asm ? ' <span>· 어셈블리</span>' : '') + '</b>' +
+                                '<span>' + esc(k.mat_code) + ' · 재고 ' + qtyTxt(k.stock) + (k.qty > k.stock ? ' · 부족' : '') + '</span></div>' +
+                                '<div class="st"><button data-bq="' + i + ',-1">−</button><div class="q">' + qtyTxt(k.qty) + '</div><button data-bq="' + i + ',1">+</button></div></div>';
+                        }).join('') + '</div>' +
+                        '<div class="bdbtns"><button data-bx>취소</button><button class="ok" data-bok' + (short ? ' disabled style="opacity:.5"' : '') + '>조립해서 투입</button></div></div>';
+                }
+                draw();
+                document.body.appendChild(m);
+                m.addEventListener('click', function (e) {
+                    if (e.target === m || e.target.closest('[data-bx]')) { m.remove(); return; }
+                    var q = e.target.closest('[data-bq]');
+                    if (q) { var a = q.dataset.bq.split(','); var k = kids[+a[0]]; k.qty = Math.max(0, k.qty + (+a[1])); draw(); return; }
+                    if (e.target.closest('[data-bok]')) {
+                        var use = kids.filter(function (k) { return k.qty > 0; }).map(function (k) { return {mat_id: k.mat_id, qty: k.qty}; });
+                        if (!use.length) { flash('쓴 부품이 없습니다'); return; }
+                        Alert.confirm('', '«' + node.mat_name + '» 1개를 조립합니다.\n부품 ' + use.length + '종을 생산창고에서 빼고, 만든 어셈블리를 이 수리에 투입합니다.', function () {
+                            post('/asm_build', {unit_id: curU.id, mat_id: node.mat_id, bom_json: JSON.stringify(use), spjangcd: SPJANGCD}, function () {
+                                m.remove();
+                                curU = api('/unit_detail', {unit_id: curU.id}) || curU;
+                                FREQ = null; TREE_UNIT = null;
+                                renderUnit();
+                            });
+                        }, function () {});
+                    }
+                });
+            }
+
+            var bpOpen = {};
             function renderAction() {
                 var u = curU, bar = document.getElementById('cAction');
                 var mats = u.mats || [];
-                var pc = mats.filter(function (m) { return m.dir === '+'; }).length;
+                var pc = mats.filter(function (m) { return m.dir === '+' && m.state !== 'nested'; }).length;
                 var mc = mats.filter(function (m) { return m.dir === '-'; }).length;
 
                 if (u.state === 'wait' || u.state === 'reject') {
                     bar.innerHTML = '<div class="actsum"><span class="l">' +
                         (u.state === 'reject' ? '재작업 · 시작하면 이전 실적이 되돌아갑니다' : '작업자 배정 후 수리 시작') +
                         '</span><span class="v">＋' + pc + ' / −' + mc + ' 자재</span></div>' +
-                        '<button class="btn start" data-act="start">' +
+                        '<button class="rbtn start" data-act="start">' +
                         (u.state === 'reject' ? '재작업 시작' : '수리 시작') + '</button>';
                 } else if (u.state === 'repairing') {
-                    bar.innerHTML = '<div class="actsum"><span class="l">' + esc(unitWho(u)) +
+                    bar.innerHTML = '<div class="actsum"><span class="l">' + esc(u.mat_name || u.src_name || '') + ' · ' + esc(unitWho(u)) +
                         (u.mat_produce_id ? ' · 재작업중 (' + esc(u.result_lot || '') + ')' : ' · 수리중') + '</span>' +
                         '<span class="v">＋' + pc + ' / −' + mc + ' 자재</span></div>' +
-                        '<button class="btn ghost" data-act="cancel">시작취소</button>' +
-                        '<button class="btn primary" data-act="finish">' +
-                        (u.mat_produce_id ? '재작업 반영 · 검사 전달' : '수리 완료 · 검사 전달') + '</button>';
+                        '<button class="rbtn ghost" data-act="cancel">시작취소</button>' +
+                        '<button class="rbtn primary" data-act="finish">' +
+                        (u.mat_produce_id ? '재작업 반영' : '수리 완료') +
+                        (u.inspect_yn === 'Y' ? ' · 검사 전달' : ' · 재고 입고') + '</button>';
+                } else if (u.state === 'repaired') {
+                    // ★ 어셈블리 · 단품 · 부품 — 검사 없이 생산창고 재고로 끝난 건
+                    bar.innerHTML = '<div class="actsum"><span class="l">' + esc(u.result_lot || '') + ' · 수리 완료</span>' +
+                        '<span class="v" style="color:var(--green);font-size:15px">생산창고 재고로 입고됨</span></div>' +
+                        '<button class="rbtn ghost" data-act="reopen">완료취소 · 수리 복귀</button>';
                 } else if (u.state === 'inspect_wait') {
                     bar.innerHTML = '<div class="actsum"><span class="l">' + esc(u.result_lot || '') + ' · 검사 대기</span>' +
                         '<span class="v" style="color:var(--purple);font-size:15px">검사 공정으로 전달됨</span></div>' +
-                        '<button class="btn ghost" data-act="reopen"' + (num(u.insp_cnt) > 0 ? ' disabled' : '') + '>검사취소 · 수리 복귀</button>';
+                        '<button class="rbtn ghost" data-act="reopen"' + (num(u.insp_cnt) > 0 ? ' disabled' : '') + '>검사취소 · 수리 복귀</button>';
                 } else {
                     bar.innerHTML = '<div class="actsum"><span class="l">' + (UST[u.state] || u.state) + '</span>' +
                         '<span class="v">' + esc(u.result_lot || '') + '</span></div>';
@@ -744,8 +920,17 @@
                     post('/mat_qty', {rmat_id: rid, qty: next});
                     return;
                 }
+                var bpl = e.target.closest('[data-bp]');
+                if (bpl) { bpOpen[bpl.dataset.bp] = !bpOpen[bpl.dataset.bp]; renderUnit(); return; }
                 var rm = e.target.closest('[data-mrm]');
-                if (rm) { post('/mat_del', {rmat_id: +rm.dataset.mrm}, reloadUnit); return; }
+                if (rm) {
+                    var row0 = (curU.mats || []).find(function (x) { return +x.rmat_id === +rm.dataset.mrm; });
+                    var doDel = function () { post('/mat_del', {rmat_id: +rm.dataset.mrm}, function () { TREE_UNIT = null; reloadUnit(); }); };
+                    if (row0 && row0.build_mp_id) {
+                        Alert.confirm('', '수리 중 조립한 어셈블리를 삭제합니다.\n조립 실적을 되돌리고 부품은 생산창고로 돌아갑니다.', doDel, function () {});
+                    } else doDel();
+                    return;
+                }
 
                 var ab = e.target.closest('[data-add]');
                 if (ab) { openMat(ab.dataset.add); return; }
@@ -796,7 +981,8 @@
                         });
                     });
                 } else if (act === 'reopen') {
-                    ask('검사 전달을 취소하고 수리로 되돌립니다.\n생성된 결과 로트와 회수 부품 로트가 삭제됩니다.', function () {
+                    ask((u.state === 'repaired' ? '수리 완료를 취소하고 수리로 되돌립니다.' : '검사 전달을 취소하고 수리로 되돌립니다.')
+                        + '\n생성된 결과 로트와 회수 부품 로트가 삭제됩니다.', function () {
                         post('/unit_reopen', {unit_id: u.id}, function () { reloadUnit(); loadQueue(); });
                     });
                 }
@@ -956,12 +1142,15 @@
 
             function openMat(dir) {
                 addDir = dir;
-                matScope = (dir === '-') ? 'used' : 'all';
+                matScope = 'used';   // − : 이 장비에 들어간 자재 / ＋ : 이 장비 BOM 트리
                 document.getElementById('matTitle').textContent = (dir === '+' ? '자재 추가 (투입)' : '자재 회수 (재사용품)');
                 document.getElementById('matLab').textContent =
                     (dir === '+' ? '추가 투입할 자재 (생산창고 재고)'
                         : '재사용 가능한 회수 부품 (생산창고로 재입고 · 폐기품은 불량 등록)') + ' · 눌러서 담기';
-                document.getElementById('matScopeBar').style.display = (dir === '-') ? '' : 'none';
+                document.getElementById('matScopeBar').style.display = '';
+                document.getElementById('scopeUsed').textContent = (dir === '-') ? '이 M-CELL 에 들어간 자재' : '이 장비 BOM 트리';
+                document.getElementById('scopeAll').textContent = '전체 자재';
+                document.getElementById('matKw').placeholder = (dir === '+') ? '품목코드 / 품명 검색 (전체 자재에서 찾습니다)' : '품목코드 / 품명 검색';
                 setScopeBtn();
                 document.getElementById('matKw').value = '';
                 loadMatList('');
@@ -988,6 +1177,11 @@
                                 || (p.mat_name || '').toLowerCase().indexOf(k) >= 0;
                         });
                     }
+                } else if (addDir === '+' && !kw && matScope === 'used') {
+                    /* ★ ＋투입 기본 화면 : 자주 수리 부품 + 이 장비의 BOM 트리.
+                         검색어를 넣으면 생산창고 재고 전체에서 찾는다. */
+                    renderPlusTree();
+                    return;
                 } else {
                     matPool = api('/stock_list', {keyword: kw || ''}) || [];
                 }
@@ -1009,7 +1203,7 @@
                         + (noStock ? ' · 담을 수 없음' : '');
                     return '<div class="prow ' + (have[key] ? 'added' : '') + (noStock ? ' nostock' : '') +
                         '" data-m="' + p.mat_id + '" data-stock="' + num(p.stock) +
-                        '" data-srclot="' + (p.src_mat_lot_id || '') + '">' +
+                        '" data-srclot="' + (p.src_mat_lot_id || '') + '">' + (addDir === '+' ? starBtn(p.mat_id) : '') +
                         '<div class="pid"><div class="pnm">' + esc(p.mat_name) + '</div>' +
                         '<div class="pcode">' + sub + '</div></div>' +
                         '<div class="pchk">' + (have[key] ? '✓' : (addDir === '+' ? '＋' : '−')) + '</div></div>';
@@ -1023,6 +1217,94 @@
                 }
                 document.getElementById('matList').innerHTML = rows;
             }
+            /* ── ★ ＋투입 : 자주 수리 부품 · BOM 트리 ─────────────────── */
+            var TREE = [], TREE_UNIT = null, OPEN_UNIT = null, FREQ = null, treeOpen = {}, FAVS = null;
+            /* ★ ☆/★ — 자주 수리 부품 지정·해제 (＋투입 목록·검색 결과 어디서든) */
+            function favIds() {
+                if (FAVS === null) { FAVS = {}; (api('/fav_ids') || []).forEach(function (id) { FAVS[String(id)] = 1; }); }
+                return FAVS;
+            }
+            function starBtn(matId) {
+                var on = !!favIds()[String(matId)];
+                return '<span class="fstar' + (on ? ' on' : '') + '" data-fav="' + matId + '" title="자주 수리 부품 ' + (on ? '해제' : '지정') + '">' + (on ? '★' : '☆') + '</span>';
+            }
+            function haveMap() {
+                var h = {};
+                (curU.mats || []).forEach(function (m) {
+                    if (m.dir === '+' && m.state !== 'applied') h[String(m.mat_id)] = true;
+                });
+                return h;
+            }
+            function plusRow(p, have, extra) {
+                var noStock = num(p.stock) <= 0, on = have[String(p.mat_id)];
+                return '<div class="prow ' + (on ? 'added' : '') + (noStock ? ' nostock' : '') + (extra.cls || '') + '"' +
+                    (extra.style ? ' style="' + extra.style + '"' : '') +
+                    ' data-m="' + p.mat_id + '" data-stock="' + num(p.stock) + '" data-srclot="">' +
+                    (extra.pre || '') + starBtn(p.mat_id) +
+                    '<div class="pid"><div class="pnm">' + (extra.tag || '') + esc(p.mat_name) + '</div>' +
+                    '<div class="pcode">' + esc(p.mat_code) + ' · 재고 ' + qtyTxt(p.stock) + (p.unit ? ' ' + esc(p.unit) : '') +
+                    (extra.sub || '') + (noStock ? ' · 담을 수 없음' : '') + '</div></div>' +
+                    '<div class="pchk">' + (on ? '✓' : '＋') + '</div></div>';
+            }
+            function renderPlusTree() {
+                if (FREQ === null) FREQ = api('/freq_parts', {limit: 12}) || [];
+                if (TREE_UNIT !== curU.id) {
+                    TREE = api('/bom_tree', {unit_id: curU.id}) || [];
+                    if (OPEN_UNIT !== curU.id) {          // 펼침 상태는 같은 유닛이면 유지
+                        OPEN_UNIT = curU.id; treeOpen = {};
+                        TREE.forEach(function (t) { if (t.depth <= 1) treeOpen[t.sort_key] = true; });   // 1단계까지 펼침
+                    }
+                    TREE_UNIT = curU.id;
+                }
+                var have = haveMap(), html = '';
+                if (FREQ.length) {
+                    html += '<div class="tgrp">★ 자주 수리되는 부품<span class="ln"></span></div>';
+                    html += FREQ.map(function (p) {
+                        return plusRow(p, have, {tag: '',
+                            sub: p.grp === 0 ? ' · 지정 부품' : (num(p.cnt) ? ' · 최근 ' + num(p.cnt) + '회' : '')});
+                    }).join('');
+                }
+                html += '<div class="tgrp">BOM 트리 · ' + esc(curU.mat_name || '') + '<span class="ln"></span></div>';
+                // 부모가 접혀 있으면 자식은 숨긴다
+                var hidden = function (t) {
+                    var parts = String(t.sort_key).split('.');
+                    for (var i = 1; i < parts.length; i++) {
+                        if (!treeOpen[parts.slice(0, i).join('.')]) return true;
+                    }
+                    return false;
+                };
+                var rows = TREE.filter(function (t) { return t.depth > 0 && !hidden(t); }).map(function (t) {
+                    var car = '<span class="tcar' + (t.has_children ? (treeOpen[t.sort_key] ? ' open' : '') : ' leaf') +
+                        '" data-tk="' + esc(t.sort_key) + '">▶</span>';
+                    return plusRow(t, have, {cls: ' tnode', style: '--d:' + (t.depth - 1), pre: car,
+                        tag: '<span class="lv">L' + t.depth + '</span>',
+                        sub: ' · 단위수량 ' + qtyTxt(t.qty_per) + (t.has_children ? ' · 어셈블리' : '')});
+                }).join('');
+                html += rows || '<div class="emptybox">이 품목의 BOM 이 없습니다. 위 검색창으로 생산창고 재고를 찾으세요.</div>';
+                document.getElementById('matList').innerHTML = html;
+            }
+            // ★ 별 — 자주 수리 부품 지정/해제 (담기와 분리)
+            document.getElementById('matList').addEventListener('click', function (e) {
+                var s = e.target.closest('[data-fav]');
+                if (!s) return;
+                e.stopPropagation(); e.preventDefault();
+                var id = s.dataset.fav;
+                post('/fav_toggle', {material_id: id, spjangcd: SPJANGCD}, function (r) {
+                    var on = r && r.data && r.data.fav;
+                    if (on) favIds()[id] = 1; else delete favIds()[id];
+                    FREQ = null;                                   // 목록 다시 읽기
+                    loadMatList(document.getElementById('matKw').value || '');
+                });
+            }, true);
+            // 캐럿 — 펼침/접힘 (담기와 분리)
+            document.getElementById('matList').addEventListener('click', function (e) {
+                var c = e.target.closest('[data-tk]');
+                if (!c || c.classList.contains('leaf')) return;
+                e.stopPropagation();
+                treeOpen[c.dataset.tk] = !treeOpen[c.dataset.tk];
+                renderPlusTree();
+            }, true);
+
             var kwT;
             document.getElementById('matKw').addEventListener('input', function (e) {
                 clearTimeout(kwT); var v = e.target.value;
@@ -1047,15 +1329,75 @@
             });
             function afterMat() {
                 curU = api('/unit_detail', {unit_id: curU.id}) || curU;
+                FREQ = null;   // 재고 수량이 바뀌었으니 다시 읽는다
+                TREE_UNIT = null;
                 renderUnit();
                 loadMatList(document.getElementById('matKw').value);
             }
 
             /* ── 수리 접수 ─────────────────────────────────────── */
-            var regCat = 'return', regLotSel = null, regTgtSel = null, regLots = [];
+            var regCat = 'return', regLotSel = null, regTgtSel = null, regLots = [], regNoLot = false, regBox = 'N';
+            document.getElementById('regBox').addEventListener('click', function (e) {
+                var b = e.target.closest('[data-b]'); if (!b) return;
+                regBox = b.dataset.b;
+                document.querySelectorAll('#regBox .opt').forEach(function (x) { x.classList.toggle('sel', x.dataset.b === regBox); });
+                drawRet();
+            });
+            /* ★ 박스째 반품 — 포장 BOM 을 체크 목록으로. 기본은 전부 해제, 다시 쓸 것만 체크.
+                 어댑터·케이블 같은 부속품이 위, 박스·폼은 아래. */
+            var regRet = {}, RET_PID = null, RET_LIST = [];
+            function retProductId() {
+                if (regLotSel) return regLotSel.unpack ? regLotSel.mat_id : null;
+                return srcRoot || null;
+            }
+            function drawRet() {
+                var box = document.getElementById('regRetBox');
+                var pid = retProductId();
+                if (regBox !== 'Y') { box.style.display = 'none'; return; }
+                box.style.display = '';
+                if (!pid) { box.innerHTML = '<div class="notebox">대상을 고르면 그 제품의 포장 구성이 나옵니다.</div>'; return; }
+                if (RET_PID !== pid) { RET_PID = pid; regRet = {}; RET_LIST = api('/pack_parts', {product_id: pid}) || []; }
+                box.innerHTML = '<div class="fieldlab">다시 쓸 수 있는 것만 체크 <span style="color:var(--ink-2);font-weight:700">(체크한 것만 회수 → 생산창고 재입고)</span></div>' +
+                    '<div class="picklist" style="max-height:30dvh">' + (RET_LIST.map(function (p) {
+                        var on = !!regRet[p.mat_id];
+                        return '<div class="prow' + (on ? ' sel' : '') + '" data-ret="' + p.mat_id + '">' +
+                            '<div class="pid"><div class="pnm">' + (on ? '☑ ' : '☐ ') + esc(p.mat_name) + '</div>' +
+                            '<div class="pcode">' + esc(p.mat_code) + ' · ' + qtyTxt(p.qty) + '개' + (p.is_pkg ? ' · 포장재' : ' · 부속품') + '</div></div></div>';
+                    }).join('') || '<div class="emptybox">포장 구성이 없습니다.</div>') + '</div>';
+            }
+            document.getElementById('regRetBox').addEventListener('click', function (e) {
+                var r = e.target.closest('[data-ret]'); if (!r) return;
+                var id = +r.dataset.ret;
+                if (regRet[id]) delete regRet[id];
+                else { var p = RET_LIST.find(function (x) { return +x.mat_id === id; }); regRet[id] = p ? num(p.qty) || 1 : 1; }
+                // ★ 다시 그리지 않고 그 줄만 바꾼다 — 다시 그리면 스크롤이 맨 위로 튄다
+                var on = !!regRet[id];
+                r.classList.toggle('sel', on);
+                var nm = r.querySelector('.pnm');
+                if (nm) nm.textContent = (on ? '☑ ' : '☐ ') + nm.textContent.replace(/^[☑☐]\s/, '');
+            });
+            /* ★ 로트번호를 모르는 반품 — 품목·어셈블리를 골라 받는다(입고 로트는 자동 발번) */
+            document.getElementById('regNoLot').addEventListener('click', function () {
+                regNoLot = true; regLots = []; regLotSel = null; srcSel = null;
+                var inp = document.getElementById('regLot');
+                inp.value = ''; inp.placeholder = '번호 없이 접수 · 입고 번호 자동 생성';
+                document.getElementById('regLotResult').innerHTML = '<div class="notebox" style="margin-top:10px">' +
+                    '로트번호 없이 접수합니다. 받은 <b>품목</b>을 고르세요. 입고 번호는 <b>RT-날짜-시각</b> 으로 새로 만듭니다.</div>' +
+                    '<div class="fieldlab">품목 선택 (필수)</div>' +
+                    '<div id="regSrcScope"></div>' +
+                    '<input class="txin" id="regSrcKw" placeholder="품목코드 / 품명 검색" autocomplete="off"/>' +
+                    '<div class="picklist" id="regSrcList" style="max-height:28dvh"></div>';
+                srcScope = 'any'; srcSel = null; srcRoot = null;
+                bindSrcPicker();
+                loadSrcList('');
+                document.getElementById('regOk').disabled = true;
+            });
 
             document.getElementById('btnReg').addEventListener('click', function () {
-                regCat = 'return'; regLotSel = null; regTgtSel = null; regLots = [];
+                regCat = 'return'; regLotSel = null; regTgtSel = null; regLots = []; regNoLot = false; regBox = 'N';
+                regRet = {}; RET_PID = null; document.getElementById('regRetBox').style.display = 'none';
+                document.querySelectorAll('#regBox .opt').forEach(function (x) { x.classList.toggle('sel', x.dataset.b === 'N'); });
+                document.getElementById('regLot').placeholder = '예: MC20022N-260701-004';
                 document.querySelectorAll('#regCat .opt').forEach(function (x) { x.classList.toggle('sel', x.dataset.c === 'return'); });
                 stopCam();
                 document.getElementById('regLot').value = '';
@@ -1086,7 +1428,7 @@
             function doFind() {
                 var key = (document.getElementById('regLot').value || '').trim().toUpperCase();
                 document.getElementById('regLot').value = key;
-                regLotSel = null;
+                regLotSel = null; regNoLot = false;
                 if (!key) { flash('원 M-CELL 로트를 입력하세요'); return; }
 
                 regLots = api('/src_lot_search', {key: key}) || [];
@@ -1097,8 +1439,11 @@
                     box.innerHTML = '<div class="notebox" style="margin-top:10px">' +
                         '등록되지 않은 로트입니다. 반품으로 <b>신규 입고</b>합니다. 아래에서 품목을 선택하세요.</div>' +
                         '<div class="fieldlab">품목 선택 (필수)</div>' +
+                        // ★ 입고 단위 — 제품(M-CELL)이면 수리 후 검사로, 어셈블리·단품·부품이면 수리 후 바로 재고
+                        '<div id="regSrcScope"></div>' +
                         '<input class="txin" id="regSrcKw" placeholder="품목코드 / 품명 검색" autocomplete="off"/>' +
                         '<div class="picklist" id="regSrcList" style="max-height:28dvh"></div>';
+                    srcScope = 'any'; srcSel = null; srcRoot = null;
                     bindSrcPicker();
                     loadSrcList('');
                     document.getElementById('regOk').disabled = true;
@@ -1128,7 +1473,7 @@
                              대신 접수하면 무엇이 되는지를 적는다. */
                         var into = l.unpack
                             ? '<div class="pinto">박스를 풀어 <b>' + esc(l.intake_mat_name) + '</b> 로 접수' +
-                            '<br><span class="dim">포장 자재는 회수 목록에 자동으로 담깁니다</span></div>'
+                            '<br><span class="dim">박스째 왔으면 아래 «포장 상태» 에서 다시 쓸 부속품만 체크하세요</span></div>'
                             : '<div class="pinto"><span class="dim">박스 없이 들어온 물건입니다 · 포장 자재 회수 없음</span></div>';
 
                         return '<div class="prow' + (ok ? '' : ' nostock') + '" data-l="' + i + '">' +
@@ -1159,6 +1504,7 @@
                     return;
                 }
                 regLotSel = l;
+                drawRet();
                 document.querySelectorAll('#regLotResult [data-l]').forEach(function (x) {
                     x.classList.toggle('sel', +x.dataset.l === i);
                 });
@@ -1173,25 +1519,89 @@
                     clearTimeout(t); var v = e.target.value;
                     t = setTimeout(function () { loadSrcList(v); }, 250);
                 });
+                document.getElementById('regSrcScope').addEventListener('click', function (e) {
+                    var b = e.target.closest('[data-ss]'); if (!b) return;
+                    srcScope = b.dataset.ss; srcSel = null;
+                    document.querySelectorAll('#regSrcScope [data-ss]').forEach(function (x) {
+                        x.classList.toggle('on', x.dataset.ss === srcScope);
+                    });
+                    document.getElementById('regOk').disabled = true;
+                    loadSrcList(document.getElementById('regSrcKw').value);
+                });
                 document.getElementById('regSrcList').addEventListener('click', function (e) {
                     var r = e.target.closest('[data-s]'); if (!r) return;
                     srcSel = +r.dataset.s;
+                    srcRoot = r.dataset.sr ? +r.dataset.sr : null;
+                    drawRet();
                     document.querySelectorAll('#regSrcList [data-s]').forEach(function (x) {
                         x.classList.toggle('sel', +x.dataset.s === srcSel);
                     });
                     document.getElementById('regOk').disabled = false;
                 });
             }
+            var srcScope = 'any', srcRoot = null;
+            var MTYPE = {product: '제품', semi: '어셈블리·반제품', raw_mat: '부품', sub_mat: '부자재'};
+            /* ★ 제품 탭 = 완제품만 (박스째 반품 → 서버가 박스를 풀어 재공품으로 접수)
+                 어셈블리 탭 = 검색어가 없으면 완제품별 BOM 트리(조립 화면처럼 계층),
+                               검색어가 있으면 완제품을 뺀 품목을 평면으로 */
+            var SRC_TREE = {}, srcOpen = {}, SRC_ROOTS = null;
+            function srcRow(m, opt) {
+                opt = opt || {};
+                return '<div class="prow' + (opt.tree ? ' tnode' : '') + (srcSel === m.mat_id ? ' sel' : '') + '" data-s="' + m.mat_id + '"' + (opt.root ? ' data-sr="' + opt.root + '"' : '') +
+                    (opt.tree ? ' style="--d:' + opt.d + '"' : '') + '>' + (opt.pre || '') +
+                    '<div class="pid"><div class="pnm">' + (opt.tag || '') + esc(m.mat_name) + '</div>' +
+                    '<div class="pcode">' + esc(m.mat_code) + (opt.sub || '') + '</div></div></div>';
+            }
             function loadSrcList(kw) {
-                // scope=src — 미등록 반품은 박스째 오므로 완제품도 고를 수 있어야 한다.
-                // 완제품을 고르면 서버가 박스를 풀어 반제품으로 접수한다.
-                var d = api('/target_materials', {keyword: kw || '', scope: 'src'}) || [];
-                document.getElementById('regSrcList').innerHTML = d.map(function (m) {
-                    return '<div class="prow' + (srcSel === m.mat_id ? ' sel' : '') + '" data-s="' + m.mat_id + '">' +
-                        '<div class="pid"><div class="pnm">' + esc(m.mat_name) + '</div>' +
-                        '<div class="pcode">' + esc(m.mat_code) + '</div></div></div>';
+                var box = document.getElementById('regSrcList');
+                if (srcScope === 'any' && !(kw || '').trim()) { drawSrcTree(); return; }
+                var d = api('/target_materials', {keyword: kw || '', scope: srcScope}) || [];
+                box.innerHTML = d.map(function (m) {
+                    return srcRow(m, {sub: srcScope === 'any' ? ' · ' + (MTYPE[m.mat_type] || m.mat_type || '부품') : ''});
                 }).join('') || '<div class="emptybox">검색 결과가 없습니다.</div>';
             }
+            function drawSrcTree() {
+                if (!SRC_ROOTS) SRC_ROOTS = api('/target_materials', {keyword: '', scope: 'src'}) || [];
+                var html = '<div class="tgrp">제품을 펼쳐 받은 것(본체 · 어셈블리 · 부품)을 고르세요 · 박스 여부는 아래 «포장 상태»<span class="ln"></span></div>';
+                SRC_ROOTS.forEach(function (r) {
+                    var open = !!srcOpen[r.mat_id];
+                    html += '<div class="prow tnode" style="--d:0" data-sroot="' + r.mat_id + '">' +
+                        '<span class="tcar' + (open ? ' open' : '') + '">▶</span>' +
+                        '<div class="pid"><div class="pnm">' + esc(r.mat_name) + '</div><div class="pcode">' + esc(r.mat_code) + '</div></div></div>';
+                    if (!open) return;
+                    var t = SRC_TREE[r.mat_id] || [];
+                    var key = 'r' + r.mat_id;
+                    var hidden = function (n) {   // 부모가 접혀 있으면 숨김
+                        var parts = String(n.sort_key).split('.');
+                        for (var i = 2; i < parts.length; i++) if (!srcOpen[key + ':' + parts.slice(0, i).join('.')]) return true;
+                        return false;
+                    };
+                    html += t.filter(function (n) { return n.depth > 0 && !hidden(n); }).map(function (n) {
+                        var k = key + ':' + n.sort_key;
+                        var car = '<span class="tcar' + (n.has_children ? (srcOpen[k] ? ' open' : '') : ' leaf') + '" data-stk="' + esc(k) + '">▶</span>';
+                        return srcRow(n, {tree: true, d: n.depth, pre: car, root: r.mat_id, tag: '<span class="lv">L' + n.depth + '</span>',
+                            sub: n.depth === 1 ? ' · 본체' : (n.has_children ? ' · 어셈블리' : '')});
+                    }).join('') || '<div class="emptybox">BOM 이 없습니다.</div>';
+                });
+                document.getElementById('regSrcList').innerHTML = html || '<div class="emptybox">완제품이 없습니다.</div>';
+            }
+            // 트리 펼침/접힘 — 고르기(data-s)보다 먼저 잡는다
+            document.addEventListener('click', function (e) {
+                var c = e.target.closest('#regSrcList [data-stk]');
+                if (c) { e.stopPropagation(); srcOpen[c.dataset.stk] = !srcOpen[c.dataset.stk]; drawSrcTree(); return; }
+                var r = e.target.closest('#regSrcList [data-sroot]');
+                if (r) {
+                    e.stopPropagation();
+                    var id = +r.dataset.sroot;
+                    if (!SRC_TREE[id]) {
+                        SRC_TREE[id] = api('/mat_tree', {mat_id: id}) || [];
+                        // 처음 펼칠 때 재공품(1단계)까지는 열어 둔다
+                        SRC_TREE[id].forEach(function (n) { if (n.depth === 1) srcOpen['r' + id + ':' + n.sort_key] = true; });
+                    }
+                    srcOpen[id] = !srcOpen[id];
+                    drawSrcTree();
+                }
+            }, true);
 
             // 사양변경 대상 품목
             var tgtT;
@@ -1218,17 +1628,20 @@
 
             document.getElementById('regOk').onclick = function () {
                 var key = (document.getElementById('regLot').value || '').trim().toUpperCase();
-                if (!key) { flash('원 M-CELL 로트를 입력하세요'); return; }
-                if (!regLotSel && !srcSel) { flash('조회 후 대상을 선택하거나 품목을 지정하세요'); return; }
+                if (!key && !regNoLot) { flash('원 로트를 입력하세요 (모르면 «번호 없이 접수»)'); return; }
+                if (!regLotSel && !srcSel) { flash(regNoLot ? '받은 품목을 선택하세요' : '조회 후 대상을 선택하거나 품목을 지정하세요'); return; }
+                if (regNoLot) key = '';
 
                 var p = {
                     cat: regCat,
+                    with_box: regBox,
+                    return_mats: regBox === 'Y' ? JSON.stringify(Object.keys(regRet).map(function (k) { return {mat_id: +k, qty: regRet[k]}; })) : '',
                     scan_key: key,
                     reason: (document.getElementById('regNote').value || '').trim(),
                     spjangcd: SPJANGCD
                 };
                 if (regLotSel) p.mat_lot_id = regLotSel.mat_lot_id;
-                else p.material_id = srcSel;
+                else { p.material_id = srcSel; if (srcRoot) p.pack_product_id = srcRoot; }
                 if (regCat === 'spec' && regTgtSel) p.target_material_id = regTgtSel;
 
                 document.getElementById('regOk').disabled = true;
@@ -1733,7 +2146,9 @@
                 lastTap = Date.now();
                 b.click();                                      // 합성 click (isTrusted:false)
             }, true);
-            window.addEventListener('pointercancel', function () { tapBtn = null; }, true);
+            window.addEventListener('pointercancel', function () {
+                tapBtn = null;
+            }, true);
             window.addEventListener('click', function (e) {
                 if (e.isTrusted && Date.now() - lastTap < 700) {
                     e.stopPropagation();

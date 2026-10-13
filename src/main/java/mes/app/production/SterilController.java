@@ -104,16 +104,18 @@ public class SterilController {
         return this.sterilService.logSave(batchId, stepNo, stepName, data, user);
     }
 
-    /** BI 판정 — pass(멸균필+이동, 업체 로트번호 부여) / fail(전량 폐기) */
+    /** BI 판정 — pass(멸균필+이동, 품목별 UDI 로트번호 부여) / fail(전량 폐기) */
     @PostMapping("/bi_judge")
     public AjaxResult biJudge(
             @RequestParam("batch_id") Integer batchId,
             @RequestParam("result") String result,
             @RequestParam(value = "maker_lot_no", required = false) String makerLotNo,
+            @RequestParam(value = "maker_lots", required = false) String makerLots,
             @RequestParam("spjangcd") String spjangcd,
             Authentication auth) {
         User user = (User) auth.getPrincipal();
-        return this.sterilService.biJudge(batchId, result, makerLotNo, spjangcd, user);
+        // ★ maker_lots = 품목별 UDI 로트번호 JSON {"품목id":"로트번호", ...} — 한 배치에 품목이 섞여 들어간다
+        return this.sterilService.biJudge(batchId, result, makerLotNo, makerLots, spjangcd, user);
     }
 
     /** 판정 취소 — 재고 롤백 + 배치 '작업중' 복귀 (업체 로트번호 비움) */
@@ -123,6 +125,16 @@ public class SterilController {
             Authentication auth) {
         User user = (User) auth.getPrincipal();
         return this.sterilService.biCancel(batchId, user);
+    }
+
+    /** ★ UDI 로트번호 수정 (판정 후, 품목별) — 판정취소 없이 */
+    @PostMapping("/maker_lot_save")
+    public AjaxResult makerLotSave(
+            @RequestParam("batch_id") Integer batchId,
+            @RequestParam("maker_lots") String makerLots,
+            Authentication auth) {
+        User user = (User) auth.getPrincipal();
+        return this.sterilService.saveMakerLots(batchId, makerLots, user);
     }
 
     /** 배치 기본정보 저장 — 시작/종료 시간 + 멸균기 */

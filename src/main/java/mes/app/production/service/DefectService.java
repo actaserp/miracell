@@ -194,7 +194,7 @@ public class DefectService {
                    AND (CAST(:kw AS varchar) IS NULL
                         OR m."Name" LIKE CAST(:kw AS varchar)
                         OR m."Code" LIKE CAST(:kw AS varchar))
-                 ORDER BY COALESCE(st.qty, 0) > 0 DESC, m."Code"
+                 ORDER BY COALESCE(st.qty, 0) > 0 DESC, m."Name", m."Code"   -- ★ 이름순(작업불량 목록과 같게)
                 """, p);
 		return rows == null ? new ArrayList<>() : rows;
 	}
@@ -311,6 +311,22 @@ public class DefectService {
                                       AND b."BOMType" = 'manufacturing'
                       JOIN bom_comp bc ON bc."BOM_id" = b.id
                      WHERE wc."Process_id" = :procId
+                    UNION
+                    -- (4) ★ 라우팅 공정 — 투입자재의 BOM 투입자재(2단계)
+                    --     블리스터는 용기를 통째로 받지만, 용기에 붙은 에어밴트가 불량이면
+                    --     에어밴트만 갈아 끼우고 용기는 다시 쓴다. 그때 소비되는 건 새 에어밴트라
+                    --     블리스터에서도 에어밴트가 후보에 나와야 한다.
+                    --     (용기를 통째로 버리면 1단계의 «용기»로 등록한다 — 둘 다 목록에 있다)
+                    SELECT DISTINCT bc2."Material_id" AS mat_id
+                      FROM work_center wc
+                      JOIN job_res jr   ON jr."WorkCenter_id" = wc.id
+                      JOIN bom b        ON b."Material_id" = jr."Material_id"
+                                       AND b."BOMType" = 'manufacturing'
+                      JOIN bom_comp bc  ON bc."BOM_id" = b.id
+                      JOIN bom b2       ON b2."Material_id" = bc."Material_id"
+                                       AND b2."BOMType" = 'manufacturing'
+                      JOIN bom_comp bc2 ON bc2."BOM_id" = b2.id
+                     WHERE wc."Process_id" = :procId
                 )
               """;
 
@@ -347,7 +363,9 @@ public class DefectService {
                         OR m."Code" LIKE CAST(:kw AS varchar))
                 """.formatted(PROC_STORE_OVERRIDE, SRC_STORE_CASE)
 				+ stockFilter
-				+ "                 ORDER BY COALESCE(st.qty,0) > 0 DESC, m.\"Code\"\n";
+				// ★ 재고 있는 것 먼저, 그 안에서는 «이름» 순. 예전엔 코드 순이라
+				//   「에어밴드」처럼 이름으로 찾는 자재가 목록 중간에 흩어져 스크롤로는 못 찾았다.
+				+ "                 ORDER BY COALESCE(st.qty,0) > 0 DESC, m.\"Name\", m.\"Code\"\n";
 	}
 
 	/**
@@ -406,6 +424,7 @@ public class DefectService {
 
 		String sql = """
                 SELECT d.id
+                     , d."GroupNo"                                     AS group_no   -- ★ 결합불량 묶음
                      , to_char(d."DefectDate", 'yyyy-mm-dd')          AS defect_date
                      , d."Process_id"                                  AS process_id
                      , p."Name"                                        AS process_name
@@ -473,6 +492,7 @@ public class DefectService {
 
 		Map<String, Object> head = this.sqlRunner.getRow("""
                 SELECT d.id
+                     , d."GroupNo"                                     AS group_no   -- ★ 결합불량 묶음
                      , to_char(d."DefectDate", 'yyyy-mm-dd')          AS defect_date
                      , p."Name"                                       AS process_name
                      , m."Code"                                       AS mat_code
@@ -555,6 +575,24 @@ public class DefectService {
 					  Integer srcStoreId, String discoveryStage,
 					  Integer jobResId, Integer actorId, String description,
 					  User user, String spjangcd) {
+		return regist(factoryId, defectSource, defectDate, processId, matId, defectTypeId, defectTypeEtc,
+				qty, srcStoreId, discoveryStage, jobResId, actorId, description, null, user, spjangcd);
+	}
+
+	/**
+	 * ★ 결합불량 묶음 등록.
+	 *   여러 자재가 한 번에 불량 난 경우(결합 불량) 화면은 자재마다 이 메서드를 부르되,
+	 *   첫 건의 id 를 groupNo 로 나머지에 넘긴다. 목록은 GroupNo 가 같은 건을 한 줄로 묶는다.
+	 *   재고 차감·삭제·수정은 지금처럼 자재(행) 단위 그대로다 — 롤백 경로를 두 벌 만들지 않는다.
+	 * @param groupNo 묶음 번호(= 첫 건 id). null 이면 단건.
+	 */
+	public int regist(int factoryId, String defectSource, String defectDate,
+					  Integer processId, int matId,
+					  Integer defectTypeId, String defectTypeEtc, double qty,
+					  Integer srcStoreId, String discoveryStage,
+					  Integer jobResId, Integer actorId, String description,
+					  Integer groupNo,
+					  User user, String spjangcd) {
 
 		boolean isMaterial = SRC_MATERIAL.equals(defectSource);
 
@@ -607,21 +645,30 @@ public class DefectService {
 		h.addValue("stage", isMaterial ? normalizeStage(discoveryStage) : null);
 		h.addValue("uid", user == null ? null : user.getId());
 		h.addValue("spjangcd", spjangcd);
+		h.addValue("groupNo", (groupNo == null || groupNo == 0) ? null : groupNo);
 
 		Map<String, Object> row = this.sqlRunner.getRow("""
                 INSERT INTO defect_regist
                     ("Factory_id","DefectDate","Process_id","Material_id","DefectType_id",
                      "DefectTypeEtc","DefectQty","SourceStoreHouse_id","JobResponse_id",
-                     "Actor_id","Description","DefectSource","DiscoveryStage",
+                     "Actor_id","Description","DefectSource","DiscoveryStage","GroupNo",
                      "State",_status,_created,_creater_id,spjangcd)
                 VALUES
                     (:fid, CAST(:ddate AS date), :procId, :matId, :dtId,
                      :dtEtc, :qty, :srcStore, :woId,
-                     :actorId, :desc, :src, :stage,
+                     :actorId, :desc, :src, :stage, CAST(:groupNo AS integer),
                      'confirmed','a',now(),:uid,:spjangcd)
                 RETURNING id
                 """, h);
 		int defectId = ((Number) row.get("id")).intValue();
+
+		// ★ 묶음의 둘째 건부터 들어오면 첫 건(=groupNo)에도 묶음 번호를 단다
+		if (groupNo != null && groupNo != 0) {
+			this.sqlRunner.execute("""
+                    UPDATE defect_regist SET "GroupNo" = CAST(:groupNo AS integer)
+                     WHERE id = CAST(:groupNo AS integer) AND "GroupNo" IS NULL
+                    """, h);
+		}
 
 		// 3) FIFO 차감
 		double remain = qty;

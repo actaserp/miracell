@@ -48,6 +48,8 @@ public class McellInspectService {
         return this.sqlRunner.getRows("""
                 SELECT f.id AS form_id, f."Code" AS form_code, f."Name" AS form_name,
                        f."UseYN" AS use_yn, f."SeqNo" AS seq_no, f."Description" AS description,
+                       COALESCE(f."InspType",'final') AS insp_type,
+                       f."DocCode" AS doc_code, f."Model" AS model,
                        COALESCE(i.cnt,0) AS item_cnt, COALESCE(m.names,'') AS mat_names
                   FROM insp_form f
                   LEFT JOIN LATERAL (SELECT COUNT(*) AS cnt FROM insp_form_item x
@@ -64,7 +66,9 @@ public class McellInspectService {
         MapSqlParameterSource p = new MapSqlParameterSource().addValue("formId", formId);
         Map<String, Object> form = this.sqlRunner.getRow("""
                 SELECT f.id AS form_id, f."Code" AS form_code, f."Name" AS form_name,
-                       f."UseYN" AS use_yn, f."SeqNo" AS seq_no, f."Description" AS description
+                       f."UseYN" AS use_yn, f."SeqNo" AS seq_no, f."Description" AS description,
+                       COALESCE(f."InspType",'final') AS insp_type,
+                       f."DocCode" AS doc_code, f."Model" AS model, f."CellMap" AS cell_map
                   FROM insp_form f WHERE f.id = :formId
                 """, p);
         if (form == null) return null;
@@ -84,20 +88,55 @@ public class McellInspectService {
                        i."Criteria" AS criteria, i."Method" AS method, i."JudgeType" AS judge_type,
                        i."Unit" AS unit, i."LowerLimit" AS lower_limit, i."UpperLimit" AS upper_limit,
                        COALESCE(i."RepeatCount",1) AS repeat_count,
-                       i."SpecOptions" AS spec_options
+                       i."SpecOptions" AS spec_options,
+                       i."CellMap" AS cell_map, i."Material_id" AS material_id
                   FROM insp_form_item i
                  WHERE i."InspForm_id" = :formId AND COALESCE(i."_status",'a')='a'
                  ORDER BY i."SeqNo", i.id
                 """, p);
     }
 
-    /** 검사 대상 품목 (InspectYN='Y') */
+    /** 검사 대상 품목(완제품) + ★ 그 아래 어셈블리 — 완제품(모델)별로 묶어 준다.
+     *  공용 어셈블리는 여러 완제품 아래 중복으로 나온다(화면에서 체크는 같이 움직인다). */
+    /** ★ 어셈블리의 직접 구성품(BOM 1단계) — 제조공정관리 «주요자재» 줄과 짝지을 후보 */
+    public List<Map<String, Object>> getBomChildren(Integer matId) {
+        return this.sqlRunner.getRows("""
+                SELECT DISTINCT m.id AS mat_id, m."Code" AS mat_code, m."Name" AS mat_name,
+                       COALESCE(m."SnYN",'N') AS sn_yn,
+                       EXISTS (SELECT 1 FROM bom b2 WHERE b2."Material_id" = m.id AND b2."BOMType"='manufacturing') AS is_asm
+                  FROM bom b JOIN bom_comp bc ON bc."BOM_id" = b.id
+                  JOIN material m ON m.id = bc."Material_id"
+                 WHERE b."Material_id" = :mid AND b."BOMType" = 'manufacturing'
+                   AND CURRENT_DATE BETWEEN COALESCE(b."StartDate", DATE '0001-01-01') AND COALESCE(b."EndDate", DATE '9999-12-31')
+                 ORDER BY m."Name"
+                """, new MapSqlParameterSource().addValue("mid", matId));
+    }
+
     public List<Map<String, Object>> getInspectMaterials() {
         return this.sqlRunner.getRows("""
-                SELECT m.id AS mat_id, m."Code" AS mat_code, m."Name" AS mat_name
-                  FROM material m
-                 WHERE COALESCE(m."InspectYN",'N')='Y' AND COALESCE(m."_status",'a')='a'
-                 ORDER BY m."Code"
+                WITH RECURSIVE t AS (
+                    SELECT m.id AS root_id, m.id AS mat_id, ARRAY[m.id] AS path, 0 AS d
+                      FROM material m
+                     WHERE COALESCE(m."InspectYN",'N')='Y' AND COALESCE(m."_status",'a')='a'
+                    UNION ALL
+                    SELECT t.root_id, bc."Material_id", t.path || bc."Material_id", t.d + 1
+                      FROM t
+                      JOIN bom b ON b."Material_id" = t.mat_id AND b."BOMType" = 'manufacturing'
+                                AND CURRENT_DATE BETWEEN COALESCE(b."StartDate", DATE '0001-01-01')
+                                                     AND COALESCE(b."EndDate",   DATE '9999-12-31')
+                      JOIN bom_comp bc ON bc."BOM_id" = b.id
+                     WHERE NOT (bc."Material_id" = ANY(t.path)) AND t.d < 8
+                )
+                , x AS (SELECT root_id, mat_id, MIN(d) AS depth FROM t GROUP BY root_id, mat_id)
+                SELECT x.root_id, r."Code" AS root_code, r."Name" AS root_name,
+                       m.id AS mat_id, m."Code" AS mat_code, m."Name" AS mat_name, x.depth
+                  FROM x
+                  JOIN material r ON r.id = x.root_id
+                  JOIN material m ON m.id = x.mat_id
+                 WHERE COALESCE(m."_status",'a')='a'
+                   AND (x.depth = 0
+                        OR EXISTS (SELECT 1 FROM bom b2 WHERE b2."Material_id" = m.id AND b2."BOMType"='manufacturing'))
+                 ORDER BY r."Code", x.depth, m."Code"
                 """, new MapSqlParameterSource());
     }
 
@@ -105,6 +144,16 @@ public class McellInspectService {
     @Transactional
     public AjaxResult saveForm(Integer formId, String code, String name, String useYn, Integer seqNo,
                                String description, String itemsJson, String matIdsJson,
+                               String inspType, String spjangcd, User user) {
+        return saveForm(formId, code, name, useYn, seqNo, description, itemsJson, matIdsJson, inspType,
+                null, null, null, spjangcd, user);
+    }
+
+    /** ★ 엑셀 매핑 포함 저장 — DocCode(문서) · Model(모델) · CellMap(머리칸 JSON) */
+    @Transactional
+    public AjaxResult saveForm(Integer formId, String code, String name, String useYn, Integer seqNo,
+                               String description, String itemsJson, String matIdsJson,
+                               String inspType, String docCode, String model, String formCellMap,
                                String spjangcd, User user) {
         AjaxResult r = new AjaxResult();
         r.success = true;
@@ -117,45 +166,47 @@ public class McellInspectService {
                 .addValue("useYn", (useYn == null || useYn.isBlank()) ? "Y" : useYn)
                 .addValue("seqNo", seqNo == null ? 0 : seqNo)
                 .addValue("desc", description)
+                .addValue("itype", Set.of("process", "pack", "record").contains(inspType) ? inspType : "final")
+                .addValue("doc", blank(docCode) ? null : docCode.trim())
+                .addValue("model", blank(model) ? null : model.trim())
+                .addValue("fcm", blank(formCellMap) ? null : formCellMap)
                 .addValue("userId", user.getId())
                 .addValue("spjangcd", spjangcd);
 
         Integer id = formId;
         if (id == null) {
             Map<String, Object> ins = this.sqlRunner.getRow("""
-                    INSERT INTO insp_form ("Code","Name","UseYN","SeqNo","Description",
+                    INSERT INTO insp_form ("Code","Name","UseYN","SeqNo","Description","InspType","DocCode","Model","CellMap",
                                            "_status","_created","_creater_id",spjangcd)
-                    VALUES (:code,:name,:useYn,:seqNo,:desc,'a',now(),:userId,:spjangcd)
+                    VALUES (:code,:name,:useYn,:seqNo,:desc,:itype,:doc,:model,:fcm,'a',now(),:userId,:spjangcd)
                     RETURNING id
                     """, p);
             id = ((Number) ins.get("id")).intValue();
         } else {
             this.sqlRunner.execute("""
                     UPDATE insp_form SET "Code"=:code,"Name"=:name,"UseYN"=:useYn,"SeqNo"=:seqNo,
-                           "Description"=:desc,"_modified"=now(),"_modifier_id"=:userId
+                           "Description"=:desc,"InspType"=:itype,"DocCode"=:doc,"Model"=:model,"CellMap"=:fcm,
+                           "_modified"=now(),"_modifier_id"=:userId
                      WHERE id=:formId
                     """, p);
         }
 
         MapSqlParameterSource fp = new MapSqlParameterSource()
                 .addValue("formId", id).addValue("userId", user.getId());
-        this.sqlRunner.execute("""
-                DELETE FROM insp_form_item
-                 WHERE "InspForm_id"=:formId
-                   AND NOT EXISTS (SELECT 1 FROM insp_result_item ri
-                                    WHERE ri."InspFormItem_id" = insp_form_item.id)
-                """, fp);
-        this.sqlRunner.execute("""
-                UPDATE insp_form_item SET "_status"='d',"_modified"=now(),"_modifier_id"=:userId
-                 WHERE "InspForm_id"=:formId AND COALESCE("_status",'a')='a'
-                """, fp);
-
+        /* ★ 항목은 «id 유지» 로 저장한다.
+             예전엔 지우고 새로 넣어 항목 id 가 바뀌었다 — 그러면 공정검사·포장 체크 결과
+             (mcell_proc_insp_item · mcell_pack_insp)가 옛 id 를 가리켜 문서·판정에서 빠졌다.
+             화면이 보낸 item_id 는 갱신, 없는 건 추가, 빠진 건 삭제(결과가 있으면 소프트삭제). */
         try {
             List<Map<String, Object>> items = om.readValue(itemsJson == null ? "[]" : itemsJson, List.class);
+            List<Integer> keep = new ArrayList<>();
             int seq = 1;
             for (Map<String, Object> it : items) {
                 String nm = str(it.get("item_name"));
                 if (nm == null || nm.isBlank()) continue;
+                Integer itemId = it.get("item_id") == null || String.valueOf(it.get("item_id")).isBlank()
+                        ? null : Integer.valueOf(String.valueOf(it.get("item_id")));
+                Object cm = it.get("cell_map");
                 MapSqlParameterSource ip = new MapSqlParameterSource()
                         .addValue("formId", id).addValue("seq", seq++)
                         .addValue("nm", nm.trim())
@@ -167,17 +218,48 @@ public class McellInspectService {
                         .addValue("up", numOrNull(it.get("upper_limit")))
                         .addValue("rp", intOr(it.get("repeat_count"), 1))
                         .addValue("so", str(it.get("spec_options")))
+                        .addValue("cm", cm == null || String.valueOf(cm).isBlank() ? null
+                                : (cm instanceof String ? (String) cm : om.writeValueAsString(cm)))
+                        .addValue("mid", it.get("material_id") == null || String.valueOf(it.get("material_id")).isBlank()
+                                ? null : Integer.valueOf(String.valueOf(it.get("material_id"))))
+                        .addValue("itemId", itemId)
                         .addValue("userId", user.getId()).addValue("spjangcd", spjangcd);
-                this.sqlRunner.execute("""
-                        INSERT INTO insp_form_item
-                            ("InspForm_id","SeqNo","ItemName","Criteria","Method","JudgeType",
-                             "Unit","LowerLimit","UpperLimit","RepeatCount","SpecOptions",
-                             "_status","_created","_creater_id",spjangcd)
-                        VALUES (:formId,:seq,:nm,:cr,:mt,:jt,:un,
-                                CAST(:lo AS numeric),CAST(:up AS numeric),:rp,:so,
-                                'a',now(),:userId,:spjangcd)
-                        """, ip);
+                Integer exists = itemId == null ? null : (this.sqlRunner.getRow(
+                        "SELECT id FROM insp_form_item WHERE id=:itemId AND \"InspForm_id\"=:formId", ip) == null ? null : itemId);
+                if (exists != null) {
+                    this.sqlRunner.execute("""
+                            UPDATE insp_form_item SET "SeqNo"=:seq,"ItemName"=:nm,"Criteria"=:cr,"Method"=:mt,"JudgeType"=:jt,
+                                   "Unit"=:un,"LowerLimit"=CAST(:lo AS numeric),"UpperLimit"=CAST(:up AS numeric),
+                                   "RepeatCount"=:rp,"SpecOptions"=:so,"CellMap"=:cm,"Material_id"=:mid,
+                                   "_status"='a',"_modified"=now(),"_modifier_id"=:userId
+                             WHERE id=:itemId
+                            """, ip);
+                    keep.add(exists);
+                } else {
+                    Map<String, Object> ins = this.sqlRunner.getRow("""
+                            INSERT INTO insp_form_item
+                                ("InspForm_id","SeqNo","ItemName","Criteria","Method","JudgeType",
+                                 "Unit","LowerLimit","UpperLimit","RepeatCount","SpecOptions","CellMap","Material_id",
+                                 "_status","_created","_creater_id",spjangcd)
+                            VALUES (:formId,:seq,:nm,:cr,:mt,:jt,:un,
+                                    CAST(:lo AS numeric),CAST(:up AS numeric),:rp,:so,:cm,:mid,
+                                    'a',now(),:userId,:spjangcd)
+                            RETURNING id
+                            """, ip);
+                    keep.add(((Number) ins.get("id")).intValue());
+                }
             }
+            String keepSql = keep.isEmpty() ? "0" : keep.stream().map(String::valueOf).reduce((x, y) -> x + "," + y).get();
+            String refd = """
+                    (EXISTS (SELECT 1 FROM insp_result_item ri WHERE ri."InspFormItem_id" = insp_form_item.id)
+                     OR (to_regclass('public.mcell_proc_insp_item') IS NOT NULL
+                         AND EXISTS (SELECT 1 FROM mcell_proc_insp_item v WHERE v."InspFormItem_id" = insp_form_item.id))
+                     OR (to_regclass('public.mcell_pack_insp') IS NOT NULL
+                         AND EXISTS (SELECT 1 FROM mcell_pack_insp v WHERE v."InspFormItem_id" = insp_form_item.id)))
+                    """;
+            this.sqlRunner.execute("DELETE FROM insp_form_item WHERE \"InspForm_id\"=:formId AND id NOT IN (" + keepSql + ") AND NOT " + refd, fp);
+            this.sqlRunner.execute("UPDATE insp_form_item SET \"_status\"='d',\"_modified\"=now(),\"_modifier_id\"=:userId "
+                    + "WHERE \"InspForm_id\"=:formId AND id NOT IN (" + keepSql + ") AND COALESCE(\"_status\",'a')='a'", fp);
         } catch (Exception e) {
             throw new IllegalArgumentException("검사 항목 형식 오류: " + e.getMessage());
         }
@@ -276,7 +358,7 @@ public class McellInspectService {
     public List<Map<String, Object>> getUnitList(Integer jobResId) {
         MapSqlParameterSource p = new MapSqlParameterSource().addValue("jrId", jobResId);
         List<Map<String, Object>> units = this.sqlRunner.getRows("""
-                SELECT mu.id AS unit_id, mu."UnitNo" AS unit_no, mu."LotNumber" AS lot_number,
+                SELECT mu.id AS unit_id, mu."UnitNo" AS unit_no, mu."SerialNo" AS serial_no, mu."LotNumber" AS lot_number,
                        mu."Material_id" AS mat_id, mu."State" AS state,
                        mu."RejectReason" AS reject_reason,
                        to_char(mu."EndTime",'yyyy-mm-dd hh24:mi') AS assy_end
@@ -345,6 +427,7 @@ public class McellInspectService {
                          WHERE y."McellUnit_id"=:unitId AND y."InspForm_id"=f.id
                   ) h ON true
                  WHERE COALESCE(f."UseYN",'Y')='Y' AND COALESCE(f."_status",'a')='a'
+                   AND COALESCE(f."InspType",'final') = 'final'   -- ★ 공정검사(조립)·포장 체크(포장) 양식 제외
                  ORDER BY f."SeqNo", f.id
                 """
                 /* 검사자는 양식(회차)마다 다르다. 스칼라 서브쿼리로 붙인다 —
@@ -557,6 +640,18 @@ public class McellInspectService {
         }
 
         String verdict = bad > 0 ? "fail" : "pass";
+
+        /* ★ 출고(포장)된 유닛은 불합격으로 바꿀 수 없다.
+             이미 박스에 들어가 나간 물건이라, 불합격이 되면 포장부터 되돌려야 한다.
+             합격을 유지하는 수정(측정값 정정 등)은 허용한다. */
+        Map<String, Object> us = this.sqlRunner.getRow(
+                "SELECT \"State\" AS state FROM mcell_unit WHERE id=:u",
+                new MapSqlParameterSource().addValue("u", asInt(res.get("unit_id"))));
+        if (us != null && "packed".equals(str(us.get("state"))) && "fail".equals(verdict)) {
+            r.success = false;
+            r.message = "포장(출고)된 유닛은 불합격으로 바꿀 수 없습니다. 포장을 먼저 되돌리세요.";
+            return r;
+        }
         MapSqlParameterSource up = new MapSqlParameterSource()
                 .addValue("resId", resultId).addValue("v", verdict)
                 .addValue("reason", failReason).addValue("userId", user.getId());
@@ -611,6 +706,86 @@ public class McellInspectService {
     }
 
     /**
+     * ★ 판정 수정 — 확정된 «최신» 회차를 다시 연다(판정만 풀고 입력값은 그대로).
+     *   열린 뒤 값을 고쳐 다시 확정하면 된다. 재검사(새 회차)와 달리 이력이 늘지 않는다.
+     *   유닛 판정은 recalcUnit 이 다시 계산한다 — 합격이 풀리면 19 → 17 로 되돌아간다.
+     *
+     *   막는 경우
+     *     · 최신 회차가 아님 (이전 회차는 이력 — 고치려면 재검사)
+     *     · 재조립 · 수리가 이미 시작됨 (불합격 → 조립 복귀 후 작업이 진행 중이면
+     *       판정을 바꾸는 순간 조립 화면과 상태가 엇갈린다. 조립에서 먼저 되돌린다)
+     *     · 포장(출고)된 유닛 — 다시 열 수는 있지만 불합격으로는 확정 못 한다(judgeForm)
+     */
+    @Transactional
+    public AjaxResult reviseResult(Integer resultId, String spjangcd, User user) {
+        AjaxResult r = new AjaxResult();
+        r.success = true;
+        MapSqlParameterSource p = new MapSqlParameterSource()
+                .addValue("resId", resultId).addValue("userId", user.getId());
+        Map<String, Object> res = this.sqlRunner.getRow("""
+                SELECT r."McellUnit_id" AS unit_id, r."InspForm_id" AS form_id, r."Verdict" AS verdict,
+                       r."TryNo" AS try_no, mu."State" AS unit_state,
+                       (SELECT MAX(x."TryNo") FROM insp_result x
+                         WHERE x."McellUnit_id" = r."McellUnit_id" AND x."InspForm_id" = r."InspForm_id") AS max_try
+                  FROM insp_result r JOIN mcell_unit mu ON mu.id = r."McellUnit_id"
+                 WHERE r.id = :resId
+                """, p);
+        if (res == null) { r.success = false; r.message = "검사 회차를 찾을 수 없습니다."; return r; }
+        if (res.get("verdict") == null) { r.success = false; r.message = "아직 확정되지 않은 회차입니다."; return r; }
+        if (!asInt(res.get("try_no")).equals(asInt(res.get("max_try")))) {
+            r.success = false; r.message = "최신 회차만 수정할 수 있습니다. 이전 회차는 이력입니다."; return r;
+        }
+        String st = str(res.get("unit_state"));
+        if (!Set.of("inspect_wait", "pass", "reject", "packed").contains(st)) {
+            r.success = false;
+            r.message = "재조립·수리가 진행 중인 유닛입니다. 조립/수리 화면에서 먼저 되돌린 뒤 수정하세요.";
+            return r;
+        }
+        this.sqlRunner.execute("""
+                UPDATE insp_result SET "Verdict"=NULL, "State"='working', "EndTime"=NULL,
+                       "_modified"=now(), "_modifier_id"=:userId
+                 WHERE id=:resId
+                """, p);
+        AjaxResult fin = recalcUnit(asInt(res.get("unit_id")), spjangcd, user);
+        r.data = Map.of("result_id", resultId, "unit", fin.data == null ? Map.of() : fin.data,
+                "packed", "packed".equals(st));
+        r.message = "packed".equals(st)
+                ? "판정을 다시 열었습니다 · 포장된 유닛이라 합격으로만 확정할 수 있습니다"
+                : "판정을 다시 열었습니다 · 고친 뒤 다시 확정하세요";
+        return r;
+    }
+
+    /**
+     * ★ 검사 시각 수정 — 다른 공정과 같은 방식.
+     * @param which start | end
+     * @param value 'yyyy-MM-dd HH:mm'
+     */
+    @Transactional
+    public AjaxResult setResultTime(Integer resultId, String which, String value, User user) {
+        AjaxResult r = new AjaxResult();
+        r.success = true;
+        if (value == null || value.isBlank()) { r.success = false; r.message = "시각을 입력하세요."; return r; }
+        boolean isStart = "start".equals(which);
+        MapSqlParameterSource p = new MapSqlParameterSource()
+                .addValue("resId", resultId).addValue("v", value.trim()).addValue("userId", user.getId());
+        Map<String, Object> cur = this.sqlRunner.getRow("""
+                SELECT to_char("StartTime",'yyyy-mm-dd hh24:mi') AS st,
+                       to_char("EndTime",'yyyy-mm-dd hh24:mi')   AS et
+                  FROM insp_result WHERE id=:resId
+                """, p);
+        if (cur == null) { r.success = false; r.message = "검사 회차를 찾을 수 없습니다."; return r; }
+        String st = isStart ? value.trim() : str(cur.get("st"));
+        String et = isStart ? str(cur.get("et")) : value.trim();
+        if (st != null && et != null && st.compareTo(et) > 0) {
+            r.success = false; r.message = "시작이 종료보다 늦을 수 없습니다."; return r;
+        }
+        this.sqlRunner.execute(isStart
+                ? "UPDATE insp_result SET \"StartTime\"=CAST(:v AS timestamp), \"InspectDate\"=CAST(:v AS timestamp)::date, \"_modified\"=now(), \"_modifier_id\"=:userId WHERE id=:resId"
+                : "UPDATE insp_result SET \"EndTime\"=CAST(:v AS timestamp), \"_modified\"=now(), \"_modifier_id\"=:userId WHERE id=:resId", p);
+        return r;
+    }
+
+    /**
      * 유닛 최종 판정 재계산.
      *   · 모든 양식 최신 회차가 pass → 유닛 pass + 로트 17 → 19 이동
      *   · 하나라도 fail            → 유닛 reject (조립 복귀, 이동 없음)
@@ -626,6 +801,14 @@ public class McellInspectService {
                   FROM mcell_unit mu WHERE mu.id = :unitId
                 """, new MapSqlParameterSource().addValue("unitId", unitId));
         if (unit == null) { r.success = false; r.message = "유닛을 찾을 수 없습니다."; return r; }
+
+        /* ★ 포장(출고)된 유닛은 상태·창고를 건드리지 않는다.
+             판정 수정으로 이 메서드가 불려도 로트는 이미 포장에 소비됐고,
+             상태를 pass/inspect_wait 로 내리면 포장 이력과 어긋난다. */
+        if ("packed".equals(str(unit.get("state")))) {
+            r.data = Map.of("state", "packed", "moved", false);
+            return r;
+        }
 
         List<Map<String, Object>> forms = getUnitFormStates(unitId, asInt(unit.get("mat_id")));
         if (forms.isEmpty()) {
@@ -742,6 +925,8 @@ public class McellInspectService {
 
     // ── 유틸 ──
     private static Integer asInt(Object o) { return o == null ? null : ((Number) o).intValue(); }
+    private static boolean blank(String v) { return v == null || v.isBlank(); }
+
     private static String str(Object o) { return o == null ? null : String.valueOf(o); }
 
     private static Double numOrNull(Object o) {

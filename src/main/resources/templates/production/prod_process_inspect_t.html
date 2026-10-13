@@ -177,8 +177,19 @@
         .ckchip.fail{background:var(--red-bg);color:var(--red);border-color:transparent}
         .ckchip.prog{background:var(--teal-bg);color:var(--teal-d);border-color:transparent}
 
-        .tabbar{display:flex;gap:10px}
-        .tabbar button{flex:1;min-height:56px;border-radius:14px;border:1.5px solid var(--line);background:var(--surface);font-weight:800;font-size:16px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--ink-2)}
+        .tabbar{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));grid-auto-rows:minmax(56px,auto);align-items:stretch;gap:8px}
+        .tabbar button{min-height:52px;height:auto !important;max-height:none !important;overflow:visible;padding:7px 8px;line-height:1.25;word-break:keep-all;overflow-wrap:anywhere;white-space:normal;text-align:center;font-size:14.5px !important;border-radius:14px;border:1.5px solid var(--line);background:var(--surface);font-weight:800;font-size:16px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--ink-2)}
+        .tabbar button.pass:not(.on){border-color:transparent;background:var(--green-bg);color:var(--green)}
+        .tabbar button.fail:not(.on){border-color:transparent;background:var(--red-bg);color:var(--red)}
+        .tabsum{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:800;color:var(--ink-2);margin:0 2px 8px}
+        .tabsum .bar{flex:1;height:6px;border-radius:6px;background:var(--line);overflow:hidden;display:flex}
+        .tabsum .bar i{display:block;height:100%}
+        .ckprog{margin-top:12px}
+        .ckprog .bar{height:8px;border-radius:8px;background:var(--line);overflow:hidden;display:flex}
+        .ckprog .bar i{display:block;height:100%}
+        .ckprog .t{display:flex;justify-content:space-between;gap:8px;margin-top:6px;font-size:12.5px;font-weight:800;color:var(--ink-2)}
+        .ckprog .t b{color:var(--ink)}.ckprog .t .nx{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .ckprog .bad{margin-top:4px;font-size:12px;font-weight:800;color:var(--red)}
         .tabbar button.on{border-color:var(--teal);background:var(--teal-bg);color:var(--teal-d)}
         .tabbar button .ts{font-size:11.5px;font-weight:800}
         .tabbar button .ts.pass{color:var(--green)}.tabbar button .ts.fail{color:var(--red)}
@@ -220,7 +231,47 @@
         .btn.primary{background:var(--teal);color:#fff;padding:0 28px;box-shadow:0 8px 18px -8px rgba(14,124,134,.7)}.btn.primary:active{background:var(--teal-d)}
         .btn:disabled{background:var(--line)!important;color:var(--ink-2)!important;box-shadow:none;cursor:default}
 
+        /* ★ 시각 수정 시트 — 다른 공정과 같은 모양 */
+        .dateedit{display:flex;align-items:center;justify-content:center;gap:14px;margin:4px 0 10px}
+        .dateedit .dbtn{width:64px;height:58px;border-radius:14px;border:1px solid var(--line);background:var(--surface-2);font-size:22px;font-weight:700;cursor:pointer;touch-action:none}
+        .dateedit .dval{min-width:200px;text-align:center;font-size:22px;font-weight:800;font-variant-numeric:tabular-nums}
+        .timeedit{display:flex;align-items:center;justify-content:center;gap:6px;margin:8px 0}
+        .tcol{display:flex;flex-direction:column;align-items:center;gap:8px}
+        .tcol button{width:96px;height:60px;border-radius:14px;border:1px solid var(--line);background:var(--surface-2);font-size:24px;font-weight:700;cursor:pointer;touch-action:none}
+        .tcol .tv{font-size:42px;font-weight:800;font-variant-numeric:tabular-nums;width:84px;text-align:center}
+        .tsep{font-size:40px;font-weight:800;padding-bottom:4px}
+        .tchip{min-height:40px;padding:0 12px;border-radius:10px;border:1.5px solid var(--line);background:var(--surface);font-weight:800;font-size:14px;cursor:pointer;font-variant-numeric:tabular-nums}
+        .tchip span{color:var(--ink-2);font-weight:700;margin-right:6px}
+        .tchip:disabled{opacity:.5;cursor:default}
+        #toast, #packToast{pointer-events:none !important}
+        /* ★ 일괄 검사 (여러 대 동시) */
+        .unit.bsel{border-color:var(--teal);box-shadow:0 0 0 3px var(--teal-bg)}
+        .unit .bchk{position:absolute;right:12px;bottom:12px;width:30px;height:30px;border-radius:9px;border:1.5px solid var(--line);
+            background:var(--surface);display:grid;place-items:center;font-weight:800;color:#fff}
+        .unit.bsel .bchk{background:var(--teal);border-color:var(--teal)}
+        .unit.bdis{opacity:.45}
+        .batchbtn{min-height:40px;padding:0 14px;border-radius:12px;border:1.5px solid var(--teal);background:var(--teal-bg);color:var(--teal-d);font-weight:800;font-size:14px;cursor:pointer}
+        .batchbtn.on{background:var(--teal);color:#fff}
+        #bBatchBar{position:sticky;bottom:0;display:none;align-items:center;gap:10px;padding:12px 14px;margin-top:12px;
+            background:var(--surface);border:1.5px solid var(--teal);border-radius:16px;box-shadow:var(--shadow);z-index:5}
+        #bBatchBar .t{flex:1;font-weight:800}
+        #bBatchBar button{min-height:48px;padding:0 18px;border-radius:14px;border:none;background:var(--teal);color:#fff;font-weight:800;font-size:16px;cursor:pointer}
+        #bBatchBar button.ghost{background:var(--surface-2);color:var(--ink);border:1.5px solid var(--line)}
+        .btable{border-collapse:separate;border-spacing:0;min-width:100%;font-size:14px}
+        .btable th,.btable td{border-bottom:1px solid var(--line);padding:8px 6px;text-align:center;white-space:nowrap;background:var(--surface)}
+        .btable th{font-size:12.5px;color:var(--ink-2);font-weight:800;position:sticky;top:0;z-index:2}
+        .btable td:first-child,.btable th:first-child{position:sticky;left:0;z-index:3;text-align:left;font-weight:800}
+        .btable .ox{min-width:64px;min-height:44px;border-radius:10px;border:1.5px solid var(--line);background:var(--surface-2);font-weight:800;font-size:15px;cursor:pointer}
+        .btable .ox.pass{background:var(--green-bg);border-color:var(--green);color:var(--green)}
+        .btable .ox.fail{background:var(--red-bg);border-color:var(--red);color:var(--red)}
+        .btable input.nv{width:84px;height:44px;border-radius:10px;border:1.5px solid var(--line);text-align:center;font-size:15px;font-weight:800;font-family:inherit}
+        .btable input.nv.pass{border-color:var(--green);background:var(--green-bg)}
+        .btable input.nv.fail{border-color:var(--red);background:var(--red-bg)}
+        .btable .colall{display:block;margin:4px auto 0;font-size:11.5px;padding:3px 8px;border-radius:8px;border:1px solid var(--green);background:var(--green-bg);color:var(--green);font-weight:800;cursor:pointer}
+        .btable tr.locked td{opacity:.45}
+        .bwrap{overflow:auto;max-height:46dvh;border:1px solid var(--line);border-radius:14px}
         .mask{position:fixed;inset:0;background:rgba(21,34,43,.42);display:none;z-index:40;align-items:flex-end}
+        #timeMask{z-index:60}   /* ★ 일괄 검사 시트 위에 떠야 시작·종료 시각을 고를 수 있다 */
         .mask.show{display:flex;animation:fade .15s ease}@keyframes fade{from{opacity:0}to{opacity:1}}
         .sheet{width:100%;background:var(--surface);border-radius:24px 24px 0 0;padding:20px 20px calc(40px + env(safe-area-inset-bottom));box-shadow:0 -20px 40px -20px rgba(0,0,0,.4);animation:rise .2s cubic-bezier(.2,.7,.3,1);max-height:88dvh;overflow:auto}
         @keyframes rise{from{transform:translateY(40px)}to{transform:translateY(0)}}
@@ -239,6 +290,66 @@
         @media (max-width:680px){.qgrid{grid-template-columns:1fr}}
         @media (prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important}}
 
+        .matarea{flex:1;min-width:200px}
+        .msel{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:8px 10px;border-radius:10px;background:#eef7f7;margin-bottom:8px}
+        .mlab{font-weight:800;font-size:13px;color:var(--teal-d)}.mlab.none{color:var(--amber)}
+        .mtag{background:#fff;border:1.5px solid #0E7C86;color:#0E7C86;border-radius:14px;padding:3px 10px;font-size:13px;font-weight:700;cursor:pointer}
+        .mtool,.lmod{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px}
+        .lmod{padding:2px 2px 8px}
+        .mmod{height:34px;padding:0 14px;border-radius:17px;border:1.5px solid var(--line);background:#fff;font-weight:800;font-size:13px}
+        .mmod.on{background:#0E7C86;border-color:#0E7C86;color:#fff}
+        .mq{flex:1;min-width:140px;height:34px;border:1.5px solid var(--line);border-radius:10px;padding:0 10px}
+        .mgrp{border:1.5px solid var(--line);border-radius:12px;padding:8px 10px;margin-bottom:8px}
+        .mgh{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+        .mmb{font-size:11.5px;font-weight:900;background:#1f2937;color:#fff;border-radius:6px;padding:2px 7px}
+        .mgc{font-size:12px;color:var(--ink-2);font-weight:700}
+        .mgi{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;padding-left:14px;border-left:3px solid #e2e8f0}
+        .fchk.root{background:#fff7e6}
+        .fchk.on{border-color:#0E7C86;background:#e6f4f5}
+        .cmrow{border-top:1px dashed var(--line);padding-top:8px;margin-top:6px;align-items:flex-end}
+        .cmtag{font-size:12px;font-weight:900;color:#2f55c4;background:#e8eefc;border-radius:8px;padding:3px 8px;align-self:center}
+        .cmin{width:90px;text-transform:uppercase;font-variant-numeric:tabular-nums}
+        .cmlab{font-size:13px;font-weight:800;color:var(--ink-2);margin:0 6px 0 10px}.cmhint{font-size:12px;color:var(--ink-2);margin-left:10px}
+        select.cmwarn{border-color:#e67e22;background:#fff7ed}
+        .gmask{position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:9500;display:none;align-items:stretch;justify-content:center;padding:2vh 1vw}
+        .gsheet{background:#fff;border-radius:16px;display:flex;flex-direction:column;width:100%;overflow:hidden}
+        .ghd{display:flex;gap:12px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line)}.ghd b{font-size:18px}
+        .ghd span{font-weight:800;color:#2f55c4}
+        .gbody{display:flex;flex:1;min-height:0}
+        .gfl{width:290px;overflow:auto;border-right:1px solid var(--line);padding:8px}
+        .gg{font-size:12px;font-weight:900;color:var(--ink-2);margin:10px 4px 4px}
+        .gf{display:flex;justify-content:space-between;gap:8px;padding:8px 10px;border-radius:10px;cursor:pointer;font-size:13.5px;font-weight:700;border:1.5px solid transparent}
+        .gf b{font-weight:800;color:var(--ink-2);font-variant-numeric:tabular-nums;text-align:right;word-break:break-all}.gf small{color:#94a3b8}
+        .gf.set b{color:#0E7C86}.gf.on{border-color:#0E7C86;background:#e6f4f5}
+        .gtw{flex:1;overflow:auto;padding:8px}
+        .xg{border-collapse:collapse;font-size:11.5px;table-layout:fixed}
+        .xg th{background:#f1f5f9;color:#64748b;font-weight:800;border:1px solid #e2e8f0;padding:2px 4px;position:sticky;top:0;z-index:1}
+        .xg tr th:first-child{position:sticky;left:0;z-index:2}
+        .xg td{border:1px solid #d6dde8;padding:3px 4px;vertical-align:top;cursor:pointer;max-width:260px;overflow:hidden;white-space:pre-wrap;position:relative}
+        .xg td:hover{background:#fef9c3}
+        .xg td span{color:#334155}
+        .xg td.mp{background:#e8eefc}.xg td.act{background:#0E7C86}.xg td.act span,.xg td.act i{color:#fff}
+        .xg td i{display:block;font-style:normal;font-weight:900;color:#2f55c4;font-size:11px}
+        .gbtn{background:#0E7C86 !important;color:#fff !important;border-color:#0E7C86 !important;margin-right:8px;white-space:nowrap;width:auto !important;min-width:0 !important;padding:0 14px !important;flex:0 0 auto}
+        .cmsum{display:flex;align-items:center;gap:10px;justify-content:space-between;margin-top:8px;font-size:12.5px;font-weight:700;color:var(--ink-2)}
+        .cmadv{margin-top:6px}.cmadv summary{font-size:12px;color:var(--ink-2);font-weight:700;cursor:pointer}
+        .gpop{position:fixed;z-index:9600;width:330px;background:#fff;border:1.5px solid #0E7C86;border-radius:14px;box-shadow:0 12px 32px rgba(0,0,0,.25);display:flex;flex-direction:column;overflow:hidden}
+        .gpop .ph{padding:10px 12px;font-weight:800;border-bottom:1px solid var(--line)}.gpop .ph b{color:#0E7C86;font-size:16px;margin-right:4px}
+        .gpop .pnow{padding:8px 12px;display:flex;flex-wrap:wrap;gap:6px;border-bottom:1px solid var(--line)}
+        .gpop .pnow span{background:#e8eefc;color:#2f55c4;border-radius:10px;padding:3px 8px;font-size:12.5px;font-weight:800}
+        .gpop .pnow a{color:#c0392b;cursor:pointer;margin-left:2px}
+        .gpop .plist{overflow:auto;padding:4px 6px 8px}
+        .gpop .pg{font-size:11.5px;font-weight:900;color:var(--ink-2);margin:8px 6px 2px}
+        .gpop .pi{display:flex;justify-content:space-between;gap:8px;padding:8px 10px;border-radius:10px;cursor:pointer;font-weight:700;font-size:14px}
+        .gpop .pi:hover{background:#e6f4f5}.gpop .pi small{color:#94a3b8;font-weight:700}
+        .glg{margin-left:16px;font-size:12px;color:var(--ink-2);font-weight:700;display:flex;gap:6px;align-items:center}
+        .glg i{display:inline-block;width:14px;height:14px;border-radius:3px}.glg .l1{background:#e8eefc}.glg .l2{background:#0E7C86;margin-left:8px}
+        .mtbl{width:100%;border-collapse:collapse;margin-top:8px;font-size:13px}
+        .mtbl th{background:#f1f5f9;color:#64748b;font-weight:800;text-align:left;padding:6px 8px;border:1px solid var(--line)}
+        .mtbl td{padding:5px 8px;border:1px solid var(--line);vertical-align:middle}.mtbl td b{color:#0E7C86}
+        .mtbl select{width:100%;height:36px;font-size:13px}
+        .mtbl-empty{margin-top:8px;font-size:12.5px;color:#a15c00;font-weight:700}
+        .tplbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;flex:1}
     </style>
 
     <div class="ms-wash-root">
@@ -269,8 +380,12 @@
                         <div class="ov"><div class="l">합격</div><div class="v" style="color:var(--green)" id="ovPass">0</div></div>
                         <div class="ov"><div class="l">조립복귀</div><div class="v" style="color:var(--red)" id="ovRej">0</div></div>
                     </div>
-                    <div class="secline">개별 유닛 (1대 = 1로트 = 1검사건) <span class="ln"></span><span id="uCnt"></span></div>
+                    <div class="secline">개별 유닛 (1대 = 1로트 = 1검사건) <span class="ln"></span><span id="uCnt"></span>
+                        <button class="batchbtn" id="bBatchToggle" type="button">☑ 여러 대 선택</button></div>
                     <div class="ugrid" id="uGrid"></div>
+                    <div id="bBatchBar"><span class="t" id="bBatchTxt">0대 선택</span>
+                        <button class="ghost" id="bBatchAll" type="button">검사대기 전체</button>
+                        <button id="bBatchGo" type="button">일괄 검사</button></div>
                 </div></div>
             </div></div>
 
@@ -279,6 +394,7 @@
                 <div class="topbar2"><button class="back" data-back="B">‹</button>
                     <div class="htitle"><div class="t" id="cUnit">—</div><div class="s" id="cSub">—</div></div>
                     <div class="infopill" id="cLotPill"><span>LOT</span><b id="cLot">—</b></div>
+                    <button class="btn ghost" id="btnDoc" style="margin-left:8px;min-height:44px;padding:0 14px">📄 문서</button>
                 </div>
                 <div class="bscroll"><div class="bgrid" id="cGrid"></div></div>
                 <div class="actionbar" id="cAction"></div>
@@ -286,6 +402,44 @@
         </div>
 
         <!-- 검사자 배정 -->
+        <!-- ★ 시각 수정 (다른 공정과 같은 시트) -->
+        <div class="mask" id="timeMask"><div class="sheet"><div class="body">
+            <div class="sh"><h3 id="timeTitle">시작 일시 수정</h3><button class="x" data-close>✕</button></div>
+            <div class="dateedit"><button class="dbtn" data-d="-1">◀</button><div class="dval" id="tDate">—</div><button class="dbtn" data-d="1">▶</button></div>
+            <div class="timeedit">
+                <div class="tcol"><button data-t="h+">▲</button><div class="tv" id="tH">09</div><button data-t="h-">▼</button></div>
+                <div class="tsep">:</div>
+                <div class="tcol"><button data-t="m+">▲</button><div class="tv" id="tM">00</div><button data-t="m-">▼</button></div>
+            </div>
+            <div style="display:flex;gap:10px;margin-top:16px">
+                <button class="ok" data-close style="flex:0 0 34%;margin-top:0;background:var(--surface-2);color:var(--ink);border:1.5px solid var(--line)">닫기</button>
+                <button class="ok" id="timeOk" style="margin-top:0">저장</button>
+            </div>
+        </div></div></div>
+
+        <!-- ★ 일괄 검사 : 여러 대를 한 표에서 입력 -->
+        <div class="mask" id="batchMask"><div class="sheet"><div class="body">
+            <div class="sh"><h3 id="batchTitle">일괄 검사</h3><button class="x" data-close>✕</button></div>
+            <div class="fieldlab">검사 양식</div><div class="opts" id="batchForms"></div>
+            <div class="fieldlab">검사자</div>
+            <select id="batchWho" style="width:100%;height:52px;border-radius:14px;border:1.5px solid var(--line);padding:0 12px;font-size:16px;font-weight:800;font-family:inherit"></select>
+            <div class="fieldlab">검사 시각 <span style="color:var(--ink-2);font-weight:700">(눌러서 직접 지정 · «자동»이면 저장·확정한 시각 · 선택한 유닛 전체에 같이 적용)</span></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button class="tchip" id="bStartChip" type="button"><span>시작</span>자동</button>
+                <button class="tchip" id="bEndChip" type="button"><span>종료</span>자동</button>
+                <button class="batchbtn" id="batchRevise" type="button" style="margin-left:auto;display:none">확정된 유닛 수정 열기</button>
+            </div>
+            <div class="fieldlab" style="display:flex;align-items:center;gap:8px">입력 <span style="color:var(--ink-2);font-weight:700;font-size:12.5px">합/불은 눌러서 바꾸고, 수치는 직접 입력(범위로 자동 판정)</span>
+                <button class="batchbtn" id="batchAllPass" type="button" style="margin-left:auto">합/불 전체 합격</button></div>
+            <div class="bwrap"><table class="btable" id="batchTable"></table></div>
+            <div class="fieldlab">불합격 사유 <span style="color:var(--ink-2);font-weight:700">(불합격 유닛에 공통 적용 · 선택)</span></div>
+            <input id="batchFail" style="width:100%;height:50px;border-radius:14px;border:1.5px solid var(--line);padding:0 12px;font-size:15px;font-family:inherit" placeholder="예: 누설 불량">
+            <div style="display:flex;gap:10px;margin-top:16px">
+                <button class="ok" id="batchSave" style="flex:0 0 38%;margin-top:0;background:var(--surface-2);color:var(--ink);border:1.5px solid var(--line)">입력만 저장</button>
+                <button class="ok" id="batchJudge" style="margin-top:0">저장 + 확정</button>
+            </div>
+        </div></div></div>
+
         <div class="mask" id="whoMask"><div class="sheet"><div class="body">
             <div class="sh"><h3 id="whoTitle">검사자 배정</h3><button class="x" data-close>✕</button></div>
             <div class="fieldlab">검사자 <span style="color:var(--ink-2);font-weight:700">(여러 명 선택 가능)</span></div><div class="opts" id="whoOpts"></div>
@@ -321,6 +475,7 @@
 </th:block>
 
 <th:block layout:fragment="scripts">
+    <script type="text/javascript" th:src="@{/js/mcell_doc.js}"></script>
     <script th:inline="none">
         /* 높이 자동 맞춤 */
         (function () {
@@ -522,6 +677,12 @@
 
         /* ── 상태 ── */
         let ORDERS = [], curO = null, UNITS = [], curU = null;
+        /* ★ 제조 문서 (완제품검사서 등 — 엑셀/인쇄/첨부) */
+        document.getElementById('btnDoc').addEventListener('click', function () {
+            if (!curU) return;
+            if (typeof McellDoc === 'undefined') { flash('문서 모듈(mcell_doc.js)이 없습니다'); return; }
+            McellDoc.open({unitId: curU.unit_id, from: 'inspect'});
+        });
         let FORMS = [], curForm = null, DET = null, ITEMS = {}, histView = null, histItems = null;
         let filter = 'all';
 
@@ -611,8 +772,39 @@
             return (t && String(t).trim()) ? String(t).trim() : '';
         }
 
+        /* ★ 검사 양식이 많아져서(모델별 10개 안팎) 카드에는 칩 대신 진행 막대 + 다음 검사만 */
+        function shortNm(n) { return String(n || '').replace(/^\s*\[[^\]]*\]\s*/, ''); }   // «[M2] » 머리 떼기
+        function ckCount(forms) {
+            const cur = forms.filter(f => !(f.stale === 'Y'));
+            const pass = cur.filter(f => f.verdict === 'pass').length, fail = cur.filter(f => f.verdict === 'fail');
+            const prog = cur.filter(f => !f.verdict && f.result_id).length;
+            const next = forms.find(f => f.stale === 'Y' || !f.verdict);
+            return {n: forms.length, pass, fail, prog, next};
+        }
+        function bar(c) {
+            const w = x => (c.n ? (x / c.n * 100) : 0).toFixed(1) + '%';
+            return '<div class="bar"><i style="width:' + w(c.pass) + ';background:var(--green)"></i>' +
+                '<i style="width:' + w(c.fail.length) + ';background:var(--red)"></i>' +
+                '<i style="width:' + w(c.prog) + ';background:var(--teal)"></i></div>';
+        }
+        function ckSummary(forms) {
+            if (!forms.length) return '';
+            if (forms.length <= 3) return '<div class="ckchips">' + forms.map(ckChip).join('') + '</div>';
+            const c = ckCount(forms);
+            return '<div class="ckprog">' + bar(c) +
+                '<div class="t"><span>검사 <b>' + c.pass + '</b> / ' + c.n + ' 합격</span>' +
+                (c.next ? '<span class="nx">다음 · ' + esc(shortNm(c.next.form_name)) + '</span>' : '<span class="nx" style="color:var(--green)">전 항목 완료</span>') + '</div>' +
+                (c.fail.length ? '<div class="bad">불합격 · ' + c.fail.map(f => esc(shortNm(f.form_name))).join(', ') + '</div>' : '') +
+                '</div>';
+        }
+        function tabSummary(forms) {
+            if (forms.length <= 3) return '';
+            const c = ckCount(forms);
+            return '<div class="tabsum"><span>검사 ' + c.pass + ' / ' + c.n + ' 합격' + (c.fail.length ? ' · 불합격 ' + c.fail.length : '') + '</span>' + bar(c) + '</div>';
+        }
+
         function ckChip(f) {
-            const nm = esc(f.form_name);
+            const nm = esc(shortNm(f.form_name));
             /* ★ 재조립 전의 판정이면 «이전» 으로 흐리게 보인다.
                  조립 → 합격 → 분해 → 재조립 으로 오면 마지막 회차가 옛 합격이라,
                  검사대기인 유닛에 「합격」이 떠서 이미 끝난 것처럼 읽혔다.
@@ -645,7 +837,7 @@
                 document.getElementById('uCnt').textContent = UNITS.length + '대';
                 document.getElementById('uGrid').innerHTML = UNITS.map((u, i) =>
                         '<div class="unit" data-st="' + u.state + '" data-i="' + i + '"><div class="edge"></div>' +
-                        '<div style="display:flex;align-items:center;gap:8px"><span class="un">#' + String(u.unit_no).padStart(2, '0') + '호기</span>' +
+                        '<div style="display:flex;align-items:center;gap:8px"><span class="un">' + (u.serial_no ? esc(u.serial_no) : '#' + String(u.unit_no).padStart(2, '0') + '호기') + '</span>' +
                         (u.repair_id ? '<span class="rpbadge">수리 · ' + (u.repair_cat === 'spec' ? '사양변경' : '반품') + '</span>' : '') +
                         (num(u.rework_cnt) > 0 ? '<span class="rwbadge">재조립 ' + num(u.rework_cnt) + '회</span>' : '') +
                         '<span class="ubadge ' + u.state + '" style="margin-left:auto">' + (UST[u.state] || u.state) + '</span></div>' +
@@ -653,15 +845,296 @@
                         (u.repair_id && u.src_lot && u.src_lot !== u.lot_number
                             ? '<div class="from">원 로트 ' + esc(u.src_lot) + '</div>' : '') +
                         (u.state === 'reject' && u.reject_reason ? '<div class="from">불합격 : ' + esc(u.reject_reason) + '</div>' : '') +
-                        '<div class="ckchips">' + (u.forms || []).map(ckChip).join('') + '</div></div>').join('')
+                        ckSummary(u.forms || []) + '</div>').join('')
                     || '<div class="emptysess" style="grid-column:1/-1">검사 대상 유닛이 없습니다.</div>';
+                if (batchMode) paintBatch();   // ★ 새로고침해도 선택 표시 유지
             });
         }
 
         document.getElementById('uGrid').addEventListener('click', e => {
             const u = e.target.closest('.unit');
-            if (u) openUnit(+u.dataset.i);
+            if (!u) return;
+            if (batchMode) { toggleBatch(+u.dataset.i); return; }
+            openUnit(+u.dataset.i);
         });
+
+        /** 판정 수정 가능 — 재조립·수리가 시작되지 않았고, 최신 회차일 때(서버가 최종 확인) */
+        function canRevise() {
+            return ['inspect_wait', 'pass', 'reject', 'packed'].indexOf(curU && curU.state) >= 0;
+        }
+
+        /* ══════════ ★ 시각 수정 시트 (다른 공정과 같은 동작) ══════════ */
+        let tsDate = new Date(), tsCb = null;
+        const pad2 = n => String(n).padStart(2, '0');
+        const fmtD = d => d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+        const fmtDEdit = d => fmtD(d) + ' (' + '일월화수목금토'.charAt(d.getDay()) + ')';
+        function openTimeSheet(title, cur, cb) {
+            tsCb = cb;
+            tsDate = cur ? new Date(String(cur).replace(' ', 'T')) : new Date();
+            if (isNaN(tsDate)) tsDate = new Date();
+            document.getElementById('timeTitle').textContent = title;
+            paintTs();
+            showMask('timeMask');
+        }
+        function paintTs() {
+            document.getElementById('tDate').textContent = fmtDEdit(tsDate);
+            document.getElementById('tH').textContent = pad2(tsDate.getHours());
+            document.getElementById('tM').textContent = pad2(tsDate.getMinutes());
+        }
+        document.getElementById('timeMask').addEventListener('click', e => {
+            const d = e.target.closest('[data-d]');
+            if (d) { tsDate.setDate(tsDate.getDate() + (+d.dataset.d)); paintTs(); return; }
+            const t = e.target.closest('[data-t]');
+            if (t) {   // 자리올림/자리내림 — 실제 시각으로 더하고 뺀다
+                const step = {'h+': 60, 'h-': -60, 'm+': 1, 'm-': -1}[t.dataset.t] || 0;
+                tsDate = new Date(tsDate.getTime() + step * 60000); paintTs();
+            }
+        });
+        document.getElementById('timeOk').addEventListener('click', () => {
+            const v = fmtD(tsDate) + ' ' + pad2(tsDate.getHours()) + ':' + pad2(tsDate.getMinutes());
+            hideMask('timeMask');
+            if (tsCb) tsCb(v);
+        });
+
+        /* ══════════ ★ 일괄 검사 — 여러 대를 한 번에 ══════════
+           현장은 최소 10대씩 동시에 검사한다. 서버는 그대로 두고(유닛×양식 = 회차 1건),
+           화면이 선택한 유닛마다 result_start → item_save → judge 를 차례로 부른다.
+           판정·창고 이동(17→19)·불합격 사유 전파는 유닛마다 기존 로직 그대로 돈다. */
+        let batchMode = false, batchSel = [], batchForm = null, BROWS = [];
+        // ★ 확정된 유닛(합격·불합격)도 골라서 판정 수정을 할 수 있다. 포장된 유닛은 개별 화면에서만.
+        function batchable(u) { return ['inspect_wait', 'pass', 'reject'].indexOf(u.state) >= 0 && (u.forms || []).length > 0; }
+        let bStart = null, bEnd = null;
+        function paintBTimes() {
+            document.getElementById('bStartChip').innerHTML = '<span>시작</span>' + esc(bStart || '자동');
+            document.getElementById('bEndChip').innerHTML = '<span>종료</span>' + esc(bEnd || '자동');
+        }
+        document.getElementById('bStartChip').addEventListener('click', () =>
+            openTimeSheet('일괄 검사 시작 일시', bStart, v => { bStart = v; paintBTimes(); }));
+        document.getElementById('bEndChip').addEventListener('click', () =>
+            openTimeSheet('일괄 검사 종료 일시', bEnd, v => {
+                if (bStart && v < bStart) { flash('종료가 시작보다 이를 수 없습니다'); return; }
+                bEnd = v; paintBTimes();
+            }));
+        document.getElementById('batchRevise').addEventListener('click', () => {
+            const lk = BROWS.filter(b => b.locked);
+            uiConfirm('확정된 ' + lk.length + '대의 판정을 다시 엽니다.\n입력값은 그대로 남고, 고친 뒤 다시 확정하면 됩니다.\n합격이 풀리면 로트가 생산창고로 돌아갑니다.', function () {
+                guard(async () => {
+                    const errs = [];
+                    for (const b of lk) {
+                        try { await apiPost('/result_revise', {result_id: b.res.result_id, spjangcd: CTX.spjangcd}); }
+                        catch (e) { errs.push(uLabel(b.u) + ' ' + (e.message || e)); }
+                    }
+                    await renderUnits(); paintBatch(); await loadBatch();
+                    flash(errs.length ? '일부 실패: ' + errs.join(', ') : lk.length + '대의 판정을 다시 열었습니다');
+                });
+            }, '판정 수정');
+        });
+        function paintBatch() {
+            document.getElementById('bBatchToggle').classList.toggle('on', batchMode);
+            document.getElementById('bBatchToggle').textContent = batchMode ? '선택 끝내기' : '☑ 여러 대 선택';
+            document.getElementById('bBatchBar').style.display = batchMode ? 'flex' : 'none';
+            document.getElementById('bBatchTxt').textContent = batchSel.length + '대 선택';
+            document.querySelectorAll('#uGrid .unit').forEach(el => {
+                const i = +el.dataset.i, u = UNITS[i];
+                let c = el.querySelector('.bchk');
+                if (!batchMode) { if (c) c.remove(); el.classList.remove('bsel', 'bdis'); return; }
+                if (!c) { c = document.createElement('span'); c.className = 'bchk'; el.appendChild(c); }
+                const on = batchSel.indexOf(i) >= 0;
+                el.classList.toggle('bsel', on);
+                el.classList.toggle('bdis', !batchable(u));
+                c.textContent = on ? '✓' : '';
+            });
+        }
+        function toggleBatch(i) {
+            if (!batchable(UNITS[i])) { flash(UNITS[i].state === 'packed' ? '포장된 유닛은 개별 화면에서 수정하세요' : '고를 수 없는 유닛입니다'); return; }
+            const k = batchSel.indexOf(i);
+            if (k >= 0) batchSel.splice(k, 1); else batchSel.push(i);
+            paintBatch();
+        }
+        document.getElementById('bBatchToggle').addEventListener('click', () => {
+            batchMode = !batchMode; batchSel = []; paintBatch();
+        });
+        document.getElementById('bBatchAll').addEventListener('click', () => {
+            batchSel = UNITS.map((u, i) => u.state === 'inspect_wait' && batchable(u) ? i : -1).filter(i => i >= 0);
+            paintBatch();
+        });
+        document.getElementById('bBatchGo').addEventListener('click', () => {
+            if (batchSel.length < 1) { flash('검사할 유닛을 고르세요'); return; }
+            openBatch();
+        });
+
+        /** 선택한 유닛들에 공통으로 걸린 양식 */
+        function batchForms() {
+            const sel = batchSel.map(i => UNITS[i]);
+            const first = (sel[0].forms || []);
+            return first.filter(f => sel.every(u => (u.forms || []).some(g => +g.form_id === +f.form_id)));
+        }
+        function openBatch() {
+            guard(async () => {
+                const fs = batchForms();
+                if (!fs.length) { flash('선택한 유닛에 공통으로 걸린 검사 양식이 없습니다'); return; }
+                if (!batchForm || !fs.some(f => +f.form_id === +batchForm)) batchForm = fs[0].form_id;
+                document.getElementById('batchForms').innerHTML = fs.map(f =>
+                    '<button class="opt' + (+f.form_id === +batchForm ? ' sel' : '') + '" data-bf="' + f.form_id + '">' + esc(f.form_name) + '</button>').join('');
+                const ws = fetchWorkersActor();
+                const sel = document.getElementById('batchWho');
+                if (!sel.options.length) {
+                    sel.innerHTML = '<option value="">검사자 선택</option>' + ws.map(w =>
+                        '<option value="' + w.actor_id + '">' + esc(w.actor_name) + '</option>').join('');
+                }
+                document.getElementById('batchTitle').textContent = '일괄 검사 · ' + batchSel.length + '대';
+                document.getElementById('batchFail').value = '';
+                bStart = null; bEnd = null; paintBTimes();
+                await loadBatch();
+                showMask('batchMask');
+            });
+        }
+        document.getElementById('batchForms').addEventListener('click', e => {
+            const b = e.target.closest('[data-bf]'); if (!b) return;
+            batchForm = +b.dataset.bf;
+            document.querySelectorAll('#batchForms [data-bf]').forEach(x => x.classList.toggle('sel', +x.dataset.bf === batchForm));
+            guard(loadBatch);
+        });
+
+        let BFORM = null;
+        /** 유닛별 현재 회차와 입력값을 읽어 표를 만든다 */
+        async function loadBatch() {
+            BROWS = [];
+            // 고른 순서가 아니라 호기 순으로
+            for (const i of batchSel.slice().sort((a, b) => num(UNITS[a].unit_no) - num(UNITS[b].unit_no))) {
+                const u = UNITS[i];
+                const d = apiGet('/result_detail', {unit_id: u.unit_id, form_id: batchForm});
+                BFORM = d.form;
+                const vals = {};
+                (d.items || []).forEach(it => { vals[it.item_id + '_' + it.repeat_no] = {result: it.result, value: it.value}; });
+                const res = d.result;
+                // 이미 확정된 회차 = 잠금(재검사는 개별 화면에서)
+                const fm = (u.forms || []).find(f => +f.form_id === +batchForm) || {};
+                const locked = !!(res && res.verdict && fm.stale !== 'Y');
+                BROWS.push({u: u, res: res, vals: vals, locked: locked, verdict: res && res.verdict});
+            }
+            renderBatch();
+        }
+        function bCols() {
+            const cols = [];
+            ((BFORM && BFORM.items) || []).forEach(it => {
+                const n = Math.max(1, num(it.repeat_count));
+                for (let r = 1; r <= n; r++) cols.push({it: it, rep: r});
+            });
+            return cols;
+        }
+        /* ★ 유닛 표시 — 시리얼 번호가 있으면 시리얼, 없으면 «#01호기» */
+        function uLabel(u) { return u.serial_no ? String(u.serial_no) : '#' + String(u.unit_no).padStart(2, '0') + '호기'; }
+        function renderBatch() {
+            const cols = bCols();
+            let h = '<tr><th>유닛</th>' + cols.map((c, ci) =>
+                '<th>' + esc(c.it.item_name) + (num(c.it.repeat_count) > 1 ? ' #' + c.rep : '') +
+                (c.it.judge_type === 'num'
+                    ? '<div style="font-weight:700">' + (c.it.lower_limit == null ? '' : c.it.lower_limit) + '~' + (c.it.upper_limit == null ? '' : c.it.upper_limit) + ' ' + esc(c.it.unit || '') + '</div>'
+                    : '<button class="colall" data-colall="' + ci + '">열 전체 합격</button>') +
+                '</th>').join('') + '</tr>';
+            h += BROWS.map((b, ri) => '<tr class="' + (b.locked ? 'locked' : '') + '"><td>' + esc(uLabel(b.u)) +
+                '<div style="font-size:11.5px;color:var(--ink-2)">' + esc(b.u.lot_number || '') +
+                (b.locked ? ' · ' + (b.verdict === 'pass' ? '합격 확정' : '불합격 확정') : '') + '</div></td>' +
+                cols.map((c, ci) => {
+                    const v = b.vals[c.it.item_id + '_' + c.rep] || {};
+                    if (c.it.judge_type === 'num') {
+                        return '<td><input class="nv ' + (v.result || '') + '" inputmode="decimal" data-nv="' + ri + ',' + ci + '" value="' + esc(v.value || '') + '"' + (b.locked ? ' disabled' : '') + '></td>';
+                    }
+                    return '<td><button class="ox ' + (v.result || '') + '" data-ox="' + ri + ',' + ci + '"' + (b.locked ? ' disabled' : '') + '>' +
+                        (v.result === 'pass' ? '합격' : v.result === 'fail' ? '불합격' : '—') + '</button></td>';
+                }).join('') + '</tr>').join('');
+            document.getElementById('batchTable').innerHTML = h;
+            const nl = BROWS.filter(b => b.locked).length;
+            const rv = document.getElementById('batchRevise');
+            rv.style.display = nl ? '' : 'none';
+            rv.textContent = '확정된 ' + nl + '대 수정 열기';
+            const hasSpec = ((BFORM && BFORM.items) || []).some(it => it.spec_options);
+            if (hasSpec) flash('규격 선택이 있는 항목은 기본 규격으로 기록됩니다 — 규격을 바꿔야 하면 개별 화면에서 입력하세요');
+        }
+        function setCell(ri, ci, patch) {
+            const b = BROWS[ri], c = bCols()[ci];
+            if (!b || b.locked) return;
+            const k = c.it.item_id + '_' + c.rep;
+            b.vals[k] = Object.assign({}, b.vals[k] || {}, patch, {dirty: true});
+        }
+        document.getElementById('batchTable').addEventListener('click', e => {
+            const ca = e.target.closest('[data-colall]');
+            if (ca) { BROWS.forEach((b, ri) => setCell(ri, +ca.dataset.colall, {result: 'pass'})); renderBatch(); return; }
+            const ox = e.target.closest('[data-ox]'); if (!ox || ox.disabled) return;
+            const [ri, ci] = ox.dataset.ox.split(',').map(Number);
+            const c = bCols()[ci], cur = (BROWS[ri].vals[c.it.item_id + '_' + c.rep] || {}).result;
+            setCell(ri, ci, {result: cur === 'pass' ? 'fail' : cur === 'fail' ? null : 'pass'});
+            renderBatch();
+        });
+        document.getElementById('batchTable').addEventListener('change', e => {
+            const nv = e.target.closest('[data-nv]'); if (!nv) return;
+            const [ri, ci] = nv.dataset.nv.split(',').map(Number);
+            const c = bCols()[ci];
+            const res = autoJudge(c.it, nv.value);
+            setCell(ri, ci, {value: nv.value, result: res});
+            // ★ 표 전체를 다시 그리지 않는다 — 입력칸이 포커스를 잃는 중에 지우면 브라우저가 오류를 낸다.
+            //   이 칸의 판정 색만 바꾼다.
+            nv.classList.remove('pass', 'fail');
+            if (res) nv.classList.add(res);
+        });
+        document.getElementById('batchAllPass').addEventListener('click', () => {
+            bCols().forEach((c, ci) => { if (c.it.judge_type !== 'num') BROWS.forEach((b, ri) => setCell(ri, ci, {result: 'pass'})); });
+            renderBatch();
+        });
+
+        /** 저장(+확정) — 유닛마다 차례로. 한 대가 실패해도 나머지는 계속, 끝에 요약 */
+        async function runBatch(judge) {
+            const who = document.getElementById('batchWho').value;
+            if (!who) { flash('검사자를 선택하세요'); return; }
+            const cols = bCols(), fail = document.getElementById('batchFail').value.trim();
+            let saved = 0, judged = 0, pass = 0, rej = 0, incomplete = 0;
+            const errs = [];
+            const btns = ['batchSave', 'batchJudge'].map(id => document.getElementById(id));
+            btns.forEach(b => b.disabled = true);
+            try {
+                for (const b of BROWS) {
+                    if (b.locked) continue;
+                    try {
+                        let rid = b.res && !b.res.verdict ? b.res.result_id : null;
+                        const st = await apiPost('/result_start', {unit_id: b.u.unit_id, form_id: batchForm, actor_id: who, spjangcd: CTX.spjangcd});
+                        rid = (st.data && st.data.result_id) || rid;
+                        for (const c of cols) {
+                            const v = b.vals[c.it.item_id + '_' + c.rep];
+                            if (!v || !v.dirty) continue;
+                            await apiPost('/item_save', {
+                                result_id: rid, form_item_id: c.it.item_id, seq_no: c.it.seq_no, repeat_no: c.rep,
+                                result: v.result || '', value: v.value || '', actor_id: who, spjangcd: CTX.spjangcd
+                            });
+                            v.dirty = false;
+                        }
+                        if (bStart) await apiPost('/result_time', {result_id: rid, which: 'start', value: bStart});
+                        saved++;
+                        if (judge) {
+                            const filled = cols.every(c => (b.vals[c.it.item_id + '_' + c.rep] || {}).result);
+                            if (!filled) { incomplete++; continue; }
+                            const bad = cols.some(c => (b.vals[c.it.item_id + '_' + c.rep] || {}).result === 'fail');
+                            await apiPost('/judge', {result_id: rid, fail_reason: bad ? (fail || '') : '', spjangcd: CTX.spjangcd});
+                            if (bEnd) await apiPost('/result_time', {result_id: rid, which: 'end', value: bEnd});
+                            judged++; if (bad) rej++; else pass++;
+                        }
+                    } catch (e) {
+                        errs.push(uLabel(b.u) + ' ' + (e.message || e));
+                    }
+                }
+            } finally {
+                btns.forEach(b => b.disabled = false);
+            }
+            let msg = saved + '대 저장';
+            if (judge) msg += ' · 확정 ' + judged + '대 (합격 ' + pass + ' · 불합격 ' + rej + ')' + (incomplete ? ' · 미입력 ' + incomplete + '대는 확정 보류' : '');
+            if (errs.length) msg += ' · 실패 ' + errs.length + '대: ' + errs.join(', ');
+            flash(msg);
+            // ★ 저장·확정 후에도 창을 닫지 않는다 — 결과(확정 잠금·합/불 색)를 그 자리에서 보고
+            //   다른 양식 탭으로 넘어가 이어서 입력할 수 있게. 닫기는 ✕ 로.
+            await renderUnits(); paintBatch(); await loadBatch();
+        }
+        document.getElementById('batchSave').addEventListener('click', () => guard(() => runBatch(false)));
+        document.getElementById('batchJudge').addEventListener('click', () => guard(() => runBatch(true)));
 
         /* ══════════ C. 유닛 검사 ══════════ */
         function openUnit(i) {
@@ -770,7 +1243,7 @@
         function renderUnit() {
             const _sc = document.getElementById('cGrid').closest('.bscroll');
             const _keep = _sc ? _sc.scrollTop : 0;
-            document.getElementById('cUnit').textContent = '#' + String(curU.unit_no).padStart(2, '0') + '호기 · ' + (UST[curU.state] || curU.state);
+            document.getElementById('cUnit').textContent = (curU.serial_no || ('#' + String(curU.unit_no).padStart(2, '0') + '호기')) + ' · ' + (UST[curU.state] || curU.state);
             /* 검사자 — 이 로트의 모든 양식에 투입된 인원 전원 (중복 제거) */
             const who = [];
             FORMS.forEach(f => {
@@ -811,7 +1284,7 @@
                     (curU.reject_reason ? '<span class="rl">직전 사유 : ' + esc(curU.reject_reason) + '</span>' : '') +
                     '</div>';
             }
-            html += '<div class="tabbar">' + FORMS.map(f => {
+            html += tabSummary(FORMS) + '<div class="tabbar">' + FORMS.map(f => {
                 let ts = '대기', cls = '';
                 // 재조립 전의 판정은 «이전» — 이번 물건은 아직 판정받지 않았다
                 if (f.stale === 'Y' && f.verdict) {
@@ -824,8 +1297,8 @@
                     cls = 'fail';
                 } else if (f.result_id) ts = '진행중';
                 const fw = formWho(f);
-                return '<button class="' + (+f.form_id === +curForm ? 'on' : '') + '" data-tab="' + f.form_id + '">' +
-                    esc(f.form_name) + '<span class="ts ' + cls + '">' + ts + '</span>' +
+                return '<button class="' + (+f.form_id === +curForm ? 'on ' : '') + cls + '" data-tab="' + f.form_id + '" title="' + esc(f.form_name) + '">' +
+                    esc(shortNm(f.form_name)) + '<span class="ts ' + cls + '">' + ts + '</span>' +
                     (fw ? '<span class="tw">' + esc(fw) + '</span>' : '') + '</button>';
             }).join('') + '</div>';
 
@@ -835,6 +1308,13 @@
             html += '<div class="whoRow"><span class="l">' + esc(curFormMeta().form_name) + ' 검사자</span>' +
                 '<span class="nm">' + esc(actor || '미배정') + '</span>' +
                 (confirmed ? '' : '<button class="assign" data-who>' + (actor ? '변경' : '배정') + '</button>') + '</div>';
+            // ★ 검사 시각 — 다른 공정처럼 시작/종료를 보이고 고칠 수 있다
+            if (res) {
+                html += '<div class="whoRow"><span class="l">검사 시각</span>' +
+                    '<button class="tchip" data-rtime="start"><span>시작</span>' + esc(res.start_time || '-') + '</button>' +
+                    '<button class="tchip" data-rtime="end"' + (res.end_time ? '' : ' disabled') + '><span>종료</span>' +
+                    esc(res.end_time || '확정 시') + '</button></div>';
+            }
 
             if (confirmed) {
                 const pass = res.verdict === 'pass';
@@ -843,6 +1323,8 @@
                     '<div class="big" style="color:' + (pass ? 'var(--green)' : 'var(--red)') + ';font-size:26px">' + (pass ? '합격' : '불합격') + '</div>' +
                     '<div style="font-size:12.5px;color:var(--ink-2);font-weight:700;margin-top:2px">검사자 ' + esc(actor || '-') + ' · ' + esc(res.end_time || '') + '</div>' +
                     (res.fail_reason ? '<div class="failwhy">사유 : ' + esc(res.fail_reason) + '</div>' : '') + '</div>' +
+                    // ★ 판정 수정 — 같은 회차를 다시 열어 고친다(재검사와 달리 이력이 늘지 않음)
+                    (canRevise() ? '<button class="btn ghost" data-revise>판정 수정</button>' : '') +
                     '<button class="btn ghost" data-recheck>재검사</button></div>';
             } else if (!actor) {
                 html += '<div class="part" style="justify-content:center;color:var(--ink-2);font-weight:700">검사자를 먼저 배정하세요</div>';
@@ -979,7 +1461,12 @@
 
         function renderCAction() {
             const bar = document.getElementById('cAction');
-            const sub = FORMS.map(f => esc(f.form_name) + ' ' + (f.verdict === 'pass' ? '합격' : f.verdict === 'fail' ? '불합격' : '미검')).join(' · ');
+            /* ★ 양식이 많으면 이름을 다 늘어놓지 않고 개수로 */
+            const sub = FORMS.length > 3
+                ? (() => { const p = FORMS.filter(f => f.verdict === 'pass').length, fl = FORMS.filter(f => f.verdict === 'fail');
+                    return '합격 ' + p + ' · 불합격 ' + fl.length + ' · 미검 ' + (FORMS.length - p - fl.length) + ' / 전체 ' + FORMS.length +
+                        (fl.length ? ' (불합격: ' + fl.map(f => esc(shortNm(f.form_name))).join(', ') + ')' : ''); })()
+                : FORMS.map(f => esc(shortNm(f.form_name)) + ' ' + (f.verdict === 'pass' ? '합격' : f.verdict === 'fail' ? '불합격' : '미검')).join(' · ');
             if (curU.state === 'pass' || curU.state === 'packed')
                 bar.innerHTML = '<div class="actsum"><span class="l">' + sub + '</span><span class="v" style="color:var(--green)">합격 · 검사완료창고 이동</span></div>';
             else if (curU.state === 'reject')
@@ -1043,6 +1530,30 @@
             }
             if (e.target.closest('[data-recheck]')) {
                 doRecheck();
+                return;
+            }
+            const rt = e.target.closest('[data-rtime]');
+            if (rt && !rt.disabled && DET.result) {
+                const w = rt.dataset.rtime;
+                openTimeSheet((w === 'start' ? '검사 시작' : '검사 종료') + ' 일시 수정',
+                    w === 'start' ? DET.result.start_time : DET.result.end_time, v => guard(async () => {
+                        await apiPost('/result_time', {result_id: DET.result.result_id, which: w, value: v});
+                        await loadDetail();
+                        flash((w === 'start' ? '시작' : '종료') + ' 저장 ' + v);
+                    }));
+                return;
+            }
+            if (e.target.closest('[data-revise]')) {
+                const packed = curU.state === 'packed';
+                uiConfirm('확정된 판정을 다시 엽니다. 입력값은 그대로 남고, 고친 뒤 다시 확정하면 됩니다.\n' +
+                    (packed ? '포장(출고)된 유닛이라 합격으로만 다시 확정할 수 있습니다.'
+                        : '합격이 풀리면 로트가 생산창고로 돌아가고, 다시 합격하면 검사완료창고로 갑니다.'), function () {
+                    guard(async () => {
+                        const r = await apiPost('/result_revise', {result_id: DET.result.result_id, spjangcd: CTX.spjangcd});
+                        await refreshUnitAfterJudge();
+                        flash(r.message || '판정을 다시 열었습니다');
+                    });
+                }, '판정 수정');
                 return;
             }
 
@@ -1448,11 +1959,13 @@
         });
 
         function drawFormList() {
-            document.getElementById('fList').innerHTML = FLIST.map(f =>
+            const lm = ['전체'].concat(['M2', 'M4', 'M4A', '공통'].filter(m => FLIST.some(f => modelOf(f.form_name) === m)));
+            document.getElementById('fList').innerHTML = '<div class="lmod">' + lm.map(m => '<button class="mmod' + (fListModel === m ? ' on' : '') + '" data-lmod="' + m + '">' + m + '</button>').join('') + '</div>' +
+                FLIST.filter(f => fListModel === '전체' || modelOf(f.form_name) === fListModel).map(f =>
                     '<div class="frow' + (fCur && +fCur.form_id === +f.form_id ? ' on' : '') + '" data-f="' + f.form_id + '">' +
                     '<div style="flex:1;min-width:0">' +
                     '<div class="fn">' + esc(f.form_name) + '</div>' +
-                    '<div class="fc">' + esc(f.form_code || '코드 없음') + ' · 항목 ' + f.item_cnt + '개</div>' +
+                    '<div class="fc">' + (f.insp_type === 'process' ? '<b style="color:#2f55c4">공정검사</b> · ' : f.insp_type === 'pack' ? '<b style="color:#8a5a00">포장</b> · ' : '') + esc(f.form_code || '코드 없음') + ' · 항목 ' + f.item_cnt + '개</div>' +
                     '<div class="fmats' + (f.mat_names ? '' : ' none') + '">' + esc(f.mat_names || '적용품목 없음') + '</div>' +
                     '</div>' +
                     '<span class="fuse ' + (f.use_yn === 'Y' ? 'on' : '') + '">' + (f.use_yn === 'Y' ? '사용' : '미사용') + '</span></div>').join('')
@@ -1460,13 +1973,17 @@
         }
 
         document.getElementById('fList').addEventListener('click', e => {
+            const lm = e.target.closest('[data-lmod]');
+            if (lm) { fListModel = lm.dataset.lmod; drawFormList(); return; }
             const r = e.target.closest('[data-f]');
             if (!r) return;
             guard(async () => {
                 const d = apiGet('/form_detail', {form_id: +r.dataset.f});
                 fCur = d;
-                fItems = (d.items || []).map(x => Object.assign({}, x));
+                fItems = (d.items || []).map(x => Object.assign({}, x, {cell_map: parseCm(x.cell_map)}));
+                fCur.cell_map = parseCm(fCur.cell_map);
                 fSelMats = (d.materials || []).map(m => +m.mat_id);
+                fMatModel = null; fMatQ = '';
                 drawFormList();
                 drawFormEditor();
             });
@@ -1478,11 +1995,13 @@
                 form_code: '',
                 form_name: '',
                 use_yn: 'Y',
+                insp_type: 'final',
                 seq_no: (FLIST.length + 1),
                 description: ''
             };
             fItems = [];
             fSelMats = [];
+            fMatModel = null; fMatQ = '';
             drawFormList();
             drawFormEditor();
         });
@@ -1554,6 +2073,7 @@
         })();
 
         function drawFormEditor() {
+            if (fCur && fCur.insp_type === 'record') ensureGridFor();
             const box = document.getElementById('fEdit');
             if (!fCur) {
                 box.innerHTML = '<div style="color:var(--ink-2);font-weight:700;padding:30px;text-align:center">왼쪽에서 양식을 고르거나 «＋ 새 양식» 을 누르세요.</div>';
@@ -1565,11 +2085,17 @@
                 '<div class="frowline"><label>검사 코드' + hlp('code') + '</label><input id="fCode" value="' + esc(fCur.form_code || '') + '" placeholder="비워도 됩니다"></div>' +
                 '<div class="frowline"><label>탭 순서' + hlp('seq') + '</label><input id="fSeq" type="number" min="0" style="width:100px" value="' + (fCur.seq_no == null ? 1 : fCur.seq_no) + '">' +
                 '<label style="margin-left:18px">사용' + hlp('use') + '</label><select id="fUse" style="width:110px"><option value="Y"' + (fCur.use_yn !== 'N' ? ' selected' : '') + '>사용</option><option value="N"' + (fCur.use_yn === 'N' ? ' selected' : '') + '>미사용</option></select></div>' +
-                '<div class="frowline top"><label>적용 품목' + hlp('mats') + '</label><div class="matbox">' +
-                (fMats.length ? fMats.map(m => '<label class="fchk"><input type="checkbox" class="fmat" value="' + m.mat_id + '"' + (fSelMats.indexOf(+m.mat_id) >= 0 ? ' checked' : '') + '><b>' + esc(m.mat_code) + '</b> ' + esc(m.mat_name || '') + '</label>').join('')
-                    : '<span style="color:var(--red);font-weight:700">검사 대상 품목이 없습니다 (material.InspectYN=\'Y\')</span>') + '</div></div>' +
-                '<div class="fhead">검사 항목 <span class="ln"></span><button class="fbtn" id="fAddItem">＋ 항목</button></div>' +
-                (fItems.map((it, i) => itemRow(it, i)).join('') ||
+                '<div class="frowline"><label>검사 구분</label><select id="fType" style="width:260px">' +
+                '<option value="final"' + (fCur.insp_type !== 'process' ? ' selected' : '') + '>완제품 검사 (이 검사 화면)</option>' +
+                '<option value="process"' + (fCur.insp_type === 'process' ? ' selected' : '') + '>공정검사 (조립 중 · 어셈블리에 연결)</option>' +
+                '<option value="pack"' + (fCur.insp_type === 'pack' ? ' selected' : '') + '>포장 체크 · 최종검사 (포장 화면)</option>' +
+                '<option value="record"' + (fCur.insp_type === 'record' ? ' selected' : '') + '>제조공정관리 줄 (F705-33 엑셀 매핑)</option></select></div>' +
+                docMapHtml() +
+                '<div class="frowline top"><label>적용 품목' + hlp('mats') + '</label><div class="matarea" id="fMatArea">' + matAreaHtml() + '</div></div>' +
+                '<div class="fhead">검사 항목 <span class="ln"></span>' +
+                (fCur.doc_code ? '<button class="fbtn gbtn" data-gopen="">▦ 엑셀 화면에서 칸 연결</button>' : '') +
+                '<button class="fbtn" id="fAddItem">＋ 항목</button></div>' +
+                (fItems.map((it, i) => (fCur.insp_type === 'record' ? recordRow(it, i) : itemRow(it, i))).join('') ||
                     '<div style="color:var(--ink-2);font-weight:700;padding:14px 6px;border:1.5px dashed var(--line);border-radius:12px;text-align:center">«＋ 항목» 으로 검사 항목을 추가하세요.</div>') +
                 '';
             drawFormActions();
@@ -1613,7 +2139,7 @@
                 '<div class="fopt"><label>단위' + hlp('unit') + '</label><input style="width:72px" data-fi="' + i + ',unit" value="' + esc(it.unit || '') + '"' + (numMode ? '' : ' disabled') + '></div>' +
                 '<div class="fopt"><label>하한' + hlp('lower') + '</label><input style="width:84px" data-fi="' + i + ',lower_limit" value="' + (it.lower_limit == null ? '' : it.lower_limit) + '"' + (numMode ? '' : ' disabled') + '></div>' +
                 '<div class="fopt"><label>상한' + hlp('upper') + '</label><input style="width:84px" data-fi="' + i + ',upper_limit" value="' + (it.upper_limit == null ? '' : it.upper_limit) + '"' + (numMode ? '' : ' disabled') + '></div>' +
-                '</div></div>';
+                '</div>' + cellLine(it, i, [['judge', '판정칸'], ['val', '값칸'], ['date', '일자칸'], ['who', '검사자칸']]) + '</div>';
         }
 
         /* 합격 기준 textarea — 내용만큼만 늘어난다(기본 1줄, 최대 150px) */
@@ -1703,15 +2229,546 @@
             }
         });
 
+        /* ══════════ ★ 적용 품목 — 완제품(모델)별 묶음 + 모델 칩 + 검색 ══════════ */
+        let fMatModel = null, fMatQ = '', fListModel = '전체';
+        function modelOf(t) {
+            t = String(t || '').toUpperCase().replace(/\s/g, '');
+            if (/\[M4A\]|CELL4-?A|M4-?A/.test(t)) return 'M4A';
+            if (/\[M4\]|CELL4|\bM4/.test(t)) return 'M4';
+            if (/\[M2\]|CELL2|\bM2/.test(t)) return 'M2';
+            return '공통';
+        }
+        function matGroups() {
+            const g = {};
+            fMats.forEach(r => {
+                const k = r.root_id || r.mat_id;
+                if (!g[k]) g[k] = {root_id: k, root_code: r.root_code || r.mat_code, root_name: r.root_name || r.mat_name,
+                    model: modelOf(r.root_name || r.mat_name), items: []};
+                if (+r.depth > 0) g[k].items.push(r);
+            });
+            return Object.values(g);
+        }
+        function matAreaHtml() {
+            if (!fMats.length) return '<span style="color:var(--red);font-weight:700">검사 대상 품목이 없습니다 (material.InspectYN=\'Y\')</span>';
+            const isProc = fCur.insp_type === 'process';   // ★ 화면의 select 는 다시 그리는 중엔 이전 양식 값이라 fCur 를 본다
+            const groups = matGroups();
+            const models = ['전체'].concat(['M2', 'M4', 'M4A', '공통'].filter(m => groups.some(g => g.model === m)));
+            if (fMatModel == null) { const fm = modelOf(fCur.form_name); fMatModel = models.indexOf(fm) > 0 ? fm : '전체'; }
+            const q = fMatQ.trim().toLowerCase();
+            const hit = r => !q || (String(r.mat_code) + ' ' + String(r.mat_name)).toLowerCase().indexOf(q) >= 0;
+            const chk = (id, code, name, cls) => '<label class="fchk' + (cls || '') + (fSelMats.indexOf(+id) >= 0 ? ' on' : '') + '"><input type="checkbox" class="fmat" value="' + id + '"' +
+                (fSelMats.indexOf(+id) >= 0 ? ' checked' : '') + '><b>' + esc(code) + '</b> ' + esc(name || '') + '</label>';
+            // 선택된 품목 요약
+            const nameOf = {};
+            fMats.forEach(r => { nameOf[r.mat_id] = r; });
+            const sel = fSelMats.map(id => nameOf[id]).filter(Boolean);
+            let html = '<div class="msel">' + (sel.length
+                ? '<span class="mlab">선택 ' + sel.length + '</span>' + sel.map(r => '<span class="mtag" data-unsel="' + r.mat_id + '">' + esc(r.mat_name) + ' ✕</span>').join('')
+                : '<span class="mlab none">선택된 품목 없음</span>') + '</div>';
+            html += '<div class="mtool">' + models.map(m => '<button class="mmod' + (fMatModel === m ? ' on' : '') + '" data-mmod="' + m + '">' + m + '</button>').join('') +
+                '<input id="fMatQ" class="mq" placeholder="품목 검색" value="' + esc(fMatQ) + '"></div>';
+            const shown = groups.filter(g => fMatModel === '전체' || g.model === fMatModel);
+            html += shown.map(g => {
+                const items = isProc ? g.items.filter(hit) : [];
+                const rootHit = hit({mat_code: g.root_code, mat_name: g.root_name});
+                if (q && !rootHit && !items.length) return '';
+                return '<div class="mgrp"><div class="mgh"><span class="mmb">' + g.model + '</span>' +
+                    chk(g.root_id, g.root_code, g.root_name, ' root') + (isProc ? '<span class="mgc">완제품(최상위 조립) · 어셈블리 ' + g.items.length + '</span>' : '') + '</div>' +
+                    (isProc ? '<div class="mgi">' + (items.map(r => chk(r.mat_id, r.mat_code, r.mat_name)).join('') || '<span class="mgc">해당 없음</span>') + '</div>' : '') + '</div>';
+            }).join('') || '<div class="mgc" style="padding:8px">검색 결과가 없습니다</div>';
+            return html;
+        }
+        function drawMatArea() {
+            const a = document.getElementById('fMatArea'); if (!a) return;
+            const foc = document.activeElement && document.activeElement.id === 'fMatQ';
+            a.innerHTML = matAreaHtml();
+            if (foc) { const q = document.getElementById('fMatQ'); q.focus(); q.setSelectionRange(q.value.length, q.value.length); }
+        }
+        document.getElementById('fEdit').addEventListener('change', e => {
+            const c = e.target.closest('.fmat');
+            if (c) {
+                const id = +c.value;
+                fSelMats = fSelMats.filter(x => x !== id);
+                if (c.checked) fSelMats.push(id);
+                drawMatArea(); return;
+            }
+            if (e.target.id === 'fType' || e.target.id === 'fDoc' || e.target.id === 'fModel') { syncMats(); drawFormEditor(); return; }
+        });
+        document.getElementById('fEdit').addEventListener('input', e => {
+            if (e.target.id === 'fMatQ') { fMatQ = e.target.value; drawMatArea(); }
+        });
+        document.getElementById('fEdit').addEventListener('click', e => {
+            const m = e.target.closest('[data-mmod]');
+            if (m) { fMatModel = m.dataset.mmod; drawMatArea(); return; }
+            const u = e.target.closest('[data-unsel]');
+            if (u) { fSelMats = fSelMats.filter(x => x !== +u.dataset.unsel); drawMatArea(); }
+        });
+
+        /* ══════════ ★ 엑셀 문서 매핑 — 양식이 어느 문서(F705-33/F803-6/7/8)의 어느 칸에 들어가나 ══════════
+           칸은 «I6» 처럼 엑셀 주소. 반복 검사는 쉼표로 회차 순서대로(예: J8,J9,J10). */
+        const DOCS = [['', '연결 안 함'], ['F803-6', 'F803-6 공정검사'], ['F803-7', 'F803-7 완제품검사'], ['F803-8', 'F803-8 최종검사'], ['F705-33', 'F705-33 제조공정관리']];
+        function parseCm(v) {
+            if (!v) return {};
+            if (typeof v === 'object') return v;
+            try { return JSON.parse(v); } catch (e) { return {}; }
+        }
+        function docMapHtml() {
+            const cm = fCur.cell_map = parseCm(fCur.cell_map);
+            return '<div class="frowline"><label>엑셀 문서</label><select id="fDoc" style="width:220px">' +
+                DOCS.map(d => '<option value="' + d[0] + '"' + ((fCur.doc_code || '') === d[0] ? ' selected' : '') + '>' + d[1] + '</option>').join('') + '</select>' +
+                '<label style="margin-left:14px">모델</label><select id="fModel" style="width:110px">' +
+                [['', '공통'], ['M2', 'M2'], ['M4', 'M4'], ['M4A', 'M4A']].map(m => '<option value="' + m[0] + '"' + ((fCur.model || '') === m[0] ? ' selected' : '') + '>' + m[1] + '</option>').join('') + '</select>' +
+                '</div>' +
+                (fCur.doc_code ? '<div class="frowline"><label>엑셀 양식</label><div class="tplbar">' +
+                    '<button class="fbtn gbtn" id="fGridOpen">▦ 엑셀 화면에서 칸 고르기</button>' +
+                    '<label class="fbtn" style="cursor:pointer;white-space:nowrap">⇪ 양식 파일 교체<input type="file" id="fTplFile" accept=".xlsx" style="display:none"></label>' +
+                    '<span class="cmhint" id="fTplInfo">' + tplInfoTxt() + '</span></div></div>' +
+                    '<div class="frowline"><label>양식 버전</label><div id="fVerList" style="flex:1">' + verListHtml() + '</div></div>' : '') +
+                (fCur.doc_code ? '<div class="frowline"><label>머리 칸</label>' +
+                    '<span class="cmlab">Lot No.</span><input id="fLotCell" class="cmin" value="' + esc(cm.lot || '') + '" placeholder="예: D3">' +
+                    (fCur.doc_code !== 'F705-33' ? '<span class="cmlab">성적서 번호</span><input id="fRefCell" class="cmin" value="' + esc(cm.ref || '') + '" placeholder="예: G3">' : '') +
+                    '<span class="cmhint">엑셀에서 값이 들어갈 칸 주소</span></div>' : '');
+        }
+        function cmVal(v) { return Array.isArray(v) ? v.join(',') : (v || ''); }
+        function cellLine(it, i, keys) {
+            if (!fCur.doc_code) return '';
+            const cm = it.cell_map = parseCm(it.cell_map);
+            return '<div class="cmsum">' + cmSummary(it) + '<button class="fbtn sm gbtn" data-gopen="' + i + '">▦ 엑셀에서 칸 고르기</button></div>' +
+                '<details class="cmadv"><summary>칸 주소 직접 입력</summary><div class="fopts cmrow">' + keys.map(k =>
+                    '<div class="fopt"><label>' + k[1] + '</label><input class="cmin" data-fcm="' + i + ',' + k[0] + '" value="' + esc(cmVal(cm[k[0]])) + '"></div>').join('') + '</div></details>';
+        }
+        const KINDS = [['asm', '조립 공정'], ['pinsp', '공정검사 줄'], ['finsp', '완제품검사 줄'], ['final', '최종검사 줄'], ['pack', '포장 줄'], ['label1', '라벨링 (기록 없음)']];
+        function asmOptions(sel) {
+            const seen = {}, list = [];
+            fMats.forEach(r => {
+                if (+r.depth <= 0) return;
+                if (fCur.model && modelOf(r.root_name) !== fCur.model) return;
+                if (seen[r.mat_id]) return; seen[r.mat_id] = 1; list.push(r);
+            });
+            list.sort((a, b) => String(a.mat_name).localeCompare(String(b.mat_name)));
+            return '<option value="">— 선택 —</option>' + list.map(r => '<option value="' + r.mat_id + '"' + (+sel === +r.mat_id ? ' selected' : '') + '>' +
+                esc(r.mat_name) + ' (' + esc(r.mat_code) + ')</option>').join('');
+        }
+        function recordRow(it, i) {
+            const cm = it.cell_map = parseCm(it.cell_map), k = cm.kind || 'asm';
+            const f = (key, lab, w) => '<div class="fopt"><label>' + lab + '</label><input class="cmin" style="width:' + (w || 90) + 'px" data-fcm="' + i + ',' + key + '" value="' + esc(cmVal(cm[key])) + '"></div>';
+            let body = '';
+            const asmSel = k === 'asm' ? '<div class="fopts" style="margin-top:8px"><div class="fopt"><label>어셈블리 품목</label><select data-fasm="' + i + '" style="width:340px"' + (it.material_id ? '' : ' class="cmwarn"') + '>' + asmOptions(it.material_id) + '</select></div></div>' : '';
+            if (k === 'asm') body = f('lots', 'LOT칸', 160) + f('sns', 'S/N칸', 120) + f('date', '일자칸') + f('who', '작업자칸') + f('confirm', '확인칸');
+            else if (k === 'pinsp' || k === 'final') body = f('form', '연결 양식 코드', 130) + f('ref', '성적서칸') + f('judge', '판정칸') + f('date', '일자칸') + f('who', '검사자칸');
+            else if (k === 'finsp') body = f('ref', '성적서칸') + f('judge', '판정칸') + f('date', '일자칸') + f('who', '검사자칸');
+            else if (k === 'pack') body = f('form', '포장 양식 코드', 130) + f('eas', '값칸(순서대로)', 200) + f('date', '일자칸') + f('who', '작업자칸');
+            return '<div class="fcard"><div class="ftop"><span class="fno">' + (i + 1) + '</span>' +
+                '<input data-fi="' + i + ',item_name" value="' + esc(it.item_name || '') + '" placeholder="공정번호 공정명 (예: #130 LCD Assembly)">' +
+                '<select data-fkind="' + i + '" style="width:150px;margin-left:6px">' + KINDS.map(x => '<option value="' + x[0] + '"' + (k === x[0] ? ' selected' : '') + '>' + x[1] + '</option>').join('') + '</select>' +
+                '<button class="fbtn sm" data-fup="' + i + '" title="위로">▲</button>' +
+                '<button class="fbtn sm" data-fdn="' + i + '" title="아래로">▼</button>' +
+                '<button class="fbtn sm del" data-frm="' + i + '" title="삭제">✕</button></div>' + asmSel + (k === 'asm' ? matchTable(it, i) : '') +
+                '<div class="cmsum">' + cmSummary(it) + '<button class="fbtn sm gbtn" data-gopen="' + i + '">▦ 엑셀에서 칸 고르기</button></div>' +
+                '<details class="cmadv"><summary>칸 주소 직접 입력</summary><div class="fopts cmrow">' + body + '</div></details></div>';
+        }
+        /* ★ 주요자재 매칭 — 엑셀 줄(R코드) 하나하나를 그 어셈블리의 어떤 구성품과 짝지을지 */
+        const BOMCH = {};
+        let GRID_KEY = null;
+        function bomChildren(mid) {
+            if (!mid) return [];
+            if (!BOMCH[mid]) { try { BOMCH[mid] = apiGet('/bom_children', {mat_id: mid}) || []; } catch (e) { BOMCH[mid] = []; } }
+            return BOMCH[mid];
+        }
+        function ensureGridFor() {      // 제조공정관리 양식을 열면 엑셀을 미리 읽어 R코드를 보여 준다
+            const key = (fCur.model || 'M4A') + '/' + fCur.doc_code;
+            if (!fCur.doc_code || GRID_KEY === key) return;
+            GRID_KEY = key;
+            loadGrid(fCur.model || 'M4A', fCur.doc_code).then(g => { GRID = g; drawFormEditor(); }).catch(() => {});
+        }
+        function rowText(ref) {          // 엑셀 그 줄의 «주요자재» 칸(D) 글자 — 비어 있으면 위로 올라가며 찾는다
+            if (!GRID || GRID_KEY !== (fCur.model || 'M4A') + '/' + fCur.doc_code) return '';
+            const m = /^([A-Z]+)(\d+)$/.exec(ref); if (!m) return '';
+            for (let r = +m[2]; r > Math.max(0, +m[2] - 4); r--) {
+                const t = GRID.cells['D' + r];
+                if (t) return t;
+            }
+            return '';
+        }
+        function matchTable(it, i) {
+            const cm = parseCm(it.cell_map);
+            const rows = [].concat(arr2(cm.lots).map(c => ['lot', c]), arr2(cm.sns).map(c => ['sn', c]))
+                .sort((a, b) => +a[1].replace(/\D/g, '') - +b[1].replace(/\D/g, ''));
+            if (!rows.length) return '<div class="mtbl-empty">엑셀 LOT·S/N 칸이 아직 없습니다 — «▦ 엑셀에서 칸 고르기»로 먼저 칸을 연결하세요.</div>';
+            if (!it.material_id) return '<div class="mtbl-empty">어셈블리 품목을 먼저 고르면 주요자재를 짝지을 수 있습니다.</div>';
+            const ch = bomChildren(it.material_id);
+            const opts = sel => '<option value="">(자동 — 남은 자재 순서대로)</option>' + ch.map(c =>
+                '<option value="' + c.mat_id + '"' + (+sel === +c.mat_id ? ' selected' : '') + '>' + esc(c.mat_name) + ' (' + esc(c.mat_code) + ')' +
+                (c.sn_yn === 'Y' ? ' · S/N' : '') + (c.is_asm ? ' · 어셈블리' : '') + '</option>').join('');
+            return '<table class="mtbl"><tr><th>엑셀 칸</th><th>양식 주요자재</th><th>기록</th><th>MES 자재 (이 어셈블리 구성품)</th></tr>' +
+                rows.map(r => {
+                    const map = r[0] === 'lot' ? (cm.lotMat || {}) : (cm.snMat || {});
+                    return '<tr><td><b>' + r[1] + '</b></td><td>' + esc(rowText(r[1]) || '—') + '</td><td>' + (r[0] === 'lot' ? 'LOT' : 'S/N') + '</td>' +
+                        '<td><select data-fmat="' + i + ',' + r[0] + ',' + r[1] + '"' + (map[r[1]] ? '' : ' class="cmwarn"') + '>' + opts(map[r[1]]) + '</select></td></tr>';
+                }).join('') + '</table>';
+        }
+        function arr2(v) { return v == null ? [] : (Array.isArray(v) ? v : [v]).filter(Boolean); }
+        document.getElementById('fEdit').addEventListener('change', e => {
+            const s = e.target.closest('[data-fmat]'); if (!s) return;
+            const [i, t, cell] = s.dataset.fmat.split(',');
+            const cm = fItems[+i].cell_map = parseCm(fItems[+i].cell_map);
+            const key = t === 'lot' ? 'lotMat' : 'snMat';
+            cm[key] = cm[key] || {};
+            if (s.value) cm[key][cell] = +s.value; else delete cm[key][cell];
+            s.classList.toggle('cmwarn', !s.value);
+        });
+        /* ★ 엑셀 양식 파일 교체 — 개정판(Rev)·표준 사진 변경 시. 줄이 바뀌면 «엑셀 화면에서 칸 고르기»로 다시 맞춘다 */
+        const TPLINFO = {};
+        function tplInfoTxt() {
+            const model = fCur.model || 'M4A', key = model + '/' + fCur.doc_code;
+            if (!(key in TPLINFO)) {
+                try { TPLINFO[key] = apiGetDoc('/template_info', {model: model, doc: fCur.doc_code}) || {}; } catch (e) { TPLINFO[key] = {}; }
+            }
+            const t = TPLINFO[key];
+            return '사용 중인 양식 파일 : ' + model + '/' + fCur.doc_code + '.xlsx · ' +
+                (t.source === 'folder' ? '교체본 (' + esc(t.modified || '') + ')' : t.source === 'builtin' ? '기본 양식' : '<b style="color:#c0392b">파일 없음</b>') +
+                (fCur.model ? '' : ' — 공통 양식은 교체 시 M2·M4·M4A 모두 바뀝니다');
+        }
+        /* ★ 양식 버전 이력 — 버전은 쌓이기만 한다. 각 제품은 «조립 시작일에 유효했던 버전»으로 출력 */
+        const VERS = {};
+        function verListHtml() {
+            const model = fCur.model || 'M4A', key = model + '/' + fCur.doc_code;
+            if (!(key in VERS)) {
+                try { VERS[key] = apiGetDoc('/versions', {model: model, doc: fCur.doc_code}) || []; } catch (e) { VERS[key] = {err: e.message}; }
+            }
+            const vs = VERS[key];
+            if (vs.err) return '<span class="cmhint" style="color:#c0392b">' + esc(vs.err) + '</span>';
+            if (!vs.length) return '<span class="cmhint">버전 없음</span>';
+            const latest = vs.find(v => v.use_yn === 'Y');
+            return '<table style="border-collapse:collapse;font-size:13px">' +
+                '<tr style="color:#64748b"><th style="text-align:left;padding:2px 10px 2px 0">Rev</th><th style="text-align:left;padding:2px 10px">적용일</th>' +
+                '<th style="text-align:left;padding:2px 10px">상태</th><th style="text-align:left;padding:2px 10px">메모</th><th style="text-align:left;padding:2px 10px">등록</th><th></th></tr>' +
+                vs.map(v => {
+                    const st = v.use_yn !== 'Y' ? '<span style="color:#94a3b8">사용 안 함</span>'
+                        : (v === latest ? '<b style="color:#0E7C86">현재</b>' : '<span style="color:#64748b">예전 (읽기 전용)</span>');
+                    return '<tr style="border-top:1px solid #eef2f7' + (v.use_yn !== 'Y' ? ';opacity:.55' : '') + '">' +
+                        '<td style="padding:3px 10px 3px 0;font-weight:800">Rev.' + v.rev_no + '</td>' +
+                        '<td style="padding:3px 10px">' + esc(v.effective_from === '2000-01-01' ? '처음부터' : v.effective_from) + '</td>' +
+                        '<td style="padding:3px 10px">' + st + '</td><td style="padding:3px 10px">' + esc(v.note || '') + '</td>' +
+                        '<td style="padding:3px 10px;color:#94a3b8">' + esc(v.created || '') + '</td>' +
+                        '<td>' + (v === latest && vs.filter(x => x.use_yn === 'Y').length > 1
+                            ? '<button class="fbtn verOff" data-id="' + v.ver_id + '" style="height:28px;font-size:12px">사용 안 함 (앞 버전으로)</button>' : '') + '</td></tr>';
+                }).join('') + '</table>' +
+                (fCur.model ? '' : '<div class="cmhint">공통 양식 — 위 목록은 M4A 기준입니다 (교체 시 M2·M4·M4A 각각 Rev 가 올라갑니다)</div>');
+        }
+        function postDoc(path, data) {
+            const fd = new FormData();
+            Object.keys(data).forEach(k => fd.append(k, data[k]));
+            const tk = (document.querySelector('[name=_csrf]') || {}).value || '';
+            if (tk) fd.append('_csrf', tk);
+            return fetch('/api/production/mcell/doc' + path, {method: 'POST', credentials: 'same-origin', body: fd,
+                headers: tk ? {'X-CSRF-TOKEN': tk, 'Accept': 'application/json'} : {'Accept': 'application/json'}}).then(r => r.json());
+        }
+        function afterTplChange() {
+            Object.keys(TPLINFO).forEach(k => delete TPLINFO[k]);
+            Object.keys(VERS).forEach(k => delete VERS[k]);
+            GRID_KEY = null; GRID = null;      // 새 양식으로 다시 읽는다
+        }
+        document.getElementById('fEdit').addEventListener('click', e => {
+            const b = e.target.closest('.verOff'); if (!b) return;
+            e.preventDefault();
+            if (!confirm('이 버전을 «사용 안 함» 으로 바꾸고 바로 앞 버전(양식 파일 + 칸 연결)으로 되돌립니다.\n잘못 올린 경우에만 쓰세요. 진행할까요?')) return;
+            postDoc('/version_disable', {ver_id: b.dataset.id}).then(r => {
+                flash(r.message || (r.success === false ? '실패' : '되돌렸습니다'));
+                if (r.success === false) return;
+                afterTplChange();
+                // 되돌린 칸 연결을 다시 읽는다
+                const d = apiGet('/form_detail', {form_id: fCur.form_id});
+                fCur = d;
+                fItems = (d.items || []).map(x => Object.assign({}, x, {cell_map: parseCm(x.cell_map)}));
+                fCur.cell_map = parseCm(fCur.cell_map);
+                fSelMats = (d.materials || []).map(m => +m.mat_id);
+                drawFormEditor();
+            }).catch(err => flash('실패 : ' + (err.message || err)));
+        });
+        function apiGetDoc(path, params) {
+            const r = AjaxUtil.getSyncData('/api/production/mcell/doc' + path, params) || {};
+            if (r.success === false) throw new Error(r.message || '조회 실패');
+            return r.data;
+        }
+        document.getElementById('fEdit').addEventListener('change', e => {
+            const inp = e.target.closest('#fTplFile'); if (!inp || !inp.files.length) return;
+            const file = inp.files[0];
+            const model = fCur.model || 'ALL';
+            const today = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+            const eff = prompt((model === 'ALL' ? 'M2·M4·M4A 모두' : model) + ' 의 «' + fCur.doc_code + '» 엑셀 양식을 «' + file.name + '» 로\n새 버전(Rev)으로 올립니다.\n\n' +
+                '적용일 (이 날짜 이후 조립 시작한 제품부터 새 양식) :\n※ 그 전에 만든 제품은 예전 양식·칸 연결 그대로 출력됩니다.', today);
+            if (eff == null) { inp.value = ''; return; }
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(eff.trim())) { flash('적용일은 2026-10-12 처럼 입력하세요'); inp.value = ''; return; }
+            const note = prompt('메모 (예: 개정 Rev.B · 사진 변경) — 비워도 됩니다', '') || '';
+            postDoc('/template_upload', {model: model, doc: fCur.doc_code, file: file, effective: eff.trim(), note: note})
+                .then(r => {
+                    flash(r.message || (r.success === false ? '교체 실패' : '교체했습니다'));
+                    if (r.success === false) return;
+                    afterTplChange();
+                    drawFormEditor();
+                }).catch(err => flash('교체 실패 : ' + (err.message || err)));
+            inp.value = '';
+        });
+        function cmSummary(it) {
+            const cm = parseCm(it.cell_map), parts = [];
+            [['lots', 'LOT'], ['sns', 'S/N'], ['eas', '값'], ['ref', '성적서'], ['judge', '판정'], ['val', '값'], ['date', '일자'], ['who', '작업자'], ['confirm', '확인']].forEach(k => {
+                const v = cm[k[0]]; const a = v == null ? [] : (Array.isArray(v) ? v : [v]);
+                if (a.filter(Boolean).length) parts.push(k[1] + ' ' + a.filter(Boolean).join(','));
+            });
+            return '<span>' + (parts.length ? '엑셀 칸 : ' + esc(parts.join(' · ')) : '<b style="color:#e67e22">엑셀 칸 연결 안 됨</b>') + '</span>';
+        }
+        document.getElementById('fEdit').addEventListener('input', e => {
+            const t = e.target.closest('[data-fcm]'); if (!t) return;
+            const [i, key] = t.dataset.fcm.split(',');
+            const it = fItems[+i], cm = it.cell_map = parseCm(it.cell_map);
+            const v = t.value.trim().toUpperCase();
+            const arr = ['judge', 'val', 'date', 'who', 'lots', 'sns', 'eas'];
+            const single = fCur.insp_type === 'record' && ['date', 'who', 'confirm', 'ref', 'judge'].includes(key);
+            if (key === 'form') cm.form = t.value.trim();
+            else if (arr.includes(key) && !single) cm[key] = v ? v.split(/\s*,\s*/).filter(Boolean) : [];
+            else cm[key] = v;
+        });
+        document.getElementById('fEdit').addEventListener('change', e => {
+            const a = e.target.closest('[data-fasm]');
+            if (a) { fItems[+a.dataset.fasm].material_id = a.value ? +a.value : null; drawFormEditor(); return; }
+            const k = e.target.closest('[data-fkind]');
+            if (k) { const it = fItems[+k.dataset.fkind]; it.cell_map = parseCm(it.cell_map); it.cell_map.kind = k.value; it.method = k.value; drawFormEditor(); }
+        });
+
+        /* ══════════ ★ 엑셀 화면에서 칸 고르기 ══════════
+           양식 엑셀을 표로 그려 놓고, 왼쪽에서 항목(예: «3. 판정»)을 고른 뒤 표의 칸을 누르면 연결된다.
+           여러 칸을 받는 항목(반복 판정·LOT·S/N)은 누를 때마다 추가/해제. 칸 주소를 외울 필요가 없다. */
+        const JSZIP_URL = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+        let GRID = null, gField = null;
+        function needZip() {
+            return new Promise((ok, bad) => {
+                if (window.JSZip) return ok();
+                const s = document.createElement('script'); s.src = JSZIP_URL; s.onload = () => ok(); s.onerror = () => bad(new Error('JSZip 로드 실패'));
+                document.head.appendChild(s);
+            });
+        }
+        function colNo(L) { let n = 0; for (const ch of L) n = n * 26 + ch.charCodeAt(0) - 64; return n; }
+        function colL(n) { let s = ''; while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; }
+        async function loadGrid(model, doc) {
+            await needZip();
+            const r = await fetch('/api/production/mcell/doc/template?model=' + encodeURIComponent(model) + '&doc=' + encodeURIComponent(doc), {credentials: 'same-origin'});
+            if (!r.ok) throw new Error('양식 파일이 없습니다 (' + model + '/' + doc + '.xlsx)');
+            const zip = await JSZip.loadAsync(await r.arrayBuffer());
+            const P = s => new DOMParser().parseFromString(s, 'application/xml');
+            const wb = P(await zip.file('xl/workbook.xml').async('string'));
+            const rels = P(await zip.file('xl/_rels/workbook.xml.rels').async('string'));
+            const sheets = wb.getElementsByTagName('sheet'), sh = sheets[Math.min(1, sheets.length - 1)];
+            const rid = sh.getAttribute('r:id') || sh.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'id');
+            let target = '';
+            for (const x of rels.getElementsByTagName('Relationship')) if (x.getAttribute('Id') === rid) target = x.getAttribute('Target');
+            const path = target.charAt(0) === '/' ? target.substring(1) : 'xl/' + target;
+            const ss = [];
+            if (zip.file('xl/sharedStrings.xml')) {
+                const sx = P(await zip.file('xl/sharedStrings.xml').async('string'));
+                for (const si of sx.getElementsByTagName('si')) ss.push(Array.from(si.getElementsByTagName('t')).map(t => t.textContent).join(''));
+            }
+            const x = P(await zip.file(path).async('string'));
+            const cells = {}; let maxR = 0, maxC = 0;
+            for (const c of x.getElementsByTagName('c')) {
+                const ref = c.getAttribute('r'), m = /^([A-Z]+)(\d+)$/.exec(ref); if (!m) continue;
+                const t = c.getAttribute('t'), v = c.getElementsByTagName('v')[0], is = c.getElementsByTagName('is')[0];
+                let txt = '';
+                if (t === 's' && v) txt = ss[+v.textContent] || '';
+                else if (t === 'inlineStr' && is) txt = is.textContent;
+                else if (v && !c.getElementsByTagName('f')[0]) txt = v.textContent;
+                const rr = +m[2], cc = colNo(m[1]);
+                if (txt) { cells[ref] = txt; maxR = Math.max(maxR, rr); maxC = Math.max(maxC, cc); }
+            }
+            const merges = [];
+            for (const mc of x.getElementsByTagName('mergeCell')) {
+                const a = /^([A-Z]+)(\d+):([A-Z]+)(\d+)$/.exec(mc.getAttribute('ref')); if (!a) continue;
+                merges.push({r1: +a[2], c1: colNo(a[1]), r2: +a[4], c2: colNo(a[3])});
+                maxR = Math.max(maxR, +a[4]); maxC = Math.max(maxC, colNo(a[3]));
+            }
+            const widths = {};
+            for (const col of x.getElementsByTagName('col')) {
+                const w = +col.getAttribute('width') || 9;
+                for (let k = +col.getAttribute('min'); k <= +col.getAttribute('max') && k <= 40; k++) widths[k] = w;
+            }
+            return {cells, merges, widths, maxR: Math.min(maxR + 1, 150), maxC: Math.min(maxC, 20)};
+        }
+        // 고를 수 있는 항목 목록
+        function gridFields() {
+            const F = [{t: 'form', key: 'lot', label: 'Lot No.', multi: false}];
+            if (fCur.doc_code !== 'F705-33') F.push({t: 'form', key: 'ref', label: '성적서 번호', multi: false});
+            const isRec = fCur.insp_type === 'record';
+            fItems.forEach((it, i) => {
+                const nm = (i + 1) + '. ' + String(it.item_name || '').slice(0, 22);
+                let keys;
+                if (!isRec) keys = [['judge', '판정', 1], ['val', '값', 1], ['date', '일자', 1], ['who', '검사자', 1]];
+                else {
+                    const k = parseCm(it.cell_map).kind || 'asm';
+                    keys = k === 'asm' ? [['lots', 'LOT', 1], ['sns', 'S/N', 1], ['date', '일자', 0], ['who', '작업자', 0], ['confirm', '확인', 0]]
+                        : k === 'pack' ? [['eas', '값(순서대로)', 1], ['date', '일자', 0], ['who', '작업자', 0]]
+                            : k === 'label1' ? []
+                                : [['ref', '성적서', 0], ['judge', '판정', 0], ['date', '일자', 0], ['who', '검사자', 0]];
+                }
+                keys.forEach(k => F.push({t: 'item', i, key: k[0], label: k[1], multi: !!k[2], group: nm}));
+            });
+            return F;
+        }
+        function fGet(f) {
+            const o = f.t === 'form' ? (fCur.cell_map = parseCm(fCur.cell_map)) : (fItems[f.i].cell_map = parseCm(fItems[f.i].cell_map));
+            const v = o[f.key];
+            return v == null ? [] : (Array.isArray(v) ? v : [v]).filter(Boolean);
+        }
+        function fToggle(f, ref) {
+            const o = f.t === 'form' ? fCur.cell_map : fItems[f.i].cell_map;
+            if (f.multi) {
+                const a = fGet(f); const k = a.indexOf(ref);
+                if (k >= 0) a.splice(k, 1); else a.push(ref);
+                o[f.key] = a;
+            } else {
+                o[f.key] = (fGet(f)[0] === ref) ? '' : ref;
+            }
+            if (f.t === 'form') o.refPrefix = {'F803-6': '공정-', 'F803-7': '완제품-', 'F803-8': '최종-'}[fCur.doc_code] || '';
+        }
+        function fId(f) { return f.t + ':' + (f.i == null ? '' : f.i) + ':' + f.key; }
+        function drawGrid() {
+            const G = GRID, F = gridFields();
+            // 칸 → 연결된 항목 표시
+            const tag = {};
+            F.forEach(f => fGet(f).forEach((ref, n) => {
+                (tag[ref] = tag[ref] || []).push((f.t === 'form' ? '' : (f.i + 1) + '.') + f.label + (f.multi && fGet(f).length > 1 ? '#' + (n + 1) : ''));
+            }));
+            const act = gField ? fGet(gField) : [];
+            let lastG = '';
+            document.getElementById('gFields').innerHTML = F.map(f => {
+                let h = '';
+                if (f.group && f.group !== lastG) { lastG = f.group; h += '<div class="gg">' + esc(f.group) + '</div>'; }
+                if (!f.group && !lastG) { lastG = '머리'; h += '<div class="gg">머리 칸</div>'; }
+                const v = fGet(f);
+                return h + '<div class="gf' + (gField && fId(gField) === fId(f) ? ' on' : '') + (v.length ? ' set' : '') + '" data-gf="' + fId(f) + '">' +
+                    '<span>' + esc(f.label) + (f.multi ? ' <small>여러 칸</small>' : '') + '</span><b>' + esc(v.join(', ') || '—') + '</b></div>';
+            }).join('');
+            const cover = {}, start = {};
+            G.merges.forEach(m => {
+                start[colL(m.c1) + m.r1] = m;
+                for (let r = m.r1; r <= m.r2; r++) for (let c = m.c1; c <= m.c2; c++) if (r !== m.r1 || c !== m.c1) cover[colL(c) + r] = 1;
+            });
+            let html = '<table class="xg"><tr><th></th>';
+            for (let c = 1; c <= G.maxC; c++) html += '<th style="min-width:' + Math.round((G.widths[c] || 9) * 7) + 'px">' + colL(c) + '</th>';
+            html += '</tr>';
+            for (let r = 1; r <= G.maxR; r++) {
+                html += '<tr><th>' + r + '</th>';
+                for (let c = 1; c <= G.maxC; c++) {
+                    const ref = colL(c) + r;
+                    if (cover[ref]) continue;
+                    const m = start[ref], sp = m ? ' rowspan="' + (m.r2 - m.r1 + 1) + '" colspan="' + (m.c2 - m.c1 + 1) + '"' : '';
+                    const t = tag[ref], on = act.indexOf(ref) >= 0;
+                    html += '<td data-gc="' + ref + '"' + sp + ' class="' + (t ? 'mp' : '') + (on ? ' act' : '') + '">' +
+                        (t ? '<i>' + esc(t.join(' · ')) + '</i>' : '') + '<span>' + esc(G.cells[ref] || '') + '</span></td>';
+                }
+                html += '</tr>';
+            }
+            document.getElementById('gTable').innerHTML = html + '</table>';
+            const onF = document.querySelector('#gFields .gf.on'); if (onF) onF.scrollIntoView({block: 'nearest'});
+            document.getElementById('gHint').textContent = gField
+                ? '값을 넣을 칸을 누르면 «무엇을 넣을지» 목록이 뜹니다 · 왼쪽 항목을 누르면 그 칸이 진하게 표시됩니다'
+                : '값을 넣을 칸을 누르면 «무엇을 넣을지» 목록이 뜹니다';
+        }
+        let gCell = null;
+        function closePop() { const p = document.getElementById('gPop'); if (p) p.remove(); gCell = null; }
+        function openPop(td) {
+            closePop();
+            gCell = td.dataset.gc;
+            const F = gridFields(), here = F.filter(f => fGet(f).indexOf(gCell) >= 0);
+            const grpOf = f => f.group || '머리 칸';
+            const cur = gField ? grpOf(gField) : null;      // 방금 다룬 공정 묶음을 맨 위로
+            const order = F.slice().sort((a, b) => (grpOf(a) === cur ? 0 : 1) - (grpOf(b) === cur ? 0 : 1));
+            let last = '';
+            const list = order.map(f => {
+                let s = '';
+                if (grpOf(f) !== last) { last = grpOf(f); s += '<div class="pg">' + esc(last) + '</div>'; }
+                const v = fGet(f);
+                return s + '<div class="pi" data-pick="' + fId(f) + '"><span>' + esc(f.label) + '</span><small>' + esc(v.join(', ')) + '</small></div>';
+            }).join('');
+            const p = document.createElement('div');
+            p.id = 'gPop'; p.className = 'gpop';
+            p.innerHTML = '<div class="ph"><b>' + gCell + '</b> 칸에 넣을 값</div>' +
+                (here.length ? '<div class="pnow">' + here.map(f => '<span>' + esc((f.group ? f.group + ' · ' : '') + f.label) +
+                    ' <a data-unpick="' + fId(f) + '">✕</a></span>').join('') + '</div>' : '') +
+                '<div class="plist">' + list + '</div>';
+            document.getElementById('gridMask').appendChild(p);
+            const r = td.getBoundingClientRect(), W = 330, H = Math.min(420, window.innerHeight - 40);
+            p.style.left = Math.min(window.innerWidth - W - 12, Math.max(12, r.left)) + 'px';
+            p.style.top = Math.max(12, Math.min(window.innerHeight - H - 12, r.bottom + 4)) + 'px';
+            p.style.maxHeight = H + 'px';
+        }
+        async function openGrid(itemIdx) {
+            syncMats();
+            const model = fCur.model || 'M4A';
+            let m = document.getElementById('gridMask');
+            if (!m) {
+                m = document.createElement('div'); m.id = 'gridMask'; m.className = 'gmask';
+                m.innerHTML = '<div class="gsheet"><div class="ghd"><b>엑셀 칸 연결</b><span id="gHint"></span>' +
+                    '<span class="glg"><i class="l1"></i>연결된 칸 <i class="l2"></i>선택한 항목</span>' +
+                    '<button class="fbtn" id="gClose" style="margin-left:auto">완료</button></div>' +
+                    '<div class="gbody"><div class="gfl" id="gFields"></div><div class="gtw" id="gTable">불러오는 중…</div></div></div>';
+                document.body.appendChild(m);
+                m.addEventListener('click', e => {
+                    if (e.target.closest('#gClose')) { m.style.display = 'none'; drawFormEditor(); return; }
+                    const f = e.target.closest('[data-gf]');
+                    if (f) { gField = gridFields().find(x => fId(x) === f.dataset.gf) || null; drawGrid(); return; }
+                    /* ★ 칸 먼저 — 표에서 칸을 누르면 «이 칸에 무엇을 넣을까» 목록이 뜬다 */
+                    const pk = e.target.closest('[data-pick]');
+                    if (pk) {
+                        const f = gridFields().find(x => fId(x) === pk.dataset.pick);
+                        if (f) { if (fGet(f).indexOf(gCell) < 0) fToggle(f, gCell); gField = f; }
+                        closePop(); drawGrid(); return;
+                    }
+                    const un = e.target.closest('[data-unpick]');
+                    if (un) {
+                        const f = gridFields().find(x => fId(x) === un.dataset.unpick);
+                        if (f) fToggle(f, gCell);
+                        closePop(); drawGrid(); return;
+                    }
+                    if (e.target.closest('#gPop')) return;
+                    const c = e.target.closest('[data-gc]');
+                    if (c) { openPop(c); return; }
+                    closePop();
+                });
+            }
+            m.style.display = 'flex';
+            document.getElementById('gTable').innerHTML = '불러오는 중…';
+            const FL = gridFields();
+            gField = (itemIdx != null && itemIdx !== '' ? FL.find(x => x.t === 'item' && x.i === +itemIdx) : null) || FL[0] || null;
+            try {
+                GRID = await loadGrid(model, fCur.doc_code); GRID_KEY = model + '/' + fCur.doc_code;
+                drawGrid();
+            } catch (e) {
+                document.getElementById('gTable').innerHTML = '<div style="padding:20px;color:#c0392b;font-weight:800">' + esc(e.message) + '</div>';
+            }
+        }
+        document.getElementById('fEdit').addEventListener('click', e => {
+            if (e.target.closest('#fGridOpen')) { openGrid(); return; }
+            const g = e.target.closest('[data-gopen]');
+            if (g) openGrid(g.dataset.gopen);
+        });
+
         function syncMats() {
-            fSelMats = Array.prototype.slice.call(document.querySelectorAll('.fmat'))
-                .filter(c => c.checked).map(c => +c.value);
+            // ★ fSelMats 는 체크할 때마다 갱신된다(숨긴 모델 그룹의 선택도 유지)
             const n = document.getElementById('fName'), c = document.getElementById('fCode'),
-                s = document.getElementById('fSeq'), u = document.getElementById('fUse');
+                s = document.getElementById('fSeq'), u = document.getElementById('fUse'), ty = document.getElementById('fType');
+            if (ty) fCur.insp_type = ty.value;
             if (n) fCur.form_name = n.value;
             if (c) fCur.form_code = c.value;
             if (s) fCur.seq_no = s.value;
             if (u) fCur.use_yn = u.value;
+            const dc = document.getElementById('fDoc'), md = document.getElementById('fModel'),
+                lc = document.getElementById('fLotCell'), rc = document.getElementById('fRefCell');
+            if (dc) fCur.doc_code = dc.value;
+            if (md) fCur.model = md.value;
+            fCur.cell_map = fCur.cell_map || {};
+            if (lc) fCur.cell_map.lot = lc.value.trim().toUpperCase();
+            if (rc) fCur.cell_map.ref = rc.value.trim().toUpperCase();
+            fCur.cell_map.refPrefix = {'F803-6': '공정-', 'F803-7': '완제품-', 'F803-8': '최종-'}[fCur.doc_code] || '';
         }
 
         function saveFormNow() {
@@ -1730,6 +2787,9 @@
                     form_code: fCur.form_code || '', form_name: fCur.form_name.trim(),
                     use_yn: fCur.use_yn || 'Y', seq_no: fCur.seq_no || 0,
                     description: fCur.description || '',
+                    insp_type: fCur.insp_type || 'final',
+                    doc_code: fCur.doc_code || '', model: fCur.model || '',
+                    cell_map: fCur.doc_code ? JSON.stringify(fCur.cell_map || {}) : '',
                     items_json: JSON.stringify(items), mat_ids_json: JSON.stringify(fSelMats),
                     spjangcd: CTX.spjangcd
                 };

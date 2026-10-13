@@ -164,7 +164,32 @@
         .subasm{display:flex;align-items:center;gap:8px;padding:8px 10px;margin-bottom:8px;border:1px dashed var(--line);border-radius:12px;background:var(--surface);font-size:13px;font-weight:700;color:var(--ink-2)}
         .subasm b{color:var(--ink)}
         .subasm .ok{color:var(--green)}.subasm .no{color:var(--amber)}
-        .brow{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}.brow:last-child{border-bottom:none}
+        .brow{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+        /* ★ 투입 로트 · 주요자재 S/N */
+        .lotchip{display:inline-flex;align-items:center;gap:4px;margin-left:4px;padding:2px 8px;border-radius:8px;border:1px solid var(--line);
+            background:var(--surface);font-size:11.5px;font-weight:800;color:var(--ink-2);cursor:pointer;vertical-align:middle}
+        .lotchip.set{border-color:var(--teal);color:var(--teal-d);background:var(--teal-bg)}
+        .lotchip.ro{cursor:default}
+        .snbtn{height:34px;padding:0 10px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font-size:12.5px;font-weight:800;color:var(--ink-2);cursor:pointer;flex:0 0 auto}
+        .snbtn.on{border-color:var(--teal);color:var(--teal-d);background:var(--teal-bg)}
+        .snbox{flex:1 1 100%;display:flex;flex-wrap:wrap;gap:6px;padding:2px 0 4px}
+        .snbox label{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:800;color:var(--ink-2)}
+        .snbox input{width:190px;height:40px;border-radius:10px;border:1.5px solid var(--line);padding:0 10px;font-size:14px;font-weight:800;
+            font-family:inherit;font-variant-numeric:tabular-nums;background:#FFFDF4}
+        .snbox input.ok{border-color:var(--green);background:var(--green-bg)}
+        .snbox input:focus{outline:none;border-color:var(--teal)}
+        /* ★ 프로그램 다운로드 카드 */
+        .dlcard .sbom{display:block}
+        .dlrow{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
+        .dlrow:last-of-type{border-bottom:none}
+        .dlrow .bid{flex:1;min-width:0}
+        .dlrow .bn{font-size:15px;font-weight:800}
+        .dlrow .bc{font-size:12px;color:var(--ink-2);font-weight:700}
+        .dlrow input{width:230px;height:44px;border-radius:10px;border:1.5px solid var(--line);padding:0 12px;font-size:15px;font-weight:800;
+            font-family:inherit;font-variant-numeric:tabular-nums;background:#FFFDF4}
+        .dlrow input.ok{border-color:var(--green);background:var(--green-bg)}
+        .dlrow input:disabled{opacity:.8}
+        .dlwarn{margin:6px 0 2px;padding:8px 12px;border-radius:10px;background:var(--red-bg);color:var(--red);font-size:13px;font-weight:800}.brow:last-child{border-bottom:none}
         .brow .bid{flex:1;min-width:0}.brow .bn{font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .brow .bc{font-size:12px;color:var(--ink-2);font-weight:700;font-variant-numeric:tabular-nums}
         .autotag{font-size:11px;font-weight:800;color:var(--ink-2);padding:2px 6px;border-radius:6px;background:var(--surface)}
@@ -237,6 +262,28 @@
         @media (prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important}}
 
 
+        .sntag{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:10px;font-size:12px;font-weight:800;vertical-align:middle}
+        .sntag.ok{background:#e3f5e9;color:#1e7a3c}
+        .sntag.miss{background:#fde8e6;color:#c0392b}
+        .sntag.pi{background:#e8eefc;color:#2f55c4}
+        .piwrap{margin:4px 0 10px;padding:8px 10px;border:1.5px solid #c9d6f5;border-radius:12px;background:#f7f9ff}
+        .piwrap .bhead{display:flex;align-items:center;gap:6px}
+        .pinm{font-weight:700;color:var(--ink-2);font-size:13px}
+        .pinote{color:var(--ink-2);font-size:12.5px;font-weight:700;padding:4px 0}
+        .pirow{display:flex;gap:10px;align-items:center;padding:8px 0;border-top:1px dashed #d5dcef}
+        .pitx{flex:1;min-width:0}.pin{font-weight:800;font-size:14.5px}.pim{font-size:12.5px;color:var(--ink-2);line-height:1.35;margin-top:2px}
+        .piact{display:flex;gap:6px;align-items:center;flex-shrink:0}
+        .pival{width:90px;height:40px;border:1.5px solid #cfd6e4;border-radius:10px;padding:0 8px;font-size:14px}
+        .piok,.ping{height:40px;min-width:64px;border-radius:10px;border:1.5px solid #cfd6e4;background:#fff;font-weight:800;font-size:14px}
+        .piok.on{background:#1e7a3c;border-color:#1e7a3c;color:#fff}.ping.on{background:#c0392b;border-color:#c0392b;color:#fff}
+        .piok:disabled,.ping:disabled{opacity:.55}
+        .pihist{display:inline-block;margin-right:8px}
+        .snmask{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:9000;display:flex;align-items:center;justify-content:center}
+        .snsheet{background:#fff;border-radius:16px;padding:20px;width:min(420px,92vw);display:flex;flex-direction:column;gap:10px}
+        .snsheet b{font-size:18px}.snhint{font-size:13px;color:var(--ink-2);font-weight:700}
+        .snsheet input{height:52px;border:1.5px solid #cbd5e1;border-radius:12px;padding:0 14px;font-size:20px;font-weight:800}
+        .snbtns{display:flex;gap:8px;justify-content:flex-end}.snbtns button{height:46px;padding:0 16px;border-radius:12px;border:1.5px solid #cbd5e1;background:#fff;font-weight:800;font-size:15px}
+        .snbtns .ok{background:#0E7C86;border-color:#0E7C86;color:#fff}
     </style>
 
     <div class="ms-wash-root">
@@ -274,8 +321,9 @@
             <div class="screen hide" id="scC"><div class="col-stack">
                 <div class="topbar2">
                     <button class="back" data-back="B">‹</button>
-                    <div class="htitle"><div class="t" id="cUnit">—</div><div class="s" id="cSub">—</div></div>
+                    <div class="htitle"><div class="t" id="cUnit" style="cursor:pointer" title="눌러서 제품 번호 수정">—</div><div class="s" id="cSub">—</div></div>
                     <div id="cLotPill" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end"></div>
+                    <button class="sbtn2 ghost" id="btnDoc" style="margin-left:8px">📄 문서</button>
                 </div>
                 <div class="bscroll"><div class="bgrid" id="cGrid"></div></div>
                 <div class="actionbar" id="cAction"></div>
@@ -332,6 +380,7 @@
 </th:block>
 
 <th:block layout:fragment="scripts">
+    <script type="text/javascript" th:src="@{/js/mcell_doc.js}"></script>
     <script th:inline="none">
         /* ── 높이 자동 맞춤 ── */
         (function () {
@@ -448,7 +497,7 @@
             const s = stepIdx(i);
             if (!s || s.state === 'done') return;
             const bom = (s.mats || []).filter(r => r.is_assembly !== 'Y')
-                .map(r => ({matId: r.mat_id, qty: bomQ(r)}));
+                .map(r => ({matId: r.mat_id, qty: bomQ(r), lotId: r.lot_id || ''}));
             clearTimeout(_saveT[i]);
             _saveT[i] = setTimeout(function () {
                 apiPostSilent('/step_mat_save', {step_id: s.step_id, bom_json: JSON.stringify(bom)})
@@ -551,7 +600,7 @@
         function nowFull() { return todayStr() + ' ' + hhmm(); }
         function shortT(v) { return v ? v.slice(5).replace('-', '.') : ''; }
         const WD = ['일', '월', '화', '수', '목', '금', '토'];
-        function unitName(u) { return 'SN-' + String(u.unit_no).padStart(3, '0'); }
+        function unitName(u) { return u.serial_no || ('SN-' + String(u.unit_no).padStart(3, '0')); }
         function bomQ(row) { return row.manual ? (row.qty || 0) : row.default_qty; }
         function esc(s) { return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c])); }
 
@@ -659,9 +708,55 @@
         async function loadSteps() {
             STEPS = await apiGet('/step_list', {unit_id: curU.unit_id}) || [];
             STEPS.forEach(s => { s.mats = null; });   // 투입자재는 펼칠 때 지연 로드
+            loadDl();
             renderUnit();
         }
         function stepIdx(i) { return STEPS[i]; }
+
+        /* ══════════ ★ 프로그램 다운로드 — 모든 조립의 첫 작업 ══════════
+           보드 S/N 은 유닛 단위 기록이라, 나중에 그 보드를 투입하는 어셈블리 스텝에도 같은 값이 보인다. */
+        let DL = null;
+        function loadDl() {
+            try { DL = apiGet('/dl_detail', {unit_id: curU.unit_id}) || null; } catch (e) { DL = null; }
+        }
+        function dlDone() { return !DL || DL.state === 'done'; }   // 조회 실패 시 막지 않는다(서버가 최종 판단)
+        function dlCard() {
+            if (!DL) return '';
+            const st = DL.state || 'wait', done = st === 'done', working = st === 'working';
+            const badge = done ? '<span class="st-badge done">완료</span>'
+                : working ? '<span class="st-badge working"><i></i>작업중</span>' : '<span class="st-badge wait">대기</span>';
+            let btn = '';
+            if (done) btn = '<button class="sbtn2 ghost" data-dlcancel>완료취소</button>';
+            else if (working) btn = '<button class="sbtn2 done" data-dldone>다운로드 완료</button>';
+            else btn = '<button class="sbtn2 go" data-dlgo>작업 시작</button>';
+            const tchips = DL.start_time ? '<span class="stime">' +
+                '<button data-dltime="start">시작 <b>' + shortT(DL.start_time) + '</b></button>' +
+                (DL.end_time ? '<button data-dltime="end">완료 <b>' + shortT(DL.end_time) + '</b></button>' : '') + '</span>' : '';
+            const who = DL.actor_name ? '<span class="sc">' + esc(DL.actor_name) + '</span>' : '';
+            const boards = DL.boards || [];
+            const rows = boards.map(b => {
+                if (!b.mat_id) return '<div class="dlrow"><div class="bid"><div class="bn">' + esc(b.slot_name) + '</div>' +
+                    '<div class="bc" style="color:#c0392b">이 제품 BOM 에 없음</div></div></div>';
+                const v = b.serial_no || '';
+                return '<div class="dlrow"><div class="bid"><div class="bn">' + esc(b.slot_name) + '</div>' +
+                    '<div class="bc">' + esc(b.mat_code || '') + ' · ' + esc(b.mat_name || '') + '</div></div>' +
+                    '<input data-dlsn="' + b.mat_id + '" value="' + esc(v) + '" class="' + (v ? 'ok' : '') +
+                    '" placeholder="S/N 입력" autocomplete="off" autocapitalize="characters"' + (st === 'wait' ? ' disabled' : '') + '></div>';
+            }).join('');
+            return '<div class="tierlab">첫 작업 · 프로그램 다운로드</div>' +
+                '<div class="step dlcard' + (done ? '' : ' avail') + '" data-st="' + st + '" style="--ind:0;--gd:none"><div class="edge"></div>' +
+                '<div class="shead"><span class="lvl">PD</span>' +
+                '<div class="sid"><div class="sn">Program Download</div><div class="sc">보드 프로그램 다운로드 · S/N 기록 · 재고 이동 없음</div></div>' +
+                badge + '<span class="sgap"></span>' + btn +
+                ((who || tchips) ? '<div class="smeta">' + who + tchips + '</div>' : '') + '</div>' +
+                '<div class="sbom open">' +
+                (DL.changed_yn === 'Y' ? '<div class="dlwarn">⚠ 다운로드 «완료» 때와 보드 S/N 이 다릅니다 : ' + esc((DL.changed_list || []).join(', ')) +
+                    '<br>입력 실수면 S/N 을 원래대로 고치면 사라집니다. 보드를 실제로 바꿨다면 새 보드에 프로그램을 받고 «완료취소» → «다운로드 완료» 를 다시 눌러 주세요.</div>' : '') +
+                '<div class="bhead">보드 S/N <span class="ln"></span>' + '' + '</div>' +
+                rows + (st === 'wait' ? '<div style="color:var(--ink-2);font-size:12.5px;font-weight:700;padding-top:6px">작업을 시작하면 S/N 을 입력할 수 있습니다.</div>' : '') +
+                '</div></div>';
+        }
+        async function dlRefresh() { loadDl(); renderUnit(); }
         function stepByMat(matId) { return STEPS.find(s => +s.mat_id === +matId); }
         function assetOf(code) { return (code || '').startsWith('WIP-MC') ? '반제품 (검사대상)' : '반제품 모듈'; }
 
@@ -672,11 +767,44 @@
         }
         function allStepsDone() { const p = unitProg(); return p.total > 0 && p.done === p.total; }
 
+        /* ★ 제품 번호(임시 SN-001) 수정 — 로트번호는 그대로, 표시·문서용 번호만 */
+        document.getElementById('cUnit').addEventListener('click', () => {
+            if (!curU) return;
+            const tmp = 'SN-' + String(curU.unit_no).padStart(3, '0');
+            const m = document.createElement('div');
+            m.className = 'snmask';
+            m.innerHTML = '<div class="snsheet"><b>제품 번호 수정</b>' +
+                '<div class="snhint">임시번호 ' + esc(tmp) + ' · 로트 ' + esc(curU.lot_number || '-') + ' (로트번호는 바뀌지 않습니다)</div>' +
+                '<input id="snInp" value="' + esc(curU.serial_no || '') + '" placeholder="' + esc(tmp) + '" autocomplete="off" autocapitalize="characters">' +
+                '<div class="snbtns"><button data-snc>취소</button><button data-snr>임시번호로</button><button class="ok" data-sno>저장</button></div></div>';
+            document.body.appendChild(m);
+            const inp = m.querySelector('#snInp'); inp.focus(); inp.select();
+            const save = v => guard(async () => {
+                await apiPost('/unit_serial', {unit_id: curU.unit_id, serial_no: v});
+                curU.serial_no = v || null;
+                const x = UNITS.find(t => +t.unit_id === +curU.unit_id); if (x) x.serial_no = curU.serial_no;
+                m.remove(); renderUnit();
+            });
+            m.addEventListener('click', e => {
+                if (e.target === m || e.target.closest('[data-snc]')) { m.remove(); return; }
+                if (e.target.closest('[data-snr]')) { save(''); return; }
+                if (e.target.closest('[data-sno]')) save(inp.value.trim());
+            });
+            inp.addEventListener('keydown', e => { if (e.key === 'Enter') save(inp.value.trim()); });
+        });
+
+        /* ★ 제조 문서 (제조공정관리 · 공정검사서 — 엑셀/인쇄/첨부) */
+        document.getElementById('btnDoc').addEventListener('click', () => {
+            if (!curU) return;
+            if (typeof McellDoc === 'undefined') { flash('문서 모듈(mcell_doc.js)이 없습니다'); return; }
+            McellDoc.open({unitId: curU.unit_id, from: 'assembly'});
+        });
+
         function renderUnit() {
             const u = curU;
             const _sc = document.getElementById('cGrid').closest('.bscroll');
             const _keep = _sc ? _sc.scrollTop : 0;
-            document.getElementById('cUnit').textContent = unitName(u) + ' · ' + (curO.mat_name || '');
+            document.getElementById('cUnit').textContent = unitName(u) + ' ✎ · ' + (curO.mat_name || '');
             /* 작업자 — 스텝마다 조가 다를 수 있으므로 대표·조원을 전부 모아 중복 제거 */
             const who = [];
             STEPS.forEach(st => {
@@ -697,6 +825,7 @@
                     '<span class="rl">사유 : ' + esc(u.reject_reason) + ' · ' + esc(u.reject_at || '') + '</span>' +
                     '<span class="rl">귀책 모듈을 <b>완료취소</b> 후 자재를 교체·가감하고 다시 완료하세요.</span></div>';
             }
+            html += dlCard();   // ★ 첫 작업
             let lastDepth = null;
             STEPS.forEach((s, i) => {
                 if (s.depth !== lastDepth) {
@@ -711,6 +840,21 @@
         }
 
         /* 투입자재 1행 — 하위 어셈블리도 같은 목록에서 상태로 표시 */
+        /* ★ 주요자재 S/N — 투입 수량만큼 칸을 만든다. 칸마다 바로 저장(비우면 삭제).
+             스텝 완료 뒤에도 고칠 수 있다 — 재고와 무관한 기록이라서. */
+        function snCount(r) { return Object.values(r.sns || {}).filter(v => v && String(v).trim()).length; }
+        function snBox(r, i, bi) {
+            const n = Math.max(1, Math.round(bomQ(r)) || 1);
+            let h = '<div class="snbox">';
+            for (let k = 1; k <= n; k++) {
+                const v = (r.sns || {})[k] || '';
+                h += '<label>' + (n > 1 ? '#' + k : 'S/N') +
+                    '<input data-sn="' + i + ',' + bi + ',' + k + '" value="' + esc(v) + '" class="' + (v ? 'ok' : '') +
+                    '" placeholder="S/N 입력" autocomplete="off" autocapitalize="characters"></label>';
+            }
+            return h + '</div>';
+        }
+
         function asmRow(r, i, bi, done) {
             const head = '<div class="bid"><div class="bn">' + esc(r.mat_name) + '</div>';
             if (r.is_assembly === 'Y') {
@@ -726,15 +870,26 @@
                     '<span class="asmtag ' + cls + '">' + lab + '</span>' +
                     '<div style="font-weight:800;font-variant-numeric:tabular-nums;padding-right:8px">' + (r.default_qty || 1) + '</div></div>';
             }
+            /* ★ 투입 로트 — 기본은 FIFO 자동. 작업자가 실제 꺼낸 로트와 다르면 눌러서 바꾼다.
+                 완료된 스텝은 실제로 빠진 로트를 보여준다(바꾸려면 분해 후). */
+            const lotChip = done
+                ? '<span class="lotchip ro">LOT ' + esc(r.used_lots || '-') + '</span>'
+                : '<span class="lotchip' + (r.lot_id ? ' set' : '') + '" data-lot="' + i + ',' + bi + '">LOT ' +
+                (r.lot_id ? esc(r.lot_number || ('#' + r.lot_id)) : 'FIFO 자동') + ' ▾</span>';
+            const snOpen = r.sn_yn === 'Y' || snCount(r) > 0;   // ★ S/N 관리 체크된 자재만
+            const snBtn = !snOpen ? '' : '<button class="snbtn' + (snOpen ? ' on' : '') + '" data-sntog="' + i + ',' + bi + '">S/N' +
+                (snCount(r) ? ' ' + snCount(r) + '/' + Math.max(1, Math.round(bomQ(r))) : '') + '</button>';
             return '<div class="brow">' + head +
                 '<div class="bc">' + esc(r.mat_code) + ' · 소요 ' + (r.per || 1) +
                 (r.manual ? ' <span class="autotag">수정</span>' : ' <span class="autotag">자동</span>') +
-                ' · 재고 ' + (r.stock || 0) + ' (' + esc(r.src_store_name || '') + ')</div></div>' +
+                ' · 재고 ' + (r.stock || 0) + ' (' + esc(r.src_store_name || '') + ')' + lotChip + '</div></div>' +
+                snBtn +
                 (done ? '<div style="font-weight:800;font-variant-numeric:tabular-nums;padding-right:8px">' + bomQ(r) + '</div>' :
                     '<div class="bstep"><button class="minus" data-m="' + i + ',' + bi + ',-1">−</button>' +
                     '<div class="bq ' + (r.manual ? '' : 'auto') + '" data-pad="' + i + ',' + bi + '">' + bomQ(r) + '</div>' +
                     '<button class="plus" data-m="' + i + ',' + bi + ',1">＋</button></div>' +
-                    '<button class="brm" data-rm="' + i + ',' + bi + '">✕</button>') + '</div>';
+                    '<button class="brm" data-rm="' + i + ',' + bi + '">✕</button>') +
+                (snOpen ? snBox(r, i, bi) : '') + '</div>';
         }
 
         /* 스텝 1건의 작업자 표시 이름 — 대표 + 조원 전원 (조립 BSC 와 동일 규칙) */
@@ -767,6 +922,7 @@
                 '<button class="sbtn2 done" data-done="' + i + '">' + (s.depth === 0 ? '최종 완료' : '모듈 완료') + '</button>';
             else if (!locked) btn = '<button class="sbtn2 go" data-go="' + i + '">작업 시작</button>';
 
+            const snTag = snBadge(s) + piTag(s);
             const rows = (s.mats == null)
                 ? '<div style="color:var(--ink-2);font-weight:700;font-size:14px;padding:6px 0">펼치면 투입자재를 불러옵니다…</div>'
                 : (s.mats.map((r, bi) => asmRow(r, i, bi, done)).join('')
@@ -777,13 +933,169 @@
                 '<span class="lvl">L' + (s.depth + 1) + '</span>' +
                 '<div class="sid"><div class="sn">' + esc(s.mat_name) + '</div><div class="sc">' + esc(s.mat_code) +
                 ' · 자재 ' + (s.bom_cnt || 0) + '종' + (s.kid_cnt ? ' · 하위 ' + s.kid_cnt : '') +
-                (s.lot_number ? ' · LOT ' + esc(s.lot_number) : '') + '</div></div>' +
+                (s.lot_number ? ' · LOT ' + esc(s.lot_number) : '') + snTag + '</div></div>' +
                 badge + '<span class="sgap"></span>' + srcTog + btn +
                 ((whoTxt || tchips) ? '<div class="smeta">' + whoTxt + tchips + '</div>' : '') + '</div>' +
-                '<div class="sbom" id="sbom' + i + '">' +
+                '<div class="sbom" id="sbom' + i + '">' + piBlock(s, i) +
                 '<div class="bhead">투입자재 <span class="ln"></span>' + (done ? '' : '<button class="baddbtn" data-add="' + i + '">＋ 자재</button>') + '</div>' +
                 rows + '</div></div>';
         }
+
+        /* ★ S/N 입력 현황 — 펼쳐서 자재를 불러왔으면 화면 값, 아니면 서버 집계 */
+        function snStat(s) {
+            if (s.mats) {
+                let need = 0, done = 0;
+                s.mats.filter(r => r.sn_yn === 'Y' && r.is_assembly !== 'Y' && bomQ(r) > 0).forEach(r => {
+                    const q = Math.max(1, Math.round(bomQ(r))); need += q; done += Math.min(q, snCount(r));
+                });
+                return { need, done };
+            }
+            return { need: +s.sn_need || 0, done: +s.sn_done || 0 };
+        }
+        function snBadge(s) {
+            const t = snStat(s);
+            if (!t.need) return '';
+            const ok = t.done >= t.need;
+            return ' <span class="sntag ' + (ok ? 'ok' : 'miss') + '" data-sntag="' + s.step_id + '">S/N ' + t.done + '/' + t.need + (ok ? ' ✓' : ' 미입력') + '</span>';
+        }
+
+        /* ══════════ ★ 공정검사 (조립 중간 검사, F803-6) ══════════
+           어셈블리에 공정검사 양식이 연결돼 있으면 «작업중» 에 검사 → 합격해야 완료할 수 있다. */
+        function piTag(s) {
+            if (!s.pi_form_id) return '';
+            const v = s.pi_verdict;
+            if (v === 'pass') return ' <span class="sntag ok">공정검사 합격 ✓</span>';
+            if (v === 'fail') return ' <span class="sntag miss">공정검사 불합격</span>';
+            return ' <span class="sntag pi">공정검사 ' + (s.pi_result_id ? '진행중' : '대기') + '</span>';
+        }
+        function loadPi(s) {
+            if (!s.pi_form_id) { s.pi = null; return; }
+            try { s.pi = apiGet('/pi_detail', {step_id: s.step_id}) || null; } catch (e) { s.pi = null; }
+            const r = s.pi && s.pi.result;
+            s.pi_result_id = r ? r.result_id : null;
+            s.pi_verdict = r ? r.verdict : null;
+        }
+        function piBlock(s, i) {
+            if (!s.pi_form_id) return '';
+            const working = s.state === 'working', done = s.state === 'done';
+            const head = '<div class="bhead">공정검사 <span class="pinm">' + esc(s.pi_form_name || '') + '</span><span class="ln"></span>';
+            if (!working && !done) return '<div class="piwrap">' + head + '</div>' +
+                '<div class="pinote">작업을 시작하면 공정검사를 입력할 수 있습니다. 합격해야 완료됩니다.</div></div>';
+            if (!s.pi) return '<div class="piwrap">' + head + '</div><div class="pinote">불러오는 중…</div></div>';
+            const res = s.pi.result, v = res && res.verdict;
+            const vals = {};
+            (s.pi.values || []).forEach(x => { vals[x.item_id] = x; });
+            const editable = working && !v;   // 확정 전·작업중에만 입력
+            let btns = '';
+            if (working) {
+                if (!res) btns = '';
+                else if (v === 'fail') btns = '<button class="sbtn2 go" data-pistart="' + i + '">재검사</button>';
+                else if (v === 'pass') btns = '<button class="sbtn2 ghost" data-pirevise="' + i + '">판정 수정</button>';
+                else {   // 진행중 — 합격만이면 자동 확정되므로, 여기 남는 건 불합격 항목이 있을 때
+                    const vv = s.pi.values || [];
+                    const anyFail = (s.pi.items || []).some(it => (vv.find(x => +x.item_id === +it.item_id) || {}).result === 'fail');
+                    btns = anyFail ? '<button class="sbtn2 done" data-pijudge="' + i + '" style="background:#c0392b;border-color:#c0392b">불합격 확정</button>' : '';
+                }
+            }
+            const vb = v === 'pass' ? '<span class="sntag ok">합격' + (res.try_no > 1 ? ' · ' + res.try_no + '차' : '') + '</span>'
+                : v === 'fail' ? '<span class="sntag miss">불합격 · ' + res.try_no + '차</span>'
+                    : res ? '<span class="sntag pi">' + res.try_no + '차 진행중</span>' : '';
+            const items = (s.pi.items || []).map(it => {
+                const cur = vals[it.item_id] || {}, rr = cur.result;
+                return '<div class="pirow">' +
+                    '<div class="pitx"><div class="pin">' + it.seq_no + '. ' + esc(it.item_name || '') + '</div>' +
+                    (it.method ? '<div class="pim">방법 · ' + esc(it.method) + '</div>' : '') +
+                    (it.criteria ? '<div class="pim">기준 · ' + esc(it.criteria) + '</div>' : '') + '</div>' +
+                    '<div class="piact">' +
+                    '<input class="pival" data-pival="' + i + ',' + it.item_id + '" value="' + esc(cur.value || '') + '" placeholder="측정값"' + (editable ? '' : ' disabled') + '>' +
+                    '<button class="piok' + (rr === 'pass' ? ' on' : '') + '" data-pires="' + i + ',' + it.item_id + ',pass"' + (editable || (working && !res) ? '' : ' disabled') + '>합격</button>' +
+                    '<button class="ping' + (rr === 'fail' ? ' on' : '') + '" data-pires="' + i + ',' + it.item_id + ',fail"' + (editable || (working && !res) ? '' : ' disabled') + '>불합격</button>' +
+                    '</div></div>';
+            }).join('') || '<div class="pinote">검사 항목이 없습니다. 검사 화면 «양식» 에서 항목을 등록하세요.</div>';
+            const hist = (s.pi.history || []).filter(h => !res || h.try_no !== res.try_no)
+                .map(h => '<span class="pihist">' + h.try_no + '차 ' + (h.verdict === 'pass' ? '합격' : '불합격') +
+                    (h.fail_reason ? ' (' + esc(h.fail_reason) + ')' : '') + '</span>').join('');
+            return '<div class="piwrap">' + head + vb + btns + '</div>' + items +
+                (res && res.actor_name ? '<div class="pinote">검사자 ' + esc(res.actor_name) + (res.end_time ? ' · ' + shortT(res.end_time) : '') + '</div>' : '') +
+                (hist ? '<div class="pinote">이력 ' + hist + '</div>' : '') +
+                (done && !v ? '<div class="pinote">완료된 어셈블리 — 검사 기록 없음</div>' : '') + '</div>';
+        }
+        function piRefresh(i) { const s = stepIdx(i); loadPi(s); renderUnit(); openStep(i); }
+        async function piEnsure(s) {   // 회차가 없거나 불합격 뒤면 새 회차
+            const r = s.pi && s.pi.result;
+            if (r && !r.verdict) return r.result_id;
+            const d = await apiPost('/pi_start', {step_id: s.step_id, actor_id: s.actor_id || '', spjangcd: CTX.spjangcd});
+            return d && d.result_id;
+        }
+        /* ★ 전 항목이 «합격» 이면 판정 확정을 따로 누르지 않아도 자동 합격.
+              불합격 항목이 있으면 바로 확정하지 않는다(잘못 누른 것 고칠 여지) → «불합격 확정» 버튼으로 */
+        function piAllPass(s) {
+            const r = s.pi && s.pi.result, items = (s.pi && s.pi.items) || [], vals = (s.pi && s.pi.values) || [];
+            if (!r || r.verdict || !items.length) return false;
+            return items.every(it => (vals.find(x => +x.item_id === +it.item_id) || {}).result === 'pass');
+        }
+        async function piAutoPass(s) {
+            if (!piAllPass(s)) return false;
+            const res = await apiPostSilent('/pi_judge', {result_id: s.pi.result.result_id, fail_reason: ''});
+            if (res && res.success === false) { flash(res.message || '판정 실패'); return false; }
+            flash('공정검사 합격 ✓');
+            loadPi(s);
+            return true;
+        }
+        async function piTap(t) {
+            const pr = t.closest('[data-pires]');
+            if (pr) {
+                const [i, itemId, val] = pr.dataset.pires.split(',');
+                const s = stepIdx(+i);
+                await guard(async () => {
+                    const rid = await piEnsure(s);
+                    const curV = ((s.pi && s.pi.values) || []).find(x => +x.item_id === +itemId) || {};
+                    const next = curV.result === val ? '' : val;   // 같은 버튼 다시 누르면 해제
+                    const inp = document.querySelector('[data-pival="' + i + ',' + itemId + '"]');
+                    const res = await apiPostSilent('/pi_item', {result_id: rid, item_id: itemId, result: next, value: inp ? inp.value : ''});
+                    if (res && res.success === false) flash(res.message || '저장 실패');
+                    loadPi(s);
+                    await piAutoPass(s);   // ★ 전 항목 합격이면 판정까지 자동
+                    renderUnit(); openStep(+i);
+                });
+                return true;
+            }
+            const ps = t.closest('[data-pistart]');
+            if (ps) { const i = +ps.dataset.pistart, s = stepIdx(i);
+                await guard(async () => { await apiPost('/pi_start', {step_id: s.step_id, actor_id: s.actor_id || '', spjangcd: CTX.spjangcd}); piRefresh(i); });
+                return true; }
+            const pj = t.closest('[data-pijudge]');
+            if (pj) { const i = +pj.dataset.pijudge, s = stepIdx(i);
+                const vals = (s.pi && s.pi.values) || [];
+                const bad = (s.pi.items || []).filter(it => (vals.find(x => +x.item_id === +it.item_id) || {}).result === 'fail')
+                    .map(it => it.item_name).join(', ');
+                await guard(async () => {
+                    await apiPost('/pi_judge', {result_id: s.pi.result.result_id, fail_reason: bad});
+                    piRefresh(i);
+                });
+                return true; }
+            const pv = t.closest('[data-pirevise]');
+            if (pv) { const i = +pv.dataset.pirevise, s = stepIdx(i);
+                await guard(async () => { await apiPost('/pi_revise', {result_id: s.pi.result.result_id}); piRefresh(i); });
+                return true; }
+            return false;
+        }
+        // 측정값 — 칸을 벗어나면 저장
+        document.getElementById('cGrid').addEventListener('change', e => {
+            const inp = e.target.closest('[data-pival]'); if (!inp) return;
+            const [i, itemId] = inp.dataset.pival.split(',').map(Number);
+            const s = stepIdx(i);
+            Promise.resolve(piEnsure(s)).then(rid => {
+                const curV = ((s.pi && s.pi.values) || []).find(x => +x.item_id === itemId) || {};
+                return apiPostSilent('/pi_item', {result_id: rid, item_id: itemId, result: curV.result || '', value: inp.value.trim()})
+                    .then(res => {
+                        if (res && res.success === false) { flash(res.message || '저장 실패'); return; }
+                        if (!s.pi.result) { loadPi(s); return; }
+                        const v = (s.pi.values = s.pi.values || []).find(x => +x.item_id === itemId);
+                        if (v) v.value = inp.value.trim(); else s.pi.values.push({item_id: itemId, value: inp.value.trim()});
+                    });
+            }).catch(err => flash((err && err.message) || '저장 실패'));
+        });
 
         function replacedCard(s, i) {
             return '<div class="step replaced" data-st="repl" style="--ind:' + s.depth + ';--gd:' + (s.depth ? 'block' : 'none') + '"><div class="edge"></div>' +
@@ -853,6 +1165,7 @@
                 return;
             }
             /* 펼치기 — 투입자재 지연 로드 */
+            if (e.target.closest('[data-pires],[data-pistart],[data-pijudge],[data-pirevise]')) { piTap(e.target); return; }
             const c = e.target.closest('[data-caret]');
             if (c) {
                 const i = +c.dataset.caret, s = stepIdx(i);
@@ -867,7 +1180,36 @@
             if (ts) { const [si, wh] = ts.dataset.stime.split(','); openTime(wh, +si); return; }
             /* 작업 시작 */
             const g = e.target.closest('[data-go]');
-            if (g) { const i = +g.dataset.go; if (stepIdx(i).locked) { flash('하위 어셈블리 미완료'); return; } openWhoSheet(i); return; }
+            if (g) {
+                const i = +g.dataset.go;
+                if (!dlDone()) { flash('프로그램 다운로드를 먼저 완료하세요'); return; }
+                if (stepIdx(i).locked) { flash('하위 어셈블리 미완료'); return; }
+                openWhoSheet(i); return;
+            }
+            /* ★ 프로그램 다운로드 */
+            if (e.target.closest('[data-dlgo]')) { openWhoSheet('DL'); return; }
+            if (e.target.closest('[data-dldone]')) {
+                guard(async () => {
+                    await apiPost('/dl_finish', {unit_id: curU.unit_id, end_time: nowFull()});
+                    await dlRefresh();
+                });
+                return;
+            }
+            if (e.target.closest('[data-dlcancel]')) {
+                uiConfirm('프로그램 다운로드 완료를 취소합니다.\n입력한 S/N 은 그대로 남습니다.', function () {
+                    guard(async () => { await apiPost('/dl_cancel', {unit_id: curU.unit_id}); await dlRefresh(); });
+                }, '완료취소');
+                return;
+            }
+            const dt = e.target.closest('[data-dltime]');
+            if (dt) { openTime(dt.dataset.dltime, 'DL'); return; }
+            const dr = e.target.closest('[data-dlrm]');
+            if (dr) {
+                const ids = (DL.boards || []).map(b => +b.mat_id).filter(id => id !== +dr.dataset.dlrm);
+                guard(async () => { await apiPost('/dl_boards', {unit_id: curU.unit_id, mat_ids: ids.join(',')}); await dlRefresh(); });
+                return;
+            }
+            if (e.target.closest('[data-dladd]')) { openDlPick(); return; }
             /* 완료 */
             const d = e.target.closest('[data-done]');
             if (d) { finishStep(+d.dataset.done); return; }
@@ -922,8 +1264,21 @@
                 const [i, bi, dv] = m.dataset.m.split(',').map(Number);
                 const r = stepIdx(i).mats[bi];
                 r.manual = 1; r.qty = Math.max(0, bomQ(r) + dv);
-                syncMatRow(i, bi);
+                if (r.sn_yn === 'Y' || r.snOpen || snCount(r)) { renderUnit(); openStep(i); }   // S/N 칸 수가 바뀐다
+                else syncMatRow(i, bi);
                 saveStepMats(i);
+                return;
+            }
+            /* ★ 투입 로트 선택 */
+            const lc = e.target.closest('[data-lot]');
+            if (lc) { const [i, bi] = lc.dataset.lot.split(',').map(Number); openMatLot(i, bi); return; }
+            /* ★ S/N 칸 열기/닫기 */
+            const st = e.target.closest('[data-sntog]');
+            if (st) {
+                const [i, bi] = st.dataset.sntog.split(',').map(Number);
+                const r = stepIdx(i).mats[bi];
+                if (r.sn_yn === 'Y' || snCount(r)) { flash('S/N 대상 자재이거나 입력된 S/N 이 있어 닫을 수 없습니다'); return; }
+                r.snOpen = !r.snOpen; renderUnit(); openStep(i);
                 return;
             }
             const pd = e.target.closest('[data-pad]');
@@ -955,7 +1310,15 @@
             const s = stepIdx(i);
             await guard(async () => {
                 const rows = await apiGet('/step_materials', {step_id: s.step_id}) || [];
-                s.mats = rows.map(r => Object.assign({}, r, {manual: 0, qty: r.default_qty}));
+                // ★ S/N 은 별도 테이블 — 자재별 {순번: S/N} 으로 붙인다
+                let sns = [];
+                try { sns = await apiGet('/sn_list', {unit_id: curU.unit_id}) || []; } catch (e) { sns = []; }   // ★ 유닛 단위
+                s.mats = rows.map(r => {
+                    const m = {};
+                    sns.filter(x => +x.mat_id === +r.mat_id).forEach(x => { m[x.seq_no] = x.serial_no; });
+                    return Object.assign({}, r, {manual: 0, qty: r.default_qty, sns: m});
+                });
+                loadPi(s);   // ★ 공정검사
                 renderUnit(); openStep(i);
             });
         }
@@ -963,9 +1326,18 @@
         /* 스텝 완료 — 편집한 투입자재를 bom_json 으로 전송 */
         async function finishStep(i) {
             const s = stepIdx(i);
+            if (s.pi_form_id && s.pi_verdict !== 'pass' && piAllPass(s)) await piAutoPass(s);
+            if (s.pi_form_id && s.pi_verdict !== 'pass') {   // ★ 공정검사 합격해야 완료
+                flash('공정검사 합격 후 완료할 수 있습니다');
+                if (s.mats == null) await loadStepMats(i); else { loadPi(s); renderUnit(); }
+                openStep(i); return;
+            }
             if (s.mats == null) { await loadStepMats(i); }
             const bom = (s.mats || []).filter(r => r.is_assembly !== 'Y' && bomQ(r) > 0)
-                .map(r => ({matId: r.mat_id, qty: bomQ(r)}));
+                .map(r => ({matId: r.mat_id, qty: bomQ(r), lotId: r.lot_id || ''}));
+            /* ★ S/N 대상인데 비어 있으면 알려만 준다(막지 않는다 — 완료 후에도 입력할 수 있다) */
+            const miss = (s.mats || []).filter(r => r.sn_yn === 'Y' && r.is_assembly !== 'Y' && snCount(r) < Math.max(1, Math.round(bomQ(r))));
+            if (miss.length) flash('S/N 미입력 : ' + miss.map(r => r.mat_name).join(', ') + ' — 완료 후에도 입력할 수 있습니다');
             await guard(async () => {
                 await apiPost('/step_finish', {
                     step_id: s.step_id,
@@ -983,10 +1355,143 @@
             });
         }
 
+        /* ══════════ ★ 다운로드 카드 S/N 입력 ══════════ */
+        document.getElementById('cGrid').addEventListener('change', e => {
+            const inp = e.target.closest('[data-dlsn]'); if (!inp) return;
+            const matId = +inp.dataset.dlsn, v = inp.value.trim();
+            apiPostSilent('/sn_save', {unit_id: curU.unit_id, material_id: matId, seq_no: 1, serial_no: v})
+                .then(function (res) {
+                    if (res && res.success === false) { flash(res.message || 'S/N 저장 실패'); return; }
+                    const b = (DL.boards || []).find(x => +x.mat_id === matId);
+                    const was = b && b.serial_no ? 1 : 0; if (b) b.serial_no = v;
+                    // 아직 안 펼친 스텝의 S/N 현황 배지도 맞춘다
+                    const d = (v ? 1 : 0) - was;
+                    if (d) STEPS.forEach(st => {
+                        if (st.mats || !String(st.sn_mat_ids || '').split(',').includes(String(matId))) return;
+                        st.sn_done = Math.max(0, (+st.sn_done || 0) + d);
+                        const tg = document.querySelector('[data-sntag="' + st.step_id + '"]');
+                        if (tg) tg.outerHTML = snBadge(st).trim();
+                    });
+                    inp.classList.toggle('ok', !!v);
+                    if (res && res.message) flash(res.message);
+                    // 같은 보드를 투입하는 어셈블리 스텝이 이미 열려 있으면 그 칸도 맞춘다
+                    STEPS.forEach(st => (st.mats || []).forEach(r => {
+                        if (+r.mat_id === matId) { r.sns = r.sns || {}; r.sns[1] = v; }
+                    }));
+                    STEPS.forEach(st => { if (!st.mats) return;
+                        const tg = document.querySelector('[data-sntag="' + st.step_id + '"]');
+                        if (tg) tg.outerHTML = snBadge(st).trim(); });
+                })
+                .catch(function () { flash('S/N 저장 실패'); });
+        });
+        document.getElementById('cGrid').addEventListener('keydown', e => {
+            const inp = e.target.closest('[data-dlsn]'); if (!inp || e.key !== 'Enter') return;
+            e.preventDefault();
+            const all = Array.from(document.querySelectorAll('#cGrid [data-dlsn]'));
+            const nx = all[all.indexOf(inp) + 1];
+            if (nx) nx.focus(); else inp.blur();
+        });
+        /* ＋ 보드 — 이 유닛 BOM 의 S/N 관리 자재 중에서 고른다(재고 로트 시트를 같이 쓴다) */
+        let dlPick = false;
+        function openDlPick() {
+            const have = (DL.boards || []).map(b => +b.mat_id);
+            const cand = (DL.candidates || []);
+            dlPick = true; mlotT = null;
+            document.getElementById('wlotTitle').textContent = '다운로드할 보드 선택';
+            document.getElementById('wlotList').innerHTML = cand.map(m =>
+                    '<div class="prow ' + (have.includes(+m.mat_id) ? 'added' : '') + '" data-dlp="' + m.mat_id + '">' +
+                    '<div class="pid"><div class="pnm">' + esc(m.mat_name) + '</div><div class="pcode">' + esc(m.mat_code) + '</div></div>' +
+                    '<div class="pchk">' + (have.includes(+m.mat_id) ? '✓' : '＋') + '</div></div>').join('')
+                || '<div style="color:var(--ink-2);font-weight:700;padding:8px 2px">이 품목 BOM 에 «S/N 관리» 자재가 없습니다. 품목 관리에서 먼저 체크하세요.</div>';
+            showMask('wlotMask');
+        }
+        document.getElementById('wlotList').addEventListener('click', e => {
+            if (!dlPick) return;
+            const row = e.target.closest('[data-dlp]'); if (!row) return;
+            e.stopImmediatePropagation();
+            const id = +row.dataset.dlp;
+            let ids = (DL.boards || []).map(b => +b.mat_id);
+            ids = ids.includes(id) ? ids.filter(x => x !== id) : ids.concat([id]);
+            guard(async () => {
+                await apiPost('/dl_boards', {unit_id: curU.unit_id, mat_ids: ids.join(',')});
+                loadDl(); openDlPick(); renderUnit();
+            });
+        }, true);
+        document.getElementById('wlotMask').addEventListener('click', e => {
+            if (e.target.id === 'wlotMask' || e.target.closest('[data-close]')) dlPick = false;
+        });
+
+        /* ══════════ ★ S/N 입력 — 칸을 벗어나면 저장 ══════════ */
+        document.getElementById('cGrid').addEventListener('change', e => {
+            const inp = e.target.closest('[data-sn]'); if (!inp) return;
+            const [i, bi, k] = inp.dataset.sn.split(',').map(Number);
+            const s = stepIdx(i), r = s.mats[bi], v = inp.value.trim();
+            r.sns = r.sns || {};
+            apiPostSilent('/sn_save', {unit_id: curU.unit_id, step_id: s.step_id, material_id: r.mat_id, seq_no: k, serial_no: v, mat_lot_id: r.lot_id || ''})
+                .then(function (res) {
+                    if (res && res.success === false) { flash(res.message || 'S/N 저장 실패'); return; }
+                    r.sns[k] = v;
+                    inp.classList.toggle('ok', !!v);
+                    if (res && res.message) { flash(res.message); loadDl(); }   // 보드가 바뀌었으면 다운로드 카드 경고
+                    const b = inp.closest('.brow') && inp.closest('.brow').querySelector('[data-sntog]');
+                    if (b) b.textContent = 'S/N' + (snCount(r) ? ' ' + snCount(r) + '/' + Math.max(1, Math.round(bomQ(r))) : '');
+                    const tg = document.querySelector('[data-sntag="' + s.step_id + '"]');
+                    if (tg) tg.outerHTML = snBadge(s).trim();
+                })
+                .catch(function () { flash('S/N 저장 실패'); });
+        });
+        // 엔터 = 다음 칸으로 (스캐너·키보드 연속 입력)
+        document.getElementById('cGrid').addEventListener('keydown', e => {
+            const inp = e.target.closest('[data-sn]'); if (!inp || e.key !== 'Enter') return;
+            e.preventDefault();
+            const all = Array.from(document.querySelectorAll('#cGrid [data-sn]'));
+            const nx = all[all.indexOf(inp) + 1];
+            if (nx) nx.focus(); else inp.blur();
+        });
+
+        /* ══════════ ★ 투입 로트 선택 (원자재) — 재고 로트 시트를 같이 쓴다 ══════════ */
+        let mlotT = null;   // [stepIdx, matIdx] 이면 원자재 로트 선택 모드, null 이면 재고 재공품 모드
+        async function openMatLot(i, bi) {
+            const s = stepIdx(i), r = s.mats[bi];
+            await guard(async () => {
+                const lots = await apiGet('/wip_lots', {material_id: r.mat_id, store_id: r.src_store || CTX.outStore}) || [];
+                mlotT = [i, bi]; dlPick = false;
+                document.getElementById('wlotTitle').textContent = r.mat_name + ' · 투입 로트 선택';
+                document.getElementById('wlotList').innerHTML =
+                    '<div class="prow ' + (!r.lot_id ? 'added' : '') + '" data-ml="">' +
+                    '<div class="pid"><div class="pnm">FIFO 자동</div><div class="pcode">오래된 로트부터 자동으로 뺍니다</div></div>' +
+                    '<div class="pchk">' + (!r.lot_id ? '✓' : '＋') + '</div></div>' +
+                    lots.map((l, k) =>
+                        '<div class="prow ' + (+l.mat_lot_id === +r.lot_id ? 'added' : '') + '" data-ml="' + l.mat_lot_id + '" data-mln="' + esc(l.lot_number) + '">' +
+                        '<div class="pid"><div class="pnm">' + esc(l.lot_number) + '</div><div class="pcode">' + esc(r.mat_code) + ' · 입고 ' + esc(l.input_time || '') +
+                        (Number(l.stock) < bomQ(r) ? ' · <b style="color:var(--amber)">재고 부족분은 FIFO 로 채움</b>' : '') + '</div></div>' +
+                        (k === 0 ? '<span class="fifo">FIFO</span>' : '') +
+                        '<div class="pr"><div class="pl">가용</div>' + l.stock + '</div>' +
+                        '<div class="pchk">' + (+l.mat_lot_id === +r.lot_id ? '✓' : '＋') + '</div></div>').join('');
+                showMask('wlotMask');
+            });
+        }
+        document.getElementById('wlotList').addEventListener('click', e => {
+            if (!mlotT) return;
+            const row = e.target.closest('[data-ml]'); if (!row) return;
+            e.stopImmediatePropagation();          // 재고 재공품 핸들러로 넘기지 않는다
+            const [i, bi] = mlotT, r = stepIdx(i).mats[bi];
+            r.lot_id = row.dataset.ml ? +row.dataset.ml : null;
+            r.lot_number = row.dataset.ml ? row.dataset.mln : null;
+            mlotT = null;
+            hideMask('wlotMask');
+            saveStepMats(i);
+            renderUnit(); openStep(i);
+            flash(r.lot_id ? '투입 로트 지정 · ' + r.lot_number : 'FIFO 자동으로 되돌렸습니다');
+        }, true);
+        document.getElementById('wlotMask').addEventListener('click', e => {
+            if (e.target.id === 'wlotMask' || e.target.closest('[data-close]')) mlotT = null;
+        });
+
         /* ══════════ 재고 로트 선택 시트 ══════════ */
         let wlotI = null;
         async function openWlot(i) {
-            wlotI = i;
+            wlotI = i; mlotT = null; dlPick = false;
             const s = stepIdx(i);
             await guard(async () => {
                 const lots = await apiGet('/wip_lots', {material_id: s.mat_id, store_id: CTX.outStore}) || [];
@@ -1023,7 +1528,9 @@
         let selWorkers = [], selE = null, whoStep = null;
         function openWhoSheet(si) {
             whoStep = si;
-            const s = stepIdx(si);
+            const s = (si === 'DL')
+                ? {mat_name: 'Program Download', mat_code: '보드 프로그램 다운로드', actor_id: DL && DL.actor_id, equipment_id: DL && DL.equipment_id}
+                : stepIdx(si);
             const last = STEPS.filter(x => x.actor_id).slice(-1)[0];
             /* 직전 스텝의 조 편성을 그대로 이어받는다 (한 대를 같은 조가 계속 만든다) */
             const src = (s.actor_id ? s : (last || null));
@@ -1041,7 +1548,7 @@
                 '<button class="opt' + (+eq.equipment_id === +selE ? ' sel' : '') + '" data-e="' + eq.equipment_id + '">' + esc(eq.equipment_name) +
                 '<span class="sub">' + esc(eq.equipment_code || '') + '</span></button>').join('');
             autoPickSingleEquip();
-            document.getElementById('startOk').textContent = '이 어셈블리 작업 시작';
+            document.getElementById('startOk').textContent = (si === 'DL') ? '프로그램 다운로드 시작' : '이 어셈블리 작업 시작';
             ckStart(); showMask('startMask');
         }
         /* 스텝 행(actor_id + members)에서 선택 배열 복원 — 대표가 항상 첫 번째 */
@@ -1076,6 +1583,20 @@
         });
         function ckStart() { document.getElementById('startOk').disabled = !(selWorkers.length && selE); }
         document.getElementById('startOk').onclick = () => {
+            if (whoStep === 'DL') {
+                hideMask('startMask');
+                guard(async () => {
+                    await apiPost('/dl_start', {
+                        unit_id: curU.unit_id, actor_id: selWorkers[0].id,
+                        member_ids: selWorkers.slice(1).map(w => w.id).filter(Boolean).join(','),
+                        equipment_id: selE, start_time: nowFull(), spjangcd: CTX.spjangcd
+                    });
+                    await dlRefresh();
+                    flash('프로그램 다운로드 시작 · 보드 S/N 을 입력하세요');
+                    const f = document.querySelector('#cGrid [data-dlsn]'); if (f) f.focus();
+                });
+                return;
+            }
             const s = stepIdx(whoStep);
             hideMask('startMask');
             guard(async () => {
@@ -1157,7 +1678,7 @@
         function fmtD(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0') + ' (' + WD[d.getDay()] + ')'; }
         function openTime(which, si) {
             timeWhich = which; timeStep = si;
-            const s = stepIdx(si);
+            const s = (si === 'DL') ? {mat_name: 'Program Download', start_time: DL.start_time, end_time: DL.end_time} : stepIdx(si);
             document.getElementById('timeTitle').textContent = (which === 'start' ? '시작' : '완료') + ' 일시 수정 · ' + s.mat_name;
             const saved = which === 'start' ? s.start_time : s.end_time;
             editDate = (saved && saved.indexOf(' ') >= 0) ? new Date(saved.split(' ')[0] + 'T' + saved.split(' ')[1]) : new Date();
@@ -1189,10 +1710,18 @@
         document.getElementById('timeOk').onclick = () => {
             const ds = editDate.getFullYear() + '-' + String(editDate.getMonth() + 1).padStart(2, '0') + '-' + String(editDate.getDate()).padStart(2, '0');
             const v = ds + ' ' + document.getElementById('tH').textContent + ':' + document.getElementById('tM').textContent;
-            const s = stepIdx(timeStep);
+            const s = (timeStep === 'DL') ? {start_time: DL.start_time, end_time: DL.end_time} : stepIdx(timeStep);
             if (timeWhich === 'start' && s.end_time && v > s.end_time) { flash('시작이 완료보다 늦을 수 없습니다'); return; }
             if (timeWhich === 'end' && s.start_time && v < s.start_time) { flash('완료가 시작보다 빠를 수 없습니다'); return; }
             hideMask('timeMask');
+            if (timeStep === 'DL') {
+                guard(async () => {
+                    await apiPost('/dl_time', {unit_id: curU.unit_id, which: timeWhich, value: v});
+                    await dlRefresh();
+                    flash((timeWhich === 'start' ? '시작' : '완료') + ' 일시 저장 · ' + v);
+                });
+                return;
+            }
             guard(async () => {
                 await apiPost('/step_time', {step_id: s.step_id, which: timeWhich, value: v});
                 await loadSteps();
@@ -1598,7 +2127,9 @@
                 if (e.pointerType === 'mouse') return;          // 마우스는 click 이 정상 동작
                 var b = e.target && e.target.closest ? e.target.closest('button') : null;
                 if (!b || b.disabled || b.closest(SKIP)) return;
-                tapBtn = b; tx = e.clientX; ty = e.clientY;
+                tapBtn = b;
+                tx = e.clientX;
+                ty = e.clientY;
             }, true);
             window.addEventListener('pointerup', function (e) {
                 var b = tapBtn;
@@ -1610,7 +2141,9 @@
                 lastTap = Date.now();
                 b.click();                                      // 합성 click (isTrusted:false)
             }, true);
-            window.addEventListener('pointercancel', function () { tapBtn = null; }, true);
+            window.addEventListener('pointercancel', function () {
+                tapBtn = null;
+            }, true);
             window.addEventListener('click', function (e) {
                 if (e.isTrusted && Date.now() - lastTap < 700) {
                     e.stopPropagation();

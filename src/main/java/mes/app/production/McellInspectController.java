@@ -37,6 +37,14 @@ public class McellInspectController {
     }
 
     /** 적용 가능 품목 (InspectYN='Y') */
+    /** ★ 어셈블리 구성품 (제조공정관리 주요자재 매칭용) */
+    @GetMapping("/bom_children")
+    public AjaxResult bomChildren(@RequestParam("mat_id") Integer matId) {
+        AjaxResult r = new AjaxResult();
+        r.data = this.mcellInspectService.getBomChildren(matId);
+        return r;
+    }
+
     @GetMapping("/form_materials")
     public AjaxResult formMaterials() {
         AjaxResult r = new AjaxResult();
@@ -55,10 +63,14 @@ public class McellInspectController {
             @RequestParam(value = "description", required = false) String description,
             @RequestParam(value = "items_json", required = false) String itemsJson,
             @RequestParam(value = "mat_ids_json", required = false) String matIdsJson,
+            @RequestParam(value = "insp_type", defaultValue = "final") String inspType,
+            @RequestParam(value = "doc_code", required = false) String docCode,     // ★ 엑셀 문서
+            @RequestParam(value = "model", required = false) String model,          // ★ M2/M4/M4A (비우면 공통)
+            @RequestParam(value = "cell_map", required = false) String cellMap,     // ★ 머리칸 JSON
             @RequestParam(value = "spjangcd", defaultValue = "ZZ") String spjangcd,
             Authentication auth) {
         return this.mcellInspectService.saveForm(formId, code, name, useYn, seqNo, description,
-                itemsJson, matIdsJson, spjangcd, (User) auth.getPrincipal());
+                itemsJson, matIdsJson, inspType, docCode, model, cellMap, spjangcd, (User) auth.getPrincipal());
     }
 
     @PostMapping("/form_delete")
@@ -185,6 +197,27 @@ public class McellInspectController {
             Authentication auth) {
         return this.mcellInspectService.recheck(unitId, formId, actorId, memberIds, spjangcd,
                 (User) auth.getPrincipal());
+    }
+
+    /** ★ 판정 수정 — 확정된 최신 회차를 다시 연다 (포장된 유닛은 합격으로만 재확정) */
+    @PostMapping("/result_revise")
+    @Transactional
+    public AjaxResult resultRevise(
+            @RequestParam("result_id") Integer resultId,
+            @RequestParam(value = "spjangcd", defaultValue = "ZZ") String spjangcd,
+            Authentication auth) {
+        return this.mcellInspectService.reviseResult(resultId, spjangcd, (User) auth.getPrincipal());
+    }
+
+    /** ★ 검사 시작/종료 시각 수정 — 'yyyy-MM-dd HH:mm' */
+    @PostMapping("/result_time")
+    @Transactional
+    public AjaxResult resultTime(
+            @RequestParam("result_id") Integer resultId,
+            @RequestParam("which") String which,          // start | end
+            @RequestParam("value") String value,
+            Authentication auth) {
+        return this.mcellInspectService.setResultTime(resultId, which, value, (User) auth.getPrincipal());
     }
 
     @ExceptionHandler({IllegalStateException.class, IllegalArgumentException.class})

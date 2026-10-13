@@ -365,6 +365,25 @@
     @media (max-width:1100px){.qgrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
     @media (max-width:680px){.qgrid{grid-template-columns:1fr}}
     @media (prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important}}
+    .destsw{display:flex;border:1.5px solid var(--line);border-radius:12px;overflow:hidden;margin-right:8px}
+    .destsw button{height:40px;min-width:62px;border:0;background:#fff;font-weight:800;font-size:14px}
+    .destsw button.on{background:#0E7C86;color:#fff}
+    .chkrow{display:flex;gap:8px;align-items:center;padding:9px 2px;border-top:1px dashed var(--line)}
+    .chkrow .ct{flex:1;min-width:0}.chkrow .cn{font-weight:800;font-size:14.5px}.chkrow .cc{font-size:12.5px;color:var(--ink-2);line-height:1.35;margin-top:2px}
+    .chkrow .cv{width:110px;height:40px;border:1.5px solid var(--line);border-radius:10px;padding:0 8px;font-size:14px}
+    .chkrow .cok,.chkrow .cng{height:40px;min-width:62px;border-radius:10px;border:1.5px solid var(--line);background:#fff;font-weight:800;font-size:14px}
+    .chkrow .cok.on{background:#1e7a3c;border-color:#1e7a3c;color:#fff}.chkrow .cng.on{background:#c0392b;border-color:#c0392b;color:#fff}
+    .chkrow.na{opacity:.5}.chkrow .nat{font-size:12.5px;font-weight:800;color:var(--ink-2);padding-right:6px}
+    .deq{height:38px;border:1.5px solid var(--line);border-radius:10px;padding:0 8px;font-size:14px;font-weight:700;min-width:160px}
+    /* ★ 장비 시리얼 */
+    .unit .snbtn{margin-left:auto;flex:0 0 auto;height:40px;padding:0 14px;border-radius:10px;border:1.5px solid #cbd5e1;background:#fff;font-weight:800;font-size:13.5px;color:#334155;cursor:pointer}
+    .unit .snbtn.none{border-color:#f59e0b;background:#fff7e6;color:#a15c00}
+    .snmask{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:9000;display:flex;align-items:center;justify-content:center}
+    .snsheet{background:#fff;border-radius:16px;padding:20px;width:min(420px,92vw);display:flex;flex-direction:column;gap:10px}
+    .snsheet b{font-size:18px}.snhint{font-size:13px;color:#64748b;font-weight:700}
+    .snsheet input{height:52px;border:1.5px solid #cbd5e1;border-radius:12px;padding:0 14px;font-size:20px;font-weight:800}
+    .snbtns{display:flex;gap:8px;justify-content:flex-end}.snbtns button{height:46px;padding:0 16px;border-radius:12px;border:1.5px solid #cbd5e1;background:#fff;font-weight:800;font-size:15px}
+    .snbtns .ok{background:#0E7C86;border-color:#0E7C86;color:#fff}
   </style>
 
   <div class="ms-pack-root">
@@ -540,6 +559,7 @@
 </th:block>
 
 <th:block layout:fragment="scripts">
+  <script type="text/javascript" th:src="@{/js/mcell_doc.js}"></script>
   <!-- ★ 바코드 라이브러리 — prod_result_lot 과 같은 파일.
        CDN 이 아니라 프로젝트 안에 있어 현장망에서도 로드된다. -->
   <script type="text/javascript" th:src="@{/resource/jsBarcode/JsBarcode.all.min.js}"></script>
@@ -934,6 +954,8 @@
     let READY = [], PACKED = [], MATS = [];
     let SESSIONS = [], LOCAL = [], SESS = null;   // SESS = 지금 열려 있는 작업
     let curUnit = null;      // 이번 박스에 담을 검사 합격 유닛
+    /* ★ 포장공정 체크 · 최종검사 — 유닛 품목별 양식(캐시) / 이번 박스 입력값 / 출하 구분 */
+    let CHK_CACHE = {}, chkVal = {}, DEST = '국내', chkUnitKey = null;
     let curLabel = '';       // 이번 박스의 실물 라벨 (필수)
     let curLabelRaw = '';    // 그 라벨의 «스캔 원문» — GS1 이면 (10)만 뽑은 값과 다르다
     let curDone = null;      // 상세 시트에 띄운 포장 완료 건
@@ -1216,7 +1238,7 @@
         return '<div class="unit readonly"><div class="edge"></div>' +
                 '<div class="who"><span class="lot">' + esc(u.lot_number) + '</span>' +
                 '<span class="sub">' + esc(u.unit_mat_code) +
-                (u.unit_no ? ' · #' + esc(u.unit_no) : ' · 조립이력 없음') +
+                (u.serial_no ? ' · ' + esc(u.serial_no) : (u.unit_no ? ' · #' + esc(u.unit_no) : ' · 조립이력 없음')) +
                 (u.assy_order_num ? ' · ' + esc(u.assy_order_num) : '') +
                 (u.maker_lot_no ? ' · 라벨 ' + esc(u.maker_lot_no) : '') + '</span>' +
                 (u.src_lot ? '<span class="sub">원 로트 ' + esc(u.src_lot) + '</span>' : '') + '</div>' +
@@ -1348,6 +1370,7 @@
       curLabelRaw = '';
       curDone = null;
       PHOTOS = [];
+      chkVal = {}; chkUnitKey = null;
       resetMat();
     }
 
@@ -1386,7 +1409,7 @@
     }
 
     function packReady() {
-      return !!(curUnit && curLabel && matOk());
+      return !!(curUnit && curLabel && matOk() && chkState().ok);
     }
 
     /* ══ C 본문 — 1공장 포장(bsc)과 같은 골격 ══
@@ -1405,11 +1428,12 @@
         {n: 1, t: '포장 대상', ok: !!curUnit, to: 'ph1'},
         {n: 2, t: '포장 자재', ok: matQtySum() > 0, to: 'ph2'},
         {n: 3, t: '박스 라벨', ok: !!curLabel, to: 'ph3'},
-        {n: 4, t: '사진', ok: PHOTOS.length > 0, to: 'ph4'}
+        {n: 4, t: '포장 체크', ok: !!curUnit && chkState().ok, to: 'ph5'},
+        {n: 5, t: '사진', ok: PHOTOS.length > 0, to: 'ph4'}
       ];
       // «현재» = 아직 안 끝난 첫 단계. 사진은 선택이라 활성 표시를 주지 않는다.
       var cur = 0;
-      for (var i = 0; i < 3; i++) {
+      for (var i = 0; i < 4; i++) {
         if (!st[i].ok) {
           cur = i;
           break;
@@ -1471,6 +1495,7 @@
          여기서 막지 않으면 SESS.boxes 에서 TypeError 가 나고, 그 예외가
          jQuery success 콜백 안에서 터져 로딩이 안 닫힌다(무한 로딩). */
       if (!SESS) return;
+      ensureChk();
       var html = renderPhase();
       var L = allMats();
 
@@ -1486,10 +1511,13 @@
                   '<div class="tick">' + (on ? '✓' : '') + '</div>' +
                   '<div class="who"><span class="lot">' + esc(u.lot_number) + '</span>' +
                   '<span class="sub">' + esc(u.unit_mat_code) +
-                  (u.unit_no ? ' · #' + esc(u.unit_no) : ' · 조립이력 없음') +
+                  (u.serial_no ? ' · ' + esc(u.serial_no) : (u.unit_no ? ' · #' + esc(u.unit_no) : ' · 조립이력 없음')) +
                   (u.assy_order_num ? ' · ' + esc(u.assy_order_num) : '') + '</span>' +
                   (u.src_lot ? '<span class="sub">원 로트 ' + esc(u.src_lot) + '</span>' : '') + '</div>' +
-                  (u.repair_id ? '<span class="st-badge rw">수리 · ' + (u.repair_cat === 'spec' ? '사양변경' : '반품') + '</span>' : '') + '</div>';
+                  (u.repair_id ? '<span class="st-badge rw">수리 · ' + (u.repair_cat === 'spec' ? '사양변경' : '반품') + '</span>' : '') +
+                  // ★ 장비(제품) 시리얼 부여·수정 — 조립에서 못 넣었거나 틀린 경우 포장에서 바로
+                  (u.unit_id ? '<button type="button" class="snbtn' + (u.serial_no ? '' : ' none') + '" data-sn="' + u.mat_lot_id + '">' +
+                          (u.serial_no ? 'S/N 수정' : 'S/N 부여') + '</button>' : '') + '</div>';
         });
       }
 
@@ -1543,7 +1571,7 @@
       /* ── 투입 자재 사진 (선택) — 같은 카드 안 ──
            ★ 여기서는 «담아두기만» 한다. 실제 전송은 포장 완료로
              mat_produce_id 를 받은 뒤 한 장씩 따로 올린다(doPack 참고). */
-      html += '<div class="browhead" id="ph4" style="margin-top:14px">투입 자재 사진<span class="ln"></span>' +
+      html += '<div class="browhead" id="ph4" style="margin-top:14px">사진 · 출고라벨 부착부 / 투입 자재<span class="ln"></span>' +
               '<span style="font-weight:700;color:var(--ink-2)">' +
               (PHOTOS.length ? PHOTOS.length + '장' : '선택') + '</span></div>' +
               '<div class="mc" style="margin:0 2px 8px;color:var(--ink-2)">' +
@@ -1561,6 +1589,9 @@
                       : '박스에 붙은 실물 라벨을 스캔해야 포장을 완료할 수 있습니다') + '</div></div>' +
               '<button class="btn primary sm" id="btnScan" style="padding:0 20px">📷 ' +
               (curLabel ? '다시 스캔' : '스캔') + '</button></div></div>';
+
+      /* ── ④ 포장 체크 · 최종검사 ── */
+      html += chkSection();
 
       /* ── 이 작업에서 포장한 박스 ── */
       html += '<div class="secline" style="margin-top:14px">이 작업에서 포장한 박스 <span class="ln"></span>' +
@@ -1593,6 +1624,124 @@
     }
 
 
+    /* ══════════ ★ 포장공정 체크(#190~#200 / #230~#240) · 최종검사(F803-8) ══════════
+       양식은 검사 화면 «양식» 에서 «포장 체크» 구분으로 관리, 유닛 품목(완제품)에 연결.
+       항목 이름에 (국내)/(해외)·국내향/해외향 이 있으면 출하 구분에 따라 자동 «해당없음». */
+    function chkForms() {
+      if (!curUnit) return [];
+      var f = CHK_CACHE[curUnit.unit_mat_id];
+      return f || [];
+    }
+    function ensureChk() {
+      if (!curUnit) return;
+      var key = String(curUnit.mat_lot_id);
+      if (chkUnitKey !== key) { chkVal = {}; chkUnitKey = key; }   // 유닛이 바뀌면 입력 초기화
+      var mid = curUnit.unit_mat_id;
+      if (mid == null || CHK_CACHE[mid] !== undefined) return;
+      getSoft(API + '/pack_checks', {unit_mat_id: mid}, function (d) { CHK_CACHE[mid] = d || []; });
+    }
+    function destOf(name) {
+      var s = String(name || '');
+      if (/해외/.test(s)) return '해외';
+      if (/국내/.test(s)) return '국내';
+      return null;
+    }
+    function chkAuto(it) {   // 출하 구분에 해당하지 않는 항목
+      var d = destOf(it.item_name);
+      return d && d !== DEST;
+    }
+    function chkState() {
+      var forms = chkForms();
+      if (!forms.length) return {ok: true, msg: '', need: 0, done: 0};
+      var need = 0, done = 0, bad = 0;
+      forms.forEach(function (f) {
+        (f.items || []).forEach(function (it) {
+          if (chkAuto(it)) return;
+          need++;
+          var v = chkVal[it.item_id];
+          if (v && v.result) { done++; if (v.result === 'fail') bad++; }
+        });
+      });
+      if (bad) return {ok: false, msg: '포장 체크에 불합격 ' + bad + '건 — 조치 후 다시 확인하세요', need: need, done: done};
+      if (done < need) return {ok: false, msg: '포장 체크 ' + done + '/' + need + ' — 남은 항목을 확인하세요', need: need, done: done};
+      return {ok: true, msg: '', need: need, done: done};
+    }
+    function chkPayload() {
+      var out = [];
+      chkForms().forEach(function (f) {
+        (f.items || []).forEach(function (it) {
+          var v = chkVal[it.item_id] || {};
+          out.push({formId: f.form_id, itemId: it.item_id,
+            result: chkAuto(it) ? 'na' : (v.result || ''), value: chkAuto(it) ? '' : (v.value || '')});
+        });
+      });
+      return out;
+    }
+    function chkSection() {
+      if (!curUnit) return '';
+      var forms = chkForms();
+      if (!forms.length) return '';
+      var st = chkState();
+      var html = '<div class="secline" id="ph5" style="margin-top:14px">④ 포장 체크 · 최종검사 <span class="ln"></span>' +
+              (st.ok ? '<span>완료 ' + st.done + '/' + st.need + '</span>' : '<span class="req">' + st.done + '/' + st.need + '</span>') + '</div>';
+      html += '<div class="step ' + (st.ok ? 'done' : 'avail') + '"><div class="edge"></div><div class="shead">' +
+              '<div class="sid sgap"><div class="sn">출하 구분</div><div class="sc">해당하지 않는 국내/해외 항목은 자동으로 «해당없음» 처리됩니다</div></div>' +
+              '<div class="destsw"><button class="' + (DEST === '국내' ? 'on' : '') + '" data-dest="국내">국내</button>' +
+              '<button class="' + (DEST === '해외' ? 'on' : '') + '" data-dest="해외">해외</button></div>' +
+              '<button class="btn ghost sm" data-chkall="1" style="padding:0 14px">전체 합격</button></div><div class="sbody">';
+      forms.forEach(function (f) {
+        html += '<div class="browhead" style="margin-top:6px">' + esc(f.form_name) + '<span class="ln"></span></div>';
+        (f.items || []).forEach(function (it) {
+          var auto = chkAuto(it), v = chkVal[it.item_id] || {};
+          if (auto) {
+            html += '<div class="chkrow na"><div class="ct"><div class="cn">' + esc(it.item_name) + '</div></div><span class="nat">해당없음</span></div>';
+            return;
+          }
+          var ph = it.unit === 'LOT' ? 'Lot No' : (it.unit === 'EA' ? 'EA' : '측정값');
+          html += '<div class="chkrow"><div class="ct"><div class="cn">' + esc(it.item_name) + '</div>' +
+                  (it.criteria ? '<div class="cc">' + esc(it.criteria) + '</div>' : '') + '</div>' +
+                  '<input class="cv" data-chkv="' + it.item_id + '" value="' + esc(v.value || '') + '" placeholder="' + ph + '"' +
+                  (it.unit === 'EA' ? ' inputmode="numeric"' : '') + '>' +
+                  '<button class="cok' + (v.result === 'pass' ? ' on' : '') + '" data-chk="' + it.item_id + ',pass">합격</button>' +
+                  '<button class="cng' + (v.result === 'fail' ? ' on' : '') + '" data-chk="' + it.item_id + ',fail">불합격</button></div>';
+        });
+      });
+      return html + '</div></div>';
+    }
+    function chkRefresh() {
+      var y = window.scrollY, c = document.getElementById('cBody'), cy = c ? c.scrollTop : 0;
+      renderCBody(); renderCAction();
+      if (c) c.scrollTop = cy; window.scrollTo(0, y);
+    }
+    document.getElementById('cBody').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-chk]');
+      if (b) {
+        var p = b.dataset.chk.split(','), id = p[0], res = p[1];
+        var v = chkVal[id] = chkVal[id] || {};
+        v.result = v.result === res ? '' : res;          // 같은 버튼 다시 누르면 해제
+        chkRefresh(); return;
+      }
+      var d = e.target.closest('[data-dest]');
+      if (d) { DEST = d.dataset.dest; chkRefresh(); return; }
+      if (e.target.closest('[data-chkall]')) {
+        chkForms().forEach(function (f) {
+          (f.items || []).forEach(function (it) {
+            if (chkAuto(it)) return;
+            var v = chkVal[it.item_id] = chkVal[it.item_id] || {};
+            if (!v.result) v.result = 'pass';
+            if (it.unit === 'LOT' && !v.value && curUnit) v.value = curUnit.lot_number;   // 제품 라벨 Lot = 유닛 로트
+          });
+        });
+        chkRefresh();
+      }
+    });
+    document.getElementById('cBody').addEventListener('change', function (e) {
+      var i = e.target.closest('[data-chkv]');
+      if (!i) return;
+      var v = chkVal[i.dataset.chkv] = chkVal[i.dataset.chkv] || {};
+      v.value = i.value.trim();
+    });
+
     function renderCAction() {
       /* SESS 는 목록 갱신으로 풀릴 수 있다. 없으면 그릴 것도 없다 —
          여기서 막지 않으면 SESS.boxes 에서 TypeError 가 나고, 그 예외가
@@ -1604,7 +1753,8 @@
       }).length;
       var need = !curUnit ? '유닛을 선택하세요' : (!curLabel ? '박스 라벨을 스캔하세요'
               : (badStore ? '소스창고가 생산창고(17)가 아닌 자재가 있습니다'
-                      : (!matOk() ? '재고보다 많은 자재가 있습니다' : '')));
+                      : (!matOk() ? '재고보다 많은 자재가 있습니다'
+                              : (!chkState().ok ? chkState().msg : ''))));
       bar.innerHTML =
               '<div class="actsum"><span class="l">' + (need || '박스 1개 준비됨') + '</span>' +
               '<span class="v">이 작업 ' + SESS.boxes.length + '대</span></div>' +
@@ -1636,8 +1786,40 @@
       document.getElementById('cFinish').onclick = doPack;
     }
 
+    /* ★ 장비 시리얼 부여·수정 — 조립 화면과 같은 API(/api/production/mcell/unit_serial)
+         로트번호는 그대로, 제품(장비) 번호만 바뀐다. 중복 번호는 서버가 막는다. */
+    function openSerial(matLotId) {
+      var u = READY.filter(function (x) { return String(x.mat_lot_id) === String(matLotId); })[0];
+      if (!u || !u.unit_id) return;
+      var m = document.createElement('div');
+      m.className = 'snmask';
+      m.innerHTML = '<div class="snsheet"><b>장비 시리얼 번호</b>' +
+              '<div class="snhint">로트 ' + esc(u.lot_number) + (u.unit_no ? ' · #' + esc(u.unit_no) + '호기' : '') + ' (로트번호는 바뀌지 않습니다)</div>' +
+              '<input id="snInp" value="' + esc(u.serial_no || '') + '" placeholder="시리얼 번호 입력" autocomplete="off" autocapitalize="characters">' +
+              '<div class="snbtns"><button data-snc>취소</button><button class="ok" data-sno>저장</button></div></div>';
+      document.body.appendChild(m);
+      var inp = m.querySelector('#snInp'); inp.focus(); inp.select();
+      function save() {
+        var v = inp.value.trim();
+        if (!v) { flash('시리얼 번호를 입력하세요'); return; }
+        post('/api/production/mcell/unit_serial', {unit_id: u.unit_id, serial_no: v}, function (d) {
+          if (d == null) return;
+          u.serial_no = v;
+          m.remove();
+          renderCBody();
+        });
+      }
+      m.addEventListener('click', function (e) {
+        if (e.target === m || e.target.closest('[data-snc]')) { m.remove(); return; }
+        if (e.target.closest('[data-sno]')) save();
+      });
+      inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') save(); });
+    }
+
     /* 본문 클릭 — 유닛 선택 / 자재 스테퍼 / 스캔 / 완료건 상세 */
     document.getElementById('cBody').addEventListener('click', function (e) {
+      var sb = e.target.closest('[data-sn]');
+      if (sb) { e.stopPropagation(); openSerial(sb.dataset.sn); return; }
       var u = e.target.closest('[data-u]');
       if (u) {
         var lot = READY.filter(function (x) {
@@ -1815,6 +1997,8 @@
         start_time: SESS.start_time || nowHM(),
         end_time: nowHM(),
         bom_json: JSON.stringify(bom),
+        insp_json: JSON.stringify(chkPayload()),
+        dest: DEST,
         spjangcd: CTX.spjangcd
       }), function (d) {
         if (d === null) {
@@ -2660,6 +2844,7 @@
         return String(x.mp_id) === String(mpId);
       })[0];
       if (!curDone) return;
+      if (!EQUIPS.length) getSoft(API + '/equipments', {workcenter_id: WC_ID}, function (d) { if (d) EQUIPS = d; });
       document.getElementById('doneBody').innerHTML =
               '<div class="dhead"><span class="dlot">' + esc(curDone.lot_number) + '</span>' +
               '<span class="st-badge done">포장 완료</span></div>' +
@@ -2674,12 +2859,23 @@
               '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">' +
               '<div class="infopill tap" data-time="start"><span>시작</span><b>' + pill(curDone.start_time) + '</b></div>' +
               '<div class="infopill tap" data-time="end"><span>종료</span><b>' + pill(curDone.end_time) + '</b></div></div>' +
-              '<div class="secline" style="margin-top:16px">투입 자재 사진 <span class="ln"></span><span id="donePhotoCnt">—</span></div>' +
+              /* ★ 설비 변경 */
+              '<div class="drows" style="margin-top:10px"><div class="drow"><span class="k">설비</span><span class="v">' +
+              '<select id="doneEquip" class="deq"><option value="">미지정</option>' +
+              EQUIPS.map(function (q) {
+                return '<option value="' + q.equipment_id + '"' + (String(q.equipment_id) === String(curDone.equipment_id) ? ' selected' : '') + '>' + esc(q.equipment_name) + '</option>';
+              }).join('') + '</select></span></div></div>' +
+              /* ★ 포장 체크 · 최종검사 결과 */
+              '<div class="secline" style="margin-top:16px">포장 체크 · 최종검사 <span class="ln"></span><span id="doneChkCnt">—</span></div>' +
+              '<div id="doneChk"></div>' +
+              '<div style="margin-top:12px"><button class="btn ghost sm" id="doneDoc" style="padding:0 16px">📄 제조 문서 (엑셀 · 인쇄 · 첨부)</button></div>' +
+              '<div class="secline" style="margin-top:16px">사진 · 출고라벨 / 투입 자재 <span class="ln"></span><span id="donePhotoCnt">—</span></div>' +
               '<div class="photos" id="donePhotos"></div>' +
               '<div class="emptysess" style="text-align:left;margin-top:14px;padding:16px">포장 취소를 누르면 완제품 로트가 ' +
               '제거되고 유닛이 검사완료창고의 포장 대기로 돌아갑니다. 사진도 함께 삭제됩니다. ' +
               '이미 출고된 로트는 취소할 수 없습니다.</div>';
       loadDonePhotos();
+      loadDoneChk();
       showMask('doneMask');
     }
 
@@ -2691,6 +2887,103 @@
      *   같은 URL 이 다른 사진을 가리키고, 브라우저 캐시까지 얹히면
      *   지운 사진이 계속 보인다. id 는 안 변하므로 캐시를 깰 필요도 없다.
      */
+    /* ★ 포장 완료 박스의 체크 결과 — 보기 / 수정 */
+    var DCHK = null, dchkEdit = false, dchkVal = {}, dchkDest = '국내';
+    function loadDoneChk() {
+      if (!curDone) return;
+      getSoft(API + '/pack_check_result', {mat_produce_id: curDone.mp_id}, function (d) {
+        DCHK = d || {forms: [], values: []};
+        dchkEdit = false; dchkVal = {};
+        (DCHK.values || []).forEach(function (v) { dchkVal[v.item_id] = {result: v.result, value: v.value || ''}; if (v.dest) dchkDest = v.dest; });
+        drawDoneChk();
+      });
+    }
+    function dAuto(it) { var d = destOf(it.item_name); return d && d !== dchkDest; }
+    function drawDoneChk() {
+      var box = document.getElementById('doneChk'), cnt = document.getElementById('doneChkCnt');
+      if (!box || !DCHK) return;
+      var forms = DCHK.forms || [], n = (DCHK.values || []).length;
+      if (cnt) cnt.textContent = forms.length ? (n ? n + '항목 · ' + dchkDest : '기록 없음') : '양식 없음';
+      if (!forms.length) { box.innerHTML = ''; return; }
+      var html = dchkEdit
+              ? '<div style="display:flex;gap:8px;align-items:center;margin:6px 0"><div class="destsw">' +
+              '<button class="' + (dchkDest === '국내' ? 'on' : '') + '" data-ddest="국내">국내</button>' +
+              '<button class="' + (dchkDest === '해외' ? 'on' : '') + '" data-ddest="해외">해외</button></div>' +
+              '<span style="flex:1"></span><button class="btn ghost sm" data-dcancel="1" style="padding:0 14px">취소</button>' +
+              '<button class="btn primary sm" data-dsave="1" style="padding:0 18px">저장</button></div>'
+              : '<div style="text-align:right;margin:6px 0"><button class="btn ghost sm" data-dedit="1" style="padding:0 16px">체크 수정</button></div>';
+      forms.forEach(function (f) {
+        html += '<div class="browhead" style="margin-top:6px">' + esc(f.form_name) + '<span class="ln"></span></div>';
+        (f.items || []).forEach(function (it) {
+          var v = dchkVal[it.item_id] || {};
+          if (dchkEdit) {
+            if (dAuto(it)) { html += '<div class="chkrow na"><div class="ct"><div class="cn">' + esc(it.item_name) + '</div></div><span class="nat">해당없음</span></div>'; return; }
+            html += '<div class="chkrow"><div class="ct"><div class="cn">' + esc(it.item_name) + '</div></div>' +
+                    '<input class="cv" data-dchkv="' + it.item_id + '" value="' + esc(v.result === 'na' ? '' : (v.value || '')) + '">' +
+                    '<button class="cok' + (v.result === 'pass' ? ' on' : '') + '" data-dchk="' + it.item_id + ',pass">합격</button>' +
+                    '<button class="cng' + (v.result === 'fail' ? ' on' : '') + '" data-dchk="' + it.item_id + ',fail">불합격</button></div>';
+            return;
+          }
+          var t = v.result === 'pass' ? '<span class="st-badge done">합격</span>'
+                  : v.result === 'fail' ? '<span class="st-badge rw">불합격</span>'
+                          : v.result === 'na' ? '<span class="nat">해당없음</span>' : '<span class="nat">—</span>';
+          html += '<div class="chkrow' + (v.result === 'na' ? ' na' : '') + '"><div class="ct"><div class="cn">' + esc(it.item_name) + '</div>' +
+                  (v.value ? '<div class="cc">' + esc(v.value) + '</div>' : '') + '</div>' + t + '</div>';
+        });
+      });
+      box.innerHTML = html;
+    }
+    document.getElementById('doneBody').addEventListener('click', function (e) {
+      if (e.target.closest('[data-dedit]')) { dchkEdit = true; drawDoneChk(); return; }
+      if (e.target.closest('[data-dcancel]')) { loadDoneChk(); return; }
+      var dd = e.target.closest('[data-ddest]');
+      if (dd) { dchkDest = dd.dataset.ddest; drawDoneChk(); return; }
+      var b = e.target.closest('[data-dchk]');
+      if (b) {
+        var q = b.dataset.dchk.split(','), v = dchkVal[q[0]] = dchkVal[q[0]] || {};
+        v.result = v.result === q[1] ? '' : q[1];
+        if (v.result === 'na') v.result = '';
+        drawDoneChk(); return;
+      }
+      if (e.target.closest('[data-dsave]')) {
+        var payload = [];
+        (DCHK.forms || []).forEach(function (f) {
+          (f.items || []).forEach(function (it) {
+            var v = dchkVal[it.item_id] || {};
+            payload.push({formId: f.form_id, itemId: it.item_id,
+              result: dAuto(it) ? 'na' : (v.result === 'na' ? '' : (v.result || '')), value: dAuto(it) ? '' : (v.value || '')});
+          });
+        });
+        post(API + '/pack_check_save', {mat_produce_id: curDone.mp_id, insp_json: JSON.stringify(payload), dest: dchkDest,
+          spjangcd: CTX.spjangcd}, function (d, res) {
+          if (res && res.success === false) return;
+          loadDoneChk();
+        });
+      }
+    });
+    document.getElementById('doneBody').addEventListener('change', function (e) {
+      var i = e.target.closest('[data-dchkv]');
+      if (!i) return;
+      var v = dchkVal[i.dataset.dchkv] = dchkVal[i.dataset.dchkv] || {};
+      v.value = i.value.trim();
+    });
+    document.getElementById('doneBody').addEventListener('click', function (e) {
+      if (!e.target.closest('#doneDoc') || !curDone) return;
+      if (typeof McellDoc === 'undefined') { flash('문서 모듈(mcell_doc.js)이 없습니다'); return; }
+      McellDoc.open({lot: curDone.lot_number, from: 'pack'});
+    });
+    document.getElementById('doneBody').addEventListener('change', function (e) {
+      if (e.target.id !== 'doneEquip' || !curDone) return;
+      var v = e.target.value;
+      post(API + '/pack_equip', {mat_produce_id: curDone.mp_id, equipment_id: v}, function (d, res) {
+        if (res && res.success === false) return;
+        var q = EQUIPS.filter(function (x) { return String(x.equipment_id) === String(v); })[0];
+        curDone.equipment_id = v || null; curDone.equipment_name = q ? q.equipment_name : null;
+        flash('설비를 변경했습니다');
+        loadB();
+      });
+    });
+
     function loadDonePhotos() {
       if (!curDone) return;
       var box = document.getElementById('donePhotos');
@@ -3411,7 +3704,9 @@
         if (e.pointerType === 'mouse') return;          // 마우스는 click 이 정상 동작
         var b = e.target && e.target.closest ? e.target.closest('button') : null;
         if (!b || b.disabled || b.closest(SKIP)) return;
-        tapBtn = b; tx = e.clientX; ty = e.clientY;
+        tapBtn = b;
+        tx = e.clientX;
+        ty = e.clientY;
       }, true);
       window.addEventListener('pointerup', function (e) {
         var b = tapBtn;
@@ -3423,7 +3718,9 @@
         lastTap = Date.now();
         b.click();                                      // 합성 click (isTrusted:false)
       }, true);
-      window.addEventListener('pointercancel', function () { tapBtn = null; }, true);
+      window.addEventListener('pointercancel', function () {
+        tapBtn = null;
+      }, true);
       window.addEventListener('click', function (e) {
         if (e.isTrusted && Date.now() - lastTap < 700) {
           e.stopPropagation();

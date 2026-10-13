@@ -176,6 +176,7 @@ public class MaterialService {
 			, m."WashYN"
 			, m."SterilizationYN"
 			, m."InspectYN"
+			, COALESCE(m."SnYN",'N') AS "SnYN"   -- ★ S/N 관리(주요자재)
             from material m
             left join mat_grp mg on m."MaterialGroup_id" = mg.id
             left join unit u on u.id = m."Unit_id"
@@ -239,6 +240,7 @@ public class MaterialService {
 		dicParam.addValue("washYN", data.containsKey("WashYN") ? "Y" : "N");
 		dicParam.addValue("sterilizationYN", data.containsKey("SterilizationYN") ? "Y" : "N");
 		dicParam.addValue("inspectYN", data.containsKey("InspectYN") ? "Y" : "N");
+		dicParam.addValue("snYN", data.containsKey("SnYN") ? "Y" : "N");   // ★ S/N 관리(주요자재)
 		dicParam.addValue("avrqty", CommonUtil.tryString(data.getFirst("avrqty")));
 
 		dicParam.addValue("packingUnitQty", CommonUtil.tryFloatNull(data.getFirst("PackingUnitQty")));
@@ -335,6 +337,7 @@ public class MaterialService {
 						 , "WashYN"
 						 , "SterilizationYN"
 						 , "InspectYN"
+						 , "SnYN"
 						 )
 						VALUES
 						(now()
@@ -404,6 +407,7 @@ public class MaterialService {
 						 , :washYN
 						 , :sterilizationYN
 						 , :inspectYN
+						 , :snYN
 						)
 						RETURNING id
 					""";
@@ -465,6 +469,7 @@ public class MaterialService {
 					, "WashYN" = :washYN
 					, "SterilizationYN" = :sterilizationYN
 					, "InspectYN" = :inspectYN
+					, "SnYN" = :snYN
 					WHERE id = :id
 					AND spjangcd = :spjangcd
 					""";
@@ -505,12 +510,12 @@ public class MaterialService {
 	}
 	// 라우팅 정보 저장 (material update)
 	public int saveRouting(Integer matId, Integer routingPk) {
-			MapSqlParameterSource dicParam = new MapSqlParameterSource();
-			dicParam.addValue("mat_pk", matId);
-			dicParam.addValue("routing_pk", routingPk);
+		MapSqlParameterSource dicParam = new MapSqlParameterSource();
+		dicParam.addValue("mat_pk", matId);
+		dicParam.addValue("routing_pk", routingPk);
 
-			String sql = " UPDATE material SET \"Routing_id\" = :routing_pk WHERE id = :mat_pk;";
-			int result = this.sqlRunner.execute(sql, dicParam);
+		String sql = " UPDATE material SET \"Routing_id\" = :routing_pk WHERE id = :mat_pk;";
+		int result = this.sqlRunner.execute(sql, dicParam);
 		return result;
 	}
 }

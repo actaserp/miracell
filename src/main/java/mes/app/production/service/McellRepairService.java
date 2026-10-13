@@ -144,6 +144,7 @@ public class McellRepairService {
                      , sm."Code"  AS src_code,  sm."Name"  AS src_name
                      , tm."Code"  AS tgt_code,  tm."Name"  AS tgt_name
                      , m."Code"   AS mat_code,  m."Name"   AS mat_name
+                     , COALESCE(m."InspectYN",'N')               AS inspect_yn
                      , COALESCE(mt.plus_cnt,0)  AS plus_cnt
                      , COALESCE(mt.minus_cnt,0) AS minus_cnt
                      , (SELECT COUNT(*) FROM mcell_unit s
@@ -220,6 +221,15 @@ public class McellRepairService {
                      , rm."SrcMatLot_id" AS src_mat_lot_id
                      , sl."LotNumber"    AS src_lot_number   -- 뜯어낸 부품의 원 로트
                      , uq.q             AS used_qty   -- −회수 상한. NULL = 조립 이력 없음(상한 없음)
+                     -- ★ 수리 중 조립한 어셈블리 (B안) — 차수 · 로트 · 들어간 부품
+                     , rm."BuildMp_id"  AS build_mp_id
+                     , bl."LotNumber"   AS build_lot
+                     , (SELECT string_agg(pm."Name" || ' ×' || trim(to_char(c."OutputQty",'FM999990.##')), ', ' ORDER BY pm."Name")
+                          FROM mat_lot_cons c
+                          JOIN mat_lot pl ON pl.id = c."MaterialLot_id"
+                          JOIN material pm ON pm.id = pl."Material_id"
+                         WHERE c."SourceTableName" = 'mat_produce' AND c."SourceDataPk" = rm."BuildMp_id")
+                                        AS build_parts
                      /* ★ 포장 자재인가 — 접수 때 박스를 풀며 자동으로 담긴 것.
                           이것들은 조립이 아니라 포장에서 투입되므로 usedQtyOf(조립 스텝 기준)가
                           영원히 NULL 이다. 그걸 「조립 이력이 없다」로 표시하면
@@ -240,6 +250,7 @@ public class McellRepairService {
                   JOIN material m  ON m.id = rm."Material_id"
                   LEFT JOIN unit  un ON un.id = m."Unit_id"
                   LEFT JOIN mat_lot sl ON sl.id = rm."SrcMatLot_id"
+                  LEFT JOIN mat_lot bl ON bl.id = rm."BuildLot_id"
                   LEFT JOIN LATERAL (
                         SELECT SUM(ml."CurrentStock") AS stock FROM mat_lot ml
                          WHERE ml."Material_id" = rm."Material_id" AND ml."StoreHouse_id" = :store
@@ -515,6 +526,7 @@ public class McellRepairService {
             case "reject":       return "재작업 대상";
             case "pass":         return "검사 합격";
             case "packed":       return "포장 완료";
+            case "repaired":     return "수리 완료";
             default:             return st;
         }
     }
@@ -666,6 +678,9 @@ public class McellRepairService {
         /* 조건을 문자열로 이어붙이지 않는다 — text block 을 쪼개면 읽기 어렵고
            여는 """ 뒤에 내용이 붙어 컴파일도 안 된다. 플래그 하나로 처리한다. */
         p.addValue("srcScope", "src".equals(scope));
+        /* ★ scope=any : 입고 단위가 제품이 아닌 경우(어셈블리 · 단품 · 부품)
+             2공장 품목 전체에서 고른다. */
+        p.addValue("anyScope", "any".equals(scope));
         return this.sqlRunner.getRows("""
                 SELECT m.id AS mat_id, m."Code" AS mat_code, m."Name" AS mat_name
                      , mg."MaterialType" AS mat_type
@@ -673,13 +688,166 @@ public class McellRepairService {
                   LEFT JOIN mat_grp mg ON mg.id = m."MaterialGroup_id"
                  WHERE COALESCE(m."Factory_id",0) = 2
                    AND COALESCE(m."_status",'a') = 'a'
-                   AND (COALESCE(m."InspectYN",'N') = 'Y'
-                        OR (CAST(:srcScope AS boolean)
-                            AND mg."MaterialType" IN ('product','semi')))
+                   -- ★ 탭마다 겹치지 않게
+                   --   src(제품 탭)  : 완제품만 (박스째 반품)
+                   --   any(어셈블리 탭) : 완제품 빼고 전부 (재공품 본체 · 어셈블리 · 단품 · 부품)
+                   --   spec(사양변경 대상) : 검사 대상 품목(재공품 본체)
+                   AND (   (CAST(:srcScope AS boolean) AND mg."MaterialType" = 'product')
+                        OR (CAST(:anyScope AS boolean) AND COALESCE(mg."MaterialType",'') <> 'product')
+                        OR (NOT CAST(:srcScope AS boolean) AND NOT CAST(:anyScope AS boolean)
+                            AND COALESCE(m."InspectYN",'N') = 'Y'))
                    AND (CAST(:kw AS varchar) IS NULL OR m."Code" ILIKE :kw OR m."Name" ILIKE :kw)
                  ORDER BY mg."MaterialType" DESC, m."Code"
                  LIMIT 200
                 """, p);
+    }
+
+    /**
+     * ★ 자재 트리 — 유닛 품목의 BOM 을 조립 화면처럼 계층으로 펼친다.
+     *   각 노드에 생산창고(17) 재고와 «이 장비에 실제 들어간 수량»(원 로트 투입 이력)을 붙인다.
+     *   ＋투입은 재고에서, −회수는 실제 투입분에서 고르게 하는 근거다.
+     *   어셈블리 노드도 고를 수 있다 — 수리돼 생산창고에 있는 어셈블리를 통째로 넣는 경우.
+     */
+    public List<Map<String, Object>> getBomTree(Integer unitId) {
+        Map<String, Object> u = getUnitRow(unitId);
+        if (u == null) throw new IllegalArgumentException("유닛을 찾을 수 없습니다.");
+        return getBomTreeByMat(asInt(u.get("mat_id")));
+    }
+
+    /** ★ 품목 하나의 BOM 트리 — 수리 접수에서 «어셈블리» 를 조립 화면처럼 계층으로 고를 때 */
+    public List<Map<String, Object>> getBomTreeByMat(Integer rootMatId) {
+        MapSqlParameterSource p = new MapSqlParameterSource()
+                .addValue("rootId", rootMatId)
+                .addValue("store", STORE_PROD);
+        List<Map<String, Object>> rows = this.sqlRunner.getRows("""
+                WITH RECURSIVE tree AS (
+                    SELECT :rootId::int AS mat_id, NULL::int AS parent_mat_id, 0 AS depth,
+                           1::float8 AS qty_per, ARRAY[:rootId::int] AS path,
+                           LPAD('0', 4, '0') AS sort_key
+                    UNION ALL
+                    SELECT bc."Material_id", t.mat_id, t.depth + 1,
+                           COALESCE(bc."Amount", 1)::float8,
+                           t.path || bc."Material_id",
+                           t.sort_key || '.' || LPAD(ROW_NUMBER() OVER (PARTITION BY t.mat_id ORDER BY bc.id)::text, 4, '0')
+                      FROM tree t
+                      JOIN LATERAL (
+                            SELECT b.id FROM bom b
+                             WHERE b."Material_id" = t.mat_id AND b."BOMType" = 'manufacturing'
+                               AND CURRENT_DATE BETWEEN COALESCE(b."StartDate", DATE '0001-01-01')
+                                                    AND COALESCE(b."EndDate",   DATE '9999-12-31')
+                             ORDER BY b.id DESC LIMIT 1
+                      ) b ON true
+                      JOIN bom_comp bc ON bc."BOM_id" = b.id
+                     WHERE NOT (bc."Material_id" = ANY(t.path)) AND t.depth < 6
+                )
+                SELECT t.mat_id, t.parent_mat_id, t.depth, t.qty_per, t.sort_key,
+                       m."Code" AS mat_code, m."Name" AS mat_name, un."Name" AS unit,
+                       EXISTS (SELECT 1 FROM bom b2 WHERE b2."Material_id" = t.mat_id
+                                  AND b2."BOMType" = 'manufacturing')           AS has_children,
+                       COALESCE((SELECT SUM(ml."CurrentStock") FROM mat_lot ml
+                                  WHERE ml."Material_id" = t.mat_id AND ml."StoreHouse_id" = :store
+                                    AND ml."CurrentStock" > 0), 0)              AS stock
+                  FROM tree t
+                  JOIN material m ON m.id = t.mat_id
+                  LEFT JOIN unit un ON un.id = m."Unit_id"
+                 ORDER BY t.sort_key
+                """, p);
+        return rows == null ? new ArrayList<>() : rows;
+    }
+
+    /**
+     * ★ 자주 수리되는 부품 — 자재 시트 맨 위에 띄운다.
+     *   1) 고정 목록 mcell_repair_fav (미라셀이 정해 준 것) — 테이블이 있을 때만
+     *   2) 최근 180일 수리 투입(＋) 이력에서 많이 쓴 순 (자동)
+     *   고정 목록이 위, 자동이 아래. 같은 품목은 한 번만.
+     */
+    public List<Map<String, Object>> getFreqParts(Integer limit) {
+        int lim = (limit == null || limit <= 0) ? 12 : Math.min(limit, 50);
+        int favCnt = getFavIds().size();
+        if (favCnt + 6 > lim) lim = Math.min(favCnt + 6, 80);   // ★ 지정 부품은 다 보이게 (+ 이력 몇 개)
+        Map<String, Object> hasFav = this.sqlRunner.getRow(
+                "SELECT to_regclass('public.mcell_repair_fav') IS NOT NULL AS ok", new MapSqlParameterSource());
+        boolean fav = hasFav != null && Boolean.TRUE.equals(hasFav.get("ok"));
+        String favCte = fav
+                ? "SELECT f.\"Material_id\" AS mat_id, 0 AS grp, COALESCE(f.\"SeqNo\", 999) AS ord, 0 AS cnt "
+                + "FROM mcell_repair_fav f WHERE COALESCE(f.\"_status\",'a')='a' "
+                : "SELECT NULL::int AS mat_id, 0 AS grp, 0 AS ord, 0 AS cnt WHERE false ";
+        MapSqlParameterSource p = new MapSqlParameterSource()
+                .addValue("store", STORE_PROD).addValue("lim", lim);
+        List<Map<String, Object>> rows = this.sqlRunner.getRows(("""
+                WITH fav AS ( ${FAV} ),
+                hist AS (
+                    SELECT rm."Material_id" AS mat_id, 1 AS grp, 0 AS ord, COUNT(*) AS cnt
+                      FROM mcell_repair_mat rm
+                     WHERE rm."Dir" = '+' AND COALESCE(rm."_status",'a')='a'
+                       AND rm."_created" >= now() - interval '180 days'
+                     GROUP BY rm."Material_id"
+                ),
+                u AS (
+                    SELECT * FROM fav
+                    UNION ALL
+                    SELECT h.* FROM hist h WHERE NOT EXISTS (SELECT 1 FROM fav f WHERE f.mat_id = h.mat_id)
+                )
+                SELECT m.id AS mat_id, m."Code" AS mat_code, m."Name" AS mat_name, un."Name" AS unit,
+                       u.grp, u.cnt,
+                       COALESCE((SELECT SUM(ml."CurrentStock") FROM mat_lot ml
+                                  WHERE ml."Material_id" = m.id AND ml."StoreHouse_id" = :store
+                                    AND ml."CurrentStock" > 0), 0) AS stock
+                  FROM u JOIN material m ON m.id = u.mat_id
+                  LEFT JOIN unit un ON un.id = m."Unit_id"
+                 WHERE COALESCE(m."_status",'a')='a'
+                 ORDER BY u.grp, u.ord, u.cnt DESC, m."Name"
+                 LIMIT :lim
+                """).replace("${FAV}", favCte), p);
+        return rows == null ? new ArrayList<>() : rows;
+    }
+
+    /** ★ 자주 수리 부품 «지정» 목록 (화면의 ☆ 로 관리) */
+    private void ensureFavTable() {
+        this.sqlRunner.execute("""
+                CREATE TABLE IF NOT EXISTS mcell_repair_fav (
+                    id serial PRIMARY KEY, "Material_id" integer NOT NULL, "SeqNo" integer,
+                    "Description" varchar(200), "_status" varchar(1) DEFAULT 'a',
+                    "_created" timestamp DEFAULT now(), "_creater_id" integer, spjangcd varchar(10))
+                """, new MapSqlParameterSource());
+    }
+
+    public List<Integer> getFavIds() {
+        Map<String, Object> ok = this.sqlRunner.getRow(
+                "SELECT to_regclass('public.mcell_repair_fav') IS NOT NULL AS ok", new MapSqlParameterSource());
+        if (ok == null || !Boolean.TRUE.equals(ok.get("ok"))) return new ArrayList<>();
+        List<Integer> ids = new ArrayList<>();
+        for (Map<String, Object> r : this.sqlRunner.getRows("""
+                SELECT "Material_id" AS mat_id FROM mcell_repair_fav WHERE COALESCE("_status",'a')='a'
+                """, new MapSqlParameterSource())) ids.add(((Number) r.get("mat_id")).intValue());
+        return ids;
+    }
+
+    /** ☆ 누르면 지정, ★ 누르면 해제. 지정한 순서대로 목록 위에 뜬다. */
+    @Transactional
+    public AjaxResult toggleFav(Integer matId, String spjangcd, User user) {
+        AjaxResult r = new AjaxResult();
+        r.success = true;
+        if (matId == null) { r.success = false; r.message = "품목이 없습니다."; return r; }
+        ensureFavTable();
+        MapSqlParameterSource p = new MapSqlParameterSource().addValue("mid", matId)
+                .addValue("userId", user.getId()).addValue("spjangcd", spjangcd);
+        Map<String, Object> ex = this.sqlRunner.getRow("""
+                SELECT id FROM mcell_repair_fav WHERE "Material_id"=:mid AND COALESCE("_status",'a')='a' LIMIT 1
+                """, p);
+        if (ex != null) {
+            this.sqlRunner.execute("DELETE FROM mcell_repair_fav WHERE \"Material_id\"=:mid", p);
+            r.data = Map.of("fav", false);
+            r.message = "자주 수리 부품에서 뺐습니다.";
+        } else {
+            this.sqlRunner.execute("""
+                    INSERT INTO mcell_repair_fav ("Material_id","SeqNo","_status","_created","_creater_id",spjangcd)
+                    VALUES (:mid, COALESCE((SELECT MAX("SeqNo") FROM mcell_repair_fav),0)+1, 'a', now(), :userId, :spjangcd)
+                    """, p);
+            r.data = Map.of("fav", true);
+            r.message = "자주 수리 부품으로 지정했습니다.";
+        }
+        return r;
     }
 
     public List<Map<String, Object>> getWorkers() {
@@ -721,6 +889,7 @@ public class McellRepairService {
     @Transactional
     public AjaxResult regist(String cat, String scanKey, Integer matLotId, Integer materialId,
                              Integer targetMaterialId, String reason, String receiptDate,
+                             boolean withBox, Integer packProductId, String returnMatsJson,
                              String spjangcd, User user) {
         AjaxResult r = new AjaxResult();
         r.success = true;
@@ -729,7 +898,17 @@ public class McellRepairService {
             r.success = false; r.message = "수리 유형이 올바르지 않습니다."; return r;
         }
         String key = (scanKey == null) ? "" : scanKey.trim().toUpperCase();
-        if (key.isBlank()) { r.success = false; r.message = "원 M-CELL 로트를 입력하거나 스캔하세요."; return r; }
+        boolean noLot = false;
+        if (key.isBlank()) {
+            /* ★ 로트번호를 모르는 반품 — 품목(제품·어셈블리·단품·부품)만 골라 받는다.
+                 입고 로트번호는 «RT-날짜-시각» 으로 새로 발번한다(외부 라벨 없음). */
+            if (matLotId == null && materialId != null) {
+                key = "RT-" + java.time.LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyMMdd-HHmmss"));
+                noLot = true;
+            } else {
+                r.success = false; r.message = "원 로트를 입력하거나 스캔하세요. 로트를 모르면 «로트 모름» 으로 품목을 고르세요."; return r;
+            }
+        }
 
         LocalDate rDate = (receiptDate == null || receiptDate.isBlank())
                 ? LocalDate.now() : LocalDate.parse(receiptDate);
@@ -774,7 +953,7 @@ public class McellRepairService {
             return r;
         }
         String srcLotNo   = (lot != null) ? str(lot.get("lot_number")) : key;
-        String makerLotNo = (lot != null) ? str(lot.get("maker_lot_no")) : key;
+        String makerLotNo = (lot != null) ? str(lot.get("maker_lot_no")) : (noLot ? null : key);
         float  stock      = (lot != null) ? (float) toD(lot.get("stock")) : 0f;
         /* ★ 유형에 따라 현물을 확보하는 방법이 다르다.
              반품 : 언제나 신규 입고.
@@ -924,8 +1103,10 @@ public class McellRepairService {
              ★ 여기서 실패해도 접수는 살린다. 회수 목록은 사람이 다시 담을 수 있지만
                접수가 통째로 롤백되면 현물은 이미 창고에 있는데 전표가 없어진다. */
         int recovered = 0;
-        if (semiMatId != null) {
-            recovered = seedReturnMats(unitId, srcMatId, semiMatId, spjangcd, user);
+        // ★ 반품은 대개 박스 없이 본체만 온다. 박스째 왔어도 박스·폼은 대개 못 쓴다.
+        //   그래서 포장재를 미리 다 깔지 않고, 작업자가 체크한 «다시 쓸 것» 만 회수 목록에 담는다.
+        if (withBox && returnMatsJson != null && !returnMatsJson.isBlank()) {
+            recovered = insertReturnMats(unitId, returnMatsJson, spjangcd, user);
         }
 
         r.data = Map.of("repair_id", repairId, "repair_no", repairNo,
@@ -936,7 +1117,7 @@ public class McellRepairService {
                 ? "기존 재고를 수리창고로 이동했습니다."
                 : "반품으로 신규 입고했습니다.")
                 + (semiMatId != null
-                ? " 박스를 풀어 " + str(unpack.get("semi_code")) + " 로 접수했습니다."
+                ? (withBox ? " 박스를 풀어 " : " ") + str(unpack.get("semi_code")) + " (본체) 로 접수했습니다."
                 + (recovered > 0 ? " 포장자재 " + recovered + "건이 회수 목록에 담겼습니다." : "")
                 : "");
         return r;
@@ -1052,6 +1233,45 @@ public class McellRepairService {
      *
      * @return 담긴 건수
      */
+    /** 박스째 반품 — 체크한 포장재만 −회수 행으로 (상한 검사 없이: 근거는 포장 BOM) */
+    private int insertReturnMats(Integer unitId, String json, String spjangcd, User user) {
+        int n = 0;
+        try {
+            List<?> arr = new com.fasterxml.jackson.databind.ObjectMapper().readValue(json, List.class);
+            for (Object o : arr) {
+                Map<?, ?> m = (Map<?, ?>) o;
+                Integer mid = asInt((Number) m.get("mat_id"));
+                double q = m.get("qty") == null ? 1 : ((Number) m.get("qty")).doubleValue();
+                if (mid == null || q <= 0) continue;
+                this.sqlRunner.execute("""
+                        INSERT INTO mcell_repair_mat ("McellUnit_id","Material_id","Dir","Qty","State",
+                                                      "_status","_created","_creater_id",spjangcd)
+                        VALUES (:uid,:matId,'-',:qty,'plan','a',now(),:userId,:spjangcd)
+                        """, new MapSqlParameterSource().addValue("uid", unitId).addValue("matId", mid)
+                        .addValue("qty", (float) q).addValue("userId", user.getId()).addValue("spjangcd", spjangcd));
+                n++;
+            }
+        } catch (Exception e) { /* 회수 목록은 화면에서 다시 담을 수 있다 — 접수는 살린다 */ }
+        return n;
+    }
+
+    /** 제품의 포장 BOM (본체=semi 제외). 박스·폼·커버·테이프류는 뒤로 (재사용 드묾) */
+    public List<Map<String, Object>> getPackParts(Integer productId) {
+        return this.sqlRunner.getRows("""
+                SELECT cm.id AS mat_id, cm."Code" AS mat_code, cm."Name" AS mat_name,
+                       COALESCE(bc."Amount",1) AS qty,
+                       (cm."Name" ~* '(box|박스|foam|폼|cover|커버|tape|테이프|비닐|label|라벨|pe-)') AS is_pkg
+                  FROM bom b
+                  JOIN bom_comp bc ON bc."BOM_id" = b.id AND COALESCE(bc."_status",'a') = 'a'
+                  JOIN material cm ON cm.id = bc."Material_id"
+                  JOIN mat_grp cmg ON cmg.id = cm."MaterialGroup_id"
+                 WHERE b."Material_id" = :pid AND b."BOMType" = 'manufacturing'
+                   AND COALESCE(b."_status",'a') = 'a'
+                   AND cmg."MaterialType" <> 'semi'
+                 ORDER BY 5, cm."Name"
+                """, new MapSqlParameterSource().addValue("pid", productId));
+    }
+
     private int seedReturnMats(Integer unitId, Integer productMatId, Integer semiMatId,
                                String spjangcd, User user) {
         List<Map<String, Object>> comps = this.sqlRunner.getRows("""
@@ -1102,6 +1322,16 @@ public class McellRepairService {
                 """, new MapSqlParameterSource().addValue("rid", repairId));
         if (busy != null && asInt(busy.get("c")) > 0) {
             r.success = false; r.message = "이미 수리가 시작되어 접수를 취소할 수 없습니다."; return r;
+        }
+
+        Map<String, Object> blt = this.sqlRunner.getRow("""
+                SELECT COUNT(*) AS c FROM mcell_repair_mat rm
+                  JOIN mcell_unit mu ON mu.id = rm."McellUnit_id"
+                 WHERE mu."McellRepair_id" = :rid AND rm."BuildMp_id" IS NOT NULL
+                   AND COALESCE(rm."_status",'a')='a'
+                """, new MapSqlParameterSource().addValue("rid", repairId));
+        if (blt != null && asInt(blt.get("c")) > 0) {
+            r.success = false; r.message = "수리 중 조립한 어셈블리가 있습니다. 투입 목록에서 먼저 삭제하세요."; return r;
         }
 
         Integer mlId = asInt(rep.get("src_mat_lot_id"));
@@ -1320,6 +1550,9 @@ public class McellRepairService {
         if (!guard.success) return guard;
         AjaxResult rowGuard = guardRmatEditable(rm);
         if (!rowGuard.success) return rowGuard;
+        if (rm.get("build_mp_id") != null) {
+            r.success = false; r.message = "수리 중 조립한 어셈블리는 수량을 바꿀 수 없습니다. 삭제 후 다시 조립하세요."; return r;
+        }
 
         if ("-".equals(str(rm.get("dir")))) {
             AjaxResult cap = guardReturnQty(unitId, asInt(rm.get("mat_id")),
@@ -1348,6 +1581,30 @@ public class McellRepairService {
         if (!guard.success) return guard;
         AjaxResult rowGuard = guardRmatEditable(rm);
         if (!rowGuard.success) return rowGuard;
+
+        // ★ 수리 중 조립한 어셈블리면 그 조립 실적을 되돌린다 (부품 재고 복원 · 어셈블리 로트 삭제)
+        if (rm.get("build_mp_id") != null) {
+            Map<String, Object> bl = this.sqlRunner.getRow("SELECT \"LotNumber\" AS lot FROM mat_lot WHERE id=:id",
+                    new MapSqlParameterSource().addValue("id", asInt(rm.get("build_lot_id"))));
+            Integer bmp = asInt(rm.get("build_mp_id"));
+            // 이 조립에 들어갔던 하위 «수리 중 조립» 행 — 롤백 전에 찾아 둔다 (cons 가 지워지므로)
+            List<Map<String, Object>> kids = this.sqlRunner.getRows("""
+                    SELECT k.id FROM mcell_repair_mat k
+                     WHERE k."McellUnit_id" = :uid AND k."State" = 'nested' AND COALESCE(k."_status",'a')='a'
+                       AND EXISTS (SELECT 1 FROM mat_lot_cons c
+                                    WHERE c."SourceTableName"='mat_produce' AND c."SourceDataPk"=:mp
+                                      AND c."MaterialLot_id" = k."BuildLot_id")
+                    """, new MapSqlParameterSource().addValue("uid", asInt(rm.get("unit_id"))).addValue("mp", bmp));
+            AjaxResult rb = rollbackProduce(bmp, bl == null ? null : str(bl.get("lot")), user);
+            if (!rb.success) {
+                rb.message = "조립한 어셈블리가 이미 다른 곳에 쓰여 삭제할 수 없습니다.";
+                return rb;
+            }
+            for (Map<String, Object> k : kids) {   // 하위 어셈블리는 다시 이 수리의 투입 후보로
+                this.sqlRunner.execute("UPDATE mcell_repair_mat SET \"State\"='plan' WHERE id=:id",
+                        new MapSqlParameterSource().addValue("id", asInt(k.get("id"))));
+            }
+        }
 
         this.sqlRunner.execute("""
                 UPDATE mcell_repair_mat SET "_status"='d', "_modified"=now(), "_modifier_id"=:userId
@@ -1483,8 +1740,12 @@ public class McellRepairService {
         List<Map<String, Object>> mats = getUnitMats(unitId);
         List<ProductionCreateService.BomInput> plus = new ArrayList<>();
         List<Map<String, Object>> minus = new ArrayList<>();
+        List<Map<String, Object>> builds = new ArrayList<>();   // ★ 수리 중 조립한 어셈블리 — 그 로트를 지정 소비
         for (Map<String, Object> m : mats) {
-            if ("+".equals(str(m.get("dir")))) {
+            if ("nested".equals(str(m.get("state")))) continue;   // 상위 어셈블리 안에 이미 들어간 하위 조립
+            if ("+".equals(str(m.get("dir"))) && m.get("build_mp_id") != null) {
+                builds.add(m);
+            } else if ("+".equals(str(m.get("dir")))) {
                 plus.add(new ProductionCreateService.BomInput(asInt(m.get("mat_id")),
                         (float) toD(m.get("qty"))));
             } else {
@@ -1519,6 +1780,9 @@ public class McellRepairService {
         // 2) 원 M-CELL 로트 투입 (지정 로트 · 수리창고)
         AjaxResult cons = this.productionCreateService.consumeLot(mpId, srcMatLotId, 1f, user, spjangcd);
         if (!cons.success) throw new IllegalStateException(cons.message);   // 롤백
+
+        // 2-1) ★ 수리 중 조립한 어셈블리 — FIFO 가 아니라 «방금 만든 그 로트» 를 소비 (계보)
+        consumeBuilds(mpId, builds, user, spjangcd);
 
         // 3) ＋자재 소비 + 결과 로트 생산창고(17) 입고
         AjaxResult fin = this.productionCreateService.finishProduction(mpId, req, user);
@@ -1563,6 +1827,7 @@ public class McellRepairService {
         this.sqlRunner.execute("""
                 UPDATE mcell_repair_mat SET "State"='applied'
                  WHERE "McellUnit_id"=:uid AND "Dir"='+' AND COALESCE("_status",'a')='a'
+                   AND COALESCE("State",'plan') <> 'nested'
                 """, new MapSqlParameterSource().addValue("uid", unitId));
 
         // 5) 유닛 → 검사대기 (여기서부터 검사 화면이 잡는다)
@@ -1570,9 +1835,14 @@ public class McellRepairService {
                 .addValue("id", unitId).addValue("mpId", mpId).addValue("lot", resultLot)
                 .addValue("et", (endTime == null || endTime.isBlank()) ? null : endTime)
                 .addValue("userId", user.getId());
+        /* ★ 입고 단위별 마감 — 검사 대상(M-CELL 본체, InspectYN='Y')만 검사로 보낸다.
+             어셈블리 · 단품 · 부품은 검사 양식이 없으므로 'repaired'(수리완료)로 끝내고
+             결과 로트는 생산창고(17) 재고로 남아 조립·수리에 다시 투입된다.
+             검사 화면은 'repaired' 를 세지 않는다(검사 큐 State 목록에 없음). */
+        up.addValue("nextState", "Y".equals(str(u.get("inspect_yn"))) ? "inspect_wait" : "repaired");
         this.sqlRunner.execute("""
                 UPDATE mcell_unit
-                   SET "State"='inspect_wait', "MatProduce_id"=:mpId, "LotNumber"=:lot,
+                   SET "State"=:nextState, "MatProduce_id"=:mpId, "LotNumber"=:lot,
                        "EndTime"=COALESCE(CAST(:et AS timestamp), LOCALTIMESTAMP),
                        "RejectReason"=NULL, "RejectInspNo"=NULL, "RejectAt"=NULL,
                        "_modified"=now(), "_modifier_id"=:userId
@@ -1581,7 +1851,8 @@ public class McellRepairService {
         touchRepairState(asInt(u.get("repair_id")), user);
 
         r.data = Map.of("mat_produce_id", mpId, "lot_number", resultLot,
-                "plus_cnt", plus.size(), "minus_cnt", minus.size());
+                "plus_cnt", plus.size(), "minus_cnt", minus.size(),
+                "next_state", up.getValue("nextState"));
         return r;
     }
 
@@ -1603,7 +1874,8 @@ public class McellRepairService {
         // 아직 반영되지 않은(plan) 가감만 처리
         List<Map<String, Object>> pend = this.sqlRunner.getRows("""
                 SELECT rm.id AS rmat_id, rm."Material_id" AS mat_id, rm."Dir" AS dir,
-                       rm."Qty" AS qty, sl."LotNumber" AS src_lot_number
+                       rm."Qty" AS qty, sl."LotNumber" AS src_lot_number,
+                       rm."BuildMp_id" AS build_mp_id, rm."BuildLot_id" AS build_lot_id
                   FROM mcell_repair_mat rm
                   LEFT JOIN mat_lot sl ON sl.id = rm."SrcMatLot_id"
                  WHERE rm."McellUnit_id" = :uid
@@ -1613,8 +1885,11 @@ public class McellRepairService {
 
         List<ProductionCreateService.BomInput> plus = new ArrayList<>();
         List<Map<String, Object>> minus = new ArrayList<>();
+        List<Map<String, Object>> builds = new ArrayList<>();
         for (Map<String, Object> m : pend) {
-            if ("+".equals(str(m.get("dir")))) {
+            if ("+".equals(str(m.get("dir"))) && m.get("build_mp_id") != null) {
+                builds.add(m);
+            } else if ("+".equals(str(m.get("dir")))) {
                 plus.add(new ProductionCreateService.BomInput(asInt(m.get("mat_id")),
                         (float) toD(m.get("qty"))));
             } else {
@@ -1627,7 +1902,8 @@ public class McellRepairService {
         //   통과하는 경우가 실제로 많다. 그때는 재고 인·아웃이 아예 없다.
         //   여기서 막으면 작업자는 쓰지도 않은 자재를 담아 재고를 틀리게 만든다.
         //   (1차 실적·소비는 그대로 남아 있으므로 이력이 비는 것도 아니다)
-        boolean noMat = plus.isEmpty() && minus.isEmpty();
+        boolean noMat = plus.isEmpty() && minus.isEmpty() && builds.isEmpty();
+        consumeBuilds(mpId, builds, user, spjangcd);
 
         // 1) 추가 투입 → 기존 차수에 소비 더하기 (없으면 건너뛴다)
         if (!plus.isEmpty()) {
@@ -1668,9 +1944,10 @@ public class McellRepairService {
         MapSqlParameterSource up = new MapSqlParameterSource()
                 .addValue("id", unitId).addValue("userId", user.getId())
                 .addValue("et", (endTime == null || endTime.isBlank()) ? null : endTime);
+        up.addValue("nextState", "Y".equals(str(u.get("inspect_yn"))) ? "inspect_wait" : "repaired");
         this.sqlRunner.execute("""
                 UPDATE mcell_unit
-                   SET "State"='inspect_wait',
+                   SET "State"=:nextState,
                        "EndTime"=COALESCE(CAST(:et AS timestamp), LOCALTIMESTAMP),
                        "RejectReason"=NULL, "RejectInspNo"=NULL, "RejectAt"=NULL,
                        "_modified"=now(), "_modifier_id"=:userId
@@ -1704,8 +1981,9 @@ public class McellRepairService {
         Map<String, Object> u = getUnitRow(unitId);
         if (u == null) { r.success = false; r.message = "유닛을 찾을 수 없습니다."; return r; }
         String st = str(u.get("state"));
-        if (!"inspect_wait".equals(st) && !"reject".equals(st)) {
-            r.success = false; r.message = "검사 대기/재작업 상태에서만 되돌릴 수 있습니다."; return r;
+        // ★ 'repaired'(검사 없이 끝난 어셈블리·부품 수리)도 수리로 되돌릴 수 있다
+        if (!"inspect_wait".equals(st) && !"reject".equals(st) && !"repaired".equals(st)) {
+            r.success = false; r.message = "검사 대기/재작업/수리완료 상태에서만 되돌릴 수 있습니다."; return r;
         }
 
         // 검사가 시작된 뒤의 '검사취소'는 이력이 어긋나므로 막는다.
@@ -1772,7 +2050,157 @@ public class McellRepairService {
         this.sqlRunner.execute("""
                 UPDATE mcell_repair_mat SET "State"='plan', "MatLot_id"=NULL
                  WHERE "McellUnit_id"=:id AND COALESCE("_status",'a')='a'
+                   AND COALESCE("State",'plan') <> 'nested'   -- 상위 어셈블리 안에 들어간 하위 조립은 그대로
                 """, new MapSqlParameterSource().addValue("id", unitId));
+        return r;
+    }
+
+    /** 수리 중 조립한 어셈블리 로트를 수리 차수에 지정 소비 */
+    private void consumeBuilds(Integer mpId, List<Map<String, Object>> builds, User user, String spjangcd) {
+        for (Map<String, Object> b : builds) {
+            Integer lotId = asInt(b.get("build_lot_id"));
+            if (lotId == null) {
+                Map<String, Object> rr = getRmatRow(asInt(b.get("rmat_id")));
+                lotId = asInt(rr.get("build_lot_id"));
+            }
+            AjaxResult c = this.productionCreateService.consumeLot(mpId, lotId, (float) toD(b.get("qty")), user, spjangcd);
+            if (!c.success) throw new IllegalStateException("조립한 어셈블리 투입 실패: " + c.message);
+        }
+    }
+
+    /**
+     * ★ 수리 중 어셈블리 조립 (B안).
+     *   재고가 없는 어셈블리를 작지 없이 수리 화면에서 바로 만든다.
+     *   1) 자동 작지(수리 워크센터, Parent = 수리 작지) — mat_produce 가 작지를 요구하므로
+     *   2) BOM 부품을 생산창고(17)에서 소비하고 어셈블리 로트 1개 산출 → 생산창고 입고
+     *   3) 그 로트를 이 수리에 ＋투입 행으로 담는다 (BuildMp_id / BuildLot_id)
+     *   수리 완료 때 FIFO 가 아니라 이 로트를 지정 소비한다. 행을 지우면 조립 실적도 되돌린다.
+     * @param bomJson [{"mat_id":..,"qty":..}] — 실제로 쓴 부품·수량 (화면이 BOM 기본값으로 채워 보냄)
+     */
+    @Transactional
+    public AjaxResult buildAssembly(Integer unitId, Integer asmMatId, String bomJson, String spjangcd, User user) {
+        AjaxResult r = new AjaxResult();
+        r.success = true;
+        AjaxResult guard = guardEditable(unitId);
+        if (!guard.success) return guard;
+        Map<String, Object> u = getUnitRow(unitId);
+        if (!"repairing".equals(str(u.get("state")))) {
+            r.success = false; r.message = "수리를 시작한 뒤(작업자 배정) 조립할 수 있습니다."; return r;
+        }
+        Integer actorId = asInt(u.get("actor_id"));
+        if (actorId == null) { r.success = false; r.message = "작업자가 배정되지 않았습니다."; return r; }
+
+        List<ProductionCreateService.BomInput> parts = new ArrayList<>();
+        try {
+            List<?> arr = new com.fasterxml.jackson.databind.ObjectMapper().readValue(bomJson, List.class);
+            for (Object o : arr) {
+                Map<?, ?> m = (Map<?, ?>) o;
+                Integer mid = asInt((Number) m.get("mat_id"));
+                float q = ((Number) m.get("qty")).floatValue();
+                if (mid != null && q > 0) {
+                    AjaxResult stk = guardInputQty(mid, q);
+                    if (!stk.success) return stk;
+                    ProductionCreateService.BomInput bi = new ProductionCreateService.BomInput(mid, q);
+                    /* ★ 하위 어셈블리를 이 수리에서 먼저 조립해 뒀다면 «그 로트» 를 쓴다 (계보).
+                         예) 힌지 Ass'y 조립 → 모니터 Ass'y 조립 시 그 힌지 로트 소비 */
+                    Map<String, Object> child = this.sqlRunner.getRow("""
+                            SELECT rm."BuildLot_id" AS lot_id FROM mcell_repair_mat rm
+                             WHERE rm."McellUnit_id" = :uid AND rm."Material_id" = :mid
+                               AND rm."BuildLot_id" IS NOT NULL AND rm."Dir" = '+'
+                               AND COALESCE(rm."State",'plan') = 'plan' AND COALESCE(rm."_status",'a') = 'a'
+                             ORDER BY rm.id LIMIT 1
+                            """, new MapSqlParameterSource().addValue("uid", unitId).addValue("mid", mid));
+                    if (child != null && child.get("lot_id") != null) {
+                        bi.lots = new ArrayList<>(List.of(new ProductionCreateService.LotInput(asInt(child.get("lot_id")), q)));
+                    }
+                    parts.add(bi);
+                }
+            }
+        } catch (Exception e) {
+            r.success = false; r.message = "부품 목록 형식 오류"; return r;
+        }
+        if (parts.isEmpty()) { r.success = false; r.message = "조립에 쓸 부품이 없습니다."; return r; }
+
+        // 1) 자동 작지 — 수리 작지 밑으로
+        Map<String, Object> jr = this.sqlRunner.getRow("""
+                INSERT INTO job_res ("Material_id","ProductionDate","ProductionPlanDate","OrderQty",
+                                     "WorkCenter_id","FirstWorkCenter_id","LotCount","ProcessCount","Parent_id",
+                                     "State","_status","_created","_creater_id",spjangcd)
+                VALUES (:matId, CURRENT_DATE, CURRENT_DATE, 1, :wcId, :wcId, 1, 1, :parent,
+                        'ordered','a',now(),:userId,:spjangcd)
+                RETURNING id
+                """, new MapSqlParameterSource().addValue("matId", asmMatId).addValue("wcId", workCenter())
+                .addValue("parent", asInt(u.get("job_res_id"))).addValue("userId", user.getId())
+                .addValue("spjangcd", spjangcd));
+        Integer jrId = asInt(jr.get("id"));
+
+        // 로트번호 : {수리번호}-A{n}
+        String rNo = str(u.get("repair_no"));
+        Map<String, Object> cnt = this.sqlRunner.getRow("""
+                SELECT COUNT(*) AS c FROM mcell_repair_mat rm JOIN mcell_unit mu ON mu.id = rm."McellUnit_id"
+                 WHERE mu."McellRepair_id" = :rid AND rm."BuildMp_id" IS NOT NULL
+                """, new MapSqlParameterSource().addValue("rid", asInt(u.get("repair_id"))));
+        String lot = ((rNo != null && !rNo.isBlank()) ? rNo : ("RP-U" + unitId)) + "-A" + (asInt(cnt.get("c")) + 1);
+
+        String now = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
+        ProductionCreateService.CreateReq req = new ProductionCreateService.CreateReq();
+        req.jobResId       = jrId;
+        req.materialId     = asmMatId;
+        req.workCenterId   = workCenter();
+        req.actorId        = actorId;
+        req.equipmentId    = null;
+        req.memberIds      = null;
+        req.shiftCode      = null;
+        req.goodQty        = 1f;
+        req.defectQty      = 0f;
+        req.productionDate = LocalDate.now().toString();
+        req.startTime      = now;
+        req.endTime        = now;
+        req.bomList        = parts;
+        req.cleanStore     = STORE_PROD;
+        req.lotNumber      = lot;
+        req.spjangcd       = spjangcd;
+
+        AjaxResult started = this.productionCreateService.startProduction(req, user);
+        if (!started.success) throw new IllegalStateException(started.message);
+        Integer mpId = asInt(((Map<?, ?>) started.data).get("mat_produce_id"));
+        AjaxResult fin = this.productionCreateService.finishProduction(mpId, req, user);
+        if (!fin.success) throw new IllegalStateException(fin.message);
+
+        Map<String, Object> out = this.sqlRunner.getRow("""
+                SELECT id FROM mat_lot WHERE "SourceTableName"='mat_produce' AND "SourceDataPk"=:mp
+                 ORDER BY id DESC LIMIT 1
+                """, new MapSqlParameterSource().addValue("mp", mpId));
+        if (out == null) throw new IllegalStateException("조립한 어셈블리 로트를 찾지 못했습니다.");
+        Integer outLotId = asInt(out.get("id"));
+        // 수리 생산창고(17)로 고정 — 산출 창고 설정이 달라도 수리에서 바로 꺼내 쓰게
+        this.sqlRunner.execute("UPDATE mat_lot SET \"StoreHouse_id\"=:st WHERE id=:id",
+                new MapSqlParameterSource().addValue("st", STORE_PROD).addValue("id", outLotId));
+
+        // 2-1) ★ 하위 어셈블리 행 정리 — 이 조립에 들어가 소진된 «수리 중 조립» 로트는
+        //       더 이상 이 수리에 직접 투입되는 게 아니다(상위 어셈블리 안에 들어갔다).
+        //       투입 목록에서 빼고(Parent 표시), 상위 행을 지우면 되살린다.
+        this.sqlRunner.execute("""
+                UPDATE mcell_repair_mat rm SET "State"='nested', "_modified"=now(), "_modifier_id"=:userId
+                 WHERE rm."McellUnit_id" = :uid AND rm."BuildLot_id" IS NOT NULL
+                   AND COALESCE(rm."State",'plan') = 'plan' AND COALESCE(rm."_status",'a') = 'a'
+                   AND EXISTS (SELECT 1 FROM mat_lot_cons c
+                                WHERE c."SourceTableName"='mat_produce' AND c."SourceDataPk"=:mp
+                                  AND c."MaterialLot_id" = rm."BuildLot_id")
+                """, new MapSqlParameterSource().addValue("uid", unitId).addValue("mp", mpId)
+                .addValue("userId", user.getId()));
+
+        // 3) ＋투입 행
+        this.sqlRunner.execute("""
+                INSERT INTO mcell_repair_mat ("McellUnit_id","Material_id","Dir","Qty","State",
+                                              "BuildMp_id","BuildLot_id","_status","_created","_creater_id",spjangcd)
+                VALUES (:uid,:matId,'+',1,'plan',:mp,:lotId,'a',now(),:userId,:spjangcd)
+                """, new MapSqlParameterSource().addValue("uid", unitId).addValue("matId", asmMatId)
+                .addValue("mp", mpId).addValue("lotId", outLotId).addValue("userId", user.getId())
+                .addValue("spjangcd", spjangcd));
+
+        r.message = "어셈블리를 조립해 투입 목록에 담았습니다 · 로트 " + lot;
+        r.data = Map.of("lot_number", lot, "mat_produce_id", mpId);
         return r;
     }
 
@@ -1904,7 +2332,7 @@ public class McellRepairService {
                 UPDATE mcell_repair r
                    SET "State" = s.st, "_modified"=now(), "_modifier_id"=:userId
                   FROM (SELECT CASE
-                                 WHEN COUNT(*) FILTER (WHERE mu."State" IN ('inspect_wait','pass','packed')) = COUNT(*)
+                                 WHEN COUNT(*) FILTER (WHERE mu."State" IN ('inspect_wait','pass','packed','repaired')) = COUNT(*)
                                       AND COUNT(*) > 0 THEN 'done'
                                  WHEN COUNT(*) FILTER (WHERE mu."State" <> 'wait') > 0 THEN 'working'
                                  ELSE 'wait' END AS st
@@ -2008,6 +2436,8 @@ public class McellRepairService {
                        to_char(mu."StartTime",'yyyy-mm-dd hh24:mi') AS start_time,
                        to_char(mu."EndTime",'yyyy-mm-dd hh24:mi')   AS end_time,
                        m."Code" AS mat_code, m."Name" AS mat_name,
+                       -- ★ 수리 후 검사로 가는가 — 검사 대상 품목(M-CELL 본체)만 검사, 어셈블리·부품은 바로 재고
+                       COALESCE(m."InspectYN",'N') AS inspect_yn,
                        pe."Name" AS actor_name, eq."Name" AS equipment_name,
                        r."Cat" AS cat, r."RepairNo" AS repair_no, r."Reason" AS reason,
                        r."TargetMaterial_id" AS target_mat_id, r."IntakeType" AS intake_type,
@@ -2055,7 +2485,8 @@ public class McellRepairService {
         Map<String, Object> row = this.sqlRunner.getRow("""
                 SELECT id, "McellUnit_id" AS unit_id, "Material_id" AS mat_id,
                        "Dir" AS dir, "Qty" AS qty, "State" AS state,
-                       "SrcMatLot_id" AS src_mat_lot_id
+                       "SrcMatLot_id" AS src_mat_lot_id,
+                       "BuildMp_id" AS build_mp_id, "BuildLot_id" AS build_lot_id
                   FROM mcell_repair_mat WHERE id=:id
                 """, new MapSqlParameterSource().addValue("id", rmatId));
         if (row == null) throw new IllegalArgumentException("자재 행을 찾을 수 없습니다.");

@@ -346,6 +346,14 @@
       background:var(--surface);color:var(--ink-2);font-weight:800;font-size:14px;cursor:pointer}
     .csel{height:48px;border:1px solid var(--line);border-radius:12px;padding:0 12px;font-size:15px;font-weight:800;
       background:var(--surface-2);color:var(--ink);min-width:160px;cursor:pointer}
+    /* ★ 국가 카드 제목 자리의 국가 선택 — 칸 전체로 늘어나 입력창처럼 보이던 것을
+         제목 크기의 «칩 + ▾» 로 줄인다. 글자 폭만큼만 차지한다. */
+    .sid .csel{align-self:flex-start;width:auto;min-width:0;max-width:100%;height:40px;
+      padding:0 34px 0 12px;font-size:17px;letter-spacing:-.02em;border-radius:10px;
+      -webkit-appearance:none;appearance:none;background-color:var(--surface);
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%235A6B76' stroke-width='2'/%3E%3C/svg%3E");
+      background-repeat:no-repeat;background-position:right 12px center}
+    .sid .csel:hover,.sid .csel:focus{border-color:var(--teal);outline:none}
     .defbtn{height:48px;padding:0 15px;border-radius:12px;border:1px solid var(--line);background:var(--surface);
       color:var(--ink-2);font-weight:800;font-size:14px;cursor:pointer;flex:0 0 auto}
     .defbtn:active{background:var(--surface-2)}.defbtn.has{background:var(--red-bg);color:var(--red);border-color:transparent}
@@ -2522,10 +2530,22 @@
            CK 를 만드는 자리다. 여기서 드롭다운을 열어 국가를 바꾸면
            이미 그 국가로 발번된 CK 로트(BMSC120-CK-KR-260824)와 어긋난다.
            수량은 여기서도 조절할 수 있게 둔다 — 바뀌는 건 CK 개수뿐이라 로트가 흔들리지 않는다. */
-        var nameCell = (lock || ckUnit || isCkStock() || isNo)
+        /* ★ 국가 수정 — 반영(CK 생산) 전이면 언제든 바꿀 수 있다.
+             예전 조건에 ckUnit 이 있었는데, 섹션을 국가 카드 하나로 합친 뒤로
+             allocCards 가 항상 ckUnit=true 로 불려서 드롭다운이 «한 번도» 나오지 않았다.
+             잠그는 기준은 «이미 반영돼 그 국가로 CK 로트가 발번됐는가»(lock) 하나면 된다.
+             다른 줄이 쓰는 국가는 목록에서 뺀다(같은 국가 두 줄 방지). */
+        var usedElse = (curS.allocations || []).filter(function (x, j) {
+          return j !== i;
+        }).map(function (x) {
+          return x.country;
+        });
+        var nameCell = (lock || isCkStock() || isNo)
                 ? '<div class="sn">' + title + '</div>'
                 : '<select class="csel" data-alloc="' + i + '">' +
-                selectableCountries(a.country).map(function (co) {
+                selectableCountries(a.country).filter(function (co) {
+                  return co.code === a.country || usedElse.indexOf(co.code) < 0;
+                }).map(function (co) {
                   return '<option value="' + co.code + '"' + (co.code === a.country ? ' selected' : '') + '>' +
                           co.flag + ' ' + esc(co.name) + '</option>';
                 }).join('') + '</select>';
@@ -3822,9 +3842,38 @@
       if (sel && sel.tagName === 'SELECT') {
         var i = +sel.dataset.alloc;
         if (curS.allocations[i]) {
-          var co = countryOf(sel.value);
-          curS.allocations[i].country = sel.value;
-          curS.allocations[i].countryId = co ? co.id : null;
+          var a = curS.allocations[i], from = a.country, to = sel.value;
+          if (from === to) return;
+          var co = countryOf(to);
+          a.country = to;
+          a.countryId = co ? co.id : null;
+          /* ★ 국가를 키로 들고 있던 설정을 새 국가로 옮긴다 — 수량·CK 실적·투입자재 수정값·
+               해제·조달 방식·자체재고 로트·펼침 상태가 그대로 따라간다.
+               CK 로트번호는 국가 코드가 들어가므로 비워서 새 국가로 다시 만든다. */
+          ['ckQty', 'ckManual', 'ckOff'].forEach(function (nm) {
+            var m = curS[nm];
+            if (!m) return;
+            Object.keys(m).forEach(function (k) {
+              if (k.indexOf(from + '|') === 0) {
+                m[to + k.substring(from.length)] = m[k];
+                delete m[k];
+              }
+            });
+          });
+          ['ckMode', 'ckStock'].forEach(function (nm) {
+            var m = curS[nm];
+            if (m && Object.prototype.hasOwnProperty.call(m, from)) {
+              m[to] = m[from];
+              delete m[from];
+            }
+          });
+          var ok1 = ckOpenKey(from), ok2 = ckOpenKey(to);
+          if (Object.prototype.hasOwnProperty.call(ckOpenMap, ok1)) {
+            ckOpenMap[ok2] = ckOpenMap[ok1];
+            delete ckOpenMap[ok1];
+          }
+          a.ckLot = null;
+          flash('국가를 ' + (co ? co.name : to) + '(으)로 바꿨습니다');
           renderCBody();
           renderCAction();
           scheduleAllocSave();

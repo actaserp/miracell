@@ -82,6 +82,7 @@ public class McellRepairController {
      * 품목 후보.
      *   scope=spec (기본) : 사양변경 대상 — 검사 대상 반제품만
      *   scope=src         : 미등록 로트의 원품목 — 완제품 포함
+     *   scope=any         : ★ 입고 단위가 어셈블리 · 단품 · 부품일 때 — 2공장 품목 전체
      *                       (외부 생산분이 박스째 반품될 때 사람이 지정한다)
      */
     @GetMapping("/target_materials")
@@ -91,6 +92,66 @@ public class McellRepairController {
         AjaxResult r = new AjaxResult();
         r.data = this.mcellRepairService.getTargetMaterials(keyword, scope);
         return r;
+    }
+
+    /** ★ 자재 트리 — 유닛 품목의 BOM 계층 + 생산창고 재고 */
+    @GetMapping("/bom_tree")
+    public AjaxResult bomTree(@RequestParam("unit_id") Integer unitId) {
+        AjaxResult r = new AjaxResult();
+        r.data = this.mcellRepairService.getBomTree(unitId);
+        return r;
+    }
+
+    /** ★ 박스째 반품 — 그 제품의 포장 BOM (본체 제외). 부속품(어댑터·케이블) 먼저 */
+    @GetMapping("/pack_parts")
+    public AjaxResult packParts(@RequestParam("product_id") Integer productId) {
+        AjaxResult r = new AjaxResult();
+        r.data = this.mcellRepairService.getPackParts(productId);
+        return r;
+    }
+
+    /** ★ 수리 중 어셈블리 조립 (재고 없을 때) — 부품 소비 → 어셈블리 로트 → ＋투입 */
+    @PostMapping("/asm_build")
+    public AjaxResult asmBuild(@RequestParam("unit_id") Integer unitId,
+                               @RequestParam("mat_id") Integer matId,
+                               @RequestParam("bom_json") String bomJson,
+                               @RequestParam(value = "spjangcd", required = false) String spjangcd,
+                               Authentication auth) {
+        return this.mcellRepairService.buildAssembly(unitId, matId, bomJson,
+                (spjangcd == null || spjangcd.isBlank()) ? "ZZ" : spjangcd, (User) auth.getPrincipal());
+    }
+
+    /** ★ 품목 BOM 트리 — 수리 접수(로트번호 없이)에서 어셈블리를 계층으로 고른다 */
+    @GetMapping("/mat_tree")
+    public AjaxResult matTree(@RequestParam("mat_id") Integer matId) {
+        AjaxResult r = new AjaxResult();
+        r.data = this.mcellRepairService.getBomTreeByMat(matId);
+        return r;
+    }
+
+    /** ★ 자주 수리되는 부품 (고정 목록 + 최근 이력) */
+    @GetMapping("/freq_parts")
+    public AjaxResult freqParts(@RequestParam(value = "limit", required = false) Integer limit) {
+        AjaxResult r = new AjaxResult();
+        r.data = this.mcellRepairService.getFreqParts(limit);
+        return r;
+    }
+
+    /** ★ 자주 수리 부품 지정 품목 id */
+    @GetMapping("/fav_ids")
+    public AjaxResult favIds() {
+        AjaxResult r = new AjaxResult();
+        r.data = this.mcellRepairService.getFavIds();
+        return r;
+    }
+
+    /** ★ 자주 수리 부품 지정/해제 (☆ ↔ ★) */
+    @PostMapping("/fav_toggle")
+    @Transactional
+    public AjaxResult favToggle(@RequestParam("material_id") Integer materialId,
+                                @RequestParam(value = "spjangcd", defaultValue = "ZZ") String spjangcd,
+                                Authentication auth) {
+        return this.mcellRepairService.toggleFav(materialId, spjangcd, (User) auth.getPrincipal());
     }
 
     @GetMapping("/workers")
@@ -120,16 +181,19 @@ public class McellRepairController {
     @Transactional
     public AjaxResult regist(
             @RequestParam("cat") String cat,                                         // return | spec
-            @RequestParam("scan_key") String scanKey,
+            @RequestParam(value = "scan_key", required = false) String scanKey,   // ★ 로트 모름이면 비어 온다
             @RequestParam(value = "mat_lot_id", required = false) Integer matLotId,
             @RequestParam(value = "material_id", required = false) Integer materialId,
             @RequestParam(value = "target_material_id", required = false) Integer targetMaterialId,
             @RequestParam(value = "reason", required = false) String reason,
             @RequestParam(value = "receipt_date", required = false) String receiptDate,
+            @RequestParam(value = "with_box", defaultValue = "N") String withBox,   // ★ 박스·포장재가 같이 들어왔나
+            @RequestParam(value = "pack_product_id", required = false) Integer packProductId,   // ★ 번호 없이 접수 — 트리에서 고른 완제품(포장 BOM 근거)
+            @RequestParam(value = "return_mats", required = false) String returnMats,            // ★ 박스째 반품 — 작업자가 체크한 재사용 포장재 [{mat_id,qty}]
             @RequestParam(value = "spjangcd", defaultValue = "ZZ") String spjangcd,
             Authentication auth) {
         return this.mcellRepairService.regist(cat, scanKey, matLotId, materialId, targetMaterialId,
-                reason, receiptDate, spjangcd, (User) auth.getPrincipal());
+                reason, receiptDate, "Y".equals(withBox), packProductId, returnMats, spjangcd, (User) auth.getPrincipal());
     }
 
     /** 접수 취소 (수리 시작 전) — 확보한 재고도 되돌린다 */

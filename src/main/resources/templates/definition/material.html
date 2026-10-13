@@ -243,13 +243,13 @@
                                             </td>
                                         </tr>
                                         <tr>
-<!--                                            <th>-->
-<!--                                                <label for="MaterialRowCode"><span class="eq">*</span>품목소분류</label>-->
-<!--                                            </th>-->
-<!--                                            <td>-->
-<!--                                                <select id="MaterialRowCode" name="MaterialRowCode"-->
-<!--                                                        style="width: 100%;" required></select>-->
-<!--                                            </td>-->
+                                            <!--                                            <th>-->
+                                            <!--                                                <label for="MaterialRowCode"><span class="eq">*</span>품목소분류</label>-->
+                                            <!--                                            </th>-->
+                                            <!--                                            <td>-->
+                                            <!--                                                <select id="MaterialRowCode" name="MaterialRowCode"-->
+                                            <!--                                                        style="width: 100%;" required></select>-->
+                                            <!--                                            </td>-->
 
                                             <th>
                                                 <label for="Name"><span class="eq">*</span>품목명</label>
@@ -344,6 +344,17 @@
                                             <td>
                                                 <input type="checkbox" id="InspectYN" name="InspectYN" value="Y" style="display: block; margin: auto; height: 26px; width: 26px;">
                                             </td>
+                                        </tr>
+                                        <!-- ★ S/N 관리(주요자재) — 체크하면 2공장 조립에서 이 자재의 S/N 입력칸이 자동으로 열리고,
+                                                 비워 둔 채 완료하면 안내한다. 체크하지 않아도 조립 화면의 «S/N» 버튼으로 입력은 된다. -->
+                                        <tr>
+                                            <th>
+                                                <label for="SnYN">S/N 관리</label>
+                                            </th>
+                                            <td>
+                                                <input type="checkbox" id="SnYN" name="SnYN" value="Y" style="display: block; margin: auto; height: 26px; width: 26px;">
+                                            </td>
+                                            <td colspan="4" style="color:#5A6B76;font-size:12.5px;font-weight:600">주요자재 — 조립(2공장) 시 S/N 을 기록하는 자재</td>
                                         </tr>
                                         <tr>
                                             <th>
@@ -1081,7 +1092,6 @@
                 let isInitialLoad = true; // 초기 상태 플래그
 
 
-
                 this.grid.hostElement.addEventListener('dblclick', (e) => {
                     let hitTest = this.grid.hitTest(e);
                     if (hitTest.cellType === wijmo.grid.CellType.Cell) {
@@ -1225,7 +1235,6 @@
                 this.grid.downloadFileName = '단가 정보';
 
 
-
                 this.bom_grid = new wijmo.grid.FlexGrid('#bom-grid', {
                     selectionMode: wijmo.grid.SelectionMode.Row,
                     headersVisibility: wijmo.grid.HeadersVisibility.Column,
@@ -1263,9 +1272,6 @@
 
                 new FlexGridContextMenu(this.bom_grid);
                 this.grid.downloadFileName = 'BOM 정보';
-
-
-
 
 
                 this.bom_reverse_grid = new wijmo.grid.FlexGrid('#bom-reverse-grid', {
@@ -1306,7 +1312,6 @@
                 this.grid.downloadFileName = 'BOM역전개 정보';
 
 
-
                 this.routing_grid = new wijmo.grid.FlexGrid('#routing-grid', {
                     selectionMode: wijmo.grid.SelectionMode.Row,
                     headersVisibility: wijmo.grid.HeadersVisibility.Column,
@@ -1331,7 +1336,6 @@
 
                 new FlexGridContextMenu(this.routing_grid);
                 this.grid.downloadFileName = '라우팅 정보';
-
 
 
                 this.test_master_grid = new wijmo.grid.FlexGrid('#test-master-grid', {
@@ -1359,8 +1363,6 @@
 
                 new FlexGridContextMenu(this.test_master_grid);
                 this.grid.downloadFileName = '검사정보 정보';
-
-
 
 
                 // filter dropdown load
@@ -1407,7 +1409,7 @@
                     return;
                 }
                 Alert.confirm('', '선택된 품목을 삭제하시겠습니까?', () => {
-                    AjaxUtil.postJsonData(this.url + '/batchDelete', { ids }, res => {
+                    AjaxUtil.postJsonData(this.url + '/batchDelete', {ids}, res => {
                         if (res.success) {
                             Alert.alert('', '삭제되었습니다');
                             this.selectedIds = []; // ✅ 선택 항목 초기화!
@@ -1529,16 +1531,26 @@
                 let result = AjaxUtil.getSyncData(this.url + '/detail', param);
                 if (result.success != null) {
                     let detailData = result.data;
+                    /* ★ 이전 품목 값이 남지 않게 먼저 비운다.
+                         BindDataForm 은 «값이 있는 칸»만 채우므로, 새 품목에서 비어 있는 칸에는
+                         직전에 본 품목 값이 그대로 남았다 → 그대로 저장하면 남의 값으로 덮어써졌다. */
+                    ['#matBasicForm', '#matProductionForm', '#matStockForm', '#matTestForm', '#priceForm'].forEach(function (f) {
+                        if ($(f)[0]) $(f)[0].reset();
+                    });
+                    $('#matBasicForm').find('#id').val('');
+                    // ★ 빠르게 다른 품목을 연속으로 열 때, 늦게 끝난 이전 요청이 새 품목을 덮어쓰지 않게 한다
+                    let seq = this._detailSeq = (this._detailSeq || 0) + 1;
                     FormUtil.BindDataForm(detailData, $('#matBasicForm'));
                     FormUtil.BindDataForm(detailData, $('#matProductionForm'));
                     FormUtil.BindDataForm(detailData, $('#matStockForm'));
                     FormUtil.BindDataForm(detailData, $('#matTestForm'));
                     FormUtil.BindDataForm(detailData, $('#priceForm'));
                     $('#Routing_id').val(detailData.Routing_id);
-                    $('#MaterialGroup_id').trigger('change');
-                    setTimeout(() => {
-                        $('#MaterialMidCode').val(detailData.mat_user_code).trigger('change');
-                    }, 200);
+                    /* ★ 중분류 — 예전에는 그룹 change(비동기 ajax) 후 200ms 뒤에 값을 넣었다.
+                         ajax 가 200ms 보다 늦으면 옵션이 아직 없어 빈 값이 되고, 그대로 저장하면
+                         중분류가 지워졌다. → 목록을 다 받은 뒤에 값을 넣는다. */
+                    loadMidCodes(detailData.MaterialGroup_id || $('#MaterialGroup_id').val(),
+                        detailData.mat_user_code, () => seq === this._detailSeq);
                     // lot 체크
                     $('#matStockForm').find('#lot_use_yn').removeAttr('disabled');
 
@@ -1564,20 +1576,29 @@
                     $('#WashYN').prop('checked', detailData.WashYN === 'Y');
                     $('#SterilizationYN').prop('checked', detailData.SterilizationYN === 'Y');
                     $('#InspectYN').prop('checked', detailData.InspectYN === 'Y');
+                    $('#SnYN').prop('checked', detailData.SnYN === 'Y');   // ★ S/N 관리(주요자재)
 
-                    let factory_id = $('#Factory_id').val();
-                    AjaxUtil.fillSelectOptions($('#WorkCenter_id'), 'workcenter', '', '', '', factory_id);
-                    setTimeout(() => {
-                        $('#WorkCenter_id').val(detailData.WorkCenter_id).trigger('change');
-                    }, 0);
-                    AjaxUtil.fillSelectOptions($('#Equipment_id'), 'equipment_code', '');
-                    setTimeout(() => {
-                        $('#Equipment_id').val(detailData.WorkCenter_id).trigger('change');
-                    }, 0);
-                    let group_pk = $('#WorkCenter_id').val();
-                    if (group_pk) {
-                        AjaxUtil.fillSelectOptions($('#Equipment_id'), 'equipment_code', 'choose', detailData.Equipment_id, group_pk);
+                    /* ★ 워크센터 → 생산설비
+                         예전 문제
+                           · 워크센터를 setTimeout 뒤 trigger('change') → change 핸들러가 설비 목록을
+                             «선택 없이» 다시 채워서 방금 넣은 설비가 지워졌다
+                           · 설비에 워크센터 id 를 넣는 줄이 있었다(Equipment_id ← WorkCenter_id)
+                           · 설비 목록을 채울 때 워크센터 값을 setTimeout «전»에 읽어서 직전 품목의 워크센터를 썼다
+                         → 저장하면 설비가 비거나 엉뚱한 값으로 덮어써졌다.
+                         지금 : 워크센터 목록 채움 → 값 지정(change 안 보냄) → 그 워크센터로 설비 목록을 채우며 선택 */
+                    let factory_id = detailData.Factory_id || $('#Factory_id').val();
+                    let wcId = detailData.WorkCenter_id, eqId = detailData.Equipment_id;
+                    AjaxUtil.fillSelectOptions($('#WorkCenter_id'), 'workcenter', '', wcId || '', '', factory_id);
+                    if (wcId) {
+                        AjaxUtil.fillSelectOptions($('#Equipment_id'), 'equipment_code', 'choose', eqId || '', wcId);
+                    } else {
+                        AjaxUtil.fillSelectOptions($('#Equipment_id'), 'equipment_code', 'choose', eqId || '');
                     }
+                    /* ★ 값 지키기 — 목록 채우기가 비동기이거나, 폼 바인딩 때 공장 change 가 나가서
+                         워크센터 목록이 «선택 없이» 다시 채워지면 방금 넣은 값이 빈 값으로 돌아갔다.
+                         1.5초 동안 옵션이 생기면 넣고, 누가 지우면 다시 넣는다(다른 품목을 열면 중단). */
+                    holdSelect($('#WorkCenter_id'), wcId, () => seq === this._detailSeq);
+                    holdSelect($('#Equipment_id'), eqId, () => seq === this._detailSeq);
                     //$('#Routing_id').trigger('change');
                     //FormUtil.BindDataForm(result, $('#matRoutingForm'));
                 }
@@ -2766,24 +2787,62 @@
         //     });
         // });
 
-        // ✅ 중분류 로딩 (2번째)
-        $('#MaterialGroup_id').on('change', function () {
-            let groupId = $(this).val(); // material_group.id
+        /**
+         * select 에 값을 «지켜서» 넣는다.
+         * 옵션이 아직 없으면 생길 때까지, 다른 코드가 빈 값으로 되돌리면 다시 넣는다.
+         * 사람이 직접 바꾸면(change by user) 그때부터는 손대지 않는다.
+         */
+        function holdSelect($el, value, stillMine) {
+            if (value == null || value === '') return;
+            let want = String(value), userTouched = false, n = 0;
+            let onUser = function (e) {
+                if (e.originalEvent) userTouched = true;
+            };
+            $el.on('change.hold', onUser);
+            (function tick() {
+                if (userTouched || (stillMine && !stillMine()) || n++ > 15) {
+                    $el.off('change.hold', onUser);
+                    return;
+                }
+                if ($el.val() !== want && $el.find('option[value="' + want + '"]').length) {
+                    $el.val(want);
+                    if ($el.hasClass('select2-hidden-accessible')) $el.trigger('change.select2');
+                }
+                setTimeout(tick, 100);
+            })();
+        }
 
+        /**
+         * ✅ 중분류 목록 채우기 — 그룹 변경과 상세 조회가 같이 쓴다.
+         * @param groupId   품목그룹 id
+         * @param selected  다 채운 뒤 선택할 중분류 값(없으면 빈 값)
+         * @param stillMine 응답이 왔을 때 아직 «그 요청이 최신인지» 확인하는 함수.
+         *                  다른 품목을 연속으로 열면 늦게 온 이전 응답을 버린다.
+         */
+        function loadMidCodes(groupId, selected, stillMine) {
+            let $mid = $('#MaterialMidCode');
+            $mid.empty().append('<option value="">선택</option>');
+            if (!groupId) return;
             $.ajax({
                 url: '/api/definition/material/children',
                 type: 'GET',
-                data: { parentId: groupId },
+                data: {parentId: groupId},
                 success: function (res) {
-                    let $mid = $('#MaterialMidCode');
+                    if (stillMine && !stillMine()) return;
                     $mid.empty().append('<option value="">선택</option>');
                     if (res.success && res.data) {
                         res.data.forEach(item => {
                             $mid.append(`<option value="${item.id}">${item.value}</option>`);
                         });
                     }
+                    if (selected != null && selected !== '') $mid.val(String(selected)).trigger('change');
                 }
             });
+        }
+
+        // ✅ 중분류 로딩 (2번째) — 사람이 그룹을 바꿨을 때
+        $('#MaterialGroup_id').on('change', function () {
+            loadMidCodes($(this).val(), '');
         });
 
         // // ✅ 소분류 로딩 (2번째)

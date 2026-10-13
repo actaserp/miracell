@@ -172,7 +172,7 @@ public class SterilService {
 
         List<Map<String, Object>> items = this.sqlRunner.getRows("""
             SELECT sbi.id AS item_id, sbi."MatLot_id" AS mat_lot_id, sbi."Material_id" AS mat_id,
-                   sbi."LotNumber" AS lot_no, sbi."Qty" AS qty, sbi."State" AS state,
+                   sbi."LotNumber" AS lot_no, sbi."Qty" AS qty, sbi."State" AS state, sbi."MakerLotNo" AS maker_lot_no,
                    m."Code" AS mat_code, m."Name" AS mat_name, u."Name" AS unit,
                    GREATEST(0, COALESCE(ml."CurrentStock",0) - res.rq) AS lot_avail
               FROM steril_batch_item sbi
@@ -200,6 +200,15 @@ public class SterilService {
 
         batch.put("items", items);
         batch.put("log", log);
+        // ★ 멸균필 로트가 다음 공정(포장 등)에서 이미 쓰였나 — 쓰였으면 판정취소 불가(화면이 버튼을 막는다)
+        Map<String, Object> used = this.sqlRunner.getRow("""
+            SELECT COUNT(DISTINCT l.id) AS n
+              FROM steril_batch_item i
+              JOIN mat_lot l ON l."SourceTableName" = 'steril_batch_item' AND l."SourceDataPk" = i.id
+              JOIN mat_lot_cons c ON c."MaterialLot_id" = l.id AND COALESCE(c."OutputQty",0) > 0
+             WHERE i."SterilBatch_id" = :batchId AND i."_status" = 'a'
+            """, p);
+        batch.put("used_cnt", used == null ? 0 : ((Number) used.get("n")).intValue());
         return batch;
     }
 
@@ -368,7 +377,8 @@ public class SterilService {
      *   fail → 배치 전량 폐기(클린룸 차감 + 부적합창고 이관) + 배치 scrapped
      */
     @Transactional
-    public AjaxResult biJudge(Integer batchId, String result, String makerLotNo, String spjangcd, User user) {
+    public AjaxResult biJudge(Integer batchId, String result, String makerLotNo, String makerLotsJson,
+                              String spjangcd, User user) {
         AjaxResult r = new AjaxResult();
         r.success = true;
         if (!"pass".equals(result) && !"fail".equals(result)) {
@@ -394,6 +404,22 @@ public class SterilService {
             """, new MapSqlParameterSource().addValue("batchId", batchId));
         if (items.isEmpty()) { r.success = false; r.message = "담긴 로트가 없습니다."; return r; }
 
+        // ★ 품목별 UDI 로트번호 — 품목이 달라도 같이 멸균하므로 품목마다 따로 받는다.
+        //   maker_lots 에 없는 품목은 maker_lot_no(공통값)를 쓴다. 합격인데 비어 있으면 거부.
+        Map<String, String> makerByMat = new HashMap<>();
+        if (makerLotsJson != null && !makerLotsJson.isBlank()) {
+            try {
+                Map<?, ?> m = new com.fasterxml.jackson.databind.ObjectMapper().readValue(makerLotsJson, Map.class);
+                for (Map.Entry<?, ?> e : m.entrySet()) {
+                    String v = e.getValue() == null ? "" : String.valueOf(e.getValue()).trim();
+                    if (!v.isEmpty()) makerByMat.put(String.valueOf(e.getKey()).trim(), v);
+                }
+            } catch (Exception e) {
+                r.success = false; r.message = "UDI 로트번호 형식 오류"; return r;
+            }
+        }
+        // UDI 로트번호는 선택 — 비워 두고 판정한 뒤 «수정»으로 나중에 넣어도 된다
+
         Timestamp now = DateUtil.getNowTimeStamp();
         LocalDate today = LocalDate.now();
         LocalTime nowT = LocalTime.now();
@@ -406,6 +432,7 @@ public class SterilService {
             String lotNo = String.valueOf(it.get("lot_no"));
             float qty = toF(it.get("qty"));
             if (qty <= 0) continue;
+            String itemMaker = makerByMat.getOrDefault(String.valueOf(matId), makerLotNo == null ? "" : makerLotNo.trim());
 
             // 클린룸 로트 현재고 확인
             Map<String, Object> lot = this.sqlRunner.getRow("""
@@ -467,12 +494,12 @@ public class SterilService {
                 this.matLotRepository.save(ml);
 
                 // 업체 로트번호 기록(엔티티 미보유 컬럼 → SQL). 방금 만든 멸균창고 로트를 source로 특정.
-                if (makerLotNo != null && !makerLotNo.isBlank()) {
+                if (!itemMaker.isEmpty()) {   // 비었으면 로트에 안 넣는다
                     this.sqlRunner.execute("""
                         UPDATE mat_lot SET "MakerLotNo"=:mk
                          WHERE "SourceTableName"=:src AND "SourceDataPk"=:pk AND "StoreHouse_id"=:store
                         """, new MapSqlParameterSource()
-                            .addValue("mk", makerLotNo).addValue("src", SRC_TABLE)
+                            .addValue("mk", itemMaker).addValue("src", SRC_TABLE)
                             .addValue("pk", itemId).addValue("store", STORE_STERIL));
                 }
 
@@ -494,8 +521,8 @@ public class SterilService {
                 in.setSpjangcd(spjangcd);
                 this.matInoutRepository.save(in);
 
-                this.sqlRunner.execute("UPDATE steril_batch_item SET \"State\"='moved' WHERE id=:id",
-                        new MapSqlParameterSource().addValue("id", itemId));
+                this.sqlRunner.execute("UPDATE steril_batch_item SET \"State\"='moved', \"MakerLotNo\"=:mk WHERE id=:id",
+                        new MapSqlParameterSource().addValue("id", itemId).addValue("mk", itemMaker.isEmpty() ? null : itemMaker));
             } else {
                 // FAIL — 폐기. 자재폐기(mat_disposal) 방식과 동일하게 창고 이동 없이 소멸시킨다.
                 //   클린룸 차감(mat_lot_cons) + 폐기 출고(mat_inout out, OutputType='disposal_out')만 남기고
@@ -527,12 +554,17 @@ public class SterilService {
         up.addValue("bi", result);
         up.addValue("state", pass ? "done" : "scrapped");
         up.addValue("equRunId", equRunId);
-        up.addValue("makerLot", pass ? makerLotNo : null);
+        up.addValue("pass", pass);
         up.addValue("userId", user.getId());
+        // 배치 MakerLotNo = 품목별 번호를 모아 보여주기용(목록 표시) — 실제 값은 품목(steril_batch_item)·로트(mat_lot)에
         this.sqlRunner.execute("""
             UPDATE steril_batch
                SET "BiResult"=:bi, "State"=:state, "BiJudgeAt"=now(), "EndTime"=now(),
-                   "EquRun_id"=:equRunId, "MakerLotNo"=:makerLot, "_modified"=now(), "_modifier_id"=:userId
+                   "EquRun_id"=:equRunId,
+                   "MakerLotNo"=CASE WHEN :pass THEN
+                        (SELECT string_agg(DISTINCT x."MakerLotNo", ', ') FROM steril_batch_item x
+                          WHERE x."SterilBatch_id"=:batchId AND x."_status"='a' AND x."MakerLotNo" IS NOT NULL) END,
+                   "_modified"=now(), "_modifier_id"=:userId
              WHERE id=:batchId
             """, up);
 
@@ -566,23 +598,34 @@ public class SterilService {
             """, new MapSqlParameterSource().addValue("batchId", batchId));
         if (items.isEmpty()) { r.success = false; r.message = "담긴 로트가 없습니다."; return r; }
 
+        // ★ 먼저 전부 확인 — 후속 공정에서 쓴 로트가 있으면 아무것도 건드리지 않고 이유를 돌려준다
+        //   (예외로 던지면 화면에는 «에러발생» 만 떠서 왜 안 되는지 알 수 없었다)
+        List<Map<String, Object>> usedLots = this.sqlRunner.getRows("""
+            SELECT l."LotNumber" AS lot_no, m."Name" AS mat_name, SUM(c."OutputQty") AS q
+              FROM steril_batch_item i
+              JOIN mat_lot l ON l."SourceTableName" = :src AND l."SourceDataPk" = i.id
+              JOIN mat_lot_cons c ON c."MaterialLot_id" = l.id
+              JOIN material m ON m.id = l."Material_id"
+             WHERE i."SterilBatch_id" = :batchId AND i."_status" = 'a'
+             GROUP BY l."LotNumber", m."Name"
+            HAVING SUM(c."OutputQty") > 0
+            """, new MapSqlParameterSource().addValue("src", SRC_TABLE).addValue("batchId", batchId));
+        if (!usedLots.isEmpty()) {
+            StringBuilder sb = new StringBuilder();
+            for (Map<String, Object> u : usedLots) {
+                if (sb.length() > 0) sb.append(", ");
+                sb.append(u.get("mat_name")).append(" ").append(u.get("lot_no")).append(" (").append(fmt(toF(u.get("q")))).append(")");
+            }
+            r.success = false;
+            r.message = "멸균필 로트가 이미 다음 공정(포장 등)에서 사용되어 판정을 취소할 수 없습니다.\n" + sb
+                    + "\nUDI 로트번호만 고치려면 판정취소 없이 «UDI 로트번호 수정»을 쓰세요.";
+            return r;
+        }
+
         for (Map<String, Object> it : items) {
             int itemId = ((Number) it.get("item_id")).intValue();
             MapSqlParameterSource p = new MapSqlParameterSource()
                     .addValue("src", SRC_TABLE).addValue("pk", itemId);
-
-            // 이 차수로 만든 산출 로트(멸균창고 or 부적합창고)가 이미 소비됐으면 차단
-            Map<String, Object> used = this.sqlRunner.getRow("""
-                SELECT COALESCE(SUM(c."OutputQty"),0) AS q
-                  FROM mat_lot_cons c
-                  JOIN mat_lot l ON l.id = c."MaterialLot_id"
-                 WHERE l."SourceTableName"=:src AND l."SourceDataPk"=:pk
-                """, p);
-            if (used != null && toF(used.get("q")) > 0) {
-                r.success = false;
-                r.message = "이미 후속 공정에서 사용된 로트가 있어 취소할 수 없습니다.";
-                throw new IllegalStateException(r.message);   // 롤백
-            }
 
             // 산출 로트 삭제(멸균필 / 폐기) → 재고 제거
             this.sqlRunner.execute("""
@@ -597,7 +640,7 @@ public class SterilService {
                 DELETE FROM mat_lot_cons WHERE "SourceTableName"=:src AND "SourceDataPk"=:pk
                 """, p);
 
-            this.sqlRunner.execute("UPDATE steril_batch_item SET \"State\"='a' WHERE id=:id",
+            this.sqlRunner.execute("UPDATE steril_batch_item SET \"State\"='a', \"MakerLotNo\"=NULL WHERE id=:id",
                     new MapSqlParameterSource().addValue("id", itemId));
         }
 
@@ -610,6 +653,52 @@ public class SterilService {
                    "MakerLotNo"=NULL, "_modified"=now(), "_modifier_id"=:userId
              WHERE id=:batchId
             """, up);
+        return r;
+    }
+
+    /**
+     * ★ UDI 로트번호 수정 (판정 후) — 판정취소 없이 품목별 번호만 고친다.
+     *   멸균필 로트(mat_lot.MakerLotNo) · 담긴 품목(steril_batch_item) · 배치 요약을 함께 바꾼다.
+     *   후속 공정에서 이미 쓴 로트여도 번호 표기만 바뀌므로 허용한다.
+     */
+    @Transactional
+    public AjaxResult saveMakerLots(Integer batchId, String makerLotsJson, User user) {
+        AjaxResult r = new AjaxResult();
+        r.success = true;
+        Map<String, Object> batch = getBatchRaw(batchId);
+        if (batch == null) { r.success = false; r.message = "배치를 찾을 수 없습니다."; return r; }
+        if (!"done".equals(String.valueOf(batch.get("State")))) {
+            r.success = false; r.message = "합격 판정된 배치만 수정할 수 있습니다."; return r;
+        }
+        Map<?, ?> m;
+        try { m = new com.fasterxml.jackson.databind.ObjectMapper().readValue(makerLotsJson, Map.class); }
+        catch (Exception e) { r.success = false; r.message = "UDI 로트번호 형식 오류"; return r; }
+        int n = 0;
+        for (Map.Entry<?, ?> e : m.entrySet()) {
+            String v = e.getValue() == null ? "" : String.valueOf(e.getValue()).trim();
+            MapSqlParameterSource p = new MapSqlParameterSource().addValue("batchId", batchId)
+                    .addValue("matId", Integer.parseInt(String.valueOf(e.getKey()).trim())).addValue("mk", v.isEmpty() ? null : v)
+                    .addValue("src", SRC_TABLE).addValue("store", STORE_STERIL);
+            this.sqlRunner.execute("""
+                UPDATE mat_lot l SET "MakerLotNo" = :mk
+                  FROM steril_batch_item i
+                 WHERE l."SourceTableName" = :src AND l."SourceDataPk" = i.id AND l."StoreHouse_id" = :store
+                   AND i."SterilBatch_id" = :batchId AND i."Material_id" = :matId AND i."_status" = 'a'
+                """, p);
+            this.sqlRunner.execute("""
+                UPDATE steril_batch_item SET "MakerLotNo" = :mk
+                 WHERE "SterilBatch_id" = :batchId AND "Material_id" = :matId AND "_status" = 'a'
+                """, p);
+            n++;
+        }
+        this.sqlRunner.execute("""
+            UPDATE steril_batch SET "MakerLotNo" =
+                   (SELECT string_agg(DISTINCT x."MakerLotNo", ', ') FROM steril_batch_item x
+                     WHERE x."SterilBatch_id" = :batchId AND x."_status" = 'a' AND x."MakerLotNo" IS NOT NULL),
+                   "_modified" = now(), "_modifier_id" = :userId
+             WHERE id = :batchId
+            """, new MapSqlParameterSource().addValue("batchId", batchId).addValue("userId", user.getId()));
+        r.message = "UDI 로트번호 " + n + "품목 수정";
         return r;
     }
 

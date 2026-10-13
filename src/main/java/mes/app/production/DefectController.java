@@ -208,6 +208,8 @@ public class DefectController {
 							 @RequestParam(required = false) Integer job_res_id,
 							 @RequestParam(required = false) Integer actor_id,
 							 @RequestParam(required = false) String  description,
+							 // ★ 결합불량 묶음 번호 — 화면이 둘째 건부터 첫 건 id 를 보낸다. 단건이면 없음
+							 @RequestParam(required = false) Integer group_no,
 							 HttpServletRequest request) {
 		AjaxResult r = new AjaxResult();
 		User user = (User) request.getAttribute("user");
@@ -242,13 +244,15 @@ public class DefectController {
 				? null : description.trim();
 		Integer woId = (job_res_id == null || job_res_id == 0) ? null : job_res_id;
 		Integer actor = (actor_id == null || actor_id == 0) ? null : actor_id;
+		// 원자재불량은 묶지 않는다(자재마다 창고가 달라 한 건씩 등록한다)
+		Integer groupNo = (isMaterial || group_no == null || group_no == 0) ? null : group_no;
 
 		int defectId = this.defectService.regist(
 				factoryId, isMaterial ? "material" : "work", ddate,
 				isMaterial ? null : process_id, mat_id,
 				defect_type_id, dtEtc, qty == null ? 0 : qty,
 				src_store_id, discovery_stage,
-				woId, actor, desc, user, spjangcd);
+				woId, actor, desc, groupNo, user, spjangcd);
 
 		// ★ 사진은 여기서 받지 않는다.
 		//   base64 를 등록 폼에 실어 보내면 사진 한 장이 수백 KB 라

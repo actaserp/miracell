@@ -1022,9 +1022,14 @@
                 '<label class="btn ghost" style="min-height:44px;cursor:pointer;margin-left:auto">＋ USB 파일<input type="file" id="usbFile" accept=".xlsx,.xls,.csv,.txt" multiple style="display:none"></label></div>';
             html += '<div id="usbInfo" style="font-size:12.5px;color:var(--ink-2);font-weight:700;margin:4px 2px 0"></div>';
             // 업체 로트번호 (완료·합격 시)
-            if (curB.state === 'done' && curB.maker_lot_no) {
-                html += '<div class="secline">업체 로트번호 <span class="ln"></span></div>';
-                html += '<div class="part"><div class="id"><span class="pn">' + curB.maker_lot_no + '</span><span class="pc">멸균필 로트에 부여됨 (MakerLotNo)</span></div></div>';
+            if (curB.state === 'done') {
+                var mg = matGroups();
+                if (mg.length) {
+                    html += '<div class="secline">UDI 로트번호 (품목별) <span class="ln"></span><button class="btn ghost" id="mkEdit" style="min-height:36px;padding:0 12px">수정</button></div>';
+                    html += mg.map(function (g) {
+                        return '<div class="part"><div class="id"><span class="pn">' + esc(g.maker || '-') + '</span><span class="pc">' + esc(g.mat_name) + ' · ' + num(g.qty) + ' EA</span></div></div>';
+                    }).join('');
+                }
             }
             // BI
             html += '<div class="secline">멸균검증(BI) 판정 <span class="ln"></span><span></span></div>';
@@ -1041,8 +1046,12 @@
                     : '<span class="v" style="color:var(--green);font-size:16px">멸균필</span>';
                 bar.innerHTML = '<div class="actsum"><span class="l">결과</span>' + lab +
                     (curB.maker_lot_no ? '<span class="l">로트 ' + curB.maker_lot_no + '</span>' : '') + '</div>' +
-                    '<button class="btn danger" id="cCancel">판정취소</button>';
+                    '<button class="btn danger" id="cCancel"' + (num(curB.used_cnt) > 0 ? ' style="opacity:.45"' : '') + '>판정취소</button>';
                 document.getElementById('cCancel').onclick = function () {
+                    if (num(curB.used_cnt) > 0) {   // ★ 다음 공정에서 이미 쓴 로트 — 판정취소 불가
+                        flash('멸균필 로트가 이미 포장 등 다음 공정에서 사용되어 판정을 취소할 수 없습니다. UDI 로트번호는 «수정»으로 고치세요');
+                        return;
+                    }
                     var msg = curB.state === 'scrapped'
                         ? '폐기 판정을 취소하고 폐기된 재고를 클린룸으로 되돌립니다. 계속할까요?'
                         : '합격 판정을 취소합니다. 멸균창고 로트를 삭제하고 클린룸 재고를 되돌립니다. 계속할까요?';
@@ -1070,6 +1079,16 @@
         });
         // BI / 제외 / 로트담기 / 담긴 로트 수량 조절
         document.getElementById('cBody').addEventListener('click', function (e) {
+            // ★ 판정 후 UDI 로트번호만 고치기 (판정취소 없이)
+            if (e.target.closest && e.target.closest('#mkEdit')) {
+                askMakerLots(matGroups(), function (lots) {
+                    apiPost('/maker_lot_save', {batch_id: curB.batch_id, maker_lots: JSON.stringify(lots)}, function () {
+                        flash('UDI 로트번호를 수정했습니다');
+                        openBatch(curB.batch_id);
+                    });
+                }, '저장');
+                return;
+            }
             var bi = e.target.closest('[data-bi]');
             if (bi && !locked()) {
                 judgeBI(bi.dataset.bi);
@@ -1149,15 +1168,14 @@
 
         function doJudge(result) {
             if (result === 'pass') {
-                var def = 'BMJ' + todayStr().replace(/-/g, '');
-                askMakerLot(def, function (maker) {
+                askMakerLots(matGroups(), function (lots) {
                     apiPost('/bi_judge', {
                         batch_id: curB.batch_id,
                         result: 'pass',
-                        maker_lot_no: maker,
+                        maker_lots: JSON.stringify(lots),
                         spjangcd: CTX.spjangcd
                     }, function () {
-                        flash('멸균 완료 · 멸균창고 이동 · 로트 ' + maker);
+                        flash('멸균 완료 · 멸균창고 이동 · 품목별 UDI 로트번호 부여');
                         refreshQueue();
                         show('A');
                     });
@@ -1177,38 +1195,51 @@
             }
         }
 
-        // 업체 로트번호 입력 시트 (합격 시)
-        function askMakerLot(defVal, onOk) {
+        /* ★ 담긴 로트를 품목별로 묶는다 — 품목이 달라도 같이 멸균하므로 UDI 로트번호는 품목마다 */
+        function matGroups() {
+            var g = {}, out = [];
+            ((curB && curB.items) || []).forEach(function (l) {
+                var k = String(l.mat_id);
+                if (!g[k]) { g[k] = {mat_id: l.mat_id, mat_name: l.mat_name, mat_code: l.mat_code, qty: 0, lots: [], maker: l.maker_lot_no || ''}; out.push(g[k]); }
+                g[k].qty += num(l.qty); g[k].lots.push(l.lot_no);
+                if (!g[k].maker && l.maker_lot_no) g[k].maker = l.maker_lot_no;
+            });
+            return out;
+        }
+        function esc(v) { return String(v == null ? '' : v).replace(/[&<>"]/g, function (c) { return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]; }); }
+
+        // UDI 로트번호 입력 시트 (합격 시) — 품목마다 한 칸, 기본값 없이 비워 둔다(작업자가 직접 입력)
+        function askMakerLots(groups, onOk, okLabel) {
             var m = document.getElementById('makerMask');
             if (!m) {
                 m = document.createElement('div');
                 m.id = 'makerMask';
                 m.className = 'mask';
-                m.innerHTML = '<div class="sheet"><div class="body"><div class="sh"><h3>업체 로트번호 입력</h3><button class="x" data-close>✕</button></div>' +
-                    '<div style="color:var(--ink-2);font-weight:700;font-size:13.5px;margin:2px 2px 12px">합격 시 이 배치의 멸균필 로트에 부여할 업체 로트번호입니다. 기본값을 확인·수정하세요.</div>' +
-                    '<input id="makerInput" style="width:100%;height:58px;border:1px solid var(--line);border-radius:14px;padding:0 16px;font-size:21px;font-weight:800;background:var(--surface-2)"/>' +
-                    '<button class="ok" id="makerOk">합격 처리 · 멸균필</button></div></div>';
                 document.body.appendChild(m);
                 m.addEventListener('click', function (e) {
                     if (e.target === m || (e.target.closest && e.target.closest('[data-close]'))) m.classList.remove('show');
                 });
             }
-            m.querySelector('#makerInput').value = defVal || '';
+            m.innerHTML = '<div class="sheet"><div class="body"><div class="sh"><h3>UDI 로트번호 입력 (품목별)</h3><button class="x" data-close>✕</button></div>' +
+                '<div style="color:var(--ink-2);font-weight:700;font-size:13.5px;margin:2px 2px 12px">각 품목의 멸균필 로트에 부여할 UDI 로트번호 — 비워 두고 판정해도 되며, 나중에 «수정»으로 넣을 수 있습니다.</div>' +
+                groups.map(function (g, i) {
+                    return '<div style="margin:0 2px 12px"><div style="font-weight:800;font-size:15px">' + esc(g.mat_name) +
+                        ' <span style="color:var(--ink-2);font-weight:700;font-size:13px">' + num(g.qty) + ' EA · 로트 ' + g.lots.length + '건</span></div>' +
+                        '<input data-mk="' + i + '" value="' + esc(g.maker) + '" placeholder="UDI 로트번호" style="width:100%;height:56px;margin-top:6px;border:1px solid var(--line);border-radius:14px;padding:0 16px;font-size:20px;font-weight:800;background:var(--surface-2)"/></div>';
+                }).join('') +
+                '<button class="ok" id="makerOk">' + (okLabel || '합격 처리 · 멸균필') + '</button></div></div>';
             m.querySelector('#makerOk').onclick = function () {
-                var v = m.querySelector('#makerInput').value.trim();
-                if (!v) {
-                    flash('업체 로트번호를 입력하세요');
-                    return;
-                }
+                var lots = {}, miss = [];
+                groups.forEach(function (g, i) {
+                    var v = m.querySelector('[data-mk="' + i + '"]').value.trim();
+                    lots[g.mat_id] = v;   // 비워도 된다(나중에 «수정»으로 입력)
+                });
                 m.classList.remove('show');
-                onOk(v);
+                onOk(lots);
             };
             m.classList.add('show');
             setTimeout(function () {
-                try {
-                    m.querySelector('#makerInput').focus();
-                } catch (e) {
-                }
+                try { m.querySelector('[data-mk="0"]').focus(); } catch (e) {}
             }, 60);
         }
 
@@ -1706,7 +1737,9 @@
                 lastTap = Date.now();
                 b.click();                                      // 합성 click (isTrusted:false)
             }, true);
-            window.addEventListener('pointercancel', function () { tapBtn = null; }, true);
+            window.addEventListener('pointercancel', function () {
+                tapBtn = null;
+            }, true);
             window.addEventListener('click', function (e) {
                 if (e.isTrusted && Date.now() - lastTap < 700) {
                     e.stopPropagation();
