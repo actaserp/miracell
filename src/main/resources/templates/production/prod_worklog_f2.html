@@ -401,7 +401,7 @@
                 + (units.length ? '<span class="wl-tag lot">진행 '+units.length+'대</span>' : '');
 
             const th = '<th>시간</th><th class="left">모듈(부품)</th><th>단계</th>'
-                + '<th class="left">완제품</th><th>로트번호</th><th>호기</th>'
+                + '<th class="left">완제품</th><th>로트번호</th><th>S/N</th>'
                 + '<th>방식</th><th>작업자</th><th>설비</th><th>상태</th>';
 
             /* 유닛(로트)이 바뀌면 구분이 보이도록 로트를 반복 표기한다 */
@@ -414,7 +414,7 @@
                     + '<td>'+(top ? '<b>완성</b>' : 'L'+esc(x.depth))+'</td>'
                     + '<td class="left">'+esc(x.unit_mat_name||'-')+'</td>'
                     + '<td><span class="wl-code">'+esc(x.lot_number||'-')+'</span></td>'
-                    + '<td>#'+esc(x.unit_no||'-')+'</td>'
+                    + '<td>'+esc(x.serial_no||('#'+(x.unit_no||'-')))+'</td>'
                     + '<td>'+(x.source==='stock'?'재고 투입':'조립')+'</td>'
                     + '<td>'+esc(x.worker||'-')+'</td><td>'+esc(x.equipment||'-')+'</td>'
                     + '<td>'+(running?'작업중':'완료')
@@ -484,7 +484,7 @@
         function wlPack(f, list){
             const sum = '<span class="wl-tag row">'+list.length+'대</span>';
             const th = '<th>시간</th><th class="left">완제품</th><th>완제품 로트</th>'
-                + '<th>박스 라벨</th><th>호기</th><th>작업지시</th><th>작업자</th><th>설비</th>';
+                + '<th>박스 라벨</th><th>S/N</th><th>작업지시</th><th>작업자</th><th>설비</th>';
             const tb = list.length ? list.map(function(u){
                 const running = !u.end_time;
                 return '<tr><td>'+hm(u.start_time)+' ~ '+(running?'<span class="wl-run">작업중</span>':hm(u.end_time))+'</td>'
@@ -492,7 +492,7 @@
                     +   (u.is_repair==='Y'?' <span class="wl-code">수리품</span>':'')+'</td>'
                     + '<td><span class="wl-code">'+esc(u.lot_number||'-')+'</span></td>'
                     + '<td><span class="wl-code">'+esc(u.maker_lot_no||'-')+'</span></td>'
-                    + '<td>#'+esc(u.unit_no||'-')+'</td>'
+                    + '<td>'+esc(u.serial_no||('#'+(u.unit_no||'-')))+'</td>'
                     + '<td><span class="wl-code">'+esc(u.wo||'-')+'</span></td>'
                     + '<td>'+esc(u.worker||'-')+'</td><td>'+esc(u.equipment||'-')+'</td></tr>';
             }).join('') : wlNoRow(8);

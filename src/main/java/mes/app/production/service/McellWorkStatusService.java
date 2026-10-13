@@ -91,6 +91,7 @@ public class McellWorkStatusService {
         String sql = """
                 SELECT mu.id                          AS pk
                      , mu."UnitNo"                    AS unit_no
+                     , mu."SerialNo"                  AS serial_no
                      , mu."LotNumber"                 AS lot_number
                      , mu."State"                     AS unit_state
                      , mu."RejectReason"              AS reject_reason
@@ -179,6 +180,7 @@ public class McellWorkStatusService {
                      , pm."Name"                      AS parent_name
                      , mu.id                          AS unit_pk
                      , mu."UnitNo"                    AS unit_no
+                     , mu."SerialNo"                  AS serial_no
                      , mu."LotNumber"                 AS lot_number
                      , mu."State"                     AS unit_state
                      , CASE WHEN mu."McellRepair_id" IS NOT NULL THEN 'Y' ELSE 'N' END AS is_repair
@@ -236,6 +238,7 @@ public class McellWorkStatusService {
         String sql = """
                 SELECT mu.id                          AS pk
                      , mu."UnitNo"                    AS unit_no
+                     , mu."SerialNo"                  AS serial_no
                      , mu."LotNumber"                 AS lot_number
                      , mu."State"                     AS unit_state
                      , mu."RejectReason"              AS reject_reason
@@ -345,6 +348,7 @@ public class McellWorkStatusService {
         String sql = """
                 SELECT mu.id                          AS pk
                      , mu."UnitNo"                    AS unit_no
+                     , mu."SerialNo"                  AS serial_no
                      , mu."LotNumber"                 AS lot_number
                      , mu."State"                     AS unit_state
                      , mu."SrcLotNumber"              AS src_lot
@@ -364,7 +368,8 @@ public class McellWorkStatusService {
                      , to_char(COALESCE(tm.st, mu."StartTime"), 'mm-dd hh24:mi') AS start_short
                      , to_char(tm.et, 'mm-dd hh24:mi')       AS end_short
                      , (SELECT COUNT(*) FROM mcell_repair_mat rm
-                         WHERE rm."McellUnit_id" = mu.id AND rm."Dir" = '+')  AS mat_in_cnt
+                         WHERE rm."McellUnit_id" = mu.id AND rm."Dir" = '+'
+                           AND COALESCE(rm."State",'') <> 'nested')  AS mat_in_cnt
                      , (SELECT COUNT(*) FROM mcell_repair_mat rm
                          WHERE rm."McellUnit_id" = mu.id AND rm."Dir" = '-')  AS mat_out_cnt
                   FROM mcell_unit mu
@@ -424,6 +429,7 @@ public class McellWorkStatusService {
                      , m."Name"                       AS mat_name
                      , mu.id                          AS unit_pk
                      , mu."UnitNo"                    AS unit_no
+                     , mu."SerialNo"                  AS serial_no
                      , mu."State"                     AS unit_state
                      , mu.is_repair                   AS is_repair
                      , mu."SrcLotNumber"              AS src_lot
@@ -444,7 +450,7 @@ public class McellWorkStatusService {
                   LEFT JOIN mat_lot ml ON ml."SourceTableName" = 'mat_produce'
                                       AND ml."SourceDataPk"    = mp.id
                   LEFT JOIN LATERAL (
-                        SELECT x.id, x."UnitNo", x."State", x."SrcLotNumber"
+                        SELECT x.id, x."UnitNo", x."SerialNo", x."State", x."SrcLotNumber"
                              , CASE WHEN x."McellRepair_id" IS NOT NULL THEN 'Y' ELSE 'N' END AS is_repair
                           FROM mcell_unit x
                          WHERE x."LotNumber" = mp."LotNumber"

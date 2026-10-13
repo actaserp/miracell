@@ -535,7 +535,7 @@
             let html = '<div class="ws-kv">'
                 + '<div><div class="k">품목</div><div class="v">' + esc(u.mat_name || '-') + '</div></div>'
                 + '<div><div class="k">로트번호</div><div class="v">' + esc(u.lot_number || '-') + '</div></div>'
-                + '<div><div class="k">호기</div><div class="v">#' + esc(u.unit_no || '-') + '</div></div>'
+                + '<div><div class="k">S/N</div><div class="v">' + esc(u.serial_no || ('#' + (u.unit_no || '-'))) + '</div></div>'
                 + '<div><div class="k">상태</div><div class="v">' + esc(WS_USTATE[u.unit_state] || u.unit_state || '-') + '</div></div>'
                 + '<div><div class="k">작업자</div><div class="v">' + esc(u.worker || '-') + '</div></div>'
                 + '<div><div class="k">설비</div><div class="v">' + esc(u.equipment || '-') + '</div></div>'
@@ -565,7 +565,10 @@
                             + '<td class="left">' + esc(x.mat_name || '-') + '</td>'
                             + '<td class="w">' + num(x.qty) + ' ' + esc(x.unit || '') + '</td>'
                             + '<td><span class="ws-code">' + esc(x.lot_number || x.src_lot || '-') + '</span></td>'
-                            + '<td>' + (x.state === 'applied' ? '<span class="ws-chip done">반영됨</span>' : '<span class="ws-chip wait">예정</span>') + '</td></tr>';
+                            /* ★ nested = 수리 중 조립한 하위 어셈블리가 상위 어셈블리 조립에 들어간 것 (직접 투입 아님) */
+                            + '<td>' + (x.state === 'applied' ? '<span class="ws-chip done">반영됨</span>'
+                                : x.state === 'nested' ? '<span class="ws-chip done">상위 조립에 포함</span>'
+                                    : '<span class="ws-chip wait">예정</span>') + '</td></tr>';
                     }).join('') + '</tbody></table>'
                     : '<div class="ws-sess-empty">자재 가감 내역이 없습니다.</div>';
             } else {
@@ -634,7 +637,7 @@
             let html = '<div class="ws-kv">'
                 + '<div><div class="k">품목</div><div class="v">' + esc(u.mat_name || '-') + '</div></div>'
                 + '<div><div class="k">로트번호</div><div class="v">' + esc(u.lot_number || '-') + '</div></div>'
-                + '<div><div class="k">호기</div><div class="v">#' + esc(u.unit_no || '-') + '</div></div>'
+                + '<div><div class="k">S/N</div><div class="v">' + esc(u.serial_no || ('#' + (u.unit_no || '-'))) + '</div></div>'
                 + '<div><div class="k">상태</div><div class="v">' + esc(WS_USTATE[u.unit_state] || u.unit_state || '-') + '</div></div>'
                 + (u.src_lot ? '<div><div class="k">원 로트</div><div class="v">' + esc(u.src_lot) + '</div></div>' : '')
                 + '</div>';
@@ -723,7 +726,7 @@
                 + '<div><div class="k">완제품</div><div class="v">' + esc(u.mat_name || '-') + '</div></div>'
                 + '<div><div class="k">완제품 로트</div><div class="v">' + esc(u.lot_number || '-') + '</div></div>'
                 + '<div><div class="k">박스 라벨</div><div class="v">' + esc(u.maker_lot_no || '-') + '</div></div>'
-                + '<div><div class="k">호기</div><div class="v">#' + esc(u.unit_no || '-') + '</div></div>'
+                + '<div><div class="k">S/N</div><div class="v">' + esc(u.serial_no || ('#' + (u.unit_no || '-'))) + '</div></div>'
                 + '<div><div class="k">작업지시</div><div class="v">' + esc(u.wo || '-') + '</div></div>'
                 + '<div><div class="k">작업자</div><div class="v">' + esc(u.worker || '-') + '</div></div>'
                 + '<div><div class="k">설비</div><div class="v">' + esc(u.equipment || '-') + '</div></div>'

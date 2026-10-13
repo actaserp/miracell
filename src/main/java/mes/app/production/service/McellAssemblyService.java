@@ -1431,8 +1431,96 @@ public class McellAssemblyService {
                 """, new MapSqlParameterSource().addValue("uid", unitId));
     }
 
+    /** 유닛 품목 BOM 전체(모든 레벨)의 자재 — 보드 칸 «변경» 후보 */
+    public List<Map<String, Object>> getDlSlotCands(Integer unitId) {
+        Map<String, Object> u = getUnit(unitId);
+        if (u == null) return new ArrayList<>();
+        return this.sqlRunner.getRows("""
+                WITH RECURSIVE t AS (
+                    SELECT :root::int AS mat_id, ARRAY[:root::int] AS path, 0 AS d
+                    UNION ALL
+                    SELECT bc."Material_id", t.path || bc."Material_id", t.d + 1
+                      FROM t
+                      JOIN bom b ON b."Material_id" = t.mat_id AND b."BOMType" = 'manufacturing'
+                                AND CURRENT_DATE BETWEEN COALESCE(b."StartDate", DATE '0001-01-01')
+                                                     AND COALESCE(b."EndDate",   DATE '9999-12-31')
+                      JOIN bom_comp bc ON bc."BOM_id" = b.id
+                     WHERE NOT (bc."Material_id" = ANY(t.path)) AND t.d < 8
+                )
+                SELECT DISTINCT m.id AS mat_id, m."Code" AS mat_code, m."Name" AS mat_name,
+                       COALESCE(m."SnYN",'N') AS sn_yn,
+                       (m."Name" ~* '(보드|board|b''d|pcb|기판|lcd)') AS boardish
+                  FROM t JOIN material m ON m.id = t.mat_id
+                 WHERE t.d > 0
+                 ORDER BY 5 DESC, 4 DESC, 3
+                """, new MapSqlParameterSource().addValue("root", asInt(u.get("mat_id"))));
+    }
+
+    /** ★ 보드 칸 지정 저장 — 모델(유닛 품목) 단위. mat_id 비우면 자동(품명)으로 되돌린다 */
+    @Transactional
+    public AjaxResult saveDlSlot(Integer unitId, Integer slot, Integer matId, User user) {
+        AjaxResult r = new AjaxResult();
+        r.success = true;
+        if (slot == null || slot < 1 || slot > 3) { r.success = false; r.message = "칸 구분 오류"; return r; }
+        Map<String, Object> u = getUnit(unitId);
+        if (u == null) { r.success = false; r.message = "유닛을 찾을 수 없습니다."; return r; }
+        MapSqlParameterSource p = new MapSqlParameterSource().addValue("root", asInt(u.get("mat_id")))
+                .addValue("slot", slot).addValue("mat", matId).addValue("userId", user.getId());
+        this.sqlRunner.execute("DELETE FROM mcell_dl_slot WHERE \"RootMat_id\"=:root AND \"Slot\"=:slot", p);
+        if (matId != null) {
+            this.sqlRunner.execute("""
+                    INSERT INTO mcell_dl_slot ("RootMat_id","Slot","Material_id","_creater_id")
+                    VALUES (:root,:slot,:mat,:userId)
+                    """, p);
+        }
+        r.message = matId == null ? DL_SLOTS[slot - 1] + " 을 자동(품명)으로 되돌렸습니다."
+                : DL_SLOTS[slot - 1] + " 자재를 바꿨습니다. 같은 모델 전체에 적용됩니다.";
+        return r;
+    }
+
+    /** 모델별 보드 칸 지정 (테이블 없으면 빈 맵) */
+    private Map<Integer, Integer> dlSlotMap(Integer rootMatId) {
+        Map<Integer, Integer> m = new HashMap<>();
+        try {
+            for (Map<String, Object> row : this.sqlRunner.getRows("""
+                    SELECT "Slot" AS slot, "Material_id" AS mat_id FROM mcell_dl_slot WHERE "RootMat_id" = :root
+                    """, new MapSqlParameterSource().addValue("root", rootMatId))) {
+                m.put(asInt(row.get("slot")), asInt(row.get("mat_id")));
+            }
+        } catch (Exception ignore) {}
+        return m;
+    }
+
     /** 유닛 품목 BOM 전체(모든 레벨)에서 S/N 관리 대상 자재 */
     private List<Map<String, Object>> snMatsOfUnit(Integer unitId) {
+        List<Map<String, Object>> auto = snMatsOfUnitAuto(unitId);
+        Map<String, Object> u = getUnit(unitId);
+        Map<Integer, Integer> fix = (u == null) ? Map.of() : dlSlotMap(asInt(u.get("mat_id")));
+        if (fix.isEmpty()) return auto;
+        // ★ 지정된 칸은 지정 자재로 — 품명 자동 결과를 덮는다
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (Map<String, Object> m : auto) {
+            Integer sl = asInt(m.get("slot"));
+            if (sl != null && fix.containsKey(sl)) continue;
+            out.add(m);
+        }
+        if (!fix.isEmpty()) {
+            for (Map.Entry<Integer, Integer> e : fix.entrySet()) {
+                Map<String, Object> mm = this.sqlRunner.getRow("""
+                        SELECT id AS mat_id, "Code" AS mat_code, "Name" AS mat_name FROM material WHERE id = :id
+                        """, new MapSqlParameterSource().addValue("id", e.getValue()));
+                if (mm == null) continue;
+                Map<String, Object> row = new LinkedHashMap<>(mm);
+                row.put("slot", e.getKey());
+                row.put("pri", 0);
+                row.put("fixed", "Y");
+                out.add(0, row);
+            }
+        }
+        return out;
+    }
+
+    private List<Map<String, Object>> snMatsOfUnitAuto(Integer unitId) {
         Map<String, Object> u = getUnit(unitId);
         if (u == null) return new ArrayList<>();
         List<Map<String, Object>> rows = this.sqlRunner.getRows("""
@@ -1448,10 +1536,11 @@ public class McellAssemblyService {
                      WHERE NOT (bc."Material_id" = ANY(t.path)) AND t.d < 8
                 )
                 /* ★ 보드 3종 — 모델마다 이름이 다르다 (M2 = RT 2보드, M4 = RT4 보드 …).
+                     메인보드도 «메인 PCB · MAIN B'D · 메인기판» 처럼 모델마다 달라 넓게 잡는다(LED 기판 · Ass'y 제외).
                      RT 뒤 숫자·공백은 무시하고, «보드/board» 가 붙은 것을 우선한다. */
                 SELECT x.* FROM (
                   SELECT DISTINCT m.id AS mat_id, m."Code" AS mat_code, m."Name" AS mat_name,
-                         CASE WHEN m."Name" ~* '(메인\\s*보드|main\\s*board)' THEN 1
+                         CASE WHEN m."Name" ~* '(메인|main)\\s*_?\\s*(보드|board|b''?d|pcb|기판)' AND m."Name" !~* '(led|ass)' THEN 1
                               WHEN m."Name" ~* 'RT\\s*[0-9]*\\s*(보드|board|B''D)' THEN 2
                               WHEN m."Name" ~* 'LCD' AND m."Name" !~* 'ass' THEN 3 END AS slot,
                          CASE WHEN m."Name" ~* '(보드|board)' THEN 0 ELSE 1 END AS pri

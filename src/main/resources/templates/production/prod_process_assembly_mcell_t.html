@@ -278,6 +278,10 @@
         .piok.on{background:#1e7a3c;border-color:#1e7a3c;color:#fff}.ping.on{background:#c0392b;border-color:#c0392b;color:#fff}
         .piok:disabled,.ping:disabled{opacity:.55}
         .pihist{display:inline-block;margin-right:8px}
+        .dlchg{flex:0 0 auto;height:34px;padding:0 10px;border-radius:9px;border:1px solid #cbd5e1;background:#fff;font-weight:800;font-size:12.5px;color:#334155;margin-right:8px;cursor:pointer}
+        .dlfix{font-size:10.5px;font-weight:900;background:#e8eefc;color:#2f55c4;border-radius:6px;padding:1px 5px;margin-left:4px}
+        .dlpick{display:flex;flex-direction:column;align-items:flex-start;text-align:left;gap:2px;border:1px solid #e2e8f0;background:#fff;border-radius:10px;padding:8px 12px;cursor:pointer}
+        .dlpick b{font-size:14.5px}.dlpick span{font-size:12px;color:#64748b;font-weight:700}
         .snmask{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:9000;display:flex;align-items:center;justify-content:center}
         .snsheet{background:#fff;border-radius:16px;padding:20px;width:min(420px,92vw);display:flex;flex-direction:column;gap:10px}
         .snsheet b{font-size:18px}.snhint{font-size:13px;color:var(--ink-2);font-weight:700}
@@ -734,12 +738,13 @@
                 (DL.end_time ? '<button data-dltime="end">완료 <b>' + shortT(DL.end_time) + '</b></button>' : '') + '</span>' : '';
             const who = DL.actor_name ? '<span class="sc">' + esc(DL.actor_name) + '</span>' : '';
             const boards = DL.boards || [];
-            const rows = boards.map(b => {
+            const rows = boards.map((b, bi) => {
+                const chg = '<button class="dlchg" data-dlslot="' + (bi + 1) + '">' + (b.mat_id ? '변경' : '지정') + '</button>';
                 if (!b.mat_id) return '<div class="dlrow"><div class="bid"><div class="bn">' + esc(b.slot_name) + '</div>' +
-                    '<div class="bc" style="color:#c0392b">이 제품 BOM 에 없음</div></div></div>';
+                    '<div class="bc" style="color:#c0392b">이 제품 BOM 에서 못 찾음 · «지정» 으로 고르세요</div></div>' + chg + '</div>';
                 const v = b.serial_no || '';
-                return '<div class="dlrow"><div class="bid"><div class="bn">' + esc(b.slot_name) + '</div>' +
-                    '<div class="bc">' + esc(b.mat_code || '') + ' · ' + esc(b.mat_name || '') + '</div></div>' +
+                return '<div class="dlrow"><div class="bid"><div class="bn">' + esc(b.slot_name) + (b.fixed === 'Y' ? ' <span class="dlfix">지정</span>' : '') + '</div>' +
+                    '<div class="bc">' + esc(b.mat_code || '') + ' · ' + esc(b.mat_name || '') + '</div></div>' + chg +
                     '<input data-dlsn="' + b.mat_id + '" value="' + esc(v) + '" class="' + (v ? 'ok' : '') +
                     '" placeholder="S/N 입력" autocomplete="off" autocapitalize="characters"' + (st === 'wait' ? ' disabled' : '') + '></div>';
             }).join('');
@@ -757,6 +762,41 @@
                 '</div></div>';
         }
         async function dlRefresh() { loadDl(); renderUnit(); }
+        /* ★ 보드 칸 변경 — 이 제품 BOM 자재 중에서 고른다. 모델 단위로 저장(같은 모델 전체 적용).
+             배포 없이 현장에서 «이 보드 말고 저 보드» 를 바꿀 수 있게. */
+        function openDlSlot(slot) {
+            const cands = apiGet('/dl_slot_cands', {unit_id: curU.unit_id}) || [];
+            const name = ['메인보드', 'RT 보드', 'LCD 보드'][slot - 1];
+            const m = document.createElement('div');
+            m.className = 'snmask';
+            let kw = '';
+            const draw = () => {
+                const k = kw.toLowerCase();
+                const list = cands.filter(c => !k || (c.mat_name || '').toLowerCase().includes(k) || (c.mat_code || '').toLowerCase().includes(k));
+                m.innerHTML = '<div class="snsheet" style="width:min(560px,94vw)"><b>' + esc(name) + ' 자재 지정</b>' +
+                    '<div class="snhint">이 제품 BOM 의 자재 중에서 고르세요. 같은 모델 전체에 적용됩니다.</div>' +
+                    '<input id="dlsKw" value="' + esc(kw) + '" placeholder="품목코드 / 품명 검색" autocomplete="off">' +
+                    '<div style="max-height:46dvh;overflow:auto;display:flex;flex-direction:column;gap:6px">' + list.map(c =>
+                        '<button class="dlpick" data-dlpick="' + c.mat_id + '"><b>' + esc(c.mat_name) + '</b><span>' + esc(c.mat_code) +
+                        (c.sn_yn === 'Y' ? ' · S/N 대상' : '') + '</span></button>').join('') +
+                    (list.length ? '' : '<div class="snhint">검색 결과가 없습니다.</div>') + '</div>' +
+                    '<div class="snbtns"><button data-dlsx>취소</button><button data-dlsauto>자동(품명)으로</button></div></div>';
+                const inp = m.querySelector('#dlsKw');
+                inp.addEventListener('input', e => { kw = e.target.value; const pos = e.target.selectionStart; draw(); const n = m.querySelector('#dlsKw'); n.focus(); n.setSelectionRange(pos, pos); });
+            };
+            draw();
+            document.body.appendChild(m);
+            const save = matId => guard(async () => {
+                await apiPost('/dl_slot_save', {unit_id: curU.unit_id, slot: slot, mat_id: matId == null ? '' : matId});
+                m.remove(); dlRefresh();
+            });
+            m.addEventListener('click', e => {
+                if (e.target === m || e.target.closest('[data-dlsx]')) { m.remove(); return; }
+                if (e.target.closest('[data-dlsauto]')) { save(null); return; }
+                const p = e.target.closest('[data-dlpick]');
+                if (p) save(+p.dataset.dlpick);
+            });
+        }
         function stepByMat(matId) { return STEPS.find(s => +s.mat_id === +matId); }
         function assetOf(code) { return (code || '').startsWith('WIP-MC') ? '반제품 (검사대상)' : '반제품 모듈'; }
 
@@ -1187,6 +1227,8 @@
                 openWhoSheet(i); return;
             }
             /* ★ 프로그램 다운로드 */
+            const dsl = e.target.closest('[data-dlslot]');
+            if (dsl) { openDlSlot(+dsl.dataset.dlslot); return; }
             if (e.target.closest('[data-dlgo]')) { openWhoSheet('DL'); return; }
             if (e.target.closest('[data-dldone]')) {
                 guard(async () => {
@@ -2127,9 +2169,7 @@
                 if (e.pointerType === 'mouse') return;          // 마우스는 click 이 정상 동작
                 var b = e.target && e.target.closest ? e.target.closest('button') : null;
                 if (!b || b.disabled || b.closest(SKIP)) return;
-                tapBtn = b;
-                tx = e.clientX;
-                ty = e.clientY;
+                tapBtn = b; tx = e.clientX; ty = e.clientY;
             }, true);
             window.addEventListener('pointerup', function (e) {
                 var b = tapBtn;
@@ -2141,9 +2181,7 @@
                 lastTap = Date.now();
                 b.click();                                      // 합성 click (isTrusted:false)
             }, true);
-            window.addEventListener('pointercancel', function () {
-                tapBtn = null;
-            }, true);
+            window.addEventListener('pointercancel', function () { tapBtn = null; }, true);
             window.addEventListener('click', function (e) {
                 if (e.isTrusted && Date.now() - lastTap < 700) {
                     e.stopPropagation();

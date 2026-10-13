@@ -328,6 +328,23 @@ public class McellAssemblyController {
         return this.mcellAssemblyService.cancelDownload(unitId, (User) auth.getPrincipal());
     }
 
+    /** ★ 보드 칸 «변경» 후보 = 이 제품 BOM 전체 자재 */
+    @GetMapping("/dl_slot_cands")
+    public AjaxResult dlSlotCands(@RequestParam("unit_id") Integer unitId) {
+        AjaxResult r = new AjaxResult();
+        r.data = this.mcellAssemblyService.getDlSlotCands(unitId);
+        return r;
+    }
+
+    /** ★ 보드 칸 지정 (모델 단위) — mat_id 비우면 자동(품명) */
+    @PostMapping("/dl_slot_save")
+    @Transactional
+    public AjaxResult dlSlotSave(@RequestParam("unit_id") Integer unitId, @RequestParam("slot") Integer slot,
+                                 @RequestParam(value = "mat_id", required = false) Integer matId,
+                                 Authentication auth) {
+        return this.mcellAssemblyService.saveDlSlot(unitId, slot, matId, (User) auth.getPrincipal());
+    }
+
     /** 카드에 올릴 보드 목록 (쉼표로 이은 자재 id) */
     @PostMapping("/dl_boards")
     @Transactional

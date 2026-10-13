@@ -835,8 +835,10 @@ public class WorkStatusService {
                      , si."State"                   AS state
                      , m."Code"                     AS mat_code
                      , m."Name"                     AS mat_name
-                     , COALESCE(ml."MakerLotNo", b."MakerLotNo") AS maker_lot_no
-                     , ml."MakerLotNo"              AS lot_maker_no
+                     -- ★ UDI 는 이제 품목별로 steril_batch_item 에 있다(배치 값은 품목별 번호를 이어 붙인 요약).
+                     --   ml 은 클린룸 투입 로트라 멸균필 라벨이 없다. 품목 값 → 로트 → 배치 순으로.
+                     , COALESCE(NULLIF(si."MakerLotNo",''), ml."MakerLotNo", b."MakerLotNo") AS maker_lot_no
+                     , COALESCE(NULLIF(si."MakerLotNo",''), ml."MakerLotNo") AS lot_maker_no
                      , b."MakerLotNo"               AS batch_maker_no
                      , b."BiLotNo"                  AS bi_lot_no
                   FROM steril_batch_item si
