@@ -86,11 +86,14 @@
                     <dl>
                         <dt>&nbsp;</dt>
                         <dd>
-                            <li>
+                            <li style="display:flex;gap:6px;align-items:center;white-space:nowrap">
                                 <a class="btn btn-delete" title="검색" id="btnSearch">
                                     <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
                                     <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
                                     검색
+                                </a>
+                                <a class="btn" title="조건 초기화 후 다시 조회" id="btnRefresh">
+                                    ↻
                                 </a>
                             </li>
                         </dd>
@@ -323,6 +326,18 @@
             $('#btnSearch').click(function (e) {
                 page.searchDataBind();
 
+            });
+
+            // ★ 새로고침 — 검색 조건을 처음 상태로 돌리고 다시 조회
+            $('#btnRefresh').click(function () {
+                $('#cboMatType').val('');
+                AjaxUtil.fillSelectOptions($('#cboMatGrp'), 'material_group', 'all', false);
+                $('#txtMatName').val('');
+                $('#cboStoreHouse').val('');
+                page.searchDataBind();
+            });
+            $('#txtMatName').on('keydown', function (e) {
+                if (e.key === 'Enter') { e.preventDefault(); page.searchDataBind(); }
             });
 
             page.searchDataBind();
