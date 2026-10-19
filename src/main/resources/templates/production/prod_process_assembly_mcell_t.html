@@ -723,9 +723,9 @@
         function loadDl() {
             try { DL = apiGet('/dl_detail', {unit_id: curU.unit_id}) || null; } catch (e) { DL = null; }
         }
-        function dlDone() { return !DL || DL.state === 'done'; }   // 조회 실패 시 막지 않는다(서버가 최종 판단)
+        function dlDone() { return !DL || DL.state === 'done' || DL.none === 'Y'; }   // ★ 보드 없는 공정은 다운로드 없음   // 조회 실패 시 막지 않는다(서버가 최종 판단)
         function dlCard() {
-            if (!DL) return '';
+            if (!DL || DL.none === 'Y') return '';   // ★ 다운로드할 보드가 없는 공정 — 카드 숨김
             const st = DL.state || 'wait', done = st === 'done', working = st === 'working';
             const badge = done ? '<span class="st-badge done">완료</span>'
                 : working ? '<span class="st-badge working"><i></i>작업중</span>' : '<span class="st-badge wait">대기</span>';
@@ -739,7 +739,7 @@
             const who = DL.actor_name ? '<span class="sc">' + esc(DL.actor_name) + '</span>' : '';
             const boards = DL.boards || [];
             const rows = boards.map((b, bi) => {
-                const chg = '<button class="dlchg" data-dlslot="' + (bi + 1) + '">' + (b.mat_id ? '변경' : '지정') + '</button>';
+                const chg = '<button class="dlchg" data-dlslot="' + (b.slot || (bi + 1)) + '">' + (b.mat_id ? '변경' : '지정') + '</button>';
                 if (!b.mat_id) return '<div class="dlrow"><div class="bid"><div class="bn">' + esc(b.slot_name) + '</div>' +
                     '<div class="bc" style="color:#c0392b">이 제품 BOM 에서 못 찾음 · «지정» 으로 고르세요</div></div>' + chg + '</div>';
                 const v = b.serial_no || '';
@@ -2181,7 +2181,9 @@
                 lastTap = Date.now();
                 b.click();                                      // 합성 click (isTrusted:false)
             }, true);
-            window.addEventListener('pointercancel', function () { tapBtn = null; }, true);
+            window.addEventListener('pointercancel', function () {
+                tapBtn = null;
+            }, true);
             window.addEventListener('click', function (e) {
                 if (e.isTrusted && Date.now() - lastTap < 700) {
                     e.stopPropagation();

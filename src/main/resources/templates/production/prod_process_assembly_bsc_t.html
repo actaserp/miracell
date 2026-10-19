@@ -527,7 +527,9 @@
             const r = apiGet('/bom_default', q);
             return (r.data || [])
                 // 초안에서 빠진 자재 = 작업자가 뺀 것. BOM 기본으로 되살리지 않는다.
-                .filter(b => !(b.is_draft === 'Y' && num(b.draft_qty) <= 0))
+                /* ★ 뺀 자재만 숨긴다(is_removed). 예전엔 «초안 수량 0» 을 전부 숨겨서,
+                   0개로 작업 시작 → 초안이 전부 0 으로 저장 → 나중에 수량을 올려도 BOM 이 통째로 비었다. */
+                .filter(b => b.is_removed !== 'Y')
                 .map(b => ({
                     mat_id: b.mat_id, code: b.mat_code, name: b.mat_name,
                     per: num(b.per) || 1,

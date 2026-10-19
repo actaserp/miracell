@@ -235,7 +235,7 @@
             <div class="screen" id="scA"><div class="wrap">
                 <div class="qhead"><h1>M-CELL 수리 · 작업지시</h1><a title="북마크" class="bookmark toggle">내 메뉴</a><span class="cnt" id="qcnt"></span>
                     <div class="qfilter"><button class="on" data-f="all">전체</button>
-                        <button data-f="return">반품</button><button data-f="spec">사양변경</button>
+                        <button data-f="return">반품</button><button data-f="spec">사양변경</button><button data-f="inbound">입고 수리</button>
                         <button data-g="open">진행중</button>
                         <button data-g="reject" style="border-color:var(--red);color:var(--red)">재작업</button>
                         <button id="btnReg" style="background:var(--teal);color:#fff;border-color:var(--teal)">＋ 수리 접수</button></div></div>
@@ -306,6 +306,7 @@
             <div class="opts" id="regCat">
                 <button class="opt sel" data-c="return">반품</button>
                 <button class="opt" data-c="spec">사양변경</button>
+                <button class="opt" data-c="inbound">입고 수리</button>
             </div>
 
             <div class="fieldlab">원 로트 <span style="color:var(--ink-2);font-weight:700">(제품 · 어셈블리 · 단품 · 부품 — 사내 로트 또는 외부 라벨)</span></div>
@@ -424,7 +425,7 @@
             var SPJANGCD = CTX.spjangcd || 'ZZ';
             var API = '/api/production/repair';
 
-            var CAT = {return: '반품', spec: '사양변경'};
+            var CAT = {return: '반품', spec: '사양변경', inbound: '입고 수리'};
             var UST = {wait: '수리대기', repairing: '수리중', inspect_wait: '검사대기',
                 pass: '검사합격', packed: '포장완료', reject: '재작업', repaired: '수리완료'};
 
@@ -519,7 +520,7 @@
                     return;
                 }
                 qgrid.innerHTML = ORDERS.map(function (o) {
-                    var title = o.reason || (o.cat === 'spec' ? '사양 변경' : '반품 입고');
+                    var title = o.reason || (o.cat === 'spec' ? '사양 변경' : (o.cat === 'inbound' ? '입고 수리' : '반품 입고'));
                     // ★ 품목명을 함께 — 코드만으로는 무엇을 수리 중인지 알기 어렵다
                     var mat = (o.src_name || o.src_code || '') + (o.src_name && o.src_code ? ' (' + o.src_code + ')' : '');
                     if (o.tgt_code && o.tgt_code !== o.src_code) mat += ' → ' + (o.tgt_name || o.tgt_code);
@@ -1495,6 +1496,7 @@
             });
             // 유형별 접수 가능 여부. 서버가 내려준 판정을 그대로 쓴다.
             function lotAllowed(l) {
+                if (regCat === 'inbound') return true;   // ★ 입고 수리 — 상태 무관
                 return (regCat === 'spec') ? (l.allow_spec !== false) : (l.allow_return !== false);
             }
             function selectLot(i) {

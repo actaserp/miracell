@@ -114,18 +114,24 @@ public class DefectService {
 		List<Map<String, Object>> procs = this.sqlRunner.getRows(procSql, p);
 
 		// 공정별 유형을 한 번에 내려 화면이 공정 클릭 때마다 호출하지 않게 한다
+		/* ★ 공정과 상관없이 «작업불량·공통» 유형을 모든 공정에 똑같이 내린다 (현장 요청).
+		     공정마다 불량이 비슷해 공정별 매핑(proc_defect_type)을 따로 관리하면
+		     유형을 새로 만들 때마다 공정마다 연결해야 했다. 이제 부적합 유형 화면에서
+		     사용 구분만 정하면 모든 공정에 나온다. (proc_defect_type 은 더 이상 보지 않는다) */
 		String typeSql = """
-                SELECT pdt."Process_id" AS process_id
-                     , dt.id            AS defect_type_id
-                     , dt."Name"        AS defect_type_name
-                  FROM proc_defect_type pdt
-                  JOIN defect_type dt ON dt.id = pdt."DefectType_id"
-                  JOIN process p      ON p.id = pdt."Process_id"
+                SELECT p.id              AS process_id
+                     , dt.id             AS defect_type_id
+                     , dt."Name"         AS defect_type_name
+                  FROM process p
+                 CROSS JOIN defect_type dt
                  WHERE COALESCE(p."Factory_id", 1) = :fid
+                   AND COALESCE(p._status, 'a') = 'a'
                    AND COALESCE(dt._status, 'a') = 'a'
                    -- ★ 원자재 전용 유형이 공정 목록에 섞이지 않게 한다
                    AND COALESCE(dt."Coverage", 'all') IN ('work', 'all')
-                 ORDER BY pdt."Process_id"
+                   -- ★ 공장 구분 : 유형의 공장(defect_type.Factory_id). 공통 없음 — 비어 있으면 어느 공장에도 안 나온다
+                   AND dt."Factory_id" = :fid
+                 ORDER BY p.id
                         , CASE WHEN dt."Name" = '기타' THEN 1 ELSE 0 END   -- 기타는 항상 맨 뒤
                         , dt.id
                 """;
@@ -139,6 +145,7 @@ public class DefectService {
                   FROM defect_type dt
                  WHERE COALESCE(dt._status, 'a') = 'a'
                    AND COALESCE(dt."Coverage", 'all') IN ('material', 'all')
+                   AND dt."Factory_id" = :fid
                  ORDER BY CASE WHEN dt."Name" = '기타' THEN 1 ELSE 0 END, dt.id
                 """;
 		List<Map<String, Object>> matTypes = this.sqlRunner.getRows(matTypeSql, p);

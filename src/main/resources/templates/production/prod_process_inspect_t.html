@@ -448,7 +448,7 @@
 
         <!-- 넘패드(측정값) -->
         <div class="mask" id="padMask"><div class="sheet pad"><div class="body">
-            <div class="sh"><h3 id="padLab">측정값</h3><span class="disp" id="padDisp" style="margin-left:auto">-</span></div>
+            <div class="sh"><h3 id="padLab">측정값</h3><input class="disp" id="padDisp" style="margin-left:auto;width:240px;font-family:inherit" placeholder="숫자·한글·영문" autocomplete="off"/></div>
             <div class="keys"><button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
                 <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
                 <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
@@ -1039,7 +1039,7 @@
                 cols.map((c, ci) => {
                     const v = b.vals[c.it.item_id + '_' + c.rep] || {};
                     if (c.it.judge_type === 'num') {
-                        return '<td><input class="nv ' + (v.result || '') + '" inputmode="decimal" data-nv="' + ri + ',' + ci + '" value="' + esc(v.value || '') + '"' + (b.locked ? ' disabled' : '') + '></td>';
+                        return '<td><input class="nv ' + (v.result || '') + '" inputmode="text" data-nv="' + ri + ',' + ci + '" value="' + esc(v.value || '') + '"' + (b.locked ? ' disabled' : '') + '></td>';
                     }
                     return '<td><button class="ox ' + (v.result || '') + '" data-ox="' + ri + ',' + ci + '"' + (b.locked ? ' disabled' : '') + '>' +
                         (v.result === 'pass' ? '합격' : v.result === 'fail' ? '불합격' : '—') + '</button></td>';
@@ -1835,7 +1835,7 @@
             valRep = rep;
             valBuf = got(it, rep).value || '';
             document.getElementById('padLab').textContent = it.item_name + (num(it.repeat_count) > 1 ? ' — ' + rep + '회' : '') + ' 측정값';
-            document.getElementById('padDisp').textContent = valBuf || '-';
+            document.getElementById('padDisp').value = valBuf;
             const ub = document.querySelector('#padMask [data-k="unit"]');
             if (ub) ub.textContent = it.unit || 'mm';
             showMask('padMask');
@@ -1845,6 +1845,7 @@
             const k = e.target.dataset.k;
             if (!k) return;
             const it = formItems().find(x => +x.item_id === +valItem);
+            valBuf = document.getElementById('padDisp').value;   // ★ 키보드로 친 한글·영문도 함께
             if (k === 'C') valBuf = '';
             else if (k === 'bs') valBuf = valBuf.slice(0, -1);
             else if (k === 'dot') {
@@ -1858,7 +1859,12 @@
                 saveItem(valItem, valRep, cur.result, valBuf);
                 return;
             } else valBuf += k;
-            document.getElementById('padDisp').textContent = valBuf || '-';
+            document.getElementById('padDisp').value = valBuf;
+        });
+
+        /* ★ 측정값은 숫자 외에 한글·영문도 받는다(예: 양호, OK). 엔터 = 확인 */
+        document.getElementById('padDisp').addEventListener('keydown', e => {
+            if (e.key === 'Enter') { e.preventDefault(); document.querySelector('#padMask [data-k="OK"]').click(); }
         });
 
         /* 불합격 사유 */

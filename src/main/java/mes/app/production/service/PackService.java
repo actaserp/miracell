@@ -513,6 +513,7 @@ public class PackService {
                  , COALESCE(s.working_cnt, 0)   AS working_cnt
                  , COALESCE(s.units, 0)         AS packed_units
                  , s.phases                     AS phases
+                 , lt.lot_no                    AS lot_no
               FROM job_res jr
               JOIN proc_wc pw          ON pw.wc_id = jr."WorkCenter_id"
               LEFT JOIN job_res hdr    ON hdr.id = jr."Parent_id"
@@ -534,12 +535,40 @@ public class PackService {
                      AND COALESCE(mp."LastProcessYN",'Y') = 'Y'
                      AND COALESCE(mp."Material_id",0) = COALESCE(tm.id,0)   -- 산출품 세션만
               ) s ON true
+              /* ★ 표시용 로트번호 = 멸균 때 넣은 UDI 로트번호(MakerLotNo).
+                   같은 작지(부모)의 형제 공정이 만든 로트 중 멸균필 로트에서 찾는다.
+                   UDI 를 비워 둔 경우엔 멸균필 로트번호로 대신한다. */
+              LEFT JOIN LATERAL (
+                  SELECT string_agg(DISTINCT COALESCE(NULLIF(sl."MakerLotNo",''), sl."LotNumber"), ', ') AS lot_no
+                    FROM job_res sib
+                    JOIN mat_produce mp3 ON mp3."JobResponse_id" = sib.id AND COALESCE(mp3._status,'a') = 'a'
+                    JOIN mat_lot sl ON sl."LotNumber" = mp3."LotNumber"
+                                   AND sl."SourceTableName" = 'steril_batch_item'
+                   WHERE jr."Parent_id" IS NOT NULL
+                     AND sib."Parent_id" = jr."Parent_id" AND sib.id <> jr.id
+              ) lt ON true
              WHERE (jr."ProductionDate" BETWEEN CAST(:dateFrom AS date) AND CAST(:dateTo AS date)
                     OR jr."ProductionDate" IS NULL)
                AND (:item = '' OR tm."Code" ILIKE '%' || :item || '%'
                              OR tm."Name" ILIKE '%' || :item || '%')
                AND (:includeComp OR jr."State" <> 'finished')
                AND (CAST(:spjangcd AS varchar) IS NULL OR jr.spjangcd = CAST(:spjangcd AS varchar))
+               /* ★ 멸균이 끝난 작지만 띄운다.
+                    포장은 같은 작지(부모)의 PK 가 멸균 합격(멸균창고 입고)돼야 시작할 수 있다.
+                    형제 작지(블리스터 등)가 만든 로트 중 하나라도 멸균필 로트가 있으면 표시.
+                    · 부모 없는 지시(CK 자체재고·무작지)는 그대로 표시
+                    · 이미 착수·완료한 작지도 그대로 표시(사라지면 안 된다) */
+               AND ( jr."Parent_id" IS NULL
+                     OR jr."State" <> 'ordered'
+                     OR COALESCE(s.sess_cnt, 0) > 0
+                     OR EXISTS (
+                          SELECT 1
+                            FROM job_res sib
+                            JOIN mat_produce mp2 ON mp2."JobResponse_id" = sib.id
+                                                AND COALESCE(mp2._status,'a') = 'a'
+                            JOIN mat_lot sl ON sl."LotNumber" = mp2."LotNumber"
+                                           AND sl."SourceTableName" = 'steril_batch_item'
+                           WHERE sib."Parent_id" = jr."Parent_id" AND sib.id <> jr.id) )
             )
             SELECT * FROM rows
              WHERE rn = 1

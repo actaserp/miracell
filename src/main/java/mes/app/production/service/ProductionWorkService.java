@@ -370,6 +370,7 @@ public class ProductionWorkService {
                 /* 작업자가 고친 줄만 'Y'. 화면은 이 값만 잠그고,
                    나머지는 per×수량 자동계산으로 되돌린다. */
                 m.put("is_manual", d.manual ? "Y" : "N");
+                m.put("is_removed", "N");
             } else {
                 /* 초안이 있는데 이 자재가 빠져 있다 = 작업자가 뺀 것.
                    BOM 기본으로 되살리면 지운 자재가 다시 나타난다. */
@@ -377,6 +378,8 @@ public class ProductionWorkService {
                 m.put("default_qty", 0d);
                 m.put("is_draft", "Y");
                 m.put("is_manual", "N");
+                // ★ 초안에 «없는» 자재 = 작업자가 뺀 것. 수량 0 으로 «있는» 자재(0개로 시작)와 구분한다
+                m.put("is_removed", "Y");
             }
             out.add(m);
         }

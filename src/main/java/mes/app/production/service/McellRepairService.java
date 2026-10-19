@@ -894,7 +894,7 @@ public class McellRepairService {
         AjaxResult r = new AjaxResult();
         r.success = true;
 
-        if (cat == null || !(cat.equals("return") || cat.equals("spec"))) {
+        if (cat == null || !(cat.equals("return") || cat.equals("spec") || cat.equals("inbound"))) {
             r.success = false; r.message = "수리 유형이 올바르지 않습니다."; return r;
         }
         String key = (scanKey == null) ? "" : scanKey.trim().toUpperCase();
@@ -934,9 +934,10 @@ public class McellRepairService {
 
             // ★ 화면에서 이미 막지만 서버가 최종 판단한다. 화면만 막으면 API 로 뚫린다.
             Map<String, Object> v = intakeVerdict(lot);
-            boolean ok = "spec".equals(cat)
+            // ★ 입고 수리 — 입고·재고 상태를 따지지 않는다(받은 물건을 그대로 수리)
+            boolean ok = "inbound".equals(cat) || ("spec".equals(cat)
                     ? Boolean.TRUE.equals(v.get("allow_spec"))
-                    : Boolean.TRUE.equals(v.get("allow_return"));
+                    : Boolean.TRUE.equals(v.get("allow_return")));
             if (!ok) {
                 r.success = false;
                 r.message = str(v.get("verdict_note")) != null
@@ -963,7 +964,7 @@ public class McellRepairService {
              사양변경 : 가지고 있는 재고를 바꾸는 경우가 정상이다.
                    재고가 있으면 그것을 쓰고(순증 0), 없으면 출하품이 돌아온 것이니 신규 입고. */
         String intakeType;
-        if ("spec".equals(cat)) {
+        if ("spec".equals(cat) || "inbound".equals(cat)) {
             intakeType = (stock > 0) ? "move" : "new";
         } else {
             intakeType = "new";

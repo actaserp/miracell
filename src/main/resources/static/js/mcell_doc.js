@@ -128,6 +128,12 @@
          \uadf8 \ubb38\uc11c\u00b7\ubaa8\ub378\uc5d0 \ub9e4\ud551\ub41c \uc591\uc2dd\uc774 \uc5c6\uc73c\uba74 null \u2192 \uc544\ub798 \ub0b4\uc7a5 \uce78 \uc704\uce58(LAYOUT)\ub85c \ucc44\uc6b4\ub2e4. */
     function pcm(v) { if (!v) return {}; if (typeof v === 'object') return v; try { return JSON.parse(v); } catch (e) { return {}; } }
     function arr(v) { return v == null ? [] : (Array.isArray(v) ? v : [v]); }
+    /* \u2605 \uc131\uc801\uc11c \ubc88\ud638 = \uc7a5\ube44\ubc88\ud638(S/N) \ub05d 6\uc790\ub9ac (\uc608: M4FO10010091 \u2192 010091). S/N \uc5c6\uc73c\uba74 \ub85c\ud2b8\ubc88\ud638 */
+    function refNo(D) {
+        var sn = String((D.unit && D.unit.serial_no) || '').replace(/\s/g, '');
+        if (sn && !/^SN-/i.test(sn)) return sn.length > 6 ? sn.slice(-6) : sn;
+        return (D.unit && D.unit.lot_number) || '';
+    }
     function verOf(doc, model, D) { return (D.doc_ver || {})[model + '|' + doc] || null; }
     function cellsFromForms(doc, model, D) {
         // \u2605 \uc591\uc2dd \ubc84\uc804 \u2014 \uc774 \uc720\ub2db\uc774 \uc0dd\uc0b0\ub420 \ub54c \uc720\ud6a8\ud588\ub358 \ubc84\uc804\uc774 \uc608\uc804 \ubc84\uc804\uc774\uba74 \uadf8 \ub54c \uace0\uc815\ud574 \ub454 \ub9e4\ud551\uc744 \uc4f4\ub2e4
@@ -140,7 +146,7 @@
         forms.forEach(function (f) {
             var h = pcm(f.cell_map);
             if (h.lot) put(h.lot, doc === 'F705-33' ? lot : 'Lot No. : ' + lot);
-            if (h.ref) put(h.ref, (h.refPrefix || '') + lot);
+            if (h.ref) put(h.ref, (h.refPrefix || '') + refNo(D));
         });
         forms.forEach(function (f) {
             var items = f.items || [];
@@ -205,17 +211,17 @@
                         fillList(arr(m.sns).filter(function (ref) { return !snMat[ref]; }),
                             snList.filter(function (x) { return !usedS[x.mat_id + '/' + x.seq_no]; }).map(function (x) { return 'S/N ' + x.serial_no; }), put);
                     } else if (k === 'pinsp') {
-                        put(m.ref, '\uacf5\uc815-' + lot);
+                        put(m.ref, '\uacf5\uc815-' + refNo(D));
                         var p = procForm(D, m.form);
                         if (p) { put(m.judge, judgeTxt(p.verdict)); put(m.date, p.end_date); put(m.who, p.actor_name); }
                     } else if (k === 'finsp') {
-                        put(m.ref, '\uc644\uc81c\ud488-' + lot);
+                        put(m.ref, '\uc644\uc81c\ud488-' + refNo(D));
                         if (fis.length) {
                             put(m.judge, fis.every(function (x) { return x.verdict === 'pass'; }) ? '\ud569\uaca9' : '\ubd88\ud569\uaca9');
                             put(m.date, fis.map(function (x) { return x.end_date || ''; }).sort().pop()); put(m.who, fis[0].actor_name);
                         }
                     } else if (k === 'final') {
-                        put(m.ref, '\ucd5c\uc885-' + lot);
+                        put(m.ref, '\ucd5c\uc885-' + refNo(D));
                         var fc = packChecks(D, m.form || 'FP-ALL-FINAL');
                         if (fc.length) {
                             put(m.judge, fc.some(function (x) { return x.result === 'fail'; }) ? '\ubd88\ud569\uaca9' : '\ud569\uaca9');
@@ -255,7 +261,7 @@
         function put(ref, v) { if (ref && v != null && v !== '') c[ref] = String(v); }
 
         if (doc === 'F803-6') {
-            put(L.lot, 'Lot No. : ' + lot); put(L.ref, '\uacf5\uc815-' + lot);
+            put(L.lot, 'Lot No. : ' + lot); put(L.ref, '\uacf5\uc815-' + refNo(D));
             L.groups.forEach(function (g) {
                 var f = procForm(D, 'PI-' + model + '-' + g.code.replace('#', ''));
                 if (!f) return;
@@ -270,7 +276,7 @@
         }
 
         if (doc === 'F803-7') {
-            put(L.lot, 'Lot No. : ' + lot); put(L.ref, '\uc644\uc81c\ud488-' + lot);
+            put(L.lot, 'Lot No. : ' + lot); put(L.ref, '\uc644\uc81c\ud488-' + refNo(D));
             L.groups.forEach(function (g) {
                 var f = finalForm(D, g.code);
                 if (!f) return;
@@ -288,7 +294,7 @@
         }
 
         if (doc === 'F803-8') {
-            put(L.lot, 'Lot No. : ' + lot); put(L.ref, '\ucd5c\uc885-' + lot);
+            put(L.lot, 'Lot No. : ' + lot); put(L.ref, '\ucd5c\uc885-' + refNo(D));
             var ch = packChecks(D, 'FP-ALL-FINAL');
             L.rows.forEach(function (row, k) {
                 var it = ch.filter(function (x) { return +x.seq_no === k + 1; })[0];
@@ -323,7 +329,7 @@
                     fillList(b.sns, sns, put);
                 } else if (b.kind === 'pinsp') {
                     var f = procForm(D, 'PI-' + model + '-' + b.code.replace('#', ''));
-                    put('E' + b.row, '\uacf5\uc815-' + lot);
+                    put('E' + b.row, '\uacf5\uc815-' + refNo(D));
                     if (f) { put('F' + b.row, judgeTxt(f.verdict)); put('G' + b.row, f.end_date); put('I' + b.row, f.actor_name); }
                 } else if (b.kind === 'finsp') {
                     put('E' + b.row, '\uc644\uc81c\ud488-' + lot);

@@ -1580,8 +1580,12 @@ public class McellAssemblyService {
             final int kk = k;
             Map<String, Object> m = all.stream().filter(x -> asInt(x.get("slot")) != null && asInt(x.get("slot")) == kk)
                     .findFirst().orElse(null);
+            /* ★ 이 제품 BOM 에 없는 보드 칸은 아예 내리지 않는다(입력 창 제거).
+                 예: 로터 Ass'y 는 RT 보드만 — 메인보드·LCD 보드 칸이 없다. */
+            if (m == null) continue;
             Map<String, Object> b = new LinkedHashMap<>();
             b.put("slot_name", DL_SLOTS[k - 1]);
+            b.put("slot", k);
             if (m != null) {
                 b.putAll(m);
                 Integer mid = asInt(m.get("mat_id"));
@@ -1603,6 +1607,8 @@ public class McellAssemblyService {
             out.put("end_time", dl.get("end_time"));
         }
         out.put("boards", boards);
+        // ★ 다운로드할 보드가 하나도 없는 공정 — 화면은 카드를 숨기고, 조립은 다운로드 없이 시작한다
+        out.put("none", boards.isEmpty() ? "Y" : "N");
         return out;
     }
 
@@ -1738,6 +1744,8 @@ public class McellAssemblyService {
         r.success = true;
         Map<String, Object> dl = getDl(unitId);
         if (dl == null || !"done".equals(str(dl.get("state")))) {
+            // ★ 보드가 없는 공정(프로그램 다운로드 없음)은 통과
+            if ("Y".equals(str(getDownload(unitId).get("none")))) return r;
             r.success = false;
             r.message = "프로그램 다운로드를 먼저 완료하세요. (모든 조립의 첫 작업입니다)";
         }

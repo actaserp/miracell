@@ -1276,6 +1276,7 @@
         st: mapOrderState(r.state),
         stLabel: r.job_state || '',
         name: r.mat_name || '-',
+        lotNo: r.lot_no || '',
         code: r.mat_code || '',
         productMatId: r.product_mat_id || null,
         ckMatId: r.wip_material_id || null,
@@ -1294,6 +1295,11 @@
         phases: r.phases || '',
         sessions: null, gtin: null, ckBom: null, boxSpec: null
       };
+    }
+
+    /** 완제품명 / 로트번호(멸균 UDI) — 로트가 아직 없으면 품명만 */
+    function prodLabel(o) {
+      return (o.name || '-') + (o.lotNo ? ' / ' + o.lotNo : '');
     }
 
     function orderPct(o) {
@@ -1356,7 +1362,7 @@
               '<span class="srcbadge ' + o.orderSrc + '">' + (SRCLAB[o.orderSrc] || o.orderSrc) + '</span>' +
               (o.jobKind === 'ckstock' ? '<span class="kindbadge">CK 자체재고</span>' : '') +
               '<span class="chip ' + o.st + '">' + esc(o.stLabel || STLAB[o.st]) + '</span></div>' +
-              '<div class="name">' + esc(o.name) + '</div>' +
+              '<div class="name">' + esc(prodLabel(o)) + '</div>' +
               (ph ? '<div style="margin:-5px 0 8px;display:flex;gap:5px;flex-wrap:wrap">' + ph + '</div>' : '') +
               '<div class="meta">' +
               '<div class="blk"><span class="lab">계획</span><span class="val">' + orderPlanPk(o) + '</span></div>' +
@@ -1529,10 +1535,10 @@
         return String(x.jrPk) === String(jrPk);
       })[0];
       if (!curO) return;
-      document.getElementById('bName').textContent = curO.name;
-      document.getElementById('bSub').textContent = curO.id + ' · ' + (curO.wcName || '포장')
-              + (curO.jobKind === 'ckstock' ? ' · CK 자체재고' : '')
-              + (curO.noJob ? ' · 작지 없음' : '');
+      /* ★ 제목 = «완제품명 / 로트번호» 만 (현장 요청 — 작지번호·공정명은 뺀다) */
+      document.getElementById('bName').textContent = prodLabel(curO);
+      document.getElementById('bSub').textContent = '';
+      document.getElementById('bSub').style.display = 'none';
       curO.sessions = curO.sessions || [];
       renderSessList();
       show('B');
@@ -1795,7 +1801,7 @@
       curS._idx = i;
       document.getElementById('cName').textContent = curS.worker +
               (curS.jobKind === 'ckstock' ? ' · CK 생산' : ' · 포장');
-      document.getElementById('cSub').textContent = curO.id + ' · ' + curO.name + ' · 계획 ' + curO.plan;
+      document.getElementById('cSub').textContent = prodLabel(curO);
 
       /* ★ 순서가 중요하다 : 추가자재 복원 → hydrate.
          hydrate 가 서버 items 를 ckInputs() 와 맞춰보면서 자동/수동을 가르는데,

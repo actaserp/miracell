@@ -22,6 +22,8 @@
                 <a title="북마크" class="bookmark toggle">
                     내메뉴
                 </a>
+                <label for="Factory_id" class="hide">공장</label>
+                <select style="width: 110px;" id="Factory_id" name="Factory_id"></select>
             </div>
             <ul class="page-navi">
                 <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
@@ -150,6 +152,23 @@
                                 </td>
                             </tr>
                             <tr>
+                                <th style="text-align: center; width: 7%; padding: 5px; border: 1px solid #ddd;">
+                                    <label><span class="eq">*</span>공장</label>
+                                </th>
+                                <td style="width: 15%; padding: 5px; border: 1px solid #ddd;">
+                                    <!-- 부적합 등록 화면에서 이 공장의 모든 공정에 나온다. 공통 = 1·2공장 모두 -->
+                                    <label style="margin-right:14px; cursor:pointer;">
+                                        <input type="radio" name="factory_id" value="1"> 1공장
+                                    </label>
+                                    <label style="cursor:pointer;">
+                                        <input type="radio" name="factory_id" value="2"> 2공장
+                                    </label>
+                                    <div style="font-size:12px; color:#888; margin-top:4px;">
+                                        그 공장의 모든 공정에서 이 유형을 고를 수 있습니다
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
                                 <th style="text-align: center; width: 5%; padding: 5px; border: 1px solid #ddd;">
                                     <label for="description">비고</label>
                                 </th>
@@ -173,9 +192,21 @@
     <th:block th:replace="/common/upload_one_image_box :: upload_one_image_box"></th:block>
     <th:block th:replace="/common/popup_select_user_code :: popup_select_user_code"></th:block>
 
+    <script th:inline="javascript">
+        /* 로그인 사용자의 소속 공장. 없으면 null → 전체 */
+        const factory_id = [[${session.factory_id}]];
+    </script>
     <script type="text/javascript">
 
         var theGrid;
+        var ALL_ROWS = [];
+
+        function facName(v) { return v == 1 ? '1공장' : (v == 2 ? '2공장' : '미지정'); }
+        /** 상단 공장 콤보로 거른다 (빈 값 = 전체) */
+        function byFactory(rows) {
+            const f = $('#Factory_id').val() || '';
+            return (rows || []).filter(function (r) { return !f || String(r.factory_id) === f; });
+        }
         var viewdata;
 
 
@@ -184,6 +215,7 @@
             {binding: 'defect_type_code', header: '코드', width: 130, align: 'center'},
             {binding: 'defect_type_name', header: '부적합유형명', width: 200, align: 'center'},
             {binding: 'coverage_name', header: '사용 구분', width: 110, align: 'center'},
+            {binding: 'factory_name', header: '공장', width: 90, align: 'center'},
             {binding: 'description', header: '비고', width: 420, align: 'center'}
         ];
 
@@ -202,7 +234,11 @@
                 },
                 async: false,
                 success: function (data) {
-                    data2 = data.data;
+                    ALL_ROWS = (data.data || []).map(function (it) {
+                        it.factory_name = facName(it.factory_id);
+                        return it;
+                    });
+                    data2 = byFactory(ALL_ROWS);
                 },
                 error: function (jqXHR, textStatus, errorThrown) {
                     console.error('Error fetching log_count data:', textStatus, errorThrown);
@@ -229,6 +265,7 @@
                 // 라디오는 value 대입으로 안 되고 checked 를 직접 잡아야 한다.
                 // 값이 비어 있는 과거 행은 '공통'으로 본다(서버 coalesce 와 같은 규칙).
                 setCoverage(selectedItem.coverage);
+                setFactory(selectedItem.factory_id);
 
                 setButtonState();
             });
@@ -245,6 +282,15 @@
         function setCoverage(v) {
             let val = v || 'all';
             $('#defectTypeForm input[name=coverage]').each(function () {
+                this.checked = (this.value === val);
+            });
+        }
+
+        /** 공장 라디오 — 비어 있으면 공통 */
+        function setFactory(v) {
+            // 값이 없으면 상단에서 고른 공장을 기본으로
+            let val = (v == null || v === '') ? ($('#Factory_id').val() || '') : String(v);
+            $('#defectTypeForm input[name=factory_id]').each(function () {
                 this.checked = (this.value === val);
             });
         }
@@ -274,7 +320,8 @@
                 async: false,
                 success: function (result) {
                     if (result.success) {
-                        grid_binding(result.data);
+                        ALL_ROWS = result.data || [];
+                        grid_binding(byFactory(ALL_ROWS));
                     } else {
                         console.log("Error occurred");
                     }
@@ -288,6 +335,7 @@
 
             $('#defectTypeForm')[0].reset();
             $('#defectTypeForm').find('#id').val('');
+            setFactory(null);
 
             $('#detail_box').find('input, textarea').each(function () {
                 if (!$(this).is(':disabled')) {
@@ -310,6 +358,8 @@
                 defect_type_name: item.defect_type_name,
                 coverage: item.coverage,
                 coverage_name: item.coverage_name,
+                factory_id: item.factory_id,
+                factory_name: facName(item.factory_id),
                 description: item.description
             }));
 
@@ -359,6 +409,11 @@
             // FormUtil 이 라디오를 못 담는 경우가 있어 직접 읽어 덮어쓴다.
             // 비어 있으면 서버가 all 로 처리하지만, 화면에서 확정해 보내는 편이 명확하다.
             data.coverage = $('#defectTypeForm input[name=coverage]:checked').val() || 'all';
+            data.factory_id = $('#defectTypeForm input[name=factory_id]:checked').val() || '';
+            if (!data.factory_id) {
+                Alert.alert('', '공장을 선택해 주세요');
+                return;
+            }
 
             let fnSuccess = function (result) {
                 if (result.success) {
@@ -395,6 +450,15 @@
 
         $(document.body).ready(function (e) {
             setButtonState();
+
+            /* 공장 콤보 — 기본값 = 로그인한 사람의 공장. change 는 채운 뒤에 건다(조회 두 번 방지) */
+            const myFactory = (factory_id == null || factory_id === '' || Number(factory_id) <= 0)
+                ? '' : String(factory_id);
+            AjaxUtil.fillSelectOptions($('#Factory_id'), 'factory', 'all', myFactory);
+            $('#Factory_id').on('change', function () {
+                searchMainData();
+            });
+            searchMainData();
             // 엔터키 검색
             $('#keyword').on('keypress', function (e) {
                 if (event.keyCode == 13) {
@@ -412,6 +476,7 @@
 
                 $('#defectTypeForm')[0].reset();
                 $('#defectTypeForm').find('#id').val('');
+                setFactory(null);
 
                 $('#detail_box').find('input, textarea').each(function () {
                     if ($(this).is(':disabled')) {
