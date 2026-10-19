@@ -483,6 +483,13 @@ public class WashService {
         Timestamp endTs = (endTimeStr != null && !endTimeStr.isBlank())
                 ? Timestamp.valueOf(LocalDateTime.parse(endTimeStr, dtm))
                 : now;
+        // ★ 지난 작업일 카드에서 완료하면 종료도 그 작업일로 남긴다(작업일 + 지금 시각).
+        //   그래야 재고 이동·로트가 오늘이 아니라 그 날짜로 잡힌다. 시작보다 앞서면 시작 시각으로.
+        if ((endTimeStr == null || endTimeStr.isBlank()) && washDate != null
+                && washDate.toLocalDate().isBefore(LocalDate.now())) {
+            Timestamp e = Timestamp.valueOf(LocalDateTime.of(washDate.toLocalDate(), LocalTime.now().withNano(0)));
+            endTs = e.before(startTs) ? startTs : e;
+        }
 
         // 사용자가 직접 넣은 종료가 시작보다 앞서면 오류. (폴백 now 는 시작보다 앞설 수 없다)
         if (endTs.before(startTs)) {
@@ -490,8 +497,9 @@ public class WashService {
         }
 
         Material mat = this.materialRepository.getMaterialById(matId);
-        LocalDate today = LocalDate.now();
-        LocalTime nowT  = LocalTime.now();
+        // 입출고 일자 = 실적 종료 일시 (지난 날짜 입력이면 그 날짜)
+        LocalDate today = endTs.toLocalDateTime().toLocalDate();
+        LocalTime nowT  = endTs.toLocalDateTime().toLocalTime();
 
         // ── (1) 생산창고 FIFO 로트 조회 ──
         MapSqlParameterSource lp = new MapSqlParameterSource();

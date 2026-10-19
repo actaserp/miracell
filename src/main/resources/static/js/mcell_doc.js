@@ -240,10 +240,18 @@
         return c;
     }
 
+    /* \u2605 LAYOUT(\ub0b4\uc7a5 \uce78 \uc704\uce58)\uc740 \uc591\uc2dd \ud654\uba74 \ub9e4\ud551\uc73c\ub85c \uc62e\uaca8\uc838 \uc5c6\uc744 \uc218 \uc788\ub2e4 \u2014 \uc5c6\uc73c\uba74 \ube48 \uac1d\uccb4 */
+    function layoutOf(model, doc) {
+        var L = (typeof LAYOUT !== 'undefined' && LAYOUT) ? LAYOUT : null;
+        return (L && L[model] && L[model][doc]) || {};
+    }
+
     function cellsFor(doc, model, D) {
         var g = cellsFromForms(doc, model, D);
         if (g && Object.keys(g).length) return g;
-        var L = LAYOUT[model][doc], lot = D.unit.lot_number || '', c = {};
+        // \u2605 \ub0b4\uc7a5 \uce78 \uc704\uce58\uac00 \uc5c6\uc73c\uba74 \ube48 \uc591\uc2dd \uadf8\ub300\ub85c
+        if (!layoutOf(model, doc).groups && !layoutOf(model, doc).lot) return g || {};
+        var L = layoutOf(model, doc), lot = D.unit.lot_number || '', c = {};
         function put(ref, v) { if (ref && v != null && v !== '') c[ref] = String(v); }
 
         if (doc === 'F803-6') {
@@ -439,7 +447,7 @@
                 .then(function (a) {
                     var wb = parse(a[0]), rels = parse(a[1]);
                     var sheets = wb.getElementsByTagName('sheet');
-                    var sh = sheets[Math.min(LAYOUT[model][doc].sheet, sheets.length - 1)];
+                    var sh = sheets[Math.min(layoutOf(model, doc).sheet || 0, sheets.length - 1)];
                     var rid = sh.getAttributeNS(NS_REL, 'id') || sh.getAttribute('r:id');
                     var target = null, rl = rels.getElementsByTagName('Relationship');
                     for (var i = 0; i < rl.length; i++) if (rl[i].getAttribute('Id') === rid) target = rl[i].getAttribute('Target');
@@ -737,5 +745,5 @@
         }).catch(function (e) { toast(e.message || '\uc870\ud68c \uc2e4\ud328'); close(); });
     }
 
-    global.McellDoc = {open: open, _build: buildXlsx, _cellsFor: cellsFor, _layout: function () { return LAYOUT; }};
+    global.McellDoc = {open: open, _build: buildXlsx, _cellsFor: cellsFor, _layout: function () { return (typeof LAYOUT !== 'undefined') ? LAYOUT : null; }};
 })(window);

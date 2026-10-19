@@ -212,13 +212,22 @@
         <div class="app">
             <!-- A. 날짜 카드 -->
             <div class="screen" id="scA"><div class="wrap">
-                <div class="qhead"><h1>용기 조립 공정</h1><a title="북마크" class="bookmark toggle">내 메뉴</a><span class="cnt" id="dayCnt"></span>
+                <div class="qhead"><h1>용기 조립 공정</h1><a title="북마크" class="bookmark toggle">내 메뉴</a><span class="cnt" id="dayCnt" style="display:none"></span>
                     <div class="qfilter"><button class="on" data-f="all">전체</button>
                         <button data-f="wait">대기</button><button data-f="working">작업중</button>
                         <button data-f="done">완료</button></div></div>
                 <div class="searchbar"><span class="slab">작업일</span>
                     <input type="date" id="dFrom" class="dinput"/><span class="tilde">~</span><input type="date" id="dTo" class="dinput"/>
-                    <button class="sbtn" id="btnSearch">조회</button></div>
+                    <button class="sbtn" id="btnSearch">조회</button>
+                    <button class="sbtn" id="btnPastDay" style="margin-left:0;background:#fff;color:var(--teal-d);border:1px solid var(--teal)">📅 날짜 선택</button></div>
+                <div id="pastMask" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:70;align-items:center;justify-content:center">
+                    <div style="background:#fff;border-radius:16px;padding:22px;width:min(360px,92vw);box-shadow:0 20px 50px rgba(0,0,0,.25)">
+                        <div style="font-size:18px;font-weight:800;margin-bottom:6px">날짜 선택</div>
+                        <div style="font-size:13px;color:#64748b;font-weight:600;margin-bottom:14px">실적을 넣을 날짜를 고르세요.</div>
+                        <input type="date" id="pastDay" class="dinput" style="width:100%;box-sizing:border-box"/>
+                        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+                            <button class="sbtn" id="pastCancel" style="margin-left:0;background:#fff;color:#334155;border:1px solid #cbd5e1">취소</button>
+                            <button class="sbtn" id="pastOk" style="margin-left:0">열기</button></div></div></div>
                 <div class="qgrid" id="dayGrid"></div>
             </div></div>
 
@@ -512,7 +521,7 @@
             if (!matId) return [];
             const q = {
                 material_id: matId, qty: 1,               // per 만 쓰므로 qty=1 로 호출
-                clean_store: CTX.cleanStore, production_date: prodDate || todayStr()
+                clean_store: CTX.cleanStore, production_date: prodDate || baseDay()
             };
             if (mpId) q.mp_id = mpId;
             const r = apiGet('/bom_default', q);
@@ -550,7 +559,7 @@
             return {
                 workers: workers.slice(), leader_id: workers[0].id,
                 equip: equip.name, equip_id: equip.id, code: equip.code || '',
-                shift: CTX.shiftCode, done: false, start: todayStr() + ' ' + hhmm(), end: null,
+                shift: CTX.shiftCode, done: false, start: baseDay() + ' ' + hhmm(), end: null,
                 items: [], _draft: true, _key: CTX.shiftCode + '|' + workers[0].id
             };
         }
@@ -570,6 +579,10 @@
                 st: d.state || 'wait',
                 crews: [], _drafts: [], _loaded: false
             }));
+            (typeof EXTRA_DAYS !== 'undefined' ? Array.from(EXTRA_DAYS) : []).forEach(x => {
+                if (!DAYS.some(d => d.date === x)) DAYS.push({date: x, crew_cnt: 0, item_cnt: 0, good_qty: 0, cnts: {wait: 0, work: 0, done: 0}, st: 'wait', crews: [], _drafts: [], _loaded: false});
+            });
+            DAYS.sort((a, b) => b.date.localeCompare(a.date));
             const t = todayStr();
             if (!DAYS.some(d => d.date === t)) {
                 DAYS.unshift({
@@ -678,6 +691,37 @@
             d._loaded = true;
         }
 
+
+        /* ★ 실적 없는 지난 날짜에 입력 — 그 날짜 카드를 화면에 띄우고 바로 연다.
+             (오늘 등록 후 시간을 옮기면 로트·재고가 오늘로 먼저 움직인다) */
+        const EXTRA_DAYS = new Set();
+        (function () {
+            const btn = document.getElementById('btnPastDay'), inp = document.getElementById('pastDay');
+            if (!btn || !inp) return;
+            inp.max = todayStr();
+            const mask = document.getElementById('pastMask');
+            const close = () => { mask.style.display = 'none'; };
+            btn.addEventListener('click', function () {
+                inp.value = shiftDay(todayStr(), -1);
+                mask.style.display = 'flex';
+            });
+            document.getElementById('pastCancel').addEventListener('click', close);
+            mask.addEventListener('click', e => { if (e.target === mask) close(); });
+            document.getElementById('pastOk').addEventListener('click', function () {
+                const v = inp.value;
+                if (!v) { Alert.alert('날짜를 고르세요.'); return; }
+                if (v > todayStr()) { Alert.alert('미래 날짜는 입력할 수 없습니다.'); return; }
+                close();
+                EXTRA_DAYS.add(v);
+                refreshDays();
+                const i = DAYS.findIndex(d => d.date === v);
+                if (i >= 0) openDay(i);
+            });
+        })();
+        /** 입력 기준일 — 지난 날짜 카드를 열었으면 그 날짜, 아니면 오늘 */
+        function baseDay() {
+            return (typeof curD !== 'undefined' && curD && curD.date && curD.date < todayStr()) ? curD.date : todayStr();
+        }
         function refreshDays() {
             loadDays();
             renderDays();
@@ -1048,7 +1092,7 @@
                 clean_store: CTX.cleanStore
             }, (r) => {
                 it.st = 'working';
-                if (!it.start) it.start = todayStr() + ' ' + hhmm();
+                if (!it.start) it.start = baseDay() + ' ' + hhmm();
                 renderItems();
                 renderCrews();
                 refreshDays();
@@ -1069,7 +1113,7 @@
                 good_qty: it.qty,
                 defect_qty: it.defQty || 0,
                 start_time: it.start || '',
-                end_time: it.end || (todayStr() + ' ' + hhmm()),
+                end_time: it.end || (baseDay() + ' ' + hhmm()),
                 bom_json: JSON.stringify(it.bom.map(b => ({matId: b.mat_id, qty: bomQ(b, it.qty),
                     /* 작업자가 직접 고친 줄인지. 서버가 초안에 함께 담아,
                        완료취소 후에도 고친 줄만 잠기고 나머지는 per×수량 자동계산이 살아난다. */
@@ -1328,7 +1372,7 @@
             if (saved && saved.includes(' ')) {
                 const [ds, ts] = saved.split(' ');
                 editDate = new Date(ds + 'T' + ts);
-            } else editDate = new Date();   // 기존 값 없으면 실제 현재일시(계획일 아님)
+            } else editDate = new Date(baseDay() + 'T' + hhmm());   // 값 없으면 지금 시각 (지난 날짜 카드면 그 날짜)
             document.getElementById('tDate').textContent = fmtDEdit(editDate);
             document.getElementById('tH').textContent = String(editDate.getHours()).padStart(2, '0');
             document.getElementById('tM').textContent = String(editDate.getMinutes()).padStart(2, '0');
