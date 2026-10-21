@@ -243,9 +243,10 @@ public class McellAssemblyController {
             @RequestParam(value = "seq_no", defaultValue = "1") Integer seqNo,
             @RequestParam(value = "serial_no", required = false) String serialNo,
             @RequestParam(value = "mat_lot_id", required = false) Integer matLotId,
+            @RequestParam(value = "part_lot", required = false) String partLot,
             @RequestParam(value = "spjangcd", defaultValue = "ZZ") String spjangcd,
             Authentication auth) {
-        return this.mcellAssemblyService.saveSn(unitId, stepId, materialId, seqNo, serialNo, matLotId, spjangcd,
+        return this.mcellAssemblyService.saveSn(unitId, stepId, materialId, seqNo, serialNo, matLotId, partLot, spjangcd,
                 (User) auth.getPrincipal());
     }
 

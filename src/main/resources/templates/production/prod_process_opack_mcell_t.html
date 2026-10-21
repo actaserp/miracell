@@ -1640,6 +1640,17 @@
       if (mid == null || CHK_CACHE[mid] !== undefined) return;
       getSoft(API + '/pack_checks', {unit_mat_id: mid}, function (d) { CHK_CACHE[mid] = d || []; });
     }
+    /* ★ 최종검사(F803-8)는 포장 작업자와 다른 사람이 검사한다 — 검사자를 따로 고른다 */
+    var FIN_ACTOR = null, WK_FIN = null;
+    function isFinal(f) { return /FINAL/i.test(f.form_code || '') || /최종/.test(f.form_name || ''); }
+    function finWorkers() { if (!WK_FIN) { try { WK_FIN = fetchWorkersActor(); } catch (e) { WK_FIN = []; } } return WK_FIN; }
+    function finSel(cur, attr) {
+      return '<div class="chkrow"><div class="ct"><div class="cn">최종검사자</div><div class="cc">포장 작업자와 다른 검사자를 선택</div></div>' +
+              '<select class="cv" ' + attr + ' style="min-width:140px"><option value="">선택</option>' +
+              finWorkers().map(function (w) {
+                return '<option value="' + w.actor_id + '"' + (String(cur) === String(w.actor_id) ? ' selected' : '') + '>' + esc(w.actor_name) + '</option>';
+              }).join('') + '</select></div>';
+    }
     function destOf(name) {
       var s = String(name || '');
       if (/해외/.test(s)) return '해외';
@@ -1662,6 +1673,7 @@
           if (v && v.result) { done++; if (v.result === 'fail') bad++; }
         });
       });
+      if (forms.some(isFinal) && !FIN_ACTOR) return {ok: false, msg: '최종검사자를 선택하세요', need: need, done: done};
       if (bad) return {ok: false, msg: '포장 체크에 불합격 ' + bad + '건 — 조치 후 다시 확인하세요', need: need, done: done};
       if (done < need) return {ok: false, msg: '포장 체크 ' + done + '/' + need + ' — 남은 항목을 확인하세요', need: need, done: done};
       return {ok: true, msg: '', need: need, done: done};
@@ -1671,7 +1683,7 @@
       chkForms().forEach(function (f) {
         (f.items || []).forEach(function (it) {
           var v = chkVal[it.item_id] || {};
-          out.push({formId: f.form_id, itemId: it.item_id,
+          out.push({formId: f.form_id, itemId: it.item_id, actorId: isFinal(f) ? FIN_ACTOR : null,
             result: chkAuto(it) ? 'na' : (v.result || ''), value: chkAuto(it) ? '' : (v.value || '')});
         });
       });
@@ -1691,6 +1703,7 @@
               '<button class="btn ghost sm" data-chkall="1" style="padding:0 14px">전체 합격</button></div><div class="sbody">';
       forms.forEach(function (f) {
         html += '<div class="browhead" style="margin-top:6px">' + esc(f.form_name) + '<span class="ln"></span></div>';
+        if (isFinal(f)) html += finSel(FIN_ACTOR, 'data-finact="1"');
         (f.items || []).forEach(function (it) {
           var auto = chkAuto(it), v = chkVal[it.item_id] || {};
           if (auto) {
@@ -1736,6 +1749,7 @@
       }
     });
     document.getElementById('cBody').addEventListener('change', function (e) {
+      if (e.target.closest('[data-finact]')) { FIN_ACTOR = e.target.value ? +e.target.value : null; chkRefresh(); return; }
       var i = e.target.closest('[data-chkv]');
       if (!i) return;
       var v = chkVal[i.dataset.chkv] = chkVal[i.dataset.chkv] || {};
@@ -2888,13 +2902,18 @@
      *   지운 사진이 계속 보인다. id 는 안 변하므로 캐시를 깰 필요도 없다.
      */
     /* ★ 포장 완료 박스의 체크 결과 — 보기 / 수정 */
-    var DCHK = null, dchkEdit = false, dchkVal = {}, dchkDest = '국내';
+    var DCHK = null, dchkEdit = false, dchkVal = {}, dchkDest = '국내', dFinAct = null, dFinName = '';
     function loadDoneChk() {
       if (!curDone) return;
       getSoft(API + '/pack_check_result', {mat_produce_id: curDone.mp_id}, function (d) {
         DCHK = d || {forms: [], values: []};
-        dchkEdit = false; dchkVal = {};
-        (DCHK.values || []).forEach(function (v) { dchkVal[v.item_id] = {result: v.result, value: v.value || ''}; if (v.dest) dchkDest = v.dest; });
+        dchkEdit = false; dchkVal = {}; dFinAct = null; dFinName = '';
+        var finIds = {};
+        (DCHK.forms || []).forEach(function (f) { if (isFinal(f)) (f.items || []).forEach(function (it) { finIds[it.item_id] = 1; }); });
+        (DCHK.values || []).forEach(function (v) {
+          dchkVal[v.item_id] = {result: v.result, value: v.value || ''}; if (v.dest) dchkDest = v.dest;
+          if (finIds[v.item_id] && v.actor_id != null && dFinAct == null) { dFinAct = v.actor_id; dFinName = v.actor_name || ''; }
+        });
         drawDoneChk();
       });
     }
@@ -2914,6 +2933,8 @@
               : '<div style="text-align:right;margin:6px 0"><button class="btn ghost sm" data-dedit="1" style="padding:0 16px">체크 수정</button></div>';
       forms.forEach(function (f) {
         html += '<div class="browhead" style="margin-top:6px">' + esc(f.form_name) + '<span class="ln"></span></div>';
+        if (isFinal(f)) html += dchkEdit ? finSel(dFinAct, 'data-dfinact="1"')
+                : '<div class="chkrow"><div class="ct"><div class="cn">최종검사자</div></div><span class="nat">' + esc(dFinName || '포장 작업자') + '</span></div>';
         (f.items || []).forEach(function (it) {
           var v = dchkVal[it.item_id] || {};
           if (dchkEdit) {
@@ -2946,11 +2967,12 @@
         drawDoneChk(); return;
       }
       if (e.target.closest('[data-dsave]')) {
+        if ((DCHK.forms || []).some(isFinal) && !dFinAct) { flash('최종검사자를 선택하세요'); return; }
         var payload = [];
         (DCHK.forms || []).forEach(function (f) {
           (f.items || []).forEach(function (it) {
             var v = dchkVal[it.item_id] || {};
-            payload.push({formId: f.form_id, itemId: it.item_id,
+            payload.push({formId: f.form_id, itemId: it.item_id, actorId: isFinal(f) ? dFinAct : null,
               result: dAuto(it) ? 'na' : (v.result === 'na' ? '' : (v.result || '')), value: dAuto(it) ? '' : (v.value || '')});
           });
         });
@@ -2962,6 +2984,7 @@
       }
     });
     document.getElementById('doneBody').addEventListener('change', function (e) {
+      if (e.target.closest('[data-dfinact]')) { dFinAct = e.target.value ? +e.target.value : null; return; }
       var i = e.target.closest('[data-dchkv]');
       if (!i) return;
       var v = dchkVal[i.dataset.dchkv] = dchkVal[i.dataset.dchkv] || {};

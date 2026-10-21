@@ -116,6 +116,17 @@
     function procForm(D, code) {
         return (D.proc_insp || []).filter(function (x) { return x.form_code === code; })[0];
     }
+    /* ★ 조립 화면에서 주요자재별로 입력한 부품 LOT (mcell_unit_sn.PartLotNo) — 같은 자재 n번째 칸 → n번 */
+    var CUR_D = null;
+    function partLot(mid, n) {
+        var l = ((CUR_D && CUR_D.sns) || []).filter(function (x) { return +x.mat_id === +mid && x.part_lot; });
+        var x = l.filter(function (y) { return +y.seq_no === n; })[0] || l[n - 1] || (n > 1 ? null : l[0]);
+        return x ? x.part_lot : '';
+    }
+    function finWho(fc) {   // ★ 최종검사자 = 체크에 기록된 검사자, 없으면 포장 작업자
+        var a = (fc || []).filter(function (x) { return x.actor_name; })[0];
+        return a ? a.actor_name : '';
+    }
     function finalForm(D, code) {
         return (D.final_insp || []).filter(function (x) { return x.form_code === code; })[0];
     }
@@ -132,8 +143,9 @@
     function refNo(D) {
         var sn = String((D.unit && D.unit.serial_no) || '').replace(/\s/g, '');
         if (sn && !/^SN-/i.test(sn)) return sn.length > 6 ? sn.slice(-6) : sn;
-        return (D.unit && D.unit.lot_number) || '';
+        return '';   // ★ 최종 장비번호(S/N) 부여 전에는 성적서 번호를 비워 둔다 (임시 SN-xxx · 로트번호 쓰지 않음)
     }
+    function refTxt(prefix, D) { var n = refNo(D); return n ? prefix + n : ''; }
     function verOf(doc, model, D) { return (D.doc_ver || {})[model + '|' + doc] || null; }
     function cellsFromForms(doc, model, D) {
         // \u2605 \uc591\uc2dd \ubc84\uc804 \u2014 \uc774 \uc720\ub2db\uc774 \uc0dd\uc0b0\ub420 \ub54c \uc720\ud6a8\ud588\ub358 \ubc84\uc804\uc774 \uc608\uc804 \ubc84\uc804\uc774\uba74 \uadf8 \ub54c \uace0\uc815\ud574 \ub454 \ub9e4\ud551\uc744 \uc4f4\ub2e4
@@ -146,7 +158,7 @@
         forms.forEach(function (f) {
             var h = pcm(f.cell_map);
             if (h.lot) put(h.lot, doc === 'F705-33' ? lot : 'Lot No. : ' + lot);
-            if (h.ref) put(h.ref, (h.refPrefix || '') + refNo(D));
+            if (h.ref) put(h.ref, refTxt(h.refPrefix || '', D));
         });
         forms.forEach(function (f) {
             var items = f.items || [];
@@ -175,13 +187,34 @@
                     put(arr(m.date)[0], D.pack && D.pack.end_date); put(arr(m.who)[0], D.pack && D.pack.actor_name);
                 });
             }
-            if (doc === 'F705-33') {
+            if (doc === 'F705-33') { CUR_D = D;
                 var ptr = {}, fis = D.final_insp || [];
                 items.forEach(function (it) {
                     var m = pcm(it.cell_map), k = m.kind || 'asm';
                     if (k === 'asm') {
                         var s = (D.steps || []).filter(function (x) { return +x.mat_id === +it.material_id && (x.state === 'done' || x.source === 'stock'); })[0];
-                        if (!s) return;
+                        /* ★ 지정 자재가 이 스텝에 없으면 하위 반제품 속 → 다른 스텝 순으로 찾는다
+                             (예: 로터 Ass'y 안의 RT보드, 본체 조립에서 투입한 사이드 커버) */
+                        var deep = D.deep_mats || [], lotMat0 = m.lotMat || {};
+                        function findDeep(mid) {
+                            var c = deep.filter(function (y) { return +y.mat_id === +mid && s && +y.step_id === +s.step_id; })[0]
+                                || deep.filter(function (y) { return +y.mat_id === +mid; })[0];
+                            return c;
+                        }
+                        if (!s) {
+                            // 양식 줄에 어셈블리가 없거나 스텝이 없으면 — 지정 자재가 들어간 스텝으로 대신한다
+                            var hit = null;
+                            arr(m.lots).forEach(function (ref) {
+                                var mid = lotMat0[ref]; if (!mid) return;
+                                var c = findDeep(mid), pl = partLot(mid, 1);
+                                if (pl) { put(ref, 'LOT ' + pl); return; }
+                                if (!c) return;
+                                put(ref, 'LOT ' + shortLots(c.lots));
+                                hit = hit || (D.steps || []).filter(function (x) { return +x.step_id === +c.step_id; })[0];
+                            });
+                            if (hit) { put(m.date, hit.end_date); put(m.who, hit.actor_name); }
+                            return;
+                        }
                         put(m.date, s.end_date); put(m.who, s.actor_name);
                         var ids = {};
                         (s.mats || []).forEach(function (x) { ids[x.mat_id] = 1; });
@@ -190,16 +223,21 @@
                         var lotMat = m.lotMat || {}, snMat = m.snMat || {};
                         var mats = (s.mats || []).filter(function (x) { return !x.is_asm && x.lots; });
                         var usedL = {};
+                        var plSeq = {};
                         arr(m.lots).forEach(function (ref) {
                             var mid = lotMat[ref]; if (!mid) return;
+                            var pn = plSeq[mid] = (plSeq[mid] || 0) + 1, pl = partLot(mid, pn);
+                            if (pl) { put(ref, 'LOT ' + pl); usedL[mid] = 1; return; }   // ★ 조립 때 입력한 부품 LOT 우선
                             var x = mats.filter(function (y) { return +y.mat_id === +mid; })[0];
-                            if (x) { put(ref, 'LOT ' + shortLots(x.lots)); usedL[x.mat_id] = 1; }
+                            if (x) { put(ref, 'LOT ' + shortLots(x.lots)); usedL[x.mat_id] = 1; return; }
+                            var c = findDeep(mid);
+                            if (c) put(ref, 'LOT ' + shortLots(c.lots));
                         });
                         /* \ub9e4\uce6d \uc548 \ub41c LOT \uce78 : \uc8fc\uc694\uc790\uc7ac(S/N \uad00\ub9ac \uc790\uc7ac)\ub9cc \uc21c\uc11c\ub300\ub85c. \ubcfc\ud2b8 \uac19\uc740 \uc77c\ubc18 \uc790\uc7ac\ub294 \ub123\uc9c0 \uc54a\ub294\ub2e4.
                            \uc815\ud655\ud788 \ud558\ub824\uba74 \uc591\uc2dd \ud654\uba74 \u00ab\uc8fc\uc694\uc790\uc7ac \ub9e4\uce6d\u00bb \uc5d0\uc11c \uce78\ub9c8\ub2e4 \uc790\uc7ac\ub97c \uace0\ub978\ub2e4. */
                         fillList(arr(m.lots).filter(function (ref) { return !lotMat[ref]; }),
                             mats.filter(function (x) { return !usedL[x.mat_id] && x.sn_yn === 'Y'; }).map(function (x) { return 'LOT ' + shortLots(x.lots); }), put);
-                        var snList = (D.sns || []).filter(function (x) { return +x.step_id === +s.step_id || ids[x.mat_id]; });
+                        var snList = (D.sns || []).filter(function (x) { return x.serial_no && (+x.step_id === +s.step_id || ids[x.mat_id]); });
                         var usedS = {}, seqOf = {};
                         arr(m.sns).forEach(function (ref) {
                             var mid = snMat[ref]; if (!mid) return;
@@ -211,24 +249,25 @@
                         fillList(arr(m.sns).filter(function (ref) { return !snMat[ref]; }),
                             snList.filter(function (x) { return !usedS[x.mat_id + '/' + x.seq_no]; }).map(function (x) { return 'S/N ' + x.serial_no; }), put);
                     } else if (k === 'pinsp') {
-                        put(m.ref, '\uacf5\uc815-' + refNo(D));
+                        put(m.ref, refTxt('\uacf5\uc815-', D));
                         var p = procForm(D, m.form);
                         if (p) { put(m.judge, judgeTxt(p.verdict)); put(m.date, p.end_date); put(m.who, p.actor_name); }
                     } else if (k === 'finsp') {
-                        put(m.ref, '\uc644\uc81c\ud488-' + refNo(D));
+                        put(m.ref, refTxt('\uc644\uc81c\ud488-', D));
                         if (fis.length) {
                             put(m.judge, fis.every(function (x) { return x.verdict === 'pass'; }) ? '\ud569\uaca9' : '\ubd88\ud569\uaca9');
                             put(m.date, fis.map(function (x) { return x.end_date || ''; }).sort().pop()); put(m.who, fis[0].actor_name);
                         }
                     } else if (k === 'final') {
-                        put(m.ref, '\ucd5c\uc885-' + refNo(D));
+                        put(m.ref, refTxt('\ucd5c\uc885-', D));
                         var fc = packChecks(D, m.form || 'FP-ALL-FINAL');
                         if (fc.length) {
                             put(m.judge, fc.some(function (x) { return x.result === 'fail'; }) ? '\ubd88\ud569\uaca9' : '\ud569\uaca9');
-                            put(m.date, D.pack.end_date); put(m.who, D.pack.actor_name);
+                            put(m.date, D.pack.end_date); put(m.who, finWho(fc) || D.pack.actor_name);
                         }
                     } else if (k === 'pack') {
-                        var pc = packChecks(D, m.form);
+                        // \u2605 \uc7ac\uacf5\ud488 \uccb4\ud06c\ub294 \uc5d1\uc140\uc5d0 \uce78\uc774 \uc5c6\ub2e4(\u00ab-\u00bb) \u2014 \uc21c\uc11c\ub300\ub85c \uce78\uc744 \ucc44\uc6b8 \ub54c \ube7c\uc57c \ub4a4 \uce78\uc774 \ubc00\ub9ac\uc9c0 \uc54a\ub294\ub2e4
+                        var pc = packChecks(D, m.form).filter(function (x) { return !/\uc7ac\uacf5\ud488/.test(x.item_name || ''); });
                         if (pc.length && D.pack) { put(m.date, D.pack.end_date); put(m.who, D.pack.actor_name); }
                         ptr[m.form] = ptr[m.form] || 0;
                         arr(m.eas).forEach(function (ref) {
@@ -261,7 +300,7 @@
         function put(ref, v) { if (ref && v != null && v !== '') c[ref] = String(v); }
 
         if (doc === 'F803-6') {
-            put(L.lot, 'Lot No. : ' + lot); put(L.ref, '\uacf5\uc815-' + refNo(D));
+            put(L.lot, 'Lot No. : ' + lot); put(L.ref, refTxt('\uacf5\uc815-', D));
             L.groups.forEach(function (g) {
                 var f = procForm(D, 'PI-' + model + '-' + g.code.replace('#', ''));
                 if (!f) return;
@@ -276,7 +315,7 @@
         }
 
         if (doc === 'F803-7') {
-            put(L.lot, 'Lot No. : ' + lot); put(L.ref, '\uc644\uc81c\ud488-' + refNo(D));
+            put(L.lot, 'Lot No. : ' + lot); put(L.ref, refTxt('\uc644\uc81c\ud488-', D));
             L.groups.forEach(function (g) {
                 var f = finalForm(D, g.code);
                 if (!f) return;
@@ -294,7 +333,7 @@
         }
 
         if (doc === 'F803-8') {
-            put(L.lot, 'Lot No. : ' + lot); put(L.ref, '\ucd5c\uc885-' + refNo(D));
+            put(L.lot, 'Lot No. : ' + lot); put(L.ref, refTxt('\ucd5c\uc885-', D));
             var ch = packChecks(D, 'FP-ALL-FINAL');
             L.rows.forEach(function (row, k) {
                 var it = ch.filter(function (x) { return +x.seq_no === k + 1; })[0];
@@ -302,7 +341,7 @@
                 if (k < 5) put(L.cols.val + row, it.value);        // 6\u00b77\ud589(Check List)\uc740 \uc591\uc2dd\uc758 \uccb4\ud06c \ubb38\uad6c\ub97c \uc9c0\ud0a4\ub824\uace0 \ube44\uc6b4\ub2e4
                 put(L.cols.judge + row, judgeTxt(it.result));
                 put(L.cols.date + row, D.pack.end_date);
-                put(L.cols.who + row, D.pack.actor_name);
+                put(L.cols.who + row, it.actor_name || D.pack.actor_name);
             });
         }
 
@@ -329,20 +368,20 @@
                     fillList(b.sns, sns, put);
                 } else if (b.kind === 'pinsp') {
                     var f = procForm(D, 'PI-' + model + '-' + b.code.replace('#', ''));
-                    put('E' + b.row, '\uacf5\uc815-' + refNo(D));
+                    put('E' + b.row, refTxt('\uacf5\uc815-', D));
                     if (f) { put('F' + b.row, judgeTxt(f.verdict)); put('G' + b.row, f.end_date); put('I' + b.row, f.actor_name); }
                 } else if (b.kind === 'finsp') {
-                    put('E' + b.row, '\uc644\uc81c\ud488-' + lot);
+                    put('E' + b.row, refTxt('\uc644\uc81c\ud488-', D));
                     if (allFinal.length) {
                         put('F' + b.row, finalPass ? '\ud569\uaca9' : '\ubd88\ud569\uaca9');
                         put('G' + b.row, allFinal.map(function (x) { return x.end_date || ''; }).sort().pop());
                         put('I' + b.row, allFinal[0].actor_name);
                     }
                 } else if (b.kind === 'final') {
-                    put('E' + b.row, '\ucd5c\uc885-' + lot);
+                    put('E' + b.row, refTxt('\ucd5c\uc885-', D));
                     if (fChecks.length) {
                         put('F' + b.row, fChecks.some(function (x) { return x.result === 'fail'; }) ? '\ubd88\ud569\uaca9' : '\ud569\uaca9');
-                        put('G' + b.row, D.pack.end_date); put('I' + b.row, D.pack.actor_name);
+                        put('G' + b.row, D.pack.end_date); put('I' + b.row, finWho(fChecks) || D.pack.actor_name);
                     }
                 } else if (b.kind === 'pack') {
                     if (D.pack && packItems.length) { put('G' + b.row, D.pack.end_date); put('I' + b.row, D.pack.actor_name); }
@@ -437,6 +476,93 @@
         is.appendChild(t); cell.appendChild(is);
     }
     function parse(s) { return new DOMParser().parseFromString(s, 'application/xml'); }
+
+    /* ── 양식 시트의 원래 글자 {A1: '...'} ── */
+    function readCells(sd, sst) {
+        var ss = [];
+        if (sst) {
+            var si = sst.getElementsByTagNameNS(sst.documentElement.namespaceURI, 'si');
+            for (var i = 0; i < si.length; i++) {
+                var ts = si[i].getElementsByTagNameNS(sst.documentElement.namespaceURI, 't'), s = '';
+                for (var j = 0; j < ts.length; j++) s += ts[j].textContent;
+                ss.push(s);
+            }
+        }
+        var out = {}, cs = sd.getElementsByTagNameNS(sd.namespaceURI, 'c');
+        for (var k = 0; k < cs.length; k++) {
+            var c = cs[k], t = c.getAttribute('t'), v = c.getElementsByTagNameNS(sd.namespaceURI, 'v')[0], txt = null;
+            if (t === 's' && v) txt = ss[+v.textContent];
+            else if (t === 'inlineStr') { var tt = c.getElementsByTagNameNS(sd.namespaceURI, 't'); txt = ''; for (var q = 0; q < tt.length; q++) txt += tt[q].textContent; }
+            else if (v) txt = v.textContent;
+            if (txt != null && String(txt).trim() !== '') out[c.getAttribute('r')] = String(txt);
+        }
+        return out;
+    }
+
+    /* ══ ★ 제조공정관리 주요자재 = 양식 D열의 R-품번으로 찾는다 ══
+       D열에 R-품번(R2001…)이 있는 줄부터, 다음 공정번호(B열)나 다른 D열 글자가 나올 때까지가 한 묶음.
+       묶음의 E열 칸 글자에 «LOT» 이 있으면 LOT, «S/N»(MR2·MBM2…) 이 있으면 S/N 을 넣는다.
+       값은 품목의 R-품번이 같은 자재에서 — 조립 때 입력한 부품 LOT/S/N, 없으면 투입 로트(하위 반제품 속까지).
+       같은 R-품번 칸이 여러 개면 1번째 칸 = 1번째 입력, 2번째 칸 = 2번째 입력.
+       값이 없는 칸은 양식 원래 글자(LOT____)로 둔다 — 엉뚱한 자재가 들어가지 않는다. */
+    function rcodeFill(T, D, cells) {
+        var K = {};
+        function key(rc) { return K[rc] = K[rc] || {pl: [], sn: [], lots: []}; }
+        function codesOf(v) { return String(v || '').toUpperCase().match(/R\d{4}/g) || []; }   // 품목 하나에 R-품번 여러 개 가능 (R2035,R2036)
+        (D.sns || []).slice().sort(function (a, b) { return (+a.mat_id - +b.mat_id) || (+a.seq_no - +b.seq_no); })
+            .forEach(function (x) {
+                codesOf(x.r_code).forEach(function (rc) {
+                    var e = key(rc);
+                    // 한 칸에 콤마로 여러 개 적었으면 양식의 같은 R-품번 칸에 차례로 나눈다
+                    if (x.part_lot) String(x.part_lot).split(/\s*,\s*/).filter(Boolean).forEach(function (v) { e.pl.push(v); });
+                    if (x.serial_no) String(x.serial_no).split(/\s*,\s*/).filter(Boolean).forEach(function (v) { e.sn.push(v); });
+                });
+            });
+        // 투입 로트 — 가장 가까운 단계(유닛 자기 작업)의 로트만, 중복 없이
+        var best = {};
+        (D.deep_mats || []).forEach(function (x) {
+            if (!x.lots) return;
+            codesOf(x.r_code).forEach(function (rc) {
+                var d = +x.depth || 0;
+                if (best[rc] == null || d < best[rc]) { best[rc] = d; key(rc).lots = []; }
+                if (d === best[rc]) String(x.lots).split(/\s*,\s*/).forEach(function (l) { if (l && key(rc).lots.indexOf(l) < 0) key(rc).lots.push(l); });
+            });
+        });
+        if (!Object.keys(K).length) return;        // 품목에 R-품번이 아직 없으면 예전 방식 그대로
+        var rows = {};
+        Object.keys(T).forEach(function (ref) {
+            var m = /^([A-Z]+)(\d+)$/.exec(ref); if (!m) return;
+            (rows[+m[2]] = rows[+m[2]] || {})[m[1]] = T[ref];
+        });
+        var used = {}, cur = null;
+        function lotOf(rc) {
+            var e = K[rc], n = used[rc + 'L'] = (used[rc + 'L'] || 0) + 1;
+            if (!e) return null;
+            if (e.pl[n - 1]) return e.pl[n - 1];
+            if (e.pl.length) return e.pl[e.pl.length - 1];        // 같은 R-품번 LOT 칸이 더 있으면 같은 로트
+            // ★ 부품 LOT 을 비워 두었으면 실제 투입한 재고 로트를 찍는다
+            return (n === 1 && e.lots.length) ? e.lots.join(', ') : null;     // «외 n» 으로 줄이지 않는다
+        }
+        function snOf(rc) {
+            var e = K[rc], n = used[rc + 'S'] = (used[rc + 'S'] || 0) + 1;
+            return e && e.sn[n - 1] ? e.sn[n - 1] : null;
+        }
+        Object.keys(rows).map(Number).sort(function (a, b) { return a - b; }).forEach(function (r) {
+            var row = rows[r], B = String(row.B || '').trim(), Dv = String(row.D || '').trim(), E = row.E;
+            var codes = Dv.toUpperCase().match(/R\d{4}/g);
+            if (codes) cur = {codes: codes, li: 0, si: 0};
+            else if (B || Dv) cur = null;
+            if (!cur || E == null) return;
+            var isSn = /S\s*\/\s*N|MR\d|MB[MS]\d/i.test(E), isLot = /LOT/i.test(E);
+            if (!isSn && !isLot) return;
+            var ref = 'E' + r, lot = null, sn = null;
+            if (isLot) lot = lotOf(cur.codes[Math.min(cur.li++, cur.codes.length - 1)]);
+            if (isSn) sn = snOf(cur.codes[Math.min(cur.si++, cur.codes.length - 1)]);
+            if (lot == null && sn == null) { cells[ref] = E; return; }          // 값 없음 → 양식 글자 그대로
+            if (isLot && isSn) cells[ref] = 'LOT ' + (lot || '______') + ' / S/N ' + (sn || '______');
+            else cells[ref] = isLot ? 'LOT ' + lot : (/B\/T/i.test(E) ? 'B/T S/N ' : 'S/N ') + sn;
+        });
+    }
     function ser(d) { return new XMLSerializer().serializeToString(d); }
 
     function buildXlsx(doc, model, D, printOnly) {
@@ -453,7 +579,12 @@
                 .then(function (a) {
                     var wb = parse(a[0]), rels = parse(a[1]);
                     var sheets = wb.getElementsByTagName('sheet');
-                    var sh = sheets[Math.min(layoutOf(model, doc).sheet || 0, sheets.length - 1)];
+                    /* \u2605 \uc591\uc2dd \uc2dc\ud2b8 = \u00abRevision History\u00bb \uac00 \uc544\ub2cc \uccab \uc2dc\ud2b8. (\uc608\uc804\uc5d4 \ub0b4\uc7a5 LAYOUT \uc758 \ubc88\ud638\ub97c \uc37c\ub294\ub370 \uc5c6\uc5b4\uc9c0\uba74\uc11c 0\ubc88 = \uac1c\uc815\uc774\ub825\uc5d0 \uac12\uc744 \ucc44\uc6e0\ub2e4) */
+                    var sh = null;
+                    for (var q = 0; q < sheets.length; q++) {
+                        if (!/revision/i.test(sheets[q].getAttribute('name') || '')) { sh = sheets[q]; break; }
+                    }
+                    if (!sh) sh = sheets[sheets.length - 1];
                     var rid = sh.getAttributeNS(NS_REL, 'id') || sh.getAttribute('r:id');
                     var target = null, rl = rels.getElementsByTagName('Relationship');
                     for (var i = 0; i < rl.length; i++) if (rl[i].getAttribute('Id') === rid) target = rl[i].getAttribute('Target');
@@ -479,14 +610,17 @@
                         var c = parse(ct), ov = c.getElementsByTagName('Override');
                         for (var j = ov.length - 1; j >= 0; j--) if (/calcChain/.test(ov[j].getAttribute('PartName'))) ov[j].parentNode.removeChild(ov[j]);
                         zip.file('[Content_Types].xml', ser(c));
-                        return zip.file(path).async('string');
-                    }).then(function (sx) {
-                        var xml = parse(sx), sd = xml.getElementsByTagName('sheetData')[0];
+                        return Promise.all([zip.file(path).async('string'),
+                            (doc === 'F705-33' && zip.file('xl/sharedStrings.xml')) ? zip.file('xl/sharedStrings.xml').async('string') : null]);
+                    }).then(function (a2) {
+                        var sx = a2[0], xml = parse(sx), sd = xml.getElementsByTagName('sheetData')[0];
+                        var TPL = (doc === 'F705-33') ? readCells(sd, a2[1] ? parse(a2[1]) : null) : null;   // ★ 양식 원래 글자 (R-품번 읽기용)
                         // \uc591\uc2dd\uc5d0 \ub0a8\uc544 \uc788\ub358 \uc218\uc2dd \uc624\ub958(#VALUE!) \uce78\uc740 \ube44\uc6b4\ub2e4
                         Array.prototype.slice.call(sd.getElementsByTagNameNS(sd.namespaceURI, 'c')).forEach(function (c) {
                             if (c.getAttribute('t') === 'e') { while (c.firstChild) c.removeChild(c.firstChild); c.removeAttribute('t'); }
                         });
                         var cells = cellsFor(doc, model, D);
+                        if (TPL) rcodeFill(TPL, D, cells);
                         return zip.file('xl/styles.xml').async('string').then(function (stx) {
                             var sdoc = parse(stx), cx = sdoc.getElementsByTagName('cellXfs')[0];
                             STY = cx ? {doc: sdoc, ns: cx.namespaceURI, cellXfs: cx, map: {}} : null;
@@ -494,12 +628,94 @@
                             if (STY) zip.file('xl/styles.xml', ser(sdoc));
                             STY = null;
                             zip.file(path, ser(xml));
-                            return zip.generateAsync({type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+                            // \u2605 \ucd5c\uc885\uac80\uc0ac \u2014 \ucd9c\uace0\ub77c\ubca8 \uc0ac\uc9c4\uc744 \u00ab\ucd9c\uace0\ub77c\ubca8\ubd80\ucc29\u00bb \uce78(D9:F13)\uc5d0 \ub123\ub294\ub2e4
+                            var ph = (doc === 'F803-8') ? D.label_photo : null;
+                            return (ph && ph.url ? addPhoto(zip, path, photoRange(D), ph.url).catch(function (e) { console.warn('[mcell_doc] photo', e); }) : Promise.resolve())
+                                .then(function () {
+                                    return zip.generateAsync({type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+                                });
                         });
                     });
                 });
         });
     }
+    /* \u2500\u2500 \u2605 \uc0ac\uc9c4 \ub123\uae30 (\uc591\uc2dd \uc2dc\ud2b8\uc758 \uae30\uc874 \uadf8\ub9bc\ud310\uc5d0 \ud55c \uc7a5 \ucd94\uac00) \u2500\u2500 */
+    function photoRange(D) {
+        // \uac80\uc0ac \uc591\uc2dd(FP-ALL-FINAL) \uba38\ub9ac\uce78\uc5d0 "photo":"D9:F13" \uc744 \ub123\uc73c\uba74 \uadf8 \uce78\uc744 \uc4f4\ub2e4
+        var f = (D.doc_forms || []).filter(function (x) { return x.doc_code === 'F803-8'; })[0];
+        var h = f ? pcm(f.cell_map) : {};
+        return h.photo || 'D9:F13';
+    }
+    function colIdx(letters) { var n = 0; for (var i = 0; i < letters.length; i++) n = n * 26 + (letters.charCodeAt(i) - 64); return n - 1; }
+    function addPhoto(zip, sheetPath, range, url) {
+        var m = /^([A-Z]+)(\d+):([A-Z]+)(\d+)$/.exec(range);
+        if (!m) return Promise.resolve();
+        var dir = sheetPath.substring(0, sheetPath.lastIndexOf('/'));
+        var relsPath = dir + '/_rels/' + sheetPath.substring(sheetPath.lastIndexOf('/') + 1) + '.rels';
+        var ext = 'jpeg', bytes;
+        return fetch(url, {credentials: 'same-origin'}).then(function (r) {
+            if (!r.ok) throw new Error('photo ' + r.status);
+            if (/png/i.test(r.headers.get('Content-Type') || '')) ext = 'png';
+            return r.arrayBuffer();
+        }).then(function (b) {
+            bytes = b;
+            return Promise.all([zip.file(sheetPath).async('string'), zip.file(relsPath) ? zip.file(relsPath).async('string') : null]);
+        }).then(function (a) {
+            var sx = parse(a[0]);
+            var dr = sx.getElementsByTagName('drawing')[0];
+            if (!dr || !a[1]) throw new Error('\uc2dc\ud2b8\uc5d0 \uadf8\ub9bc\ud310\uc774 \uc5c6\uc74c');
+            var rid = dr.getAttributeNS(NS_REL, 'id') || dr.getAttribute('r:id');
+            var rels = parse(a[1]), rl = rels.getElementsByTagName('Relationship'), target = null;
+            for (var i = 0; i < rl.length; i++) if (rl[i].getAttribute('Id') === rid) target = rl[i].getAttribute('Target');
+            var dPath = target.charAt(0) === '/' ? target.substring(1) : normPath(dir + '/' + target);
+            var dDir = dPath.substring(0, dPath.lastIndexOf('/'));
+            var dRels = dDir + '/_rels/' + dPath.substring(dPath.lastIndexOf('/') + 1) + '.rels';
+            var media = 'mcellphoto_' + Date.now() + '.' + (ext === 'png' ? 'png' : 'jpeg');
+            zip.file('xl/media/' + media, bytes);
+            return Promise.all([zip.file(dPath).async('string'),
+                zip.file(dRels) ? zip.file(dRels).async('string') : Promise.resolve('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>'),
+                zip.file('[Content_Types].xml').async('string')]).then(function (b) {
+                var drel = parse(b[1]), root = drel.documentElement, newId = 'rIdMcellPhoto';
+                var rel = drel.createElementNS(root.namespaceURI, 'Relationship');
+                rel.setAttribute('Id', newId);
+                rel.setAttribute('Type', 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image');
+                rel.setAttribute('Target', '../media/' + media);
+                root.appendChild(rel);
+                zip.file(dRels, ser(drel));
+
+                var c1 = colIdx(m[1]), r1 = +m[2] - 1, c2 = colIdx(m[3]) + 1, r2 = +m[4];
+                var X = 'http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing',
+                    A = 'http://schemas.openxmlformats.org/drawingml/2006/main',
+                    R = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+                var frag = '<xdr:twoCellAnchor xmlns:xdr="' + X + '" xmlns:a="' + A + '" xmlns:r="' + R + '" editAs="oneCell">' +
+                    '<xdr:from><xdr:col>' + c1 + '</xdr:col><xdr:colOff>38100</xdr:colOff><xdr:row>' + r1 + '</xdr:row><xdr:rowOff>38100</xdr:rowOff></xdr:from>' +
+                    '<xdr:to><xdr:col>' + c2 + '</xdr:col><xdr:colOff>-38100</xdr:colOff><xdr:row>' + r2 + '</xdr:row><xdr:rowOff>-38100</xdr:rowOff></xdr:to>' +
+                    '<xdr:pic><xdr:nvPicPr><xdr:cNvPr id="9001" name="LabelPhoto"/><xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr></xdr:nvPicPr>' +
+                    '<xdr:blipFill><a:blip r:embed="' + newId + '"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill>' +
+                    '<xdr:spPr><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic><xdr:clientData/></xdr:twoCellAnchor>';
+                var dd = parse(b[0]), node = parse(frag).documentElement;
+                dd.documentElement.appendChild(dd.importNode(node, true));
+                zip.file(dPath, ser(dd));
+
+                var ct = parse(b[2]), types = ct.documentElement, ex = ext === 'png' ? 'png' : 'jpeg', has = false;
+                var defs = ct.getElementsByTagName('Default');
+                for (var j = 0; j < defs.length; j++) if ((defs[j].getAttribute('Extension') || '').toLowerCase() === ex) has = true;
+                if (!has) {
+                    var d = ct.createElementNS(types.namespaceURI, 'Default');
+                    d.setAttribute('Extension', ex);
+                    d.setAttribute('ContentType', ex === 'png' ? 'image/png' : 'image/jpeg');
+                    types.insertBefore(d, types.firstChild);
+                    zip.file('[Content_Types].xml', ser(ct));
+                }
+            });
+        });
+    }
+    function normPath(p) {
+        var out = [];
+        p.split('/').forEach(function (s) { if (s === '..') out.pop(); else if (s && s !== '.') out.push(s); });
+        return out.join('/');
+    }
+
     function download(blob, name) {
         var a = document.createElement('a');
         a.href = URL.createObjectURL(blob); a.download = name;
@@ -553,7 +769,7 @@
         if (doc === 'F803-8') {
             var ch = packChecks(D, 'FP-ALL-FINAL');
             h += '<p>\ucd9c\ud558 \uad6c\ubd84 : ' + esc((ch[0] && ch[0].dest) || '-') + ' \u00b7 \ubc15\uc2a4 \ub77c\ubca8 : ' + esc((D.pack && D.pack.box_label) || '-') +
-                ' \u00b7 \uac80\uc0ac\uc77c ' + esc((D.pack && D.pack.end_date) || '-') + ' \u00b7 \uac80\uc0ac\uc790 ' + esc((D.pack && D.pack.actor_name) || '-') + '</p>' +
+                ' \u00b7 \uac80\uc0ac\uc77c ' + esc((D.pack && D.pack.end_date) || '-') + ' \u00b7 \uac80\uc0ac\uc790 ' + esc(finWho(ch) || (D.pack && D.pack.actor_name) || '-') + '</p>' +
                 tbl(['No', '\ud56d\ubaa9', '\uacb0\uacfc', '\ud310\uc815'], ch.map(function (i) { return [i.seq_no, i.item_name, i.value, judgeTxt(i.result)]; }));
         }
         var w = window.open('', '_blank');

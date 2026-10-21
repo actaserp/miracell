@@ -177,6 +177,7 @@ public class MaterialService {
 			, m."SterilizationYN"
 			, m."InspectYN"
 			, COALESCE(m."SnYN",'N') AS "SnYN"   -- ★ S/N 관리(주요자재)
+			, m."RCode" AS "RCode"               -- ★ R-품번(주요자재 식별번호)
             from material m
             left join mat_grp mg on m."MaterialGroup_id" = mg.id
             left join unit u on u.id = m."Unit_id"
@@ -241,6 +242,8 @@ public class MaterialService {
 		dicParam.addValue("sterilizationYN", data.containsKey("SterilizationYN") ? "Y" : "N");
 		dicParam.addValue("inspectYN", data.containsKey("InspectYN") ? "Y" : "N");
 		dicParam.addValue("snYN", data.containsKey("SnYN") ? "Y" : "N");   // ★ S/N 관리(주요자재)
+		String rc = CommonUtil.tryString(data.getFirst("RCode"));
+		dicParam.addValue("rCode", rc == null || rc.isBlank() ? null : rc.trim().toUpperCase());   // ★ R-품번
 		dicParam.addValue("avrqty", CommonUtil.tryString(data.getFirst("avrqty")));
 
 		dicParam.addValue("packingUnitQty", CommonUtil.tryFloatNull(data.getFirst("PackingUnitQty")));
@@ -338,6 +341,7 @@ public class MaterialService {
 						 , "SterilizationYN"
 						 , "InspectYN"
 						 , "SnYN"
+						 , "RCode"
 						 )
 						VALUES
 						(now()
@@ -408,6 +412,7 @@ public class MaterialService {
 						 , :sterilizationYN
 						 , :inspectYN
 						 , :snYN
+						 , :rCode
 						)
 						RETURNING id
 					""";
@@ -470,6 +475,7 @@ public class MaterialService {
 					, "SterilizationYN" = :sterilizationYN
 					, "InspectYN" = :inspectYN
 					, "SnYN" = :snYN
+					, "RCode" = :rCode
 					WHERE id = :id
 					AND spjangcd = :spjangcd
 					""";

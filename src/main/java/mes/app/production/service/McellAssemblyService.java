@@ -222,17 +222,18 @@ public class McellAssemblyService {
                                               AND b2."BOMType"='manufacturing')
                   ) bm ON true
                   LEFT JOIN LATERAL (
-                        SELECT SUM(x.q)::int AS need, string_agg(x.mid::text, ',') AS mids
-                             , SUM(LEAST(x.q, (SELECT COUNT(*) FROM mcell_unit_sn us
+                        SELECT COUNT(*)::int AS need, string_agg(x.mid::text, ',') AS mids   -- ★ 주요자재 1종 = LOT 1칸
+                             , SUM(LEAST(1, (SELECT COUNT(*) FROM mcell_unit_sn us
                                                 WHERE us."McellUnit_id" = st."McellUnit_id"
                                                   AND us."Material_id" = x.mid
+                                                  AND COALESCE(us."PartLotNo",'') <> ''   -- ★ 주요자재 = LOT 입력 필수
                                                   AND COALESCE(us."_status",'a') = 'a')))::int AS done
                           FROM (SELECT bc."Material_id" AS mid,
                                        GREATEST(1, ROUND(bc."Amount" / NULLIF(b."OutputAmount",0)))::int AS q
                                   FROM bom b JOIN bom_comp bc ON bc."BOM_id" = b.id
                                   JOIN material sm ON sm.id = bc."Material_id"
                                  WHERE b."Material_id" = st."Material_id" AND b."BOMType"='manufacturing'
-                                   AND COALESCE(sm."SnYN",'N') = 'Y') x
+                                   AND NULLIF(sm."RCode",'') IS NOT NULL) x   -- ★ 주요자재 = R-품번 있는 자재 (LOT 필수)
                   ) sq ON true
                   LEFT JOIN LATERAL (
                         SELECT f.id AS form_id, f."Name" AS form_name
@@ -403,7 +404,8 @@ public class McellAssemblyService {
                      , draft.lot_id                         AS lot_id
                      , dl."LotNumber"                       AS lot_number
                      , used.used_lots                       AS used_lots
-                     , COALESCE(m."SnYN",'N')                AS sn_yn
+                     , COALESCE(m."SnYN",'N')                AS sn_yn    -- S/N 입력칸
+                     , NULLIF(m."RCode",'')                 AS r_code   -- LOT 입력칸(주요자재)
                      , (CASE WHEN COALESCE(m."InspectYN",'N')='Y' THEN 19 ELSE 17 END) AS src_store
                      , sh."Name" AS src_store_name
                      , COALESCE(stk.stock, 0) AS stock
@@ -735,9 +737,7 @@ public class McellAssemblyService {
         if ("done".equals(st.get("state"))) { r.success = false; r.message = "이미 완료된 스텝입니다."; return r; }
 
         Integer unitId = asInt(st.get("unit_id"));
-        // ★ 모든 조립의 첫 작업은 프로그램 다운로드다
-        AjaxResult dlOk = checkDownloadDone(unitId);
-        if (!dlOk.success) return dlOk;
+        // ★ 프로그램 다운로드는 순서를 막지 않는다 (10/21) — 완료 안 돼도 조립 진행 가능
         AjaxResult lock = checkKidsDone(unitId, asInt(st.get("mat_id")), str(st.get("source")));
         if (!lock.success) return lock;
 
@@ -1276,6 +1276,7 @@ public class McellAssemblyService {
         return this.sqlRunner.getRows("""
                 SELECT sn.id AS sn_id, sn."Material_id" AS mat_id, sn."SeqNo" AS seq_no,
                        sn."SerialNo" AS serial_no, sn."MatLot_id" AS mat_lot_id, sn."LotNumber" AS lot_number,
+                       sn."PartLotNo" AS part_lot,
                        sn."McellUnitStep_id" AS step_id
                   FROM mcell_unit_sn sn
                  WHERE sn."McellUnit_id" = :uid AND COALESCE(sn."_status",'a')='a'
@@ -1289,26 +1290,29 @@ public class McellAssemblyService {
      */
     @Transactional
     public AjaxResult saveSn(Integer unitId, Integer stepId, Integer matId, Integer seqNo, String serial,
-                             Integer matLotId, String spjangcd, User user) {
+                             Integer matLotId, String partLot, String spjangcd, User user) {
         AjaxResult r = new AjaxResult();
         r.success = true;
         Integer uid = resolveUnit(unitId, stepId);
         if (uid == null) { r.success = false; r.message = "유닛을 찾을 수 없습니다."; return r; }
         String sn = (serial == null) ? "" : serial.trim();
+        String pl = (partLot == null) ? null : partLot.trim();          // ★ 부품 LOT (null = 이번엔 안 건드림)
         MapSqlParameterSource p = new MapSqlParameterSource()
+                .addValue("pl", pl)
                 .addValue("uid", uid).addValue("stepId", stepId)
                 .addValue("matId", matId).addValue("seq", seqNo == null ? 1 : seqNo)
                 .addValue("sn", sn).addValue("lotId", matLotId)
                 .addValue("userId", user.getId()).addValue("spjangcd", spjangcd);
 
         Map<String, Object> ex = this.sqlRunner.getRow("""
-                SELECT id, "SerialNo" AS serial_no FROM mcell_unit_sn
+                SELECT id, "SerialNo" AS serial_no, "PartLotNo" AS part_lot FROM mcell_unit_sn
                  WHERE "McellUnit_id"=:uid AND "Material_id"=:matId AND "SeqNo"=:seq
                    AND COALESCE("_status",'a')='a'
                 """, p);
         String before = ex == null ? "" : String.valueOf(ex.get("serial_no") == null ? "" : ex.get("serial_no"));
 
-        if (sn.isEmpty()) {
+        String plAfter = pl != null ? pl : (ex == null || ex.get("part_lot") == null ? "" : String.valueOf(ex.get("part_lot")));
+        if (sn.isEmpty() && plAfter.isEmpty()) {          // ★ S/N · LOT 둘 다 비면 지운다
             this.sqlRunner.execute("""
                     DELETE FROM mcell_unit_sn
                      WHERE "McellUnit_id"=:uid AND "Material_id"=:matId AND "SeqNo"=:seq
@@ -1316,15 +1320,17 @@ public class McellAssemblyService {
         } else if (ex == null) {
             this.sqlRunner.execute("""
                     INSERT INTO mcell_unit_sn ("McellUnit_id","McellUnitStep_id","Material_id","SeqNo","SerialNo",
-                                               "MatLot_id","LotNumber","_status","_created","_creater_id",spjangcd)
-                    VALUES (:uid,CAST(:stepId AS integer),:matId,:seq,:sn,CAST(:lotId AS integer),
+                                               "MatLot_id","LotNumber","PartLotNo","_status","_created","_creater_id",spjangcd)
+                    VALUES (:uid,CAST(:stepId AS integer),:matId,:seq,NULLIF(:sn,''),CAST(:lotId AS integer),
                             (SELECT "LotNumber" FROM mat_lot WHERE id = CAST(:lotId AS integer)),
+                            NULLIF(CAST(:pl AS varchar),''),
                             'a',now(),:userId,:spjangcd)
                     """, p);
         } else {
             this.sqlRunner.execute("""
                     UPDATE mcell_unit_sn
-                       SET "SerialNo"=:sn,
+                       SET "SerialNo"=NULLIF(:sn,''),
+                           "PartLotNo"=CASE WHEN CAST(:pl AS varchar) IS NULL THEN "PartLotNo" ELSE NULLIF(CAST(:pl AS varchar),'') END,
                            "McellUnitStep_id"=COALESCE(CAST(:stepId AS integer),"McellUnitStep_id"),
                            "MatLot_id"=COALESCE(CAST(:lotId AS integer),"MatLot_id"),
                            "LotNumber"=COALESCE((SELECT "LotNumber" FROM mat_lot WHERE id = CAST(:lotId AS integer)),"LotNumber"),

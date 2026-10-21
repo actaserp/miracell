@@ -883,12 +883,22 @@
         /* ★ 주요자재 S/N — 투입 수량만큼 칸을 만든다. 칸마다 바로 저장(비우면 삭제).
              스텝 완료 뒤에도 고칠 수 있다 — 재고와 무관한 기록이라서. */
         function snCount(r) { return Object.values(r.sns || {}).filter(v => v && String(v).trim()).length; }
+        function snLab(r) { return (r.r_code ? r.r_code + ' ' : '') + 'LOT ' + Math.min(1, plCount(r)) + '/1'; }
+        function plCount(r) { return Object.values(r.plots || {}).filter(v => v && String(v).trim()).length; }
         function snBox(r, i, bi) {
-            const n = Math.max(1, Math.round(bomQ(r)) || 1);
+            /* ★ 주요자재는 수량과 상관없이 LOT 1칸 · S/N 1칸 (양식 R-품번 줄도 1칸).
+                 여러 개가 로트·S/N 이 다르면 한 칸에 콤마로 적는다. 예전에 #2 로 입력해 둔 값이 있으면 그 칸도 보여준다 */
+            const keys = Object.keys(Object.assign({}, r.sns || {}, r.plots || {})).map(Number);
+            const n = Math.max(1, keys.length ? Math.max.apply(null, keys) : 1);
             let h = '<div class="snbox">';
+            const wantLot = !!r.r_code || plCount(r) > 0, wantSn = r.sn_yn === 'Y' || snCount(r) > 0;
             for (let k = 1; k <= n; k++) {
-                const v = (r.sns || {})[k] || '';
-                h += '<label>' + (n > 1 ? '#' + k : 'S/N') +
+                const v = (r.sns || {})[k] || '', lv = (r.plots || {})[k] || '';
+                /* ★ 주요자재는 LOT 과 S/N 을 같이 받는다 (5차 #2) — 제조공정관리 LOT 칸에 이 값이 우선 들어간다 */
+                if (wantLot) h += '<label>' + (n > 1 ? '#' + k + ' LOT' : 'LOT') +
+                    '<input data-snlot="' + i + ',' + bi + ',' + k + '" value="' + esc(lv) + '" class="' + (lv ? 'ok' : '') +
+                    '" placeholder="비우면 투입 로트" autocomplete="off" autocapitalize="characters"></label>';
+                if (wantSn) h += '<label>' + (n > 1 ? '#' + k + ' S/N' : 'S/N') +
                     '<input data-sn="' + i + ',' + bi + ',' + k + '" value="' + esc(v) + '" class="' + (v ? 'ok' : '') +
                     '" placeholder="S/N 입력" autocomplete="off" autocapitalize="characters"></label>';
             }
@@ -916,11 +926,11 @@
                 ? '<span class="lotchip ro">LOT ' + esc(r.used_lots || '-') + '</span>'
                 : '<span class="lotchip' + (r.lot_id ? ' set' : '') + '" data-lot="' + i + ',' + bi + '">LOT ' +
                 (r.lot_id ? esc(r.lot_number || ('#' + r.lot_id)) : 'FIFO 자동') + ' ▾</span>';
-            const snOpen = r.sn_yn === 'Y' || snCount(r) > 0;   // ★ S/N 관리 체크된 자재만
-            const snBtn = !snOpen ? '' : '<button class="snbtn' + (snOpen ? ' on' : '') + '" data-sntog="' + i + ',' + bi + '">S/N' +
-                (snCount(r) ? ' ' + snCount(r) + '/' + Math.max(1, Math.round(bomQ(r))) : '') + '</button>';
+            /* ★ R-품번 있으면 LOT 칸(필수), S/N 관리 체크면 S/N 칸 — 둘 다 아니면 칸 없음 (5차 #3) */
+            const snOpen = !!r.r_code || r.sn_yn === 'Y' || snCount(r) > 0 || plCount(r) > 0;   // ★ S/N 관리 체크된 자재만
+            const snBtn = '';   // ★ 주요자재는 LOT·S/N 칸이 항상 열려 있다 — 토글 버튼 불필요
             return '<div class="brow">' + head +
-                '<div class="bc">' + esc(r.mat_code) + ' · 소요 ' + (r.per || 1) +
+                '<div class="bc">' + esc(r.mat_code) + (r.r_code ? ' · <b>' + esc(r.r_code) + '</b>' : '') + ' · 소요 ' + (r.per || 1) +
                 (r.manual ? ' <span class="autotag">수정</span>' : ' <span class="autotag">자동</span>') +
                 ' · 재고 ' + (r.stock || 0) + ' (' + esc(r.src_store_name || '') + ')' + lotChip + '</div></div>' +
                 snBtn +
@@ -985,8 +995,8 @@
         function snStat(s) {
             if (s.mats) {
                 let need = 0, done = 0;
-                s.mats.filter(r => r.sn_yn === 'Y' && r.is_assembly !== 'Y' && bomQ(r) > 0).forEach(r => {
-                    const q = Math.max(1, Math.round(bomQ(r))); need += q; done += Math.min(q, snCount(r));
+                s.mats.filter(r => r.r_code && r.is_assembly !== 'Y' && bomQ(r) > 0).forEach(r => {
+                    need += 1; done += Math.min(1, plCount(r));
                 });
                 return { need, done };
             }
@@ -996,7 +1006,7 @@
             const t = snStat(s);
             if (!t.need) return '';
             const ok = t.done >= t.need;
-            return ' <span class="sntag ' + (ok ? 'ok' : 'miss') + '" data-sntag="' + s.step_id + '">S/N ' + t.done + '/' + t.need + (ok ? ' ✓' : ' 미입력') + '</span>';
+            return ' <span class="sntag ' + (ok ? 'ok' : '') + '" data-sntag="' + s.step_id + '">주요자재 LOT ' + t.done + '/' + t.need + (ok ? ' ✓' : '') + '</span>';
         }
 
         /* ══════════ ★ 공정검사 (조립 중간 검사, F803-6) ══════════
@@ -1222,7 +1232,6 @@
             const g = e.target.closest('[data-go]');
             if (g) {
                 const i = +g.dataset.go;
-                if (!dlDone()) { flash('프로그램 다운로드를 먼저 완료하세요'); return; }
                 if (stepIdx(i).locked) { flash('하위 어셈블리 미완료'); return; }
                 openWhoSheet(i); return;
             }
@@ -1356,9 +1365,9 @@
                 let sns = [];
                 try { sns = await apiGet('/sn_list', {unit_id: curU.unit_id}) || []; } catch (e) { sns = []; }   // ★ 유닛 단위
                 s.mats = rows.map(r => {
-                    const m = {};
-                    sns.filter(x => +x.mat_id === +r.mat_id).forEach(x => { m[x.seq_no] = x.serial_no; });
-                    return Object.assign({}, r, {manual: 0, qty: r.default_qty, sns: m});
+                    const m = {}, pl = {};
+                    sns.filter(x => +x.mat_id === +r.mat_id).forEach(x => { if (x.serial_no) m[x.seq_no] = x.serial_no; if (x.part_lot) pl[x.seq_no] = x.part_lot; });
+                    return Object.assign({}, r, {manual: 0, qty: r.default_qty, sns: m, plots: pl});
                 });
                 loadPi(s);   // ★ 공정검사
                 renderUnit(); openStep(i);
@@ -1377,9 +1386,7 @@
             if (s.mats == null) { await loadStepMats(i); }
             const bom = (s.mats || []).filter(r => r.is_assembly !== 'Y' && bomQ(r) > 0)
                 .map(r => ({matId: r.mat_id, qty: bomQ(r), lotId: r.lot_id || ''}));
-            /* ★ S/N 대상인데 비어 있으면 알려만 준다(막지 않는다 — 완료 후에도 입력할 수 있다) */
-            const miss = (s.mats || []).filter(r => r.sn_yn === 'Y' && r.is_assembly !== 'Y' && snCount(r) < Math.max(1, Math.round(bomQ(r))));
-            if (miss.length) flash('S/N 미입력 : ' + miss.map(r => r.mat_name).join(', ') + ' — 완료 후에도 입력할 수 있습니다');
+            /* ★ 주요자재 LOT 은 선택 — 비우면 제조공정관리에 실제 투입 로트가 찍힌다 */
             await guard(async () => {
                 await apiPost('/step_finish', {
                     step_id: s.step_id,
@@ -1465,6 +1472,24 @@
 
         /* ══════════ ★ S/N 입력 — 칸을 벗어나면 저장 ══════════ */
         document.getElementById('cGrid').addEventListener('change', e => {
+            const li = e.target.closest('[data-snlot]');
+            if (li) {   // ★ 부품 LOT
+                const [i, bi, k] = li.dataset.snlot.split(',').map(Number);
+                const s = stepIdx(i), r = s.mats[bi], v = li.value.trim();
+                r.plots = r.plots || {};
+                apiPostSilent('/sn_save', {unit_id: curU.unit_id, step_id: s.step_id, material_id: r.mat_id, seq_no: k,
+                    serial_no: (r.sns || {})[k] || '', part_lot: v || ' ', mat_lot_id: r.lot_id || ''})
+                    .then(function (res) {
+                        if (res && res.success === false) { flash(res.message || 'LOT 저장 실패'); return; }
+                        r.plots[k] = v; li.classList.toggle('ok', !!v);
+                        const b = li.closest('.brow') && li.closest('.brow').querySelector('[data-sntog]');
+                        if (b) b.textContent = snLab(r);
+                        const tg = document.querySelector('[data-sntag="' + s.step_id + '"]');
+                        if (tg) tg.outerHTML = snBadge(s).trim();
+                    })
+                    .catch(function () { flash('LOT 저장 실패'); });
+                return;
+            }
             const inp = e.target.closest('[data-sn]'); if (!inp) return;
             const [i, bi, k] = inp.dataset.sn.split(',').map(Number);
             const s = stepIdx(i), r = s.mats[bi], v = inp.value.trim();
@@ -1476,7 +1501,7 @@
                     inp.classList.toggle('ok', !!v);
                     if (res && res.message) { flash(res.message); loadDl(); }   // 보드가 바뀌었으면 다운로드 카드 경고
                     const b = inp.closest('.brow') && inp.closest('.brow').querySelector('[data-sntog]');
-                    if (b) b.textContent = 'S/N' + (snCount(r) ? ' ' + snCount(r) + '/' + Math.max(1, Math.round(bomQ(r))) : '');
+                    if (b) b.textContent = snLab(r);
                     const tg = document.querySelector('[data-sntag="' + s.step_id + '"]');
                     if (tg) tg.outerHTML = snBadge(s).trim();
                 })
@@ -1484,9 +1509,9 @@
         });
         // 엔터 = 다음 칸으로 (스캐너·키보드 연속 입력)
         document.getElementById('cGrid').addEventListener('keydown', e => {
-            const inp = e.target.closest('[data-sn]'); if (!inp || e.key !== 'Enter') return;
+            const inp = e.target.closest('[data-sn],[data-snlot]'); if (!inp || e.key !== 'Enter') return;
             e.preventDefault();
-            const all = Array.from(document.querySelectorAll('#cGrid [data-sn]'));
+            const all = Array.from(document.querySelectorAll('#cGrid [data-sn],#cGrid [data-snlot]'));
             const nx = all[all.indexOf(inp) + 1];
             if (nx) nx.focus(); else inp.blur();
         });

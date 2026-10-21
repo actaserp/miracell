@@ -56,6 +56,19 @@
 
                         <dl>
                             <dt>
+                                <label for="cboMatTypeP">
+                                    제품구분<span class="eq"></span>
+                                </label>
+                            </dt>
+                            <dd>
+                                <div class="srch-box">
+                                    <select id="cboMatTypeP" name="cboMatTypeP"></select>
+                                </div>
+                            </dd>
+                        </dl>
+
+                        <dl>
+                            <dt>
                                 <label for="cboMaterialGrp">
                                     품목그룹<span class="eq"></span>
                                 </label>
@@ -231,7 +244,15 @@
 
                 let result = AjaxUtil.getSyncData(url, data);
                 if (result.success) {
-                    _this.viewData.sourceCollection = result.data;
+                    /* ★ 제품구분만 고르고 품목그룹은 «전체» 면, 그 구분에 속한 그룹으로 거른다
+                         (서버는 그룹만 받으므로 화면에서 거른다) */
+                    let rows = result.data || [];
+                    if (_this.$cboMatTypeP && _this.$cboMatTypeP.val() && !_this.$cboMaterialGrp.val()) {
+                        const ids = {};
+                        _this.$cboMaterialGrp.find('option').each(function () { if (this.value) ids[this.value] = 1; });
+                        rows = rows.filter(function (r) { return ids[String(r.MaterialGroup_id)]; });
+                    }
+                    _this.viewData.sourceCollection = rows;
                     setTimeout(() => {
                         if (_this.grid && _this.grid.rows.length > 0) {
                             _this.grid.select(0, 0); // 첫 번째 행, 첫 번째 열 선택
@@ -314,6 +335,7 @@
 
                     this.$btnMaterialSearch = $content.find('#btnMaterialSearch');
                     this.$cboMaterialGrp = $content.find('#cboMaterialGrp');
+                    this.$cboMatTypeP = $content.find('#cboMatTypeP');
                     this.$keyword = $content.find('#keyword');
                     this.$btnMaterialSelect = $content.find('#btnMaterialSelect');
                     this.$cboFactory = $content.find('#cboFactory');
@@ -328,7 +350,15 @@
                     });
 
                     // AjaxUtil.fillSelectOptions(this.$cboMaterialType, 'system_code', null, false, 'mat_type', this.material_type);
+                    /* ★ 제품구분(제품·반제품·원자재 …) — 고르면 품목그룹 목록이 그 구분 것만 남는다 */
+                    AjaxUtil.fillSelectOptions(this.$cboMatTypeP, 'system_code', 'all', false, 'mat_type');
                     AjaxUtil.fillSelectOptions(this.$cboMaterialGrp, 'material_group', 'all', 112, ''); // 제품[112]을 기본으로
+                    this.$cboMatTypeP.on('change', function () {
+                        AjaxUtil.fillSelectOptions(_this.$cboMaterialGrp, 'material_group', 'all', false, _this.$cboMatTypeP.val() || '');
+                        _this.$cboMaterialGrp.val('');
+                        _this.searchDataBind();
+                    });
+                    this.$cboMaterialGrp.on('change', function () { _this.searchDataBind(); });
 
                     //if (this.material_type != null) {
                     //    this.$cboMaterialType.val(this.material_type);

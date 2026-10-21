@@ -92,10 +92,47 @@ public class McellDocService {
 		}
 		out.put("steps", steps);
 
+		// ── ★ 하위 반제품 속까지 투입 자재 (로터 Ass'y 안의 상·하판·RT보드·배터리 등) ──
+		//   스텝 작업(mat_produce)에 투입된 반제품 로트 → 그 반제품을 만든 작업의 투입 … 5단계까지.
+		//   재고에서 가져온 반제품(Source=stock)도 그 로트를 만든 작업부터 따라간다.
+		out.put("deep_mats", this.sqlRunner.getRows("""
+                WITH RECURSIVE t(mp, step_id, depth) AS (
+                    SELECT st."MatProduce_id", st.id, 0
+                      FROM mcell_unit_step st
+                     WHERE st."McellUnit_id" = :uid AND st."MatProduce_id" IS NOT NULL AND COALESCE(st."_status",'a')='a'
+                    UNION
+                    SELECT sl."SourceDataPk", st.id, 1
+                      FROM mcell_unit_step st JOIN mat_lot sl ON sl.id = st."StockMatLot_id"
+                     WHERE st."McellUnit_id" = :uid AND COALESCE(st."_status",'a')='a' AND st."MatProduce_id" IS NULL
+                       AND sl."SourceTableName" = 'mat_produce' AND sl."SourceDataPk" IS NOT NULL
+                    UNION
+                    SELECT pl."SourceDataPk", t.step_id, t.depth + 1
+                      FROM t
+                      JOIN mat_lot_cons c ON c."SourceDataPk" = t.mp AND COALESCE(c."SourceTableName",'mat_produce') = 'mat_produce'
+                                         AND COALESCE(c."_status",'a') = 'a'
+                      JOIN mat_lot pl ON pl.id = c."MaterialLot_id"
+                     WHERE pl."SourceTableName" = 'mat_produce' AND pl."SourceDataPk" IS NOT NULL AND t.depth < 5
+                       -- ★ 반제품(제조 BOM 이 있는 품목) 로트만 따라 내려간다.
+                       --   원자재 로트(SEED-… 초기재고 등)를 따라가면 엉뚱한 작업의 투입까지 섞여 «외 3» 처럼 나온다
+                       AND EXISTS (SELECT 1 FROM bom b WHERE b."Material_id" = pl."Material_id" AND b."BOMType" = 'manufacturing')
+                )
+                SELECT t.step_id, MIN(t.depth) AS depth, ml."Material_id" AS mat_id, m."Code" AS mat_code,
+                       NULLIF(m."RCode",'') AS r_code,
+                       string_agg(DISTINCT ml."LotNumber", ', ') AS lots
+                  FROM t
+                  JOIN mat_lot_cons c ON c."SourceDataPk" = t.mp AND COALESCE(c."SourceTableName",'mat_produce') = 'mat_produce'
+                                     AND COALESCE(c."_status",'a') = 'a'
+                  JOIN mat_lot ml ON ml.id = c."MaterialLot_id"
+                  JOIN material m ON m.id = ml."Material_id"
+                 GROUP BY t.step_id, ml."Material_id", m."Code", m."RCode"
+                 ORDER BY MIN(t.depth), t.step_id
+                """, p));
+
 		// ── S/N (유닛 단위) ──
 		out.put("sns", this.sqlRunner.getRows("""
                 SELECT s."Material_id" AS mat_id, m."Name" AS mat_name, s."SeqNo" AS seq_no, s."SerialNo" AS serial_no,
-                       s."McellUnitStep_id" AS step_id, s."LotNumber" AS lot_number
+                       s."McellUnitStep_id" AS step_id, s."LotNumber" AS lot_number,
+                       s."PartLotNo" AS part_lot, NULLIF(m."RCode",'') AS r_code
                   FROM mcell_unit_sn s JOIN material m ON m.id = s."Material_id"
                  WHERE s."McellUnit_id" = :uid AND COALESCE(s."_status",'a') = 'a'
                  ORDER BY m."Name", s."SeqNo"
@@ -165,8 +202,9 @@ public class McellDocService {
 		if (pack != null) {
 			pack.put("checks", this.sqlRunner.getRows("""
                     SELECT f."Code" AS form_code, i."SeqNo" AS seq_no, i."ItemName" AS item_name,
-                           x."Result" AS result, x."Value" AS value, x."Dest" AS dest
+                           x."Result" AS result, x."Value" AS value, x."Dest" AS dest, ap."Name" AS actor_name
                       FROM mcell_pack_insp x
+                      LEFT JOIN person ap ON ap.id = x."Actor_id"
                       JOIN insp_form f ON f.id = x."InspForm_id"
                       JOIN insp_form_item i ON i.id = x."InspFormItem_id"
                      WHERE x."MatProduce_id" = :mp
@@ -174,6 +212,26 @@ public class McellDocService {
                     """, new MapSqlParameterSource().addValue("mp", asInt(pack.get("mp_id")))));
 		}
 		out.put("pack", pack);
+
+		// ── ★ 최종검사 출고라벨 사진 — 최종검사(F803-8) 첨부 중 첫 이미지, 없으면 포장 사진 마지막 장 ──
+		Map<String, Object> ph = this.sqlRunner.getRow("""
+                SELECT id AS file_id, "ExtName" AS ext FROM attach_file
+                 WHERE "TableName" = :tb AND "DataPk" = :uid AND "AttachName" = :an
+                   AND lower(COALESCE("ExtName",'')) IN ('jpg','jpeg','png')
+                 ORDER BY "FileIndex", id LIMIT 1
+                """, new MapSqlParameterSource().addValue("tb", ATT_TABLE).addValue("uid", unitId)
+				.addValue("an", ATT_PREFIX + "F803-8"));
+		if (ph != null) {
+			ph.put("url", "/api/production/mcell/doc/file?file_id=" + ph.get("file_id"));
+		} else if (pack != null) {
+			ph = this.sqlRunner.getRow("""
+                    SELECT id AS file_id, "ExtName" AS ext FROM attach_file
+                     WHERE "TableName" = 'mat_produce' AND "AttachName" = 'PACK_MCELL_MAT_PHOTO' AND "DataPk" = :mp
+                     ORDER BY "FileIndex" DESC, id DESC LIMIT 1
+                    """, new MapSqlParameterSource().addValue("mp", asInt(pack.get("mp_id"))));
+			if (ph != null) ph.put("url", "/api/production/mcell/pack/photo?file_id=" + ph.get("file_id"));
+		}
+		out.put("label_photo", ph);
 
 		// ── ★ 엑셀 매핑 (검사 양식 화면에서 관리) — 문서가 연결된 양식 전부 ──
 		//   화면이 유닛 모델(M2/M4/M4A)에 맞는 것만 골라 칸을 채운다. 없으면 내장 칸 위치를 쓴다.

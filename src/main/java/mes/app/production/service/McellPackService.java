@@ -264,6 +264,9 @@ public class McellPackService {
                                       AND COALESCE(c."_status",'a') = 'a')
                    AND (CAST(:dateFrom AS date) IS NULL OR jr."ProductionDate"::date >= CAST(:dateFrom AS date))
                    AND (CAST(:dateTo   AS date) IS NULL OR jr."ProductionDate"::date <= CAST(:dateTo   AS date))
+                   /* ★ 검사 합격 유닛이 하나도 없는 작지는 띄우지 않는다(현장 혼선 방지).
+                        포장 대기(검사완료창고) 유닛이 있거나, 이미 포장을 시작한 작지만. */
+                   AND (COALESCE(rd.ready_qty, 0) > 0 OR COALESCE(d.done_qty, 0) > 0)
                  ORDER BY jr."ProductionDate" DESC, jr."WorkOrderNumber" DESC
                  LIMIT 200
                 """.formatted(PASS_UNIT_LATERAL, ORIG_JR_LATERAL, BELONGS_TO_JR,
@@ -1391,8 +1394,8 @@ public class McellPackService {
 		out.put("forms", u == null ? List.of() : getPackChecks(asInt(u.get("unit_mat_id"))));
 		out.put("values", this.sqlRunner.getRows("""
                 SELECT x."InspFormItem_id" AS item_id, x."InspForm_id" AS form_id, x."Result" AS result,
-                       x."Value" AS value, x."Dest" AS dest
-                  FROM mcell_pack_insp x WHERE x."MatProduce_id" = :mpId
+                       x."Value" AS value, x."Dest" AS dest, x."Actor_id" AS actor_id, pr."Name" AS actor_name
+                  FROM mcell_pack_insp x LEFT JOIN person pr ON pr.id = x."Actor_id" WHERE x."MatProduce_id" = :mpId
                 """, new MapSqlParameterSource().addValue("mpId", mpId)));
 		return out;
 	}
@@ -1474,6 +1477,7 @@ public class McellPackService {
                     VALUES (:mpId,:fid,:iid,:dest,:res,:val,:actor,now(),:userId,:spjangcd)
                     ON CONFLICT ("MatProduce_id","InspFormItem_id")
                     DO UPDATE SET "Result"=EXCLUDED."Result","Value"=EXCLUDED."Value","Dest"=EXCLUDED."Dest",
+                                  "Actor_id"=EXCLUDED."Actor_id",
                                   "_modified"=now(),"_modifier_id"=EXCLUDED."_creater_id"
                     """, new MapSqlParameterSource()
 					.addValue("mpId", mpId)
@@ -1482,7 +1486,8 @@ public class McellPackService {
 					.addValue("dest", dest)
 					.addValue("res", str(c.get("result")))
 					.addValue("val", c.get("value") == null || String.valueOf(c.get("value")).isBlank() ? null : String.valueOf(c.get("value")).trim())
-					.addValue("actor", actorId)
+					.addValue("actor", c.get("actorId") == null || String.valueOf(c.get("actorId")).isBlank()
+							? actorId : Integer.valueOf(String.valueOf(c.get("actorId"))))   // ★ 최종검사자 따로
 					.addValue("userId", user.getId())
 					.addValue("spjangcd", spjangcd));
 		}
