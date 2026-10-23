@@ -645,6 +645,16 @@ public class PackService {
                        AND COALESCE(b._status,'a') <> 'd'
                        AND pr3."Code" = 'bsc03'
                      ORDER BY bc._order LIMIT 1)          AS pk_mat_id
+                 -- ★ 이 완제품에 들어가는 PK 품목 전부 (직하위 + CK 반제품 아래) — 화면에서 고른 PK 로 후보를 좁힌다
+                 , (SELECT string_agg(DISTINCT x.mid::text, ',') FROM (
+                        SELECT bc."Material_id" AS mid FROM bom b JOIN bom_comp bc ON bc."BOM_id" = b.id
+                         WHERE b."Material_id" = m.id AND COALESCE(b._status,'a') <> 'd'
+                        UNION
+                        SELECT bc2."Material_id" FROM bom b JOIN bom_comp bc ON bc."BOM_id" = b.id
+                          JOIN bom b2 ON b2."Material_id" = bc."Material_id" AND COALESCE(b2._status,'a') <> 'd'
+                          JOIN bom_comp bc2 ON bc2."BOM_id" = b2.id
+                         WHERE b."Material_id" = m.id AND COALESCE(b._status,'a') <> 'd'
+                    ) x)                                  AS pk_mat_ids
               FROM material m
               JOIN mat_grp mg  ON mg.id = m."MaterialGroup_id"
               LEFT JOIN unit u ON u.id  = m."Unit_id"
@@ -1580,6 +1590,19 @@ public class PackService {
 		}
 		if (resolved.isEmpty()) return fail(result, "포장할 PK 로트를 선택해주세요.");
 
+		// ★ 고른 PK 가 이 완제품 BOM(직하위 또는 CK 반제품 아래)에 있어야 한다 — 용량·종류가 다른 완제품으로 포장되는 것을 막는다
+		Map<String, Object> inBom = this.sqlRunner.getRow("""
+                SELECT 1 AS ok FROM bom b JOIN bom_comp bc ON bc."BOM_id" = b.id
+                 WHERE b."Material_id" = :prod AND COALESCE(b._status,'a') <> 'd'
+                   AND (bc."Material_id" = :pk
+                        OR EXISTS (SELECT 1 FROM bom b2 JOIN bom_comp bc2 ON bc2."BOM_id" = b2.id
+                                    WHERE b2."Material_id" = bc."Material_id" AND COALESCE(b2._status,'a') <> 'd'
+                                      AND bc2."Material_id" = :pk))
+                 LIMIT 1
+                """, new MapSqlParameterSource().addValue("prod", productMatId).addValue("pk", pkMatId));
+		if (inBom == null)
+			return fail(result, "선택한 PK 는 이 완제품의 BOM 에 없습니다. PK 와 같은 용량·종류의 완제품을 고르세요.");
+
 		// ★ v3.3 : PK 낱개 합계 → 완제품 수량
 		Map<String, Float> kit = getKitSpec(productMatId, spjangcd);
 		float pkPer = kit.get("pk_per");
@@ -1607,7 +1630,8 @@ public class PackService {
 		hdr.setOrderQty(planQty);
 		hdr.setProductionDate(prodDate);
 		hdr.setProductionPlanDate(prodDate);
-		hdr.setStoreHouse_id(product != null ? product.getStoreHouseId() : STORE_PRODUCT);
+		// ★ 품목에 기본 창고가 비어 있으면 제품창고 — 삼항식이 Integer null 을 int 로 풀다 NPE 가 났다
+		hdr.setStoreHouse_id((product != null && product.getStoreHouseId() != null) ? product.getStoreHouseId() : Integer.valueOf(STORE_PRODUCT));
 		hdr.setLotCount(1);
 		hdr.setProcessCount(1);
 		hdr.setState("working");

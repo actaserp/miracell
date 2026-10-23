@@ -1,7 +1,6 @@
 package mes.app.dashboard.service;
 
 import java.util.ArrayList;
-import java.util.Random;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -53,6 +52,9 @@ public class DashBoardMainService {
 
 	@Autowired
 	private SqlRunner sqlRunner;
+
+	@Autowired
+	private EnvSensorService envSensorService;
 
 	private List<Map<String, Object>> nz(List<Map<String, Object>> rows) {
 		return rows == null ? new ArrayList<>() : rows;
@@ -593,9 +595,8 @@ public class DashBoardMainService {
 	 * 패널마다 따로 부르면 폴링 주기가 겹칠 때 KPI 와 목록이
 	 * 서로 다른 시점을 말하게 된다. 대시보드에서 그건 치명적이다.
 	 *
-	 * env(온습도)는 아직 수집 테이블이 없다 — OPC-UA 연동 전이라
-	 * 빈 배열과 sensor_ready=false 를 내린다. 화면은 그걸 보고
-	 * 「센서 미연동」 배지를 띄운다. 값을 0 으로 채우면 「0도」로 읽힌다.
+	 * env(온습도·차압)는 equip_if.tag_data 실측값이다(EnvSensorService).
+	 * sensor_ready 는 최근 60초 안에 들어온 값이 하나라도 있을 때 true.
 	 */
 	public Map<String, Object> getDashboard(String spjangcd) {
 		Map<String, Object> data = new HashMap<>();
@@ -610,8 +611,9 @@ public class DashBoardMainService {
 		data.put("equ_running",    getEquipmentRunning(spjangcd));
 		data.put("defect_today",   getDefectToday(spjangcd));
 
-		data.put("env",          getEnvZones(spjangcd));
-		data.put("sensor_ready", Boolean.valueOf(ENV_DEMO));
+		List<Map<String, Object>> env = getEnvZones(spjangcd);
+		data.put("env",          env);
+		data.put("sensor_ready", envSensorService.isReady(env));
 
 		return data;
 	}
@@ -621,150 +623,25 @@ public class DashBoardMainService {
 	// =================================================================
 
 	/**
-	 * 클린룸 존과 관리 기준.
+	 * 계측기 = 존 한 칸. 실측값은 EnvSensorService 가 tag_data 에서 읽는다.
 	 *
-	 * ★ 기준치는 cleanroom_limit 테이블에서 읽는다.
-	 *   화면·코드에 두면 대시보드와 클린룸 화면에 같은 숫자가 복사되고,
-	 *   하나만 고쳤을 때 두 화면이 서로 다른 기준으로 경고를 띄운다.
-	 *   계절마다 조정하는 값이라 배포 없이 바꿀 수 있어야 한다.
-	 *
-	 * ★ 측정값(temp/humi/press)은 아직 없다. OPC-UA 연동 전이라 null 로 내린다.
-	 *   0 으로 채우면 화면이 「0도 · 0%」를 기준 이탈로 읽어
-	 *   전 존이 빨갛게 되고 진짜 이상과 구분되지 않는다.
-	 *
-	 * ★ 연동 시 바꿀 곳은 여기 하나다.
-	 *   temp/humi/press 에 수집값을 넣고 sensor_ready 를 true 로 올리면
-	 *   화면은 그대로 동작한다. 판정·색·알람은 이미 붙어 있다.
+	 * ★ 예전에는 cleanroom_limit 기준 + 데모 난수(ENV_DEMO)였다. 둘 다 걷어냈다.
+	 *   존 이름이 실제 계측기 배치와 맞지 않았고, 차압계 3대를 담을 자리가 없었다.
+	 * ★ 1공장 대시보드와 같은 서비스를 쓴다 — 같은 센서를 두 화면이 다르게 판정하지 않게.
 	 */
 	public List<Map<String, Object>> getEnvZones(String spjangcd) {
-		String sql = """
-				SELECT "ZoneCode"                    AS code
-				     , "ZoneName"                    AS name
-				     , "ZoneLabel"                   AS label
-				     , "TempMin"                     AS temp_min
-				     , "TempMax"                     AS temp_max
-				     , "HumiMin"                     AS humi_min
-				     , "HumiMax"                     AS humi_max
-				     , "PressMin"                    AS press_min
-				     , "PressMax"                    AS press_max
-				     , NULL::numeric                 AS temp
-				     , NULL::numeric                 AS humi
-				     , NULL::numeric                 AS press
-				  FROM cleanroom_limit
-				 WHERE COALESCE(_status,'a') = 'a'
-				   AND COALESCE("UseYN",'Y') = 'Y'
-				   AND (CAST(:spjangcd AS varchar) IS NULL OR spjangcd = CAST(:spjangcd AS varchar))
-				 ORDER BY "SortNo", "ZoneCode"
-				""";
-		List<Map<String, Object>> rows = nz(this.sqlRunner.getRows(sql, p(spjangcd)));
-		if (ENV_DEMO) {
-			fillDemoValues(rows);
-		}
-		return rows;
-	}
-
-	/* ═══════════════════════════════════════════════════════════
-	 * 센서 데모 모드
-	 *
-	 * ★ OPC-UA 연동 전에 화면·알람이 실제로 도는지 보기 위한 것이다.
-	 *   연동되면 이 상수를 false 로 내리고 수집값을 넣으면 된다.
-	 *   ★ 운영 전환 시 반드시 false. 켜둔 채로 넘어가면 가짜 값이
-	 *     진짜처럼 보이고, 알람이 늑대소년이 된다.
-	 *
-	 * ★ 화면이 아니라 서버에서 만든다.
-	 *   화면에서 만들면 관리자 화면과 벽걸이가 서로 다른 값을 보게 된다.
-	 *   (요청마다 새로 뽑으므로 두 화면의 값이 완전히 같지는 않다.
-	 *    데모 목적에는 충분하고, 실제 센서가 붙으면 사라지는 문제다.)
-	 *
-	 * ★ 이탈 여부는 「존 단위」로 정한다. 지표마다 따로 굴리면 안 된다.
-	 *   지표별 25% 면 존 하나가 이탈일 확률이 58%(1 - 0.75³)이고,
-	 *   존 4개 중 하나라도 이탈일 확률은 99.7% 가 된다.
-	 *   늘 빨간 화면이면 「정상 → 이탈」 전이가 안 보여 알람이 안 뜬다.
-	 *
-	 *   존당 12% 로 잡으면 전체가 정상일 확률이 약 60% 라
-	 *   폴링(30~60초) 기준 대략 1~2분에 한 번씩 알람이 뜬다.
-	 * ═══════════════════════════════════════════════════════════ */
-	private static final boolean ENV_DEMO = true;   // ★ 운영 전환 시 false
-	private static final double  ENV_DEMO_BAD_RATE = 0.12;
-
-	private final Random envRand = new Random();
-
-	private void fillDemoValues(List<Map<String, Object>> rows) {
-		for (Map<String, Object> z : rows) {
-			/* 이 존이 이탈인지 먼저 정하고, 이탈이면 지표 하나만 벗어나게 한다.
-			   세 개가 동시에 튀는 건 실제로 드물고, 화면에서도 원인이 흐려진다. */
-			boolean bad = envRand.nextDouble() < ENV_DEMO_BAD_RATE;
-			int badIdx = bad ? envRand.nextInt(3) : -1;
-
-			z.put("temp",  demoValue(z.get("temp_min"),  z.get("temp_max"),  1, badIdx == 0));
-			z.put("humi",  demoValue(z.get("humi_min"),  z.get("humi_max"),  1, badIdx == 1));
-			z.put("press", demoValue(z.get("press_min"), z.get("press_max"), 0, badIdx == 2));
-		}
+		return envSensorService.getEnvZones(spjangcd);
 	}
 
 	/**
-	 * 기준 범위를 참고해 그럴듯한 값을 만든다.
-	 *
-	 * 정상일 때는 범위 안쪽(가장자리 10% 를 뺀 구간)에서 뽑는다 —
-	 * 경계에 딱 붙은 값이 계속 나오면 정상인지 이탈인지 헷갈린다.
-	 * 이탈일 때는 위아래 중 한쪽으로 범위의 5~20% 만큼 벗어나게 한다.
+	 * 관리기준 저장 (설정 모달). zoneCode = env_sensor.group_code.
+	 * 컨트롤러·화면 시그니처는 그대로 두고 저장 대상만 env_sensor 로 바꿨다.
 	 */
-	private Double demoValue(Object minObj, Object maxObj, int digits, boolean bad) {
-		if (minObj == null || maxObj == null) return null;
-
-		double min = Double.parseDouble(minObj.toString());
-		double max = Double.parseDouble(maxObj.toString());
-		if (max <= min) return null;
-
-		double span = max - min;
-		double v;
-
-		if (bad) {
-			double over = span * (0.05 + envRand.nextDouble() * 0.15);
-			v = envRand.nextBoolean() ? (max + over) : (min - over);
-		} else {
-			v = min + span * 0.1 + envRand.nextDouble() * span * 0.8;
-		}
-
-		double f = Math.pow(10, digits);
-		return Math.round(v * f) / f;
-	}
-
-	/**
-	 * 관리기준 저장 (설정 모달).
-	 *
-	 * ★ 존을 새로 만들지 않는다. 기준치만 고친다.
-	 *   존 추가·삭제는 클린룸 구획이 바뀌는 일이라 화면에서 할 일이 아니다.
-	 *
-	 * ★ 하한이 상한보다 큰 값은 막는다. 그대로 저장하면 모든 측정값이
-	 *   기준 이탈이 되어 알람이 멈추지 않는다.
-	 */
-	public String saveEnvLimit(String spjangcd, String zoneCode,
+	public String saveEnvLimit(String spjangcd, String zoneCode, String zoneName,
 							   Double tMin, Double tMax, Double hMin, Double hMax,
 							   Double pMin, Double pMax, Integer userId) {
-
-		if (tMin != null && tMax != null && tMin >= tMax) return "온도 하한이 상한보다 크거나 같습니다.";
-		if (hMin != null && hMax != null && hMin >= hMax) return "습도 하한이 상한보다 크거나 같습니다.";
-		if (pMin != null && pMax != null && pMin >= pMax) return "차압 하한이 상한보다 크거나 같습니다.";
-
-		MapSqlParameterSource prm = new MapSqlParameterSource()
-				.addValue("spjangcd", spjangcd)
-				.addValue("zone_code", zoneCode)
-				.addValue("t_min", tMin).addValue("t_max", tMax)
-				.addValue("h_min", hMin).addValue("h_max", hMax)
-				.addValue("p_min", pMin).addValue("p_max", pMax)
-				.addValue("user_id", userId);
-
-		String sql = """
-				UPDATE cleanroom_limit
-				   SET "TempMin"  = :t_min , "TempMax"  = :t_max
-				     , "HumiMin"  = :h_min , "HumiMax"  = :h_max
-				     , "PressMin" = :p_min , "PressMax" = :p_max
-				     , _modified = now(), _modifier_id = :user_id
-				 WHERE spjangcd = :spjangcd AND "ZoneCode" = :zone_code
-				""";
-		this.sqlRunner.execute(sql, prm);
-		return null;
+		return envSensorService.saveGroupLimit(spjangcd, zoneCode, zoneName,
+				tMin, tMax, hMin, hMax, pMin, pMax, userId);
 	}
 
 }

@@ -1,0 +1,635 @@
+<html layout:decorate="~{layout_page}">
+<head>
+  <style>
+    /* ═══════════════════════════════════════════════════
+       1공장 대시보드
+
+       엑셀 요청 순서 그대로:
+         1. 온습도 · 차압   2. 생산현황   3. 작업인원   (+ 재고현황)
+
+       ★ 통합 대시보드(dash_main)와 같은 껍데기 규칙을 쓴다.
+         높이를 못박지 않고 바깥 section 이 스크롤한다.
+       ★ 상태 색은 셋만 쓴다: 초록(정상·작업중) / 빨강(이탈) / 회색(끊김·대기).
+         색만으로 뜻을 싣지 않는다 — 모든 상태에 글자 배지를 같이 단다.
+    ═══════════════════════════════════════════════════ */
+    body .layout-contents > section.section,
+    body section.section:has(#f1Wrap) {
+      flex: 1 1 auto !important; min-height: 0 !important;
+      overflow-y: auto !important; -webkit-overflow-scrolling: touch;
+      margin-bottom: 0 !important; padding-bottom: 12px !important;
+    }
+    #f1Wrap { display:flex; flex-direction:column; gap:10px;
+      font-family:'Pretendard','Malgun Gothic',sans-serif; color:#1f2733; }
+
+    .page-title-wrap .f1-clock { font-size:14px; font-weight:800; color:#3a4759;
+      font-variant-numeric:tabular-nums; margin-left:14px; }
+    .page-title-wrap .f1-upd { font-size:11.5px; color:#8a94a4; font-weight:700; margin-left:8px; }
+    .page-title-wrap .f1-gear { margin-left:8px; border:1px solid #dbe1ea; background:#fff;
+      border-radius:6px; width:28px; height:26px; cursor:pointer; font-size:14px; }
+
+    /* ── 알림 띠 ── */
+    #f1Wrap .f1-alarm { border-radius:9px; padding:9px 14px; font-size:13px; font-weight:800;
+      display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+    #f1Wrap .f1-alarm.ok   { background:#eaf7ef; color:#0b7a43; border:1px solid #c9ead6; }
+    #f1Wrap .f1-alarm.bad  { background:#fdecec; color:#b42323; border:1px solid #f4c7c7;
+      animation:f1blink 1.2s ease-in-out infinite; }
+    #f1Wrap .f1-alarm.stale{ background:#fff7e6; color:#a45b00; border:1px solid #f3dcb0; }
+    #f1Wrap .f1-alarm .ack { margin-left:auto; border:1px solid currentColor; background:transparent;
+      color:inherit; border-radius:6px; padding:3px 10px; font-weight:800; cursor:pointer; }
+    @keyframes f1blink { 50% { background:#f9d6d6; } }
+
+    /* ── 카드 ── */
+    #f1Wrap .f1-card { background:#fff; border:1px solid #dbe1ea; border-radius:10px;
+      box-shadow:0 1px 3px rgba(31,39,51,.06); overflow:hidden; display:flex; flex-direction:column; min-height:0; }
+    #f1Wrap .f1-card-h { padding:8px 12px; background:#2f3a4c; color:#fff; font-size:12px;
+      font-weight:800; display:flex; align-items:center; gap:7px; }
+    #f1Wrap .f1-card-h::before { content:''; width:4px; height:14px; border-radius:2px; background:#2f6fed; }
+    #f1Wrap .f1-card-h.h-env::before   { background:#00a3a3; }
+    #f1Wrap .f1-card-h.h-ppl::before   { background:#7a6ff0; }
+    #f1Wrap .f1-card-h .sub { margin-left:auto; font-weight:700; font-size:10.5px; color:#aab4c4; }
+    #f1Wrap .f1-card-b { padding:10px 12px; overflow:auto; min-height:0; }
+
+    /* ── 환경 ── */
+    #f1Wrap .env-grid { display:grid; grid-template-columns:repeat(4, 1fr) repeat(3, .72fr); gap:8px; }
+    @media (max-width:1400px) { #f1Wrap .env-grid { grid-template-columns:repeat(4,1fr); } }
+    @media (max-width:760px)  { #f1Wrap .env-grid { grid-template-columns:repeat(2,1fr); } }
+    #f1Wrap .env { border:1px solid #e1e6ee; border-radius:9px; padding:8px 10px; background:#f7f9fc;
+      border-left:4px solid #0f9d58; }
+    #f1Wrap .env.bad   { border-left-color:#d64545; background:#fff5f5; }
+    #f1Wrap .env.stale { border-left-color:#b9c1cd; background:#f4f5f7; }
+    #f1Wrap .env.stale .v { color:#9aa3b0 !important; }
+    #f1Wrap .env .t { font-size:12px; font-weight:800; display:flex; align-items:center; gap:6px; }
+    #f1Wrap .env .t .k { font-size:10px; color:#8a94a4; font-weight:700; }
+    #f1Wrap .env .badge { margin-left:auto; font-size:10px; font-weight:800; padding:2px 7px; border-radius:5px; }
+    #f1Wrap .badge.ok    { background:#e3f5ea; color:#0b7a43; }
+    #f1Wrap .badge.bad   { background:#fbdcdc; color:#b42323; }
+    #f1Wrap .badge.stale { background:#e8ebf0; color:#5d6776; }
+    #f1Wrap .badge.q     { background:#fff1d6; color:#a45b00; }
+    #f1Wrap .env .m { display:flex; align-items:baseline; gap:6px; margin-top:4px; }
+    #f1Wrap .env .m .l { font-size:10.5px; color:#8a94a4; font-weight:800; width:24px; }
+    #f1Wrap .env .m .v { font-size:22px; font-weight:800; font-variant-numeric:tabular-nums; color:#1f2733; }
+    #f1Wrap .env .m .v small { font-size:11px; color:#8a94a4; margin-left:2px; }
+    #f1Wrap .env .m .v.out { color:#d64545; }
+    #f1Wrap .env .m .r { margin-left:auto; font-size:10px; color:#9aa3b0; font-weight:700; white-space:nowrap; }
+    #f1Wrap .env .ts { font-size:10px; color:#9aa3b0; margin-top:3px; font-weight:700; }
+
+    /* ── 생산현황 + 인원 ── */
+    #f1Wrap .f1-mid { display:grid; grid-template-columns:1.7fr 1fr; gap:10px; }
+    @media (max-width:1100px) { #f1Wrap .f1-mid { grid-template-columns:1fr; } }
+
+    /* ★ table 을 쓰지 않는다. layout_page 공용 CSS 가 table/td 에 폭·display 를 걸어
+         셀이 쪼개져 겹쳐 보였다. 공용 CSS 는 건드리지 않고 div 그리드로 간다. */
+    #f1Wrap .prod { display:flex; flex-direction:column; font-size:12.5px; }
+    #f1Wrap .prod .pr { display:grid; grid-template-columns:120px minmax(0,1fr) 90px 18px;
+      gap:10px; align-items:start; padding:8px; border-bottom:1px solid #eef1f5; }
+    #f1Wrap .prod .pr.hd { font-size:11px; color:#8a94a4; font-weight:800; padding:6px 8px;
+      border-bottom:1px solid #e5e9f0; }
+    #f1Wrap .prod .pr.row { cursor:pointer; }
+    #f1Wrap .prod .pr.row:hover { background:#f5f8ff; }
+    #f1Wrap .prod .pr.row.nolink { cursor:default; }
+    #f1Wrap .prod .pr.row.nolink:hover { background:transparent; }
+    #f1Wrap .prod .cat { font-weight:800; white-space:nowrap; }
+    #f1Wrap .prod .cat i { display:inline-block; width:8px; height:8px; border-radius:50%;
+      background:#c3cad5; margin-right:6px; vertical-align:middle; }
+    #f1Wrap .prod .pr.on .cat i { background:#0f9d58; }
+    #f1Wrap .prod .items { min-width:0; }
+    #f1Wrap .prod .items div { line-height:1.55; }
+    #f1Wrap .prod .items b { font-variant-numeric:tabular-nums; }
+    #f1Wrap .prod .items .who { color:#8a94a4; font-size:11px; margin-left:6px; }
+    #f1Wrap .prod .none { color:#b3bac5; }
+    #f1Wrap .prod .done { text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; font-weight:800; }
+    #f1Wrap .prod .done small { color:#8a94a4; font-weight:700; margin-left:2px; }
+    #f1Wrap .prod .go { color:#b3bac5; text-align:right; }
+
+    #f1Wrap .ppl-sum { display:flex; gap:8px; margin-bottom:8px; }
+    #f1Wrap .ppl-sum div { flex:1; border-radius:8px; padding:7px 10px; font-size:11px; font-weight:800; }
+    #f1Wrap .ppl-sum .w { background:#e3f5ea; color:#0b7a43; }
+    #f1Wrap .ppl-sum .i { background:#eef0f4; color:#5d6776; }
+    #f1Wrap .ppl-sum b { display:block; font-size:22px; font-variant-numeric:tabular-nums; }
+    #f1Wrap .ppl { display:grid; grid-template-columns:repeat(2,1fr); gap:5px; }
+    #f1Wrap .ppl .p { border:1px solid #e5e9f0; border-radius:7px; padding:5px 8px; font-size:12px;
+      font-weight:800; display:flex; align-items:center; gap:6px; }
+    #f1Wrap .ppl .p i { width:8px; height:8px; border-radius:50%; background:#c3cad5; flex:0 0 8px; }
+    #f1Wrap .ppl .p.working { background:#f1fbf5; border-color:#cdebd9; }
+    #f1Wrap .ppl .p.working i { background:#0f9d58; }
+    #f1Wrap .ppl .p .wh { margin-left:auto; color:#0b7a43; font-size:10.5px; font-weight:700;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:60%; }
+    #f1Wrap .ppl .p.idle .wh { color:#9aa3b0; }
+
+
+    #f1Wrap .empty { color:#a3abb7; font-size:12px; padding:10px 2px; }
+
+    /* ── 설정 모달 ── */
+    .f1-modal { position:fixed; inset:0; background:rgba(20,26,36,.45); display:none;
+      align-items:center; justify-content:center; z-index:2000; }
+    .f1-modal.on { display:flex; }
+    .f1-modal .box { background:#fff; border-radius:12px; width:min(760px, calc(100vw - 32px));
+      max-height:calc(100vh - 60px); display:flex; flex-direction:column; overflow:hidden; }
+    .f1-modal .hd { padding:12px 16px; font-weight:800; border-bottom:1px solid #e5e9f0; display:flex; }
+    .f1-modal .hd button { margin-left:auto; border:none; background:none; font-size:18px; cursor:pointer; }
+    .f1-modal .bd { padding:12px 16px; overflow:auto; }
+    .f1-modal table { width:100%; border-collapse:collapse; font-size:12.5px; }
+    .f1-modal th { text-align:left; font-size:11px; color:#8a94a4; padding:5px; border-bottom:1px solid #e5e9f0; }
+    .f1-modal td { padding:4px 5px; border-bottom:1px solid #f0f2f6; }
+    .f1-modal th.c { text-align:center; }
+    .f1-modal td.na { background:#f4f6f9; color:#c3cad5; text-align:center; font-size:11px; }
+    .f1-modal td small { display:block; font-size:10px; color:#a7b0be; margin-top:2px; }
+    .f1-modal input { width:100%; box-sizing:border-box; border:1px solid #d5dbe5; border-radius:5px;
+      padding:4px 6px; font-size:12.5px; }
+    .f1-modal input.n { width:72px; text-align:right; }
+    .f1-modal input.nm { min-width:130px; font-weight:800; }
+    .f1-modal .note { font-size:11px; color:#8a94a4; margin-top:8px; line-height:1.6; }
+    .f1-modal .ft { padding:10px 16px; border-top:1px solid #e5e9f0; display:flex; gap:8px; align-items:center; }
+    .f1-modal .ft .msg { color:#d64545; font-size:12px; font-weight:700; }
+    .f1-modal .ft button { border:1px solid #d5dbe5; background:#fff; border-radius:6px; padding:6px 14px;
+      font-weight:800; cursor:pointer; }
+    .f1-modal .ft button.pri { background:#2f6fed; border-color:#2f6fed; color:#fff; margin-left:auto; }
+  </style>
+</head>
+
+<th:block layout:fragment="content">
+  <div class="layout-contents">
+    <div class="page-title-wrap">
+      <div class="left">
+        <h2>1공장 대시보드</h2>
+        <a title="북마크" class="bookmark toggle">내 메뉴</a>
+        <span class="f1-clock" id="f1Clock"></span>
+        <span class="f1-upd" id="f1Upd"></span>
+        <button type="button" class="f1-gear" id="f1Gear" title="센서 위치·기준 설정">⚙</button>
+      </div>
+      <ul class="page-navi">
+        <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+        <li>모니터링</li>
+        <li>1공장 대시보드</li>
+      </ul>
+    </div>
+
+    <section class="section">
+      <div id="f1Wrap">
+
+        <div class="f1-alarm ok" id="f1Alarm">정상 운영 중</div>
+
+        <div class="f1-card">
+          <div class="f1-card-h h-env">1. 온습도 · 차압 <span class="sub" id="f1EnvSub"></span></div>
+          <div class="f1-card-b"><div class="env-grid" id="f1Env"></div></div>
+        </div>
+
+        <div class="f1-mid">
+          <div class="f1-card">
+            <div class="f1-card-h">2. 생산현황 <span class="sub">진행중 = 작업 시작 수량 · 오늘 완료 = 확정 양품 · 행 클릭 시 공정 화면</span></div>
+            <div class="f1-card-b">
+              <div class="prod">
+                <div class="pr hd"><span>구분</span><span>진행중</span><span style="text-align:right">오늘 완료</span><span></span></div>
+                <div id="f1Prod"></div>
+              </div>
+            </div>
+          </div>
+          <div class="f1-card">
+            <div class="f1-card-h h-ppl">3. 작업인원 <span class="sub">근태 미연동 — 작업 중인지만 표시</span></div>
+            <div class="f1-card-b">
+              <div class="ppl-sum" id="f1PplSum"></div>
+              <div class="ppl" id="f1Ppl"></div>
+            </div>
+          </div>
+        </div>
+
+
+      </div>
+    </section>
+  </div>
+
+  <div class="f1-modal" id="f1Modal">
+    <div class="box">
+      <div class="hd">센서 위치 · 관리 기준 <button type="button" id="f1ModalX">×</button></div>
+      <div class="bd">
+        <table>
+          <thead>
+          <tr><th rowspan="2">센서 이름</th><th colspan="2" class="c">온도 (℃)</th>
+            <th colspan="2" class="c">습도 (%)</th><th colspan="2" class="c">차압</th></tr>
+          <tr><th class="c">하한</th><th class="c">상한</th><th class="c">하한</th><th class="c">상한</th>
+            <th class="c">하한</th><th class="c">상한</th></tr>
+          </thead>
+          <tbody id="f1SensorRows"></tbody>
+        </table>
+        <div class="note">
+          · 통합 대시보드의 ⚙ 설정과 같은 값입니다. 한쪽에서 저장하면 다른 쪽에도 바로 적용됩니다.<br>
+          · 하한·상한을 비우면 그 항목은 판정하지 않습니다(알람 없음).<br>
+          · 계측기 추가·삭제는 env_sensor 테이블에서 합니다.
+        </div>
+      </div>
+      <div class="ft">
+        <span class="msg" id="f1ModalMsg"></span>
+        <button type="button" class="pri" id="f1ModalSave">저장</button>
+        <button type="button" id="f1ModalCancel">닫기</button>
+      </div>
+    </div>
+  </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+  <script type="text/javascript">
+    /* ═══════════════════════════════════════════════════
+       1공장 대시보드
+
+       ★ 폴링 두 개.
+           환경  5초  /env   (수집이 7~8초 간격이라 1초는 의미 없다)
+           생산 30초  /read
+         Milo 구독으로 바뀌어도 서버 getEnv 만 바뀐다. 화면은 그대로.
+       ★ 탭이 숨겨져도 멈추지 않는다. 벽걸이에 띄우는 화면이라
+         멈추면 그대로 죽은 화면이 된다.
+       ★ 대괄호 두 개를 붙여 쓰지 않는다 — Thymeleaf 인라인 표현식으로 읽혀
+         템플릿 파싱이 깨진다(주석 안이라도). 배열의 배열은 push 로 만든다.
+    ═══════════════════════════════════════════════════ */
+    const F1_API = '/api/dashboard/f1';
+    const F1_SPJANGCD = (typeof SPJANGCD !== 'undefined' && SPJANGCD) ? SPJANGCD : 'ZZ';
+    const F1_ENV_MS = 5000;
+    const F1_MAIN_MS = 30000;
+
+    /* 수신 끊김 기준(초). 수집이 7~8초 간격이고, 값이 바뀔 때만 저장하는 방식일 수도 있어
+       넉넉히 잡는다. 너무 짧으면 안정된 값을 끊김으로 오판한다. */
+    const F1_STALE_SEC = 60;
+    /* 연속 이탈 N회부터 알람. 경계값에서 깜빡이는 걸 막는다. */
+    const F1_DEBOUNCE = 2;
+    const F1_GOOD_QUALITY = 192;
+
+    /* 구분 → 클릭 시 갈 공정. 진행중 행이 있으면 그 행의 공정이 우선한다. */
+    const F1_CATS = [
+      {key: 'wash',    name: '세척',          proc: 'bsc01'},
+      {key: 'vessel',  name: '용기',          proc: 'bsc02'},
+      {key: 'pk',      name: 'Process Kit',   proc: 'bsc03'},
+      {key: 'storage', name: '혈액저장용기',  proc: 'bsc02'},
+      {key: 'steril',  name: '멸균',          proc: 'bsc04'},
+      {key: 'product', name: '완제품',        proc: 'bsc05'}
+    ];
+
+    /* ★ 공정 화면 주소. 메뉴 주소를 확인해서 채운다. 비어 있으면 클릭해도 이동하지 않는다. */
+    const F1_PROC_URL = {
+      bsc01: '',   // 세척
+      bsc02: '',   // 조립(1공장)
+      bsc03: '',   // 블리스터 포장
+      bsc04: '',   // 멸균
+      bsc05: '',   // 포장(1공장)
+      bsc06: ''    // 고주파 융착
+    };
+
+    const F1_UNIT = {temp: '℃', humi: '%', press: ''};
+    const F1_DIGITS = {temp: 1, humi: 1, press: 2};
+    const F1_KIND_NAME = {temp: '온도', humi: '습도', press: '차압'};
+
+    var f1Env = [];
+    var f1Data = null;
+    var f1OutCnt = {};       // tag → 연속 이탈 횟수
+    var f1Acked = {};        // tag → 확인한 알람 (복귀하면 지운다)
+
+    function f1Esc(v) {
+      return String(v === null || v === undefined ? '' : v)
+              .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+    function f1Has(v) { return v !== null && v !== undefined && v !== ''; }
+    function f1Num(v) { return Number(v || 0); }
+    function f1Pad(n) { return String(n).padStart(2, '0'); }
+    function f1Fmt(n) { return f1Num(n).toLocaleString('ko-KR'); }
+
+    function f1Clock() {
+      var tick = function () {
+        var d = new Date();
+        document.getElementById('f1Clock').textContent =
+                d.getFullYear() + '-' + f1Pad(d.getMonth() + 1) + '-' + f1Pad(d.getDate())
+                + '  ' + f1Pad(d.getHours()) + ':' + f1Pad(d.getMinutes()) + ':' + f1Pad(d.getSeconds());
+      };
+      tick();
+      setInterval(tick, 1000);
+    }
+
+    function f1Ago(sec) {
+      if (!f1Has(sec)) return '수신 이력 없음';
+      sec = Number(sec);
+      if (sec < 60) return sec + '초 전';
+      if (sec < 3600) return Math.floor(sec / 60) + '분 전';
+      if (sec < 86400) return Math.floor(sec / 3600) + '시간 전';
+      return Math.floor(sec / 86400) + '일 전';
+    }
+
+    // ═══════════════════════════════════════════════════
+    // 환경
+    // ═══════════════════════════════════════════════════
+
+    /* 행 하나의 판정.
+       ★ 끊김이 이탈보다 먼저다. 멈춘 옛날 값으로 이탈 알람을 띄우면
+         진짜 알람과 구분이 안 된다. */
+    function f1Judge(s) {
+      var stale = !f1Has(s.age_sec) || Number(s.age_sec) > F1_STALE_SEC;
+      if (stale) return 'stale';
+      if (Number(s.quality) !== F1_GOOD_QUALITY || !f1Has(s.val)) return 'quality';
+      var v = Number(s.val);
+      if (f1Has(s.min_val) && v < Number(s.min_val)) return 'out';
+      if (f1Has(s.max_val) && v > Number(s.max_val)) return 'out';
+      return 'ok';
+    }
+
+    function f1LoadEnv() {
+      AjaxUtil.getAsyncData(F1_API + '/env', {spjangcd: F1_SPJANGCD}, function (res) {
+        if (!res || res.success === false || !res.data) {
+          document.getElementById('f1EnvSub').textContent = '센서 조회 실패 — 다시 시도합니다';
+          return;
+        }
+        f1Env = res.data;
+        f1Env.forEach(function (s) {
+          var j = f1Judge(s);
+          s._j = j;
+          if (j === 'out') {
+            f1OutCnt[s.tag_name] = (f1OutCnt[s.tag_name] || 0) + 1;
+          } else if (j === 'ok') {
+            f1OutCnt[s.tag_name] = 0;
+            delete f1Acked[s.tag_name];     // 복귀하면 다음 이탈은 다시 알린다
+          }
+          /* stale·quality 일 때는 카운트를 그대로 둔다 — 판정할 수 없는 상태라서 */
+          s._alarm = (j === 'out' && f1OutCnt[s.tag_name] >= F1_DEBOUNCE);
+        });
+        f1RenderEnv();
+        f1RenderAlarm();
+      });
+    }
+
+    function f1RenderEnv() {
+      var host = document.getElementById('f1Env');
+      if (!f1Env.length) {
+        host.innerHTML = '<div class="empty">등록된 센서가 없습니다 (env_sensor).</div>';
+        return;
+      }
+      /* group_code 로 묶는다 — 온습도계 하나 = 온도·습도 두 행 */
+      var groups = [], map = {};
+      f1Env.forEach(function (s) {
+        if (!map[s.group_code]) {
+          map[s.group_code] = {code: s.group_code, name: s.group_name, rows: []};
+          groups.push(map[s.group_code]);
+        }
+        map[s.group_code].rows.push(s);
+      });
+
+      var newest = null;
+      host.innerHTML = groups.map(function (g) {
+        var js = g.rows.map(function (r) { return r._j; });
+        var state = js.indexOf('stale') >= 0 && js.every(function (j) { return j === 'stale'; }) ? 'stale'
+                : g.rows.some(function (r) { return r._alarm; }) ? 'bad'
+                        : js.indexOf('quality') >= 0 ? 'quality'
+                                : js.indexOf('out') >= 0 ? 'out' : 'ok';
+        var badge = state === 'stale' ? '<span class="badge stale">수신 끊김</span>'
+                : state === 'bad' ? '<span class="badge bad">기준 이탈</span>'
+                        : state === 'quality' ? '<span class="badge q">센서 이상</span>'
+                                : state === 'out' ? '<span class="badge bad">확인 중</span>'
+                                        : '<span class="badge ok">정상</span>';
+        var kinds = g.rows.map(function (r) { return F1_KIND_NAME[r.kind]; }).join('·');
+
+        var metrics = g.rows.map(function (r) {
+          var unit = f1Has(r.unit) ? r.unit : (F1_UNIT[r.kind] || '');
+          var val = f1Has(r.val) ? Number(r.val).toFixed(F1_DIGITS[r.kind] || 1) : '—';
+          var range = (f1Has(r.min_val) || f1Has(r.max_val))
+                  ? (f1Has(r.min_val) ? Number(r.min_val) : '') + '~' + (f1Has(r.max_val) ? Number(r.max_val) : '')
+                  : '기준 미설정';
+          return '<div class="m"><span class="l">' + F1_KIND_NAME[r.kind] + '</span>'
+                  + '<span class="v' + (r._j === 'out' ? ' out' : '') + '">' + val
+                  + '<small>' + f1Esc(unit) + '</small></span>'
+                  + '<span class="r">' + range + '</span></div>';
+        }).join('');
+
+        var age = g.rows.reduce(function (a, r) {
+          if (!f1Has(r.age_sec)) return a;
+          return a === null ? Number(r.age_sec) : Math.min(a, Number(r.age_sec));
+        }, null);
+        if (age !== null) newest = newest === null ? age : Math.min(newest, age);
+        var ts = g.rows[0].ts;
+
+        var cls = state === 'stale' ? 'stale' : (state === 'bad' ? 'bad' : '');
+        return '<div class="env ' + cls + '">'
+                + '<div class="t">' + f1Esc(g.name) + '<span class="k">' + kinds + '</span>' + badge + '</div>'
+                + metrics
+                + '<div class="ts">' + (ts ? f1Esc(ts) + ' · ' : '') + f1Ago(age) + '</div>'
+                + '</div>';
+      }).join('');
+
+      document.getElementById('f1EnvSub').textContent =
+              newest === null ? '수신 이력 없음' : '최근 수신 ' + f1Ago(newest);
+    }
+
+    function f1RenderAlarm() {
+      var el = document.getElementById('f1Alarm');
+      var alarms = f1Env.filter(function (s) { return s._alarm && !f1Acked[s.tag_name]; });
+      var allStale = f1Env.length && f1Env.every(function (s) { return s._j === 'stale'; });
+      var someStale = f1Env.filter(function (s) { return s._j === 'stale'; });
+
+      if (alarms.length) {
+        el.className = 'f1-alarm bad';
+        el.innerHTML = '⚠ 기준 이탈 — ' + alarms.map(function (s) {
+                  var unit = f1Has(s.unit) ? s.unit : (F1_UNIT[s.kind] || '');
+                  return f1Esc(s.group_name) + ' ' + F1_KIND_NAME[s.kind] + ' '
+                          + Number(s.val).toFixed(F1_DIGITS[s.kind] || 1) + unit;
+                }).join(' · ')
+                + '<button type="button" class="ack" id="f1Ack">확인</button>';
+        document.getElementById('f1Ack').onclick = function () {
+          alarms.forEach(function (s) { f1Acked[s.tag_name] = true; });
+          f1RenderAlarm();
+        };
+      } else if (allStale) {
+        var age = f1Env.reduce(function (a, s) {
+          return f1Has(s.age_sec) ? Math.min(a, Number(s.age_sec)) : a;
+        }, Infinity);
+        el.className = 'f1-alarm stale';
+        el.textContent = '센서 수신 끊김 — 마지막 수신 ' + (age === Infinity ? '없음' : f1Ago(age))
+                + ' · 수집 PC 전원과 수집 프로그램을 확인하세요';
+      } else if (someStale.length) {
+        el.className = 'f1-alarm stale';
+        el.textContent = '일부 센서 수신 끊김 — ' + someStale.map(function (s) {
+          return s.group_name + ' ' + F1_KIND_NAME[s.kind];
+        }).join(', ');
+      } else {
+        el.className = 'f1-alarm ok';
+        el.textContent = '정상 운영 중';
+      }
+    }
+
+    // ═══════════════════════════════════════════════════
+    // 생산 · 인원 · 재고
+    // ═══════════════════════════════════════════════════
+    function f1LoadMain() {
+      AjaxUtil.getAsyncData(F1_API + '/read', {spjangcd: F1_SPJANGCD}, function (res) {
+        if (!res || res.success === false || !res.data) {
+          document.getElementById('f1Upd').textContent = '조회 실패 — 다시 시도합니다';
+          return;
+        }
+        f1Data = res.data;
+        f1RenderProd();
+        f1RenderPeople();
+        var d = new Date();
+        document.getElementById('f1Upd').textContent =
+                '갱신 ' + f1Pad(d.getHours()) + ':' + f1Pad(d.getMinutes()) + ':' + f1Pad(d.getSeconds());
+      });
+    }
+
+    function f1RenderProd() {
+      var working = f1Data.working || [];
+      var done = {};
+      (f1Data.today_done || []).forEach(function (r) { done[r.cat] = f1Num(r.qty); });
+      /* ★ 완제품 오늘 완료는 통합 KPI 와 같은 값을 쓴다(같은 숫자를 두 화면이 다르게 말하지 않게) */
+      if (f1Data.kpi && f1Has(f1Data.kpi.f1_today_good)) done.product = f1Num(f1Data.kpi.f1_today_good);
+
+      var wash = f1Data.wash_today || {};
+      var steril = f1Data.steril || [];
+
+      document.getElementById('f1Prod').innerHTML = F1_CATS.map(function (c) {
+        var items = '', on = false, proc = c.proc, doneTxt = '';
+
+        if (c.key === 'wash') {
+          /* 세척은 mat_produce 를 만들지 않는다 — wash_work 세션으로 본다 */
+          var sc = f1Num(wash.session_cnt);
+          on = false;
+          items = sc ? '<div>오늘 <b>' + sc + '</b>세션 · 품목 ' + f1Num(wash.item_cnt) + '건</div>'
+                  : '<span class="none">—</span>';
+          doneTxt = sc ? sc + '<small>세션</small>' : '-';
+        } else if (c.key === 'steril') {
+          var run = steril.filter(function (b) { return b.state === 'working'; });
+          var today = steril.length;
+          on = run.length > 0;
+          items = run.length ? run.map(function (b) {
+            return '<div>' + f1Esc(b.equ_name || '멸균기') + ' · 로트 <b>' + f1Num(b.lot_cnt) + '</b>건'
+                    + (b.actor_name ? '<span class="who">' + f1Esc(b.actor_name) + '</span>' : '') + '</div>';
+          }).join('') : '<span class="none">—</span>';
+          /* 진행중 배치는 완료로 세지 않는다 (BI 판정 결과 값은 화면마다 표기가 달라 여기서 판정하지 않는다) */
+          var fin = steril.filter(function (b) { return b.state !== 'working' && b.steril_date; }).length;
+          doneTxt = fin ? fin + '<small>배치</small>' : '-';
+        } else {
+          var rows = working.filter(function (w) { return w.cat === c.key; });
+          on = rows.length > 0;
+          if (rows.length && rows[0].proc_code) proc = rows[0].proc_code;
+          items = rows.length ? rows.map(function (w) {
+            return '<div>' + f1Esc(w.mat_name) + ' : <b>' + f1Fmt(w.qty) + '</b>개'
+                    + '<span class="who">' + f1Esc(w.proc_name || '')
+                    + (w.workers ? ' · ' + f1Esc(w.workers) : '') + '</span></div>';
+          }).join('') : '<span class="none">—</span>';
+          doneTxt = f1Has(done[c.key]) ? f1Fmt(done[c.key]) + '<small>개</small>' : '-';
+        }
+
+        var url = F1_PROC_URL[proc] || '';
+        return '<div class="pr row' + (on ? ' on' : '') + (url ? '' : ' nolink') + '" data-url="' + f1Esc(url) + '">'
+                + '<div class="cat"><i></i>' + c.name + '</div>'
+                + '<div class="items">' + items + '</div>'
+                + '<div class="done">' + doneTxt + '</div>'
+                + '<div class="go">' + (url ? '›' : '') + '</div></div>';
+      }).join('');
+    }
+
+    function f1RenderPeople() {
+      var ppl = f1Data.people || [];
+      var w = ppl.filter(function (p) { return p.state === 'working'; });
+      document.getElementById('f1PplSum').innerHTML =
+              '<div class="w">작업중<b>' + w.length + '</b></div>'
+              + '<div class="i">대기<b>' + (ppl.length - w.length) + '</b></div>';
+      document.getElementById('f1Ppl').innerHTML = ppl.length ? ppl.map(function (p) {
+        return '<div class="p ' + p.state + '"><i></i>' + f1Esc(p.name)
+                + '<span class="wh">' + (p.state === 'working' ? f1Esc(p.where_name || '작업중') : '대기') + '</span></div>';
+      }).join('') : '<div class="empty">1공장 인원이 없습니다.</div>';
+    }
+
+
+    // ═══════════════════════════════════════════════════
+    // 센서 설정 모달
+    // ═══════════════════════════════════════════════════
+    /* ★ 설정은 통합 대시보드와 같은 API 를 쓴다.
+         저장소(env_sensor)뿐 아니라 저장 경로도 하나로 둬야 두 화면 설정이 갈라지지 않는다.
+       ★ 계측기 한 대 = 한 줄 = 이름 칸 하나.
+         예전에는 센서 행(온도·습도)마다 이름 칸이 있어서, 온도 행에서 고친 이름을
+         뒤이어 저장되는 습도 행이 옛 이름으로 다시 덮어썼다. */
+    const F1_ENV_API = '/api/dashboard/main/env_limit';
+
+    function f1ModalOpen() {
+      document.getElementById('f1ModalMsg').textContent = '';
+      AjaxUtil.getAsyncData(F1_ENV_API, {spjangcd: F1_SPJANGCD}, function (res) {
+        var zones = (res && res.data) ? res.data : [];
+        document.getElementById('f1SensorRows').innerHTML = zones.length ? zones.map(function (z) {
+          var own = function (k) { return z.hasOwnProperty('last_' + k); };
+          var num = function (kind, side) {
+            if (!own(kind)) return '<td class="na">—</td>';
+            var v = z[kind + '_' + side];
+            return '<td><input class="n" type="number" step="any" data-k="' + kind + '_' + side
+                    + '" value="' + (f1Has(v) ? Number(v) : '') + '"></td>';
+          };
+          return '<tr data-code="' + f1Esc(z.code) + '">'
+                  + '<td><input class="nm" data-k="zone_name" maxlength="50" value="' + f1Esc(z.name) + '">'
+                  + '<small>' + f1Esc(z.code) + '</small></td>'
+                  + num('temp', 'min') + num('temp', 'max')
+                  + num('humi', 'min') + num('humi', 'max')
+                  + num('press', 'min') + num('press', 'max') + '</tr>';
+        }).join('') : '<tr><td colspan="7" class="na">등록된 센서가 없습니다 (env_sensor).</td></tr>';
+        document.getElementById('f1Modal').classList.add('on');
+      });
+    }
+    function f1ModalClose() { document.getElementById('f1Modal').classList.remove('on'); }
+
+    function f1ModalSave() {
+      var trs = document.querySelectorAll('#f1SensorRows tr[data-code]');
+      var payloads = [];
+      for (var i = 0; i < trs.length; i++) {
+        var d = {spjangcd: F1_SPJANGCD, zone_code: trs[i].getAttribute('data-code')};
+        trs[i].querySelectorAll('input[data-k]').forEach(function (inp) {
+          d[inp.getAttribute('data-k')] = inp.value.trim();
+        });
+        if (!d.zone_name) {
+          document.getElementById('f1ModalMsg').textContent = d.zone_code + ' — 센서 이름을 입력하세요.';
+          return;
+        }
+        var kinds = ['temp', 'humi', 'press'];
+        for (var k = 0; k < kinds.length; k++) {
+          var lo = d[kinds[k] + '_min'], hi = d[kinds[k] + '_max'];
+          if (f1Has(lo) && f1Has(hi) && Number(lo) >= Number(hi)) {
+            document.getElementById('f1ModalMsg').textContent =
+                    d.zone_name + ' — ' + F1_KIND_NAME[kinds[k]] + ' 하한이 상한보다 크거나 같습니다.';
+            return;
+          }
+        }
+        payloads.push(d);
+      }
+      var idx = 0, failed = null;
+      var next = function () {
+        if (idx >= payloads.length) {
+          if (failed) { document.getElementById('f1ModalMsg').textContent = failed; return; }
+          if (typeof Notify !== 'undefined') Notify.success('저장되었습니다');
+          f1OutCnt = {}; f1Acked = {};     // 기준이 바뀌면 판정을 처음부터
+          f1ModalClose();
+          f1LoadEnv();
+          return;
+        }
+        AjaxUtil.postAsyncData(F1_ENV_API + '/save', payloads[idx++], function (res) {
+          if (res && res.success === false) failed = res.message;
+          next();
+        });
+      };
+      next();
+    }
+
+    $(document.body).ready(function () {
+      if (typeof AjaxUtil === 'undefined' || !AjaxUtil.getAsyncData) {
+        console.error('[dash_f1] AjaxUtil 미로드');
+        return;
+      }
+      f1Clock();
+      f1LoadEnv();
+      f1LoadMain();
+      setInterval(f1LoadEnv, F1_ENV_MS);
+      setInterval(f1LoadMain, F1_MAIN_MS);
+
+      document.getElementById('f1Prod').addEventListener('click', function (e) {
+        var tr = e.target.closest('.pr.row');
+        var url = tr && tr.getAttribute('data-url');
+        if (url) location.href = url;
+      });
+      document.getElementById('f1Gear').addEventListener('click', f1ModalOpen);
+      document.getElementById('f1ModalX').addEventListener('click', f1ModalClose);
+      document.getElementById('f1ModalCancel').addEventListener('click', f1ModalClose);
+      document.getElementById('f1ModalSave').addEventListener('click', f1ModalSave);
+      document.getElementById('f1Modal').addEventListener('click', function (e) {
+        if (e.target && e.target.id === 'f1Modal') f1ModalClose();
+      });
+    });
+  </script>
+</th:block>
+</html>

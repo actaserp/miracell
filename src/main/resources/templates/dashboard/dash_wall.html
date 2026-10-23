@@ -73,12 +73,15 @@
     /* ── 본문 ── */
     #wlWrap .wl-body { flex:1 1 auto; min-height:0; display:flex; flex-direction:column; gap:16px; }
 
-    /* 클린룸 4존 */
-    #wlWrap .wl-env { flex:1 1 40%; min-height:0; display:grid;
-      grid-template-columns:repeat(4,1fr); gap:14px; }
+    /* 클린룸 — 온습도계 4 + 차압계 3.
+       차압계는 한 줄(차압)뿐이라 폭을 조금 덜 준다. */
+    /* ★ 높이를 비율로 주지 않는다. 40% 를 주면 카드가 세로로 늘어나
+         값 두 개 사이가 텅 빈다. 내용만큼만 쓰고 남는 자리는 공정 타일이 갖는다. */
+    #wlWrap .wl-env { flex:0 0 auto; min-height:0; display:grid;
+      grid-template-columns:repeat(4,1fr) repeat(3,.8fr); gap:14px; }
     #wlWrap .wl-ec { background:#fff; border:1px solid #d5dce7; border-radius:16px;
       box-shadow:0 2px 6px rgba(31,39,51,.07);
-      padding:14px 18px; display:flex; flex-direction:column; min-height:0; }
+      padding:12px 16px; display:flex; flex-direction:column; min-height:0; }
     #wlWrap .wl-ec.bad { background:#fff2f2; border-color:#e9b4b4; box-shadow:0 2px 10px rgba(214,69,69,.2); }
     #wlWrap .wl-ec .zn { font-size:20px; font-weight:800; display:flex; align-items:center; gap:9px; }
     #wlWrap .wl-ec .zn .st { margin-left:auto; font-size:12px; font-weight:800;
@@ -86,18 +89,21 @@
       background:#e8f6ef; color:#0b7a45; }
     #wlWrap .wl-ec .zn .st.off { background:#eef2f8; color:#98a1b0; }
     #wlWrap .wl-ec .zn .st.bad { background:#d64545; color:#fff; }
-    #wlWrap .wl-ec .rows { flex:1 1 auto; min-height:0; display:flex;
-      flex-direction:column; justify-content:space-around; margin-top:6px; }
-    #wlWrap .wl-ec .rw { display:flex; align-items:baseline; gap:10px; }
-    #wlWrap .wl-ec .rw .k { font-size:24px; font-weight:800; color:#8a94a4; letter-spacing:.5px; }
-    #wlWrap .wl-ec .rw .v { margin-left:auto; font-size:40px; font-weight:800;
-      font-variant-numeric:tabular-nums; line-height:1.05; }
+    /* 수신 끊김 — 「대기」와 구분한다. 멈춘 걸 정상 대기로 읽으면 안 된다 */
+    #wlWrap .wl-ec.stale { background:#f4f5f7; border-style:dashed; }
+    #wlWrap .wl-ec .zn .st.stale { background:#fff1d6; color:#a45b00; }
+    /* 지표는 가로로 나란히 — 라벨은 값 위에 작게 */
+    #wlWrap .wl-ec .rows { display:flex; gap:14px; margin-top:6px; }
+    #wlWrap .wl-ec .rw { flex:1 1 0; min-width:0; display:flex; flex-direction:column; }
+    #wlWrap .wl-ec .rw .k { font-size:13px; font-weight:800; color:#8a94a4; letter-spacing:.5px; }
+    #wlWrap .wl-ec .rw .v { font-size:34px; font-weight:800; white-space:nowrap;
+      font-variant-numeric:tabular-nums; line-height:1.1; }
     #wlWrap .wl-ec .rw .v small { font-size:17px; color:#a7b0be; margin-left:3px; }
     #wlWrap .wl-ec .rw.warn .v, #wlWrap .wl-ec .rw.warn .k { color:#d64545; }
     #wlWrap .wl-ec .rw.na .v { color:#dfe3ea; }
 
     /* 공정 타일 */
-    #wlWrap .wl-proc { flex:1 1 33%; min-height:0; display:grid;
+    #wlWrap .wl-proc { flex:1 1 auto; min-height:0; display:grid;
       grid-template-columns:1fr 1fr; gap:14px; }
     #wlWrap .wl-fac { background:#fff; border:1px solid #d5dce7; border-radius:16px;
       box-shadow:0 2px 6px rgba(31,39,51,.07);
@@ -109,11 +115,12 @@
     #wlWrap .wl-tile { background:#f2f5fa; border-radius:12px; padding:9px 12px;
       display:flex; flex-direction:column; justify-content:center; }
     #wlWrap .wl-tile.on { background:#e8f6ef; box-shadow:inset 5px 0 0 #0f9d58; }
-    #wlWrap .wl-tile .tn { font-size:15px; font-weight:800; color:#8a94a4; }
+    /* 클린룸 줄이 줄어든 만큼 타일이 커졌다 — 숫자도 키워 멀리서 읽히게 */
+    #wlWrap .wl-tile .tn { font-size:18px; font-weight:800; color:#8a94a4; }
     #wlWrap .wl-tile.on .tn { color:#0b7a45; }
-    #wlWrap .wl-tile .tv { font-size:26px; font-weight:800; font-variant-numeric:tabular-nums;
+    #wlWrap .wl-tile .tv { font-size:40px; font-weight:800; font-variant-numeric:tabular-nums;
       color:#1f2733; line-height:1.15; }
-    #wlWrap .wl-tile .tv small { font-size:13px; color:#a7b0be; margin-left:2px; }
+    #wlWrap .wl-tile .tv small { font-size:16px; color:#a7b0be; margin-left:3px; }
     #wlWrap .wl-tile:not(.on) .tv { color:#c2c9d4; }
     /* 값이 둘인 타일 — 1공장 포장(완제품 / CK).
        벽걸이는 지나가며 보는 화면이라 숫자를 줄이는 것이 손해지만,
@@ -122,10 +129,10 @@
     #wlWrap .wl-tile .tsplit > div { flex:1 1 0; min-width:0; }
     #wlWrap .wl-tile .tsplit > div + div { border-left:1px solid #dde3ec; padding-left:10px; }
     #wlWrap .wl-tile.on .tsplit > div + div { border-left-color:#bfe6d1; }
-    #wlWrap .wl-tile .tsplit .sl { font-size:11px; font-weight:800; color:#a7b0be;
+    #wlWrap .wl-tile .tsplit .sl { font-size:13px; font-weight:800; color:#a7b0be;
       letter-spacing:.3px; white-space:nowrap; }
     #wlWrap .wl-tile.on .tsplit .sl { color:#5c9c7c; }
-    #wlWrap .wl-tile .tsplit .tv { font-size:22px; }
+    #wlWrap .wl-tile .tsplit .tv { font-size:32px; }
 
     /* 하단 KPI */
     #wlWrap .wl-kpis { flex:0 0 auto; display:grid; grid-template-columns:repeat(5,1fr); gap:14px; }
@@ -199,9 +206,9 @@
     #wlWrap.wl-scroll .wl-env,
     #wlWrap.wl-scroll .wl-proc,
     #wlWrap.wl-scroll .wl-kpis { flex:0 0 auto; }
-    #wlWrap.wl-scroll .wl-ec  { min-height:120px; }
+    #wlWrap.wl-scroll .wl-ec  { min-height:0; }
     #wlWrap.wl-scroll .wl-fac { min-height:min-content; }
-    #wlWrap.wl-scroll .wl-ec .rows { justify-content:space-between; gap:2px; }
+
 
     /* ── 글자 줄이기 : 가로 1920 미만 ── */
     @media (max-width:1600px){
@@ -209,14 +216,14 @@
       #wlWrap .wl-clock     { font-size:28px; }
       #wlWrap .wl-alarm     { font-size:19px; }
       #wlWrap .wl-ec .zn    { font-size:17px; }
-      #wlWrap .wl-ec .rw .k { font-size:19px; }
-      #wlWrap .wl-ec .rw .v { font-size:32px; }
+      #wlWrap .wl-ec .rw .k { font-size:12px; }
+      #wlWrap .wl-ec .rw .v { font-size:28px; }
       #wlWrap .wl-ec .rw .v small { font-size:14px; }
       #wlWrap .wl-kpi .v    { font-size:34px; }
       #wlWrap .wl-kpi .l    { font-size:12.5px; }
-      #wlWrap .wl-tile .tn  { font-size:13px; }
-      #wlWrap .wl-tile .tv  { font-size:22px; }
-      #wlWrap .wl-tile .tsplit .tv { font-size:18px; }
+      #wlWrap .wl-tile .tn  { font-size:16px; }
+      #wlWrap .wl-tile .tv  { font-size:32px; }
+      #wlWrap .wl-tile .tsplit .tv { font-size:26px; }
     }
 
     /* 세로가 낮으면 폭과 무관하게 글자를 줄인다 — 접지는 않는다 */
@@ -227,10 +234,10 @@
       #wlWrap .wl-alarm     { font-size:17px; padding:11px 16px; }
       #wlWrap .wl-ec        { padding:10px 14px; }
       #wlWrap .wl-ec .zn    { font-size:16px; }
-      #wlWrap .wl-ec .rw .k { font-size:17px; }
-      #wlWrap .wl-ec .rw .v { font-size:28px; }
+      #wlWrap .wl-ec .rw .k { font-size:12px; }
+      #wlWrap .wl-ec .rw .v { font-size:26px; }
       #wlWrap .wl-kpi .v    { font-size:28px; }
-      #wlWrap .wl-tile .tv  { font-size:20px; }
+      #wlWrap .wl-tile .tv  { font-size:28px; }
     }
 
     /* ── (1) 접기 : 가로가 좁을 때만 ── */
@@ -242,15 +249,15 @@
            block 이 되면 flex 비율(40%/33%)이 죽어서
            카드가 내용만큼만 자라고 아래가 텅 빈다.
            폭이 좁아도 「아래까지 꽉 참」은 유지해야 한다. */
-      /* ★ 클린룸 4장은 접지 않는다. 내용이 「이름 + 3줄」뿐이라
+      /* ★ 클린룸 7장은 접지 않는다. 내용이 「이름 + 3줄」뿐이라
            좁아져도 읽히고, 접으면 세로만 두 배가 된다.
            벽걸이는 세로가 늘어나는 쪽이 훨씬 불리하다. */
-      #wlWrap .wl-env  { grid-template-columns:repeat(4,1fr); gap:10px; }
+      #wlWrap .wl-env  { grid-template-columns:repeat(4,1fr) repeat(3,.8fr); gap:10px; }
       #wlWrap .wl-ec   { padding:10px 12px; }
       #wlWrap .wl-ec .zn { font-size:15px; }
       #wlWrap .wl-ec .zn .st { font-size:10.5px; padding:2px 7px; }
-      #wlWrap .wl-ec .rw .k { font-size:14px; }
-      #wlWrap .wl-ec .rw .v { font-size:24px; }
+      #wlWrap .wl-ec .rw .k { font-size:11px; }
+      #wlWrap .wl-ec .rw .v { font-size:22px; }
       #wlWrap .wl-ec .rw .v small { font-size:12px; }
       #wlWrap .wl-proc { grid-template-columns:repeat(2,1fr); gap:12px; }
 
@@ -289,8 +296,8 @@
       #wlWrap .wl-env  { gap:7px; }
       #wlWrap .wl-ec   { padding:8px 9px; }
       #wlWrap .wl-ec .zn { font-size:13px; }
-      #wlWrap .wl-ec .rw .k { font-size:12px; }
-      #wlWrap .wl-ec .rw .v { font-size:19px; }
+      #wlWrap .wl-ec .rw .k { font-size:10.5px; }
+      #wlWrap .wl-ec .rw .v { font-size:18px; }
       #wlWrap .wl-tiles { gap:6px; }
       #wlWrap .wl-ec, #wlWrap .wl-fac { min-height:0; }
       /* 여기서도 1줄 유지. 더 줄일 것은 글자뿐이다 */
@@ -302,7 +309,7 @@
 
     /* 640 이하 — 타일 안 2분할(완제품/CK)이 무너진다. 세로로 세운다 */
     @media (max-width:640px){
-      /* 폰에서는 4열이 무리다. 여기서만 2열로 */
+      /* 폰에서는 7열이 무리다. 여기서만 2열로 */
       #wlWrap .wl-env { grid-template-columns:repeat(2,1fr); }
       #wlWrap .wl-ec .rw .v { font-size:22px; }
       /* 폰에서는 두 공장을 나란히 둘 수 없다. 여기서만 세로로 */
@@ -446,7 +453,7 @@
       wlAlarm();
     }
 
-    /* ── 클린룸 4존 ──
+    /* ── 클린룸 (온습도계 4 · 차압계 3) ──
        벽걸이에서 가장 큰 자리를 준다. 사람이 즉시 대응해야 하는 유일한 값이다.
        생산 수량은 나중에 봐도 되지만 환경 이탈은 지금 조치해야 한다. */
     function wlEnv(zones){
@@ -468,17 +475,26 @@
       };
 
       document.getElementById('wlEnv').innerHTML = zones.map(function(z){
-        var t  = row('온도', '°C', z.temp,  z.temp_min,  z.temp_max,  1);
-        var h  = row('습도', '%',  z.humi,  z.humi_min,  z.humi_max,  1);
-        var pr = row('차압', 'Pa', z.press, z.press_min, z.press_max, 0);
+        /* ★ 서버(EnvSensorService)는 계측기 하나를 존 한 칸으로 내린다.
+             그 계측기가 가진 항목만 그린다 — 온습도계에 차압 「--」가 붙으면 고장처럼 보인다.
+             가진 항목은 last_* 키로 안다. stale 키가 없으면 예전 형식이라 셋 다 그린다. */
+        var legacy = !z.hasOwnProperty('stale');
+        var own = function(k){ return legacy || z.hasOwnProperty('last_' + k); };
+
+        var t  = own('temp')  ? row('온도', '°C', z.temp,  z.temp_min,  z.temp_max,  1) : '';
+        var h  = own('humi')  ? row('습도', '%',  z.humi,  z.humi_min,  z.humi_max,  1) : '';
+        /* ★ 차압은 0.65 같은 소수다. 0자리로 반올림하면 0·1 만 보인다. 단위는 확정 전이라 비운다 */
+        var pr = own('press') ? row('차압', '',   z.press, z.press_min, z.press_max, 2) : '';
 
         var hasAny = wlHas(z.temp) || wlHas(z.humi) || wlHas(z.press);
         var bad = /rw warn/.test(t + h + pr);
-        var st = !hasAny ? '<span class="st off">대기</span>'
-                : bad     ? '<span class="st bad">이탈</span>'
-                        :           '<span class="st">정상</span>';
+        var stale = !legacy && z.stale;
+        var st = stale   ? '<span class="st stale">수신 끊김</span>'
+                : !hasAny ? '<span class="st off">대기</span>'
+                        : bad     ? '<span class="st bad">이탈</span>'
+                                :           '<span class="st">정상</span>';
 
-        return '<div class="wl-ec ' + (bad ? 'bad' : '') + '">'
+        return '<div class="wl-ec ' + (bad ? 'bad' : (stale ? 'stale' : '')) + '">'
                 + '<div class="zn">' + wlEsc(z.name) + st + '</div>'
                 + '<div class="rows">' + t + h + pr + '</div></div>';
       }).join('');
@@ -602,6 +618,14 @@
           msgs.push(z.name + ' 환경 이탈');
         }
       });
+
+      /* ★ 센서 수신 끊김도 알린다. 끊긴 동안은 이탈 판정이 멈춰 있으니
+           「정상 운영 중」을 띄우면 거짓말이 된다. 수집 PC 전원이 꺼진 적이 실제로 있었다. */
+      var lost = (wlData.env || []).filter(function(z){ return z.stale === true; });
+      if (lost.length) {
+        msgs.push(lost.length === (wlData.env || []).length
+                ? '센서 수신 끊김 (전체)' : '센서 수신 끊김 ' + lost.length + '대');
+      }
 
       var fail = (wlData.steril || []).filter(function(b){ return b.bi_result === 'fail'; });
       if (fail.length) msgs.push('멸균 BI 불합격 ' + fail.length + '건');

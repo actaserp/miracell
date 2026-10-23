@@ -47,7 +47,8 @@ public class DashBoardMainController {
 	}
 
 	/**
-	 * 클린룸 관리기준 저장.
+	 * 센서 위치(이름)·관리기준 저장 — 계측기(env_sensor.group_code) 하나씩.
+	 * ★ 1공장 대시보드도 이 API 를 쓴다. 저장 경로를 하나로 둬야 두 화면 설정이 같다.
 	 *
 	 * ★ AjaxUtil 은 form-urlencoded 로 보낸다. @RequestBody(JSON) 을 쓰면 415.
 	 *   존 하나씩 보낸다 — 4개를 한 번에 묶으면 파라미터 이름이 24개가 되고,
@@ -57,6 +58,7 @@ public class DashBoardMainController {
 	public AjaxResult saveEnvLimit(
 			@RequestParam("spjangcd") String spjangcd,
 			@RequestParam("zone_code") String zoneCode,
+			@RequestParam(value = "zone_name", required = false) String zoneName,
 			@RequestParam(value = "temp_min", required = false) Double tempMin,
 			@RequestParam(value = "temp_max", required = false) Double tempMax,
 			@RequestParam(value = "humi_min", required = false) Double humiMin,
@@ -73,7 +75,7 @@ public class DashBoardMainController {
 		}
 
 		String err = this.dashBoardMainService.saveEnvLimit(
-				spjangcd, zoneCode, tempMin, tempMax, humiMin, humiMax, pressMin, pressMax, userId);
+				spjangcd, zoneCode, zoneName, tempMin, tempMax, humiMin, humiMax, pressMin, pressMax, userId);
 
 		if (err != null) {
 			result.success = false;

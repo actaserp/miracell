@@ -25,7 +25,7 @@
     };
     var DOC_ORDER = ['F705-33', 'F803-6', 'F803-7', 'F803-8'];
     /* \uc644\uc81c\ud488(\uc720\ub2db) \ud488\ubaa9 \u2192 \ubaa8\ub378. \uc5c6\uc73c\uba74 \ud488\uba85\uc73c\ub85c \ud310\ub2e8 */
-    var MODEL_BY_CODE = {'WIP-MC20022N': 'M2', 'WIP-MC60066': 'M4', 'WIP-MC4144': 'M4A'};
+    var MODEL_BY_CODE = {'WIP-MC20022N': 'M2', 'WIP-MC60066': 'M4', 'WIP-MC4144': 'M4A', 'WIP-MC4244': 'M4A'};   // M4A(N) 은 M4A 문서
 
 
 
@@ -192,7 +192,9 @@
                 items.forEach(function (it) {
                     var m = pcm(it.cell_map), k = m.kind || 'asm';
                     if (k === 'asm') {
-                        var s = (D.steps || []).filter(function (x) { return +x.mat_id === +it.material_id && (x.state === 'done' || x.source === 'stock'); })[0];
+                        /* ★ 같은 양식 줄을 다른 모델 어셈블리도 쓴다 (예: M4A(N) 챔버 WIP-MA4207 → M4A 챔버 줄) — CellMap.altMat */
+                        var asmIds = [+it.material_id].concat(arr(m.altMat).map(Number));
+                        var s = (D.steps || []).filter(function (x) { return asmIds.indexOf(+x.mat_id) >= 0 && (x.state === 'done' || x.source === 'stock'); })[0];
                         /* ★ 지정 자재가 이 스텝에 없으면 하위 반제품 속 → 다른 스텝 순으로 찾는다
                              (예: 로터 Ass'y 안의 RT보드, 본체 조립에서 투입한 사이드 커버) */
                         var deep = D.deep_mats || [], lotMat0 = m.lotMat || {};

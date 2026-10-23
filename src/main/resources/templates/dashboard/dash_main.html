@@ -193,7 +193,7 @@
        카드가 가로로 길다. 값을 가로로 3등분하면 칸이 좁아져 글자를 못 키운다.
        세로로 쌓으면 폭이 남아 숫자를 크게 쓸 수 있다.
        벽에 띄워두고 지나가며 보는 값이라 크기가 최우선이다. */
-    #dbWrap .db-env { flex:0 0 auto; display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
+    #dbWrap .db-env { flex:0 0 auto; display:grid; grid-template-columns:repeat(4,1fr) repeat(3,.8fr); gap:10px; }
     #dbWrap .ec { background:#fff; border:1px solid #dbe1ea; border-radius:11px;
       padding:10px 15px 11px; border-left:5px solid #cfd6e2;
       box-shadow:0 1px 3px rgba(31,39,51,.06); }
@@ -304,6 +304,10 @@
     .db-mt td.z { text-align:left; padding-left:12px; font-size:13px; font-weight:800;
       color:#3a4759; white-space:nowrap; }
     .db-mt td.z small { display:block; font-size:10px; color:#a7b0be; font-weight:700; }
+    /* 이름 칸 — 다른 숫자 칸보다 넓게 */
+    .db-mt td.z input { max-width:none; text-align:left; padding:0 8px; font-weight:800; }
+    /* 계측기에 없는 항목(온습도계의 차압, 차압계의 온습도) */
+    .db-mt td.na { background:#f4f6f9; color:#c3cad5; font-size:11px; }
     .db-mt input { width:100%; max-width:68px; height:33px; text-align:center;
       font-size:13.5px; font-weight:700; box-sizing:border-box;
       border:1px solid #dbe1ea; border-radius:6px; background:#fbfcfe; }
@@ -375,11 +379,11 @@
         overflow:hidden; text-overflow:ellipsis; }
       #dbWrap .db-kpi .v { flex:0 0 auto; margin-top:0; font-size:21px; }
 
-      /* ★ 클린룸 카드는 접지 않는다. 4개 그대로 한 줄.
+      /* ★ 클린룸 카드는 접지 않는다. 7개(온습도계 4 + 차압계 3) 그대로 한 줄.
            한 칸에 든 것이 「이름 + 지표 3줄」뿐이라 좁아져도 읽힌다.
            2열로 접으면 세로만 두 배가 되고 얻는 게 없다.
            대신 여백과 글자를 줄여 폭을 맞춘다. */
-      #dbWrap .db-env { grid-template-columns:repeat(4,1fr); gap:8px; }
+      #dbWrap .db-env { grid-template-columns:repeat(4,1fr) repeat(3,.8fr); gap:8px; }
       #dbWrap .ec { padding:8px 11px 9px; border-left-width:4px; }
       #dbWrap .ec-h .n { font-size:13px; }
       #dbWrap .ec-h .z { display:none; }   /* 「클린룸 1존」은 이름과 중복 */
@@ -643,17 +647,17 @@
   <div id="dbEnvModal" class="db-mask">
     <div class="db-modal">
       <div class="db-modal-h">
-        <span>클린룸 관리기준</span>
+        <span>센서 위치 · 관리 기준</span>
         <button type="button" class="x" id="dbEnvClose">✕</button>
       </div>
       <div class="db-modal-b">
         <table class="db-mt">
           <thead>
           <tr>
-            <th rowspan="2" class="z">클린룸</th>
+            <th rowspan="2" class="z">센서 이름</th>
             <th colspan="2">온도 (°C)</th>
             <th colspan="2">습도 (%)</th>
-            <th colspan="2">차압 (Pa)</th>
+            <th colspan="2">차압</th>
           </tr>
           <tr><th>하한</th><th>상한</th><th>하한</th><th>상한</th><th>하한</th><th>상한</th></tr>
           </thead>
@@ -980,7 +984,7 @@
         var bad = has && hasRange && (v < Number(min) || v > Number(max));
 
         var rg = hasRange
-                ? Number(min).toFixed(0) + '~' + Number(max).toFixed(0)
+                ? Number(min) + '~' + Number(max)
                 : '기준 미설정';
 
         return '<div class="em ' + (bad ? 'warn' : (has ? '' : 'na')) + '">'
@@ -991,23 +995,41 @@
       };
 
       host.innerHTML = zones.map(function (z) {
-        var t = metric('TEMP', '°C', z.temp, z.temp_min, z.temp_max, 1);
-        var h = metric('HUMI', '%', z.humi, z.humi_min, z.humi_max, 1);
-        var pr = metric('PRESS', 'Pa', z.press, z.press_min, z.press_max, 0);
+        /* ★ 계측기에 없는 항목은 그리지 않는다.
+             온습도계에는 차압이, 차압계에는 온습도가 없다. 빈 줄 「--」가 섞이면
+             고장처럼 보인다. 그 계측기가 가진 항목은 last_* 키 존재로 안다. */
+        var own = function (k) { return z.hasOwnProperty('last_' + k) || z.hasOwnProperty(k + '_min') && z[k + '_min'] !== null; };
+        var legacy = !z.hasOwnProperty('stale');   /* 서버가 예전 형식이면 셋 다 그린다 */
+        /* ★ 차압은 0.65 같은 소수 값이다. 0자리로 반올림하면 0·1 만 보인다.
+             단위(mmAq/Pa)는 아직 확정 전이라 비워 둔다. */
+        var pr = metric('PRESS', '', z.press, z.press_min, z.press_max, 2);
 
+        var t0 = metric('TEMP', '°C', z.temp, z.temp_min, z.temp_max, 1);
+        var h0 = metric('HUMI', '%', z.humi, z.humi_min, z.humi_max, 1);
         var hasAny = [z.temp, z.humi, z.press].some(function (v) {
           return v !== null && v !== undefined && v !== '';
         });
-        var alarm = /class="em warn/.test(t + h + pr);
+        var alarm = /class="em warn/.test(t0 + h0 + pr);
 
         var badge = !hasAny ? '<span class="s off">대기</span>'
                 : alarm ? '<span class="s bad">기준 이탈</span>'
                         : '<span class="s">정상</span>';
 
+        var t  = metric('TEMP', '°C', z.temp, z.temp_min, z.temp_max, 1);
+        var h  = metric('HUMI', '%', z.humi, z.humi_min, z.humi_max, 1);
+        var body = (legacy || own('temp') ? t : '') + (legacy || own('humi') ? h : '')
+                + (legacy || own('press') ? pr : '');
+        if (z.stale && !legacy) {
+          /* ★ 수신 끊김 — 값은 서버가 null 로 내려 판정에서 빠진다.
+               「대기」라고 쓰면 정상 대기처럼 읽혀 멈춘 걸 모른다. */
+          var ago = (z.age_sec === null || z.age_sec === undefined) ? '수신 이력 없음'
+                  : (z.age_sec < 3600 ? Math.floor(z.age_sec / 60) + '분 전' : Math.floor(z.age_sec / 3600) + '시간 전');
+          badge = '<span class="s off" title="마지막 수신 ' + dbEsc(z.ts || '') + '">수신 끊김 · ' + ago + '</span>';
+        }
         return '<div class="ec ' + (alarm ? 'alarm' : (hasAny ? 'ok' : '')) + '">'
                 + '<div class="ec-h"><span class="n">' + dbEsc(z.name) + '</span>'
                 + '<span class="z">' + dbEsc(z.label || '') + '</span>' + badge + '</div>'
-                + t + h + pr + '</div>';
+                + body + '</div>';
       }).join('');
     }
 
@@ -1326,7 +1348,7 @@
       };
       push('온도', zone.temp, zone.temp_min, zone.temp_max, '°C');
       push('습도', zone.humi, zone.humi_min, zone.humi_max, '%');
-      push('차압', zone.press, zone.press_min, zone.press_max, 'Pa');
+      push('차압', zone.press, zone.press_min, zone.press_max, '');
 
       dbEnvHist.unshift({
         at: dbPad(d.getMonth() + 1) + '-' + dbPad(d.getDate()) + ' '
@@ -1400,7 +1422,7 @@
                 && max !== null && max !== undefined);
         var bad = has && hasRange && (v < Number(min) || v > Number(max));
         var rg = hasRange
-                ? Number(min).toFixed(0) + '~' + Number(max).toFixed(0)
+                ? Number(min) + '~' + Number(max)
                 : '기준 미설정';
         return '<div class="' + (bad ? 'bad' : '') + '">'
                 + '<div class="k">' + key + '</div>'
@@ -1415,7 +1437,7 @@
                 + '<div class="mx">'
                 + cell('온도', '°C', z.temp, z.temp_min, z.temp_max, 1)
                 + cell('습도', '%', z.humi, z.humi_min, z.humi_max, 1)
-                + cell('차압', 'Pa', z.press, z.press_min, z.press_max, 0)
+                + cell('차압', '', z.press, z.press_min, z.press_max, 2)
                 + '</div></div>';
       }).join('');
     }
@@ -1439,19 +1461,26 @@
         if (!rows.length) {
           document.getElementById('dbEnvRows').innerHTML =
                   '<tr><td colspan="7" style="padding:22px; color:#8a94a4">'
-                  + '관리기준이 등록되어 있지 않습니다. cleanroom_limit 테이블을 확인해 주세요.</td></tr>';
+                  + '센서가 등록되어 있지 않습니다. env_sensor 테이블을 확인해 주세요.</td></tr>';
         } else {
+          /* ★ 계측기 한 대 = 한 줄 = 이름 칸 하나.
+               1공장 대시보드 설정 창도 같은 구조·같은 API 다(한쪽에서 바꾸면 다른 쪽에도 보인다).
+               계측기에 없는 항목은 입력 칸을 두지 않는다 — 비워 저장하면 기준이 지워진 것처럼 보인다. */
           document.getElementById('dbEnvRows').innerHTML = rows.map(function (z) {
-            var inp = function (k, v) {
-              return '<td><input type="number" step="0.1" data-k="' + k + '" value="'
+            var legacy = !z.hasOwnProperty('stale');
+            var own = function (k) { return legacy || z.hasOwnProperty('last_' + k); };
+            var inp = function (kind, side) {
+              if (!own(kind)) return '<td class="na">—</td>';
+              var v = z[kind + '_' + side];
+              return '<td><input type="number" step="any" data-k="' + kind + '_' + side + '" value="'
                       + (v === null || v === undefined ? '' : v) + '"></td>';
             };
             return '<tr data-code="' + dbEsc(z.code) + '">'
-                    + '<td class="z">' + dbEsc(z.name)
-                    + '<small>' + dbEsc(z.label || '') + '</small></td>'
-                    + inp('temp_min', z.temp_min) + inp('temp_max', z.temp_max)
-                    + inp('humi_min', z.humi_min) + inp('humi_max', z.humi_max)
-                    + inp('press_min', z.press_min) + inp('press_max', z.press_max)
+                    + '<td class="z"><input type="text" data-k="zone_name" maxlength="50" value="'
+                    + dbEsc(z.name) + '"><small>' + dbEsc(z.code) + '</small></td>'
+                    + inp('temp', 'min') + inp('temp', 'max')
+                    + inp('humi', 'min') + inp('humi', 'max')
+                    + inp('press', 'min') + inp('press', 'max')
                     + '</tr>';
           }).join('');
         }
@@ -1495,7 +1524,7 @@
           var lo = data[pairs[k][0]], hi = data[pairs[k][1]];
           if (lo !== '' && hi !== '' && Number(lo) >= Number(hi)) {
             document.getElementById('dbEnvMsg').textContent =
-                    tr.querySelector('.z').textContent.split('클린룸')[0].trim()
+                    (data.zone_name || data.zone_code)
                     + ' — ' + pairs[k][2] + ' 하한이 상한보다 크거나 같습니다.';
             return;
           }

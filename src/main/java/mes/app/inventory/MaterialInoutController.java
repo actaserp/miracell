@@ -302,12 +302,24 @@ public class MaterialInoutController {
 		result.success = false;
 
 		boolean isUpdate = false;
+		boolean storeChanged = false;
 
 		MaterialInout mi;
 		if (mio_pk != null) {
 			isUpdate = true;
 			mi = matInoutRepository.findById(mio_pk)
 					.orElseThrow(() -> new RuntimeException("기존 데이터 없음: " + mio_pk));
+
+			/* ★ 로트가 딸린 입고 건은 수정 범위를 제한한다 — 반드시 필드를 바꾸기 «전».
+			     mi 는 트랜잭션 안의 관리 엔티티라, 값을 바꾼 뒤 return 해도 커밋 때 저장된다. */
+			String lotGuard = this.checkLotLinkedEdit(mi, matPk, Integer.parseInt(storeHouseId), qty);
+			if (lotGuard != null) {
+				result.success = false;
+				result.message = lotGuard;
+				return result;
+			}
+			storeChanged = mi.getStoreHouseId() != null
+					&& !mi.getStoreHouseId().equals(Integer.parseInt(storeHouseId));
 		} else {
 			mi = new MaterialInout();
 		}
@@ -370,6 +382,19 @@ public class MaterialInoutController {
 		this.matInoutRepository.save(mi);
 		this.matInoutRepository.flush();
 
+		/* ★ 창고를 바꿨으면 이 입고건의 로트도 같은 창고로 옮긴다.
+		     mat_inout 만 바꾸면 입고내역·창고재고는 새 창고, 로트(=실제 재고)는 옛 창고에 남는다.
+		     쓰인 로트가 있으면 checkLotLinkedEdit 가 이미 막았다. */
+		if (isUpdate && storeChanged) {
+			jdbcTemplate.update("""
+				UPDATE mat_lot
+				   SET "StoreHouse_id" = ?, _modified = now()
+				 WHERE "SourceTableName" = 'mat_inout'
+				   AND "SourceDataPk"    = ?
+				   AND COALESCE(_status, 'a') <> 'd'
+			""", mi.getStoreHouseId(), mio_pk);
+		}
+
 
 //		jdbcTemplate.query(
 //				"SELECT sp_update_mat_in_house_by_inout(?, ?)",
@@ -413,12 +438,24 @@ public class MaterialInoutController {
 		result.success = false;
 
 		boolean isUpdate = false;
+		boolean storeChanged = false;
 
 		MaterialInout mi;
 		if (mio_pk != null) {
 			isUpdate = true;
 			mi = matInoutRepository.findById(mio_pk)
 					.orElseThrow(() -> new RuntimeException("기존 데이터 없음: " + mio_pk));
+
+			/* ★ 로트가 딸린 입고 건은 수정 범위를 제한한다 — 반드시 필드를 바꾸기 «전».
+			     mi 는 트랜잭션 안의 관리 엔티티라, 값을 바꾼 뒤 return 해도 커밋 때 저장된다. */
+			String lotGuard = this.checkLotLinkedEdit(mi, matPk, Integer.parseInt(storeHouseId), qty);
+			if (lotGuard != null) {
+				result.success = false;
+				result.message = lotGuard;
+				return result;
+			}
+			storeChanged = mi.getStoreHouseId() != null
+					&& !mi.getStoreHouseId().equals(Integer.parseInt(storeHouseId));
 		} else {
 			mi = new MaterialInout();
 		}
@@ -480,6 +517,19 @@ public class MaterialInoutController {
 		this.matInoutRepository.save(mi);
 		this.matInoutRepository.flush();
 
+		/* ★ 창고를 바꿨으면 이 입고건의 로트도 같은 창고로 옮긴다.
+		     mat_inout 만 바꾸면 입고내역·창고재고는 새 창고, 로트(=실제 재고)는 옛 창고에 남는다.
+		     쓰인 로트가 있으면 checkLotLinkedEdit 가 이미 막았다. */
+		if (isUpdate && storeChanged) {
+			jdbcTemplate.update("""
+				UPDATE mat_lot
+				   SET "StoreHouse_id" = ?, _modified = now()
+				 WHERE "SourceTableName" = 'mat_inout'
+				   AND "SourceDataPk"    = ?
+				   AND COALESCE(_status, 'a') <> 'd'
+			""", mi.getStoreHouseId(), mio_pk);
+		}
+
 
 //		jdbcTemplate.query(
 //				"SELECT sp_update_mat_in_house_by_inout(?, ?)",
@@ -490,6 +540,60 @@ public class MaterialInoutController {
 		result.success = true;
 
 		return result;
+	}
+
+	/**
+	 * 로트가 딸린 입고 건을 수정할 때 막아야 할 것을 검사한다. 문제없으면 null.
+	 *
+	 * ★ 로트입고등록(lot_save)은 로트를 «그 시점의 입고 건 창고·수량» 으로 만든다.
+	 *   그 뒤 입고 건만 고치면 mat_inout 과 mat_lot 이 갈라진다.
+	 *   (생산창고로 입고 → 로트 등록 → 입고 건을 클린룸으로 수정 →
+	 *    입고내역은 클린룸, 로트는 생산창고에 남아 공정 화면에서 재고가 안 잡혔다)
+	 *
+	 * - 품목 변경 : 로트는 옛 품목으로 남는다 → 막는다
+	 * - 수량 변경 : 로트 수량 합이 어긋난다. 로트를 어떻게 나눌지는 사람이 정해야 하므로
+	 *              자동으로 고치지 않고 막는다 → 로트입고등록에서 재발번 후 수정
+	 * - 창고 변경 : 쓰인 로트가 없으면 허용하고 로트도 같이 옮긴다(호출부).
+	 *              일부라도 쓰였으면 막는다 — 남은 것만 옮기면 장부가 꼬인다.
+	 */
+	private String checkLotLinkedEdit(MaterialInout mi, Integer newMatId, Integer newStoreId, int newQty) {
+		Integer lotCnt = jdbcTemplate.queryForObject("""
+			SELECT COUNT(*) FROM mat_lot
+			 WHERE "SourceTableName" = 'mat_inout'
+			   AND "SourceDataPk"    = ?
+			   AND COALESCE(_status, 'a') <> 'd'
+		""", Integer.class, mi.getId());
+		if (lotCnt == null || lotCnt == 0) return null;   // 로트 없는 입고는 자유롭게 고친다
+
+		if (mi.getMaterialId() != null && !mi.getMaterialId().equals(newMatId)) {
+			return "로트가 등록된 입고 건은 품목을 바꿀 수 없습니다.\n"
+					+ "입고 건을 삭제하고 다시 등록하세요.";
+		}
+
+		float oldQty = 0f;
+		if (mi.getInputQty() != null && mi.getInputQty() != 0f) oldQty = mi.getInputQty();
+		else if (mi.getPotentialInputQty() != null) oldQty = mi.getPotentialInputQty();
+		if (Math.abs(Math.abs(oldQty) - Math.abs(newQty)) > 0.0001f) {
+			return "로트가 등록된 입고 건은 수량을 바꿀 수 없습니다 (현재 " + (int) oldQty + ").\n"
+					+ "로트입고등록에서 로트를 다시 발번한 뒤 수정하세요.";
+		}
+
+		boolean storeChanged = mi.getStoreHouseId() != null && !mi.getStoreHouseId().equals(newStoreId);
+		if (storeChanged) {
+			Integer used = jdbcTemplate.queryForObject("""
+				SELECT COUNT(*) FROM mat_lot l
+				 WHERE l."SourceTableName" = 'mat_inout'
+				   AND l."SourceDataPk"    = ?
+				   AND COALESCE(l._status, 'a') <> 'd'
+				   AND ( EXISTS (SELECT 1 FROM mat_lot_cons c WHERE c."MaterialLot_id" = l.id)
+				         OR COALESCE(l."CurrentStock", 0) <> COALESCE(l."InputQty", 0) )
+			""", Integer.class, mi.getId());
+			if (used != null && used > 0) {
+				return "이미 사용된 로트가 있어 창고를 바꿀 수 없습니다.\n"
+						+ "창고 이동(불출)으로 처리하세요.";
+			}
+		}
+		return null;
 	}
 
 	@GetMapping("/matinout_detail")
@@ -837,6 +941,7 @@ public class MaterialInoutController {
 					ml.setDescription(data.get(i).get("Description").toString());
 				}
 				ml.setStoreHouseId(storeHouseId);
+				ml.set_status("a");   // ★ 빠져 있어 NULL 로 저장됐다 — 정상 로트와 같은 값으로
 				ml.set_audit(user);
 				ml.setSpjangcd(spjangcd);
 				ml = this.matLotRepository.save(ml);
@@ -1386,6 +1491,7 @@ public class MaterialInoutController {
 						ml.setSourceTableName("mat_inout");  // ★ 기존 추적/삭제와 동일
 						ml.setSourceDataPk(mi.getId());       // ★ 방금 만든 입고에 연결
 						ml.setStoreHouseId(storeHouseId);
+						ml.set_status("a");
 						ml.set_audit(user);
 						ml.setSpjangcd(spjangcd);
 						matLotRepository.save(ml);
@@ -1693,6 +1799,7 @@ public class MaterialInoutController {
 						ml.setSourceDataPk(mi.getId());      // ★ 여러 로트가 같은 입고를 가리킨다
 						ml.setStoreHouseId(storeHouseId);
 						if (l.get("Description") != null) ml.setDescription(String.valueOf(l.get("Description")));
+						ml.set_status("a");
 						ml.set_audit(user);
 						ml.setSpjangcd(spjangcd);
 						matLotRepository.save(ml);

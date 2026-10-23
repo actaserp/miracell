@@ -1103,7 +1103,8 @@
         PRODUCTS = ((r && r.data) || []).map(function (m) {
           return {
             matId: m.mat_id, code: m.mat_code, name: m.mat_name, unit: m.unit || '',
-            ckMatId: m.ck_mat_id, pkMatId: m.pk_mat_id
+            ckMatId: m.ck_mat_id, pkMatId: m.pk_mat_id,
+            pkMatIds: String(m.pk_mat_ids || '').split(',').filter(Boolean)
           };
         });
         cb && cb();
@@ -5081,10 +5082,19 @@
         var qty = sel.reduce(function (a, id) {
           return a + (waitQty[id] || 0);
         }, 0);
-        // PK 품목으로 완제품 후보를 좁힌다 — CK 반제품이 있는 완제품만
-        var cands = PRODUCTS.filter(function (p) {
-          return p.ckMatId;
+        // ★ 고른 PK 가 BOM 에 들어가는 완제품만 (CK 반제품 아래까지). 맞는 게 없으면 안내만 하고 전체를 보여준다
+        //   (서버가 pk_mat_ids 를 아직 안 내려주면 예전처럼 전체)
+        var pkIds = {};
+        sel.forEach(function (id) { var l = waitOf(id); if (l && l.matId != null) pkIds[String(l.matId)] = 1; });
+        var withCk = PRODUCTS.filter(function (p) { return p.ckMatId; });
+        var hasInfo = withCk.some(function (p) { return p.pkMatIds.length; });
+        var cands = !hasInfo ? withCk : withCk.filter(function (p) {
+          return Object.keys(pkIds).every(function (k) { return p.pkMatIds.indexOf(k) >= 0; });
         });
+        var noMatch = hasInfo && !cands.length;
+        if (!cands.length) cands = withCk;
+        // ★ 맞는 완제품이 하나면 그것으로 고정(1:1), 여러 개면 그 안에서만 고른다
+        document.getElementById('startProd').disabled = !noMatch && hasInfo && cands.length === 1;
         document.getElementById('startProd').innerHTML = cands.length
                 ? cands.map(function (p) {
                   return '<option value="' + p.matId + '">' + esc(p.name) + ' (' + esc(p.code) + ')</option>';
@@ -5092,7 +5102,8 @@
                 : '<option value="">CK 반제품이 등록된 완제품이 없습니다</option>';
         document.getElementById('startProdNote').textContent =
                 'PK ' + sel.length + '개 로트 · ' + qty + ' EA' + (lot0 ? ' · ' + lot0.name : '') +
-                ' — 완제품을 고르면 포장 작지가 자동 발행되고 이 로트가 바로 담깁니다';
+                (noMatch ? ' — ⚠ 이 PK 가 BOM 에 들어간 완제품이 없습니다. 완제품 BOM 을 확인하세요'
+                        : ' — 완제품을 고르면 포장 작지가 자동 발행되고 이 로트가 바로 담깁니다');
       } else {
         pw.style.display = 'none';
       }
