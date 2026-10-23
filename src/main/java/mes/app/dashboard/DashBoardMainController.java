@@ -38,6 +38,19 @@ public class DashBoardMainController {
 		return result;
 	}
 
+	/**
+	 * 환경(온습도·차압)만 — 5초 폴링용.
+	 * ★ /read 는 생산 쿼리까지 돌아 무겁고 60초(벽걸이 30초) 주기다.
+	 *   환경을 거기에 묶어 두면 1공장 대시보드(5초)와 값이 최대 1분 어긋났다.
+	 *   세 화면 모두 이 주기로 같은 출처(EnvSensorService)를 본다.
+	 */
+	@GetMapping("/env")
+	public AjaxResult env(@RequestParam("spjangcd") String spjangcd) {
+		AjaxResult result = new AjaxResult();
+		result.data = this.dashBoardMainService.getEnvZones(spjangcd);
+		return result;
+	}
+
 	/** 클린룸 관리기준 조회 (설정 모달) */
 	@GetMapping("/env_limit")
 	public AjaxResult envLimit(@RequestParam("spjangcd") String spjangcd) {

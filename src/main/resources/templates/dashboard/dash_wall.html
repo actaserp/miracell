@@ -399,6 +399,8 @@
        ═══════════════════════════════════════════════════════ */
     const WL_API     = '/api/dashboard/main';
     const WL_POLL_MS = 30000;
+    /* 환경만 5초 — 대시보드·1공장 대시보드와 같은 주기·같은 출처 */
+    const WL_ENV_POLL_MS = 5000;
     const WL_SPJANGCD = (typeof SPJANGCD !== 'undefined' && SPJANGCD) ? SPJANGCD : 'ZZ';
     const WL_OPEN_WARN_MIN = 240;
 
@@ -443,6 +445,16 @@
         var d = new Date();
         document.getElementById('wlUpd').textContent =
                 wlPad(d.getHours()) + ':' + wlPad(d.getMinutes()) + ' 갱신';
+      });
+    }
+
+    function wlLoadEnv(){
+      if (typeof AjaxUtil === 'undefined' || !AjaxUtil.getAsyncData) return;
+      AjaxUtil.getAsyncData(WL_API + '/env', {spjangcd: WL_SPJANGCD}, function(res){
+        if (!res || res.success === false || !res.data || !wlData) return;   // 실패하면 직전 값 유지
+        wlData.env = res.data;
+        wlEnv(wlData.env);
+        wlAlarm();
       });
     }
 
@@ -722,10 +734,11 @@
       }
     }
 
-    $(document.body).ready(function() {
+    $(document.body).ready(function () {
       wlClock();
       wlLoad();
       setInterval(wlLoad, WL_POLL_MS);
+      setInterval(wlLoadEnv, WL_ENV_POLL_MS);
       document.getElementById('wlFull').addEventListener('click', wlToggleFull);
 
       wlFitHeight();

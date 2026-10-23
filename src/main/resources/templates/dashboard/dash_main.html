@@ -690,6 +690,7 @@
     ═══════════════════════════════════════════════════ */
     const DB_API = '/api/dashboard/main';
     const DB_POLL_MS = 60000;
+    const DB_ENV_POLL_MS = 5000;
     const DB_SPJANGCD = (typeof SPJANGCD !== 'undefined' && SPJANGCD) ? SPJANGCD : 'ZZ';
 
     /* 온습도 기준 — OPC-UA 연동 시 이 값을 마스터에서 내려받도록 바꾼다.
@@ -1255,6 +1256,22 @@
         if (document.hidden) return;
         dbLoad();
       }, DB_POLL_MS);
+      /* ★ 환경만 5초마다 따로 받는다 — 1공장 대시보드·현황판과 같은 주기.
+           생산(60초)에 묶어 두면 같은 센서를 화면마다 다른 시점으로 보여줬다. */
+      setInterval(function () {
+        if (document.hidden) return;
+        dbLoadEnv();
+      }, DB_ENV_POLL_MS);
+    }
+
+    function dbLoadEnv() {
+      AjaxUtil.getAsyncData(DB_API + '/env', {spjangcd: DB_SPJANGCD}, function (res) {
+        if (!res || res.success === false || !res.data) return;   // 실패하면 직전 값 유지
+        if (!dbData) return;                                      // 첫 /read 전에는 그리지 않는다
+        dbData.env = res.data;
+        dbEnvCheckAlarm(dbData.env);
+        dbRenderEnv(dbData.env);
+      });
     }
 
     document.addEventListener('visibilitychange', function () {

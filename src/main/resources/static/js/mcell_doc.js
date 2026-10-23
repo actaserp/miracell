@@ -592,10 +592,10 @@
                     for (var i = 0; i < rl.length; i++) if (rl[i].getAttribute('Id') === rid) target = rl[i].getAttribute('Target');
                     var path = target.charAt(0) === '/' ? target.substring(1) : 'xl/' + target;
                     // \uc218\uc2dd \uce78\uc744 \uac12\uc73c\ub85c \ubc14\uafb8\ubbc0\ub85c \uacc4\uc0b0 \uccb4\uc778\uc744 \uc9c0\uc6b0\uace0 \uc5f4 \ub54c \ub2e4\uc2dc \uacc4\uc0b0\ud558\uac8c \ud55c\ub2e4
-                    if (printOnly) {
-                        // \uc778\uc1c4\uc6a9 \u2014 \uc591\uc2dd \uc2dc\ud2b8\ub9cc \ub0a8\uae34\ub2e4(\uac1c\uc815\uc774\ub825 \uc2dc\ud2b8 \uc228\uae40) \u00b7 \uc5f4 \ub54c \uadf8 \uc2dc\ud2b8\uac00 \ubcf4\uc774\uac8c
+                    { // \u2605 \uc5d1\uc140 \ub2e4\uc6b4\ub85c\ub4dc\u00b7\uc778\uc1c4 \ubaa8\ub450 \u2014 Revision History \ub4f1 \ub2e4\ub978 \uc2dc\ud2b8\ub294 \uc228\uae34\ub2e4 (5\ucc28 #4\u00b78\u00b713 \u00ab\ubd88\ud544\uc694\u00bb)
+                        //   \uc2dc\ud2b8\ub97c \uc544\uc608 \uc9c0\uc6b0\uba74 \uc778\uc1c4\uc601\uc5ed(definedName localSheetId) \ubc88\ud638\uac00 \ubc00\ub824 \uae68\uc9c4\ub2e4 \u2192 veryHidden (\uc5d1\uc140\uc5d0\uc11c \uc228\uae30\uae30 \ucde8\uc18c\ub85c\ub3c4 \uc548 \ubcf4\uc784)
                         for (var si = 0; si < sheets.length; si++) {
-                            if (sheets[si] !== sh) sheets[si].setAttribute('state', 'hidden'); else sheets[si].removeAttribute('state');
+                            if (sheets[si] !== sh) sheets[si].setAttribute('state', 'veryHidden'); else sheets[si].removeAttribute('state');
                         }
                         var bv = wb.getElementsByTagName('workbookView')[0];
                         if (bv) { bv.setAttribute('activeTab', Array.prototype.indexOf.call(sheets, sh)); bv.setAttribute('firstSheet', Array.prototype.indexOf.call(sheets, sh)); }

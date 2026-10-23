@@ -2046,6 +2046,11 @@
                 });
                 $('#btnNewBatch').off('click').on('click', () => _this.createBatch());
                 $('#batchDetail').off('click').on('click', (e) => _this._batchAction(e));
+                /* ★ [저장] 버튼을 없앴다. 시작한 뒤에는 시간·멸균기를 고치는 즉시 저장한다.
+                     (시작 전에는 저장할 것이 없다 — [시작] 이 처음 저장이다) */
+                $('#batchDetail').off('change.autosave').on('change.autosave', '#batchStart, #batchEnd, #batchEquip', function () {
+                    if (_this.curBatch && _this.curBatch.start) _this._saveBatch('auto');
+                });
                 // 좌측 대기/배치 탭
                 $('.lt-tab').off('click').on('click', function () {
                     const t = this.dataset.ltab;
@@ -2250,9 +2255,17 @@
                 let h = '<div class="insp-secttitle">멸균 작업 — ' + this._batchNum(b) + '</div>';
                 // 액션
                 h += '<div class="button-wrap" style="padding:10px 12px; display:flex; gap:8px; align-items:center;">' +
-                    '<button class="b-btn" data-act="start" style="background:#4caf50;color:#fff;border-color:#4caf50;">시작</button>' +
-                    '<button class="b-btn" data-act="finish" style="background:#1976d2;color:#fff;border-color:#1976d2;">종료</button>' +
-                    '<button class="b-btn" data-act="save">저장</button>' +
+                    /* ★ 버튼은 [시작] [종료] 둘뿐이다 (현장 요청 — 시작·종료·저장이 섞여 헷갈렸다).
+                         시작 = UDI 로트번호 확인 + 시작 시각 저장
+                         종료 = 종료 시각 + 전체 자동 저장
+                         누를 수 없는 단계의 버튼은 흐리게 둔다 — 지금 무엇을 누를 차례인지 보이게. */
+                    (function () {
+                        const canStart = !b.start && !judged;
+                        const canFinish = !!b.start && !b.end && !judged;
+                        const dis = ' disabled style="opacity:.4;cursor:not-allowed;';
+                        return '<button class="b-btn" data-act="start"' + (canStart ? ' style="' : dis) + 'background:#4caf50;color:#fff;border-color:#4caf50;">시작</button>' +
+                            '<button class="b-btn" data-act="finish"' + (canFinish ? ' style="' : dis) + 'background:#1976d2;color:#fff;border-color:#1976d2;">종료</button>';
+                    })() +
                     (judged ? (b.used_cnt > 0
                         ? '<button class="b-btn" disabled title="멸균필 로트가 다음 공정에서 이미 사용됨" style="opacity:.45;cursor:not-allowed;">판정 취소 불가 (다음 공정 사용)</button>'
                         : '<button class="b-btn" data-act="cancel" style="color:#c62828;border-color:#e0b4b0;">판정 취소</button>') : '') +
@@ -2266,8 +2279,22 @@
                     '<tr><th>상태</th><td>' + (this.STLAB[st] || st) + '</td><th>담긴 수량</th><td>' + this._qtyOf(b) + ' EA</td></tr>' +
                     '<tr><th>시작</th><td><input type="datetime-local" id="batchStart" value="' + this._toLocal(b.start) + '" style="height:32px;width:100%;max-width:215px;min-width:0;"></td>' +
                     '<th>종료</th><td><input type="datetime-local" id="batchEnd" value="' + this._toLocal(b.end) + '" style="height:32px;width:100%;max-width:215px;min-width:0;"></td></tr>' +
-                    '<tr><th>담당</th><td>' + (b.worker || '-') + '</td><th>UDI 로트번호</th><td>' + (b.maker_lot_no || '-') + '</td></tr>' +
+                    '<tr><th>담당</th><td colspan="3">' + (b.worker || '-') + '</td></tr>' +
                     '</tbody></table></div>';
+                /* ★ UDI 로트번호는 «시작 전에» 여기서 넣는다 (예: BLF20261023).
+                     한 배치에 품목이 여럿이면 품목마다 하나씩이다.
+                     예전에는 BI 판정 칸 안에 있어서 판정 때 처음 보게 됐다. */
+                const mg = this._matGroups(b);
+                if (mg.length) {
+                    h += '<div class="insp-secttitle" style="margin-top:12px;">UDI 로트번호 <span class="muted" style="font-weight:400;">— 품목별 · [시작] 전에 입력</span></div>' +
+                        '<div style="padding:0 12px;"><table class="work-table"><thead><tr><th>품목</th><th style="width:110px;">수량</th><th style="width:260px;">UDI 로트번호</th></tr></thead><tbody>' +
+                        mg.map(g => '<tr><td>' + g.matNm + ' <span class="muted">(' + g.lots.length + '로트)</span></td>' +
+                            '<td style="text-align:right;">' + g.qty + ' EA</td>' +
+                            '<td><input type="text" class="makerLotInput" data-matid="' + g.matId + '" data-matnm="' + String(g.matNm).replace(/"/g, '&quot;') + '" value="' + (g.maker || '') + '" placeholder="예: BLF20261023" style="height:32px;width:100%;"></td></tr>').join('') +
+                        '</tbody></table>' +
+                        (b.start ? '<div style="text-align:right;margin-top:6px;"><button class="b-btn" data-act="mksave">UDI 로트번호 수정 저장</button></div>' : '') +
+                        '</div>';
+                }
                 // 담긴 로트
                 h += '<div class="insp-secttitle" style="margin-top:12px;">멸균 대상 로트 <span class="muted" style="font-weight:400;">— 클린룸 재고 담기 (차수 생성 없음)</span></div>';
                 if (editable) h += '<div class="button-wrap" style="padding:8px 12px;"><button class="b-btn" data-act="pick" style="background:#1976d2;color:#fff;border-color:#1976d2;">＋ 클린룸 로트 담기</button></div>';
@@ -2298,32 +2325,114 @@
                     h += '<div style="padding:12px;"><b style="color:' + (b.bi === 'pass' ? '#2e7d32' : '#c62828') + ';">' +
                         (b.bi === 'pass' ? '음성 — 합격 · 멸균필 · 멸균창고 이동 완료' : '양성 — 불합격 · 전량 폐기 처리됨') + '</b>' +
                         (b.maker_lot_no ? ' <span class="muted">· UDI 로트번호 ' + b.maker_lot_no + '</span>' : '') +
-                        (b.bi === 'pass' ? '<table class="work-table" style="margin-top:8px;"><thead><tr><th>품목</th><th style="width:110px;">수량</th><th style="width:240px;">UDI 로트번호</th></tr></thead><tbody>' +
-                            this._matGroups(b).map(g => '<tr><td>' + g.matNm + '</td><td style="text-align:right;">' + g.qty + ' EA</td>' +
-                                '<td><input type="text" class="makerLotInput" data-matid="' + g.matId + '" data-matnm="' + String(g.matNm).replace(/"/g, '&quot;') + '" value="' + (g.maker || '') + '" style="height:32px;width:100%;"></td></tr>').join('') +
-                            '</tbody></table><div style="text-align:right;margin-top:6px;"><button class="b-btn" data-act="mksave">UDI 로트번호 수정 저장</button></div>' : '') +
+
                         '<div class="muted" style="margin-top:6px;">판정 후에도 멸균일지 탭에서 USB 데이터로 일지를 작성할 수 있습니다.</div></div>';
                 } else if (!ls.length) {
                     h += '<p class="muted" style="padding:14px;">담긴 로트가 없습니다. 로트를 담은 뒤 BI 판정을 입력하세요.</p>';
                 } else if (st === 'wait') {
-                    h += '<p class="muted" style="padding:14px;">멸균기를 선택하고 <b>[시작]</b>을 누른 뒤 BI 판정을 입력할 수 있습니다.</p>';
+                    h += '<p class="muted" style="padding:14px;">멸균기를 고르고 UDI 로트번호를 넣은 뒤 <b>[시작]</b> → <b>[종료]</b>를 누르면 BI 판정을 입력할 수 있습니다.</p>';
                 } else {
                     h += '<div style="padding:12px; display:flex; gap:12px; align-items:center; flex-wrap:wrap;">' +
                         '<strong>BI 색상 변화</strong>' +
                         '<button class="judge-btn pass" data-act="pass">음성 (합격)</button>' +
                         '<button class="judge-btn fail" data-act="fail">양성 (불합격)</button></div>' +
-                        '<div style="padding:0 12px 4px;"><table class="work-table"><thead><tr><th>품목</th><th style="width:110px;">수량</th><th style="width:240px;">UDI 로트번호</th></tr></thead><tbody>' +
-                        this._matGroups(b).map(g => '<tr><td>' + g.matNm + ' <span class="muted">(' + g.lots.length + '로트)</span></td>' +
-                            '<td style="text-align:right;">' + g.qty + ' EA</td>' +
-                            '<td><input type="text" class="makerLotInput" data-matid="' + g.matId + '" data-matnm="' + String(g.matNm).replace(/"/g, '&quot;') + '" value="' + (g.maker || '') + '" placeholder="UDI 로트번호 입력" style="height:32px;width:100%;"></td></tr>').join('') +
-                        '</tbody></table></div>' +
-                        '<p class="muted" style="margin:4px 12px 12px;">합격 시 품목마다 입력한 UDI 로트번호가 그 품목의 멸균필 로트에 부여됩니다. 비워 두고 판정한 뒤 나중에 수정해도 됩니다.</p>';
+                        '<p class="muted" style="margin:4px 12px 12px;">합격 시 위에서 넣은 품목별 UDI 로트번호가 그 품목의 멸균필 로트에 부여됩니다.</p>';
                 }
                 $('#batchDetail').html(h);
                 this.sterilJudge = b.bi ? (b.bi === 'pass' ? 'PASS' : 'FAIL') : null;
                 if (this.refreshJudgeView) this.refreshJudgeView();
                 if (this.refreshSterilHead) this.refreshSterilHead();
                 if (this.refreshBiEnabled) this.refreshBiEnabled();
+            }
+
+            /** 품목별 UDI 로트번호 입력값 {matId: 값} 과 빠진 품목 이름 */
+            _readMakerLots() {
+                const lots = {}, miss = [];
+                $('#batchDetail .makerLotInput').each(function () {
+                    const v = ($(this).val() || '').trim();
+                    lots[$(this).data('matid')] = v;
+                    if (!v) miss.push($(this).data('matnm'));
+                });
+                return {lots: lots, miss: miss};
+            }
+
+            /**
+             * 시작 / 종료 / 시간·멸균기 수정 시 저장 — [저장] 버튼을 대신한다.
+             *   start  : UDI 로트번호 필수 → 시작 시각 = 지금
+             *   finish : 종료 시각 = 지금, 나머지(멸균기·고친 시작 시각·로트번호)도 함께 저장
+             *   auto   : 시작 이후 시간·멸균기 칸을 고쳤을 때
+             *
+             * ★ 순서: 시간(batch_time) 먼저, 로트번호(maker_lot_save) 다음.
+             *   시간이 작업 상태를 바꾸는 쪽이라 이게 실패하면 나머지를 보내지 않는다.
+             */
+            _saveBatch(mode) {
+                const b = this.curBatch, _this = this;
+                if (!b) return;
+                const eq = $('#batchEquip').val();
+                if (!eq) {
+                    Alert.alert('', '멸균기를 선택하세요.');
+                    return;
+                }
+                const ml = this._readMakerLots();
+                if (mode === 'start') {
+                    if (!this._lotsOf(b).length) {
+                        Alert.alert('', '멸균할 로트를 먼저 담으세요.');
+                        return;
+                    }
+                    if (ml.miss.length) {
+                        Alert.alert('', 'UDI 로트번호를 입력하세요.\n' + ml.miss.join('\n'));
+                        $('#batchDetail .makerLotInput').filter(function () { return !($(this).val() || '').trim(); }).first().focus();
+                        return;
+                    }
+                }
+                let st = this._fromLocal($('#batchStart').val());
+                let en = this._fromLocal($('#batchEnd').val());
+                if (mode === 'start') st = this._now();
+                if (mode === 'finish') {
+                    if (!st) {
+                        Alert.alert('', '시작 시각이 없습니다. [시작]을 먼저 누르세요.');
+                        return;
+                    }
+                    en = this._now();
+                }
+                if (st && !this._validTime(st)) {
+                    Alert.alert('', '시작 시각 형식이 올바르지 않습니다.');
+                    return;
+                }
+                if (en && !this._validTime(en)) {
+                    Alert.alert('', '종료 시각 형식이 올바르지 않습니다.');
+                    return;
+                }
+                if (st && en && en < st) {
+                    Alert.alert('', '종료 시각이 시작 시각보다 빠릅니다.');
+                    return;
+                }
+                const typed = Object.keys(ml.lots).filter(k => ml.lots[k]);
+                this._post('/batch_time', {
+                    batch_id: b.id, start_time: st, end_time: en, equipment_id: eq
+                }, function () {
+                    const done = function () {
+                        if (typeof Notify !== 'undefined') {
+                            Notify.success(mode === 'start' ? '작업 시작' : (mode === 'finish' ? '작업 종료 · 저장 완료' : '저장 완료'));
+                        }
+                        _this.openBatch(b.id);
+                        _this.searchMainData();
+                        /* ★ 로트번호가 실제로 남았는지 다시 읽어 확인한다.
+                             /maker_lot_save 는 원래 «판정 후 수정» 용이라, 판정 전에 부르면
+                             서버가 저장하지 않을 수 있다(서버 코드 미확인). 조용히 사라지면
+                             판정 때 빈 칸으로 나가므로 화면에서 바로 알린다. */
+                        if (typed.length && _this.curBatch) {
+                            const lost = _this._matGroups(_this.curBatch).filter(g => ml.lots[g.matId] && !g.maker);
+                            if (lost.length) {
+                                Alert.alert('', 'UDI 로트번호가 서버에 저장되지 않았습니다.\n'
+                                    + lost.map(g => g.matNm).join('\n')
+                                    + '\n\n판정 화면에서 다시 확인하세요. (관리자: /maker_lot_save 판정 전 저장 확인 필요)');
+                            }
+                        }
+                    };
+                    if (!typed.length) { done(); return; }
+                    _this._post('/maker_lot_save', {batch_id: b.id, maker_lots: JSON.stringify(ml.lots)}, done);
+                });
             }
 
             // ── 배치 액션 ──
@@ -2386,44 +2495,8 @@
                     return;
                 }
 
-                if (act === 'start' || act === 'finish' || act === 'save') {
-                    const eq = $('#batchEquip').val();
-                    if (!eq) {
-                        Alert.alert('', '멸균기를 선택하세요.');
-                        return;
-                    }
-                    let st = this._fromLocal($('#batchStart').val());
-                    let en = this._fromLocal($('#batchEnd').val());
-                    if (act === 'start') st = this._now();
-                    if (act === 'finish') {
-                        if (!st) {
-                            Alert.alert('', '시작 시각이 없습니다. [시작]을 먼저 누르세요.');
-                            return;
-                        }
-                        en = this._now();
-                    }
-                    if (st && !this._validTime(st)) {
-                        Alert.alert('', '시작 시각 형식이 올바르지 않습니다.');
-                        return;
-                    }
-                    if (en && !this._validTime(en)) {
-                        Alert.alert('', '종료 시각 형식이 올바르지 않습니다.');
-                        return;
-                    }
-                    if (st && en && en < st) {
-                        Alert.alert('', '종료 시각이 시작 시각보다 빠릅니다.');
-                        return;
-                    }
-                    this._post('/batch_time', {
-                        batch_id: b.id,
-                        start_time: st,
-                        end_time: en,
-                        equipment_id: eq
-                    }, function () {
-                        if (typeof Notify !== 'undefined') Notify.success(act === 'start' ? '작업 시작' : (act === 'finish' ? '작업 종료' : '저장 완료'));
-                        _this.openBatch(b.id);
-                        _this.searchMainData();
-                    });
+                if (act === 'start' || act === 'finish') {
+                    this._saveBatch(act);
                     return;
                 }
 

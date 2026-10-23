@@ -396,10 +396,11 @@ public class SterilService {
         Integer actorId = batch.get("Actor_id") != null ? ((Number) batch.get("Actor_id")).intValue() : null;
         Integer equipId = batch.get("Equipment_id") != null ? ((Number) batch.get("Equipment_id")).intValue() : null;
         Timestamp startTs = (Timestamp) batch.get("StartTime");
+        Timestamp endTs   = (Timestamp) batch.get("EndTime");
 
         List<Map<String, Object>> items = this.sqlRunner.getRows("""
             SELECT id AS item_id, "MatLot_id" AS mat_lot_id, "Material_id" AS mat_id,
-                   "LotNumber" AS lot_no, "Qty" AS qty
+                   "LotNumber" AS lot_no, "Qty" AS qty, "MakerLotNo" AS saved_maker
               FROM steril_batch_item WHERE "SterilBatch_id"=:batchId AND "_status"='a'
             """, new MapSqlParameterSource().addValue("batchId", batchId));
         if (items.isEmpty()) { r.success = false; r.message = "담긴 로트가 없습니다."; return r; }
@@ -432,7 +433,11 @@ public class SterilService {
             String lotNo = String.valueOf(it.get("lot_no"));
             float qty = toF(it.get("qty"));
             if (qty <= 0) continue;
-            String itemMaker = makerByMat.getOrDefault(String.valueOf(matId), makerLotNo == null ? "" : makerLotNo.trim());
+            /* 화면이 보낸 값 → 시작 때 저장해 둔 값 → 공통값 순.
+               화면이 비워 보내도 [시작] 전에 넣어 둔 번호가 사라지지 않게 한다. */
+            String saved = it.get("saved_maker") == null ? "" : String.valueOf(it.get("saved_maker")).trim();
+            String itemMaker = makerByMat.getOrDefault(String.valueOf(matId),
+                    !saved.isEmpty() ? saved : (makerLotNo == null ? "" : makerLotNo.trim()));
 
             // 클린룸 로트 현재고 확인
             Map<String, Object> lot = this.sqlRunner.getRow("""
@@ -538,7 +543,7 @@ public class SterilService {
             EquRun er = new EquRun();
             er.setEquipmentId(equipId);
             er.setStartDate(startTs != null ? startTs : now);
-            er.setEndDate(now);
+            er.setEndDate(endTs != null ? endTs : now);   // [종료] 시각 — 판정 시각이 아니다
             er.setRunState("complete");
             er.setActorId(actorId);
             er.setDescription("멸균(EO) - " + (pass ? "PASS" : "FAIL"));
@@ -559,7 +564,10 @@ public class SterilService {
         // 배치 MakerLotNo = 품목별 번호를 모아 보여주기용(목록 표시) — 실제 값은 품목(steril_batch_item)·로트(mat_lot)에
         this.sqlRunner.execute("""
             UPDATE steril_batch
-               SET "BiResult"=:bi, "State"=:state, "BiJudgeAt"=now(), "EndTime"=now(),
+               SET "BiResult"=:bi, "State"=:state, "BiJudgeAt"=now(),
+                   /* ★ 종료 시각은 덮지 않는다. BI 판정은 배양 뒤(며칠 후) 하므로
+                        now() 로 덮으면 멸균 종료가 판정일로 바뀐다. [종료]를 안 눌렀을 때만 채운다. */
+                   "EndTime"=COALESCE("EndTime", now()),
                    "EquRun_id"=:equRunId,
                    "MakerLotNo"=CASE WHEN :pass THEN
                         (SELECT string_agg(DISTINCT x."MakerLotNo", ', ') FROM steril_batch_item x
@@ -577,7 +585,7 @@ public class SterilService {
      *   PASS 취소: 멸균창고 로트 삭제 + 클린룸 차감 삭제(재고 복원). 단 멸균필 로트가 이미
      *              소비(포장 등)됐으면 차단.
      *   FAIL 취소: 부적합창고 폐기 로트 삭제 + 클린룸 차감 삭제(재고 복원).
-     *   업체 로트번호(MakerLotNo)는 비운다 → 재판정 시 다시 입력.
+     *   UDI 로트번호(MakerLotNo)와 시작·종료 시각은 남긴다 — 판정만 되돌린다.
      * 재고는 트리거로 갱신되므로 행 DELETE 로 롤백한다.
      */
     @Transactional
@@ -640,24 +648,25 @@ public class SterilService {
                 DELETE FROM mat_lot_cons WHERE "SourceTableName"=:src AND "SourceDataPk"=:pk
                 """, p);
 
-            this.sqlRunner.execute("UPDATE steril_batch_item SET \"State\"='a', \"MakerLotNo\"=NULL WHERE id=:id",
+            // UDI 로트번호는 남긴다 — 이제 [시작] 전에 넣는 값이라 판정을 취소해도 그대로다
+            this.sqlRunner.execute("UPDATE steril_batch_item SET \"State\"='a' WHERE id=:id",
                     new MapSqlParameterSource().addValue("id", itemId));
         }
 
-        // 배치 원복 (업체 로트번호 비움 → 재판정 시 재입력)
+        // 배치 원복 — 판정만 되돌린다 (시각·UDI 로트번호 유지)
         MapSqlParameterSource up = new MapSqlParameterSource()
                 .addValue("batchId", batchId).addValue("userId", user.getId());
         this.sqlRunner.execute("""
             UPDATE steril_batch
-               SET "State"='working', "BiResult"=NULL, "BiJudgeAt"=NULL, "EndTime"=NULL,
-                   "MakerLotNo"=NULL, "_modified"=now(), "_modifier_id"=:userId
+               SET "State"='working', "BiResult"=NULL, "BiJudgeAt"=NULL,
+                   "_modified"=now(), "_modifier_id"=:userId
              WHERE id=:batchId
             """, up);
         return r;
     }
 
     /**
-     * ★ UDI 로트번호 수정 (판정 후) — 판정취소 없이 품목별 번호만 고친다.
+     * ★ UDI 로트번호 저장 — 판정 전(시작 시 입력)·판정 후(수정) 모두. 품목별.
      *   멸균필 로트(mat_lot.MakerLotNo) · 담긴 품목(steril_batch_item) · 배치 요약을 함께 바꾼다.
      *   후속 공정에서 이미 쓴 로트여도 번호 표기만 바뀌므로 허용한다.
      */
@@ -667,8 +676,13 @@ public class SterilService {
         r.success = true;
         Map<String, Object> batch = getBatchRaw(batchId);
         if (batch == null) { r.success = false; r.message = "배치를 찾을 수 없습니다."; return r; }
-        if (!"done".equals(String.valueOf(batch.get("State")))) {
-            r.success = false; r.message = "합격 판정된 배치만 수정할 수 있습니다."; return r;
+        /* ★ 판정 전(대기·작업중)에도 받는다 — UDI 로트번호를 [시작] 전에 넣는 흐름으로 바뀌었다(현장 요청).
+             판정 전에는 멸균필 로트(mat_lot)가 아직 없어 아래 mat_lot UPDATE 는 0건이고,
+             steril_batch_item 에만 남는다. 합격 판정 때 biJudge 가 그 값을 로트에 옮긴다.
+             불합격(폐기) 배치는 부여할 로트가 없으므로 막는다. */
+        String bst = String.valueOf(batch.get("State"));
+        if ("scrapped".equals(bst)) {
+            r.success = false; r.message = "불합격(폐기) 배치에는 UDI 로트번호를 넣을 수 없습니다."; return r;
         }
         Map<?, ?> m;
         try { m = new com.fasterxml.jackson.databind.ObjectMapper().readValue(makerLotsJson, Map.class); }
@@ -748,7 +762,7 @@ public class SterilService {
     // =================================================================
     private Map<String, Object> getBatchRaw(Integer batchId) {
         return this.sqlRunner.getRow("""
-            SELECT id, "State", "ItemType", "Actor_id", "Equipment_id", "StartTime"
+            SELECT id, "State", "ItemType", "Actor_id", "Equipment_id", "StartTime", "EndTime"
               FROM steril_batch WHERE id=:batchId AND COALESCE("_status",'a')='a'
             """, new MapSqlParameterSource().addValue("batchId", batchId));
     }
