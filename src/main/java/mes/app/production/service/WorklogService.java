@@ -183,6 +183,52 @@ public class WorklogService {
     }
 
     // =================================================================
+    // 검사 업무 (work_duty) — 품질검사 담당자의 업무 시작·종료
+    // =================================================================
+
+    /**
+     * 기간의 검사 업무 기록.
+     *
+     * ★ 실적(수량)이 없는 업무라 공정 블록과 따로 한 블록으로 보인다.
+     *   그날 「누가 무슨 검사를 몇 시간 했나」가 일보에 남아야 결재 문서가 된다.
+     * ★ 공장은 담당자 계정의 공장(user_profile.Factory_id)으로 가른다.
+     *   비어 있으면 1공장으로 본다(1공장 대시보드와 같은 규칙).
+     * ★ 일자는 시작 시각 기준 — 자정을 넘긴 업무는 자동 종료되므로 하루를 넘지 않는다.
+     */
+    public List<Map<String, Object>> getDuties(String dateFrom, String dateTo, Integer factoryId) {
+        if (blank(dateTo)) dateTo = dateFrom;
+        if (!blank(dateFrom) && dateFrom.compareTo(dateTo) > 0) {
+            String t = dateFrom; dateFrom = dateTo; dateTo = t;
+        }
+        MapSqlParameterSource p = new MapSqlParameterSource()
+                .addValue("date_from", dateFrom).addValue("date_to", dateTo)
+                .addValue("factory_id", factoryId);
+        return nz(this.sqlRunner.getRows("""
+                SELECT d.id                                              AS pk
+                     , to_char(d."StartTime", 'yyyy-mm-dd')             AS duty_date
+                     , to_char(d."StartTime", 'yyyy-mm-dd hh24:mi')     AS start_time
+                     , to_char(d."EndTime",   'yyyy-mm-dd hh24:mi')     AS end_time
+                     , ROUND(EXTRACT(epoch FROM COALESCE(d."EndTime", now()) - d."StartTime") / 60) AS minutes
+                     , COALESCE(d."TaskName", g."Name", '업무')          AS task_name
+                     , d."Memo"                                         AS memo
+                     , d."AutoClosed"                                   AS auto_closed
+                     , COALESCE(pe."Name", NULLIF(up."Name",''), NULLIF(u.first_name,''), u.username) AS worker
+                     , COALESCE(up."Factory_id", 1)                     AS factory_id
+                  FROM work_duty d
+                  JOIN auth_user u          ON u.id = d."User_id"
+                  LEFT JOIN user_profile up ON up."User_id" = u.id
+                  LEFT JOIN user_group g    ON g.id = d."UserGroup_id"
+                  LEFT JOIN person pe       ON pe.id = COALESCE(u.personid,
+                                               CASE WHEN u.username ~ '^[0-9]+$' THEN u.username::int END)
+                 WHERE d._status = 'a'
+                   AND d."StartTime"::date BETWEEN CAST(:date_from AS date) AND CAST(:date_to AS date)
+                   AND (CAST(:factory_id AS integer) IS NULL
+                        OR COALESCE(up."Factory_id", 1) = CAST(:factory_id AS integer))
+                 ORDER BY d."StartTime"
+                """, p));
+    }
+
+    // =================================================================
     // 실적 일부 수정
     // =================================================================
 

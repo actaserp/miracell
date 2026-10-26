@@ -1,0 +1,599 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        /* ═══════════════════════════════════════════════════
+           검사 업무 관리 (품질검사 — PC)
+
+             왼쪽  : 지금 할 일 — 업무 고르기(또는 입력) · 메모 · [시작]/[종료]
+             오른쪽: 날짜를 골라 그날 기록
+
+           ★ 실적·수량을 묻지 않는다. 「무슨 업무를 언제부터 언제까지」만.
+           ★ 로그인한 본인 것만 다룬다 — 사람을 고르는 칸이 없다.
+           ★ 클래스는 전부 wd- 로 시작한다. 공용 CSS(.row 등)가 끼어들어
+             1공장 대시보드에서 행이 떠 보인 적이 있다. table 도 쓰지 않는다.
+        ═══════════════════════════════════════════════════ */
+        #wdWrap { display:grid; grid-template-columns:minmax(380px, 460px) minmax(0, 1fr); gap:16px;
+            font-family:'Pretendard','Malgun Gothic',sans-serif; color:#1f2733; align-items:start; }
+        @media (max-width:1000px) { #wdWrap { grid-template-columns:1fr; } }
+
+        #wdWrap .wd-card { background:#fff; border:1px solid #dbe1ea; border-radius:14px;
+            box-shadow:0 2px 8px rgba(31,39,51,.06); overflow:hidden; }
+        #wdWrap .wd-card-h { padding:12px 18px; background:#2f3a4c; color:#fff; font-size:13px; font-weight:800;
+            display:flex; align-items:center; gap:8px; }
+        #wdWrap .wd-card-h::before { content:''; width:4px; height:15px; border-radius:2px; background:#7a6ff0; }
+        #wdWrap .wd-card-h .wd-sub { margin-left:auto; font-weight:700; font-size:11.5px; color:#aab4c4; }
+        #wdWrap .wd-card-b { padding:18px; }
+
+        /* ── 왼쪽: 나 + 상태 ── */
+        #wdWrap .wd-who { display:flex; align-items:center; gap:12px; }
+        #wdWrap .wd-avatar { width:46px; height:46px; border-radius:50%; background:#eef0fb; color:#5a50d8;
+            display:flex; align-items:center; justify-content:center; font-size:19px; font-weight:800; flex:0 0 46px; }
+        #wdWrap .wd-who b { font-size:20px; display:block; }
+        #wdWrap .wd-who span { font-size:13px; color:#8a94a4; font-weight:700; }
+
+        #wdWrap .wd-now { margin-top:16px; border-radius:12px; padding:14px 16px; background:#f4f6f9;
+            border:1px solid #e5e9f0; }
+        #wdWrap .wd-now.on { background:#e9f7f0; border-color:#bfe6d1; }
+        #wdWrap .wd-now .wd-st { display:flex; align-items:center; gap:8px; font-size:13px; font-weight:800; color:#8a94a4; }
+        #wdWrap .wd-now .wd-st i { width:10px; height:10px; border-radius:50%; background:#c3cad5; }
+        #wdWrap .wd-now.on .wd-st { color:#0b7a45; }
+        #wdWrap .wd-now.on .wd-st i { background:#0f9d58; animation:wdBlink 2s infinite; }
+        @keyframes wdBlink { 50% { opacity:.3; } }
+        #wdWrap .wd-now .wd-task { font-size:24px; font-weight:800; margin-top:6px; }
+        #wdWrap .wd-now .wd-time { font-size:13.5px; color:#5d6776; font-weight:700; margin-top:4px;
+            font-variant-numeric:tabular-nums; }
+        #wdWrap .wd-now .wd-elapsed { font-size:30px; font-weight:800; color:#0b7a45; margin-top:6px;
+            font-variant-numeric:tabular-nums; }
+
+        /* ── 업무 고르기 ── */
+        #wdWrap .wd-lbl { font-size:12.5px; font-weight:800; color:#5d6776; margin:18px 0 8px; }
+        #wdWrap .wd-chips { display:flex; flex-wrap:wrap; gap:8px; }
+        #wdWrap .wd-chip { border:1.5px solid #d5dbe5; background:#fff; border-radius:999px; padding:9px 16px;
+            font-size:14px; font-weight:800; color:#3a4759; cursor:pointer; }
+        #wdWrap .wd-chip:hover { border-color:#7a6ff0; }
+        #wdWrap .wd-chip.on { background:#5a50d8; border-color:#5a50d8; color:#fff; }
+        #wdWrap .wd-input { width:100%; box-sizing:border-box; height:42px; border:1.5px solid #d5dbe5;
+            border-radius:10px; padding:0 12px; font-size:14px; margin-top:8px; }
+        #wdWrap .wd-input:focus, #wdWrap .wd-memo:focus { outline:none; border-color:#5a50d8; }
+        #wdWrap .wd-memo { width:100%; box-sizing:border-box; min-height:72px; border:1.5px solid #d5dbe5;
+            border-radius:10px; padding:10px 12px; font-size:14px; resize:vertical; font-family:inherit; }
+        #wdWrap .wd-lock { opacity:.45; pointer-events:none; }
+
+        #wdWrap .wd-btn { width:100%; height:72px; border:0; border-radius:14px; margin-top:18px;
+            font-size:24px; font-weight:800; color:#fff; cursor:pointer; letter-spacing:1px;
+            background:#0f9d58; box-shadow:0 6px 16px -6px rgba(15,157,88,.6); }
+        #wdWrap .wd-btn.end { background:#d64545; box-shadow:0 6px 16px -6px rgba(214,69,69,.6); }
+        #wdWrap .wd-btn:disabled { opacity:.5; cursor:not-allowed; box-shadow:none; }
+        #wdWrap .wd-hint { font-size:12px; color:#8a94a4; margin-top:8px; text-align:center; min-height:16px; }
+
+        /* ── 오른쪽: 날짜 + 기록 ── */
+        #wdWrap .wd-dbar { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+        #wdWrap .wd-dbar button { height:36px; min-width:36px; padding:0 12px; border:1px solid #d5dbe5;
+            background:#fff; border-radius:8px; font-weight:800; cursor:pointer; color:#3a4759; }
+        #wdWrap .wd-dbar input[type=date] { height:36px; border:1px solid #d5dbe5; border-radius:8px;
+            padding:0 10px; font-size:14px; font-weight:700; }
+        #wdWrap .wd-sum { margin-left:auto; display:flex; gap:8px; }
+        #wdWrap .wd-sum div { background:#f4f6f9; border-radius:9px; padding:6px 12px; font-size:12px;
+            font-weight:800; color:#5d6776; }
+        #wdWrap .wd-sum b { font-size:17px; color:#1f2733; margin-left:4px; font-variant-numeric:tabular-nums; }
+
+        #wdWrap .wd-list { margin-top:14px; display:flex; flex-direction:column; }
+        #wdWrap .wd-li { display:grid; grid-template-columns:150px 140px 90px minmax(0,1fr) 116px; gap:12px;
+            align-items:center; padding:12px 10px; border-bottom:1px solid #eef1f5; font-size:14px; }
+        #wdWrap .wd-li.wd-hd { font-size:11.5px; color:#8a94a4; font-weight:800; padding:8px 10px;
+            border-bottom:1px solid #e5e9f0; }
+        #wdWrap .wd-li.on { background:#f1fbf5; }
+        #wdWrap .wd-li .wd-t { font-weight:800; }
+        #wdWrap .wd-li .wd-tm { font-variant-numeric:tabular-nums; color:#3a4759; font-weight:700; }
+        #wdWrap .wd-li .wd-dur { font-variant-numeric:tabular-nums; color:#5d6776; font-weight:700; }
+        #wdWrap .wd-li .wd-m { color:#5d6776; min-height:20px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        #wdWrap .wd-li .wd-m.wd-ph { color:#c3cad5; }
+        #wdWrap .wd-li .wd-act { display:flex; gap:6px; justify-content:flex-end; }
+        .wd-sbtn { height:30px; padding:0 12px; border:1px solid #d5dbe5; background:#fff; border-radius:7px;
+            font-size:12.5px; font-weight:800; color:#3a4759; cursor:pointer; }
+        .wd-sbtn:hover { border-color:#5a50d8; color:#5a50d8; }
+        .wd-sbtn.del { color:#c62828; border-color:#efc7c7; }
+        .wd-sbtn.del:hover { background:#fff5f5; color:#c62828; border-color:#d64545; }
+        .wd-sbtn.pri { background:#5a50d8; border-color:#5a50d8; color:#fff; }
+        #wdWrap .wd-lblrow { display:flex; align-items:center; margin:18px 0 8px; }
+        #wdWrap .wd-lblrow .wd-lbl { margin:0; }
+        #wdWrap .wd-lblrow .wd-sbtn { margin-left:auto; height:26px; font-size:11.5px; padding:0 10px; }
+
+        /* ── 창(수정 · 업무 목록 관리) ── */
+        .wd-mask { position:fixed; inset:0; background:rgba(20,26,36,.45); display:none;
+            align-items:center; justify-content:center; z-index:2000; }
+        .wd-mask.on { display:flex; }
+        .wd-modal { background:#fff; border-radius:14px; width:min(520px, calc(100vw - 32px));
+            max-height:calc(100vh - 60px); display:flex; flex-direction:column; overflow:hidden;
+            font-family:'Pretendard','Malgun Gothic',sans-serif; color:#1f2733; }
+        .wd-modal-h { padding:14px 18px; font-weight:800; font-size:15px; border-bottom:1px solid #e5e9f0; display:flex; }
+        .wd-modal-h button { margin-left:auto; border:0; background:none; font-size:18px; cursor:pointer; color:#8a94a4; }
+        .wd-modal-b { padding:16px 18px; overflow:auto; }
+        .wd-modal-f { padding:12px 18px; border-top:1px solid #e5e9f0; display:flex; gap:8px; align-items:center; }
+        .wd-modal-f .wd-msg { flex:1; color:#d64545; font-size:12.5px; font-weight:700; }
+        .wd-modal-f .wd-sbtn { height:36px; padding:0 18px; font-size:13.5px; }
+        .wd-f { margin-bottom:12px; }
+        .wd-f label { display:block; font-size:12px; font-weight:800; color:#5d6776; margin-bottom:5px; }
+        .wd-f input, .wd-f select, .wd-f textarea { width:100%; box-sizing:border-box; height:38px; border:1.5px solid #d5dbe5;
+            border-radius:8px; padding:0 10px; font-size:14px; font-family:inherit; }
+        .wd-f textarea { height:70px; padding:8px 10px; resize:vertical; }
+        .wd-f .wd-note { font-size:11.5px; color:#8a94a4; margin-top:4px; }
+        .wd-2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+        .wd-tl { display:flex; flex-direction:column; gap:6px; }
+        .wd-tr { display:grid; grid-template-columns:minmax(0,1fr) 70px auto auto; gap:6px; align-items:center; }
+        .wd-tr input { height:34px; border:1.5px solid #d5dbe5; border-radius:7px; padding:0 9px; font-size:13.5px;
+            box-sizing:border-box; width:100%; font-family:inherit; }
+        .wd-tr input.n { text-align:right; }
+        .wd-tadd { margin-top:12px; padding-top:12px; border-top:1px dashed #dbe1ea; }
+        #wdWrap .wd-tag { display:inline-block; font-size:10.5px; font-weight:800; padding:2px 7px; border-radius:5px;
+            margin-left:6px; vertical-align:middle; }
+        #wdWrap .wd-tag.on { background:#dff3e8; color:#0b7a45; }
+        #wdWrap .wd-tag.auto { background:#fff1d6; color:#a45b00; }
+        #wdWrap .wd-empty { padding:40px 10px; text-align:center; color:#a3abb7; font-size:14px; }
+    </style>
+</head>
+
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>검사 업무 관리</h2>
+                <a title="북마크" class="bookmark toggle">내 메뉴</a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>공정 관리</li>
+                <li>검사 업무 관리</li>
+            </ul>
+        </div>
+
+        <div id="wdWrap">
+            <!-- 왼쪽 -->
+            <div class="wd-card">
+                <div class="wd-card-h">지금 업무</div>
+                <div class="wd-card-b">
+                    <div class="wd-who">
+                        <div class="wd-avatar" id="wdAvatar">-</div>
+                        <div><b id="wdName">-</b><span id="wdGroup"></span></div>
+                    </div>
+
+                    <div class="wd-now" id="wdNow">
+                        <div class="wd-st"><i></i><span id="wdStTxt">확인 중</span></div>
+                        <div class="wd-task" id="wdNowTask"></div>
+                        <div class="wd-time" id="wdNowTime"></div>
+                        <div class="wd-elapsed" id="wdNowElapsed"></div>
+                    </div>
+
+                    <div id="wdPick">
+                        <div class="wd-lblrow"><div class="wd-lbl">업무 선택</div>
+                            <button type="button" class="wd-sbtn" id="wdTaskMng">업무 목록 관리</button></div>
+                        <div class="wd-chips" id="wdChips"></div>
+                        <input type="text" class="wd-input" id="wdTask" maxlength="100"
+                               placeholder="목록에 없으면 직접 입력 (예: 출하검사, 시험성적서 작성)">
+                    </div>
+
+                    <div class="wd-lbl">메모 <span style="font-weight:600;color:#a3abb7">— 선택</span></div>
+                    <textarea class="wd-memo" id="wdMemo" maxlength="500"
+                              placeholder="입고처·로트번호·특이사항 등 (종료할 때 넣어도 됩니다)"></textarea>
+
+                    <button type="button" class="wd-btn" id="wdBtn" disabled>업무 시작</button>
+                    <div class="wd-hint" id="wdHint"></div>
+                </div>
+            </div>
+
+            <!-- 오른쪽 -->
+            <div class="wd-card">
+                <div class="wd-card-h">업무 기록 <span class="wd-sub">본인 기록만 수정 · 삭제할 수 있습니다</span></div>
+                <div class="wd-card-b">
+                    <div class="wd-dbar">
+                        <button type="button" id="wdPrev" title="전날">◀</button>
+                        <input type="date" id="wdDate">
+                        <button type="button" id="wdNext" title="다음날">▶</button>
+                        <button type="button" id="wdToday">오늘</button>
+                        <div class="wd-sum" id="wdSum"></div>
+                    </div>
+                    <div class="wd-list" id="wdList"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 기록 수정 -->
+    <div class="wd-mask" id="wdEdit">
+        <div class="wd-modal">
+            <div class="wd-modal-h">업무 기록 수정 <button type="button" data-close>×</button></div>
+            <div class="wd-modal-b">
+                <div class="wd-f"><label>업무</label>
+                    <input type="text" id="weTask" list="weTaskList" maxlength="100">
+                    <datalist id="weTaskList"></datalist></div>
+                <div class="wd-2">
+                    <div class="wd-f"><label>시작</label><input type="datetime-local" id="weStart"></div>
+                    <div class="wd-f"><label>종료</label><input type="datetime-local" id="weEnd">
+                        <div class="wd-note" id="weEndNote"></div></div>
+                </div>
+                <div class="wd-f"><label>메모</label><textarea id="weMemo" maxlength="500"></textarea></div>
+            </div>
+            <div class="wd-modal-f">
+                <span class="wd-msg" id="weMsg"></span>
+                <button type="button" class="wd-sbtn" data-close>닫기</button>
+                <button type="button" class="wd-sbtn pri" id="weSave">저장</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 업무 목록 관리 -->
+    <div class="wd-mask" id="wdTasks">
+        <div class="wd-modal">
+            <div class="wd-modal-h">업무 목록 관리 <button type="button" data-close>×</button></div>
+            <div class="wd-modal-b">
+                <div class="wd-tr" style="font-size:11.5px;color:#8a94a4;font-weight:800;">
+                    <span>업무 이름</span><span style="text-align:right">순서</span><span></span><span></span></div>
+                <div class="wd-tl" id="wtList"></div>
+                <div class="wd-tadd">
+                    <div class="wd-tr">
+                        <input type="text" id="wtNewName" maxlength="100" placeholder="새 업무 이름 (예: 출하검사)">
+                        <input type="number" class="n" id="wtNewSort" placeholder="자동">
+                        <button type="button" class="wd-sbtn pri" id="wtAdd">추가</button><span></span>
+                    </div>
+                </div>
+                <div class="wd-f" style="margin-top:10px"><div class="wd-note">
+                    · 품질검사 그룹 전원이 같은 목록을 씁니다.<br>
+                    · 삭제하거나 이름을 바꿔도 지난 기록의 업무 이름은 그대로 남습니다.<br>
+                    · 순서가 작을수록 앞에 나옵니다.</div></div>
+            </div>
+            <div class="wd-modal-f">
+                <span class="wd-msg" id="wtMsg"></span>
+                <button type="button" class="wd-sbtn" data-close>닫기</button>
+            </div>
+        </div>
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <script type="text/javascript">
+        const WD_API = '/api/work_duty';
+        const WD_SPJANGCD = (typeof SPJANGCD !== 'undefined' && SPJANGCD) ? SPJANGCD : 'ZZ';
+
+        var wd = {open: null, picked: '', date: '', tasks: [], rows: []};
+
+        function wdEsc(v) {
+            return String(v === null || v === undefined ? '' : v)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+        function wdPad(n) { return String(n).padStart(2, '0'); }
+        function wdDur(min) {
+            min = Math.max(0, Math.round(Number(min || 0)));
+            var h = Math.floor(min / 60), m = min % 60;
+            return h ? (h + '시간 ' + m + '분') : (m + '분');
+        }
+        function wdToday() {
+            var d = new Date();
+            return d.getFullYear() + '-' + wdPad(d.getMonth() + 1) + '-' + wdPad(d.getDate());
+        }
+        function wdShift(ymd, days) {
+            var p = ymd.split('-'), d = new Date(+p[0], +p[1] - 1, +p[2] + days);
+            return d.getFullYear() + '-' + wdPad(d.getMonth() + 1) + '-' + wdPad(d.getDate());
+        }
+        function wdOk(m) {
+            if (typeof Notify !== 'undefined' && typeof Notify.success === 'function') Notify.success(m);
+        }
+        function wdErr(m) {
+            if (typeof Alert !== 'undefined' && Alert.alert) Alert.alert('', m || '처리에 실패했습니다.');
+            else alert(m);
+        }
+
+        /* ── 조회 ── */
+        function wdLoad() {
+            AjaxUtil.getAsyncData(WD_API + '/status', {date: wd.date}, function (res) {
+                if (!res || res.success === false || !res.data) {
+                    document.getElementById('wdStTxt').textContent = '상태를 불러오지 못했습니다';
+                    return;
+                }
+                var d = res.data;
+                wd.open = d.open || null;
+                wdRenderMe(d.me || {});
+                wdRenderNow();
+                wdRenderChips(d.tasks || []);
+                wdRenderList(d.list || []);
+            });
+        }
+
+        function wdRenderMe(me) {
+            var nm = me.name || '-';
+            document.getElementById('wdName').textContent = nm;
+            document.getElementById('wdGroup').textContent = me.group_name || '';
+            document.getElementById('wdAvatar').textContent = nm.charAt(0);
+        }
+
+        function wdRenderNow() {
+            var o = wd.open, box = document.getElementById('wdNow'), btn = document.getElementById('wdBtn');
+            var pick = document.getElementById('wdPick');
+            btn.disabled = false;
+            if (o) {
+                box.className = 'wd-now on';
+                document.getElementById('wdStTxt').textContent = '업무 중';
+                document.getElementById('wdNowTask').textContent = o.task_name || '업무';
+                document.getElementById('wdNowTime').textContent = o.start_time + ' 시작';
+                document.getElementById('wdNowElapsed').textContent = wdDur(o.elapsed_min);
+                /* 업무 중에는 업무를 바꾸지 못한다 — 바꾸려면 종료하고 새로 시작한다.
+                   (중간에 바뀌면 «무슨 업무를 몇 시간 했나» 가 틀어진다) */
+                pick.classList.add('wd-lock');
+                if (document.activeElement !== document.getElementById('wdMemo')) {
+                    document.getElementById('wdMemo').value = o.memo || '';
+                }
+                btn.className = 'wd-btn end';
+                btn.textContent = '업무 종료';
+                document.getElementById('wdHint').textContent = '메모를 고친 뒤 종료하면 메모도 함께 저장됩니다.';
+            } else {
+                box.className = 'wd-now';
+                document.getElementById('wdStTxt').textContent = '대기';
+                document.getElementById('wdNowTask').textContent = '진행 중인 업무 없음';
+                document.getElementById('wdNowTime').textContent = '';
+                document.getElementById('wdNowElapsed').textContent = '';
+                pick.classList.remove('wd-lock');
+                btn.className = 'wd-btn';
+                btn.textContent = '업무 시작';
+                wdSyncBtn();
+            }
+        }
+
+        /* 시작 버튼은 업무를 골랐을 때만 */
+        function wdTaskValue() {
+            var typed = document.getElementById('wdTask').value.trim();
+            return typed || wd.picked;
+        }
+        function wdSyncBtn() {
+            if (wd.open) return;
+            var t = wdTaskValue();
+            document.getElementById('wdBtn').disabled = !t;
+            document.getElementById('wdHint').textContent = t ? ('「' + t + '」 시작') : '업무를 먼저 고르세요.';
+        }
+
+        function wdRenderChips(tasks) {
+            wd.tasks = tasks;
+            var host = document.getElementById('wdChips');
+            host.innerHTML = tasks.length ? tasks.map(function (t) {
+                return '<button type="button" class="wd-chip' + (t.name === wd.picked ? ' on' : '') + '" data-t="'
+                    + wdEsc(t.name) + '">' + wdEsc(t.name) + '</button>';
+            }).join('') : '<span style="color:#a3abb7;font-size:13px">업무 목록이 비어 있습니다. 「업무 목록 관리」에서 추가하세요.</span>';
+        }
+
+        function wdRenderList(rows) {
+            var host = document.getElementById('wdList');
+            var total = 0;
+            rows.forEach(function (r) { total += Number(r.minutes || 0); });
+            document.getElementById('wdSum').innerHTML =
+                '<div>건수<b>' + rows.length + '</b></div><div>합계<b>' + wdDur(total) + '</b></div>';
+
+            var head = '<div class="wd-li wd-hd"><span>업무</span><span>시간</span><span>소요</span><span>메모</span><span></span></div>';
+            if (!rows.length) {
+                host.innerHTML = head + '<div class="wd-empty">' + (wd.date === wdToday() ? '오늘' : wd.date) + ' 기록이 없습니다.</div>';
+                return;
+            }
+            wd.rows = rows;
+            host.innerHTML = head + rows.map(function (r) {
+                var on = !r.end_time;
+                var tag = on ? '<span class="wd-tag on">진행 중</span>'
+                    : (r.auto_closed === 'Y' ? '<span class="wd-tag auto" title="종료를 누르지 않아 자정에 자동으로 닫혔습니다">자동 종료</span>' : '');
+                return '<div class="wd-li' + (on ? ' on' : '') + '">'
+                    + '<span class="wd-t">' + wdEsc(r.task_name || '업무') + tag + '</span>'
+                    + '<span class="wd-tm">' + wdEsc(r.start_time) + ' ~ ' + (on ? '' : wdEsc(r.end_time)) + '</span>'
+                    + '<span class="wd-dur">' + wdDur(r.minutes) + '</span>'
+                    + '<span class="wd-m' + (r.memo ? '' : ' wd-ph') + '" title="' + wdEsc(r.memo || '') + '">'
+                    + (r.memo ? wdEsc(r.memo) : '—') + '</span>'
+                    + '<span class="wd-act"><button type="button" class="wd-sbtn" data-edit="' + r.id + '">수정</button>'
+                    + '<button type="button" class="wd-sbtn del" data-del="' + r.id + '">삭제</button></span></div>';
+            }).join('');
+        }
+
+        /* ── 시작 / 종료 ── */
+        function wdToggle() {
+            var btn = document.getElementById('wdBtn');
+            var memo = document.getElementById('wdMemo').value;
+            if (wd.open) {
+                var go = function () {
+                    btn.disabled = true;
+                    AjaxUtil.postAsyncData(WD_API + '/end', {memo: memo}, function (res) {
+                        if (res && res.success === false) wdErr(res.message); else wdOk((res && res.message) || '업무 종료');
+                        document.getElementById('wdMemo').value = '';
+                        wd.date = wdToday();
+                        document.getElementById('wdDate').value = wd.date;
+                        wdLoad();
+                    });
+                };
+                /* 종료만 묻는다 — 잘못 누르면 대시보드에서 업무 중인 사람이 사라진다 */
+                if (typeof Alert !== 'undefined' && Alert.confirm) {
+                    Alert.confirm('', '「' + (wd.open.task_name || '업무') + '」를 종료할까요?', go);
+                } else go();
+                return;
+            }
+            var task = wdTaskValue();
+            if (!task) { wdErr('업무를 고르거나 입력하세요.'); return; }
+            btn.disabled = true;   // 연타 방지 — 서버도 «한 사람 하나만 열림» 으로 막는다
+            AjaxUtil.postAsyncData(WD_API + '/start', {task: task, memo: memo, spjangcd: WD_SPJANGCD}, function (res) {
+                if (res && res.success === false) wdErr(res.message); else wdOk((res && res.message) || '업무 시작');
+                wd.picked = '';
+                document.getElementById('wdTask').value = '';
+                wd.date = wdToday();
+                document.getElementById('wdDate').value = wd.date;
+                wdLoad();
+            });
+        }
+
+        /* ── 기록 수정 · 삭제 ── */
+        function wdModal(id, on) { document.getElementById(id).classList.toggle('on', !!on); }
+
+        function wdEditOpen(id) {
+            var r = wd.rows.filter(function (x) { return String(x.id) === String(id); })[0];
+            if (!r) return;
+            wd.editId = r.id;
+            document.getElementById('weTaskList').innerHTML = wd.tasks.map(function (t) {
+                return '<option value="' + wdEsc(t.name) + '">';
+            }).join('');
+            document.getElementById('weTask').value = r.task_name || '';
+            document.getElementById('weStart').value = r.start_dt || '';
+            document.getElementById('weEnd').value = r.end_dt || '';
+            document.getElementById('weMemo').value = r.memo || '';
+            document.getElementById('weEndNote').textContent = r.end_dt ? '' : '진행 중 — 비워 두면 계속 진행, 넣으면 그 시각으로 종료';
+            document.getElementById('weMsg').textContent = '';
+            wdModal('wdEdit', true);
+        }
+
+        function wdEditSave() {
+            var d = {
+                id: wd.editId,
+                task: document.getElementById('weTask').value.trim(),
+                start: document.getElementById('weStart').value,
+                end: document.getElementById('weEnd').value,
+                memo: document.getElementById('weMemo').value
+            };
+            var msg = document.getElementById('weMsg');
+            if (!d.task) { msg.textContent = '업무를 입력하세요.'; return; }
+            if (!d.start) { msg.textContent = '시작 시각을 입력하세요.'; return; }
+            if (d.end && d.end <= d.start) { msg.textContent = '종료 시각이 시작 시각보다 뒤여야 합니다.'; return; }
+            AjaxUtil.postAsyncData(WD_API + '/update', d, function (res) {
+                if (res && res.success === false) { msg.textContent = res.message || '저장하지 못했습니다.'; return; }
+                wdOk((res && res.message) || '수정했습니다.');
+                wdModal('wdEdit', false);
+                wdLoad();
+            });
+        }
+
+        function wdDelete(id) {
+            var r = wd.rows.filter(function (x) { return String(x.id) === String(id); })[0];
+            if (!r) return;
+            var go = function () {
+                AjaxUtil.postAsyncData(WD_API + '/delete', {id: id}, function (res) {
+                    if (res && res.success === false) wdErr(res.message); else wdOk((res && res.message) || '삭제했습니다.');
+                    wdLoad();
+                });
+            };
+            var txt = '「' + (r.task_name || '업무') + '」 ' + r.start_time + ' ~ ' + (r.end_time || '진행 중') + ' 기록을 삭제할까요?';
+            if (typeof Alert !== 'undefined' && Alert.confirm) Alert.confirm('', txt, go);
+            else if (confirm(txt)) go();
+        }
+
+        /* ── 업무 목록 관리 ── */
+        function wdTaskOpen() {
+            document.getElementById('wtMsg').textContent = '';
+            document.getElementById('wtNewName').value = '';
+            document.getElementById('wtNewSort').value = '';
+            wdTaskRender();
+            wdModal('wdTasks', true);
+        }
+        function wdTaskRender() {
+            document.getElementById('wtList').innerHTML = wd.tasks.length ? wd.tasks.map(function (t) {
+                return '<div class="wd-tr" data-id="' + t.id + '">'
+                    + '<input type="text" data-k="name" maxlength="100" value="' + wdEsc(t.name) + '">'
+                    + '<input type="number" class="n" data-k="sort" value="' + (t.sort_no == null ? '' : t.sort_no) + '">'
+                    + '<button type="button" class="wd-sbtn" data-tsave>저장</button>'
+                    + '<button type="button" class="wd-sbtn del" data-tdel>삭제</button></div>';
+            }).join('') : '<div style="color:#a3abb7;font-size:13px;padding:8px 0">등록된 업무가 없습니다.</div>';
+        }
+        function wdTaskReload() {
+            /* 목록·업무 버튼을 다시 받는다 (상태 조회에 같이 실려 온다) */
+            AjaxUtil.getAsyncData(WD_API + '/status', {date: wd.date}, function (res) {
+                if (res && res.data) { wdRenderChips(res.data.tasks || []); wdTaskRender(); }
+            });
+        }
+        function wdTaskPost(url, data) {
+            AjaxUtil.postAsyncData(WD_API + url, data, function (res) {
+                var m = document.getElementById('wtMsg');
+                if (res && res.success === false) { m.textContent = res.message || '처리하지 못했습니다.'; return; }
+                m.textContent = '';
+                wdOk((res && res.message) || '저장했습니다.');
+                wdTaskReload();
+            });
+        }
+
+        function wdSetDate(v) {
+            wd.date = v || wdToday();
+            document.getElementById('wdDate').value = wd.date;
+            wdLoad();
+        }
+
+        $(document.body).ready(function () {
+            if (typeof AjaxUtil === 'undefined' || !AjaxUtil.getAsyncData) return;
+            wd.date = wdToday();
+            document.getElementById('wdDate').value = wd.date;
+            wdLoad();
+
+            document.getElementById('wdBtn').addEventListener('click', wdToggle);
+            document.getElementById('wdChips').addEventListener('click', function (e) {
+                var c = e.target.closest('.wd-chip');
+                if (!c) return;
+                var t = c.getAttribute('data-t');
+                wd.picked = (wd.picked === t) ? '' : t;          // 다시 누르면 해제
+                document.getElementById('wdTask').value = '';     // 고르면 직접 입력은 비운다 — 둘 중 하나만
+                Array.prototype.forEach.call(document.querySelectorAll('#wdChips .wd-chip'), function (b) {
+                    b.classList.toggle('on', b.getAttribute('data-t') === wd.picked);
+                });
+                wdSyncBtn();
+            });
+            document.getElementById('wdTask').addEventListener('input', function () {
+                if (this.value.trim() && wd.picked) {             // 입력하면 버튼 선택은 푼다
+                    wd.picked = '';
+                    Array.prototype.forEach.call(document.querySelectorAll('#wdChips .wd-chip'), function (b) {
+                        b.classList.remove('on');
+                    });
+                }
+                wdSyncBtn();
+            });
+            document.getElementById('wdList').addEventListener('click', function (e) {
+                var ed = e.target.closest('[data-edit]'), dl = e.target.closest('[data-del]');
+                if (ed) wdEditOpen(ed.getAttribute('data-edit'));
+                if (dl) wdDelete(dl.getAttribute('data-del'));
+            });
+            document.getElementById('weSave').addEventListener('click', wdEditSave);
+            document.getElementById('wdTaskMng').addEventListener('click', wdTaskOpen);
+            document.getElementById('wtAdd').addEventListener('click', function () {
+                var n = document.getElementById('wtNewName').value.trim();
+                if (!n) { document.getElementById('wtMsg').textContent = '업무 이름을 입력하세요.'; return; }
+                wdTaskPost('/task_save', {name: n, sort_no: document.getElementById('wtNewSort').value});
+                document.getElementById('wtNewName').value = '';
+                document.getElementById('wtNewSort').value = '';
+            });
+            document.getElementById('wtNewName').addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') document.getElementById('wtAdd').click();
+            });
+            document.getElementById('wtList').addEventListener('click', function (e) {
+                var row = e.target.closest('.wd-tr');
+                if (!row) return;
+                var id = row.getAttribute('data-id');
+                if (e.target.closest('[data-tsave]')) {
+                    wdTaskPost('/task_save', {
+                        id: id,
+                        name: row.querySelector('[data-k=name]').value.trim(),
+                        sort_no: row.querySelector('[data-k=sort]').value
+                    });
+                }
+                if (e.target.closest('[data-tdel]')) {
+                    var nm = row.querySelector('[data-k=name]').value;
+                    var go = function () { wdTaskPost('/task_delete', {id: id}); };
+                    var txt = '「' + nm + '」을(를) 목록에서 삭제할까요? 지난 기록은 그대로 남습니다.';
+                    if (typeof Alert !== 'undefined' && Alert.confirm) Alert.confirm('', txt, go);
+                    else if (confirm(txt)) go();
+                }
+            });
+            Array.prototype.forEach.call(document.querySelectorAll('.wd-mask'), function (m) {
+                m.addEventListener('click', function (e) {
+                    if (e.target === m || e.target.closest('[data-close]')) m.classList.remove('on');
+                });
+            });
+            document.getElementById('wdPrev').addEventListener('click', function () { wdSetDate(wdShift(wd.date, -1)); });
+            document.getElementById('wdNext').addEventListener('click', function () { wdSetDate(wdShift(wd.date, 1)); });
+            document.getElementById('wdToday').addEventListener('click', function () { wdSetDate(wdToday()); });
+            document.getElementById('wdDate').addEventListener('change', function () { wdSetDate(this.value); });
+
+            /* 경과 시간 갱신 + 다른 기기에서 종료한 경우 반영.
+               메모를 쓰는 중에는 건너뛴다 — 다시 그리면 쓰던 글이 날아간다. */
+            setInterval(function () {
+                var a = document.activeElement;
+                if (a && (a.id === 'wdMemo' || a.id === 'wdTask')) return;
+                if (document.querySelector('.wd-mask.on')) return;   // 창이 떠 있으면 건드리지 않는다
+                wdLoad();
+            }, 60000);
+        });
+    </script>
+</th:block>
+</html>

@@ -87,6 +87,19 @@ public class WorklogController {
         return this.svc.deleteNote(pk, (User) auth.getPrincipal());
     }
 
+    // ── 검사 업무 ─────────────────────────────────────────
+
+    /** 기간의 검사 업무 기록 (검사 업무 관리 화면에서 남긴 업무 시작·종료). factory_id 를 비우면 전체 */
+    @GetMapping("/duties")
+    public AjaxResult duties(
+            @RequestParam(value = "date_from", required = false) String dateFrom,
+            @RequestParam(value = "date_to", required = false) String dateTo,
+            @RequestParam(value = "factory_id", required = false) Integer factoryId) {
+        AjaxResult r = new AjaxResult();
+        r.data = this.svc.getDuties(dateFrom, (dateTo == null || dateTo.isBlank()) ? dateFrom : dateTo, factoryId);
+        return r;
+    }
+
     // ── 실적 일부 수정 ───────────────────────────────────
 
     /**

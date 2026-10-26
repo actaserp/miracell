@@ -366,6 +366,7 @@
             host.innerHTML = '<div class="wl-loading">불러오는 중…</div>';
 
             noteLoad(date, dateTo);
+            dutyLoad(date, dateTo);
             let r = null;
             try {
                 r = wlData(AjaxUtil.getSyncData(WL_API + '/process',
@@ -396,7 +397,8 @@
                 + wlInsp({name: '검사'}, insp)
                 + wlRep({name: '수리'}, rep)
                 + wlPack({name: '포장'}, pack)
-                + wlDefect(def);
+                + wlDefect(def)
+                + dutyBlock();   /* 검사 업무 — 수량 없는 업무 */
             /* 공정 블록이 하나도 안 남으면 백지가 인쇄된다 */
             if (!html) html = '<div class="wl-empty">해당 일자에 작업 실적이 없습니다.</div>';
             document.getElementById('body').innerHTML = html + noteBlock();
@@ -645,6 +647,63 @@
                 + '<span class="nm">작업 기록</span>'
                 + '<div class="sum"><span class="wl-tag row">' + NOTES.length + '건</span></div></div>'
                 + '<table class="wl-table"><thead><tr>' + th + '</tr></thead><tbody>' + tb + '</tbody></table></div>';
+        }
+
+        /* =========================================================
+         * 검사 업무 (work_duty) — 「검사 업무 관리」 화면에서 남긴 업무 시작·종료
+         *
+         * ★ 수량이 없는 업무라 공정 블록과 따로 한 블록으로 둔다.
+         *   여기서는 보기만 한다. 수정·삭제는 검사 업무 관리 화면에서 본인이 한다
+         *   (근태성 기록이라 남의 기록을 일보에서 고치면 누가 고쳤는지 흐려진다).
+         * ★ 조회가 실패해도 일보 본문은 그려져야 한다 — 작업 기록과 같은 이유.
+         * ========================================================= */
+        let DUTIES = [], DUTY_ERR = null;
+        function dutyLoad(date, dateTo){
+            DUTY_ERR = null;
+            try {
+                const p = {date_from:date, date_to:(dateTo || date)};
+                if (typeof WL_FACTORY !== 'undefined' && WL_FACTORY) p.factory_id = WL_FACTORY;
+                DUTIES = wlData(AjaxUtil.getSyncData(NOTE_API+'/duties', p)) || [];
+            } catch(e) {
+                DUTIES = []; DUTY_ERR = '검사 업무를 불러오지 못했습니다.';
+                console.error('[worklog] duty load', e);
+            }
+        }
+        function dutyDur(min){
+            min = Math.max(0, Math.round(Number(min||0)));
+            const h = Math.floor(min/60), m = min%60;
+            return h ? (h+'시간 '+m+'분') : (m+'분');
+        }
+        function dutyBlock(){
+            if(DUTY_ERR){
+                return '<div class="wl-proc-box"><div class="wl-proc-h"><span class="nm">검사 업무</span></div>'
+                    + '<table class="wl-table"><tbody><tr><td style="color:#d64545;padding:22px">'
+                    + esc(DUTY_ERR) + ' (work_duty 테이블·API 배포 확인)</td></tr></tbody></table></div>';
+            }
+            let tot = 0, run = 0;
+            const people = {};
+            DUTIES.forEach(function(d){
+                tot += Number(d.minutes||0);
+                if(!d.end_time) run++;
+                people[d.worker] = 1;
+            });
+            const sum = '<span class="wl-tag row">'+DUTIES.length+'건</span>'
+                + (DUTIES.length ? '<span class="wl-tag lot">'+Object.keys(people).length+'명</span>'
+                    + '<span class="wl-tag qty">'+dutyDur(tot)+'</span>' : '')
+                + (run ? '<span class="wl-tag lot">진행 중 '+run+'</span>' : '');
+            const th = '<th>시간</th><th class="left">업무</th><th>담당자</th><th>소요</th><th class="left">메모</th>';
+            const tb = DUTIES.length ? DUTIES.map(function(d){
+                const running = !d.end_time;
+                return '<tr><td>'+hm(d.start_time)+' ~ '
+                    + (running ? '<span class="wl-run">진행 중</span>' : hm(d.end_time))
+                    + (d.auto_closed === 'Y' ? '<br><span class="wl-code">자동 종료</span>' : '') + '</td>'
+                    + '<td class="left"><b>'+esc(d.task_name||'-')+'</b></td>'
+                    + '<td>'+esc(d.worker||'-')+'</td>'
+                    + '<td>'+dutyDur(d.minutes)+'</td>'
+                    + '<td class="left">'+esc(d.memo||'')+'</td></tr>';
+            }).join('') : wlNoRow(5);
+            const tf = DUTIES.length ? '<td class="left" colspan="3">합계</td><td>'+dutyDur(tot)+'</td><td></td>' : '';
+            return wlBox({name:'검사 업무'}, sum, th, tb, tf, null, !DUTIES.length);
         }
 
         // ── 작업 기록 모달 ──

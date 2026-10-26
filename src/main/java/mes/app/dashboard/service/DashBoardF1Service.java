@@ -163,6 +163,9 @@ public class DashBoardF1Service {
 	/**
 	 * 1공장 인원 — 작업중 / 대기.
 	 *
+	 * ★ 작업중의 출처는 셋이다: 진행중 차수(mat_produce) · 멸균 배치 · 업무 시작(work_duty).
+	 *   품질검사처럼 실적이 없는 사람은 work_duty 로만 「작업중」이 된다.
+	 *
 	 * ★ 근태(연차·지각)는 MES 에 없다. 「지금 차수나 멸균 배치를 붙잡고 있나」만 본다.
 	 *   대기 = 출근했는지와 무관하다. 화면 문구도 「대기」로만 쓴다(「출근」이라 쓰지 않는다).
 	 * ★ 공장 미지정(Factory_id NULL)은 뺀다. 양쪽에 다 뜨면 인원이 부풀어 보인다.
@@ -183,22 +186,53 @@ public class DashBoardF1Service {
 				    SELECT b."Actor_id", '멸균'
 				      FROM steril_batch b
 				     WHERE b."State" = 'working'
+				    UNION ALL
+				    /* ★ 업무 시작·종료(품질검사 등) — 실적 없이 「지금 업무 중」만 남는 사람.
+				         오늘 시작해서 아직 종료하지 않은 것만. 어제 것은 자정에 닫힌 것으로 본다. */
+				    SELECT COALESCE(u.personid, CASE WHEN u.username ~ '^[0-9]+$' THEN u.username::int END)
+				         , COALESCE(g."Name", '업무')
+				      FROM work_duty d
+				      JOIN auth_user u ON u.id = d."User_id"
+				      LEFT JOIN user_group g ON g.id = d."UserGroup_id"
+				     WHERE d."EndTime" IS NULL AND d._status = 'a'
+				       AND d."StartTime"::date = CURRENT_DATE
 				)
-				SELECT pe.id
-				     , pe."Name"                                          AS name
-				     , CASE WHEN COUNT(b.pid) > 0 THEN 'working' ELSE 'idle' END AS state
-				     , STRING_AGG(DISTINCT b.where_name, ', ')            AS where_name
-				  FROM person pe
-				  /* ★ 1공장 = 「1공장 계정이 있는 사람」.
-				       person.Factory_id 만 보면 계정 없는 인원(테스트·미등록)까지 섞인다.
-				       계정은 username = person.id 로 연결되어 있다. */
-				  JOIN auth_user u     ON u.username = pe.id::text
-				  JOIN user_profile up ON up."User_id" = u.id AND up."Factory_id" = 1
-				  LEFT JOIN busy b ON b.pid = pe.id
-				 WHERE pe."Factory_id" = 1
-				   AND COALESCE(pe.rtflag,'0') <> '1'
-				 GROUP BY pe.id, pe."Name"
-				 ORDER BY (COUNT(b.pid) > 0) DESC, pe."Name"
+				SELECT * FROM (
+				    SELECT pe.id
+				         , pe."Name"                                          AS name
+				         , CASE WHEN COUNT(b.pid) > 0 THEN 'working' ELSE 'idle' END AS state
+				         , STRING_AGG(DISTINCT b.where_name, ', ')            AS where_name
+				      FROM person pe
+				      /* ★ 1공장 = 「1공장 계정이 있는 사람」.
+				           person.Factory_id 만 보면 계정 없는 인원(테스트·미등록)까지 섞인다.
+				           계정은 username = person.id 로 연결되어 있다. */
+				      JOIN auth_user u     ON u.username = pe.id::text
+				      JOIN user_profile up ON up."User_id" = u.id AND up."Factory_id" = 1
+				      LEFT JOIN busy b ON b.pid = pe.id
+				     WHERE pe."Factory_id" = 1
+				       AND COALESCE(pe.rtflag,'0') <> '1'
+				     GROUP BY pe.id, pe."Name"
+
+				    UNION ALL
+
+				    /* ★ 품질검사 그룹 중 사원(person)과 연결되지 않은 계정.
+				         사원 등록 없이 계정만 만든 담당자도 이름이 나오게 한다.
+				         id 는 음수(-auth_user.id) — 사원 id 와 겹치지 않게. */
+				    SELECT -u.id
+				         , COALESCE(NULLIF(up."Name",''), NULLIF(u.first_name,''), u.username)
+				         , CASE WHEN d.id IS NOT NULL THEN 'working' ELSE 'idle' END
+				         , CASE WHEN d.id IS NOT NULL THEN g."Name" END
+				      FROM auth_user u
+				      JOIN user_profile up ON up."User_id" = u.id AND COALESCE(up."Factory_id", 1) = 1
+				      JOIN user_group g    ON g.id = up."UserGroup_id" AND g."Code" = 'quality'
+				      LEFT JOIN work_duty d ON d."User_id" = u.id AND d."EndTime" IS NULL AND d._status = 'a'
+				                           AND d."StartTime"::date = CURRENT_DATE
+				     WHERE COALESCE(u.is_active, true)
+				       AND NOT EXISTS (SELECT 1 FROM person pe
+				                        WHERE pe.id = COALESCE(u.personid,
+				                                       CASE WHEN u.username ~ '^[0-9]+$' THEN u.username::int END))
+				) x
+				 ORDER BY (x.state = 'working') DESC, x.name
 				""";
 		return nz(this.sqlRunner.getRows(sql, p(spjangcd)));
 	}

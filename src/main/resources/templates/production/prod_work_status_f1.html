@@ -49,8 +49,10 @@
             /* ★ 높이를 칼럼이 아니라 **본문**에 준다.
                칼럼에 주면 헤더 줄 수에 따라 본문이 줄고, 그리드가
                줄바꿈될 때(좁은 화면) 행마다 높이가 달라 보인다.
-               본문에 주면 헤더가 한 줄이든 두 줄이든 본문은 항상 같다. */
-            height:300px; box-sizing:border-box;
+               본문에 주면 헤더가 한 줄이든 두 줄이든 본문은 항상 같다.
+               ★ 값은 화면에 남는 높이로 맞춘다(아래 wsFitHeight).
+                 300px 고정이면 큰 모니터에서 아래가 텅 비고 칼럼 안은 카드 2장만 보였다. */
+            height:var(--ws-body-h, 300px); box-sizing:border-box;
             overflow-y:auto; overflow-x:hidden;
             overscroll-behavior:auto; -webkit-overflow-scrolling:touch; }
         .ws-col-body::-webkit-scrollbar { width:6px; }
@@ -255,6 +257,7 @@
             wsFillActors(d.actors || [], actorPk);
             wsRenderKPI();
             wsRender();
+            wsFitHeight();
         }
 
         function wsProcName(pk){
@@ -640,6 +643,29 @@
         function wsClose(){ document.getElementById('ov').classList.remove('on'); }
 
         // =====================================================
+        // 칼럼 본문 높이 = 화면에 남는 높이
+        //   ★ 300px 고정이면 큰 모니터에서 아래가 텅 비고 칼럼 안은 카드 2장만 보였다.
+        //   ★ 칼럼이 두 줄 이상으로 접히는 폭(1400px 이하)에서는 계산이 의미가 없어 고정값.
+        //   ★ 탭(iframe)이 숨겨졌다 다시 보이면 좌표가 0 이었다가 바뀌므로 그때 다시 잰다.
+        // =====================================================
+        function wsFitHeight(){
+            const board = document.getElementById('body');
+            if(!board) return;
+            const r = board.getBoundingClientRect();
+            if(!r.width) return;                                   // 숨겨진 상태 — 다음 기회에
+            if(window.innerWidth <= 1400){
+                document.documentElement.style.setProperty('--ws-body-h', '420px');
+                return;
+            }
+            const head = board.querySelector('.ws-col-h');
+            const top  = r.top + (head ? head.offsetHeight : 70);
+            const foot = document.querySelector('footer, .footer, .copyright');
+            const below = (foot ? foot.offsetHeight : 40) + 40;  // 섹션 아래 여백
+            const h = Math.floor(window.innerHeight - top - below);
+            document.documentElement.style.setProperty('--ws-body-h', Math.max(300, h) + 'px');
+        }
+
+        // =====================================================
         document.addEventListener('DOMContentLoaded', function(){
             const t = new Date(), f = new Date();
             f.setDate(f.getDate() - 7);
@@ -654,6 +680,15 @@
 
             if(wsReady()) wsFillCombo();
             wsLoad();
+
+            window.addEventListener('resize', wsFitHeight);
+            setTimeout(wsFitHeight, 300);
+            if(window.IntersectionObserver){
+                new IntersectionObserver(function(es){
+                    if(es[0].isIntersecting) wsFitHeight();
+                }).observe(document.getElementById('body'));
+            }
+            document.addEventListener('visibilitychange', function(){ if(!document.hidden) wsFitHeight(); });
         });
     </script>
 </th:block>

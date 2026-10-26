@@ -2098,5 +2098,552 @@
             }, true);
         })();
     </script>
+    <!-- =====================================================================
+     자동화 장비 구간 패널 — prod_process_assembly_bsc_t.html 에 추가
+     위치 : <th:block layout:fragment="scripts"> 안, 맨 마지막 </script> 뒤
+            (기존 스크립트의 curC·renderItems·flash·uiConfirm 등을 쓴다)
+
+     동작
+       · C화면(용기 리스트)에서 작업조 설비가 자동화 설비면 상단에 패널이 뜬다
+       · 5초마다 구간을 새로 읽는다 (가동중 구간은 수량이 실시간으로 오른다)
+       · 구간 카드를 누르고(선택) → 용기 카드를 누르면 붙는다
+         PC 에서는 구간 카드를 용기 카드로 끌어다 놓아도 된다
+       · 붙은 용기는 수량·시작·종료가 구간 값으로 채워진다 → 투입자재 확인 → 기존 「완료」
+       · 가동중인 구간이 붙은 용기는 완료를 막는다 (끝까지 센 뒤 확정)
+     ===================================================================== -->
+    <style>
+        .autop{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:14px 16px;display:none}
+        .autop .ah{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+        .autop .ah .t{font-size:16px;font-weight:800}
+        .autop .ah .dot{width:10px;height:10px;border-radius:50%;background:var(--line)}
+        .autop .ah .dot.run{background:var(--green);box-shadow:0 0 0 4px var(--green-bg)}
+        .autop .ah .st{font-size:13px;font-weight:700;color:var(--ink-2)}
+        .autop .ah .hint{margin-left:auto;font-size:12.5px;font-weight:800;color:var(--teal-d);background:var(--teal-bg);border-radius:999px;padding:5px 12px}
+        .autop .ah .hint.sel{background:var(--amber-bg);color:var(--amber)}
+        .aseglist{display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch}
+        .aseg{flex:0 0 auto;min-width:190px;border:1.5px solid var(--line);border-radius:14px;padding:10px 12px;background:var(--surface-2);cursor:pointer;position:relative;user-select:none}
+        .aseg.open{border-color:var(--green);background:var(--green-bg)}
+        .aseg.free{border-style:dashed;border-color:var(--amber)}
+        .aseg.sel{border-color:var(--teal);border-style:solid;background:var(--teal-bg);box-shadow:0 0 0 3px var(--teal-bg)}
+        .aseg.linked{cursor:default}
+        .aseg .tm{font-size:12.5px;font-weight:700;color:var(--ink-2);font-variant-numeric:tabular-nums}
+        .aseg .q{font-size:24px;font-weight:800;font-variant-numeric:tabular-nums;margin:2px 0}
+        .aseg .q small{font-size:12px;color:var(--ink-2);font-weight:700;margin-left:4px}
+        .aseg .q .er{font-size:12px;color:var(--red);font-weight:800;margin-left:6px}
+        .aseg .lk{font-size:12px;font-weight:800;color:var(--teal-d);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px}
+        .aseg .lk.none{color:var(--amber)}
+        .aseg .lk.done{color:var(--green)}
+        .aseg .ab{display:flex;gap:6px;margin-top:8px}
+        .aseg .ab button{height:34px;padding:0 10px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font-weight:800;font-size:12.5px;cursor:pointer;color:var(--ink-2)}
+        .aseg .ab button.rm{color:var(--red)}
+        .aseg .live{position:absolute;top:8px;right:10px;font-size:11px;font-weight:800;color:var(--green)}
+        .autop .empty{color:var(--ink-2);font-weight:700;font-size:14px;padding:6px 2px}
+        .vitem.auto-target{outline:3px dashed var(--teal);outline-offset:-3px;cursor:copy}
+        .vitem.auto-over{outline:3px solid var(--teal);background:var(--teal-bg)}
+        .autotag.auto{color:var(--green);background:var(--green-bg)}
+        .autofree{flex-direction:column;gap:8px;margin:0 2px 14px}
+        .autofree .af{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--amber-bg);border:1px solid var(--amber);border-radius:14px;padding:10px 14px;font-size:14px;font-weight:700;color:var(--ink)}
+        .autofree .af .ic{width:22px;height:22px;border-radius:50%;background:var(--amber);color:#fff;display:grid;place-items:center;font-weight:800;font-size:13px}
+        .autofree .af b{font-weight:800}
+        .autofree .af .old{color:var(--ink-2);font-size:12.5px}
+        .autofree .af .go{margin-left:auto;color:var(--amber);font-size:12.5px;font-weight:800}
+    </style>
+    <!-- =====================================================================
+     자동화 장비 구간 패널 — prod_process_assembly_bsc_t.html 에 추가
+     위치 : <th:block layout:fragment="scripts"> 안, 맨 마지막 </script> 뒤
+            (기존 스크립트의 curC·renderItems·flash·uiConfirm 등을 쓴다)
+
+     동작
+       · C화면(용기 리스트)에서 작업조 설비가 자동화 설비면 상단에 패널이 뜬다
+       · 5초마다 구간을 새로 읽는다 (가동중 구간은 수량이 실시간으로 오른다)
+       · 구간 카드를 누르고(선택) → 용기 카드를 누르면 붙는다
+         PC 에서는 구간 카드를 용기 카드로 끌어다 놓아도 된다
+       · 붙은 용기는 수량·시작·종료가 구간 값으로 채워진다 → 투입자재 확인 → 기존 「완료」
+       · 가동중인 구간이 붙은 용기는 완료를 막는다 (끝까지 센 뒤 확정)
+     ===================================================================== -->
+    <style>
+        .autop{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:14px 16px;display:none}
+        .autop .ah{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+        .autop .ah .t{font-size:16px;font-weight:800}
+        .autop .ah .dot{width:10px;height:10px;border-radius:50%;background:var(--line)}
+        .autop .ah .dot.run{background:var(--green);box-shadow:0 0 0 4px var(--green-bg)}
+        .autop .ah .st{font-size:13px;font-weight:700;color:var(--ink-2)}
+        .autop .ah .hint{margin-left:auto;font-size:12.5px;font-weight:800;color:var(--teal-d);background:var(--teal-bg);border-radius:999px;padding:5px 12px}
+        .autop .ah .hint.sel{background:var(--amber-bg);color:var(--amber)}
+        .aseglist{display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch}
+        .aseg{flex:0 0 auto;min-width:190px;border:1.5px solid var(--line);border-radius:14px;padding:10px 12px;background:var(--surface-2);cursor:pointer;position:relative;user-select:none}
+        .aseg.open{border-color:var(--green);background:var(--green-bg)}
+        .aseg.free{border-style:dashed;border-color:var(--amber)}
+        .aseg.sel{border-color:var(--teal);border-style:solid;background:var(--teal-bg);box-shadow:0 0 0 3px var(--teal-bg)}
+        .aseg.linked{cursor:default}
+        .aseg .tm{font-size:12.5px;font-weight:700;color:var(--ink-2);font-variant-numeric:tabular-nums}
+        .aseg .q{font-size:24px;font-weight:800;font-variant-numeric:tabular-nums;margin:2px 0}
+        .aseg .q small{font-size:12px;color:var(--ink-2);font-weight:700;margin-left:4px}
+        .aseg .q .er{font-size:12px;color:var(--red);font-weight:800;margin-left:6px}
+        .aseg .lk{font-size:12px;font-weight:800;color:var(--teal-d);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px}
+        .aseg .lk.none{color:var(--amber)}
+        .aseg .lk.done{color:var(--green)}
+        .aseg .ab{display:flex;gap:6px;margin-top:8px}
+        .aseg .ab button{height:34px;padding:0 10px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font-weight:800;font-size:12.5px;cursor:pointer;color:var(--ink-2)}
+        .aseg .ab button.rm{color:var(--red)}
+        .aseg .live{position:absolute;top:8px;right:10px;font-size:11px;font-weight:800;color:var(--green)}
+        .autop .empty{color:var(--ink-2);font-weight:700;font-size:14px;padding:6px 2px}
+        .vitem.auto-target{outline:3px dashed var(--teal);outline-offset:-3px;cursor:copy}
+        .vitem.auto-over{outline:3px solid var(--teal);background:var(--teal-bg)}
+        .autotag.auto{color:var(--green);background:var(--green-bg)}
+        .afchip{font-size:12px;font-weight:800;padding:3px 9px;border-radius:999px;background:var(--amber-bg);color:var(--amber);white-space:nowrap}
+        .afmark{font-size:11px;font-weight:800;padding:1px 6px;border-radius:6px;background:var(--amber-bg);color:var(--amber);margin-left:6px}
+    </style>
+    <script th:inline="none">
+        (function () {
+            var API = '/api/production/auto';
+            var A = {enabled: false, segs: [], sums: {}, status: null, sel: null, eq: null};
+            var box = null;
+
+            function n(v) { var x = parseFloat(v); return isNaN(x) ? 0 : x; }
+            function fq(v) { v = n(v); return (v === Math.floor(v)) ? String(v) : v.toFixed(2); }
+            function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+
+            function get(path, p) {
+                if (typeof AjaxUtil === 'undefined' || !AjaxUtil.getSyncData) return {};
+                return AjaxUtil.getSyncData(API + path, p || {}) || {};
+            }
+            function post(path, p, cb) {
+                AjaxUtil.postAsyncData(API + path, p || {}, function (r) {
+                    r = r || {};
+                    if (r.success === false) { flash(r.message || '처리에 실패했습니다'); return; }
+                    cb && cb(r);
+                });
+            }
+
+            function curOk() { return typeof curC !== 'undefined' && curC && curC.equip_id; }
+            function cOn() { var el = document.getElementById('scC'); return el && !el.classList.contains('hide'); }
+
+            function ensureBox() {
+                if (box) return box;
+                var grid = document.querySelector('#scC .bgrid');
+                if (!grid) return null;
+                box = document.createElement('div');
+                box.id = 'autoPanel';
+                box.className = 'autop';
+                grid.insertBefore(box, grid.firstChild);
+                box.addEventListener('click', onPanelClick);
+                box.addEventListener('dragstart', function (e) {
+                    var c = e.target.closest('.aseg[data-seg]');
+                    if (!c || c.classList.contains('linked')) { e.preventDefault(); return; }
+                    A.sel = +c.dataset.seg;
+                    e.dataTransfer.setData('text/plain', String(A.sel));
+                    e.dataTransfer.effectAllowed = 'copy';
+                    markTargets(true);
+                });
+                box.addEventListener('dragend', function () { markTargets(false); });
+                return box;
+            }
+
+            function hide() { if (box) box.style.display = 'none'; A.enabled = false; A.sel = null; markTargets(false); }
+
+            /* ── 읽기 ── */
+            function load() {
+                if (!cOn() || !curOk()) { hide(); return; }
+                if (!ensureBox()) return;
+                var r = get('/seg_list', {equipment_id: curC.equip_id});
+                var d = r.data || {};
+                if (!d.enabled) { hide(); return; }
+                A.enabled = true;
+                A.eq = curC.equip_id;
+                A.status = d.status || {};
+                A.segs = d.segs || [];
+                A.sums = {};
+                (d.mp_sum || []).forEach(function (s) { A.sums[s.mp_id] = s; });
+                if (A.sel && !A.segs.some(function (s) { return s.id === A.sel && !s.mp_id; })) A.sel = null;
+                syncItems();
+                render();
+            }
+
+            /* 붙은 용기 카드의 수량·시각을 구간 합계로 맞춘다 (완료 전만) */
+            function syncItems() {
+                if (!curC || !curC.items) return;
+                var changed = false;
+                var busy = document.querySelector('#padMask.show, #timeMask.show, #partMask.show');
+                curC.items.forEach(function (it) {
+                    if (!it.mp_id || it.st === 'done') return;
+                    var s = A.sums[it.mp_id];
+                    var was = !!it._auto;
+                    it._auto = !!s;
+                    it._autoOpen = !!(s && n(s.open_cnt) > 0);
+                    if (!s) { if (was) changed = true; return; }
+                    if (busy) return;
+                    var q = n(s.qty), dq = n(s.def_qty);
+                    if (it.qty !== q || it.defQty !== dq || it.start !== s.start_str || it.end !== s.end_str || it.st === 'wait') {
+                        it.qty = q;
+                        it.defQty = dq;
+                        if (s.start_str) it.start = s.start_str;
+                        if (s.end_str) it.end = s.end_str;
+                        if (it.st === 'wait') it.st = 'working';   // 서버도 연결 시 working 으로 바꾼다
+                        changed = true;
+                    }
+                });
+                if (changed && typeof renderItems === 'function') renderItems();
+                decorate();
+            }
+
+            /* 붙은 용기 꾸미기
+               · 「장비 실적 / 장비 집계중」 표시
+               · 불량(ErrCount) 표시
+               · 수량 잠금 — ± 를 숨기고 넘패드를 막는다.
+                 손으로 고쳐도 5초 뒤 구간 합계로 되돌아가 혼선만 생긴다.
+                 보정이 필요하면 구간을 해제하거나 나눈다. */
+            function decorate() {
+                var list = document.getElementById('itemList');
+                if (!list || !curC) return;
+                var cards = list.querySelectorAll(':scope > .vitem');
+                curC.items.forEach(function (it, i) {
+                    var c = cards[i];
+                    if (!c) return;
+                    var tag = c.querySelector('.autotag.auto');
+                    var dtag = c.querySelector('.autotag.autodef');
+                    if (!it._auto || it.st === 'done') {
+                        if (tag) tag.remove();
+                        if (dtag) dtag.remove();
+                        return;
+                    }
+                    var head = c.querySelector('.vhead .vid');
+                    if (!tag) {
+                        tag = document.createElement('span');
+                        tag.className = 'autotag auto';
+                        tag.style.cssText = 'font-size:12px;font-weight:800;padding:4px 8px;border-radius:8px';
+                        if (head) head.parentNode.insertBefore(tag, head.nextSibling);
+                    }
+                    tag.textContent = it._autoOpen ? '● 장비 집계중' : '장비 실적';
+
+                    var dq = n(it.defQty);
+                    if (dq > 0) {
+                        if (!dtag) {
+                            dtag = document.createElement('span');
+                            dtag.className = 'autotag autodef';
+                            dtag.style.cssText = 'font-size:12px;font-weight:800;padding:4px 8px;border-radius:8px;color:var(--red);background:var(--red-bg)';
+                            tag.parentNode.insertBefore(dtag, tag.nextSibling);
+                        }
+                        dtag.textContent = '불량 ' + fq(dq);
+                    } else if (dtag) dtag.remove();
+
+                    var stp = c.querySelector('.stepper');
+                    if (stp) {
+                        stp.querySelectorAll('button').forEach(function (b) { b.style.display = 'none'; });
+                        var qd = stp.querySelector('.qty');
+                        if (qd) {
+                            qd.removeAttribute('data-vpad');
+                            qd.style.cssText = 'border:1px solid var(--line);border-radius:14px;cursor:default;background:var(--surface-2)';
+                            qd.title = '장비 실적 — 수량은 구간에서 옵니다';
+                        }
+                    }
+                });
+                markTargets(!!A.sel);
+            }
+
+            /* ── 미매칭 표시 (B 화면만, 작게) ──
+               구간은 설비에 쌓이는데 그 설비로 작업조를 열지 않으면 아무도 못 본다.
+               경고 박스는 시끄러워서 칩 하나로 줄였다.
+                 · 「작업조」 구분선 오른쪽 : 장비 미매칭 n
+                 · 그 설비 작업조 카드     : 설비명 옆 「미매칭 n」 */
+            function loadFree() {
+                var b = document.getElementById('scB');
+                if (!b || b.classList.contains('hide')) return;
+                var r = get('/free_summary', {spjangcd: (typeof CTX !== 'undefined' && CTX.spjangcd) || ''});
+                var rows = (r.data || []).filter(function (x) { return n(x.free_cnt) > 0; });
+                var byEq = {}, total = 0;
+                rows.forEach(function (x) { byEq[String(x.equipment_id)] = x; total += n(x.free_cnt); });
+
+                /* 구분선 칩 */
+                var sec = document.querySelector('#scB .secline');
+                if (sec) {
+                    var chip = sec.querySelector('.afchip');
+                    if (total > 0) {
+                        if (!chip) {
+                            chip = document.createElement('span');
+                            chip.className = 'afchip';
+                            sec.insertBefore(chip, sec.querySelector('#wkCnt'));
+                        }
+                        chip.textContent = '장비 미매칭 ' + fq(total);
+                        chip.title = rows.map(function (x) { return x.equ_name + ' ' + fq(x.free_cnt) + '건'; }).join(', ');
+                    } else if (chip) chip.remove();
+                }
+
+                /* 작업조 카드 — 같은 설비인 카드에 표시 */
+                if (typeof curD === 'undefined' || !curD || !curD.crews) return;
+                var cards = document.querySelectorAll('#wkList > .wk');
+                cards.forEach(function (c) {
+                    var crew = curD.crews[+c.dataset.i];
+                    var eqEl = c.querySelector('.who .eq');
+                    if (!crew || !eqEl) return;
+                    var m = eqEl.querySelector('.afmark');
+                    var x = byEq[String(crew.equip_id)];
+                    if (x) {
+                        if (!m) { m = document.createElement('span'); m.className = 'afmark'; eqEl.appendChild(m); }
+                        m.textContent = '미매칭 ' + fq(x.free_cnt);
+                    } else if (m) m.remove();
+                });
+            }
+
+            /* ── 그리기 ── */
+            function render() {
+                if (!box) return;
+                box.style.display = 'block';
+                var st = A.status || {};
+                var run = st.last_run === 'Y';
+                var age = n(st.age_sec);
+                var stale = st.age_sec == null || age > 60;
+                var free = A.segs.filter(function (s) { return !s.mp_id; }).length;
+
+                var hint = A.sel
+                    ? '<span class="hint sel">붙일 용기 카드를 누르세요 · 다시 누르면 취소</span>'
+                    : (free ? '<span class="hint">미매칭 ' + free + '건 · 구간을 눌러 용기에 붙이세요</span>' : '');
+
+                var head = '<div class="ah"><span class="dot ' + (run && !stale ? 'run' : '') + '"></span>'
+                    + '<span class="t">장비 가동 구간</span>'
+                    + '<span class="st">' + (stale ? '수신 끊김' + (st.last_ts ? ' · 마지막 ' + esc(st.last_ts) : '')
+                        : (run ? '자동운전 중' : '정지') + ' · ' + esc(st.last_ts || '')) + '</span>'
+                    + hint + '</div>';
+
+                var cards = A.segs.length ? A.segs.map(function (s) {
+                    var open = s.state === 'open';
+                    var linked = !!s.mp_id;
+                    var done = s.mp_state === 'finished';
+                    var cls = ['aseg', open ? 'open' : '', linked ? 'linked' : 'free', A.sel === s.id ? 'sel' : ''].join(' ');
+                    var lk = linked
+                        ? '<div class="lk ' + (done ? 'done' : '') + '">' + (done ? '✓ ' : '→ ') + esc(s.mat_name || '') + (s.lot_no ? ' · ' + esc(s.lot_no) : '') + '</div>'
+                        : '<div class="lk none">미매칭</div>';
+                    var btns = '';
+                    if (linked && !done) btns += '<button class="rm" data-unlink="' + s.id + '">해제</button>';
+                    return '<div class="' + cls + '" data-seg="' + s.id + '" draggable="' + (!linked) + '">'
+                        + (open ? '<span class="live">● 가동중</span>' : '')
+                        + '<div class="tm">' + esc(s.start_disp) + ' ~ ' + (open ? '' : esc(s.end_disp)) + '</div>'
+                        + '<div class="q">' + fq(s.good_qty) + '<small>EA</small>'
+                        + (n(s.err_qty) > 0 ? '<span class="er">불량 ' + fq(s.err_qty) + '</span>' : '') + '</div>'
+                        + lk + (btns ? '<div class="ab">' + btns + '</div>' : '') + '</div>';
+                }).join('') : '<div class="empty">아직 가동 구간이 없습니다.</div>';
+
+                box.innerHTML = head + '<div class="aseglist">' + cards + '</div>';
+            }
+
+            function markTargets(on) {
+                var list = document.getElementById('itemList');
+                if (!list || !curC) return;
+                var cards = list.querySelectorAll(':scope > .vitem');
+                cards.forEach(function (c, i) {
+                    var it = curC.items[i];
+                    c.classList.toggle('auto-target', !!on && !!it && it.st !== 'done' && !!it.mp_id);
+                });
+            }
+
+            /* ── 패널 클릭 ── */
+            function onPanelClick(e) {
+                var ul = e.target.closest('[data-unlink]');
+                if (ul) {
+                    var sid = +ul.dataset.unlink;
+                    uiConfirm('이 구간을 용기에서 떼어낼까요?\n용기 수량이 그만큼 줄어듭니다.', function () {
+                        post('/seg_unlink', {seg_id: sid}, function (r) { applySum(r.data); load(); flash('구간 해제'); });
+                    }, '해제');
+                    return;
+                }
+                var c = e.target.closest('.aseg[data-seg]');
+                if (!c || c.classList.contains('linked')) return;
+                var id = +c.dataset.seg;
+                A.sel = (A.sel === id) ? null : id;
+                render();
+                markTargets(!!A.sel);
+                if (A.sel && !curC.items.some(function (it) { return it.st !== 'done' && it.mp_id; })) {
+                    flash('붙일 용기가 없습니다. 아래 ‘＋ 용기 추가’로 먼저 담으세요');
+                }
+            }
+
+            /* ── 용기에 붙이기 ── */
+            function itemOf(el) {
+                var v = el && el.closest ? el.closest('.vitem') : null;
+                if (!v) return null;
+                var cards = Array.prototype.slice.call(document.querySelectorAll('#itemList > .vitem'));
+                var i = cards.indexOf(v);
+                return i >= 0 ? curC.items[i] : null;
+            }
+
+            /* 용기에 붙이기.
+               끝난 구간은 「몇 개를 붙일지」만 묻는다(기본 = 전부).
+               덜 넣으면 서버가 장비 카운트로 자를 지점을 찾아 앞부분만 붙이고
+               나머지는 미매칭 구간으로 남긴다. 시각은 사람이 입력하지 않는다. */
+            function linkTo(segId, it) {
+                if (!it) return;
+                if (it.st === 'done') { flash('완료된 용기에는 붙일 수 없습니다'); return; }
+                if (!it.mp_id) { flash('저장되지 않은 용기입니다. 다시 담아주세요'); return; }
+                var seg = A.segs.find(function (s) { return s.id === segId; });
+                if (seg && seg.state !== 'open' && n(seg.good_qty) > 1) {
+                    askQty(seg, it, function (q) { doLink(segId, it, q); });
+                } else {
+                    doLink(segId, it, null);
+                }
+            }
+
+            function doLink(segId, it, qty) {
+                var p = {seg_ids: String(segId), mp_id: it.mp_id};
+                if (qty != null) p.qty = qty;
+                post('/seg_link', p, function (r) {
+                    applySum(r.data, it);
+                    A.sel = null;
+                    markTargets(false);
+                    load();
+                    flash('구간 연결 · ' + it.vname + ' ' + fq(it.qty) + 'EA');
+                });
+            }
+
+            /* 수량 확인 — 화면의 기존 수량 넘패드(#padMask)를 그대로 쓴다.
+               padCtx 에 type:'auto' 를 실어 두고, 확인(OK)만 여기서 가로챈다.
+               숫자·C 는 원래 넘패드 로직이 처리하고, 여기서는 남는 수량 안내만 갱신한다. */
+            var AQ = null;   // {it, total, onOk}
+            function askQty(seg, it, onOk) {
+                var total = n(seg.good_qty);
+                AQ = {it: it, total: total, onOk: onOk};
+                padCtx = {type: 'auto'};
+                padVal = String(total);
+                document.getElementById('padDisp').textContent = padVal;
+                aqLabel();
+                showMask('padMask');
+            }
+            function aqLabel() {
+                if (!AQ) return;
+                var v = n(padVal);
+                var t = AQ.it.vname + ' · 붙일 수량 (구간 ' + fq(AQ.total) + 'EA)';
+                if (v > 0 && v < AQ.total) t += ' — 남은 ' + fq(AQ.total - v) + 'EA 는 미매칭으로 남음';
+                if (v > AQ.total) t += ' — 구간보다 많습니다';
+                document.getElementById('padLab').textContent = t;
+            }
+            (function () {
+                var keys = document.querySelector('#padMask .keys');
+                if (!keys) return;
+                /* 확인은 원래 핸들러보다 먼저(캡처) 받아서 처리하고 넘기지 않는다 */
+                keys.addEventListener('click', function (e) {
+                    if (!AQ || !padCtx || padCtx.type !== 'auto') return;
+                    var k = e.target.dataset && e.target.dataset.k;
+                    if (k !== 'OK') { setTimeout(aqLabel, 0); return; }
+                    e.stopPropagation();
+                    e.preventDefault();
+                    var v = n(padVal);
+                    if (!(v > 0)) { flash('붙일 수량을 입력하세요'); return; }
+                    if (v > AQ.total) { flash('구간 수량(' + fq(AQ.total) + ')보다 많이 붙일 수 없습니다'); return; }
+                    var cb = AQ.onOk, total = AQ.total;
+                    AQ = null;
+                    padCtx = null;
+                    hideMask('padMask');
+                    cb(v >= total ? null : v);
+                }, true);
+                /* 확인 없이 닫으면(배경 탭) 상태를 비운다 */
+                var mask = document.getElementById('padMask');
+                if (mask && window.MutationObserver) {
+                    new MutationObserver(function () {
+                        if (!mask.classList.contains('show') && AQ) { AQ = null; padCtx = null; }
+                    }).observe(mask, {attributes: true, attributeFilter: ['class']});
+                }
+            })();
+
+            function applySum(s, it) {
+                if (!s) return;
+                it = it || (curC && curC.items.find(function (x) { return x.mp_id === s.mp_id; }));
+                if (!it || it.st === 'done') return;
+                it.qty = n(s.qty);
+                it.defQty = n(s.def_qty);
+                if (s.start_str) it.start = s.start_str;
+                if (s.end_str) it.end = s.end_str;
+                if (it.st === 'wait' && (n(s.qty) > 0 || n(s.open_cnt) > 0)) it.st = 'working';
+                it._auto = n(s.qty) > 0 || n(s.open_cnt) > 0;
+                it._autoOpen = n(s.open_cnt) > 0;
+                if (typeof renderItems === 'function') renderItems();
+                decorate();
+            }
+
+            var list = document.getElementById('itemList');
+            if (list) {
+                /* 선택한 구간이 있으면 용기 카드 탭 = 붙이기 (버튼은 제외) */
+                list.addEventListener('click', function (e) {
+                    if (!A.sel || !A.enabled) return;
+                    if (e.target.closest('button, .stepper, .bstep, .vtimes')) return;
+                    var it = itemOf(e.target);
+                    if (!it) return;
+                    e.stopPropagation();
+                    e.preventDefault();
+                    linkTo(A.sel, it);
+                }, true);
+
+                /* 가동중 구간이 붙은 용기는 완료 금지 */
+                list.addEventListener('click', function (e) {
+                    var b = e.target.closest('[data-act="complete"]');
+                    if (!b || !curC) return;
+                    var it = curC.items[+b.dataset.vi];
+                    if (it && it._autoOpen) {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        flash('장비가 아직 이 용기를 세는 중입니다. 가동이 끝난 뒤 완료하세요');
+                    }
+                }, true);
+
+                /* PC 드래그앤드롭 */
+                list.addEventListener('dragover', function (e) {
+                    if (!A.sel) return;
+                    var it = itemOf(e.target);
+                    if (!it || it.st === 'done' || !it.mp_id) return;
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'copy';
+                    var v = e.target.closest('.vitem');
+                    list.querySelectorAll('.auto-over').forEach(function (x) { if (x !== v) x.classList.remove('auto-over'); });
+                    v.classList.add('auto-over');
+                });
+                list.addEventListener('dragleave', function (e) {
+                    var v = e.target.closest && e.target.closest('.vitem');
+                    if (v && !v.contains(e.relatedTarget)) v.classList.remove('auto-over');
+                });
+                list.addEventListener('drop', function (e) {
+                    var v = e.target.closest('.vitem');
+                    if (v) v.classList.remove('auto-over');
+                    var sid = +(e.dataTransfer.getData('text/plain') || A.sel || 0);
+                    if (!sid) return;
+                    e.preventDefault();
+                    linkTo(sid, itemOf(e.target));
+                });
+            }
+
+            /* C화면이 보일 때 즉시 읽고, 이후 5초마다 */
+            var scC = document.getElementById('scC');
+            if (scC && window.MutationObserver) {
+                new MutationObserver(function () {
+                    if (cOn()) setTimeout(load, 0); else hide();
+                }).observe(scC, {attributes: true, attributeFilter: ['class']});
+            }
+            /* 용기 목록을 다시 그리면 「장비」 표시가 지워지므로 다시 단다 */
+            if (list && window.MutationObserver) {
+                new MutationObserver(function () { if (A.enabled) decorate(); }).observe(list, {childList: true});
+            }
+            /* A·B 화면 전환 시에도 미매칭 배지를 바로 갱신 */
+            ['scA', 'scB'].forEach(function (id) {
+                var el = document.getElementById(id);
+                if (el && window.MutationObserver) {
+                    new MutationObserver(function () {
+                        if (!el.classList.contains('hide')) setTimeout(loadFree, 0);
+                    }).observe(el, {attributes: true, attributeFilter: ['class']});
+                }
+            });
+            /* 작업조 목록을 다시 그리면 표시가 지워지므로 다시 단다 */
+            var wk = document.getElementById('wkList');
+            if (wk && window.MutationObserver) {
+                new MutationObserver(function () { setTimeout(loadFree, 0); }).observe(wk, {childList: true});
+            }
+            var tick = 0;
+            setInterval(function () {
+                if (document.hidden) return;
+                if (cOn()) load();
+                else if (++tick % 2 === 0) loadFree();   // A·B 는 10초마다
+            }, 5000);
+            (function firstFree(t) {
+                if (typeof AjaxUtil !== 'undefined' && AjaxUtil.getSyncData) { loadFree(); return; }
+                if ((t || 0) < 100) setTimeout(function () { firstFree((t || 0) + 1); }, 100);
+            })();
+        })();
+    </script>
 </th:block>
 </html>
