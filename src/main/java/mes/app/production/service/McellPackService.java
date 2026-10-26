@@ -374,7 +374,7 @@ public class McellPackService {
                                       AND ml."SourceDataPk"    = mp.id
                   -- 완제품 로트는 유닛 로트를 승계하므로 같은 번호로 유닛을 되짚을 수 있다
                   LEFT JOIN LATERAL (
-                        SELECT x.id, x."UnitNo", x."State" FROM mcell_unit x
+                        SELECT x.id, x."UnitNo", x."State", x."SerialNo" FROM mcell_unit x   /* ★ SerialNo 빠져서 목록 쿼리가 통째로 실패했다 */
                          WHERE x."LotNumber" = mp."LotNumber"
                            AND COALESCE(x."_status",'a') = 'a'
                          ORDER BY (CASE WHEN x."State" = 'packed' THEN 0 ELSE 1 END), x.id DESC

@@ -238,148 +238,185 @@
          * ========================================================= */
         const WL_SPJANGCD = (window.WS_CTX && window.WS_CTX.spjangcd) || 'ZZ';
         const WL_API = '/api/production/mcell_status';
-        const DOW = ['일','월','화','수','목','금','토'];
+        const DOW = ['일', '월', '화', '수', '목', '금', '토'];
 
         /* ★ 작업 없는 공정을 표에 남길지.
            남기면 "그날 이 공정을 점검했고 작업이 없었다"가 문서에 드러나고,
            빼면 종이가 줄어든다. 현장마다 달라 선택으로 둔다.
            기본은 끔 — 하루에 한두 공정만 도는 날이 많으면 빈 표가 지면을 다 먹는다. */
-        function showEmpty(){
+        function showEmpty() {
             const el = document.getElementById('chkEmpty');
             return !!(el && el.checked);
         }
+
         const WL_FACTORY = 2;
 
         const WL_USTATE = {
-            wait:'대기', assembling:'조립중', inspect_wait:'검사대기',
-            pass:'검사합격', reject:'불합격', repairing:'수리중', packed:'포장완료'
+            wait: '대기', assembling: '조립중', inspect_wait: '검사대기',
+            pass: '검사합격', reject: '불합격', repairing: '수리중', packed: '포장완료'
         };
 
-        function wlReady(){ return (typeof AjaxUtil !== 'undefined') && AjaxUtil && AjaxUtil.getSyncData; }
-        function wlData(res){
-            if(!res) return null;
-            if(res.success === false) return null;
+        function wlReady() {
+            return (typeof AjaxUtil !== 'undefined') && AjaxUtil && AjaxUtil.getSyncData;
+        }
+
+        function wlData(res) {
+            if (!res) return null;
+            if (res.success === false) return null;
             return (res.data !== undefined) ? res.data : res;
         }
-        function esc(s){
-            return (s==null?'':String(s)).replace(/[&<>"']/g, function(c){
-                return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+
+        /* ★ 화면에 보이는 유닛 번호 — 최종(포장 라벨) > 임시 부여 번호(SN- 제외) > 내부 로트.
+             내부 로트(MC4244-…)는 조회·저장에만 쓰고 화면에는 번호가 정해지면 안 보인다 */
+        function dispLot(o) {
+            if (!o) return '';
+            var lb = String(o.maker_lot_no || o.box_label || o.label_lot || '').trim();
+            if (lb) return lb;
+            var sn = String(o.serial_no || '').trim();
+            if (sn && !/^SN-/i.test(sn)) return sn;
+            return o.lot_number || '';
+        }
+
+        function esc(s) {
+            return (s == null ? '' : String(s)).replace(/[&<>"']/g, function (c) {
+                return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c];
             });
         }
-        function num(v){ return (v==null?0:Number(v)).toLocaleString(); }
-        function hm(s){
-            if(!s) return '-';
+
+        function num(v) {
+            return (v == null ? 0 : Number(v)).toLocaleString();
+        }
+
+        function hm(s) {
+            if (!s) return '-';
             const t = String(s).match(/(\d{2}:\d{2})(:\d{2})?$/);
-            if(!t) return s;
+            if (!t) return s;
             /* ★ 기간으로 보면 시각만으로는 어느 날 것인지 사라진다.
                하루치일 때는 지금처럼 시각만 — 날짜가 매 줄 반복되면 표가 무거워진다. */
-            if(WL_MULTI){
+            if (WL_MULTI) {
                 const d = String(s).match(/^\d{4}-(\d{2}-\d{2})/);
-                if(d) return d[1]+' '+t[1];
+                if (d) return d[1] + ' ' + t[1];
             }
             return t[1];
         }
-        function fmt(d){
-            return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+
+        function fmt(d) {
+            return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
         }
+
         let WL_MULTI = false;   /* 하루치가 아니면 표의 시간 칸에 날짜를 함께 찍는다 */
 
         /** 조회 기간. from > to 로 넣으면 뒤집어 준다 — 입력 순서 탓에 빈 화면이 나오지 않게. */
-        function wlRange(){
+        function wlRange() {
             const a = document.getElementById('fDate');
             const b = document.getElementById('fDate2');
             let from = a.value, to = (b && b.value) ? b.value : a.value;
-            if(!from) from = to;
-            if(from && to && from > to){
-                const t = from; from = to; to = t;
-                a.value = from; if(b) b.value = to;
+            if (!from) from = to;
+            if (from && to && from > to) {
+                const t = from;
+                from = to;
+                to = t;
+                a.value = from;
+                if (b) b.value = to;
             }
             const days = (from && to)
-                ? Math.round((new Date(to+'T00:00') - new Date(from+'T00:00')) / 86400000) + 1 : 0;
-            return {from:from, to:to, days:days};
+                ? Math.round((new Date(to + 'T00:00') - new Date(from + 'T00:00')) / 86400000) + 1 : 0;
+            return {from: from, to: to, days: days};
         }
 
         /** 머리글·인쇄 제목·엑셀 파일이 같은 문구를 쓰도록 한 곳에서 만든다 */
-        function wlPeriodText(){
+        function wlPeriodText() {
             const r = wlRange();
-            if(!r.from) return '';
-            if(r.from === r.to){
-                const d = new Date(r.from+'T00:00');
-                return r.from+' ('+DOW[d.getDay()]+')';
+            if (!r.from) return '';
+            if (r.from === r.to) {
+                const d = new Date(r.from + 'T00:00');
+                return r.from + ' (' + DOW[d.getDay()] + ')';
             }
-            return r.from+' ~ '+r.to+' ('+r.days+'일간)';
+            return r.from + ' ~ ' + r.to + ' (' + r.days + '일간)';
         }
 
         /** 전 검사유형의 마지막 회차가 합격이어야 합격 */
-        function wlVerdict(u){
-            if(Number(u.fail_cnt||0) > 0) return 'fail';
-            if(Number(u.open_cnt||0) > 0) return 'open';
-            return Number(u.pass_cnt||0) > 0 ? 'pass' : 'open';
+        function wlVerdict(u) {
+            if (Number(u.fail_cnt || 0) > 0) return 'fail';
+            if (Number(u.open_cnt || 0) > 0) return 'open';
+            return Number(u.pass_cnt || 0) > 0 ? 'pass' : 'open';
         }
 
         // =====================================================
-        function wlLoad(){
+        function wlLoad() {
             const host = document.getElementById('body');
-            if(!wlReady()){ host.innerHTML = '<div class="wl-empty">AjaxUtil 로드 실패 — 새로고침해 주세요.</div>'; return; }
+            if (!wlReady()) {
+                host.innerHTML = '<div class="wl-empty">AjaxUtil 로드 실패 — 새로고침해 주세요.</div>';
+                return;
+            }
             const rg = wlRange();
             const date = rg.from, dateTo = rg.to;
-            if(!date || !dateTo){ host.innerHTML = '<div class="wl-empty">날짜를 선택해 주세요.</div>'; return; }
+            if (!date || !dateTo) {
+                host.innerHTML = '<div class="wl-empty">날짜를 선택해 주세요.</div>';
+                return;
+            }
 
             WL_MULTI = (date !== dateTo);
             const pt = wlPeriodText();
             document.getElementById('dDow').textContent =
-                WL_MULTI ? '('+rg.days+'일간)' : '('+DOW[new Date(date+'T00:00').getDay()]+')';
-            document.getElementById('dayBar').setAttribute('data-title', pt+' 작업일보');
+                WL_MULTI ? '(' + rg.days + '일간)' : '(' + DOW[new Date(date + 'T00:00').getDay()] + ')';
+            document.getElementById('dayBar').setAttribute('data-title', pt + ' 작업일보');
             document.getElementById('runHead').textContent =
-                '작업일보 · 2공장 · M-CELL(디바이스) · '+pt;
+                '작업일보 · 2공장 · M-CELL(디바이스) · ' + pt;
             host.innerHTML = '<div class="wl-loading">불러오는 중…</div>';
 
             noteLoad(date, dateTo);
             let r = null;
             try {
-                r = wlData(AjaxUtil.getSyncData(WL_API+'/process',
-                    {date_from:date, date_to:dateTo, spjangcd:WL_SPJANGCD}));
-            } catch(e) {
+                r = wlData(AjaxUtil.getSyncData(WL_API + '/process',
+                    {date_from: date, date_to: dateTo, spjangcd: WL_SPJANGCD}));
+            } catch (e) {
                 console.error('[worklog] mcell process', e);
             }
-            if(!r){ host.innerHTML = '<div class="wl-empty">조회에 실패했습니다.</div>'; return; }
+            if (!r) {
+                host.innerHTML = '<div class="wl-empty">조회에 실패했습니다.</div>';
+                return;
+            }
 
-            const asm   = r.assembly  || [], insp = r.inspect || [];
+            const asm = r.assembly || [], insp = r.inspect || [];
             const steps = r.asm_steps || [];
-            const rep  = r.repair   || [], pack = r.pack    || [];
-            const def  = r.defect   || [];
+            const rep = r.repair || [], pack = r.pack || [];
+            const def = r.defect || [];
 
             let dq = 0;
-            def.forEach(function(m){ dq += Number(m.defect_qty||0); });
+            def.forEach(function (m) {
+                dq += Number(m.defect_qty || 0);
+            });
             document.getElementById('daySum').innerHTML =
-                '<span class="wl-tag row">작업 '+num(asm.length + insp.length + rep.length + pack.length)+'건</span>'
-                + '<span class="wl-tag qty">포장 '+num(pack.length)+'대</span>'
-                + (dq ? '<span class="wl-tag def">부적합 '+num(dq)+'</span>' : '');
+                '<span class="wl-tag row">작업 ' + num(asm.length + insp.length + rep.length + pack.length) + '건</span>'
+                + '<span class="wl-tag qty">포장 ' + num(pack.length) + '대</span>'
+                + (dq ? '<span class="wl-tag def">부적합 ' + num(dq) + '</span>' : '');
 
-            let html = wlAsm({name:'조립'}, steps, asm)
-                + wlInsp({name:'검사'}, insp)
-                + wlRep({name:'수리'}, rep)
-                + wlPack({name:'포장'}, pack)
+            let html = wlAsm({name: '조립'}, steps, asm)
+                + wlInsp({name: '검사'}, insp)
+                + wlRep({name: '수리'}, rep)
+                + wlPack({name: '포장'}, pack)
                 + wlDefect(def);
             /* 공정 블록이 하나도 안 남으면 백지가 인쇄된다 */
-            if(!html) html = '<div class="wl-empty">해당 일자에 작업 실적이 없습니다.</div>';
+            if (!html) html = '<div class="wl-empty">해당 일자에 작업 실적이 없습니다.</div>';
             document.getElementById('body').innerHTML = html + noteBlock();
         }
 
-        function wlBox(f, sum, thead, tbody, tfoot, tag, isEmpty){
+        function wlBox(f, sum, thead, tbody, tfoot, tag, isEmpty) {
             /* 실적이 없고 「작업 없는 공정도 표시」가 꺼져 있으면 블록 자체를 만들지 않는다 */
-            if(isEmpty && !showEmpty()) return '';
+            if (isEmpty && !showEmpty()) return '';
             return '<div class="wl-proc-box"><div class="wl-proc-h">'
-                + '<span class="nm">'+esc(f.name)+'</span>'
-                + (tag ? '<span class="tag">'+tag+'</span>' : '')
-                + '<div class="sum">'+sum+'</div></div>'
-                + '<table class="wl-table"><thead><tr>'+thead+'</tr></thead>'
-                + '<tbody>'+tbody+'</tbody>'
-                + (tfoot ? '<tfoot><tr>'+tfoot+'</tr></tfoot>' : '')
+                + '<span class="nm">' + esc(f.name) + '</span>'
+                + (tag ? '<span class="tag">' + tag + '</span>' : '')
+                + '<div class="sum">' + sum + '</div></div>'
+                + '<table class="wl-table"><thead><tr>' + thead + '</tr></thead>'
+                + '<tbody>' + tbody + '</tbody>'
+                + (tfoot ? '<tfoot><tr>' + tfoot + '</tr></tfoot>' : '')
                 + '</table></div>';
         }
-        function wlNoRow(cols, msg){
-            return '<tr><td colspan="'+cols+'" style="color:#c2c9d4;padding:22px">'+(msg||'작업 없음')+'</td></tr>';
+
+        function wlNoRow(cols, msg) {
+            return '<tr><td colspan="' + cols + '" style="color:#c2c9d4;padding:22px">' + (msg || '작업 없음') + '</td></tr>';
         }
 
         /**
@@ -391,127 +428,138 @@
          *   완성되지 않은 날은 아무 실적도 없는 것처럼 보인다.
          *   최상위(Depth=0)가 끝난 줄이 곧 「완성」이다.
          */
-        function wlAsm(f, steps, units){
-            const doneStep = steps.filter(function(x){ return x.end_time; }).length;
-            const doneUnit = steps.filter(function(x){
+        function wlAsm(f, steps, units) {
+            const doneStep = steps.filter(function (x) {
+                return x.end_time;
+            }).length;
+            const doneUnit = steps.filter(function (x) {
                 return x.end_time && Number(x.depth) === 0;
             }).length;
-            const sum = '<span class="wl-tag row">'+steps.length+'단계</span>'
-                + (doneUnit ? '<span class="wl-tag qty">완성 '+doneUnit+'대</span>' : '')
-                + (units.length ? '<span class="wl-tag lot">진행 '+units.length+'대</span>' : '');
+            const sum = '<span class="wl-tag row">' + steps.length + '단계</span>'
+                + (doneUnit ? '<span class="wl-tag qty">완성 ' + doneUnit + '대</span>' : '')
+                + (units.length ? '<span class="wl-tag lot">진행 ' + units.length + '대</span>' : '');
 
             const th = '<th>시간</th><th class="left">모듈(부품)</th><th>단계</th>'
                 + '<th class="left">완제품</th><th>로트번호</th><th>S/N</th>'
                 + '<th>방식</th><th>작업자</th><th>설비</th><th>상태</th>';
 
             /* 유닛(로트)이 바뀌면 구분이 보이도록 로트를 반복 표기한다 */
-            const tb = steps.length ? steps.map(function(x){
+            const tb = steps.length ? steps.map(function (x) {
                 const running = !x.end_time;
                 const top = Number(x.depth) === 0;
-                return '<tr><td>'+hm(x.start_time)+' ~ '+(running?'<span class="wl-run">작업중</span>':hm(x.end_time))+'</td>'
-                    + '<td class="left">'+(top?'<b>':'')+esc(x.mat_name||'-')+(top?'</b>':'')
-                    +   (x.parent_name ? '<br><span class="wl-code">→ '+esc(x.parent_name)+'</span>' : '')+'</td>'
-                    + '<td>'+(top ? '<b>완성</b>' : 'L'+esc(x.depth))+'</td>'
-                    + '<td class="left">'+esc(x.unit_mat_name||'-')+'</td>'
-                    + '<td><span class="wl-code">'+esc(x.lot_number||'-')+'</span></td>'
-                    + '<td>'+esc(x.serial_no||('#'+(x.unit_no||'-')))+'</td>'
-                    + '<td>'+(x.source==='stock'?'재고 투입':'조립')+'</td>'
-                    + '<td>'+esc(x.worker||'-')+'</td><td>'+esc(x.equipment||'-')+'</td>'
-                    + '<td>'+(running?'작업중':'완료')
-                    +   (x.rework_yn==='Y'?' <span class="wl-code">재조립</span>':'')
-                    +   (x.is_repair==='Y'?' <span class="wl-code">수리품</span>':'')+'</td></tr>';
+                return '<tr><td>' + hm(x.start_time) + ' ~ ' + (running ? '<span class="wl-run">작업중</span>' : hm(x.end_time)) + '</td>'
+                    + '<td class="left">' + (top ? '<b>' : '') + esc(x.mat_name || '-') + (top ? '</b>' : '')
+                    + (x.parent_name ? '<br><span class="wl-code">→ ' + esc(x.parent_name) + '</span>' : '') + '</td>'
+                    + '<td>' + (top ? '<b>완성</b>' : 'L' + esc(x.depth)) + '</td>'
+                    + '<td class="left">' + esc(x.unit_mat_name || '-') + '</td>'
+                    + '<td><span class="wl-code">' + esc(x.lot_number || '-') + '</span></td>'
+                    + '<td>' + esc(x.serial_no || ('#' + (x.unit_no || '-'))) + '</td>'
+                    + '<td>' + (x.source === 'stock' ? '재고 투입' : '조립') + '</td>'
+                    + '<td>' + esc(x.worker || '-') + '</td><td>' + esc(x.equipment || '-') + '</td>'
+                    + '<td>' + (running ? '작업중' : '완료')
+                    + (x.rework_yn === 'Y' ? ' <span class="wl-code">재조립</span>' : '')
+                    + (x.is_repair === 'Y' ? ' <span class="wl-code">수리품</span>' : '') + '</td></tr>';
             }).join('') : wlNoRow(10);
             const tf = steps.length
-                ? '<td class="left" colspan="9">완료 단계 / 완성 대수</td><td>'+doneStep+' / '+doneUnit+'</td>' : '';
+                ? '<td class="left" colspan="9">완료 단계 / 완성 대수</td><td>' + doneStep + ' / ' + doneUnit + '</td>' : '';
             return wlBox(f, sum, th, tb, tf, null, !steps.length);
         }
 
         /** 검사 — 한 줄 = 한 대 (검사유형·회차는 합쳐서) */
-        function wlInsp(f, list){
-            const pass = list.filter(function(u){ return wlVerdict(u) === 'pass'; }).length;
-            const fl   = list.filter(function(u){ return wlVerdict(u) === 'fail'; }).length;
-            const sum = '<span class="wl-tag row">'+list.length+'대</span>'
-                + (pass ? '<span class="wl-tag qty">합격 '+pass+'</span>' : '')
-                + (fl ? '<span class="wl-tag def">불합격 '+fl+'</span>' : '');
+        function wlInsp(f, list) {
+            const pass = list.filter(function (u) {
+                return wlVerdict(u) === 'pass';
+            }).length;
+            const fl = list.filter(function (u) {
+                return wlVerdict(u) === 'fail';
+            }).length;
+            const sum = '<span class="wl-tag row">' + list.length + '대</span>'
+                + (pass ? '<span class="wl-tag qty">합격 ' + pass + '</span>' : '')
+                + (fl ? '<span class="wl-tag def">불합격 ' + fl + '</span>' : '');
             const th = '<th>시간</th><th class="left">품목</th><th>로트번호</th>'
                 + '<th class="left">검사 유형</th><th>회차</th><th>검사자</th><th>판정</th>';
-            const tb = list.length ? list.map(function(u){
+            const tb = list.length ? list.map(function (u) {
                 const v = wlVerdict(u);
-                const n = (v==='pass')?'합격':(v==='fail'?'불합격':'진행중');
-                const retry = Number(u.try_cnt||0) > Number(u.form_cnt||0);
-                return '<tr><td>'+hm(u.start_time)+' ~ '+hm(u.end_time)+'</td>'
-                    + '<td class="left">'+esc(u.mat_name||'-')+'</td>'
-                    + '<td><span class="wl-code">'+esc(u.lot_number||'-')+'</span></td>'
-                    + '<td class="left">'+esc(u.form_names||'-')+'</td>'
-                    + '<td>'+num(u.try_cnt)+(retry?'<span class="wl-code"> (재검사)</span>':'')+'</td>'
-                    + '<td>'+esc(u.worker||'-')+'</td>'
-                    + '<td'+(v==='fail'?' class="wl-defcell"':'')+'>'+n
-                    + (u.reject_reason?'<br><span class="wl-code">'+esc(u.reject_reason)+'</span>':'')+'</td></tr>';
+                const n = (v === 'pass') ? '합격' : (v === 'fail' ? '불합격' : '진행중');
+                const retry = Number(u.try_cnt || 0) > Number(u.form_cnt || 0);
+                return '<tr><td>' + hm(u.start_time) + ' ~ ' + hm(u.end_time) + '</td>'
+                    + '<td class="left">' + esc(u.mat_name || '-') + '</td>'
+                    + '<td><span class="wl-code">' + esc(dispLot(u) || '-') + '</span></td>'
+                    + '<td class="left">' + esc(u.form_names || '-') + '</td>'
+                    + '<td>' + num(u.try_cnt) + (retry ? '<span class="wl-code"> (재검사)</span>' : '') + '</td>'
+                    + '<td>' + esc(u.worker || '-') + '</td>'
+                    + '<td' + (v === 'fail' ? ' class="wl-defcell"' : '') + '>' + n
+                    + (u.reject_reason ? '<br><span class="wl-code">' + esc(u.reject_reason) + '</span>' : '') + '</td></tr>';
             }).join('') : wlNoRow(7);
-            const tf = list.length ? '<td class="left" colspan="6">합격 대수</td><td>'+pass+'</td>' : '';
+            const tf = list.length ? '<td class="left" colspan="6">합격 대수</td><td>' + pass + '</td>' : '';
             return wlBox(f, sum, th, tb, tf, null, !list.length);
         }
 
         /** 수리 — 한 줄 = 한 대 */
-        function wlRep(f, list){
-            const done = list.filter(function(u){ return u.end_time; }).length;
-            const sum = '<span class="wl-tag row">'+list.length+'대</span>'
-                + (done ? '<span class="wl-tag qty">완료 '+done+'</span>' : '');
+        function wlRep(f, list) {
+            const done = list.filter(function (u) {
+                return u.end_time;
+            }).length;
+            const sum = '<span class="wl-tag row">' + list.length + '대</span>'
+                + (done ? '<span class="wl-tag qty">완료 ' + done + '</span>' : '');
             const th = '<th>시간</th><th class="left">품목</th><th>로트번호</th><th>원 로트</th>'
                 + '<th>구분</th><th class="left">사유</th><th>작업자</th><th>자재</th><th>상태</th><th class="th-act">관리</th>';
-            const tb = list.length ? list.map(function(u){
+            const tb = list.length ? list.map(function (u) {
                 const running = !u.end_time;
-                const cat = (u.repair_cat==='return')?'반품':(u.repair_cat==='spec'?'사양변경':'-');
-                return '<tr><td>'+hm(u.start_time)+' ~ '+(running?'<span class="wl-run">작업중</span>':hm(u.end_time))+'</td>'
-                    + '<td class="left">'+esc(u.mat_name||'-')+'</td>'
-                    + '<td><span class="wl-code">'+esc(u.lot_number||'-')+'</span></td>'
-                    + '<td><span class="wl-code">'+esc(u.src_lot||'-')+'</span></td>'
-                    + '<td>'+cat+'</td>'
-                    + '<td class="left">'+esc(u.repair_reason||'-')+'</td>'
-                    + '<td>'+esc(u.worker||'-')+'</td>'
-                    + '<td>＋'+num(u.mat_in_cnt)+' / －'+num(u.mat_out_cnt)+'</td>'
-                    + '<td>'+esc(WL_USTATE[u.unit_state]||u.unit_state||'-')+'</td>'
+                const cat = (u.repair_cat === 'return') ? '반품' : (u.repair_cat === 'spec' ? '사양변경' : '-');
+                return '<tr><td>' + hm(u.start_time) + ' ~ ' + (running ? '<span class="wl-run">작업중</span>' : hm(u.end_time)) + '</td>'
+                    + '<td class="left">' + esc(u.mat_name || '-') + '</td>'
+                    + '<td><span class="wl-code">' + esc(dispLot(u) || '-') + '</span></td>'
+                    + '<td><span class="wl-code">' + esc(u.src_lot || '-') + '</span></td>'
+                    + '<td>' + cat + '</td>'
+                    + '<td class="left">' + esc(u.repair_reason || '-') + '</td>'
+                    + '<td>' + esc(u.worker || '-') + '</td>'
+                    + '<td>＋' + num(u.mat_in_cnt) + ' / －' + num(u.mat_out_cnt) + '</td>'
+                    + '<td>' + esc(WL_USTATE[u.unit_state] || u.unit_state || '-') + '</td>'
                     + '<td class="th-act"><button type="button" class="wl-rowbtn" onclick="editOpen(\'unit\','
-                    +   u.pk+',\''+esc(u.lot_number||'')+'\',\''+esc(u.worker||'')+'\',\''+esc(u.equipment||'')+'\','
-                    +   '\''+esc(u.start_time||'')+'\',\''+esc(u.end_time||'')+'\')">수정</button></td></tr>';
+                    + u.pk + ',\'' + esc(u.lot_number || '') + '\',\'' + esc(u.worker || '') + '\',\'' + esc(u.equipment || '') + '\','
+                    + '\'' + esc(u.start_time || '') + '\',\'' + esc(u.end_time || '') + '\')">수정</button></td></tr>';
             }).join('') : wlNoRow(10);
-            const tf = list.length ? '<td class="left" colspan="8">완료 대수</td><td>'+done+'</td><td class="th-act"></td>' : '';
+            const tf = list.length ? '<td class="left" colspan="8">완료 대수</td><td>' + done + '</td><td class="th-act"></td>' : '';
             return wlBox(f, sum, th, tb, tf, null, !list.length);
         }
 
         /** 포장 — 공정 미구현이라 당분간 비어 있다 */
         /** 포장 — 한 줄 = 박스 1개(= 한 대) */
-        function wlPack(f, list){
-            const sum = '<span class="wl-tag row">'+list.length+'대</span>';
+        function wlPack(f, list) {
+            const sum = '<span class="wl-tag row">' + list.length + '대</span>';
             const th = '<th>시간</th><th class="left">완제품</th><th>완제품 로트</th>'
                 + '<th>박스 라벨</th><th>S/N</th><th>작업지시</th><th>작업자</th><th>설비</th>';
-            const tb = list.length ? list.map(function(u){
+            const tb = list.length ? list.map(function (u) {
                 const running = !u.end_time;
-                return '<tr><td>'+hm(u.start_time)+' ~ '+(running?'<span class="wl-run">작업중</span>':hm(u.end_time))+'</td>'
-                    + '<td class="left">'+esc(u.mat_name||'-')
-                    +   (u.is_repair==='Y'?' <span class="wl-code">수리품</span>':'')+'</td>'
-                    + '<td><span class="wl-code">'+esc(u.lot_number||'-')+'</span></td>'
-                    + '<td><span class="wl-code">'+esc(u.maker_lot_no||'-')+'</span></td>'
-                    + '<td>'+esc(u.serial_no||('#'+(u.unit_no||'-')))+'</td>'
-                    + '<td><span class="wl-code">'+esc(u.wo||'-')+'</span></td>'
-                    + '<td>'+esc(u.worker||'-')+'</td><td>'+esc(u.equipment||'-')+'</td></tr>';
+                return '<tr><td>' + hm(u.start_time) + ' ~ ' + (running ? '<span class="wl-run">작업중</span>' : hm(u.end_time)) + '</td>'
+                    + '<td class="left">' + esc(u.mat_name || '-')
+                    + (u.is_repair === 'Y' ? ' <span class="wl-code">수리품</span>' : '') + '</td>'
+                    + '<td><span class="wl-code">' + esc(dispLot(u) || '-') + '</span></td>'
+                    + '<td><span class="wl-code">' + esc(u.maker_lot_no || '-') + '</span></td>'
+                    + '<td>' + esc(u.serial_no || ('#' + (u.unit_no || '-'))) + '</td>'
+                    + '<td><span class="wl-code">' + esc(u.wo || '-') + '</span></td>'
+                    + '<td>' + esc(u.worker || '-') + '</td><td>' + esc(u.equipment || '-') + '</td></tr>';
             }).join('') : wlNoRow(8);
-            const tf = list.length ? '<td class="left" colspan="7">포장 대수</td><td>'+list.length+'</td>' : '';
+            const tf = list.length ? '<td class="left" colspan="7">포장 대수</td><td>' + list.length + '</td>' : '';
             return wlBox(f, sum, th, tb, tf, null, !list.length);
         }
-        function wlDefect(list){
-            if(!list.length) return '';
+
+        function wlDefect(list) {
+            if (!list.length) return '';
             let q = 0;
-            list.forEach(function(x){ q += Number(x.defect_qty||0); });
+            list.forEach(function (x) {
+                q += Number(x.defect_qty || 0);
+            });
             const th = '<th>공정</th><th class="left">품목</th><th>유형</th><th>수량</th><th>건수</th>';
-            const tb = list.map(function(x){
-                return '<tr><td>'+esc(x.proc_name||'-')+'</td>'
-                    + '<td class="left">'+esc(x.mat_name||'-')+'<br><span class="wl-code">'+esc(x.mat_code||'')+'</span></td>'
-                    + '<td>'+esc(x.defect_type||'-')+'</td>'
-                    + '<td class="wl-defcell">'+num(x.defect_qty)+'</td><td>'+num(x.cnt)+'</td></tr>';
+            const tb = list.map(function (x) {
+                return '<tr><td>' + esc(x.proc_name || '-') + '</td>'
+                    + '<td class="left">' + esc(x.mat_name || '-') + '<br><span class="wl-code">' + esc(x.mat_code || '') + '</span></td>'
+                    + '<td>' + esc(x.defect_type || '-') + '</td>'
+                    + '<td class="wl-defcell">' + num(x.defect_qty) + '</td><td>' + num(x.cnt) + '</td></tr>';
             }).join('');
-            const tf = '<td class="left" colspan="3">소계</td><td>'+num(q)+'</td><td></td>';
-            return wlBox({name:'부적합'}, '<span class="wl-tag def">'+num(q)+'</span>', th, tb, tf);
+            const tf = '<td class="left" colspan="3">소계</td><td>' + num(q) + '</td><td></td>';
+            return wlBox({name: '부적합'}, '<span class="wl-tag def">' + num(q) + '</span>', th, tb, tf);
         }
 
         /* =========================================================
@@ -532,108 +580,117 @@
            화면 배열로 들고 있으면 일보 화면 3개에 같은 배열이 복사되어
            하나만 고쳤을 때 조용히 어긋난다. 표시명은 서버가 category_name 으로 내려준다. */
 
-        let NOTES = [], NOTE_COMBO = {processes:[], workers:[], equipments:[]};
+        let NOTES = [], NOTE_COMBO = {processes: [], workers: [], equipments: []};
         let EDIT_TARGET = null;   // 실적 수정 대상 {kind, pk, …}
 
         /* ★ 작업 기록 조회가 실패해도 일보 본문은 그려져야 한다.
            동기 호출이라 여기서 예외가 나면 뒤 렌더가 통째로 멈춘다.
            (테이블 미생성·엔드포인트 미배포 때 실제로 그랬다) */
         let NOTE_ERR = null;
-        function noteLoad(date, dateTo){
+
+        function noteLoad(date, dateTo) {
             NOTE_ERR = null;
             try {
                 /* 실적과 같은 기간을 본다 — 한쪽만 하루치면 같은 화면에서 범위가 어긋난다 */
-                const p = {date_from:date, date_to:(dateTo || date), spjangcd:WL_SPJANGCD};
+                const p = {date_from: date, date_to: (dateTo || date), spjangcd: WL_SPJANGCD};
                 if (typeof WL_FACTORY !== 'undefined' && WL_FACTORY) p.factory_id = WL_FACTORY;
-                NOTES = wlData(AjaxUtil.getSyncData(NOTE_API+'/notes', p)) || [];
-            } catch(e) {
-                NOTES = []; NOTE_ERR = '작업 기록을 불러오지 못했습니다.';
+                NOTES = wlData(AjaxUtil.getSyncData(NOTE_API + '/notes', p)) || [];
+            } catch (e) {
+                NOTES = [];
+                NOTE_ERR = '작업 기록을 불러오지 못했습니다.';
                 console.error('[worklog] note load', e);
             }
         }
 
-        function noteComboLoad(){
-            if(NOTE_COMBO.workers.length) return;
+        function noteComboLoad() {
+            if (NOTE_COMBO.workers.length) return;
             try {
-                const f = (typeof WL_FACTORY !== 'undefined' && WL_FACTORY) ? {factory_id:WL_FACTORY} : {};
-                NOTE_COMBO = wlData(AjaxUtil.getSyncData(NOTE_API+'/combo', f))
-                    || {processes:[], workers:[], equipments:[]};
-            } catch(e) {
-                NOTE_COMBO = {processes:[], workers:[], equipments:[]};
+                const f = (typeof WL_FACTORY !== 'undefined' && WL_FACTORY) ? {factory_id: WL_FACTORY} : {};
+                NOTE_COMBO = wlData(AjaxUtil.getSyncData(NOTE_API + '/combo', f))
+                    || {processes: [], workers: [], equipments: []};
+            } catch (e) {
+                NOTE_COMBO = {processes: [], workers: [], equipments: []};
                 console.error('[worklog] combo load', e);
             }
         }
 
         /** 작업 기록 블록 — 일보 맨 아래에 붙는다 */
-        function noteBlock(){
+        function noteBlock() {
             const th = '<th>일자</th><th>구분</th><th class="left">내용</th><th>공정</th>'
                 + '<th>설비</th><th>관련 작업자</th><th>작성자</th><th class="th-act">관리</th>';
-            if(NOTE_ERR){
+            if (NOTE_ERR) {
                 return '<div class="wl-proc-box"><div class="wl-proc-h"><span class="nm">작업 기록</span></div>'
                     + '<table class="wl-table"><tbody><tr><td style="color:#d64545;padding:22px">'
                     + esc(NOTE_ERR) + ' (worklog_note 테이블·API 배포 확인)</td></tr></tbody></table></div>';
             }
-            const tb = NOTES.length ? NOTES.map(function(n){
+            const tb = NOTES.length ? NOTES.map(function (n) {
                     const fac = (typeof WL_FACTORY === 'undefined' || !WL_FACTORY)
-                        ? '<span class="wl-code">'+(Number(n.factory_id)===2?'2공장':'1공장')+'</span> ' : '';
-                    return '<tr><td>'+esc(n.note_date||'-')+'</td>'
-                        + '<td><span class="wl-cat '+esc(n.category)+'">'
-                        +   esc(n.category_name || n.category || '-')+'</span></td>'
-                        + '<td class="left">'+fac+esc(n.content)+'</td>'
-                        + '<td>'+esc(n.process_name||'-')+'</td>'
-                        + '<td>'+esc(n.equipment_name||'-')+'</td>'
-                        + '<td>'+esc(n.actor_name||'-')+'</td>'
-                        + '<td>'+esc(n.creater_name||'-')+'</td>'
+                        ? '<span class="wl-code">' + (Number(n.factory_id) === 2 ? '2공장' : '1공장') + '</span> ' : '';
+                    return '<tr><td>' + esc(n.note_date || '-') + '</td>'
+                        + '<td><span class="wl-cat ' + esc(n.category) + '">'
+                        + esc(n.category_name || n.category || '-') + '</span></td>'
+                        + '<td class="left">' + fac + esc(n.content) + '</td>'
+                        + '<td>' + esc(n.process_name || '-') + '</td>'
+                        + '<td>' + esc(n.equipment_name || '-') + '</td>'
+                        + '<td>' + esc(n.actor_name || '-') + '</td>'
+                        + '<td>' + esc(n.creater_name || '-') + '</td>'
                         + '<td class="th-act">'
-                        +   '<button type="button" class="wl-rowbtn" onclick="noteOpen('+n.pk+')">수정</button>'
-                        +   '<button type="button" class="wl-rowbtn del" onclick="noteDel('+n.pk+')">삭제</button>'
+                        + '<button type="button" class="wl-rowbtn" onclick="noteOpen(' + n.pk + ')">수정</button>'
+                        + '<button type="button" class="wl-rowbtn del" onclick="noteDel(' + n.pk + ')">삭제</button>'
                         + '</td></tr>';
                 }).join('')
                 : '<tr><td colspan="8" style="color:#c2c9d4;padding:22px">등록된 작업 기록이 없습니다.</td></tr>';
 
             return '<div class="wl-proc-box"><div class="wl-proc-h">'
                 + '<span class="nm">작업 기록</span>'
-                + '<div class="sum"><span class="wl-tag row">'+NOTES.length+'건</span></div></div>'
-                + '<table class="wl-table"><thead><tr>'+th+'</tr></thead><tbody>'+tb+'</tbody></table></div>';
+                + '<div class="sum"><span class="wl-tag row">' + NOTES.length + '건</span></div></div>'
+                + '<table class="wl-table"><thead><tr>' + th + '</tr></thead><tbody>' + tb + '</tbody></table></div>';
         }
 
         // ── 작업 기록 모달 ──
-        function noteOpen(pk){
+        function noteOpen(pk) {
             noteComboLoad();
-            const n = pk ? NOTES.find(function(x){ return x.pk===pk; }) : null;
+            const n = pk ? NOTES.find(function (x) {
+                return x.pk === pk;
+            }) : null;
             document.getElementById('mTitle').textContent = n ? '작업 기록 수정' : '작업 기록 등록';
             document.getElementById('mPk').value = n ? n.pk : '';
 
-            const opt = function(list, sel, blankLabel){
-                return '<option value="">'+blankLabel+'</option>'
-                    + list.map(function(x){
-                        return '<option value="'+x.pk+'"'+(String(x.pk)===String(sel)?' selected':'')+'>'
-                            + esc(x.name)+'</option>';
+            const opt = function (list, sel, blankLabel) {
+                return '<option value="">' + blankLabel + '</option>'
+                    + list.map(function (x) {
+                        return '<option value="' + x.pk + '"' + (String(x.pk) === String(sel) ? ' selected' : '') + '>'
+                            + esc(x.name) + '</option>';
                     }).join('');
             };
             document.getElementById('mDate').value = document.getElementById('fDate').value;
             AjaxUtil.fillSelectOptions($('#mCat'), 'system_code', false,
                 (n ? n.category : ''), 'worklog_cat');
-            document.getElementById('mProc').innerHTML  = opt(NOTE_COMBO.processes,  n?n.process_id:'',   '선택 안 함');
-            document.getElementById('mEquip').innerHTML = opt(NOTE_COMBO.equipments, n?n.equipment_id:'', '선택 안 함');
-            document.getElementById('mActor').innerHTML = opt(NOTE_COMBO.workers,    n?n.actor_id:'',     '선택 안 함');
+            document.getElementById('mProc').innerHTML = opt(NOTE_COMBO.processes, n ? n.process_id : '', '선택 안 함');
+            document.getElementById('mEquip').innerHTML = opt(NOTE_COMBO.equipments, n ? n.equipment_id : '', '선택 안 함');
+            document.getElementById('mActor').innerHTML = opt(NOTE_COMBO.workers, n ? n.actor_id : '', '선택 안 함');
             document.getElementById('mContent').value = n ? n.content : '';
 
             const fac = document.getElementById('mFactory');
-            if(fac) fac.value = n ? String(n.factory_id) : '1';
+            if (fac) fac.value = n ? String(n.factory_id) : '1';
 
             document.getElementById('mDim').classList.add('on');
             document.getElementById('mBox').classList.add('on');
             document.getElementById('mContent').focus();
         }
-        function noteClose(){
+
+        function noteClose() {
             document.getElementById('mDim').classList.remove('on');
             document.getElementById('mBox').classList.remove('on');
         }
-        function noteSave(){
+
+        function noteSave() {
             const content = document.getElementById('mContent').value.trim();
-            if(!content){ Alert.alert('내용을 입력해 주세요.'); return; }
-            const pk  = document.getElementById('mPk').value;
+            if (!content) {
+                Alert.alert('내용을 입력해 주세요.');
+                return;
+            }
+            const pk = document.getElementById('mPk').value;
             const fac = document.getElementById('mFactory');
             const p = {
                 date: document.getElementById('mDate').value,
@@ -645,16 +702,24 @@
                 actor_id: document.getElementById('mActor').value,
                 spjangcd: WL_SPJANGCD
             };
-            if(pk) p.pk = pk;
-            const res = AjaxUtil.postAsyncData(NOTE_API+'/note_save', p, function(res){
-                if(res && res.success === false){ Alert.alert(res.message || '저장에 실패했습니다.'); return; }
-                noteClose(); wlLoad();
+            if (pk) p.pk = pk;
+            const res = AjaxUtil.postAsyncData(NOTE_API + '/note_save', p, function (res) {
+                if (res && res.success === false) {
+                    Alert.alert(res.message || '저장에 실패했습니다.');
+                    return;
+                }
+                noteClose();
+                wlLoad();
             });
         }
-        function noteDel(pk){
-            if(!confirm('이 작업 기록을 삭제할까요?')) return;
-            AjaxUtil.postAsyncData(NOTE_API+'/note_delete', {pk:pk}, function(res){
-                if(res && res.success === false){ Alert.alert(res.message || '삭제에 실패했습니다.'); return; }
+
+        function noteDel(pk) {
+            if (!confirm('이 작업 기록을 삭제할까요?')) return;
+            AjaxUtil.postAsyncData(NOTE_API + '/note_delete', {pk: pk}, function (res) {
+                if (res && res.success === false) {
+                    Alert.alert(res.message || '삭제에 실패했습니다.');
+                    return;
+                }
                 wlLoad();
             });
         }
@@ -664,47 +729,54 @@
          * kind : produce(차수) | wash(세척) | unit(M-CELL 유닛)
          * 수량·품목·로트는 잠긴다. 화면에도 그렇게 안내한다.
          */
-        function editOpen(kind, pk, label, worker, equip, st, et){
+        function editOpen(kind, pk, label, worker, equip, st, et) {
             noteComboLoad();
-            EDIT_TARGET = {kind:kind, pk:pk};
+            EDIT_TARGET = {kind: kind, pk: pk};
             document.getElementById('eTitle').textContent = '실적 수정 · ' + label;
-            const opt = function(list, selName){
+            const opt = function (list, selName) {
                 return '<option value="">변경 안 함</option>'
-                    + list.map(function(x){
-                        return '<option value="'+x.pk+'"'+(x.name===selName?' selected':'')+'>'+esc(x.name)+'</option>';
+                    + list.map(function (x) {
+                        return '<option value="' + x.pk + '"' + (x.name === selName ? ' selected' : '') + '>' + esc(x.name) + '</option>';
                     }).join('');
             };
             document.getElementById('eActor').innerHTML = opt(NOTE_COMBO.workers, worker);
             document.getElementById('eEquip').innerHTML = opt(NOTE_COMBO.equipments, equip);
             document.getElementById('eStart').value = toLocal(st);
-            document.getElementById('eEnd').value   = toLocal(et);
+            document.getElementById('eEnd').value = toLocal(et);
             document.getElementById('eDim').classList.add('on');
             document.getElementById('eBox').classList.add('on');
         }
-        function editClose(){
+
+        function editClose() {
             document.getElementById('eDim').classList.remove('on');
             document.getElementById('eBox').classList.remove('on');
             EDIT_TARGET = null;
         }
-        function editSave(){
-            if(!EDIT_TARGET) return;
+
+        function editSave() {
+            if (!EDIT_TARGET) return;
             const p = {
                 kind: EDIT_TARGET.kind, pk: EDIT_TARGET.pk,
                 actor_id: document.getElementById('eActor').value,
                 equipment_id: document.getElementById('eEquip').value,
-                start_time: document.getElementById('eStart').value.replace('T',' '),
-                end_time: document.getElementById('eEnd').value.replace('T',' ')
+                start_time: document.getElementById('eStart').value.replace('T', ' '),
+                end_time: document.getElementById('eEnd').value.replace('T', ' ')
             };
-            AjaxUtil.postAsyncData(NOTE_API+'/result_update', p, function(res){
-                if(res && res.success === false){ Alert.alert(res.message || '수정에 실패했습니다.'); return; }
-                editClose(); wlLoad();
+            AjaxUtil.postAsyncData(NOTE_API + '/result_update', p, function (res) {
+                if (res && res.success === false) {
+                    Alert.alert(res.message || '수정에 실패했습니다.');
+                    return;
+                }
+                editClose();
+                wlLoad();
             });
         }
+
         /** 'yyyy-mm-dd hh:mm' → datetime-local 값 */
-        function toLocal(s){
-            if(!s) return '';
+        function toLocal(s) {
+            if (!s) return '';
             const m = String(s).match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2})/);
-            return m ? (m[1]+'T'+m[2]) : '';
+            return m ? (m[1] + 'T' + m[2]) : '';
         }
 
         /* =========================================================
@@ -718,46 +790,53 @@
          * ★ 라이브러리를 붙이지 않고 표 HTML 을 .xls 로 내린다.
          *   엑셀이 그대로 읽고, 화면의 소계·합계 행이 살아 있다.
          * ========================================================= */
-        function wlExcel(){
+        function wlExcel() {
             const body = document.getElementById('body');
-            if(!body || !body.querySelector('table')){
-                Alert.alert('내려받을 내용이 없습니다.'); return;
+            if (!body || !body.querySelector('table')) {
+                Alert.alert('내려받을 내용이 없습니다.');
+                return;
             }
             const r = wlRange();
             const COLS = 14;
 
             /* 원본을 건드리지 않도록 복제해서 화면 전용 요소를 걷어낸다 */
             const clone = body.cloneNode(true);
-            clone.querySelectorAll('.th-act').forEach(function(el){ el.remove(); });
-            clone.querySelectorAll('button').forEach(function(el){ el.remove(); });
-            clone.querySelectorAll('br').forEach(function(el){
+            clone.querySelectorAll('.th-act').forEach(function (el) {
+                el.remove();
+            });
+            clone.querySelectorAll('button').forEach(function (el) {
+                el.remove();
+            });
+            clone.querySelectorAll('br').forEach(function (el) {
                 el.parentNode.replaceChild(document.createTextNode(' / '), el);
             });
 
-            const cell = function(el){ return esc(String(el.textContent||'').replace(/\s+/g,' ').trim()); };
+            const cell = function (el) {
+                return esc(String(el.textContent || '').replace(/\s+/g, ' ').trim());
+            };
             let sheet = '';
-            Array.prototype.forEach.call(clone.children, function(node){
-                if(node.classList && node.classList.contains('wl-fsec')){
-                    sheet += '<tr><td colspan="'+COLS+'" style="font-weight:bold;background:#dde3ee">'
-                        +  cell(node)+'</td></tr>';
+            Array.prototype.forEach.call(clone.children, function (node) {
+                if (node.classList && node.classList.contains('wl-fsec')) {
+                    sheet += '<tr><td colspan="' + COLS + '" style="font-weight:bold;background:#dde3ee">'
+                        + cell(node) + '</td></tr>';
                     return;
                 }
                 const t = node.querySelector ? node.querySelector('table') : null;
-                if(!t) return;
+                if (!t) return;
                 const h = node.querySelector('.wl-proc-h');
-                sheet += '<tr><td colspan="'+COLS+'"></td></tr>'
-                    +  '<tr><td colspan="'+COLS+'" style="font-weight:bold;background:#eef2f8">'
-                    +  (h ? cell(h) : '')+'</td></tr>';
-                Array.prototype.forEach.call(t.querySelectorAll('tr'), function(tr){
+                sheet += '<tr><td colspan="' + COLS + '"></td></tr>'
+                    + '<tr><td colspan="' + COLS + '" style="font-weight:bold;background:#eef2f8">'
+                    + (h ? cell(h) : '') + '</td></tr>';
+                Array.prototype.forEach.call(t.querySelectorAll('tr'), function (tr) {
                     let line = '';
-                    Array.prototype.forEach.call(tr.children, function(td){
+                    Array.prototype.forEach.call(tr.children, function (td) {
                         const cs = td.getAttribute('colspan');
                         const head = (td.tagName === 'TH');
-                        line += '<td'+(cs ? ' colspan="'+cs+'"' : '')
-                            +  (head ? ' style="font-weight:bold;background:#e8ebf0"' : '')
-                            +  '>'+cell(td)+'</td>';
+                        line += '<td' + (cs ? ' colspan="' + cs + '"' : '')
+                            + (head ? ' style="font-weight:bold;background:#e8ebf0"' : '')
+                            + '>' + cell(td) + '</td>';
                     });
-                    sheet += '<tr>'+line+'</tr>';
+                    sheet += '<tr>' + line + '</tr>';
                 });
             });
 
@@ -770,16 +849,16 @@
                 + '</x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->'
                 + '<style>table{border-collapse:collapse}td{border:.5pt solid #999;padding:2px 4px;'
                 + 'font-size:10pt;vertical-align:middle}</style></head><body><table>'
-                + '<tr><td colspan="'+COLS+'" style="font-size:14pt;font-weight:bold;border:0">'+esc(title)+'</td></tr>'
-                + '<tr><td colspan="'+COLS+'" style="border:0">출력 '+fmt(new Date())+'</td></tr>'
+                + '<tr><td colspan="' + COLS + '" style="font-size:14pt;font-weight:bold;border:0">' + esc(title) + '</td></tr>'
+                + '<tr><td colspan="' + COLS + '" style="border:0">출력 ' + fmt(new Date()) + '</td></tr>'
                 + sheet + '</table></body></html>';
 
             /* BOM 을 붙여야 엑셀이 UTF-8 로 읽는다 — 없으면 한글이 깨진다 */
-            const blob = new Blob(['\ufeff'+html], {type:'application/vnd.ms-excel;charset=utf-8'});
-            const url  = URL.createObjectURL(blob);
-            const a    = document.createElement('a');
+            const blob = new Blob(['\ufeff' + html], {type: 'application/vnd.ms-excel;charset=utf-8'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
             a.href = url;
-            a.download = '작업일보_' + r.from + ((r.from === r.to) ? '' : '_'+r.to) + '.xls';
+            a.download = '작업일보_' + r.from + ((r.from === r.to) ? '' : '_' + r.to) + '.xls';
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -814,4 +893,4 @@
         });
     </script>
 </th:block>
-</html>h
+</html>

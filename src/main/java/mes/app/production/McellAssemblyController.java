@@ -254,9 +254,10 @@ public class McellAssemblyController {
 
     // ── ★ 공정검사 (조립 중간 검사) ─────────────────────────
     @GetMapping("/pi_detail")
-    public AjaxResult piDetail(@RequestParam("step_id") Integer stepId) {
+    public AjaxResult piDetail(@RequestParam("step_id") Integer stepId,
+                               @RequestParam(value = "form_id", required = false) Integer formId) {
         AjaxResult r = new AjaxResult();
-        r.data = this.mcellAssemblyService.getProcInsp(stepId);
+        r.data = this.mcellAssemblyService.getProcInsp(stepId, formId);
         return r;
     }
 
@@ -264,9 +265,10 @@ public class McellAssemblyController {
     @Transactional
     public AjaxResult piStart(@RequestParam("step_id") Integer stepId,
                               @RequestParam(value = "actor_id", required = false) Integer actorId,
+                              @RequestParam(value = "form_id", required = false) Integer formId,
                               @RequestParam(value = "spjangcd", defaultValue = "ZZ") String spjangcd,
                               Authentication auth) {
-        return this.mcellAssemblyService.startProcInsp(stepId, actorId, spjangcd, (User) auth.getPrincipal());
+        return this.mcellAssemblyService.startProcInsp(stepId, actorId, formId, spjangcd, (User) auth.getPrincipal());
     }
 
     @PostMapping("/pi_item")

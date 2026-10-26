@@ -207,6 +207,16 @@ public class McellAssemblyService {
                      , pf.form_name                                 AS pi_form_name
                      , pi.id                                        AS pi_result_id
                      , pi."Verdict"                                 AS pi_verdict
+                     -- ★ 공정검사가 여럿인 어셈블리(M4A 본체 #175·#185) — 전체 / 합격 수
+                     , (SELECT COUNT(*) FROM insp_form f2 JOIN insp_form_mat fm2 ON fm2."InspForm_id" = f2.id
+                         WHERE fm2."Material_id" = st."Material_id" AND f2."InspType" = 'process'
+                           AND COALESCE(f2."UseYN",'Y') = 'Y' AND COALESCE(f2."_status",'a') = 'a') AS pi_total
+                     , (SELECT COUNT(*) FROM insp_form f2 JOIN insp_form_mat fm2 ON fm2."InspForm_id" = f2.id
+                         WHERE fm2."Material_id" = st."Material_id" AND f2."InspType" = 'process'
+                           AND COALESCE(f2."UseYN",'Y') = 'Y' AND COALESCE(f2."_status",'a') = 'a'
+                           AND EXISTS (SELECT 1 FROM mcell_proc_insp px WHERE px."McellUnitStep_id" = st.id
+                                         AND px."InspForm_id" = f2.id AND px."Verdict" = 'pass'
+                                         AND px."State" <> 'void' AND COALESCE(px."_status",'a') = 'a')) AS pi_passed
                      , pi."State"                                   AS pi_state
                   FROM mcell_unit_step st
                   JOIN material m ON m.id = st."Material_id"
@@ -233,14 +243,20 @@ public class McellAssemblyService {
                                   FROM bom b JOIN bom_comp bc ON bc."BOM_id" = b.id
                                   JOIN material sm ON sm.id = bc."Material_id"
                                  WHERE b."Material_id" = st."Material_id" AND b."BOMType"='manufacturing'
-                                   AND NULLIF(sm."RCode",'') IS NOT NULL) x   -- ★ 주요자재 = R-품번 있는 자재 (LOT 필수)
+                                   AND NULLIF(sm."RCode",'') IS NOT NULL   -- ★ 주요자재 = R-품번 있는 자재
+                                   -- 하위 어셈블리(예: Upper Cover_A)는 그 자체 스텝에서 세므로 제외 — 화면(펼친 상태)과 같은 기준
+                                   AND NOT EXISTS (SELECT 1 FROM bom b3 WHERE b3."Material_id" = sm.id
+                                                     AND b3."BOMType" = 'manufacturing')) x
                   ) sq ON true
                   LEFT JOIN LATERAL (
                         SELECT f.id AS form_id, f."Name" AS form_name
                           FROM insp_form f JOIN insp_form_mat fm ON fm."InspForm_id" = f.id
                          WHERE fm."Material_id" = st."Material_id" AND f."InspType" = 'process'
                            AND COALESCE(f."UseYN",'Y') = 'Y' AND COALESCE(f."_status",'a') = 'a'
-                         ORDER BY f."SeqNo", f.id LIMIT 1
+                         -- ★ 한 어셈블리에 공정검사가 여럿이면(예: M4A 본체 #175 · #185) 아직 합격 안 한 것부터 차례로
+                         ORDER BY (EXISTS (SELECT 1 FROM mcell_proc_insp px
+                                    WHERE px."McellUnitStep_id" = st.id AND px."InspForm_id" = f.id
+                                      AND px."Verdict" = 'pass' AND px."State" <> 'void' AND COALESCE(px."_status",'a') = 'a')), f."SeqNo", f.id LIMIT 1
                   ) pf ON true
                   LEFT JOIN LATERAL (
                         SELECT x.id, x."Verdict", x."State" FROM mcell_proc_insp x
@@ -441,13 +457,21 @@ public class McellAssemblyService {
     public List<Map<String, Object>> getWipLots(Integer materialId, Integer storeId) {
         MapSqlParameterSource p = new MapSqlParameterSource()
                 .addValue("matId", materialId)
-                .addValue("store", storeId == null ? STORE_PROD : storeId);
+                .addValue("store", storeId == null ? STORE_PROD : storeId)
+                .addValue("anyStore", storeId == null ? 1 : 0);
+        /* ★ storeId 없이 부르면(하위 어셈블리 «재고 투입») 생산창고(17) + 검사완료창고(19) 둘 다.
+             미리 조립해 검사까지 합격한 예비 모듈(예: 예비용 로터)은 19 에 있다 */
         return this.sqlRunner.getRows("""
                 SELECT ml.id AS mat_lot_id, ml."LotNumber" AS lot_number,
-                       ml."CurrentStock" AS stock,
+                       ml."CurrentStock" AS stock, ml."StoreHouse_id" AS store_id, sh."Name" AS store_name,
+                       mu."SerialNo" AS serial_no,
                        to_char(ml."InputDateTime", 'yyyy-mm-dd hh24:mi') AS input_time
                   FROM mat_lot ml
-                 WHERE ml."Material_id" = :matId AND ml."StoreHouse_id" = :store
+                  LEFT JOIN store_house sh ON sh.id = ml."StoreHouse_id"
+                  LEFT JOIN LATERAL (SELECT x."SerialNo" FROM mcell_unit x WHERE x."LotNumber" = ml."LotNumber"
+                                       AND COALESCE(x."_status",'a') = 'a' ORDER BY x.id DESC LIMIT 1) mu ON true
+                 WHERE ml."Material_id" = :matId
+                   AND (ml."StoreHouse_id" = :store OR (:anyStore = 1 AND ml."StoreHouse_id" = 19))
                    AND COALESCE(ml."CurrentStock",0) > 0
                  ORDER BY ml."InputDateTime" ASC, ml.id ASC
                 """, p);
@@ -723,6 +747,33 @@ public class McellAssemblyService {
                        "_modified"=now(), "_modifier_id"=:userId
                  WHERE id=:stepId
                 """, p);
+        /* ★ 검사완료창고(19)에 있는 예비 모듈(미리 조립·검사한 로터 등)을 고르면 생산창고(17)로 옮겨 둔다.
+             상위 조립 완료 때 소비는 생산창고에서 하므로 — 수리의 moveLot 과 같은 절차(out/in 두 줄) */
+        if ("stock".equals(source) && matLotId != null) {
+            Map<String, Object> ml = this.sqlRunner.getRow("""
+                    SELECT id, "Material_id" AS mat_id, "LotNumber" AS lot_no, "StoreHouse_id" AS store_id,
+                           COALESCE("CurrentStock",0) AS qty, spjangcd
+                      FROM mat_lot WHERE id = :id
+                    """, new MapSqlParameterSource().addValue("id", matLotId));
+            if (ml != null && asInt(ml.get("store_id")) != null && asInt(ml.get("store_id")) == 19) {
+                MapSqlParameterSource mv = new MapSqlParameterSource()
+                        .addValue("id", matLotId).addValue("matId", asInt(ml.get("mat_id")))
+                        .addValue("lot", str(ml.get("lot_no"))).addValue("qty", ((Number) ml.get("qty")).doubleValue())
+                        .addValue("stepId", stepId).addValue("userId", user.getId())
+                        .addValue("spjangcd", ml.get("spjangcd") == null ? "ZZ" : str(ml.get("spjangcd")));
+                this.sqlRunner.execute("UPDATE mat_lot SET \"StoreHouse_id\"=" + STORE_PROD + " WHERE id=:id", mv);
+                this.sqlRunner.execute("""
+                        INSERT INTO mat_inout ("Material_id","StoreHouse_id","LotNumber","InoutDate","InoutTime",
+                                               "InOut","InputQty","OutputQty","InputType","SourceTableName","SourceDataPk",
+                                               "State","Description","_status","_created","_creater_id",spjangcd)
+                        VALUES (:matId,19,:lot,CURRENT_DATE,LOCALTIME,'out',NULL,:qty,'move',
+                                'mcell_unit_step',:stepId,'confirmed','예비 모듈 조립 투입','a',now(),:userId,:spjangcd),
+                               (:matId,""" + STORE_PROD + """
+                        ,:lot,CURRENT_DATE,LOCALTIME,'in',:qty,NULL,'move',
+                                'mcell_unit_step',:stepId,'confirmed','예비 모듈 조립 투입','a',now(),:userId,:spjangcd)
+                        """, mv);
+            }
+        }
         return r;
     }
 
@@ -821,7 +872,13 @@ public class McellAssemblyService {
         for (Map<String, Object> kid : getKidSteps(unitId, matId)) {
             Integer kidMat = asInt(kid.get("mat_id"));
             if (inputs.stream().anyMatch(b -> kidMat.equals(b.matId))) continue;   // 화면에서 이미 보냈으면 중복 방지
-            inputs.add(new ProductionCreateService.BomInput(kidMat, 1f));
+            ProductionCreateService.BomInput bi = new ProductionCreateService.BomInput(kidMat, 1f);
+            // ★ 재고 투입이면 고른 그 로트를 소비 (예전엔 FIFO 라 다른 로트가 빠질 수 있었다)
+            if ("stock".equals(str(kid.get("source"))) && asInt(kid.get("stock_lot_id")) != null) {
+                bi.lots = new ArrayList<>();
+                bi.lots.add(new ProductionCreateService.LotInput(asInt(kid.get("stock_lot_id")), 1f));
+            }
+            inputs.add(bi);
         }
 
         // ── 로트번호 : 최상위는 유닛 로트, 하위 모듈은 모듈 로트 ──
@@ -1279,7 +1336,20 @@ public class McellAssemblyService {
                        sn."PartLotNo" AS part_lot,
                        sn."McellUnitStep_id" AS step_id
                   FROM mcell_unit_sn sn
-                 WHERE sn."McellUnit_id" = :uid AND COALESCE(sn."_status",'a')='a'
+                 WHERE COALESCE(sn."_status",'a')='a'
+                   AND (sn."McellUnit_id" = :uid
+                        /* ★ 재고 투입한 예비 모듈(미리 조립한 로터 등)에 기록된 S/N·LOT 도 따라온다
+                             — 이 유닛에 같은 자재·순번 기록이 없을 때만 (여기서 고쳐 쓰면 이 유닛 것이 우선) */
+                        OR (sn."McellUnit_id" IN (SELECT su.id FROM mcell_unit_step ss
+                                                    JOIN mat_lot sml ON sml.id = ss."StockMatLot_id"
+                                                    JOIN mcell_unit su ON su."LotNumber" = sml."LotNumber"
+                                                                      AND su."Material_id" = sml."Material_id"
+                                                                      AND COALESCE(su."_status",'a') = 'a'
+                                                   WHERE ss."McellUnit_id" = :uid AND ss."Source" = 'stock'
+                                                     AND COALESCE(ss."_status",'a') = 'a')
+                            AND NOT EXISTS (SELECT 1 FROM mcell_unit_sn me WHERE me."McellUnit_id" = :uid
+                                              AND me."Material_id" = sn."Material_id" AND me."SeqNo" = sn."SeqNo"
+                                              AND COALESCE(me."_status",'a') = 'a')))
                  ORDER BY sn."Material_id", sn."SeqNo"
                 """, new MapSqlParameterSource().addValue("uid", uid));
     }
@@ -1941,14 +2011,28 @@ public class McellAssemblyService {
     //   · 불합격 → 고친 뒤 재검사(새 회차). 분해하면 그 스텝의 검사는 무효(void)
     // =====================================================================
 
-    private Map<String, Object> procForm(Integer matId) {
+    /** ★ 이 스텝에서 지금 할 공정검사 양식 — 여러 개면 아직 합격 안 한 것 중 첫 번째, 다 합격했으면 마지막 */
+    private Map<String, Object> procForm(Integer matId, Integer stepId) {
         return this.sqlRunner.getRow("""
                 SELECT f.id AS form_id, f."Code" AS form_code, f."Name" AS form_name
                   FROM insp_form f JOIN insp_form_mat fm ON fm."InspForm_id" = f.id
                  WHERE fm."Material_id" = :matId AND f."InspType" = 'process'
                    AND COALESCE(f."UseYN",'Y') = 'Y' AND COALESCE(f."_status",'a') = 'a'
-                 ORDER BY f."SeqNo", f.id LIMIT 1
-                """, new MapSqlParameterSource().addValue("matId", matId));
+                 ORDER BY (EXISTS (SELECT 1 FROM mcell_proc_insp px
+                                    WHERE px."McellUnitStep_id" = CAST(:stepId AS integer) AND px."InspForm_id" = f.id
+                                      AND px."Verdict" = 'pass' AND px."State" <> 'void' AND COALESCE(px."_status",'a') = 'a')), f."SeqNo", f.id LIMIT 1
+                """, new MapSqlParameterSource().addValue("matId", matId).addValue("stepId", stepId));
+    }
+
+    /** 이 어셈블리에 연결된 공정검사 양식 중 지정한 것 (연결 안 된 양식이면 null) */
+    private Map<String, Object> procFormById(Integer matId, Integer formId) {
+        return this.sqlRunner.getRow("""
+                SELECT f.id AS form_id, f."Code" AS form_code, f."Name" AS form_name
+                  FROM insp_form f JOIN insp_form_mat fm ON fm."InspForm_id" = f.id
+                 WHERE fm."Material_id" = :matId AND f.id = :formId AND f."InspType" = 'process'
+                   AND COALESCE(f."UseYN",'Y') = 'Y' AND COALESCE(f."_status",'a') = 'a'
+                 LIMIT 1
+                """, new MapSqlParameterSource().addValue("matId", matId).addValue("formId", formId));
     }
 
     private Map<String, Object> procLatest(Integer stepId, Integer formId) {
@@ -1967,7 +2051,7 @@ public class McellAssemblyService {
     private AjaxResult checkProcInspPassed(Integer stepId, Integer matId) {
         AjaxResult r = new AjaxResult();
         r.success = true;
-        Map<String, Object> f = procForm(matId);
+        Map<String, Object> f = procForm(matId, stepId);
         if (f == null) return r;
         Map<String, Object> cur = procLatest(stepId, asInt(f.get("form_id")));
         if (cur == null || !"pass".equals(str(cur.get("verdict")))) {
@@ -1986,14 +2070,29 @@ public class McellAssemblyService {
     }
 
     /** 공정검사 상세 — 양식 항목 + 현재 회차 입력값 + 이력 */
-    public Map<String, Object> getProcInsp(Integer stepId) {
+    public Map<String, Object> getProcInsp(Integer stepId) { return getProcInsp(stepId, null); }
+
+    /** ★ form_id 를 주면 그 양식, 없으면 아직 합격 안 한 첫 양식 (공정검사가 여럿인 어셈블리 — 화면이 양식마다 부른다) */
+    public Map<String, Object> getProcInsp(Integer stepId, Integer reqFormId) {
         Map<String, Object> st = getStep(stepId);
         Map<String, Object> out = new LinkedHashMap<>();
         if (st == null) return out;
-        Map<String, Object> f = procForm(asInt(st.get("mat_id")));
+        Map<String, Object> f = reqFormId != null ? procFormById(asInt(st.get("mat_id")), reqFormId)
+                : procForm(asInt(st.get("mat_id")), stepId);
         if (f == null) return out;
         Integer formId = asInt(f.get("form_id"));
         out.put("form", f);
+        // ★ 이 어셈블리의 공정검사 전체와 합격 여부 (여럿이면 화면에 #175 ✓ → #185 순서로 보여준다)
+        out.put("forms", this.sqlRunner.getRows("""
+                SELECT f.id AS form_id, f."Code" AS form_code, f."Name" AS form_name,
+                       EXISTS (SELECT 1 FROM mcell_proc_insp px WHERE px."McellUnitStep_id" = :stepId
+                                 AND px."InspForm_id" = f.id AND px."Verdict" = 'pass'
+                                 AND px."State" <> 'void' AND COALESCE(px."_status",'a') = 'a') AS passed
+                  FROM insp_form f JOIN insp_form_mat fm ON fm."InspForm_id" = f.id
+                 WHERE fm."Material_id" = :matId AND f."InspType" = 'process'
+                   AND COALESCE(f."UseYN",'Y') = 'Y' AND COALESCE(f."_status",'a') = 'a'
+                 ORDER BY f."SeqNo", f.id
+                """, new MapSqlParameterSource().addValue("stepId", stepId).addValue("matId", asInt(st.get("mat_id")))));
         out.put("items", this.sqlRunner.getRows("""
                 SELECT i.id AS item_id, i."SeqNo" AS seq_no, i."ItemName" AS item_name,
                        i."Method" AS method, i."Criteria" AS criteria
@@ -2021,6 +2120,11 @@ public class McellAssemblyService {
     /** 공정검사 시작 / 재검사 — 열린 회차가 있으면 그걸 쓰고, 없으면(또는 불합격 뒤) 새 회차 */
     @Transactional
     public AjaxResult startProcInsp(Integer stepId, Integer actorId, String spjangcd, User user) {
+        return startProcInsp(stepId, actorId, null, spjangcd, user);
+    }
+
+    @Transactional
+    public AjaxResult startProcInsp(Integer stepId, Integer actorId, Integer reqFormId, String spjangcd, User user) {
         AjaxResult r = new AjaxResult();
         r.success = true;
         Map<String, Object> st = getStep(stepId);
@@ -2028,7 +2132,8 @@ public class McellAssemblyService {
         if (!"working".equals(str(st.get("state")))) {
             r.success = false; r.message = "조립 «작업중» 일 때 공정검사를 할 수 있습니다."; return r;
         }
-        Map<String, Object> f = procForm(asInt(st.get("mat_id")));
+        Map<String, Object> f = reqFormId != null ? procFormById(asInt(st.get("mat_id")), reqFormId)
+                : procForm(asInt(st.get("mat_id")), stepId);
         if (f == null) { r.success = false; r.message = "이 어셈블리에 연결된 공정검사 양식이 없습니다."; return r; }
         Integer formId = asInt(f.get("form_id"));
         Map<String, Object> cur = procLatest(stepId, formId);

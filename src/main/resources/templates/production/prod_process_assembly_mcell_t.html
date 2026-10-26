@@ -606,6 +606,17 @@
         const WD = ['일', '월', '화', '수', '목', '금', '토'];
         function unitName(u) { return u.serial_no || ('SN-' + String(u.unit_no).padStart(3, '0')); }
         function bomQ(row) { return row.manual ? (row.qty || 0) : row.default_qty; }
+        /* ★ 화면에 보이는 유닛 번호 — 최종(포장 라벨) > 임시 부여 번호(SN- 제외) > 내부 로트.
+             내부 로트(MC4244-…)는 조회·저장에만 쓰고 화면에는 번호가 정해지면 안 보인다 */
+        function dispLot(o) {
+            if (!o) return '';
+            var lb = String(o.maker_lot_no || o.box_label || o.label_lot || '').trim();
+            if (lb) return lb;
+            var sn = String(o.serial_no || '').trim();
+            if (sn && !/^SN-/i.test(sn)) return sn;
+            return o.lot_number || '';
+        }
+
         function esc(s) { return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c])); }
 
         /* ── 상태 ── */
@@ -688,7 +699,7 @@
                 const pct = tot ? Math.round(dn / tot * 100) : 0;
                 return '<div class="unit" data-st="' + u.state + '" data-i="' + i + '"><div class="edge"></div>' +
                     '<div class="un">' + unitName(u) + '</div>' +
-                    '<div class="lot">' + esc(u.lot_number || '로트 미발번') + '</div>' +
+                    '<div class="lot">' + esc(dispLot(u) || '로트 미발번') + '</div>' +
                     '<div class="row"><span class="ubadge ' + u.state + '">' + (UST[u.state] || u.state) + '</span>' +
                     '<span class="pct">' + dn + '/' + tot + ' 레벨</span></div>' +
                     (u.start_time ? '<div class="utime"><span>시작 <b>' + esc(u.start_time) + '</b></span>' +
@@ -813,9 +824,10 @@
             const tmp = 'SN-' + String(curU.unit_no).padStart(3, '0');
             const m = document.createElement('div');
             m.className = 'snmask';
-            m.innerHTML = '<div class="snsheet"><b>제품 번호 수정</b>' +
-                '<div class="snhint">임시번호 ' + esc(tmp) + ' · 로트 ' + esc(curU.lot_number || '-') + ' (로트번호는 바뀌지 않습니다)</div>' +
-                '<input id="snInp" value="' + esc(curU.serial_no || '') + '" placeholder="' + esc(tmp) + '" autocomplete="off" autocapitalize="characters">' +
+            m.innerHTML = '<div class="snsheet"><b>제품 번호</b>' +
+                '<div class="snhint">이 제품의 번호(장비번호)를 입력합니다. 비워 두면 임시번호 ' + esc(tmp) + '.<br>' +
+                '제조문서 Lot No.·성적서 번호(뒤 6자리)는 포장 때 스캔한 라벨 번호가 있으면 그것을, 없으면 이 번호를 씁니다. (MES 내부 관리번호 ' + esc(curU.lot_number || '-') + ' 는 바뀌지 않습니다)</div>' +
+                '<input id="snInp" value="' + esc(curU.serial_no || '') + '" placeholder="예) M4FO10010091" autocomplete="off" autocapitalize="characters">' +
                 '<div class="snbtns"><button data-snc>취소</button><button data-snr>임시번호로</button><button class="ok" data-sno>저장</button></div></div>';
             document.body.appendChild(m);
             const inp = m.querySelector('#snInp'); inp.focus(); inp.select();
@@ -855,7 +867,7 @@
                 (who.length ? ' · ' + who.join(', ') : '');
             /* 로트는 발번된 뒤에만 — 「발번 전」 칩은 자리만 차지한다 */
             document.getElementById('cLotPill').innerHTML =
-                (u.lot_number ? '<span class="infopill"><span>LOT</span><b>' + esc(u.lot_number) + '</b></span>' : '') +
+                (u.lot_number ? '<span class="infopill"><span>LOT</span><b>' + esc(dispLot(u)) + '</b></span>' : '') +
                 (u.start_time ? '<span class="tpill"><span>시작</span><b>' + esc(u.start_time) + '</b></span>' : '') +
                 (u.end_time ? '<span class="tpill"><span>완료</span><b>' + esc(u.end_time) + '</b></span>' : '');
 
@@ -891,7 +903,7 @@
             const keys = Object.keys(Object.assign({}, r.sns || {}, r.plots || {})).map(Number);
             const n = Math.max(1, keys.length ? Math.max.apply(null, keys) : 1);
             let h = '<div class="snbox">';
-            const wantLot = !!r.r_code || plCount(r) > 0, wantSn = r.sn_yn === 'Y' || snCount(r) > 0;
+            const wantLot = !!r.r_code, wantSn = !!r.r_code;   // ★ 주요자재(R-품번)만, 항상 LOT·S/N 한 쌍 (5차 #2·#3)
             for (let k = 1; k <= n; k++) {
                 const v = (r.sns || {})[k] || '', lv = (r.plots || {})[k] || '';
                 /* ★ 주요자재는 LOT 과 S/N 을 같이 받는다 (5차 #2) — 제조공정관리 LOT 칸에 이 값이 우선 들어간다 */
@@ -927,7 +939,7 @@
                 : '<span class="lotchip' + (r.lot_id ? ' set' : '') + '" data-lot="' + i + ',' + bi + '">LOT ' +
                 (r.lot_id ? esc(r.lot_number || ('#' + r.lot_id)) : 'FIFO 자동') + ' ▾</span>';
             /* ★ R-품번 있으면 LOT 칸(필수), S/N 관리 체크면 S/N 칸 — 둘 다 아니면 칸 없음 (5차 #3) */
-            const snOpen = !!r.r_code || r.sn_yn === 'Y' || snCount(r) > 0 || plCount(r) > 0;   // ★ S/N 관리 체크된 자재만
+            const snOpen = !!r.r_code;   // ★ 주요자재가 아니면 입력칸 없음 (예전에 넣어 둔 값이 있어도 안 보인다)   // ★ S/N 관리 체크된 자재만
             const snBtn = '';   // ★ 주요자재는 LOT·S/N 칸이 항상 열려 있다 — 토글 버튼 불필요
             return '<div class="brow">' + head +
                 '<div class="bc">' + esc(r.mat_code) + (r.r_code ? ' · <b>' + esc(r.r_code) + '</b>' : '') + ' · 소요 ' + (r.per || 1) +
@@ -1014,135 +1026,162 @@
         function piTag(s) {
             if (!s.pi_form_id) return '';
             const v = s.pi_verdict;
+            const tot = +s.pi_total || 1, ps = Math.min(+s.pi_passed || 0, tot);
+            if (tot > 1) {   // ★ 공정검사가 여럿 — 전부 합격해야 ✓
+                if (ps >= tot) return ' <span class="sntag ok">공정검사 ' + ps + '/' + tot + ' ✓</span>';
+                if (v === 'fail') return ' <span class="sntag miss">공정검사 ' + ps + '/' + tot + ' · 불합격</span>';
+                return ' <span class="sntag pi">공정검사 ' + ps + '/' + tot + '</span>';
+            }
             if (v === 'pass') return ' <span class="sntag ok">공정검사 합격 ✓</span>';
             if (v === 'fail') return ' <span class="sntag miss">공정검사 불합격</span>';
             return ' <span class="sntag pi">공정검사 ' + (s.pi_result_id ? '진행중' : '대기') + '</span>';
         }
+        /* ★ 공정검사 — 어셈블리에 연결된 양식을 «전부 한 화면에» (M4A 본체 #175 · #185).
+             s.pis[k] = 양식 k 의 상세(form·items·result·values·history). 버튼·칸 data 속성은 "스텝,양식번호,…" */
         function loadPi(s) {
-            if (!s.pi_form_id) { s.pi = null; return; }
-            try { s.pi = apiGet('/pi_detail', {step_id: s.step_id}) || null; } catch (e) { s.pi = null; }
-            const r = s.pi && s.pi.result;
-            s.pi_result_id = r ? r.result_id : null;
-            s.pi_verdict = r ? r.verdict : null;
+            if (!s.pi_form_id) { s.pi = null; s.pis = []; return; }
+            let first = null;
+            try { first = apiGet('/pi_detail', {step_id: s.step_id}) || null; } catch (e) { first = null; }
+            const fs = (first && first.forms && first.forms.length) ? first.forms : (first && first.form ? [first.form] : []);
+            s.pis = fs.map(f => {
+                if (first && first.form && +first.form.form_id === +f.form_id) return first;
+                try { return apiGet('/pi_detail', {step_id: s.step_id, form_id: f.form_id}) || null; } catch (e) { return null; }
+            }).filter(Boolean);
+            s.pi = s.pis[0] || null;
+            s.pi_total = s.pis.length || 1;
+            s.pi_passed = s.pis.filter(p => p.result && p.result.verdict === 'pass').length;
+            const anyFail = s.pis.some(p => p.result && p.result.verdict === 'fail');
+            const anyOpen = s.pis.some(p => p.result && !p.result.verdict);
+            s.pi_verdict = (s.pis.length && s.pi_passed >= s.pis.length) ? 'pass' : (anyFail ? 'fail' : null);
+            s.pi_result_id = anyOpen || s.pi_passed ? 1 : null;   // 태그 «진행중» 표시용
         }
+        function piP(s, k) { return {step_id: s.step_id, actor_id: s.actor_id, form_id: s.pis[k] && s.pis[k].form && s.pis[k].form.form_id, pi: s.pis[k]}; }
         function piBlock(s, i) {
             if (!s.pi_form_id) return '';
             const working = s.state === 'working', done = s.state === 'done';
-            const head = '<div class="bhead">공정검사 <span class="pinm">' + esc(s.pi_form_name || '') + '</span><span class="ln"></span>';
-            if (!working && !done) return '<div class="piwrap">' + head + '</div>' +
-                '<div class="pinote">작업을 시작하면 공정검사를 입력할 수 있습니다. 합격해야 완료됩니다.</div></div>';
-            if (!s.pi) return '<div class="piwrap">' + head + '</div><div class="pinote">불러오는 중…</div></div>';
-            const res = s.pi.result, v = res && res.verdict;
+            if (!working && !done) return '<div class="piwrap"><div class="bhead">공정검사 <span class="pinm">' + esc(s.pi_form_name || '') +
+                (+s.pi_total > 1 ? ' 외 ' + (s.pi_total - 1) + '건' : '') + '</span><span class="ln"></span></div>' +
+                '<div class="pinote">작업을 시작하면 공정검사를 입력할 수 있습니다. 모두 합격해야 완료됩니다.</div></div>';
+            if (!s.pis || !s.pis.length) return '<div class="piwrap"><div class="bhead">공정검사<span class="ln"></span></div><div class="pinote">불러오는 중…</div></div>';
+            return s.pis.map((pd, k) => piForm(s, i, k, pd)).join('');
+        }
+        function piForm(s, i, k, pd) {
+            const working = s.state === 'working', done = s.state === 'done', n = s.pis.length;
+            const head = '<div class="bhead">공정검사 ' + (n > 1 ? '(' + (k + 1) + '/' + n + ') ' : '') +
+                '<span class="pinm">' + esc((pd.form && pd.form.form_name) || '') + '</span><span class="ln"></span>';
+            const res = pd.result, v = res && res.verdict, key = i + ',' + k;
             const vals = {};
-            (s.pi.values || []).forEach(x => { vals[x.item_id] = x; });
-            const editable = working && !v;   // 확정 전·작업중에만 입력
+            (pd.values || []).forEach(x => { vals[x.item_id] = x; });
+            const editable = working && !v;
             let btns = '';
             if (working) {
                 if (!res) btns = '';
-                else if (v === 'fail') btns = '<button class="sbtn2 go" data-pistart="' + i + '">재검사</button>';
-                else if (v === 'pass') btns = '<button class="sbtn2 ghost" data-pirevise="' + i + '">판정 수정</button>';
-                else {   // 진행중 — 합격만이면 자동 확정되므로, 여기 남는 건 불합격 항목이 있을 때
-                    const vv = s.pi.values || [];
-                    const anyFail = (s.pi.items || []).some(it => (vv.find(x => +x.item_id === +it.item_id) || {}).result === 'fail');
-                    btns = anyFail ? '<button class="sbtn2 done" data-pijudge="' + i + '" style="background:#c0392b;border-color:#c0392b">불합격 확정</button>' : '';
+                else if (v === 'fail') btns = '<button class="sbtn2 go" data-pistart="' + key + '">재검사</button>';
+                else if (v === 'pass') btns = '<button class="sbtn2 ghost" data-pirevise="' + key + '">판정 수정</button>';
+                else {
+                    const vv = pd.values || [];
+                    const anyFail = (pd.items || []).some(it => (vv.find(x => +x.item_id === +it.item_id) || {}).result === 'fail');
+                    btns = anyFail ? '<button class="sbtn2 done" data-pijudge="' + key + '" style="background:#c0392b;border-color:#c0392b">불합격 확정</button>' : '';
                 }
             }
             const vb = v === 'pass' ? '<span class="sntag ok">합격' + (res.try_no > 1 ? ' · ' + res.try_no + '차' : '') + '</span>'
                 : v === 'fail' ? '<span class="sntag miss">불합격 · ' + res.try_no + '차</span>'
                     : res ? '<span class="sntag pi">' + res.try_no + '차 진행중</span>' : '';
-            const items = (s.pi.items || []).map(it => {
+            const items = (pd.items || []).map(it => {
                 const cur = vals[it.item_id] || {}, rr = cur.result;
                 return '<div class="pirow">' +
                     '<div class="pitx"><div class="pin">' + it.seq_no + '. ' + esc(it.item_name || '') + '</div>' +
                     (it.method ? '<div class="pim">방법 · ' + esc(it.method) + '</div>' : '') +
                     (it.criteria ? '<div class="pim">기준 · ' + esc(it.criteria) + '</div>' : '') + '</div>' +
                     '<div class="piact">' +
-                    '<input class="pival" data-pival="' + i + ',' + it.item_id + '" value="' + esc(cur.value || '') + '" placeholder="측정값"' + (editable ? '' : ' disabled') + '>' +
-                    '<button class="piok' + (rr === 'pass' ? ' on' : '') + '" data-pires="' + i + ',' + it.item_id + ',pass"' + (editable || (working && !res) ? '' : ' disabled') + '>합격</button>' +
-                    '<button class="ping' + (rr === 'fail' ? ' on' : '') + '" data-pires="' + i + ',' + it.item_id + ',fail"' + (editable || (working && !res) ? '' : ' disabled') + '>불합격</button>' +
+                    '<input class="pival" data-pival="' + key + ',' + it.item_id + '" value="' + esc(cur.value || '') + '" placeholder="측정값"' + (editable ? '' : ' disabled') + '>' +
+                    '<button class="piok' + (rr === 'pass' ? ' on' : '') + '" data-pires="' + key + ',' + it.item_id + ',pass"' + (editable || (working && !res) ? '' : ' disabled') + '>합격</button>' +
+                    '<button class="ping' + (rr === 'fail' ? ' on' : '') + '" data-pires="' + key + ',' + it.item_id + ',fail"' + (editable || (working && !res) ? '' : ' disabled') + '>불합격</button>' +
                     '</div></div>';
             }).join('') || '<div class="pinote">검사 항목이 없습니다. 검사 화면 «양식» 에서 항목을 등록하세요.</div>';
-            const hist = (s.pi.history || []).filter(h => !res || h.try_no !== res.try_no)
+            const hist = (pd.history || []).filter(h => !res || h.try_no !== res.try_no)
                 .map(h => '<span class="pihist">' + h.try_no + '차 ' + (h.verdict === 'pass' ? '합격' : '불합격') +
                     (h.fail_reason ? ' (' + esc(h.fail_reason) + ')' : '') + '</span>').join('');
-            return '<div class="piwrap">' + head + vb + btns + '</div>' + items +
+            return '<div class="piwrap"' + (k > 0 ? ' style="margin-top:10px"' : '') + '>' + head + vb + btns + '</div>' + items +
                 (res && res.actor_name ? '<div class="pinote">검사자 ' + esc(res.actor_name) + (res.end_time ? ' · ' + shortT(res.end_time) : '') + '</div>' : '') +
                 (hist ? '<div class="pinote">이력 ' + hist + '</div>' : '') +
                 (done && !v ? '<div class="pinote">완료된 어셈블리 — 검사 기록 없음</div>' : '') + '</div>';
         }
         function piRefresh(i) { const s = stepIdx(i); loadPi(s); renderUnit(); openStep(i); }
-        async function piEnsure(s) {   // 회차가 없거나 불합격 뒤면 새 회차
-            const r = s.pi && s.pi.result;
+        async function piEnsure(P) {   // 회차가 없거나 불합격 뒤면 새 회차 (양식 지정)
+            const r = P.pi && P.pi.result;
             if (r && !r.verdict) return r.result_id;
-            const d = await apiPost('/pi_start', {step_id: s.step_id, actor_id: s.actor_id || '', spjangcd: CTX.spjangcd});
+            const d = await apiPost('/pi_start', {step_id: P.step_id, actor_id: P.actor_id || '', form_id: P.form_id || '', spjangcd: CTX.spjangcd});
             return d && d.result_id;
         }
-        /* ★ 전 항목이 «합격» 이면 판정 확정을 따로 누르지 않아도 자동 합격.
-              불합격 항목이 있으면 바로 확정하지 않는다(잘못 누른 것 고칠 여지) → «불합격 확정» 버튼으로 */
-        function piAllPass(s) {
-            const r = s.pi && s.pi.result, items = (s.pi && s.pi.items) || [], vals = (s.pi && s.pi.values) || [];
+        /* ★ 전 항목이 «합격» 이면 판정 확정을 따로 누르지 않아도 자동 합격 (양식마다) */
+        function piAllPass(P) {
+            const r = P.pi && P.pi.result, items = (P.pi && P.pi.items) || [], vals = (P.pi && P.pi.values) || [];
             if (!r || r.verdict || !items.length) return false;
             return items.every(it => (vals.find(x => +x.item_id === +it.item_id) || {}).result === 'pass');
         }
-        async function piAutoPass(s) {
-            if (!piAllPass(s)) return false;
-            const res = await apiPostSilent('/pi_judge', {result_id: s.pi.result.result_id, fail_reason: ''});
+        async function piAutoPass(P) {
+            if (!piAllPass(P)) return false;
+            const res = await apiPostSilent('/pi_judge', {result_id: P.pi.result.result_id, fail_reason: ''});
             if (res && res.success === false) { flash(res.message || '판정 실패'); return false; }
-            flash('공정검사 합격 ✓');
-            loadPi(s);
+            flash('공정검사 합격 ✓ · ' + ((P.pi.form && P.pi.form.form_name) || ''));
             return true;
+        }
+        function piReloadOne(s, k) {
+            const f = s.pis[k] && s.pis[k].form;
+            try { s.pis[k] = apiGet('/pi_detail', {step_id: s.step_id, form_id: f && f.form_id}) || s.pis[k]; } catch (e) {}
         }
         async function piTap(t) {
             const pr = t.closest('[data-pires]');
             if (pr) {
-                const [i, itemId, val] = pr.dataset.pires.split(',');
-                const s = stepIdx(+i);
+                const [i, k, itemId, val] = pr.dataset.pires.split(',');
+                const s = stepIdx(+i), P = piP(s, +k);
                 await guard(async () => {
-                    const rid = await piEnsure(s);
-                    const curV = ((s.pi && s.pi.values) || []).find(x => +x.item_id === +itemId) || {};
+                    const rid = await piEnsure(P);
+                    const curV = ((P.pi && P.pi.values) || []).find(x => +x.item_id === +itemId) || {};
                     const next = curV.result === val ? '' : val;   // 같은 버튼 다시 누르면 해제
-                    const inp = document.querySelector('[data-pival="' + i + ',' + itemId + '"]');
+                    const inp = document.querySelector('[data-pival="' + i + ',' + k + ',' + itemId + '"]');
                     const res = await apiPostSilent('/pi_item', {result_id: rid, item_id: itemId, result: next, value: inp ? inp.value : ''});
                     if (res && res.success === false) flash(res.message || '저장 실패');
-                    loadPi(s);
-                    await piAutoPass(s);   // ★ 전 항목 합격이면 판정까지 자동
-                    renderUnit(); openStep(+i);
+                    piReloadOne(s, +k);
+                    await piAutoPass(piP(s, +k));   // ★ 전 항목 합격이면 판정까지 자동
+                    loadPi(s); renderUnit(); openStep(+i);
                 });
                 return true;
             }
             const ps = t.closest('[data-pistart]');
-            if (ps) { const i = +ps.dataset.pistart, s = stepIdx(i);
-                await guard(async () => { await apiPost('/pi_start', {step_id: s.step_id, actor_id: s.actor_id || '', spjangcd: CTX.spjangcd}); piRefresh(i); });
+            if (ps) { const [i, k] = ps.dataset.pistart.split(',').map(Number), s = stepIdx(i), P = piP(s, k);
+                await guard(async () => { await apiPost('/pi_start', {step_id: s.step_id, actor_id: s.actor_id || '', form_id: P.form_id || '', spjangcd: CTX.spjangcd}); piRefresh(i); });
                 return true; }
             const pj = t.closest('[data-pijudge]');
-            if (pj) { const i = +pj.dataset.pijudge, s = stepIdx(i);
-                const vals = (s.pi && s.pi.values) || [];
-                const bad = (s.pi.items || []).filter(it => (vals.find(x => +x.item_id === +it.item_id) || {}).result === 'fail')
+            if (pj) { const [i, k] = pj.dataset.pijudge.split(',').map(Number), s = stepIdx(i), pd = s.pis[k];
+                const vals = (pd && pd.values) || [];
+                const bad = ((pd && pd.items) || []).filter(it => (vals.find(x => +x.item_id === +it.item_id) || {}).result === 'fail')
                     .map(it => it.item_name).join(', ');
                 await guard(async () => {
-                    await apiPost('/pi_judge', {result_id: s.pi.result.result_id, fail_reason: bad});
+                    await apiPost('/pi_judge', {result_id: pd.result.result_id, fail_reason: bad});
                     piRefresh(i);
                 });
                 return true; }
             const pv = t.closest('[data-pirevise]');
-            if (pv) { const i = +pv.dataset.pirevise, s = stepIdx(i);
-                await guard(async () => { await apiPost('/pi_revise', {result_id: s.pi.result.result_id}); piRefresh(i); });
+            if (pv) { const [i, k] = pv.dataset.pirevise.split(',').map(Number), s = stepIdx(i), pd = s.pis[k];
+                await guard(async () => { await apiPost('/pi_revise', {result_id: pd.result.result_id}); piRefresh(i); });
                 return true; }
             return false;
         }
         // 측정값 — 칸을 벗어나면 저장
         document.getElementById('cGrid').addEventListener('change', e => {
             const inp = e.target.closest('[data-pival]'); if (!inp) return;
-            const [i, itemId] = inp.dataset.pival.split(',').map(Number);
-            const s = stepIdx(i);
-            Promise.resolve(piEnsure(s)).then(rid => {
-                const curV = ((s.pi && s.pi.values) || []).find(x => +x.item_id === itemId) || {};
+            const [i, k, itemId] = inp.dataset.pival.split(',').map(Number);
+            const s = stepIdx(i), P = piP(s, k);
+            Promise.resolve(piEnsure(P)).then(rid => {
+                const curV = ((P.pi && P.pi.values) || []).find(x => +x.item_id === itemId) || {};
                 return apiPostSilent('/pi_item', {result_id: rid, item_id: itemId, result: curV.result || '', value: inp.value.trim()})
                     .then(res => {
                         if (res && res.success === false) { flash(res.message || '저장 실패'); return; }
-                        if (!s.pi.result) { loadPi(s); return; }
-                        const v = (s.pi.values = s.pi.values || []).find(x => +x.item_id === itemId);
-                        if (v) v.value = inp.value.trim(); else s.pi.values.push({item_id: itemId, value: inp.value.trim()});
+                        if (!P.pi || !P.pi.result) { piReloadOne(s, k); return; }
+                        const v = (P.pi.values = P.pi.values || []).find(x => +x.item_id === itemId);
+                        if (v) v.value = inp.value.trim(); else P.pi.values.push({item_id: itemId, value: inp.value.trim()});
                     });
             }).catch(err => flash((err && err.message) || '저장 실패'));
         });
@@ -1377,9 +1416,12 @@
         /* 스텝 완료 — 편집한 투입자재를 bom_json 으로 전송 */
         async function finishStep(i) {
             const s = stepIdx(i);
-            if (s.pi_form_id && s.pi_verdict !== 'pass' && piAllPass(s)) await piAutoPass(s);
+            if (s.pi_form_id && s.pis && s.pis.length) {   // 양식마다 전 항목 합격이면 자동 확정
+                for (let k = 0; k < s.pis.length; k++) if (piAllPass(piP(s, k))) await piAutoPass(piP(s, k));
+                loadPi(s);
+            }
             if (s.pi_form_id && s.pi_verdict !== 'pass') {   // ★ 공정검사 합격해야 완료
-                flash('공정검사 합격 후 완료할 수 있습니다');
+                flash('공정검사' + (+s.pi_total > 1 ? ' ' + s.pi_total + '건 모두' : '') + ' 합격 후 완료할 수 있습니다');
                 if (s.mats == null) await loadStepMats(i); else { loadPi(s); renderUnit(); }
                 openStep(i); return;
             }
@@ -1561,11 +1603,11 @@
             wlotI = i; mlotT = null; dlPick = false;
             const s = stepIdx(i);
             await guard(async () => {
-                const lots = await apiGet('/wip_lots', {material_id: s.mat_id, store_id: CTX.outStore}) || [];
+                const lots = await apiGet('/wip_lots', {material_id: s.mat_id}) || [];   // ★ 생산창고 + 검사완료창고(미리 조립·검사한 예비 모듈)
                 document.getElementById('wlotTitle').textContent = s.mat_name + ' · 재고 로트 선택';
                 document.getElementById('wlotList').innerHTML = lots.map((l, k) =>
                         '<div class="prow ' + (+l.mat_lot_id === +s.stock_lot_id ? 'added' : '') + '" data-wl="' + l.mat_lot_id + '">' +
-                        '<div class="pid"><div class="pnm">' + esc(l.lot_number) + '</div><div class="pcode">' + esc(s.mat_code) + ' · ' + esc(l.input_time || '') + '</div></div>' +
+                        '<div class="pid"><div class="pnm">' + esc((l.serial_no && !/^SN-/i.test(l.serial_no)) ? l.serial_no : l.lot_number) + '</div><div class="pcode">' + esc(s.mat_code) + ' · ' + esc(l.store_name || '') + ' · ' + esc(l.input_time || '') + '</div></div>' +
                         (k === 0 ? '<span class="fifo">FIFO</span>' : '') +
                         '<div class="pr"><div class="pl">가용</div>' + l.stock + '</div>' +
                         '<div class="pchk">' + (+l.mat_lot_id === +s.stock_lot_id ? '✓' : '＋') + '</div></div>').join('')
@@ -2165,7 +2207,9 @@
             ['pointerup', 'pointercancel', 'touchend', 'touchcancel', 'mouseup', 'blur'].forEach(function (ev) {
                 window.addEventListener(ev, stop, true);
             });
-            document.addEventListener('visibilitychange', function () { if (document.hidden) stop(); });
+            document.addEventListener('visibilitychange', function () {
+                if (document.hidden) stop();
+            });
 
             // 위에서 이미 처리한 탭의 진짜 click 은 삼킨다
             window.addEventListener('click', function (e) {
@@ -2194,7 +2238,9 @@
                 if (e.pointerType === 'mouse') return;          // 마우스는 click 이 정상 동작
                 var b = e.target && e.target.closest ? e.target.closest('button') : null;
                 if (!b || b.disabled || b.closest(SKIP)) return;
-                tapBtn = b; tx = e.clientX; ty = e.clientY;
+                tapBtn = b;
+                tx = e.clientX;
+                ty = e.clientY;
             }, true);
             window.addEventListener('pointerup', function (e) {
                 var b = tapBtn;

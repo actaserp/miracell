@@ -123,6 +123,36 @@
         var x = l.filter(function (y) { return +y.seq_no === n; })[0] || l[n - 1] || (n > 1 ? null : l[0]);
         return x ? x.part_lot : '';
     }
+    var CHK_MARKS = [], KEEP_HT = {};   // KEEP_HT : 원래 여러 줄인 양식 칸 — 행 높이를 늘리지 않는다
+    /* 양식 원래 글자에서 «□ 라벨» 을 찾아 ☑/☒ 로 바꾼다 (한 칸에 여러 줄 체크박스가 있다) */
+    /* ★ 포장 «재공품» 체크 (#200-3·#200-4 / #240-4·#240-5) — 양식 D열 «재공품» 줄의 E칸(원래 «-»)에 입력값 + ☑.
+         국내/해외는 그 줄이 속한 공정명(C열 «Packing (국내)» / «(해외)»)으로 고른다 */
+    function wipFill(T, D, cells) {
+        var ch = ((D.pack && D.pack.checks) || []).filter(function (x) { return /\uc7ac\uacf5\ud488/.test(x.item_name || ''); });
+        if (!ch.length) return;
+        var rows = {};
+        Object.keys(T).forEach(function (ref) {
+            var m = /^([A-Z]+)(\d+)$/.exec(ref); if (m) (rows[+m[2]] = rows[+m[2]] || {})[m[1]] = T[ref];
+        });
+        var proc = '';
+        Object.keys(rows).map(Number).sort(function (a, b) { return a - b; }).forEach(function (r) {
+            var row = rows[r];
+            if (row.C) proc = String(row.C);
+            if (!/^\s*\uc7ac\uacf5\ud488\s*$/.test(String(row.D || ''))) return;
+            var dest = /\ud574\uc678/.test(proc) ? '\ud574\uc678' : (/\uad6d\ub0b4/.test(proc) ? '\uad6d\ub0b4' : '');
+            var x = ch.filter(function (c) { return !dest || (c.item_name || '').indexOf(dest) >= 0; })[0];
+            if (!x || x.result === 'na' || !x.result) return;
+            var wv = String(x.value || '').trim() || equipNo(D) || ((D.unit && D.unit.lot_number) || '');   // 비었으면 본체 장비번호
+            cells['E' + r] = (wv ? wv + ' ' : '') + (x.result === 'pass' ? '\u2611' : '\u2612');
+        });
+    }
+    function applyChk(T, cells) {
+        CHK_MARKS.forEach(function (c) {
+            var txt = cells[c.cell] != null ? cells[c.cell] : (T[c.cell] || '');
+            var re = new RegExp('[\u25A1\u2610]\\s*' + c.label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+            if (re.test(txt)) { cells[c.cell] = txt.replace(re, function (m0) { return c.mark + m0.slice(1); }); KEEP_HT[c.cell] = 1; }
+        });
+    }
     function finWho(fc) {   // ★ 최종검사자 = 체크에 기록된 검사자, 없으면 포장 작업자
         var a = (fc || []).filter(function (x) { return x.actor_name; })[0];
         return a ? a.actor_name : '';
@@ -140,10 +170,22 @@
     function pcm(v) { if (!v) return {}; if (typeof v === 'object') return v; try { return JSON.parse(v); } catch (e) { return {}; } }
     function arr(v) { return v == null ? [] : (Array.isArray(v) ? v : [v]); }
     /* \u2605 \uc131\uc801\uc11c \ubc88\ud638 = \uc7a5\ube44\ubc88\ud638(S/N) \ub05d 6\uc790\ub9ac (\uc608: M4FO10010091 \u2192 010091). S/N \uc5c6\uc73c\uba74 \ub85c\ud2b8\ubc88\ud638 */
+    /* ★ 최종 장비번호 = 포장 공정에서 스캔한 제품 라벨 Lot No.(예: M4FO10010091).
+         포장 전이면 조립 화면에서 직접 넣은 번호(임시 SN- 제외), 그것도 없으면 없음 */
+    function equipNo(D) {
+        var bl = String((D.pack && D.pack.box_label) || '').trim();
+        if (bl) return bl;
+        var sn = String((D.unit && D.unit.serial_no) || '').trim();
+        return (sn && !/^SN-/i.test(sn)) ? sn : '';
+    }
+    /* 성적서 번호 = 장비번호 뒤 6자리 (예: M4FO10010091 → 010091). 장비번호 부여 전이면 비운다 */
     function refNo(D) {
-        var sn = String((D.unit && D.unit.serial_no) || '').replace(/\s/g, '');
-        if (sn && !/^SN-/i.test(sn)) return sn.length > 6 ? sn.slice(-6) : sn;
-        return '';   // ★ 최종 장비번호(S/N) 부여 전에는 성적서 번호를 비워 둔다 (임시 SN-xxx · 로트번호 쓰지 않음)
+        var n = equipNo(D).replace(/\s/g, '');
+        return n.length > 6 ? n.slice(-6) : n;
+    }
+    /* 문서 머리 «Lot No.» = 장비번호. 부여 전이면 MES 유닛 로트 */
+    function docLot(D) {
+        return equipNo(D) || ((D.unit && D.unit.lot_number) || '');
     }
     function refTxt(prefix, D) { var n = refNo(D); return n ? prefix + n : ''; }
     function verOf(doc, model, D) { return (D.doc_ver || {})[model + '|' + doc] || null; }
@@ -153,7 +195,7 @@
         if (ver && ver.map_json) { var vm = pcm(ver.map_json); if (Array.isArray(vm)) src = vm; }
         var forms = src.filter(function (f) { return f.doc_code === doc && (!f.model || f.model === model); });
         if (!forms.length) return null;
-        var lot = D.unit.lot_number || '', c = {};
+        var lot = docLot(D), c = {};
         function put(ref, v) { if (ref && v != null && v !== '') c[String(ref).toUpperCase()] = String(v); }
         forms.forEach(function (f) {
             var h = pcm(f.cell_map);
@@ -179,12 +221,24 @@
                 });
             }
             if (doc === 'F803-8') {
-                var ch = packChecks(D, f.form_code);
+                var ch = packChecks(D, f.form_code), rank = {};
+                /* ★ 한 칸(판정)을 여러 항목이 같이 쓰면(예: #20-3 ① 영문 라벨 · ② 취급주의 · ③ 배터리 라벨)
+                     하나라도 불합격이면 불합격, 하나라도 합격이면 합격, 전부 해당없음이면 해당없음 */
+                var RK = {fail: 3, pass: 2, na: 1};
                 items.forEach(function (it) {
                     var m = pcm(it.cell_map), res = ch.filter(function (x) { return +x.seq_no === +it.seq_no; })[0];
                     if (!res) return;
-                    put(arr(m.val)[0], res.value); put(arr(m.judge)[0], judgeTxt(res.result));
-                    put(arr(m.date)[0], D.pack && D.pack.end_date); put(arr(m.who)[0], D.pack && D.pack.actor_name);
+                    var jr = arr(m.judge)[0], r = RK[res.result] || 0;
+                    if (jr && (rank[jr] || 0) <= r) { put(jr, judgeTxt(res.result)); rank[jr] = r; }
+                    if (res.value && !m.chk) put(arr(m.val)[0], res.value);
+                    /* ★ 검사결과 칸의 «□ 제품명» 같은 체크박스 — 합격이면 ☑, 불합격이면 ☒ (해당없음은 그대로 □)
+                         chk.label 이 "@value" 면 입력값(예: 220V)을 그 칸에서 찾아 체크 */
+                    if (m.chk && m.chk.cell && (res.result === 'pass' || res.result === 'fail')) {
+                        var lb = m.chk.label === '@value' ? String(res.value || '').trim() : m.chk.label;
+                        if (lb) CHK_MARKS.push({cell: String(m.chk.cell).toUpperCase(), label: lb, mark: res.result === 'pass' ? '\u2611' : '\u2612'});
+                    }
+                    put(arr(m.date)[0], D.pack && D.pack.end_date);
+                    put(arr(m.who)[0], res.actor_name || (D.pack && D.pack.actor_name));   // 최종검사자(포장 작업자와 별도)
                 });
             }
             if (doc === 'F705-33') { CUR_D = D;
@@ -250,6 +304,41 @@
                         });
                         fillList(arr(m.sns).filter(function (ref) { return !snMat[ref]; }),
                             snList.filter(function (x) { return !usedS[x.mat_id + '/' + x.seq_no]; }).map(function (x) { return 'S/N ' + x.serial_no; }), put);
+                    } else if (k === 'label1') {
+                        /* ★ Labelling 1 (M4A #180 · M2/M4 #220) — 라벨 부착 수량은 바로 뒤 «Labelling1 공정검사»(#185 · #225)에서
+                             세어 입력한다. 그 검사의 라벨 항목 값을 순서대로 «12 EA ☑» 로 넣고, 날짜·작업자도 그 검사 것으로 */
+                        /* ① 포장 체크의 «Lablelling 1 ·» 항목 (포장 화면에서 확인) */
+                        var lpk = ((D.pack && D.pack.checks) || []).filter(function (x) { return /Lablelling 1 \u00b7/.test(x.item_name || ''); });
+                        if (lpk.length) {
+                            ptr.label1p = ptr.label1p || 0;
+                            arr(m.eas).forEach(function (ref, q) {
+                                var x = lpk[ptr.label1p++];
+                                if (!x) return;
+                                var mv = /^\s*(\d+)\s*(ea|\uac1c)?\s*$/i.exec(String(x.value || ''));
+                                var nn = mv ? mv[1] : '';
+                                if (!nn && x.result === 'pass') { var me = /(\d+)\s*EA\s*$/i.exec(x.item_name || ''); if (me) nn = me[1]; }
+                                put(ref, (nn ? nn + ' EA ' : '______EA ') + (x.result === 'pass' ? '\u2611' : (x.result === 'fail' ? '\u2612' : '\u2610')));
+                                if (q === 0) { var rw0 = String(ref).replace(/^[A-Z]+/, ''); put('G' + rw0, D.pack.end_date); put('I' + rw0, x.actor_name || D.pack.actor_name); }
+                            });
+                            return;
+                        }
+                        /* ② 없으면(예전 박스) 조립 #185 Labelling1 공정검사 결과 */
+                        var lp = (D.proc_insp || []).filter(function (x) { return /label/i.test(x.form_name || '') && x.verdict; })[0];
+                        if (lp) {
+                            var litems = (lp.items || []).filter(function (x) { return /label|라벨|스티커/i.test(x.item_name || ''); });
+                            ptr.label1 = ptr.label1 || 0;
+                            arr(m.eas).forEach(function (ref, q) {
+                                var x = litems[ptr.label1++];
+                                if (!x) return;
+                                /* 측정값이 숫자(예: 12, 12EA, 12개)일 때만 수량으로 쓴다. «1. Labelling1» 같은 글자에서 숫자를 뽑으면 1.1 이 된다.
+                                   숫자가 없고 합격이면 검사 기준의 수량(«스티커 - 12개»)을 쓴다 — 합격 = 기준 수량대로 붙였다 */
+                                var mv = /^\s*(\d+)\s*(ea|개)?\s*$/i.exec(String(x.value || ''));
+                                var n = mv ? mv[1] : '';
+                                if (!n && x.result === 'pass') { var mc = String(x.criteria || '').match(/(\d+)\s*개/g); if (mc) n = mc[mc.length - 1].replace(/\D/g, ''); }
+                                put(ref, (n ? n + ' EA ' : '______EA ') + (x.result === 'pass' ? '\u2611' : (x.result === 'fail' ? '\u2612' : '\u2610')));
+                                if (q === 0) { var rw = String(ref).replace(/^[A-Z]+/, ''); put('G' + rw, lp.end_date); put('I' + rw, lp.actor_name); }
+                            });
+                        }
                     } else if (k === 'pinsp') {
                         put(m.ref, refTxt('\uacf5\uc815-', D));
                         var p = procForm(D, m.form);
@@ -269,7 +358,7 @@
                         }
                     } else if (k === 'pack') {
                         // \u2605 \uc7ac\uacf5\ud488 \uccb4\ud06c\ub294 \uc5d1\uc140\uc5d0 \uce78\uc774 \uc5c6\ub2e4(\u00ab-\u00bb) \u2014 \uc21c\uc11c\ub300\ub85c \uce78\uc744 \ucc44\uc6b8 \ub54c \ube7c\uc57c \ub4a4 \uce78\uc774 \ubc00\ub9ac\uc9c0 \uc54a\ub294\ub2e4
-                        var pc = packChecks(D, m.form).filter(function (x) { return !/\uc7ac\uacf5\ud488/.test(x.item_name || ''); });
+                        var pc = packChecks(D, m.form).filter(function (x) { return !/\uc7ac\uacf5\ud488/.test(x.item_name || '') && !/Lablelling 1 \u00b7/.test(x.item_name || ''); });
                         if (pc.length && D.pack) { put(m.date, D.pack.end_date); put(m.who, D.pack.actor_name); }
                         ptr[m.form] = ptr[m.form] || 0;
                         arr(m.eas).forEach(function (ref) {
@@ -298,7 +387,7 @@
         if (g && Object.keys(g).length) return g;
         // \u2605 \ub0b4\uc7a5 \uce78 \uc704\uce58\uac00 \uc5c6\uc73c\uba74 \ube48 \uc591\uc2dd \uadf8\ub300\ub85c
         if (!layoutOf(model, doc).groups && !layoutOf(model, doc).lot) return g || {};
-        var L = layoutOf(model, doc), lot = D.unit.lot_number || '', c = {};
+        var L = layoutOf(model, doc), lot = docLot(D), c = {};
         function put(ref, v) { if (ref && v != null && v !== '') c[ref] = String(v); }
 
         if (doc === 'F803-6') {
@@ -350,7 +439,7 @@
         if (doc === 'F705-33') {
             put(L.lot, lot);
             var used = {}, steps = (D.steps || []).filter(function (s) { return s.state === 'done' || s.source === 'stock'; });
-            var packItems = packChecks(D, 'FP-' + model + '-PACK'), pk = 0;
+            var packItems = packChecks(D, 'FP-' + model + '-PACK').filter(function (x) { return !/\uc7ac\uacf5\ud488/.test(x.item_name || '') && !/Lablelling 1 \u00b7/.test(x.item_name || ''); }), pk = 0;
             var allFinal = (D.final_insp || []), finalPass = allFinal.length && allFinal.every(function (x) { return x.verdict === 'pass'; });
             var fChecks = packChecks(D, 'FP-ALL-FINAL');
             L.blocks.forEach(function (b) {
@@ -426,17 +515,20 @@
     /* \u2605 \uae00\uc790 \uc798\ub9bc \ubc29\uc9c0 \u2014 \uac12\uc744 \uc4f4 \uce78\uc758 \uc11c\uc2dd\uc744 \ubcf5\uc81c\ud574 \u00ab\uc140\uc5d0 \ub9de\ucda4(shrinkToFit)\u00bb \uc744 \ucf20\ub2e4.
          \uc6d0\ubcf8 \uc11c\uc2dd(\ud14c\ub450\ub9ac\u00b7\uae00\uaf34)\uc740 \uadf8\ub300\ub85c \ub450\uace0 \ub9de\ucda4\ub9cc \ubc14\uafbc \uc0c8 \uc11c\uc2dd\uc744 \ucd94\uac00\ud574 \uadf8 \uce78\uc5d0\ub9cc \uac74\ub2e4. */
     var STY = null;
-    function shrinkStyle(sIdx) {
+    function shrinkStyle(sIdx, wrap, shrink, center) {
         if (!STY) return sIdx;
-        var k = String(sIdx || 0);
+        var k = (wrap ? 'w' : (shrink === false ? 'c' : '')) + (center === false ? 'L' : '') + String(sIdx || 0);
         if (STY.map[k] != null) return STY.map[k];
         var xfs = STY.cellXfs.getElementsByTagNameNS(STY.ns, 'xf');
-        var src = xfs[+k] || xfs[0];
+        var src = xfs[+String(sIdx || 0)] || xfs[0];
         var nx = src.cloneNode(true);
         var al = nx.getElementsByTagNameNS(STY.ns, 'alignment')[0];
         if (!al) { al = STY.doc.createElementNS(STY.ns, 'alignment'); nx.appendChild(al); }
-        al.setAttribute('shrinkToFit', '1');
-        al.removeAttribute('wrapText');
+        if (wrap) { al.setAttribute('wrapText', '1'); al.removeAttribute('shrinkToFit'); }   // 두 줄(LOT / S/N)
+        else if (shrink !== false) { al.setAttribute('shrinkToFit', '1'); al.removeAttribute('wrapText'); }
+        /* ★ 양식 칸에 정렬이 안 정해져 있으면(일반) 가운데로 — 같은 열인데 줄마다 왼쪽·가운데가 섞여 보였다 */
+        var h = al.getAttribute('horizontal');
+        if (center !== false && (!h || h === 'general')) al.setAttribute('horizontal', 'center');
         if (!al.getAttribute('vertical')) al.setAttribute('vertical', 'center');
         nx.setAttribute('applyAlignment', '1');
         STY.cellXfs.appendChild(nx);
@@ -445,6 +537,7 @@
         STY.map[k] = idx;
         return idx;
     }
+    var TALL = (typeof WeakSet !== 'undefined') ? new WeakSet() : {has: function () { return false; }, add: function () {}};
     function setCell(xml, sheetData, ref, text) {
         var ns = sheetData.namespaceURI, p = splitRef(ref);
         var rows = sheetData.getElementsByTagNameNS(ns, 'row'), row = null, before = null;
@@ -470,7 +563,13 @@
             row.insertBefore(cell, cb);
         }
         while (cell.firstChild) cell.removeChild(cell.firstChild);   // \uc218\uc2dd\u00b7\uac12 \uc81c\uac70
-        if (STY && String(text).length > 6) cell.setAttribute('s', shrinkStyle(cell.getAttribute('s')));
+        var two = String(text).indexOf('\n') >= 0;
+        // 긴 글(«Lot No. : …» 머리칸 등)은 양식 정렬 그대로, 짧은 값(판정·날짜·검사자·LOT)은 가운데
+        if (STY) cell.setAttribute('s', shrinkStyle(cell.getAttribute('s'), two, two || String(text).length > 6, two || String(text).length <= 24));
+        if (two && !KEEP_HT[ref]) {   // ★ 두 줄이면 행 높이를 늘린다 (양식의 «LOT / S/N» 두 줄 모양)
+            var ht = parseFloat(row.getAttribute('ht') || '15');
+            if (!TALL.has(row)) { row.setAttribute('ht', String(Math.max(ht * 1.8, 30))); row.setAttribute('customHeight', '1'); TALL.add(row); }
+        }
         cell.setAttribute('t', 'inlineStr');
         var is = xml.createElementNS(ns, 'is'), t = xml.createElementNS(ns, 't');
         t.setAttributeNS('http://www.w3.org/XML/1998/namespace', 'xml:space', 'preserve');
@@ -536,7 +635,7 @@
             var m = /^([A-Z]+)(\d+)$/.exec(ref); if (!m) return;
             (rows[+m[2]] = rows[+m[2]] || {})[m[1]] = T[ref];
         });
-        var used = {}, cur = null;
+        var used = {}, cur = null, lotCell = {};
         function lotOf(rc) {
             var e = K[rc], n = used[rc + 'L'] = (used[rc + 'L'] || 0) + 1;
             if (!e) return null;
@@ -557,12 +656,22 @@
             if (!cur || E == null) return;
             var isSn = /S\s*\/\s*N|MR\d|MB[MS]\d/i.test(E), isLot = /LOT/i.test(E);
             if (!isSn && !isLot) return;
-            var ref = 'E' + r, lot = null, sn = null;
-            if (isLot) lot = lotOf(cur.codes[Math.min(cur.li++, cur.codes.length - 1)]);
+            var ref = 'E' + r, lot = null, sn = null, lc = null;
+            if (isLot) { lc = cur.codes[Math.min(cur.li++, cur.codes.length - 1)]; lot = lotOf(lc); }
             if (isSn) sn = snOf(cur.codes[Math.min(cur.si++, cur.codes.length - 1)]);
+            if (isLot && !isSn && lc && !lotCell[lc]) lotCell[lc] = {ref: ref, tpl: E};
             if (lot == null && sn == null) { cells[ref] = E; return; }          // 값 없음 → 양식 글자 그대로
-            if (isLot && isSn) cells[ref] = 'LOT ' + (lot || '______') + ' / S/N ' + (sn || '______');
+            if (isLot && isSn) cells[ref] = 'LOT ' + (lot || '______') + '\nS/N ' + (sn || '______');   // 양식 칸이 원래 두 줄(LOT / S/N)
             else cells[ref] = isLot ? 'LOT ' + lot : (/B\/T/i.test(E) ? 'B/T S/N ' : 'S/N ') + sn;
+        });
+        /* ★ 주요자재는 조립 때 LOT·S/N 을 둘 다 받는다(5차 #2). 양식 줄에 S/N 칸이 없는 자재(R2042 모니터 등)에
+             S/N 이 입력돼 있으면, 그 자재의 LOT 칸에 «LOT x / S/N y» 로 같이 적는다 */
+        Object.keys(lotCell).forEach(function (rc) {
+            var e = K[rc], used_ = used[rc + 'S'] || 0;
+            if (!e || e.sn.length <= used_) return;
+            var rest = e.sn.slice(used_).join(', '), c = lotCell[rc];
+            var lotTxt = cells[c.ref] && cells[c.ref] !== c.tpl ? cells[c.ref] : 'LOT ______';
+            cells[c.ref] = lotTxt + '\nS/N ' + rest;   // 양식처럼 LOT 아래 줄에 S/N
         });
     }
     function ser(d) { return new XMLSerializer().serializeToString(d); }
@@ -613,16 +722,18 @@
                         for (var j = ov.length - 1; j >= 0; j--) if (/calcChain/.test(ov[j].getAttribute('PartName'))) ov[j].parentNode.removeChild(ov[j]);
                         zip.file('[Content_Types].xml', ser(c));
                         return Promise.all([zip.file(path).async('string'),
-                            (doc === 'F705-33' && zip.file('xl/sharedStrings.xml')) ? zip.file('xl/sharedStrings.xml').async('string') : null]);
+                            ((doc === 'F705-33' || doc === 'F803-8') && zip.file('xl/sharedStrings.xml')) ? zip.file('xl/sharedStrings.xml').async('string') : null]);
                     }).then(function (a2) {
                         var sx = a2[0], xml = parse(sx), sd = xml.getElementsByTagName('sheetData')[0];
-                        var TPL = (doc === 'F705-33') ? readCells(sd, a2[1] ? parse(a2[1]) : null) : null;   // ★ 양식 원래 글자 (R-품번 읽기용)
+                        var TPL = (doc === 'F705-33' || doc === 'F803-8') ? readCells(sd, a2[1] ? parse(a2[1]) : null) : null;   // ★ 양식 원래 글자 (R-품번 읽기용)
                         // \uc591\uc2dd\uc5d0 \ub0a8\uc544 \uc788\ub358 \uc218\uc2dd \uc624\ub958(#VALUE!) \uce78\uc740 \ube44\uc6b4\ub2e4
                         Array.prototype.slice.call(sd.getElementsByTagNameNS(sd.namespaceURI, 'c')).forEach(function (c) {
                             if (c.getAttribute('t') === 'e') { while (c.firstChild) c.removeChild(c.firstChild); c.removeAttribute('t'); }
                         });
+                        CHK_MARKS = []; KEEP_HT = {};
                         var cells = cellsFor(doc, model, D);
-                        if (TPL) rcodeFill(TPL, D, cells);
+                        if (TPL && doc === 'F705-33') { rcodeFill(TPL, D, cells); wipFill(TPL, D, cells); }
+                        if (TPL && doc === 'F803-8') applyChk(TPL, cells);
                         return zip.file('xl/styles.xml').async('string').then(function (stx) {
                             var sdoc = parse(stx), cx = sdoc.getElementsByTagName('cellXfs')[0];
                             STY = cx ? {doc: sdoc, ns: cx.namespaceURI, cellXfs: cx, map: {}} : null;
@@ -729,8 +840,8 @@
     function printHtml(doc, model, D) {
         var u = D.unit, h = '';
         var head = '<h1>' + esc(DOC_NAMES[doc]) + ' <small>' + doc + ' \u00b7 ' + esc(model) + '</small></h1>' +
-            '<table class="hd"><tr><th>\ubaa8\ub378</th><td>' + esc(u.mat_name) + '</td><th>Lot No.</th><td>' + esc(u.lot_number) + '</td>' +
-            '<th>\uc131\uc801\uc11c \ubc88\ud638</th><td>' + ({'F803-6': '\uacf5\uc815-', 'F803-7': '\uc644\uc81c\ud488-', 'F803-8': '\ucd5c\uc885-', 'F705-33': ''}[doc]) + esc(u.lot_number) + '</td></tr></table>';
+            '<table class="hd"><tr><th>\ubaa8\ub378</th><td>' + esc(u.mat_name) + '</td><th>Lot No.</th><td>' + esc(docLot(D)) + '</td>' +
+            '<th>\uc131\uc801\uc11c \ubc88\ud638</th><td>' + ({'F803-6': '\uacf5\uc815-', 'F803-7': '\uc644\uc81c\ud488-', 'F803-8': '\ucd5c\uc885-', 'F705-33': ''}[doc]) + esc(refNo(D) || '-') + '</td></tr></table>';
         function tbl(cols, rows) {
             return '<table><tr>' + cols.map(function (c) { return '<th>' + c + '</th>'; }).join('') + '</tr>' +
                 (rows.length ? rows.map(function (r) { return '<tr>' + r.map(function (v) { return '<td>' + esc(v) + '</td>'; }).join('') + '</tr>'; }).join('')

@@ -70,8 +70,14 @@ public class McellDocService {
                   JOIN material m ON m.id = st."Material_id"
                   LEFT JOIN person pr ON pr.id = st."Actor_id"
                   LEFT JOIN mat_lot sl ON sl.id = st."StockMatLot_id"
-                 WHERE st."McellUnit_id" = :uid AND COALESCE(st."_status",'a') = 'a'
-                 ORDER BY st."Depth" DESC, st."SeqNo", st.id
+                 -- ★ 재고 투입한 예비 모듈(미리 조립한 로터 등)의 조립 기록도 같이 — 그 유닛의 스텝·공정검사·S/N 이 따라온다
+                 WHERE st."McellUnit_id" IN (SELECT CAST(:uid AS integer) UNION
+                    SELECT su.id FROM mcell_unit_step ss
+                      JOIN mat_lot sml ON sml.id = ss."StockMatLot_id"
+                      JOIN mcell_unit su ON su."LotNumber" = sml."LotNumber" AND su."Material_id" = sml."Material_id"
+                                        AND COALESCE(su."_status",'a') = 'a'
+                     WHERE ss."McellUnit_id" = :uid AND ss."Source" = 'stock' AND COALESCE(ss."_status",'a') = 'a') AND COALESCE(st."_status",'a') = 'a'
+                 ORDER BY (st."State" = 'done') DESC, st."Depth" DESC, st."SeqNo", st.id
                 """, p);
 		for (Map<String, Object> s : steps) {
 			Integer mpId = asInt(s.get("mp_id"));
@@ -99,7 +105,12 @@ public class McellDocService {
                 WITH RECURSIVE t(mp, step_id, depth) AS (
                     SELECT st."MatProduce_id", st.id, 0
                       FROM mcell_unit_step st
-                     WHERE st."McellUnit_id" = :uid AND st."MatProduce_id" IS NOT NULL AND COALESCE(st."_status",'a')='a'
+                     WHERE st."McellUnit_id" IN (SELECT CAST(:uid AS integer) UNION
+                    SELECT su.id FROM mcell_unit_step ss
+                      JOIN mat_lot sml ON sml.id = ss."StockMatLot_id"
+                      JOIN mcell_unit su ON su."LotNumber" = sml."LotNumber" AND su."Material_id" = sml."Material_id"
+                                        AND COALESCE(su."_status",'a') = 'a'
+                     WHERE ss."McellUnit_id" = :uid AND ss."Source" = 'stock' AND COALESCE(ss."_status",'a') = 'a') AND st."MatProduce_id" IS NOT NULL AND COALESCE(st."_status",'a')='a'
                     UNION
                     SELECT sl."SourceDataPk", st.id, 1
                       FROM mcell_unit_step st JOIN mat_lot sl ON sl.id = st."StockMatLot_id"
@@ -134,7 +145,12 @@ public class McellDocService {
                        s."McellUnitStep_id" AS step_id, s."LotNumber" AS lot_number,
                        s."PartLotNo" AS part_lot, NULLIF(m."RCode",'') AS r_code
                   FROM mcell_unit_sn s JOIN material m ON m.id = s."Material_id"
-                 WHERE s."McellUnit_id" = :uid AND COALESCE(s."_status",'a') = 'a'
+                 WHERE s."McellUnit_id" IN (SELECT CAST(:uid AS integer) UNION
+                    SELECT su.id FROM mcell_unit_step ss
+                      JOIN mat_lot sml ON sml.id = ss."StockMatLot_id"
+                      JOIN mcell_unit su ON su."LotNumber" = sml."LotNumber" AND su."Material_id" = sml."Material_id"
+                                        AND COALESCE(su."_status",'a') = 'a'
+                     WHERE ss."McellUnit_id" = :uid AND ss."Source" = 'stock' AND COALESCE(ss."_status",'a') = 'a') AND COALESCE(s."_status",'a') = 'a'
                  ORDER BY m."Name", s."SeqNo"
                 """, p));
 
@@ -147,12 +163,17 @@ public class McellDocService {
                   FROM mcell_proc_insp x
                   JOIN insp_form f ON f.id = x."InspForm_id"
                   LEFT JOIN person pr ON pr.id = x."Actor_id"
-                 WHERE x."McellUnit_id" = :uid AND x."State" <> 'void' AND COALESCE(x."_status",'a') = 'a'
+                 WHERE x."McellUnit_id" IN (SELECT CAST(:uid AS integer) UNION
+                    SELECT su.id FROM mcell_unit_step ss
+                      JOIN mat_lot sml ON sml.id = ss."StockMatLot_id"
+                      JOIN mcell_unit su ON su."LotNumber" = sml."LotNumber" AND su."Material_id" = sml."Material_id"
+                                        AND COALESCE(su."_status",'a') = 'a'
+                     WHERE ss."McellUnit_id" = :uid AND ss."Source" = 'stock' AND COALESCE(ss."_status",'a') = 'a') AND x."State" <> 'void' AND COALESCE(x."_status",'a') = 'a'
                  ORDER BY x."McellUnitStep_id", x."InspForm_id", x."TryNo" DESC
                 """, p);
 		for (Map<String, Object> r : pis) {
 			r.put("items", this.sqlRunner.getRows("""
-                    SELECT i."SeqNo" AS seq_no, i."ItemName" AS item_name, v."Result" AS result, v."Value" AS value
+                    SELECT i."SeqNo" AS seq_no, i."ItemName" AS item_name, i."Criteria" AS criteria, v."Result" AS result, v."Value" AS value
                       FROM insp_form_item i
                       JOIN mcell_proc_insp x ON x."InspForm_id" = i."InspForm_id" AND x.id = :rid
                       LEFT JOIN mcell_proc_insp_item v ON v."ProcInsp_id" = x.id AND v."InspFormItem_id" = i.id
@@ -172,6 +193,11 @@ public class McellDocService {
                   JOIN insp_form f ON f.id = r."InspForm_id"
                   LEFT JOIN person pr ON pr.id = r."Actor_id"
                  WHERE r."McellUnit_id" = :uid AND COALESCE(f."InspType",'final') = 'final'
+                   -- ★ 지금 이 유닛 품목에 연결된(사용 중인) 양식만. 수리·사양변경 전 양식이나 연결 해제된 양식의
+                   --   예전 결과까지 세면 «검사 9/7» 처럼 전체보다 많이 나온다
+                   AND COALESCE(f."UseYN",'Y') = 'Y' AND COALESCE(f."_status",'a') = 'a'
+                   AND EXISTS (SELECT 1 FROM insp_form_mat fm JOIN mcell_unit mu ON mu.id = r."McellUnit_id"
+                                WHERE fm."InspForm_id" = f.id AND fm."Material_id" = mu."Material_id")
                  ORDER BY r."InspForm_id", r."TryNo" DESC
                 """, p);
 		for (Map<String, Object> r : fis) {
@@ -264,11 +290,12 @@ public class McellDocService {
                        (SELECT COUNT(*) FROM mcell_unit_step st
                          WHERE st."McellUnit_id" = :uid AND COALESCE(st."_status",'a')='a'
                            AND st."State" = 'done')                                             AS step_done,
+                       -- ★ 스텝 수가 아니라 «스텝 × 공정검사 양식» 수 (M4A 본체는 #175·#185 두 개) — 아니면 4/3 처럼 나온다
                        (SELECT COUNT(*) FROM mcell_unit_step st
-                         WHERE st."McellUnit_id" = :uid AND COALESCE(st."_status",'a')='a'
-                           AND EXISTS (SELECT 1 FROM insp_form f JOIN insp_form_mat fm ON fm."InspForm_id" = f.id
-                                        WHERE fm."Material_id" = st."Material_id" AND f."InspType" = 'process'
-                                          AND COALESCE(f."UseYN",'Y')='Y' AND COALESCE(f."_status",'a')='a'))  AS proc_total,
+                          JOIN insp_form_mat fm ON fm."Material_id" = st."Material_id"
+                          JOIN insp_form f ON f.id = fm."InspForm_id" AND f."InspType" = 'process'
+                                          AND COALESCE(f."UseYN",'Y')='Y' AND COALESCE(f."_status",'a')='a'
+                         WHERE st."McellUnit_id" = :uid AND COALESCE(st."_status",'a')='a')                  AS proc_total,
                        (SELECT COUNT(*) FROM insp_form f JOIN insp_form_mat fm ON fm."InspForm_id" = f.id
                          JOIN mcell_unit mu ON mu.id = :uid AND fm."Material_id" = mu."Material_id"
                          WHERE COALESCE(f."InspType",'final') = 'final'

@@ -285,6 +285,16 @@
             if(res.success === false) return null;
             return (res.data !== undefined) ? res.data : res;
         }
+        /* ★ 화면에 보이는 2공장 유닛 번호 — 최종(포장 라벨) > 임시 부여 번호(SN- 제외) > 내부 로트 */
+        function dispLot(o) {
+            if (!o) return '';
+            var lb = String(o.maker_lot_no || o.box_label || '').trim();
+            if (lb) return lb;
+            var sn = String(o.serial_no || '').trim();
+            if (sn && !/^SN-/i.test(sn)) return sn;
+            return o.lot_number || '';
+        }
+
         function esc(s){
             return (s==null?'':String(s)).replace(/[&<>"']/g, function(c){
                 return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
@@ -842,7 +852,7 @@
                     +   (x.parent_name ? '<br><span class="wl-code">→ '+esc(x.parent_name)+'</span>' : '')+'</td>'
                     + '<td>'+(top ? '<b>완성</b>' : 'L'+esc(x.depth))+'</td>'
                     + '<td class="left">'+esc(x.unit_mat_name||'-')+'</td>'
-                    + '<td><span class="wl-code">'+esc(x.lot_number||'-')+'</span></td>'
+                    + '<td><span class="wl-code">'+esc((top ? dispLot(x) : x.lot_number)||'-')+'</span></td>'
                     + '<td>'+esc(x.serial_no||('#'+(x.unit_no||'-')))+'</td>'
                     + '<td>'+(x.source==='stock'?'재고 투입':'조립')+'</td>'
                     + '<td>'+esc(x.worker||'-')+'</td><td>'+esc(x.equipment||'-')+'</td>'
@@ -871,7 +881,7 @@
                 const retry = Number(u.try_cnt||0) > Number(u.form_cnt||0);
                 return '<tr><td>'+hm(u.start_time)+' ~ '+hm(u.end_time)+'</td>'
                     + '<td class="left">'+esc(u.mat_name||'-')+'</td>'
-                    + '<td><span class="wl-code">'+esc(u.lot_number||'-')+'</span></td>'
+                    + '<td><span class="wl-code">'+esc(dispLot(u)||'-')+'</span></td>'
                     + '<td class="left">'+esc(u.form_names||'-')+'</td>'
                     + '<td>'+num(u.try_cnt)+(retry?'<span class="wl-code"> (재검사)</span>':'')+'</td>'
                     + '<td>'+esc(u.worker||'-')+'</td>'
@@ -895,7 +905,7 @@
                 const cat = (u.repair_cat==='return')?'반품':(u.repair_cat==='spec'?'사양변경':'-');
                 return '<tr><td>'+hm(u.start_time)+' ~ '+(running?'<span class="wl-run">작업중</span>':hm(u.end_time))+'</td>'
                     + '<td class="left">'+esc(u.mat_name||'-')+'</td>'
-                    + '<td><span class="wl-code">'+esc(u.lot_number||'-')+'</span></td>'
+                    + '<td><span class="wl-code">'+esc(dispLot(u)||'-')+'</span></td>'
                     + '<td><span class="wl-code">'+esc(u.src_lot||'-')+'</span></td>'
                     + '<td>'+cat+'</td>'
                     + '<td class="left">'+esc(u.repair_reason||'-')+'</td>'
@@ -920,7 +930,7 @@
                 return '<tr><td>'+hm(u.start_time)+' ~ '+(running?'<span class="wl-run">작업중</span>':hm(u.end_time))+'</td>'
                     + '<td class="left">'+esc(u.mat_name||'-')
                     +   (u.is_repair==='Y'?' <span class="wl-code">수리품</span>':'')+'</td>'
-                    + '<td><span class="wl-code">'+esc(u.lot_number||'-')+'</span></td>'
+                    + '<td><span class="wl-code">'+esc(dispLot(u)||'-')+'</span></td>'
                     + '<td><span class="wl-code">'+esc(u.maker_lot_no||'-')+'</span></td>'
                     + '<td>'+esc(u.serial_no||('#'+(u.unit_no||'-')))+'</td>'
                     + '<td><span class="wl-code">'+esc(u.wo||'-')+'</span></td>'
@@ -1013,10 +1023,10 @@
         }
 
         // =====================================================
-        document.addEventListener('DOMContentLoaded', function(){
+        document.addEventListener('DOMContentLoaded', function() {
             /* 기본은 오늘 ~ 오늘 — 일보는 그날치를 보는 문서가 기본이다 */
             const today = fmt(new Date());
-            document.getElementById('fDate').value  = today;
+            document.getElementById('fDate').value = today;
             document.getElementById('fDate2').value = today;
             document.getElementById('fDate').addEventListener('change', wlLoad);
             document.getElementById('fDate2').addEventListener('change', wlLoad);

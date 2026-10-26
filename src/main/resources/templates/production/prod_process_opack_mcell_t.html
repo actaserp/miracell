@@ -789,6 +789,17 @@
       if (!v) return '--:--';
       return (v.indexOf(' ') >= 0) ? (v.split(' ')[0].slice(5) + ' ' + v.split(' ')[1]) : v;
     }
+    /* ★ 화면에 보이는 유닛 번호 — 최종(포장 라벨) > 임시 부여 번호(SN- 제외) > 내부 로트.
+         내부 로트(MC4244-…)는 조회·저장에만 쓰고 화면에는 번호가 정해지면 안 보인다 */
+    function dispLot(o) {
+      if (!o) return '';
+      var lb = String(o.maker_lot_no || o.box_label || o.label_lot || '').trim();
+      if (lb) return lb;
+      var sn = String(o.serial_no || '').trim();
+      if (sn && !/^SN-/i.test(sn)) return sn;
+      return o.lot_number || '';
+    }
+
 
     function esc(s) {
       return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
@@ -1148,6 +1159,10 @@
       return (m < 0) ? null : m;
     }
 
+    var SHOW_DONE_SESS = false;
+    document.addEventListener('click', function (e) {
+      if (e.target.closest && e.target.closest('[data-togdone]')) { SHOW_DONE_SESS = !SHOW_DONE_SESS; renderB(); }
+    });
     function buildSessions() {
       var map = {};
       SESSIONS = [];
@@ -1212,31 +1227,44 @@
               '<div class="ov left"><div class="l">포장 대기</div><div class="v">' + READY.length + '</div></div>' +
               '<div class="ov"><div class="l">포장 완료</div><div class="v">' + PACKED.length + '</div></div>';
 
-      document.getElementById('sessCnt').textContent = SESSIONS.length + '건';
-      document.getElementById('sessList').innerHTML = SESSIONS.length ? SESSIONS.map(function (s) {
-        var n = s.boxes.length;
-        return '<div class="sess" data-st="' + (n ? 'done' : 'working') + '" data-k="' + esc(s.key) + '"><div class="edge"></div>' +
-                '<div class="who"><span class="nm">' + esc(whoOf(s) || '작업자 미지정') + '</span>' +
-                '<span class="eq">' + esc(s.work_date || '') +
-                ' · 설비 ' + esc(s.equipment_name || '미지정') + '</span>' +
-                '<span class="time">' +
-                (s.start_time ? pill(s.start_time) + ' ~ ' + (s.end_time ? pill(s.end_time) : '작업중')
-                        + (workMin(s) != null ? ' (' + workMin(s) + '분)' : '') : '—') + '</span></div>' +
-                '<div class="qty"><div class="v">' + n + '</div><div class="l">포장</div></div>' +
-                /* ★ 한 박스라도 포장했으면 「완료」다.
-                     세션 키가 작업자+설비+날짜라, 같은 사람이 다른 날 또 하면 새 카드가 생긴다.
-                     즉 이 카드는 「그날 그 사람의 작업」이고 박스를 담은 순간 결과가 남는다.
-                     지시 5대 중 2대만 했어도 이 사람의 그날 작업은 끝난 것으로 본다 —
-                     남은 3대는 다른 날 다른 작업자가 이어서 한다.
-                   ★ 박스가 0이면 아직 시작만 한 상태라 「작업중」. */
-                '<span class="st-badge ' + (n ? 'done' : 'work') + '">' +
-                (n ? '완료' : '작업중') + '</span></div>';
-      }).join('') : '<div class="emptysess">아직 작업이 없습니다. 아래 「작업 추가」로 작업자를 지정하세요.</div>';
+      /* ★ «작업» 에는 진행 중(아직 박스 없음)인 작업만. 박스를 담아 끝난 작업은 아래 «포장 완료» 에 이미 보이므로
+           접어 두고, 필요하면 «완료된 작업 n건» 을 눌러 펼친다 */
+      var actSess = SESSIONS.filter(function (s) { return !s.boxes.length; });
+      var doneSess = SESSIONS.filter(function (s) { return s.boxes.length; });
+      var shownSess = SHOW_DONE_SESS ? actSess.concat(doneSess) : actSess;
+      document.getElementById('sessCnt').textContent = actSess.length + '건' + (doneSess.length ? ' · 완료 ' + doneSess.length : '');
+      document.getElementById('sessList').innerHTML = (shownSess.length ? shownSess.map(function (s) {
+                var n = s.boxes.length;
+                return '<div class="sess" data-st="' + (n ? 'done' : 'working') + '" data-k="' + esc(s.key) + '"><div class="edge"></div>' +
+                        '<div class="who"><span class="nm">' + esc(whoOf(s) || '작업자 미지정') + '</span>' +
+                        '<span class="eq">' + esc(s.work_date || '') +
+                        ' · 설비 ' + esc(s.equipment_name || '미지정') + '</span>' +
+                        '<span class="time">' +
+                        (s.start_time ? pill(s.start_time) + ' ~ ' + (s.end_time ? pill(s.end_time) : '작업중')
+                                + (workMin(s) != null ? ' (' + workMin(s) + '분)' : '') : '—') + '</span></div>' +
+                        '<div class="qty"><div class="v">' + n + '</div><div class="l">포장</div></div>' +
+                        /* ★ 한 박스라도 포장했으면 「완료」다.
+                             세션 키가 작업자+설비+날짜라, 같은 사람이 다른 날 또 하면 새 카드가 생긴다.
+                             즉 이 카드는 「그날 그 사람의 작업」이고 박스를 담은 순간 결과가 남는다.
+                             지시 5대 중 2대만 했어도 이 사람의 그날 작업은 끝난 것으로 본다 —
+                             남은 3대는 다른 날 다른 작업자가 이어서 한다.
+                           ★ 박스가 0이면 아직 시작만 한 상태라 「작업중」. */
+                        '<span class="st-badge ' + (n ? 'done' : 'work') + '">' +
+                        (n ? '완료' : '작업중') + '</span></div>' +
+                        (n > 1 && SESS_OPEN[s.key] ? '<div style="margin:-4px 0 8px 18px">' + s.boxes.map(function (p) {
+                          return '<div class="sess" data-smp="' + p.mp_id + '" style="padding:10px 14px;min-height:0;cursor:pointer">' +
+                                  '<div class="who"><span class="nm">' + esc(dispLot(p)) + '</span>' +
+                                  '<span class="eq">' + esc(p.end_time ? pill(p.end_time) : '') + '</span></div>' +
+                                  '<span class="st-badge done">상세 ›</span></div>';
+                        }).join('') + '</div>' : '');
+              }).join('') : '<div class="emptysess">진행 중인 작업이 없습니다. 아래 「작업 추가」로 작업자를 지정하세요.</div>') +
+              (doneSess.length ? '<div style="text-align:center;margin-top:8px"><button class="btn ghost sm" data-togdone="1" style="padding:0 16px">' +
+                      (SHOW_DONE_SESS ? '완료된 작업 접기' : '완료된 작업 ' + doneSess.length + '건 보기') + '</button></div>' : '');
 
       document.getElementById('readyCnt').textContent = READY.length + '대';
       document.getElementById('readyList').innerHTML = READY.length ? READY.map(function (u) {
         return '<div class="unit readonly"><div class="edge"></div>' +
-                '<div class="who"><span class="lot">' + esc(u.lot_number) + '</span>' +
+                '<div class="who"><span class="lot">' + esc(dispLot(u)) + '</span>' +
                 '<span class="sub">' + esc(u.unit_mat_code) +
                 (u.serial_no ? ' · ' + esc(u.serial_no) : (u.unit_no ? ' · #' + esc(u.unit_no) : ' · 조립이력 없음')) +
                 (u.assy_order_num ? ' · ' + esc(u.assy_order_num) : '') +
@@ -1251,7 +1279,7 @@
       document.getElementById('packedCnt').textContent = PACKED.length + '건';
       document.getElementById('packedList').innerHTML = PACKED.length ? PACKED.map(function (p) {
         return '<div class="unit packed" data-mp="' + p.mp_id + '"><div class="edge"></div>' +
-                '<div class="who"><span class="lot">' + esc(p.lot_number) + '</span>' +
+                '<div class="who"><span class="lot">' + esc(dispLot(p)) + '</span>' +
                 '<span class="sub">라벨 ' + esc(p.maker_lot_no || '-') + ' · ' + esc(whoOf(p) || '-') +
                 (p.equipment_name ? ' · ' + esc(p.equipment_name) : '') + '</span>' +
                 '<span class="sub">' + pill(p.start_time) + ' ~ ' + pill(p.end_time) + '</span></div>' +
@@ -1269,13 +1297,22 @@
       if (c) openDone(c.dataset.mp, PACKED);
     });
 
+    var SESS_OPEN = {};   // 펼친 완료 작업
     document.getElementById('sessList').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-smp]');
+      if (b) { openDone(b.dataset.smp, PACKED); return; }   // 완료 작업의 박스 → 상세(보기·수정)
       var c = e.target.closest('.sess');
       if (!c) return;
       var s = SESSIONS.filter(function (x) {
         return x.key === c.dataset.k;
       })[0];
-      if (s) openSess(s);
+      if (!s) return;
+      /* ★ 끝난 작업(박스 있음)은 포장 화면으로 들어가지 않는다 — 새 작업처럼 보여 헷갈렸다.
+           박스 1개면 바로 그 박스 상세, 여러 개면 카드 아래에 박스 목록을 펼친다.
+           같은 작업자가 이어서 포장하려면 «작업 추가» 에서 같은 작업자·설비를 고르면 된다 */
+      if (s.boxes.length === 1) { openDone(s.boxes[0].mp_id, PACKED); return; }
+      if (s.boxes.length > 1) { SESS_OPEN[s.key] = !SESS_OPEN[s.key]; renderB(); return; }
+      openSess(s);
     });
 
     /* ══ 작업 추가 ══ */
@@ -1509,7 +1546,7 @@
           var on = curUnit && String(curUnit.mat_lot_id) === String(u.mat_lot_id);
           html += '<div class="unit pick' + (on ? ' sel' : '') + '" data-u="' + u.mat_lot_id + '"><div class="edge"></div>' +
                   '<div class="tick">' + (on ? '✓' : '') + '</div>' +
-                  '<div class="who"><span class="lot">' + esc(u.lot_number) + '</span>' +
+                  '<div class="who"><span class="lot">' + esc(dispLot(u)) + '</span>' +
                   '<span class="sub">' + esc(u.unit_mat_code) +
                   (u.serial_no ? ' · ' + esc(u.serial_no) : (u.unit_no ? ' · #' + esc(u.unit_no) : ' · 조립이력 없음')) +
                   (u.assy_order_num ? ' · ' + esc(u.assy_order_num) : '') + '</span>' +
@@ -1601,7 +1638,7 @@
       } else {
         SESS.boxes.forEach(function (p) {
           html += '<div class="unit packed" data-mp="' + p.mp_id + '"><div class="edge"></div>' +
-                  '<div class="who"><span class="lot">' + esc(p.lot_number) + '</span>' +
+                  '<div class="who"><span class="lot">' + esc(dispLot(p)) + '</span>' +
                   '<span class="sub">라벨 ' + esc(p.maker_lot_no || '-') +
                   (p.chasu ? ' · ' + p.chasu + '차수' : '') + ' · ' + pill(p.start_time) + ' ~ ' + pill(p.end_time) + '</span>' +
                   '<span class="sub">눌러서 상세 · 포장 취소</span></div>' +
@@ -1651,6 +1688,10 @@
                 return '<option value="' + w.actor_id + '"' + (String(cur) === String(w.actor_id) ? ' selected' : '') + '>' + esc(w.actor_name) + '</option>';
               }).join('') + '</select></div>';
     }
+    /* ★ 최종검사 Check List 세부 항목(예: 1M 케이블·어댑터)은 모델·출하처에 따라 없는 구성품이 있다 → «해당없음» 선택 가능 */
+    function naOk(it) { return /^Check List/i.test(String(it.item_name || '')); }
+    /* 값 칸이 필요 없는 항목 — Check List 세부 항목은 체크만 한다(전원케이블 220V/110V 만 값 입력) */
+    function noVal(it) { return naOk(it) && !/220V|110V/.test(String(it.item_name || '')); }
     function destOf(name) {
       var s = String(name || '');
       if (/해외/.test(s)) return '해외';
@@ -1684,7 +1725,7 @@
         (f.items || []).forEach(function (it) {
           var v = chkVal[it.item_id] || {};
           out.push({formId: f.form_id, itemId: it.item_id, actorId: isFinal(f) ? FIN_ACTOR : null,
-            result: chkAuto(it) ? 'na' : (v.result || ''), value: chkAuto(it) ? '' : (v.value || '')});
+            result: chkAuto(it) ? 'na' : (v.result || ''), value: (chkAuto(it) || noVal(it)) ? '' : (v.value || '')});
         });
       });
       return out;
@@ -1705,6 +1746,11 @@
         html += '<div class="browhead" style="margin-top:6px">' + esc(f.form_name) + '<span class="ln"></span></div>';
         if (isFinal(f)) html += finSel(FIN_ACTOR, 'data-finact="1"');
         (f.items || []).forEach(function (it) {
+          /* ★ 재공품 = 박스에 넣는 본체 — 값 칸에 그 유닛의 장비번호를 미리 넣는다(고칠 수 있다) */
+          if (/\uc7ac\uacf5\ud488/.test(it.item_name || '') && curUnit && !chkAuto(it)) {
+            var wv = chkVal[it.item_id] = chkVal[it.item_id] || {};
+            if (wv.value == null || wv.value === '') wv.value = dispLot(curUnit);
+          }
           var auto = chkAuto(it), v = chkVal[it.item_id] || {};
           if (auto) {
             html += '<div class="chkrow na"><div class="ct"><div class="cn">' + esc(it.item_name) + '</div></div><span class="nat">해당없음</span></div>';
@@ -1713,10 +1759,11 @@
           var ph = it.unit === 'LOT' ? 'Lot No' : (it.unit === 'EA' ? 'EA' : '측정값');
           html += '<div class="chkrow"><div class="ct"><div class="cn">' + esc(it.item_name) + '</div>' +
                   (it.criteria ? '<div class="cc">' + esc(it.criteria) + '</div>' : '') + '</div>' +
-                  '<input class="cv" data-chkv="' + it.item_id + '" value="' + esc(v.value || '') + '" placeholder="' + ph + '"' +
-                  (it.unit === 'EA' ? ' inputmode="numeric"' : '') + '>' +
+                  (noVal(it) ? '' : '<input class="cv" data-chkv="' + it.item_id + '" value="' + esc(v.value || '') + '" placeholder="' + (/220V|110V/.test(it.item_name || '') ? '220V / 110V' : ph) + '"' +
+                          (it.unit === 'EA' ? ' inputmode="numeric"' : '') + '>') +
                   '<button class="cok' + (v.result === 'pass' ? ' on' : '') + '" data-chk="' + it.item_id + ',pass">합격</button>' +
-                  '<button class="cng' + (v.result === 'fail' ? ' on' : '') + '" data-chk="' + it.item_id + ',fail">불합격</button></div>';
+                  '<button class="cng' + (v.result === 'fail' ? ' on' : '') + '" data-chk="' + it.item_id + ',fail">불합격</button>' +
+                  (naOk(it) ? '<button class="cng' + (v.result === 'na' ? ' on' : '') + '" data-chk="' + it.item_id + ',na" style="min-width:72px">해당없음</button>' : '') + '</div>';
         });
       });
       return html + '</div></div>';
@@ -1808,7 +1855,7 @@
       var m = document.createElement('div');
       m.className = 'snmask';
       m.innerHTML = '<div class="snsheet"><b>장비 시리얼 번호</b>' +
-              '<div class="snhint">로트 ' + esc(u.lot_number) + (u.unit_no ? ' · #' + esc(u.unit_no) + '호기' : '') + ' (로트번호는 바뀌지 않습니다)</div>' +
+              '<div class="snhint">로트 ' + esc(dispLot(u)) + (u.unit_no ? ' · #' + esc(u.unit_no) + '호기' : '') + ' (로트번호는 바뀌지 않습니다)</div>' +
               '<input id="snInp" value="' + esc(u.serial_no || '') + '" placeholder="시리얼 번호 입력" autocomplete="off" autocapitalize="characters">' +
               '<div class="snbtns"><button data-snc>취소</button><button class="ok" data-sno>저장</button></div></div>';
       document.body.appendChild(m);
@@ -2860,8 +2907,10 @@
       if (!curDone) return;
       if (!EQUIPS.length) getSoft(API + '/equipments', {workcenter_id: WC_ID}, function (d) { if (d) EQUIPS = d; });
       document.getElementById('doneBody').innerHTML =
-              '<div class="dhead"><span class="dlot">' + esc(curDone.lot_number) + '</span>' +
+              '<div class="dhead"><span class="dlot">' + esc(dispLot(curDone)) + '</span>' +
               '<span class="st-badge done">포장 완료</span></div>' +
+              /* ★ 제조 문서를 맨 위로 (자주 쓴다) */
+              '<div style="margin:2px 0 12px"><button class="btn primary sm" id="doneDoc" style="padding:0 18px;width:100%">📄 제조 문서 (엑셀 · 인쇄 · 첨부)</button></div>' +
               '<div class="drows">' +
               '<div class="drow"><span class="k">박스 라벨</span><span class="v num' +
               (curDone.maker_lot_no ? '' : ' muted') + '">' + esc(curDone.maker_lot_no || '기록 없음') + '</span></div>' +
@@ -2882,7 +2931,6 @@
               /* ★ 포장 체크 · 최종검사 결과 */
               '<div class="secline" style="margin-top:16px">포장 체크 · 최종검사 <span class="ln"></span><span id="doneChkCnt">—</span></div>' +
               '<div id="doneChk"></div>' +
-              '<div style="margin-top:12px"><button class="btn ghost sm" id="doneDoc" style="padding:0 16px">📄 제조 문서 (엑셀 · 인쇄 · 첨부)</button></div>' +
               '<div class="secline" style="margin-top:16px">사진 · 출고라벨 / 투입 자재 <span class="ln"></span><span id="donePhotoCnt">—</span></div>' +
               '<div class="photos" id="donePhotos"></div>' +
               '<div class="emptysess" style="text-align:left;margin-top:14px;padding:16px">포장 취소를 누르면 완제품 로트가 ' +
@@ -2940,9 +2988,10 @@
           if (dchkEdit) {
             if (dAuto(it)) { html += '<div class="chkrow na"><div class="ct"><div class="cn">' + esc(it.item_name) + '</div></div><span class="nat">해당없음</span></div>'; return; }
             html += '<div class="chkrow"><div class="ct"><div class="cn">' + esc(it.item_name) + '</div></div>' +
-                    '<input class="cv" data-dchkv="' + it.item_id + '" value="' + esc(v.result === 'na' ? '' : (v.value || '')) + '">' +
+                    (noVal(it) ? '' : '<input class="cv" data-dchkv="' + it.item_id + '" value="' + esc(v.result === 'na' ? '' : (v.value || '')) + '">') +
                     '<button class="cok' + (v.result === 'pass' ? ' on' : '') + '" data-dchk="' + it.item_id + ',pass">합격</button>' +
-                    '<button class="cng' + (v.result === 'fail' ? ' on' : '') + '" data-dchk="' + it.item_id + ',fail">불합격</button></div>';
+                    '<button class="cng' + (v.result === 'fail' ? ' on' : '') + '" data-dchk="' + it.item_id + ',fail">불합격</button>' +
+                    (naOk(it) ? '<button class="cng' + (v.result === 'na' ? ' on' : '') + '" data-dchk="' + it.item_id + ',na" style="min-width:72px">해당없음</button>' : '') + '</div>';
             return;
           }
           var t = v.result === 'pass' ? '<span class="st-badge done">합격</span>'
@@ -2963,7 +3012,7 @@
       if (b) {
         var q = b.dataset.dchk.split(','), v = dchkVal[q[0]] = dchkVal[q[0]] || {};
         v.result = v.result === q[1] ? '' : q[1];
-        if (v.result === 'na') v.result = '';
+        // (해당없음은 naOk 항목에만 버튼이 있다)
         drawDoneChk(); return;
       }
       if (e.target.closest('[data-dsave]')) {
@@ -2973,7 +3022,7 @@
           (f.items || []).forEach(function (it) {
             var v = dchkVal[it.item_id] || {};
             payload.push({formId: f.form_id, itemId: it.item_id, actorId: isFinal(f) ? dFinAct : null,
-              result: dAuto(it) ? 'na' : (v.result === 'na' ? '' : (v.result || '')), value: dAuto(it) ? '' : (v.value || '')});
+              result: dAuto(it) ? 'na' : (v.result === 'na' && !naOk(it) ? '' : (v.result || '')), value: (dAuto(it) || noVal(it)) ? '' : (v.value || '')});
           });
         });
         post(API + '/pack_check_save', {mat_produce_id: curDone.mp_id, insp_json: JSON.stringify(payload), dest: dchkDest,
@@ -3727,9 +3776,7 @@
         if (e.pointerType === 'mouse') return;          // 마우스는 click 이 정상 동작
         var b = e.target && e.target.closest ? e.target.closest('button') : null;
         if (!b || b.disabled || b.closest(SKIP)) return;
-        tapBtn = b;
-        tx = e.clientX;
-        ty = e.clientY;
+        tapBtn = b; tx = e.clientX; ty = e.clientY;
       }, true);
       window.addEventListener('pointerup', function (e) {
         var b = tapBtn;
@@ -3741,9 +3788,7 @@
         lastTap = Date.now();
         b.click();                                      // 합성 click (isTrusted:false)
       }, true);
-      window.addEventListener('pointercancel', function () {
-        tapBtn = null;
-      }, true);
+      window.addEventListener('pointercancel', function () { tapBtn = null; }, true);
       window.addEventListener('click', function (e) {
         if (e.isTrusted && Date.now() - lastTap < 700) {
           e.stopPropagation();

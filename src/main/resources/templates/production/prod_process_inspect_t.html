@@ -282,7 +282,12 @@
         .opts{display:flex;flex-wrap:wrap;gap:10px}
         .sheet .ok{width:100%;margin-top:20px;background:var(--teal);color:#fff;min-height:var(--tap);border:none;border-radius:16px;font-size:19px;font-weight:800;cursor:pointer}
         .sheet .ok:disabled{background:var(--line);color:var(--ink-2)}
-        .pad .disp{margin-left:auto;min-width:140px;text-align:right;font-size:30px;font-weight:800;font-variant-numeric:tabular-nums;background:var(--surface-2);border:1px solid var(--line);border-radius:14px;padding:8px 16px}
+        .pad .disp{display:block;width:100%;box-sizing:border-box;height:64px;margin:4px 0 14px;text-align:right;font-family:inherit;font-size:30px;font-weight:800;font-variant-numeric:tabular-nums;background:var(--surface-2);border:1px solid var(--line);border-radius:14px;padding:0 18px;color:var(--ink)}
+        .mask.kbd{align-items:flex-start}                                   /* ★ 키보드가 뜨면 시트를 위로 */
+        .mask.kbd .sheet{border-radius:0 0 24px 24px;padding-bottom:20px}
+        .mask.kbd .keys button:not([data-k="OK"]){display:none}             /* 숫자 키패드는 숨기고 확인만 */
+        .mask.kbd .keys{grid-template-columns:1fr}
+        .pad .disp::placeholder{font-size:15px;font-weight:700;color:var(--ink-2);text-align:left}
         .keys{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:520px;margin:6px auto 0}
         .keys button{height:62px;border-radius:14px;border:1px solid var(--line);background:var(--surface);font-size:25px;font-weight:800;cursor:pointer;font-variant-numeric:tabular-nums}
         .keys button:active{background:var(--surface-2)}.keys button.ok{background:var(--teal);color:#fff;border-color:var(--teal)}.keys button.clr{color:var(--red)}
@@ -448,7 +453,9 @@
 
         <!-- 넘패드(측정값) -->
         <div class="mask" id="padMask"><div class="sheet pad"><div class="body">
-            <div class="sh"><h3 id="padLab">측정값</h3><input class="disp" id="padDisp" style="margin-left:auto;width:240px;font-family:inherit" placeholder="숫자·한글·영문" autocomplete="off"/></div>
+            <div class="sh"><h3 id="padLab">측정값</h3><button class="x" data-close>✕</button></div>
+            <!-- ★ 입력칸은 제목 아래 한 줄 전체. 숫자는 아래 키패드, 한글·영문(양호·OK 등)은 칸을 눌러 키보드로 -->
+            <input class="disp" id="padDisp" placeholder="값 입력 — 한글·영문은 여기를 눌러 키보드로" autocomplete="off"/>
             <div class="keys"><button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
                 <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
                 <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
@@ -660,6 +667,17 @@
             d.setDate(d.getDate() + n);
             return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
         }
+        /* ★ 화면에 보이는 유닛 번호 — 최종(포장 라벨) > 임시 부여 번호(SN- 제외) > 내부 로트.
+             내부 로트(MC4244-…)는 조회·저장에만 쓰고 화면에는 번호가 정해지면 안 보인다 */
+        function dispLot(o) {
+            if (!o) return '';
+            var lb = String(o.maker_lot_no || o.box_label || o.label_lot || '').trim();
+            if (lb) return lb;
+            var sn = String(o.serial_no || '').trim();
+            if (sn && !/^SN-/i.test(sn)) return sn;
+            return o.lot_number || '';
+        }
+
 
         function esc(s) {
             return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({
@@ -841,7 +859,7 @@
                         (u.repair_id ? '<span class="rpbadge">수리 · ' + (u.repair_cat === 'spec' ? '사양변경' : '반품') + '</span>' : '') +
                         (num(u.rework_cnt) > 0 ? '<span class="rwbadge">재조립 ' + num(u.rework_cnt) + '회</span>' : '') +
                         '<span class="ubadge ' + u.state + '" style="margin-left:auto">' + (UST[u.state] || u.state) + '</span></div>' +
-                        '<div class="lot">' + esc(u.lot_number || '로트 없음') + '</div>' +
+                        '<div class="lot">' + esc(dispLot(u) || '로트 없음') + '</div>' +
                         (u.repair_id && u.src_lot && u.src_lot !== u.lot_number
                             ? '<div class="from">원 로트 ' + esc(u.src_lot) + '</div>' : '') +
                         (u.state === 'reject' && u.reject_reason ? '<div class="from">불합격 : ' + esc(u.reject_reason) + '</div>' : '') +
@@ -1034,7 +1052,7 @@
                     : '<button class="colall" data-colall="' + ci + '">열 전체 합격</button>') +
                 '</th>').join('') + '</tr>';
             h += BROWS.map((b, ri) => '<tr class="' + (b.locked ? 'locked' : '') + '"><td>' + esc(uLabel(b.u)) +
-                '<div style="font-size:11.5px;color:var(--ink-2)">' + esc(b.u.lot_number || '') +
+                '<div style="font-size:11.5px;color:var(--ink-2)">' + esc(dispLot(b.u) || '') +
                 (b.locked ? ' · ' + (b.verdict === 'pass' ? '합격 확정' : '불합격 확정') : '') + '</div></td>' +
                 cols.map((c, ci) => {
                     const v = b.vals[c.it.item_id + '_' + c.rep] || {};
@@ -1256,7 +1274,7 @@
                 (curO.mat_name || '') + ' · ' + (curO.order_num || '') +
                 (who.length ? ' · ' + who.join(', ') : '');
             /* 로트는 발번된 뒤에만 */
-            document.getElementById('cLot').textContent = curU.lot_number || '';
+            document.getElementById('cLot').textContent = dispLot(curU) || '';
             document.getElementById('cLotPill').style.display = curU.lot_number ? '' : 'none';
 
             if (histView !== null) {
@@ -1355,12 +1373,28 @@
             const prog = items.filter(isProgressive);
             const inline = items.filter(it => !isProgressive(it));
 
+            /* ★ 번호는 «검사항목» 단위 — 엑셀(완제품검사서)과 맞춘다.
+                 같은 이름이 연달아 나오면 한 번호로 묶는다 (예: 오디오 출력/언어 3줄 = 6번) */
+            const NO = {};
+            {
+                let n = 0, prev = null;
+                items.forEach(it => {
+                    const key = String(it.item_name || '').trim();
+                    if (key !== prev) { n++; prev = key; }
+                    NO[it.item_id] = n;
+                });
+            }
             inline.forEach(it => {
                 const rep = Math.max(1, num(it.repeat_count));
+                /* ★ 반복 항목의 기준이 «A / B / C» 처럼 회차 수만큼 나뉘어 있으면 회차마다 해당 기준만 보여준다 */
+                const crits = splitTop(String(it.criteria || ''));   // ★ 괄호 안의 « / » 는 나누지 않는다 (FSC: 5:00분 / BmSC …)
+                const perRep = rep > 1 && crits.length === rep;
                 for (let k = 1; k <= rep; k++) {
                     const g = got(it, k);
-                    const pn = (rep > 1) ? (it.seq_no + '. ' + esc(it.item_name) + ' — 측정 ' + k + '회') : (it.seq_no + '. ' + esc(it.item_name));
-                    const pc = (k > 1) ? '' : ('기준: ' + esc(it.criteria || '-') + ' · 방법: ' + esc(it.method || '-') +
+                    const no = NO[it.item_id] || it.seq_no;
+                    const pn = (rep > 1) ? (no + '. ' + esc(it.item_name) + ' — ' + k + '회') : (no + '. ' + esc(it.item_name));
+                    const crit = perRep ? crits[k - 1] : (it.criteria || '-');
+                    const pc = (k > 1 && !perRep) ? '' : ('기준: ' + esc(crit) + ' · 방법: ' + esc(it.method || '-') +
                         (it.judge_type === 'num' ? (' · ' + (it.lower_limit == null ? '' : it.lower_limit) + '~' + (it.upper_limit == null ? '' : it.upper_limit) + ' ' + esc(it.unit || '')) : ''));
                     html += '<div class="part"><div class="id"><span class="pn">' + pn + '</span>' + (pc ? '<span class="pc">' + pc + '</span>' : '') + '</div>' +
                         (g.value ? '<span class="valchip">' + esc(g.value) + '</span>' : '') +
@@ -1686,7 +1720,7 @@
                     });
                     const st = (r.data && r.data.unit && r.data.unit.state) || '';
                     await refreshUnitAfterJudge();
-                    if (st === 'pass') flash('최종 합격 · ' + (curU.lot_number || '') + ' → 검사완료창고 이동');
+                    if (st === 'pass') flash('최종 합격 · ' + (dispLot(curU) || '') + ' → 검사완료창고 이동');
                     else if (st === 'reject') flash('조립 복귀 · 재조립 후 재검사');
                     else flash((r.message || '확정') + ' · 나머지 검사 남음');
                 });
@@ -1825,6 +1859,20 @@
             });
         };
 
+        /* 기준 문구를 회차별로 나눈다 — « / » 기준, 단 괄호 () 안의 « / » 는 그대로 둔다 */
+        function splitTop(t) {
+            const out = []; let depth = 0, cur = '';
+            for (let i = 0; i < t.length; i++) {
+                const ch = t[i];
+                if (ch === '(' || ch === '（') depth++;
+                else if ((ch === ')' || ch === '）') && depth > 0) depth--;
+                if (depth === 0 && ch === '/' && /\s/.test(t[i - 1] || '') && /\s/.test(t[i + 1] || '')) { out.push(cur.trim()); cur = ''; continue; }
+                cur += ch;
+            }
+            out.push(cur.trim());
+            return out.filter(x => x !== '');
+        }
+
         /* 측정값 넘패드 */
         let valItem = null, valRep = null, valBuf = '';
 
@@ -1838,6 +1886,7 @@
             document.getElementById('padDisp').value = valBuf;
             const ub = document.querySelector('#padMask [data-k="unit"]');
             if (ub) ub.textContent = it.unit || 'mm';
+            document.getElementById('padMask').classList.remove('kbd');   // 열 때는 항상 키패드 모드
             showMask('padMask');
         }
 
@@ -1862,6 +1911,12 @@
             document.getElementById('padDisp').value = valBuf;
         });
 
+        /* ★ 태블릿 : 입력칸을 눌러 화면 키보드가 뜨면 아래쪽 시트가 키보드에 덮인다.
+             키보드 모드에서는 시트를 화면 위로 올리고 숫자 키패드를 숨긴다(키보드에 숫자가 있다). 칸을 벗어나면 원래대로 */
+        document.getElementById('padDisp').addEventListener('focus', () => document.getElementById('padMask').classList.add('kbd'));
+        document.getElementById('padDisp').addEventListener('blur', () => setTimeout(() => {
+            if (document.activeElement !== document.getElementById('padDisp')) document.getElementById('padMask').classList.remove('kbd');
+        }, 150));
         /* ★ 측정값은 숫자 외에 한글·영문도 받는다(예: 양호, OK). 엔터 = 확인 */
         document.getElementById('padDisp').addEventListener('keydown', e => {
             if (e.key === 'Enter') { e.preventDefault(); document.querySelector('#padMask [data-k="OK"]').click(); }

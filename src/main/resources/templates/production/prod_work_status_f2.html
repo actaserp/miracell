@@ -220,6 +220,17 @@
             if (res.success === false) return null;
             return (res.data !== undefined) ? res.data : res;
         }
+        /* ★ 화면에 보이는 유닛 번호 — 최종(포장 라벨) > 임시 부여 번호(SN- 제외) > 내부 로트.
+             내부 로트(MC4244-…)는 조회·저장에만 쓰고 화면에는 번호가 정해지면 안 보인다 */
+        function dispLot(o) {
+            if (!o) return '';
+            var lb = String(o.maker_lot_no || o.box_label || o.label_lot || '').trim();
+            if (lb) return lb;
+            var sn = String(o.serial_no || '').trim();
+            if (sn && !/^SN-/i.test(sn)) return sn;
+            return o.lot_number || '';
+        }
+
 
         function esc(s) {
             return (s == null ? '' : String(s)).replace(/[&<>"']/g, function (c) {
@@ -390,7 +401,7 @@
                 const paused  = !running && !u.end_time && stDone > 0;
                 body += '<div class="ws-card' + (running ? ' run' : (paused ? ' wait' : ' done')) + '" onclick="wsOpenUnit(' + u.pk + ',\'assembly\')">'
                     + '<div class="c-mat">' + esc(u.mat_name || '-') + '</div>'
-                    + '<div class="c-code">' + esc(u.lot_number || '-') + '</div>'
+                    + '<div class="c-code">' + esc(dispLot(u) || '-') + '</div>'
                     + '<div class="c-qty">'
                     + ((running || paused) ? '<span class="q-plan">' + stDone + ' / ' + stTotal + ' 단계</span>' : '1<span class="c-lot">대</span>')
                     + '</div>'
@@ -434,7 +445,7 @@
                 const retry = Number(u.try_cnt || 0) > Number(u.form_cnt || 0);
                 body += '<div class="ws-card ' + cls + '" onclick="wsOpenInspect(' + u.pk + ')">'
                     + '<div class="c-mat">' + esc(u.mat_name || '-') + '</div>'
-                    + '<div class="c-code">' + esc(u.lot_number || '-') + '</div>'
+                    + '<div class="c-code">' + esc(dispLot(u) || '-') + '</div>'
                     + '<div class="c-form">' + esc(u.form_names || '-') + '</div>'
                     + '<div class="c-qty">1<span class="c-lot">대 · 검사 ' + num(u.form_cnt) + '종</span></div>'
                     + '<div class="c-meta">' + esc(u.worker || '-')
@@ -473,7 +484,7 @@
                     : (u.repair_cat === 'spec' ? '사양변경' : '');
                 body += '<div class="ws-card' + (running ? ' run' : ' done') + '" onclick="wsOpenUnit(' + u.pk + ',\'repair\')">'
                     + '<div class="c-mat">' + esc(u.mat_name || '-') + '</div>'
-                    + '<div class="c-code">' + esc(u.lot_number || '-') + '</div>'
+                    + '<div class="c-code">' + esc(dispLot(u) || '-') + '</div>'
                     + (u.src_lot ? '<div class="c-code">원 ' + esc(u.src_lot) + '</div>' : '')
                     + '<div class="c-qty">'
                     + (running ? '<span class="q-plan">수리중</span>' : '1<span class="c-lot">대</span>') + '</div>'
@@ -503,7 +514,7 @@
                 const running = !u.end_time;
                 body += '<div class="ws-card' + (running ? ' run' : ' done') + '" onclick="wsOpenPack(' + u.pk + ')">'
                     + '<div class="c-mat">' + esc(u.mat_name || '-') + '</div>'
-                    + '<div class="c-code">' + esc(u.lot_number || '-') + '</div>'
+                    + '<div class="c-code">' + esc(dispLot(u) || '-') + '</div>'
                     + (u.maker_lot_no ? '<div class="c-form">박스 ' + esc(u.maker_lot_no) + '</div>' : '')
                     + '<div class="c-qty">1<span class="c-lot">대</span></div>'
                     + '<div class="c-meta">' + esc(u.worker || '-') + (u.equipment ? ' · ' + esc(u.equipment) : '') + '</div>'
@@ -526,7 +537,7 @@
             if (!u) return;
 
             document.getElementById('mTitle').innerHTML =
-                (kind === 'repair' ? '수리' : '조립') + ' 상세 <small>' + esc(u.lot_number || '') + ' · ' + esc(u.mat_name || '') + '</small>';
+                (kind === 'repair' ? '수리' : '조립') + ' 상세 <small>' + esc(dispLot(u) || '') + ' · ' + esc(u.mat_name || '') + '</small>';
             document.getElementById('mBody').innerHTML = '<div class="ws-loading">불러오는 중…</div>';
             document.getElementById('ov').classList.add('on');
 
@@ -534,7 +545,7 @@
 
             let html = '<div class="ws-kv">'
                 + '<div><div class="k">품목</div><div class="v">' + esc(u.mat_name || '-') + '</div></div>'
-                + '<div><div class="k">로트번호</div><div class="v">' + esc(u.lot_number || '-') + '</div></div>'
+                + '<div><div class="k">로트번호</div><div class="v">' + esc(dispLot(u) || '-') + '</div></div>'
                 + '<div><div class="k">S/N</div><div class="v">' + esc(u.serial_no || ('#' + (u.unit_no || '-'))) + '</div></div>'
                 + '<div><div class="k">상태</div><div class="v">' + esc(WS_USTATE[u.unit_state] || u.unit_state || '-') + '</div></div>'
                 + '<div><div class="k">작업자</div><div class="v">' + esc(u.worker || '-') + '</div></div>'
@@ -626,7 +637,7 @@
             });
             if (!u) return;
             document.getElementById('mTitle').innerHTML =
-                '검사 상세 <small>' + esc(u.lot_number || '') + ' · ' + esc(u.mat_name || '') + '</small>';
+                '검사 상세 <small>' + esc(dispLot(u) || '') + ' · ' + esc(u.mat_name || '') + '</small>';
             document.getElementById('mBody').innerHTML = '<div class="ws-loading">불러오는 중…</div>';
             document.getElementById('ov').classList.add('on');
 
@@ -636,7 +647,7 @@
 
             let html = '<div class="ws-kv">'
                 + '<div><div class="k">품목</div><div class="v">' + esc(u.mat_name || '-') + '</div></div>'
-                + '<div><div class="k">로트번호</div><div class="v">' + esc(u.lot_number || '-') + '</div></div>'
+                + '<div><div class="k">로트번호</div><div class="v">' + esc(dispLot(u) || '-') + '</div></div>'
                 + '<div><div class="k">S/N</div><div class="v">' + esc(u.serial_no || ('#' + (u.unit_no || '-'))) + '</div></div>'
                 + '<div><div class="k">상태</div><div class="v">' + esc(WS_USTATE[u.unit_state] || u.unit_state || '-') + '</div></div>'
                 + (u.src_lot ? '<div><div class="k">원 로트</div><div class="v">' + esc(u.src_lot) + '</div></div>' : '')
@@ -716,7 +727,7 @@
             });
             if (!u) return;
             document.getElementById('mTitle').innerHTML =
-                '포장 상세 <small>' + esc(u.lot_number || '') + ' · ' + esc(u.mat_name || '') + '</small>';
+                '포장 상세 <small>' + esc(dispLot(u) || '') + ' · ' + esc(u.mat_name || '') + '</small>';
             document.getElementById('mBody').innerHTML = '<div class="ws-loading">불러오는 중…</div>';
             document.getElementById('ov').classList.add('on');
 
@@ -724,7 +735,7 @@
 
             let html = '<div class="ws-kv">'
                 + '<div><div class="k">완제품</div><div class="v">' + esc(u.mat_name || '-') + '</div></div>'
-                + '<div><div class="k">완제품 로트</div><div class="v">' + esc(u.lot_number || '-') + '</div></div>'
+                + '<div><div class="k">완제품 로트</div><div class="v">' + esc(dispLot(u) || '-') + '</div></div>'
                 + '<div><div class="k">박스 라벨</div><div class="v">' + esc(u.maker_lot_no || '-') + '</div></div>'
                 + '<div><div class="k">S/N</div><div class="v">' + esc(u.serial_no || ('#' + (u.unit_no || '-'))) + '</div></div>'
                 + '<div><div class="k">작업지시</div><div class="v">' + esc(u.wo || '-') + '</div></div>'
