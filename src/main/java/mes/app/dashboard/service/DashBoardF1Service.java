@@ -104,7 +104,10 @@ public class DashBoardF1Service {
 				         , pr."Code"                             AS proc_code
 				         , pr."Name"                             AS proc_name
 				         , COALESCE(mp."GoodQty", 0)             AS qty
-				         , pe."Name"                             AS actor_name
+				         , COALESCE((SELECT STRING_AGG(pm."Name", ', ' ORDER BY (mm."Person_id" = mp."Actor_id") DESC, pm."Name")
+				                       FROM mat_produce_member mm JOIN person pm ON pm.id = mm."Person_id"
+				                      WHERE mm."MatProduce_id" = mp.id AND COALESCE(mm._status,'a') = 'a'),
+				                    pe."Name")                   AS actor_name
 				      FROM mat_produce mp
 				      JOIN job_res jr ON jr.id = mp."JobResponse_id"
 				      LEFT JOIN work_center wc ON wc.id = COALESCE(mp."WorkCenter_id", jr."WorkCenter_id")
@@ -174,11 +177,18 @@ public class DashBoardF1Service {
 	public List<Map<String, Object>> getPeople(String spjangcd) {
 		String sql = """
 				WITH busy AS (
-				    SELECT mp."Actor_id" AS pid, pr."Name" AS where_name
+				    SELECT ppl.pid, pr."Name" AS where_name
 				      FROM mat_produce mp
 				      JOIN job_res jr ON jr.id = mp."JobResponse_id"
 				      LEFT JOIN work_center wc ON wc.id = COALESCE(mp."WorkCenter_id", jr."WorkCenter_id")
 				      LEFT JOIN process     pr ON pr.id = wc."Process_id"
+				      /* ★ 대표(Actor_id)만 보면 조원이 「대기」로 남는다 — 조원(mat_produce_member)도 작업중 */
+				      CROSS JOIN LATERAL (
+				          SELECT mp."Actor_id" AS pid
+				          UNION
+				          SELECT mm."Person_id" FROM mat_produce_member mm
+				           WHERE mm."MatProduce_id" = mp.id AND COALESCE(mm._status,'a') = 'a'
+				      ) ppl
 				     WHERE COALESCE(mp._status,'a') = 'a'
 				       AND mp."State" <> 'finished' AND mp."EndTime" IS NULL
 				       AND COALESCE(pr."Factory_id", 1) = 1
