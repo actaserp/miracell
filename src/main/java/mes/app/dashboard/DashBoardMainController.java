@@ -12,6 +12,7 @@ import org.springframework.security.core.Authentication;
 import mes.domain.entity.User;
 
 import mes.app.dashboard.service.DashBoardMainService;
+import mes.app.dashboard.service.EnvSensorService;
 import mes.domain.model.AjaxResult;
 
 /**
@@ -30,6 +31,9 @@ public class DashBoardMainController {
 
 	@Autowired
 	private DashBoardMainService dashBoardMainService;
+
+	@Autowired
+	private EnvSensorService envSensorService;
 
 	@GetMapping("/read")
 	public AjaxResult read(@RequestParam("spjangcd") String spjangcd) {
@@ -98,6 +102,62 @@ public class DashBoardMainController {
 
 		result.success = true;
 		result.message = "저장하였습니다.";
+		return result;
+	}
+
+	/** 클린룸 이탈 이력 — 기간 + 진행중 */
+	@GetMapping("/env_alarm/list")
+	public AjaxResult envAlarmList(@RequestParam("spjangcd") String spjangcd,
+								   @RequestParam("from") String from,
+								   @RequestParam("to") String to) {
+		AjaxResult result = new AjaxResult();
+		result.data = this.envSensorService.getAlarmLog(spjangcd, from, to);
+		return result;
+	}
+
+	/** 이탈 건 조치 내용 저장 */
+	@PostMapping("/env_alarm/action")
+	public AjaxResult envAlarmAction(@RequestParam("id") Integer id,
+									 @RequestParam(value = "action_text", required = false) String text,
+									 Authentication auth) {
+		AjaxResult result = new AjaxResult();
+		Integer userId = null;
+		if (auth != null && auth.getPrincipal() instanceof User) {
+			userId = ((User) auth.getPrincipal()).getId();
+		}
+		String err = this.envSensorService.saveAlarmAction(id, text, userId);
+		result.success = err == null;
+		result.message = err == null ? "저장하였습니다." : err;
+		return result;
+	}
+
+	/** 계측기 하나의 추이 그래프 — 통합·1공장 대시보드 공용 */
+	@GetMapping("/env_trend")
+	public AjaxResult envTrend(@RequestParam("spjangcd") String spjangcd,
+							   @RequestParam("group_code") String groupCode,
+							   @RequestParam(value = "hours", defaultValue = "24") Integer hours) {
+		AjaxResult result = new AjaxResult();
+		result.data = this.envSensorService.getTrend(spjangcd, groupCode, hours);
+		return result;
+	}
+
+	/** 위치(계측기) 목록 */
+	@GetMapping("/env_groups")
+	public AjaxResult envGroups(@RequestParam("spjangcd") String spjangcd) {
+		AjaxResult result = new AjaxResult();
+		result.data = this.envSensorService.getGroups(spjangcd);
+		return result;
+	}
+
+	/** 환경 데이터 이력 — 기간 + 간격(초) */
+	@GetMapping("/env_history")
+	public AjaxResult envHistory(@RequestParam("spjangcd") String spjangcd,
+								 @RequestParam("group_code") String groupCode,
+								 @RequestParam("from") String from,
+								 @RequestParam("to") String to,
+								 @RequestParam(value = "sec", defaultValue = "600") Integer sec) {
+		AjaxResult result = new AjaxResult();
+		result.data = this.envSensorService.getHistory(spjangcd, groupCode, from, to, sec);
 		return result;
 	}
 

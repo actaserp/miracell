@@ -398,6 +398,18 @@
          벽걸이는 항상 켜져 있는 화면이라 멈추면 그대로 죽은 화면이 된다.
        ═══════════════════════════════════════════════════════ */
     const WL_API     = '/api/dashboard/main';
+
+    /* ★ 폴링 전용 조용한 조회.
+         AjaxUtil 은 실패하면 「에러가 발생했습니다」 알림을 띄운다. 서버 재시작 중에는
+         5초마다 실패하므로 알림이 쌓여 벽걸이에서 아무도 못 끈다.
+         실패는 cb(null) 로만 알리고 화면은 직전 값을 유지한다(각 콜백이 null 을 처리한다). */
+    function wlQuietGet(url, data, cb) {
+      $.ajax({url: url, data: data, type: 'GET', dataType: 'json', cache: false, timeout: 20000,
+        global: false,
+        success: function (res) { cb(res); },
+        error: function () { cb(null); }});
+    }
+
     const WL_POLL_MS = 30000;
     /* 환경만 5초 — 대시보드·1공장 대시보드와 같은 주기·같은 출처 */
     const WL_ENV_POLL_MS = 5000;
@@ -433,7 +445,7 @@
     function wlLoad(){
       if (typeof AjaxUtil === 'undefined' || !AjaxUtil.getAsyncData) return;
 
-      AjaxUtil.getAsyncData(WL_API + '/read', {spjangcd: WL_SPJANGCD}, function(res){
+      wlQuietGet(WL_API + '/read', {spjangcd: WL_SPJANGCD}, function(res){
         if (!res || !res.data) {
           /* ★ 화면을 비우지 않는다. 직전 값을 그대로 두고 표시만 바꾼다.
                벽걸이가 통신 한 번 실패로 텅 비면 「공장이 멈춘 것」처럼 보인다. */
@@ -450,7 +462,7 @@
 
     function wlLoadEnv(){
       if (typeof AjaxUtil === 'undefined' || !AjaxUtil.getAsyncData) return;
-      AjaxUtil.getAsyncData(WL_API + '/env', {spjangcd: WL_SPJANGCD}, function(res){
+      wlQuietGet(WL_API + '/env', {spjangcd: WL_SPJANGCD}, function(res){
         if (!res || res.success === false || !res.data || !wlData) return;   // 실패하면 직전 값 유지
         wlData.env = res.data;
         wlEnv(wlData.env);

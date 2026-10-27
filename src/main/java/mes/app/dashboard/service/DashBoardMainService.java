@@ -194,8 +194,23 @@ public class DashBoardMainService {
 				             LEFT JOIN person pe2 ON pe2.id = st."Actor_id"
 				            WHERE st."State" = 'working'
 				              AND COALESCE(mu._status,'a') = 'a'), '')
-				            ELSE COALESCE(STRING_AGG(DISTINCT pe."Name", ', ') FILTER (
-				                     WHERE mp.st <> 'finished' AND mp.end_time IS NULL), '')
+				            /* ★ 대표(Actor_id)만 보면 조원이 빠진다 — 조원(mat_produce_member)까지 */
+				            ELSE COALESCE((
+				                SELECT STRING_AGG(DISTINCT pe3."Name", ', ')
+				                  FROM mat_produce x
+				                  JOIN job_res xj ON xj.id = x."JobResponse_id"
+				                  JOIN work_center xw ON xw.id = COALESCE(x."WorkCenter_id", xj."WorkCenter_id")
+				                  CROSS JOIN LATERAL (
+				                      SELECT x."Actor_id" AS pid
+				                      UNION
+				                      SELECT mm."Person_id" FROM mat_produce_member mm
+				                       WHERE mm."MatProduce_id" = x.id AND COALESCE(mm._status,'a') = 'a'
+				                  ) ppl
+				                  JOIN person pe3 ON pe3.id = ppl.pid
+				                 WHERE xw."Process_id" = pr.id
+				                   AND COALESCE(x._status,'a') = 'a'
+				                   AND x."State" <> 'finished' AND x."EndTime" IS NULL
+				                   AND (CAST(:spjangcd AS varchar) IS NULL OR xj.spjangcd = CAST(:spjangcd AS varchar))), '')
 				       END                                                           AS workers
 				     /* ★ 검사(mc02)는 mat_produce 를 만들지 않는다 — 판정만 하는 공정이라
 				          산출 품목이 없다. 세척·멸균과 같은 계열이고, 그래서 today_good 이
@@ -293,8 +308,24 @@ public class DashBoardMainService {
 	 */
 	public Map<String, Object> getWashToday(String spjangcd) {
 		String sql = """
+				WITH run AS (
+				    /* ★ 진행중 세션 — 시각은 품목(wash_work_item)에 있다.
+				         품목이 아직 없거나 안 끝난 품목이 있으면 진행중. 1공장 대시보드와 같은 판정. */
+				    SELECT w.id, w."Actor_id"
+				      FROM wash_work w
+				     WHERE COALESCE(w._status,'a') = 'a'
+				       AND w."WashDate" >= CURRENT_DATE - 1
+				       AND (NOT EXISTS (SELECT 1 FROM wash_work_item i
+				                         WHERE i."WashWork_id" = w.id AND COALESCE(i._status,'a') = 'a')
+				            OR EXISTS (SELECT 1 FROM wash_work_item i
+				                        WHERE i."WashWork_id" = w.id AND COALESCE(i._status,'a') = 'a'
+				                          AND i."EndTime" IS NULL))
+				)
 				SELECT COUNT(DISTINCT w.id)  AS session_cnt
 				     , COUNT(wi.id)          AS item_cnt
+				     , (SELECT COUNT(*) FROM run)                                   AS working_cnt
+				     , (SELECT STRING_AGG(DISTINCT pe."Name", ', ')
+				          FROM run JOIN person pe ON pe.id = run."Actor_id")        AS workers
 				  FROM wash_work w
 				  LEFT JOIN wash_work_item wi ON wi."WashWork_id" = w.id
 				 WHERE w."WashDate" = CURRENT_DATE

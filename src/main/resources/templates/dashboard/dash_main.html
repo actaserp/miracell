@@ -193,6 +193,7 @@
        카드가 가로로 길다. 값을 가로로 3등분하면 칸이 좁아져 글자를 못 키운다.
        세로로 쌓으면 폭이 남아 숫자를 크게 쓸 수 있다.
        벽에 띄워두고 지나가며 보는 값이라 크기가 최우선이다. */
+    #dbWrap .db-env .ec[data-code] { cursor:pointer; }
     #dbWrap .db-env { flex:0 0 auto; display:grid; grid-template-columns:repeat(4,1fr) repeat(3,.8fr); gap:10px; }
     #dbWrap .ec { background:#fff; border:1px solid #dbe1ea; border-radius:11px;
       padding:10px 15px 11px; border-left:5px solid #cfd6e2;
@@ -317,6 +318,18 @@
     .db-ht .bad  { color:#d64545; font-weight:800; }
     .db-ht .back { color:#0f9d58; font-weight:800; }
     .db-modal-note { font-size:11.5px; color:#8a94a4; line-height:1.7; margin:12px 0 0; }
+    /* ── 이탈 이력 (서버 보관) ── */
+    #dbHistModal .db-modal { width:1000px; }
+    .db-ht td.open { color:#d64545; font-weight:800; }
+    .db-ht td.act { text-align:left; padding-left:10px; }
+    .db-ht td.act small { display:block; color:#a7b0be; font-size:10.5px; margin-top:2px; }
+    .db-ht .act-btn { border:1px solid #cfd6e2; background:#fff; border-radius:6px;
+      padding:4px 10px; font-size:12px; font-weight:800; cursor:pointer; color:#2f6fed; }
+    .db-ht .act-edit { display:flex; gap:5px; }
+    .db-ht .act-edit input { flex:1; min-width:0; max-width:none; height:30px; text-align:left;
+      padding:0 8px; border:1px solid #cfd6e2; border-radius:6px; font-size:12.5px; }
+    .db-hist-q { display:flex; align-items:center; gap:6px; font-size:12px; font-weight:800; color:#5b6675; }
+    .db-hist-q input { height:32px; border:1px solid #cfd6e2; border-radius:6px; padding:0 6px; }
     .db-modal-note b { color:#5b6675; }
 
     /* 알림 띠 */
@@ -627,19 +640,24 @@
       <div class="db-modal-b">
         <table class="db-mt db-ht">
           <thead><tr>
-            <th style="width:150px">발생 시각</th><th style="width:120px">클린룸</th>
-            <th>이탈 내용</th><th style="width:110px">상태</th>
+            <th style="width:96px">발생</th><th style="width:96px">복귀</th>
+            <th style="width:110px">클린룸</th><th>이탈 내용</th>
+            <th style="width:84px">기준</th><th style="width:70px">지속</th>
+            <th style="width:260px">조치</th>
           </tr></thead>
           <tbody id="dbHistRows"></tbody>
         </table>
         <p class="db-modal-note">
-          이 목록은 <b>화면을 열어둔 동안</b>만 쌓입니다. 새로고침하면 지워집니다.<br>
-          보관이 필요하면 수집값과 함께 서버에 이력 테이블을 두어야 합니다.
+          서버가 <b>1분마다</b> 판정해 남깁니다. 화면을 열어 두지 않아도 기록됩니다.<br>
+          연속 2회 벗어나면 이탈, 기준 안으로 돌아오면 복귀로 닫힙니다. 진행중인 이탈은 기간과 관계없이 맨 위에 나옵니다.
         </p>
       </div>
       <div class="db-modal-f">
-        <span class="msg"></span>
-        <button type="button" class="btn gray" id="dbHistClear">목록 비우기</button>
+        <span class="msg" id="dbHistMsg"></span>
+        <span class="db-hist-q">
+          <input type="date" id="dbHistFrom"> ~ <input type="date" id="dbHistTo">
+        </span>
+        <button type="button" class="btn pri" id="dbHistQuery">조회</button>
       </div>
     </div>
   </div>
@@ -678,6 +696,7 @@
 </th:block>
 
 <th:block layout:fragment="scripts">
+  <script th:src="@{/js/env_chart.js}"></script>
   <script type="text/javascript">
     /* ═══════════════════════════════════════════════════
        통합 생산 대시보드
@@ -689,6 +708,18 @@
          배경 탭이 계속 서버를 두드리는 걸 막는다.
     ═══════════════════════════════════════════════════ */
     const DB_API = '/api/dashboard/main';
+
+    /* ★ 폴링 전용 조용한 조회.
+         AjaxUtil 은 실패하면 「에러가 발생했습니다」 알림을 띄운다. 서버 재시작 중에는
+         5초마다 실패하므로 알림이 쌓여 벽걸이에서 아무도 못 끈다.
+         실패는 cb(null) 로만 알리고 화면은 직전 값을 유지한다(각 콜백이 null 을 처리한다). */
+    function dbQuietGet(url, data, cb) {
+      $.ajax({url: url, data: data, type: 'GET', dataType: 'json', cache: false, timeout: 20000,
+        global: false,
+        success: function (res) { cb(res); },
+        error: function () { cb(null); }});
+    }
+
     const DB_POLL_MS = 60000;
     const DB_ENV_POLL_MS = 5000;
     const DB_SPJANGCD = (typeof SPJANGCD !== 'undefined' && SPJANGCD) ? SPJANGCD : 'ZZ';
@@ -750,7 +781,7 @@
         console.error('[dashboard] AjaxUtil 미로드');
         return;
       }
-      AjaxUtil.getAsyncData(DB_API + '/read', {spjangcd: DB_SPJANGCD}, function (res) {
+      dbQuietGet(DB_API + '/read', {spjangcd: DB_SPJANGCD}, function (res) {
         if (!res || !res.data) {
           document.getElementById('dbAlerts').innerHTML =
                   '<div class="db-alert red">데이터를 불러오지 못했습니다. 잠시 후 다시 시도합니다.</div>';
@@ -1027,7 +1058,8 @@
                   : (z.age_sec < 3600 ? Math.floor(z.age_sec / 60) + '분 전' : Math.floor(z.age_sec / 3600) + '시간 전');
           badge = '<span class="s off" title="마지막 수신 ' + dbEsc(z.ts || '') + '">수신 끊김 · ' + ago + '</span>';
         }
-        return '<div class="ec ' + (alarm ? 'alarm' : (hasAny ? 'ok' : '')) + '">'
+        return '<div class="ec ' + (alarm ? 'alarm' : (hasAny ? 'ok' : '')) + '"'
+                + (z.code ? ' data-code="' + dbEsc(z.code) + '" data-name="' + dbEsc(z.name) + '" title="눌러서 추이 보기"' : '') + '>'
                 + '<div class="ec-h"><span class="n">' + dbEsc(z.name) + '</span>'
                 + '<span class="z">' + dbEsc(z.label || '') + '</span>' + badge + '</div>'
                 + body + '</div>';
@@ -1265,7 +1297,7 @@
     }
 
     function dbLoadEnv() {
-      AjaxUtil.getAsyncData(DB_API + '/env', {spjangcd: DB_SPJANGCD}, function (res) {
+      dbQuietGet(DB_API + '/env', {spjangcd: DB_SPJANGCD}, function (res) {
         if (!res || res.success === false || !res.data) return;   // 실패하면 직전 값 유지
         if (!dbData) return;                                      // 첫 /read 전에는 그리지 않는다
         dbData.env = res.data;
@@ -1377,18 +1409,84 @@
       if (dbEnvHist.length > DB_HIST_MAX) dbEnvHist.length = DB_HIST_MAX;
     }
 
+    /* ── 이탈 이력 (서버 env_alarm_log) ──
+       ★ 화면 메모리 목록(dbEnvHist)은 더 보여주지 않는다. 서버가 화면과 무관하게 남긴다. */
+    var DB_KIND_NM = {temp: '온도', humi: '습도', press: '차압'};
+    var DB_KIND_UNIT = {temp: '°C', humi: '%', press: ''};
+    var dbHistRowsData = [];
+
+    function dbYmd(d) { return d.getFullYear() + '-' + dbPad(d.getMonth() + 1) + '-' + dbPad(d.getDate()); }
+    function dbFmtV(v, kind) {
+      if (v === null || v === undefined || v === '') return '-';
+      return Number(v).toFixed(kind === 'press' ? 2 : 1) + (DB_KIND_UNIT[kind] || '');
+    }
+    function dbDur(m) {
+      m = Number(m || 0);
+      if (m < 60) return m + '분';
+      return Math.floor(m / 60) + '시간 ' + (m % 60) + '분';
+    }
+
     function dbHistOpen() {
-      document.getElementById('dbHistRows').innerHTML = dbEnvHist.length
-              ? dbEnvHist.map(function (h) {
-                return '<tr><td>' + dbEsc(h.at) + '</td>'
-                        + '<td>' + dbEsc(h.name) + '</td>'
-                        + '<td class="l">' + dbEsc(h.detail || '-') + '</td>'
-                        + '<td class="' + (h.kind === 'bad' ? 'bad' : 'back') + '">'
-                        + (h.kind === 'bad' ? '이탈' : '정상 복귀') + '</td></tr>';
-              }).join('')
-              : '<tr><td colspan="4" style="padding:26px; color:#8a94a4">'
-              + '기록된 이탈이 없습니다.</td></tr>';
+      var f = document.getElementById('dbHistFrom'), t = document.getElementById('dbHistTo');
+      if (!f.value) { var d = new Date(); t.value = dbYmd(d); d.setDate(d.getDate() - 6); f.value = dbYmd(d); }
       document.getElementById('dbHistModal').classList.add('on');
+      dbHistLoad();
+    }
+
+    function dbHistLoad() {
+      var msg = document.getElementById('dbHistMsg');
+      msg.textContent = '';
+      AjaxUtil.getAsyncData(DB_API + '/env_alarm/list', {
+        spjangcd: DB_SPJANGCD,
+        from: document.getElementById('dbHistFrom').value,
+        to: document.getElementById('dbHistTo').value
+      }, function (res) {
+        if (!res || res.success === false) { msg.textContent = (res && res.message) || '조회 실패'; return; }
+        dbHistRowsData = res.data || [];
+        dbHistRender();
+      });
+    }
+
+    function dbHistRender(editId) {
+      var rows = dbHistRowsData;
+      document.getElementById('dbHistRows').innerHTML = rows.length ? rows.map(function (h) {
+                var k = h.kind, open = !h.end_at;
+                var range = (h.min_val !== null && h.min_val !== undefined ? Number(h.min_val) : '')
+                        + '~' + (h.max_val !== null && h.max_val !== undefined ? Number(h.max_val) : '');
+                var detail = (DB_KIND_NM[k] || k) + ' ' + (h.dir === 'high' ? '상한 초과' : '하한 미달')
+                        + ' · 발생 ' + dbFmtV(h.start_val, k)
+                        + ' · ' + (h.dir === 'high' ? '최고 ' : '최저 ') + dbFmtV(h.peak_val, k)
+                        + (open ? '' : ' · 복귀 ' + dbFmtV(h.end_val, k));
+                var act;
+                if (editId === h.id) {
+                  act = '<div class="act-edit"><input id="dbActIn" maxlength="500" value="' + dbEsc(h.action_text || '') + '"'
+                          + ' placeholder="예) 제습기 가동, 출입문 점검">'
+                          + '<button type="button" class="act-btn" data-save="' + h.id + '">저장</button></div>';
+                } else if (h.action_text) {
+                  act = dbEsc(h.action_text) + '<small>' + dbEsc(h.action_name || '') + ' · ' + dbEsc(h.action_at || '')
+                          + ' <a href="#" data-edit="' + h.id + '">수정</a></small>';
+                } else {
+                  act = '<button type="button" class="act-btn" data-edit="' + h.id + '">조치 등록</button>';
+                }
+                return '<tr><td>' + dbEsc(h.start_at) + '</td>'
+                        + '<td class="' + (open ? 'open' : 'back') + '">' + (open ? '진행중' : dbEsc(h.end_at)) + '</td>'
+                        + '<td>' + dbEsc(h.group_name) + '</td>'
+                        + '<td class="l">' + dbEsc(detail) + '</td>'
+                        + '<td>' + dbEsc(range) + '</td>'
+                        + '<td>' + dbDur(h.dur_min) + '</td>'
+                        + '<td class="act">' + act + '</td></tr>';
+              }).join('')
+              : '<tr><td colspan="7" style="padding:26px; color:#8a94a4">기간 안에 기록된 이탈이 없습니다.</td></tr>';
+      var inp = document.getElementById('dbActIn');
+      if (inp) { inp.focus(); inp.onkeydown = function (e) { if (e.key === 'Enter') dbHistSave(editId); }; }
+    }
+
+    function dbHistSave(id) {
+      var inp = document.getElementById('dbActIn');
+      AjaxUtil.postAsyncData(DB_API + '/env_alarm/action', {id: id, action_text: inp ? inp.value : ''}, function (res) {
+        if (res && res.success === false) { document.getElementById('dbHistMsg').textContent = res.message; return; }
+        dbHistLoad();
+      });
     }
 
     /**
@@ -1583,9 +1681,16 @@
       document.getElementById('dbHistClose').addEventListener('click', function () {
         document.getElementById('dbHistModal').classList.remove('on');
       });
-      document.getElementById('dbHistClear').addEventListener('click', function () {
-        dbEnvHist = [];
-        dbHistOpen();
+      document.getElementById('dbHistQuery').addEventListener('click', dbHistLoad);
+      /* 클린룸 카드를 누르면 추이 그래프 */
+      document.getElementById('dbEnv').addEventListener('click', function (e) {
+        var c = e.target.closest('.ec[data-code]');
+        if (c && window.EnvChart) EnvChart.open({spjangcd: DB_SPJANGCD, groupCode: c.getAttribute('data-code'), groupName: c.getAttribute('data-name')});
+      });
+      document.getElementById('dbHistRows').addEventListener('click', function (e) {
+        var ed = e.target.closest('[data-edit]'), sv = e.target.closest('[data-save]');
+        if (ed) { e.preventDefault(); dbHistRender(Number(ed.getAttribute('data-edit'))); }
+        if (sv) dbHistSave(Number(sv.getAttribute('data-save')));
       });
       document.getElementById('dbEnvClose').addEventListener('click', dbEnvClose);
       document.getElementById('dbEnvCancel').addEventListener('click', dbEnvClose);

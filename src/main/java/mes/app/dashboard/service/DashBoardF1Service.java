@@ -159,6 +159,24 @@ public class DashBoardF1Service {
 		return nz(this.sqlRunner.getRows(sql, p(spjangcd)));
 	}
 
+
+	/** 진행중 세척 세션 수 — 생산현황 「세척」 행 초록불 (작업인원과 같은 판정) */
+	public int getWashWorking(String spjangcd) {
+		String sql = """
+				SELECT COUNT(*) AS cnt
+				  FROM wash_work w
+				 WHERE COALESCE(w._status,'a') = 'a'
+				   AND w."WashDate" >= CURRENT_DATE - 1
+				   AND (NOT EXISTS (SELECT 1 FROM wash_work_item i
+				                     WHERE i."WashWork_id" = w.id AND COALESCE(i._status,'a') = 'a')
+				        OR EXISTS (SELECT 1 FROM wash_work_item i
+				                    WHERE i."WashWork_id" = w.id AND COALESCE(i._status,'a') = 'a'
+				                      AND i."EndTime" IS NULL))
+				""";
+		List<Map<String, Object>> r = nz(this.sqlRunner.getRows(sql, p(spjangcd)));
+		return r.isEmpty() || r.get(0).get("cnt") == null ? 0 : ((Number) r.get(0).get("cnt")).intValue();
+	}
+
 	// =================================================================
 	// 작업인원
 	// =================================================================
@@ -192,6 +210,18 @@ public class DashBoardF1Service {
 				     WHERE COALESCE(mp._status,'a') = 'a'
 				       AND mp."State" <> 'finished' AND mp."EndTime" IS NULL
 				       AND COALESCE(pr."Factory_id", 1) = 1
+				    UNION ALL
+				    /* ★ 세척은 mat_produce 를 만들지 않는다 — wash_work 진행중(종료 시각 없음)도 작업중 */
+				    SELECT w."Actor_id", '세척'
+				      FROM wash_work w
+				     WHERE COALESCE(w._status,'a') = 'a'
+				       AND w."WashDate" >= CURRENT_DATE - 1
+				       /* 시각은 품목(wash_work_item)에 있다 — 품목이 아직 없거나 안 끝난 품목이 있으면 진행중 */
+				       AND (NOT EXISTS (SELECT 1 FROM wash_work_item i
+				                         WHERE i."WashWork_id" = w.id AND COALESCE(i._status,'a') = 'a')
+				            OR EXISTS (SELECT 1 FROM wash_work_item i
+				                        WHERE i."WashWork_id" = w.id AND COALESCE(i._status,'a') = 'a'
+				                          AND i."EndTime" IS NULL))
 				    UNION ALL
 				    SELECT b."Actor_id", '멸균'
 				      FROM steril_batch b
@@ -260,6 +290,7 @@ public class DashBoardF1Service {
 		data.put("working",    getWorking(spjangcd));
 		data.put("today_done", getTodayDone(spjangcd));
 		data.put("wash_today", mainService.getWashToday(spjangcd));
+		data.put("wash_working", getWashWorking(spjangcd));
 		data.put("steril",     mainService.getSterilNow(spjangcd));
 		data.put("people",     getPeople(spjangcd));
 		data.put("kpi",        mainService.getKpi(spjangcd));          // f1_today_good 만 쓴다

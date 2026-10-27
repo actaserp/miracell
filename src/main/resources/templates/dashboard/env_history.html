@@ -1,0 +1,375 @@
+<html layout:decorate="~{layout_page}">
+<head>
+  <style>
+    /* ═══════════════════════════════════════════════════
+       환경 데이터 이력 — 기간 조회 · 증빙용
+
+       ★ 대시보드는 「지금」, 이 화면은 「지난 기간」.
+         같은 서버(EnvSensorService)·같은 그래프(env_chart.js)를 써서 숫자가 어긋나지 않는다.
+       ★ 위치 = env_sensor.group_code (크린룸·세척실·6층 창고·예열실·차압계…).
+         새 센서(자동화 장비 등)도 env_sensor 에 등록하면 그대로 나온다.
+       ★ 데이터 출처: 최근 30일 = 원본, 그 이전 = 1분 요약. 화면은 구분하지 않는다.
+    ═══════════════════════════════════════════════════ */
+    body section.section:has(#ehWrap) { overflow-y:auto !important; }
+    #ehWrap { display:flex; flex-direction:column; gap:12px; font-family:'Pretendard','Malgun Gothic',sans-serif; color:#1f2733; }
+    #ehWrap .eh-bar { display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end; background:#fff;
+      border:1px solid #dbe1ea; border-radius:10px; padding:10px 12px; }
+    #ehWrap .eh-bar label { display:flex; flex-direction:column; gap:4px; font-size:11.5px; font-weight:800; color:#5b6675; }
+    #ehWrap .eh-bar input, #ehWrap .eh-bar select { height:34px; border:1px solid #d5dbe5; border-radius:6px;
+      padding:0 8px; font-size:13px; min-width:120px; background:#fff; }
+    #ehWrap .eh-bar .quick { display:flex; gap:4px; }
+    #ehWrap .eh-bar .quick button { height:34px; border:1px solid #d5dbe5; background:#fff; border-radius:6px;
+      padding:0 10px; font-weight:800; font-size:12px; cursor:pointer; color:#3a4759; }
+    #ehWrap .eh-bar .go { height:34px; border:0; border-radius:6px; padding:0 18px; font-weight:800; cursor:pointer;
+      background:#2f6fed; color:#fff; }
+    #ehWrap .eh-bar .xl { height:34px; border:1px solid #0f9d58; border-radius:6px; padding:0 14px; font-weight:800;
+      cursor:pointer; background:#fff; color:#0b7a43; }
+    #ehWrap .eh-bar .info { margin-left:auto; font-size:11.5px; color:#8a94a4; font-weight:700; align-self:center; }
+
+    #ehWrap .eh-card { background:#fff; border:1px solid #dbe1ea; border-radius:10px; overflow:hidden; }
+    #ehWrap .eh-card-h { padding:8px 12px; background:#2f3a4c; color:#fff; font-size:12.5px; font-weight:800;
+      display:flex; align-items:center; gap:8px; }
+    #ehWrap .eh-card-h .sub { margin-left:auto; font-weight:700; font-size:11px; color:#aab4c4; }
+    #ehWrap .eh-card-b { padding:12px; }
+
+    #ehWrap .eh-tbl-wrap { max-height:460px; overflow:auto; border:1px solid #eef1f6; border-radius:8px; }
+    #ehWrap table.eh-tbl { width:100%; border-collapse:collapse; font-size:12.5px; font-variant-numeric:tabular-nums; }
+    /* ★ 머리글 두 줄을 thead 째로 고정한다. 줄마다 sticky 를 걸면 둘째 줄 높이가 어긋나 본문 첫 줄을 덮었다 */
+    #ehWrap .eh-tbl thead { position:sticky; top:0; z-index:1; }
+    #ehWrap .eh-tbl th { background:#f7f9fc; border-bottom:1px solid #e5e9f0;
+      padding:6px 8px; font-size:11.5px; color:#5b6675; white-space:nowrap; text-align:center; }
+    #ehWrap .eh-tbl th.g { border-left:1px solid #e5e9f0; }
+    #ehWrap .eh-tbl tr.h2 th { font-weight:700; color:#8a94a4; }
+    /* 숫자 칸은 가운데 — 칸이 넓어 오른쪽 정렬이면 머리글(가운데)과 따로 놀았다 */
+    #ehWrap .eh-tbl td { padding:5px 8px; border-bottom:1px solid #f0f2f6; text-align:center; white-space:nowrap; }
+    #ehWrap .eh-tbl td.n { min-width:70px; }
+    #ehWrap .eh-tbl td.t { text-align:center; color:#3a4759; }
+    #ehWrap .eh-tbl td.g { border-left:1px solid #f0f2f6; }
+    #ehWrap .eh-tbl td.out { color:#d64545; font-weight:800; background:#fff5f5; }
+    #ehWrap .eh-tbl td.j { text-align:center; font-weight:800; }
+    #ehWrap .eh-tbl td.j.bad { color:#d64545; }
+    #ehWrap .eh-tbl td.j.ok { color:#0b7a43; }
+    #ehWrap .eh-empty { padding:30px; text-align:center; color:#8a94a4; font-size:13px; }
+
+    #ehWrap .eh-al td { text-align:center; }
+    #ehWrap .eh-al td.l { text-align:left; }
+    #ehWrap .eh-al td.open { color:#d64545; font-weight:800; }
+    #ehWrap .eh-al td.back { color:#0b7a43; font-weight:800; }
+    #ehWrap .eh-al td.act { text-align:left; white-space:normal; min-width:240px; }
+    #ehWrap .eh-al td.act small { display:block; color:#a7b0be; font-size:10.5px; margin-top:2px; }
+    #ehWrap .act-btn { border:1px solid #cfd6e2; background:#fff; border-radius:6px; padding:3px 10px;
+      font-size:12px; font-weight:800; cursor:pointer; color:#2f6fed; }
+    #ehWrap .act-edit { display:flex; gap:5px; }
+    #ehWrap .act-edit input { flex:1; min-width:0; height:30px; padding:0 8px; border:1px solid #cfd6e2;
+      border-radius:6px; font-size:12.5px; }
+  </style>
+</head>
+
+<th:block layout:fragment="content">
+  <div class="layout-contents">
+    <div class="page-title-wrap">
+      <div class="left">
+        <h2>환경 데이터 이력</h2>
+        <a title="북마크" class="bookmark toggle">내 메뉴</a>
+      </div>
+      <ul class="page-navi">
+        <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+        <li>모니터링</li>
+        <li>환경 데이터 이력</li>
+      </ul>
+    </div>
+
+    <section class="section">
+      <div id="ehWrap">
+        <div class="eh-bar">
+          <label>위치<select id="ehGroup"></select></label>
+          <label>시작일<input type="date" id="ehFrom"></label>
+          <label>종료일<input type="date" id="ehTo"></label>
+          <span class="quick">
+            <button type="button" data-d="0">오늘</button>
+            <button type="button" data-d="6">7일</button>
+            <button type="button" data-d="29">30일</button>
+          </span>
+          <label>간격
+            <select id="ehSec">
+              <option value="60">1분</option>
+              <option value="600" selected>10분</option>
+              <option value="3600">1시간</option>
+              <option value="86400">1일</option>
+            </select>
+          </label>
+          <button type="button" class="go" id="ehGo">조회</button>
+          <button type="button" class="xl" id="ehXl">엑셀</button>
+          <span class="info" id="ehInfo"></span>
+        </div>
+
+        <div class="eh-card">
+          <div class="eh-card-h">추이 <span class="sub">빨간 점선 = 관리 기준 · 빨간 선 = 기준 밖</span></div>
+          <div class="eh-card-b" id="ehChart"><div class="eh-empty">위치와 기간을 고르고 조회하세요.</div></div>
+        </div>
+
+        <div class="eh-card">
+          <div class="eh-card-h">수치 <span class="sub">간격마다 평균 · 최저 · 최고 — 빨간 칸은 기준 밖</span></div>
+          <div class="eh-card-b"><div class="eh-tbl-wrap" id="ehTable"><div class="eh-empty">—</div></div></div>
+        </div>
+
+        <div class="eh-card">
+          <div class="eh-card-h">이탈 이력 <span class="sub">서버가 1분마다 판정 · 연속 2회 벗어나면 이탈 · 진행중은 기간과 관계없이 표시</span></div>
+          <div class="eh-card-b"><div class="eh-tbl-wrap" id="ehAlarm"><div class="eh-empty">—</div></div></div>
+        </div>
+      </div>
+    </section>
+  </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+  <script th:src="@{/js/env_chart.js}"></script>
+  <script type="text/javascript">
+    const EH_API = '/api/dashboard/main';
+    const EH_SPJANGCD = (typeof SPJANGCD !== 'undefined' && SPJANGCD) ? SPJANGCD : 'ZZ';
+    const EH_KST = 9 * 3600 * 1000;
+
+    var ehData = null;     // 마지막 조회 결과
+    var ehRows = [];       // 표 행 (엑셀과 같은 값)
+    var ehAlarms = [];
+    var ehGroups = [];
+
+    function ehEsc(v) {
+      return String(v === null || v === undefined ? '' : v)
+              .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+    function ehHas(v) { return v !== null && v !== undefined && v !== ''; }
+    function ehPad(n) { return String(n).padStart(2, '0'); }
+    function ehYmd(d) { return d.getFullYear() + '-' + ehPad(d.getMonth() + 1) + '-' + ehPad(d.getDate()); }
+    function ehMsg(t) { if (typeof Alert !== 'undefined') Alert.alert('', t); }
+
+    /* t(ms, KST 를 UTC 처럼) → 'yyyy-mm-dd hh:mi' */
+    function ehT(ms) {
+      var d = new Date(ms);
+      return d.getUTCFullYear() + '-' + ehPad(d.getUTCMonth() + 1) + '-' + ehPad(d.getUTCDate())
+              + ' ' + ehPad(d.getUTCHours()) + ':' + ehPad(d.getUTCMinutes());
+    }
+    function ehSecNm(s) {
+      s = Number(s);
+      return s >= 86400 ? (s / 86400) + '일' : s >= 3600 ? (s / 3600) + '시간' : (s / 60) + '분';
+    }
+    function ehIsOut(v, s) {
+      return (ehHas(s.min_val) && v < Number(s.min_val)) || (ehHas(s.max_val) && v > Number(s.max_val));
+    }
+    function ehDig(s) { return EnvChart.KIND_DIG[s.kind] || 2; }
+    function ehKind(s) { return EnvChart.KIND_NM[s.kind] || s.tag_name; }
+
+    function ehLoadGroups() {
+      AjaxUtil.getAsyncData(EH_API + '/env_groups', {spjangcd: EH_SPJANGCD}, function (res) {
+        ehGroups = (res && res.data) || [];
+        document.getElementById('ehGroup').innerHTML = ehGroups.map(function (g) {
+          return '<option value="' + ehEsc(g.group_code) + '">' + ehEsc(g.group_name || g.group_code) + '</option>';
+        }).join('');
+        if (ehGroups.length) ehSearch();
+      });
+    }
+
+    function ehSearch() {
+      var g = document.getElementById('ehGroup').value;
+      var from = document.getElementById('ehFrom').value, to = document.getElementById('ehTo').value;
+      if (!g) { ehMsg('위치를 선택하세요.'); return; }
+      if (!from || !to) { ehMsg('기간을 입력하세요.'); return; }
+      document.getElementById('ehInfo').textContent = '조회 중…';
+      AjaxUtil.getAsyncData(EH_API + '/env_history', {
+        spjangcd: EH_SPJANGCD, group_code: g, from: from, to: to,
+        sec: document.getElementById('ehSec').value
+      }, function (res) {
+        if (!res || res.success === false || !res.data) {
+          document.getElementById('ehInfo').textContent = '조회 실패' + (res && res.message ? ' — ' + res.message : '');
+          return;
+        }
+        ehData = res.data;
+        var asked = Number(document.getElementById('ehSec').value), got = Number(ehData.bucket_sec);
+        document.getElementById('ehInfo').textContent = '간격 ' + ehSecNm(got)
+                + (got > asked ? ' (기간이 길어 ' + ehSecNm(asked) + ' → ' + ehSecNm(got) + '로 늘림)' : '');
+        var t0 = Date.parse(from + 'T00:00:00Z'), t1 = Date.parse(to + 'T00:00:00Z') + 86400000;
+        var now = Date.now() + EH_KST;
+        if (t1 > now) t1 = now;
+        EnvChart.render(document.getElementById('ehChart'), ehData, {t0: t0, t1: t1});
+        ehRenderTable();
+      });
+      ehLoadAlarms();
+    }
+
+    /* 표 — 시각마다 한 줄, 센서마다 평균·최저·최고 */
+    function ehRenderTable() {
+      var sensors = ehData.sensors || [];
+      var byT = {}, ts = [];
+      (ehData.points || []).forEach(function (p) {
+        var t = Number(p.t);
+        if (!byT[t]) { byT[t] = {}; ts.push(t); }
+        byT[t][p.tagname] = {v: Number(p.v), lo: Number(p.lo), hi: Number(p.hi)};
+      });
+      ts.sort(function (a, b) { return a - b; });
+
+      ehRows = ts.map(function (t) {
+        var row = {t: t, cells: [], bad: false};
+        sensors.forEach(function (s) {
+          var c = byT[t][s.tag_name];
+          var out = c ? (ehIsOut(c.v, s) || ehIsOut(c.lo, s) || ehIsOut(c.hi, s)) : false;
+          if (out) row.bad = true;
+          row.cells.push({s: s, c: c, out: out});
+        });
+        return row;
+      });
+
+      var host = document.getElementById('ehTable');
+      if (!ehRows.length) { host.innerHTML = '<div class="eh-empty">기간 안에 수신된 값이 없습니다.</div>'; return; }
+      var h1 = '<tr><th rowspan="2">일시</th>' + sensors.map(function (s) {
+        var u = ehHas(s.unit) ? s.unit : (EnvChart.KIND_UNIT[s.kind] || '');
+        var rg = (ehHas(s.min_val) || ehHas(s.max_val))
+                ? ' (' + (ehHas(s.min_val) ? Number(s.min_val) : '') + '~' + (ehHas(s.max_val) ? Number(s.max_val) : '') + u + ')' : '';
+        return '<th class="g" colspan="3">' + ehEsc(ehKind(s)) + ehEsc(rg) + '</th>';
+      }).join('') + '<th rowspan="2">판정</th></tr>';
+      var h2 = '<tr class="h2">' + sensors.map(function () {
+        return '<th class="g">평균</th><th>최저</th><th>최고</th>';
+      }).join('') + '</tr>';
+      var body = ehRows.slice().reverse().map(function (r) {   /* 최근이 위 */
+        return '<tr><td class="t">' + ehT(r.t) + '</td>' + r.cells.map(function (x) {
+          if (!x.c) return '<td class="g">-</td><td>-</td><td>-</td>';
+          var d = ehDig(x.s);
+          var o = function (v) { return ehIsOut(v, x.s) ? ' out' : ''; };
+          return '<td class="g' + o(x.c.v) + '">' + x.c.v.toFixed(d) + '</td>'
+                  + '<td class="' + o(x.c.lo) + '">' + x.c.lo.toFixed(d) + '</td>'
+                  + '<td class="' + o(x.c.hi) + '">' + x.c.hi.toFixed(d) + '</td>';
+        }).join('') + '<td class="j ' + (r.bad ? 'bad">이탈' : 'ok">정상') + '</td></tr>';
+      }).join('');
+      host.innerHTML = '<table class="eh-tbl"><thead>' + h1 + h2 + '</thead><tbody>' + body + '</tbody></table>';
+    }
+
+    /* 엑셀 — 표와 같은 값. CSV(UTF-8 BOM) 라 엑셀에서 한글이 깨지지 않는다 */
+    function ehExcel() {
+      if (!ehData || !ehRows.length) { ehMsg('먼저 조회하세요.'); return; }
+      var sensors = ehData.sensors || [];
+      var gname = (document.getElementById('ehGroup').selectedOptions[0] || {}).text || '';
+      var q = function (v) { v = String(v === null || v === undefined ? '' : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+      var lines = [];
+      lines.push([q('위치'), q(gname), q('기간'), q(document.getElementById('ehFrom').value + ' ~ ' + document.getElementById('ehTo').value),
+        q('간격'), q(ehSecNm(ehData.bucket_sec))].join(','));
+      var head = ['일시'];
+      sensors.forEach(function (s) {
+        var u = ehHas(s.unit) ? s.unit : (EnvChart.KIND_UNIT[s.kind] || '');
+        var k = ehKind(s);
+        head.push(k + ' 평균' + (u ? '(' + u + ')' : ''), k + ' 최저', k + ' 최고',
+                k + ' 기준', k + ' 판정');
+      });
+      head.push('판정');
+      lines.push(head.map(q).join(','));
+      ehRows.forEach(function (r) {
+        var cols = [ehT(r.t)];
+        r.cells.forEach(function (x) {
+          var d = ehDig(x.s);
+          var rg = (ehHas(x.s.min_val) ? Number(x.s.min_val) : '') + '~' + (ehHas(x.s.max_val) ? Number(x.s.max_val) : '');
+          if (!x.c) { cols.push('', '', '', rg, ''); return; }
+          cols.push(x.c.v.toFixed(d), x.c.lo.toFixed(d), x.c.hi.toFixed(d), rg, x.out ? '이탈' : '정상');
+        });
+        cols.push(r.bad ? '이탈' : '정상');
+        lines.push(cols.map(q).join(','));
+      });
+      var blob = new Blob(['﻿' + lines.join('\r\n')], {type: 'text/csv;charset=utf-8'});
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = '환경데이터_' + gname + '_' + document.getElementById('ehFrom').value + '_' + document.getElementById('ehTo').value + '.csv';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+    }
+
+    // ── 이탈 이력 (선택 위치만) ──
+    function ehLoadAlarms() {
+      AjaxUtil.getAsyncData(EH_API + '/env_alarm/list', {
+        spjangcd: EH_SPJANGCD,
+        from: document.getElementById('ehFrom').value,
+        to: document.getElementById('ehTo').value
+      }, function (res) {
+        var g = document.getElementById('ehGroup').value;
+        ehAlarms = ((res && res.data) || []).filter(function (a) { return a.group_code === g; });
+        ehRenderAlarms();
+      });
+    }
+
+    function ehRenderAlarms(editId) {
+      var host = document.getElementById('ehAlarm');
+      if (!ehAlarms.length) { host.innerHTML = '<div class="eh-empty">기간 안에 기록된 이탈이 없습니다.</div>'; return; }
+      var fv = function (v, k) {
+        if (!ehHas(v)) return '-';
+        return Number(v).toFixed(EnvChart.KIND_DIG[k] || 2) + (EnvChart.KIND_UNIT[k] || '');
+      };
+      var dur = function (m) { m = Number(m || 0); return m < 60 ? m + '분' : Math.floor(m / 60) + '시간 ' + (m % 60) + '분'; };
+      host.innerHTML = '<table class="eh-tbl eh-al"><thead><tr><th>발생</th><th>복귀</th><th>항목</th>'
+              + '<th>내용</th><th>기준</th><th>지속</th><th>조치</th></tr></thead><tbody>'
+              + ehAlarms.map(function (h) {
+                var k = h.kind, open = !h.end_at;
+                var detail = (h.dir === 'high' ? '상한 초과' : '하한 미달') + ' · 발생 ' + fv(h.start_val, k)
+                        + ' · ' + (h.dir === 'high' ? '최고 ' : '최저 ') + fv(h.peak_val, k)
+                        + (open ? '' : ' · 복귀 ' + fv(h.end_val, k));
+                var rg = (ehHas(h.min_val) ? Number(h.min_val) : '') + '~' + (ehHas(h.max_val) ? Number(h.max_val) : '');
+                var act;
+                if (editId === h.id) {
+                  act = '<div class="act-edit"><input id="ehActIn" maxlength="500" value="' + ehEsc(h.action_text || '') + '"'
+                          + ' placeholder="예) 제습기 가동, 출입문 점검">'
+                          + '<button type="button" class="act-btn" data-save="' + h.id + '">저장</button></div>';
+                } else if (h.action_text) {
+                  act = ehEsc(h.action_text) + '<small>' + ehEsc(h.action_name || '') + ' · ' + ehEsc(h.action_at || '')
+                          + ' <a href="#" data-edit="' + h.id + '">수정</a></small>';
+                } else {
+                  act = '<button type="button" class="act-btn" data-edit="' + h.id + '">조치 등록</button>';
+                }
+                return '<tr><td>' + ehEsc(h.start_at) + '</td>'
+                        + '<td class="' + (open ? 'open' : 'back') + '">' + (open ? '진행중' : ehEsc(h.end_at)) + '</td>'
+                        + '<td>' + ehEsc(EnvChart.KIND_NM[k] || k) + '</td>'
+                        + '<td class="l">' + ehEsc(detail) + '</td><td>' + ehEsc(rg) + '</td>'
+                        + '<td>' + dur(h.dur_min) + '</td><td class="act">' + act + '</td></tr>';
+              }).join('') + '</tbody></table>';
+      var inp = document.getElementById('ehActIn');
+      if (inp) { inp.focus(); inp.onkeydown = function (e) { if (e.key === 'Enter') ehSaveAct(editId); }; }
+    }
+
+    function ehSaveAct(id) {
+      var inp = document.getElementById('ehActIn');
+      AjaxUtil.postAsyncData(EH_API + '/env_alarm/action', {id: id, action_text: inp ? inp.value : ''}, function (res) {
+        if (res && res.success === false) { ehMsg(res.message); return; }
+        ehLoadAlarms();
+      });
+    }
+
+    function ehQuick(days) {
+      var t = new Date(), f = new Date();
+      f.setDate(f.getDate() - days);
+      document.getElementById('ehFrom').value = ehYmd(f);
+      document.getElementById('ehTo').value = ehYmd(t);
+      document.getElementById('ehSec').value = days === 0 ? '60' : days <= 6 ? '600' : '3600';
+      ehSearch();
+    }
+
+    $(document.body).ready(function () {
+      if (typeof AjaxUtil === 'undefined' || !window.EnvChart) { console.error('[env_history] 스크립트 미로드'); return; }
+      var t = new Date(), f = new Date();
+      f.setDate(f.getDate() - 6);
+      document.getElementById('ehFrom').value = ehYmd(f);
+      document.getElementById('ehTo').value = ehYmd(t);
+
+      document.getElementById('ehGo').addEventListener('click', ehSearch);
+      document.getElementById('ehXl').addEventListener('click', ehExcel);
+      document.getElementById('ehGroup').addEventListener('change', ehSearch);
+      document.querySelector('#ehWrap .quick').addEventListener('click', function (e) {
+        var b = e.target.closest('button[data-d]');
+        if (b) ehQuick(Number(b.getAttribute('data-d')));
+      });
+      document.getElementById('ehAlarm').addEventListener('click', function (e) {
+        var ed = e.target.closest('[data-edit]'), sv = e.target.closest('[data-save]');
+        if (ed) {
+          e.preventDefault();
+          ehRenderAlarms(Number(ed.getAttribute('data-edit')));
+        }
+        if (sv) ehSaveAct(Number(sv.getAttribute('data-save')));
+      });
+      ehLoadGroups();
+    });
+  </script>
+</th:block>
+</html>
