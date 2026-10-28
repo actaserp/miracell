@@ -343,6 +343,20 @@ public class PackController {
 		return r;
 	}
 
+	/** CK 유효기간만 저장 — 단계와 상관없이 언제든 (반영·완료 뒤에도) */
+	@PostMapping("/ck_exp_save")
+	@Transactional
+	public AjaxResult ckExpSave(
+			@RequestParam("mp_id") Integer mpId,
+			@RequestParam("country") String country,
+			@RequestParam(value = "exp", required = false) String exp,
+			Authentication auth) {
+		User user = (User) auth.getPrincipal();
+		AjaxResult r = this.packService.saveCkExp(mpId, country, exp, user);
+		if (!r.success) rollback();
+		return r;
+	}
+
 	/**
 	 * 인박스 + CK 반영 ★완제 시점.
 	 *

@@ -2043,6 +2043,39 @@ public class PackService {
 	 *   ★ 이미 생산된(produced) 배분은 건드리지 않는다 — writeAllocations 가 plan 만 교체한다.
 	 *   ★ 여기서는 합계 검증을 하지 않는다(입력 중이므로). 검증은 packFinish 에서.
 	 */
+	/**
+	 * CK 유효기간만 저장 — ★ 단계와 상관없이 언제든.
+	 *
+	 *   유효기간은 재고·수량을 움직이지 않는 «기록» 이다. 반영(CK 생산)·라벨·완료 뒤에
+	 *   알게 되는 경우가 많아 saveAllocations(계획 단계 전용)와 따로 둔다.
+	 *   이미 반영된(produced) 배분 행도 그 자리에서 고친다.
+	 *
+	 * @param exp 'yyyy-MM-dd' · 빈 값이면 지운다
+	 */
+	public AjaxResult saveCkExp(Integer mpId, String country, String exp, User user) {
+		AjaxResult result = new AjaxResult();
+		result.success = true;
+		if (mpId == null || isBlank(country)) return fail(result, "국가를 확인할 수 없습니다.");
+		String v = isBlank(exp) ? null : exp.trim();
+		if (v != null && !v.matches("\\d{4}-\\d{2}-\\d{2}")) return fail(result, "날짜 형식이 올바르지 않습니다.");
+		MapSqlParameterSource p = new MapSqlParameterSource();
+		p.addValue("mpId", mpId);
+		p.addValue("country", country);
+		p.addValue("exp", v);
+		p.addValue("uid", user == null ? null : user.getId());
+		List<Map<String, Object>> rows = this.sqlRunner.getRows("""
+            UPDATE pack_alloc
+               SET "CkExpDate" = CAST(:exp AS date)
+                 , _modified = now(), _modifier_id = CAST(:uid AS integer)
+             WHERE "MatProduce_id" = :mpId
+               AND "CountryCode"   = :country
+               AND COALESCE(_status,'a') = 'a'
+            RETURNING id
+            """, p);
+		if (rows == null || rows.isEmpty()) return fail(result, "저장할 국가 배분이 없습니다. 먼저 배분을 저장하세요.");
+		return result;
+	}
+
 	public AjaxResult saveAllocations(Integer mpId, List<Map<String, Object>> allocations,
 									  User user, String spjangcd) {
 		AjaxResult result = new AjaxResult();
