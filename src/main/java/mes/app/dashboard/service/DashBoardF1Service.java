@@ -83,6 +83,8 @@ public class DashBoardF1Service {
 			         , COALESCE(mp."GoodQty", 0)          AS qty
 			         , '개'                               AS unit
 			         , mp."Actor_id"                      AS pid
+			         , 'mat_produce'::text                AS src
+			         , mp.id                              AS sid
 			      FROM mat_produce mp
 			      JOIN job_res jr ON jr.id = mp."JobResponse_id"
 			      LEFT JOIN work_center wc ON wc.id = COALESCE(mp."WorkCenter_id", jr."WorkCenter_id")
@@ -90,10 +92,14 @@ public class DashBoardF1Service {
 			      LEFT JOIN material om  ON om.id  = mp."Material_id"
 			      LEFT JOIN material m   ON m.id   = jr."Material_id"
 			     WHERE COALESCE(mp._status,'a') = 'a'
-			       AND mp."State" <> 'finished' AND mp."EndTime" IS NULL
+			       AND mp."State" NOT IN ('finished','wait')   -- wait = 담아만 두고 시작 안 한 차수
+			       AND mp."EndTime" IS NULL
 			       AND COALESCE(pr."Factory_id", 1) = 1
 			       AND pr."Code" IN ('bsc02','bsc03','bsc06','bsc05')
-			       AND COALESCE(mp."StartTime", mp."_created")::date = CURRENT_DATE
+			       /* ★ 오늘 시작한 것만 — 단, 포장은 며칠씩 이어서 하는 공정이라 열려 있으면 다 센다
+			            (포장 화면도 날짜 없이 열린 작업을 보여준다) */
+			       AND (pr."Code" = 'bsc05'
+			            OR COALESCE(mp."StartTime", mp."_created")::date = CURRENT_DATE)
 			       AND (CAST(:spjangcd AS varchar) IS NULL OR jr.spjangcd = CAST(:spjangcd AS varchar))
 			    UNION ALL
 			    -- 세척 : wash_work 세션 (품목이 전부 완료되기 전까지 작업중)
@@ -103,6 +109,8 @@ public class DashBoardF1Service {
 			             WHERE wi."WashWork_id" = ww.id AND wi."_status" = 'a')
 			         , '건'
 			         , ww."Actor_id"
+			         , 'wash_work'
+			         , ww.id
 			      FROM wash_work ww
 			      LEFT JOIN equ e ON e.id = ww."Equipment_id"
 			     WHERE ww."_status" = 'a'
@@ -118,10 +126,26 @@ public class DashBoardF1Service {
 			         , (SELECT COUNT(*) FROM steril_batch_item bi WHERE bi."SterilBatch_id" = b.id)
 			         , '로트'
 			         , b."Actor_id"
+			         , 'steril_batch'
+			         , b.id
 			      FROM steril_batch b
 			      LEFT JOIN equ e ON e.id = b."Equipment_id"
 			     WHERE b."State" = 'working'
 			       AND COALESCE(b."StartTime"::date, b."SterilDate") = CURRENT_DATE
+			)
+			/* ★ 사람 = 대표 + 조원 전부 (현장 요청 — 「대표」 구분 없이 다 나온다).
+			     조원은 mat_produce_member 한 곳에 있다. 차수는 예전 방식(MatProduce_id)과
+			     새 방식(SourceTableName/SourceDataPk) 둘 다 본다. */
+			, active_ppl AS (
+			    SELECT a.sec, a.item, a.pid FROM active a WHERE a.pid IS NOT NULL
+			    UNION
+			    SELECT a.sec, a.item, m."Person_id"
+			      FROM active a
+			      JOIN mat_produce_member m
+			        ON COALESCE(m._status,'a') = 'a'
+			       AND (   (a.src = 'mat_produce' AND ((m."SourceTableName" = 'mat_produce' AND m."SourceDataPk" = a.sid)
+			                                           OR m."MatProduce_id" = a.sid))
+			            OR (a.src = 'wash_work'   AND m."SourceTableName" = 'wash_work' AND m."SourceDataPk" = a.sid))
 			)
 			""";
 
@@ -134,9 +158,10 @@ public class DashBoardF1Service {
 				SELECT a.sec AS proc_code, a.item AS mat_name, a.unit
 				     , SUM(a.qty)                               AS qty
 				     , COUNT(*)                                 AS session_cnt
-				     , STRING_AGG(DISTINCT pe."Name", ', ')     AS workers
+				     , (SELECT STRING_AGG(DISTINCT pe."Name", ', ')
+				          FROM active_ppl ap JOIN person pe ON pe.id = ap.pid
+				         WHERE ap.sec = a.sec AND ap.item = a.item) AS workers
 				  FROM active a
-				  LEFT JOIN person pe ON pe.id = a.pid
 				 GROUP BY a.sec, a.item, a.unit
 				 ORDER BY a.sec, SUM(a.qty) DESC
 				""";
@@ -197,7 +222,7 @@ public class DashBoardF1Service {
 		String sql = "WITH " + ACTIVE + """
 				, busy AS (
 				    SELECT a.pid, pr."Name" AS where_name, a.sec
-				      FROM active a
+				      FROM active_ppl a
 				      LEFT JOIN process pr ON pr."Code" = a.sec
 				    UNION ALL
 				    SELECT COALESCE(u.personid, CASE WHEN u.username ~ '^[0-9]+$' THEN u.username::int END)
