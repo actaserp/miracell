@@ -248,6 +248,31 @@ public class LotService {
             , ml."Material_id" as mat_id
             , b.match_by
             , (select skey from k) as matched_key
+            -- ★ 1공장 포장 완제품은 국가마다 로트가 따로 생긴다(pack_alloc 1행 = 국가 1개).
+            --   그 행에서 국가 · CK 구분 · CK 유효기간을 붙인다. 포장분이 아니면 빈칸.
+            , pa.country_name
+            , pa.ck_name
+            , pa.ck_exp
+            -- ★ 같은 UDI(MakerLotNo)로 들어간 완제품 로트 전체의 국가별 수량.
+            --   사내 로트는 국가마다 갈리지만(P-…-US / -CA) UDI 는 하나라,
+            --   현장이 UDI 로 찍었을 때 몇 나라로 나뉘었는지 한눈에 보이게 한다.
+            , case when coalesce(ml."MakerLotNo",'') = '' then null else (
+                -- 「캐나다 4 (출고 4 · 잔 0)」 — 국가별 로트가 따로라 출고도 국가별로 셀 수 있다
+                select string_agg(x.c || ' ' || x.q
+                                  || ' (출고 ' || x.o || ' · 잔 ' || x.r || ')', ' · ' order by x.c)
+                  from (select coalesce(nullif(a2."CountryName",''), a2."CountryCode") as c
+                             , round(sum(ml2."InputQty")::numeric, 0)::text as q
+                             , round(coalesce(sum((select sum(sc."OutputQty") from mat_lot_cons sc
+                                                    where sc."MaterialLot_id" = ml2.id
+                                                      and sc."SourceTableName" = 'shipment')),0)::numeric, 0)::text as o
+                             , round(sum(coalesce(ml2."CurrentStock",0))::numeric, 0)::text as r
+                          from mat_lot ml2
+                          join pack_alloc a2 on a2."MatLot_id" = ml2.id
+                                            and coalesce(a2._status,'a') = 'a'
+                                            and a2."CountryCode" <> '-'
+                         where ml2."MakerLotNo" = ml."MakerLotNo"
+                         group by 1) x
+              ) end as udi_countries
             , case b.match_by
                 when 'lot'          then '사내 LOT'
                 when 'maker'        then '박스라벨'
@@ -263,6 +288,17 @@ public class LotService {
             left join mat_grp mg on mg.id = m."MaterialGroup_id"
             left join unit u on u.id = m."Unit_id"
             left join store_house sh on sh.id = ml."StoreHouse_id"
+            left join lateral (
+                select coalesce(nullif(a."CountryName",''), a."CountryCode") as country_name
+                     , ckm."Name" as ck_name
+                     , to_char(a."CkExpDate",'yyyy-mm-dd') as ck_exp
+                  from pack_alloc a
+                  left join material ckm on ckm.id = a."CkMaterial_id"
+                 where a."MatLot_id" = ml.id
+                   and coalesce(a._status,'a') = 'a'
+                   and a."CountryCode" <> '-'
+                 order by a.id limit 1
+            ) pa on true
             order by b.pri, ml.id desc
 				""";
 
@@ -427,7 +463,13 @@ public class LotService {
             , r.gtin
             , r.label_qty
             , r.label_expiry
-            , r.country_code
+            -- ★ 라벨·투입 줄은 국가가 비어 있다 → 이 완제품 로트의 국가로 채운다
+            , coalesce(r.country_code,
+                       (select a."CountryCode" from pack_alloc a
+                         where a."MatLot_id" = r.prod_lot_id
+                           and coalesce(a._status,'a') = 'a'
+                           and a."CountryCode" <> '-'
+                         order by a.id limit 1)) as country_code
             , r.ship_state
             , r.src_mat_name
             , r.src_lot
@@ -987,6 +1029,12 @@ with recursive T as (
 	        , fn_code_name('shipment_state', sh."State" ) as shipment_state
 	        , pc."CartonLotNo"  as carton_lot_no
 	        , pc."CountryCode"  as carton_country
+	        -- ★ 박스를 안 찍고 로트로만 낸 출하도 국가가 보이게 — 로트 자체의 국가
+	        , coalesce(pc."CountryCode",
+	                   (select coalesce(nullif(a."CountryName",''), a."CountryCode") from pack_alloc a
+	                     where a."MatLot_id" = ml.id and coalesce(a._status,'a') = 'a'
+	                       and a."CountryCode" <> '-'
+	                     order by a.id limit 1)) as country
 	        , pc."Qty"          as carton_qty
 	        , pc."ShipState"    as carton_state
 	        , row_number() over (partition by pp.lot_number, s.id
@@ -1006,7 +1054,7 @@ with recursive T as (
 	        )
 	        select r.lot_number, r.mat_name, r."Company_id", r.company_name, r."ShipDate"
 	             , r.shipment_state
-	             , r.carton_lot_no, r.carton_country, r.carton_qty, r.carton_state
+	             , r.carton_lot_no, r.carton_country, r.country, r.carton_qty, r.carton_state
 	             , case when r.rn = 1 then r.lot_ship_qty end as "Qty"
 	             , r.order_ship_qty
 	          from r

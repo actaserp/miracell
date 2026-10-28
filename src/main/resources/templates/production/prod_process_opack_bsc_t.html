@@ -281,6 +281,35 @@
     .st-badge.done{background:var(--green-bg);color:var(--green)}
     .st-badge.rw{background:var(--red-bg);color:var(--red)}
     .st-badge.stock{background:#EEF0FF;color:#4A54C9}
+    /* ★ 작업 목록 카드 — 국가 칩 · CK 유효기간 */
+    /* 카드마다 국가 칩 시작 위치가 같도록 앞 칸(작업자·시각·단계) 폭을 고정한다 */
+    .sess .who{flex:0 0 170px;min-width:0}
+    .sess .who .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .sess .time{flex:0 0 150px;white-space:nowrap}
+    .sess > .phbadge{flex:0 0 96px;text-align:center;box-sizing:border-box}
+    .sess .sess-ctry{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:0 12px}
+    .sess .sc-row{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;font-size:14px;
+      background:var(--teal-bg);border-radius:8px;padding:4px 10px}
+    .sess .sc-row b{color:var(--ink);font-weight:800;margin-right:8px}
+    .sess .sc-row .sc-k{color:var(--teal-d);font-size:12px;font-weight:800}
+    .sess .sc-row b.sc-miss{color:var(--amber)}
+    .sess .sc-row{flex-wrap:nowrap;white-space:nowrap}
+    .sess .sc-row b.sc-c{min-width:64px;display:inline-block}   /* 국가 이름 폭 고정 — 줄마다 CK·유효기간 위치가 맞게 */
+    .sess .qty, .sess .badge{flex:0 0 auto;white-space:nowrap}
+    .sess .sc-chip{padding:4px 10px;border-radius:8px;background:var(--teal-bg);color:var(--teal-d);font-size:13px;font-weight:800}
+    .sess .sc-none{color:var(--ink-2);font-size:12.5px;font-weight:700}
+    .sess .sc-exp{margin-left:6px;font-size:12.5px;font-weight:700;color:var(--ink-2)}
+    .sess .sc-exp b{color:var(--ink);font-size:13.5px}
+    /* ★ v3.6 차수 선택 · CK 유효기간 */
+    .pkv-sel{height:38px;border:1.5px solid var(--teal);border-radius:10px;padding:0 10px;font-size:14px;
+      font-weight:800;color:var(--teal-d);background:#fff;margin-top:6px;max-width:100%;
+      align-self:flex-start;width:auto}
+    .pkv-sel.miss{border-color:var(--red);color:var(--red);background:var(--red-bg)}
+    .pkv-chip{display:inline-block;margin-top:6px;padding:4px 10px;border-radius:8px;background:var(--teal-bg);
+      color:var(--teal-d);font-size:13px;font-weight:800;align-self:flex-start}
+    .pkv-exp{height:48px;min-width:140px;border:1.5px solid var(--teal);border-radius:12px;padding:0 14px;font-size:17px;
+      font-weight:800;background:#fff;color:var(--ink);font-variant-numeric:tabular-nums;cursor:pointer}
+    .pkv-exp.miss{border-color:var(--amber);background:var(--amber-bg)}
     .sbtn2{height:48px;padding:0 16px;border-radius:14px;border:none;font-weight:800;font-size:15px;cursor:pointer;flex:0 0 auto}
     .sbtn2.del{background:var(--surface);color:var(--red);border:1px solid var(--line);padding:0 14px}
     .sbom{border-top:1px dashed var(--line);background:var(--surface-2);padding:12px 16px 14px 24px;display:none}
@@ -413,7 +442,8 @@
     .bc-bars svg{display:block}
     .bc-data{font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;word-break:break-all}
     .bc-sub{font-size:12px;color:var(--ink-2);font-weight:700;margin-top:2px}
-    .printrow{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
+    .printrow{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;margin-bottom:28px}
+    .printrow .btn, #cAction .btn{touch-action:manipulation}
     .form-tbl{width:100%;border-collapse:collapse;font-size:13px}
     .form-tbl th,.form-tbl td{border:1px solid var(--line);padding:8px 10px;text-align:left}
     .form-tbl th{background:var(--surface-2);font-weight:800}
@@ -517,7 +547,8 @@
       <div class="bc-sub" id="startProdNote" style="margin-top:6px"></div>
     </div>
     <div class="fieldlab">작업자 <span style="color:var(--ink-2);font-weight:700">(여러 명 선택 가능)</span></div><div class="opts" id="workerOpts"></div>
-    <div class="fieldlab">포장대</div><div class="opts" id="equipOpts"></div>
+    <!-- ★ 현장 요청 — 포장대를 고르지 않는다(서버가 포장 공정 기본 설비를 쓴다) -->
+    <div class="opts" id="equipOpts" style="display:none"></div>
     <button class="ok" id="startOk" disabled>이 작업자로 시작</button>
   </div></div></div>
 
@@ -997,6 +1028,83 @@
       m.style.display = 'flex';
     }
 
+    /**
+     * 날짜 선택 시트 — 태블릿용.
+     *   달력·키보드 입력 대신 연 / 월 / 일을 큰 −/+ 로 올리고 내린다.
+     *   자주 쓰는 「오늘부터 1년 · 2년 · 3년」은 한 번에 누른다.
+     *   일은 그 달의 마지막 날을 넘지 않는다(2월 31일 같은 값이 안 나온다).
+     */
+    function uiPickDate(title, cur, onPick) {
+      var m = document.getElementById('datePickMask');
+      if (!m) {
+        m = document.createElement('div');
+        m.id = 'datePickMask';
+        m.style.cssText = 'font-family:Pretendard,"Malgun Gothic",sans-serif;position:fixed;inset:0;background:rgba(21,34,43,.45);display:none;align-items:center;justify-content:center;z-index:100;padding:24px';
+        var col = function (k, lab) {
+          return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:8px">' +
+                  '<div style="font-size:13px;font-weight:800;color:#5A6B76">' + lab + '</div>' +
+                  '<button data-dp="' + k + '|1" style="width:100%;height:56px;border-radius:14px;border:1px solid #D8E0E5;background:#F4F7F9;font-size:26px;font-weight:800">+</button>' +
+                  '<div data-dpv="' + k + '" style="font-size:30px;font-weight:800;font-variant-numeric:tabular-nums;padding:4px 0"></div>' +
+                  '<button data-dp="' + k + '|-1" style="width:100%;height:56px;border-radius:14px;border:1px solid #D8E0E5;background:#F4F7F9;font-size:26px;font-weight:800">−</button></div>';
+        };
+        var pre = function (y, lab) {
+          return '<button data-dpy="' + y + '" style="flex:1;height:48px;border-radius:12px;border:1px solid #0E7C86;background:#E6F4F5;color:#0B5F67;font-weight:800;font-size:15px">' + lab + '</button>';
+        };
+        m.innerHTML = '<div style="background:#fff;border-radius:20px;max-width:460px;width:100%;padding:22px 20px 18px;box-shadow:0 20px 50px -12px rgba(0,0,0,.4)">' +
+                '<div id="dpTitle" style="font-size:17px;font-weight:800;margin-bottom:14px"></div>' +
+                '<div style="display:flex;gap:8px;margin-bottom:16px">' + pre(1, '오늘 +1년') + pre(2, '+2년') + pre(3, '+3년') + '</div>' +
+                '<div style="display:flex;gap:12px;margin-bottom:18px">' + col('y', '연') + col('m', '월') + col('d', '일') + '</div>' +
+                '<div style="display:flex;gap:10px">' +
+                '<button id="dpClear" style="height:52px;padding:0 16px;border-radius:14px;border:1px solid #D8E0E5;background:#fff;color:#B42323;font-weight:800;font-size:15px">지우기</button>' +
+                '<button id="dpCancel" style="flex:1;height:52px;border-radius:14px;border:1px solid #D8E0E5;background:#F4F7F9;color:#5A6B76;font-weight:800;font-size:16px">취소</button>' +
+                '<button id="dpOk" style="flex:1;height:52px;border-radius:14px;border:none;background:#0E7C86;color:#fff;font-weight:800;font-size:16px">확인</button></div></div>';
+        document.body.appendChild(m);
+        m.addEventListener('click', function (e) {
+          if (e.target === m) m.style.display = 'none';
+        });
+      }
+      var pad2 = function (n) { return (n < 10 ? '0' : '') + n; };
+      var last = function (y, mo) { return new Date(y, mo, 0).getDate(); };
+      var t = new Date(), st;
+      var mm = /^(\d{4})-(\d{2})-(\d{2})$/.exec(cur || '');
+      st = mm ? {y: +mm[1], m: +mm[2], d: +mm[3]}
+              : {y: t.getFullYear() + 1, m: t.getMonth() + 1, d: t.getDate()};   // 기본 = 오늘 +1년
+      var paint = function () {
+        st.d = Math.min(st.d, last(st.y, st.m));
+        m.querySelector('[data-dpv="y"]').textContent = st.y;
+        m.querySelector('[data-dpv="m"]').textContent = pad2(st.m);
+        m.querySelector('[data-dpv="d"]').textContent = pad2(st.d);
+      };
+      m.querySelector('#dpTitle').textContent = title || '날짜';
+      m.onclick = function (e) {
+        if (e.target === m) { m.style.display = 'none'; return; }
+        var b = e.target.closest('[data-dp]');
+        if (b) {
+          var pr = b.dataset.dp.split('|'), d = +pr[1];
+          if (pr[0] === 'y') st.y += d;
+          else if (pr[0] === 'm') { st.m += d; if (st.m > 12) { st.m = 1; st.y++; } if (st.m < 1) { st.m = 12; st.y--; } }
+          else { var L = last(st.y, st.m); st.d += d; if (st.d > L) st.d = 1; if (st.d < 1) st.d = L; }
+          paint();
+          return;
+        }
+        var py = e.target.closest('[data-dpy]');
+        if (py) {
+          var n = new Date();
+          st = {y: n.getFullYear() + (+py.dataset.dpy), m: n.getMonth() + 1, d: n.getDate()};
+          paint();
+          return;
+        }
+        if (e.target.id === 'dpCancel') { m.style.display = 'none'; return; }
+        if (e.target.id === 'dpClear') { m.style.display = 'none'; onPick && onPick(''); return; }
+        if (e.target.id === 'dpOk') {
+          m.style.display = 'none';
+          onPick && onPick(st.y + '-' + pad2(st.m) + '-' + pad2(st.d));
+        }
+      };
+      paint();
+      m.style.display = 'flex';
+    }
+
     /** 국가 선택 시트 — 배분 줄의 국가는 작업자가 직접 고른다(자동 지정 없음) */
     function uiPickCountry(list, onPick) {
       var m = document.getElementById('ctryPickMask');
@@ -1298,9 +1406,15 @@
       };
     }
 
+    /* ★ v3.6 현장 요청 — 품명 끝의 차수(-00/-01)는 감춘다.
+         PK 단계에서는 국내가 될지 해외가 될지 모른다. 차수는 ② 국가 줄에서 고른다. */
+    function stripSfx(name) {
+      return String(name == null ? '' : name).replace(/-\d{2}$/, '');
+    }
+
     /** 완제품명 / 로트번호(멸균 UDI) — 로트가 아직 없으면 품명만 */
     function prodLabel(o) {
-      return (o.name || '-') + (o.lotNo ? ' / ' + o.lotNo : '');
+      return (stripSfx(o.name) || '-') + (o.lotNo ? ' / ' + o.lotNo : '');
     }
 
     function orderPct(o) {
@@ -1358,12 +1472,12 @@
         return '<span class="phbadge">' + (PHLAB[x] || x) + '</span>';
       }).join(' ') : '';
       return '<div class="wo" data-st="' + o.st + '" data-jr="' + o.jrPk + '"><div class="edge"></div>' +
-              '<div class="row1"><span class="wono">' + esc(o.id) + '</span>' +
-              '<span class="bc-sub">' + o.odate + '</span>' +
+              /* ★ 현장 요청 — 작지번호·날짜 대신 로트(멸균 UDI) */
+              '<div class="row1"><span class="wono">' + esc(o.lotNo || '로트 미정') + '</span>' +
               '<span class="srcbadge ' + o.orderSrc + '">' + (SRCLAB[o.orderSrc] || o.orderSrc) + '</span>' +
               (o.jobKind === 'ckstock' ? '<span class="kindbadge">CK 자체재고</span>' : '') +
               '<span class="chip ' + o.st + '">' + esc(o.stLabel || STLAB[o.st]) + '</span></div>' +
-              '<div class="name">' + esc(prodLabel(o)) + '</div>' +
+              '<div class="name">' + esc(stripSfx(o.name) || '-') + '</div>' +
               (ph ? '<div style="margin:-5px 0 8px;display:flex;gap:5px;flex-wrap:wrap">' + ph + '</div>' : '') +
               '<div class="meta">' +
               '<div class="blk"><span class="lab">계획</span><span class="val">' + orderPlanPk(o) + '</span></div>' +
@@ -1377,7 +1491,7 @@
           작지·실적 화면(완제품 단위)과 대조할 방법도 사라진다. */
               '<div class="bc-sub" style="margin-top:6px">' +
               (o.pkFound
-                      ? 'PK 낱개 기준 · 개당 ' + fmtQ(o.pkPer) + ' · 완제품 ' + o.plan + '개분'
+                      ? '완제품 ' + o.plan + '개분'
                       : (o.jobKind === 'ckstock' ? 'CK 개수 기준 · 이 작지는 PK 를 쓰지 않습니다'
                               : '완제품 기준 · BOM 에 PK 구성이 없어 낱개 환산을 못 합니다')) +
               ' · 작업 ' + o.sessCnt + '건</div></div>';
@@ -1391,14 +1505,14 @@
       var sel = !!waitSel[l.matLotId];
       return '<div class="wo wcard' + (sel ? ' sel' : '') + '" data-st="wait" data-wcard="' + l.matLotId + '">' +
               '<div class="edge"></div>' +
-              '<div class="row1"><span class="wono">' + esc(l.lot) + '</span>' +
+              '<div class="row1"><span class="wono">' + esc(udiTxt(l)) + '</span>' +
               '<span class="lotbadge">작지 없음 · 포장 대기</span>' +
               '<span class="chip wait">대기</span></div>' +
               '<div style="display:flex;align-items:center;gap:10px">' +
               '<div class="wchk' + (sel ? ' on' : '') + '">' + (sel ? '✓' : '') + '</div>' +
               '<div style="flex:1;min-width:0"><div class="name" style="margin:0">' + esc(l.name) + '</div>' +
               '<div class="bc-sub" style="margin-top:1px">' + esc(l.code) + ' · 가용 ' + l.avail +
-              (l.udi ? ' · UDI ' + esc(l.udi) : '') + (l.sterilDate ? ' · 멸균 ' + l.sterilDate : '') + '</div></div></div>' +
+              (l.sterilDate ? ' · 멸균 ' + l.sterilDate : '') + '</div></div></div>' +
               '<div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-top:8px">' +
               '<span class="bc-sub">포장할 수량</span>' +
               '<div class="stepper"><button class="minus" data-wminus="' + l.matLotId + '">−</button>' +
@@ -1582,7 +1696,8 @@
         units: num(r.units),
         phase: r.phase || 'pk', noJob: r.no_job_yn === 'Y',
         jobKind: r.job_kind || 'kit',
-        pkQty: num(r.pk_qty), pkCnt: num(r.pk_cnt)
+        pkQty: num(r.pk_qty), pkCnt: num(r.pk_cnt),
+        countries: r.countries || '', ckExp: r.ck_exp || ''
       };
     }
 
@@ -1611,10 +1726,25 @@
         var qty = se.units || se.pkQty || 0;
         var isCkS = (se.jobKind === 'ckstock');
         return '<div class="sess" data-st="' + se.st + '" data-i="' + i + '"><div class="edge"></div>' +
-                '<div class="who"><span class="nm">' + esc(se.worker) + '</span><span class="eq">' + esc(se.equip) + '</span></div>' +
+                /* ★ 현장 요청 — 포장대 대신 국가(차수) · CK 유효기간 */
+                '<div class="who"><span class="nm">' + esc(se.worker) + '</span></div>' +
                 '<div class="time">' + pill(se.start) + ' ~ ' + pill(se.end) + '</div>' +
                 (isCkS ? '<span class="phbadge">CK 생산</span>'
                         : '<span class="phbadge">' + (PHLAB[se.phase] || se.phase) + '</span>') +
+                /* ★ 현장 요청 — 단계 배지와 수량 사이 빈 구간에 선택한 국가(차수) · CK 유효기간.
+                     한 작업에 국가가 여럿일 수 있어 칩으로 나열한다 */
+                /* 국가마다 한 줄 — 「국가 : 캐나다 · CK : 00차수 · 유효기간 2027-10-28」.
+                   국가가 늘면 카드가 아래로 길어진다 */
+                '<div class="sess-ctry">' +
+                (se.countries ? String(se.countries).split(';;').map(function (row) {
+                  var f = row.split('|');
+                  return '<div class="sc-row">' +
+                          '<span class="sc-k">국가</span><b class="sc-c">' + esc(f[0]) + '</b>' +
+                          (f[1] ? '<span class="sc-k">CK</span><b>' + esc(f[1]) + '차수</b>' : '') +
+                          '<span class="sc-k">유효기간</span><b' + (f[2] ? '' : ' class="sc-miss"') + '>' +
+                          esc(f[2] || '미입력') + '</b></div>';
+                }).join('') : '<span class="sc-none">국가 미지정</span>') +
+                '</div>' +
                 '<div class="qty"><div class="l">' +
                 (isCkS ? 'CK' : (se.st === 'done' ? '완제품' : (se.units ? '완제품' : '담은 PK'))) +
                 '</div><div class="v">' + qty + '</div></div>' +
@@ -1658,10 +1788,122 @@
      *   한 군데만 빼먹으면 「화면엔 보이는데 저장은 안 되는」 식으로 조용히 어긋난다.
      *   서버도 /ck_mat_candidates 을 /ck_bom 과 같은 컴럼 모양으로 내려준다.
      */
-    function ckInputs() {
+    function ckInputs(country) {
       var bom = (curO && curO.ckBom) || [];
+      /* ★ v3.6 차수 — 국가 줄마다 CK 가 다르면 BOM 도 다르다.
+           country 를 주면 그 줄의 차수 CK BOM, 안 주면 모든 차수 BOM 의 합집합(코드 중복 제거) */
+      if (curS && curS.vBom) {
+        if (country !== undefined) {
+          var a = allocOf(country), id = a ? ckMatIdOfAlloc(a) : null;
+          if (id != null && curS.vBom[String(id)]) bom = curS.vBom[String(id)];
+        } else {
+          var seen = {}, all = [];
+          bom.concat.apply(bom.slice(), Object.keys(curS.vBom).map(function (k) { return curS.vBom[k]; }))
+                  .forEach(function (m) { if (!seen[m.code]) { seen[m.code] = 1; all.push(m); } });
+          bom = all;
+        }
+      }
       var ex = (curS && curS.ckExtra) || [];
       return ex.length ? bom.concat(ex) : bom;
+    }
+
+    /* ══ v3.6 차수 (완제품 형제 품목) ══════════════════════════════════
+       3BmSC60MC-CU1-00 (국내) / -01 (해외1) … 처럼 끝 두 자리만 다른 완제품.
+       PK 는 같고 CK 만 다르다. 국가로 정하지 않고 국가 줄마다 사람이 고른다.
+       BOM 에 CK 가 없는 차수는 흐리게 보여주고 고를 수 없다. */
+    function variants() {
+      return (curDetail && curDetail.variants) || [];
+    }
+
+    function multiVariant() {
+      return !isCkStock() && variants().length > 1;
+    }
+
+    function variantById(id) {
+      if (id == null) return null;
+      return variants().filter(function (v) { return String(v.product_mat_id) === String(id); })[0] || null;
+    }
+
+    function allocOf(country) {
+      return ((curS && curS.allocations) || []).filter(function (x) { return x.country === country; })[0] || null;
+    }
+
+    function variantOfAlloc(a) {
+      return a ? variantById(a.prodMatId) : null;
+    }
+
+    /** 이 국가 줄의 CK 품목 — 차수를 고르지 않았으면 작지의 CK */
+    function ckMatIdOfAlloc(a) {
+      var v = variantOfAlloc(a);
+      return (v && v.ck_mat_id) ? v.ck_mat_id : (curS && curS.ckMatId);
+    }
+
+    function allCkMatIds() {
+      var ids = {};
+      if (curS && curS.ckMatId) ids[String(curS.ckMatId)] = 1;
+      variants().forEach(function (v) { if (v.ck_mat_id) ids[String(v.ck_mat_id)] = 1; });
+      return ids;
+    }
+
+    /** 차수 표시 — 「01 · 해외1」. CK 이름 끝(CK-해외1)을 따서 쓴다 */
+    /* 표시 = 「CK 해외1」. 끝 두 자리(00/01)는 실적 차수와 헷갈려 쓰지 않는다.
+       CK 이름 끝(CK-해외1)을 따 쓰고, 이름이 없으면(BOM 미등록) 품목 코드 끝으로 대신한다. */
+    function variantLabel(v) {
+      if (!v) return '';
+      var tail = String(v.ck_name || '').replace(/^.*CK-?/, '').trim();
+      // 「CK : 00차수 (국내)」 — 현장 요청 표기. 괄호는 CK 이름 끝(국내/해외1)
+      return 'CK : ' + (v.suffix || '-') + '차수' + (tail ? ' (' + tail + ')' : '') +
+              (v.bom_ok === 'Y' ? '' : ' · BOM 미등록');
+    }
+
+    /** 국가별로 마지막에 고른 차수를 기억해 다음 작업의 기본값으로 쓴다 */
+    function varMemKey(country) {
+      var base = stripSfx((variants()[0] || {}).code || '');
+      return 'pack.var.' + base + '.' + country;
+    }
+
+    function rememberVariant(country, id) {
+      try { localStorage.setItem(varMemKey(country), String(id || '')); } catch (e) {}
+    }
+
+    /** 차수 기본값 — 기억한 것 → 한국이면 00 → 없음(사람이 고른다) */
+    function defaultVariant(country) {
+      if (!multiVariant() || !country || country === NO_CTRY) return null;
+      var ok = variants().filter(function (v) { return v.bom_ok === 'Y'; });
+      var mem = null;
+      try { mem = localStorage.getItem(varMemKey(country)); } catch (e) {}
+      var hit = ok.filter(function (v) { return String(v.product_mat_id) === String(mem); })[0];
+      if (hit) return hit.product_mat_id;
+      if (country === 'KR') {
+        var d = ok.filter(function (v) { return v.suffix === '00'; })[0];
+        if (d) return d.product_mat_id;
+      }
+      return null;
+    }
+
+    function ckStockFor(a) {
+      var id = ckMatIdOfAlloc(a);
+      return CK_STOCK_LOTS.filter(function (l) { return id == null || String(l.matId) === String(id); });
+    }
+
+    /** PK 로트 표시 — 사내 로트(W-…) 대신 멸균 UDI 로트. 같은 UDI 는 한 줄로 묶는다 */
+    function pkUdiOf(l) {
+      return udiTxt(l);
+    }
+
+    /* ★ 현장은 사내 로트(W-날짜-순번 · P-… )를 보지 않는다. 본인들이 부여한 UDI 로트만 보여준다.
+         UDI 가 비어 있으면 사내 로트를 대신 띄우지 않고 「UDI 미입력」으로 알린다(멸균에서 넣어야 한다). */
+    function udiTxt(l) {
+      return (l && l.udi) ? l.udi : 'UDI 미입력';
+    }
+
+    function pkUdiSummary() {
+      var seen = {}, out = [];
+      (curS.pkLots || []).forEach(function (l) {
+        var u = pkUdiOf(l);
+        if (!seen[u]) { seen[u] = 1; out.push(u); }
+      });
+      return out.join(', ');
     }
 
     /** BOM 밖 자재인가 (qty_per 가 없으므로 배분 수량을 따라가지 않는다) */
@@ -1873,6 +2115,11 @@
       //   「배분 완료」로 보이는데 서버가 거부한다.
       curS.ckPer = num(curDetail && curDetail.session && curDetail.session.ck_per) || 1;
 
+      // ★ v3.6 차수별 CK BOM
+      curS.vBom = {};
+      var _vb = (curDetail && curDetail.variant_ck_bom) || {};
+      Object.keys(_vb).forEach(function (k) { curS.vBom[k] = (_vb[k] || []).map(toCkMat); });
+
       // ② 「CK 자체재고 투입」 후보
       CK_STOCK_LOTS = ((curDetail && curDetail.ck_stock_lots) || []).map(function (l) {
         return {
@@ -1897,8 +2144,13 @@
           allocId: a.alloc_id, country: a.country, countryId: a.country_id,
           qty: num(a.qty) / _ap, ckLot: a.ck_lot, ckState: a.ck_state || 'plan', ckMpId: a.ck_mp_id,
           // CK 실적 — 서버가 ck_qty 를 내려주면 복원한다(BOM 과 같으면 null)
-          ckActual: (a.ck_qty != null && a.ck_qty !== '' && num(a.ck_qty) !== num(a.qty)) ? num(a.ck_qty) : null
+          ckActual: (a.ck_qty != null && a.ck_qty !== '' && num(a.ck_qty) !== num(a.qty)) ? num(a.ck_qty) : null,
+          // ★ v3.6 차수 완제품 · CK 유효기간
+          prodMatId: a.product_mat_id || null, ckExp: a.ck_exp || ''
         };
+      });
+      (curS.allocations || []).forEach(function (a) {
+        if (!a.prodMatId && a.ckState !== 'produced') a.prodMatId = defaultVariant(a.country);
       });
 
       /* 국가별 CK 투입자재.
@@ -1906,12 +2158,12 @@
          mode 컬럼을 따로 두지 않고 그 줄의 존재로 방식을 복원한다. */
       var srvQty = {}, srvLot = {}, mode = {}, stock = {};
       ((curDetail && curDetail.items) || []).forEach(function (it) {
-        if (curS.ckMatId && String(it.mat_id) === String(curS.ckMatId)) {
+        if (allCkMatIds()[String(it.mat_id)]) {
           mode[it.country] = 'stock';
           stock[it.country] = it.mat_lot_id;
           return;
         }
-        var m = ckInputs().filter(function (x) {
+        var m = ckInputs(it.country).filter(function (x) {
           return String(x.matId) === String(it.mat_id);
         })[0];
         var code = m ? m.code : it.mat_code;
@@ -1942,7 +2194,7 @@
       Object.keys(srvQty).forEach(function (k) {
         _seen[k] = 1;
         _touched[k.split('|')[0]] = 1;
-        var pp = k.split('|'), mm = ckMatOf(pp[1]);
+        var pp = k.split('|'), mm = ckMatOf(pp[1], pp[0]);
         var def = mm ? ckDefaultQty(pp[0], mm) : 0;
         if (Math.abs(num(srvQty[k]) - def) > 0.0001) curS.ckManual[k] = 1;
       });
@@ -1950,7 +2202,7 @@
          (예전에는 저장되지 않은 자재를 다시 BOM 기본값으로 켜버려 해제가 사라졌다) */
       (curS.allocations || []).forEach(function (a) {
         if (!_touched[a.country]) return;
-        ckInputs().forEach(function (m) {
+        ckInputs(a.country).forEach(function (m) {
           var k = ckKey(a.country, m.code);
           if (!_seen[k]) curS.ckOff[k] = 1;
         });
@@ -1973,7 +2225,8 @@
       curS.cartons = ((curDetail && curDetail.cartons) || []).map(function (c) {
         return {
           cartonNo: c.carton_no, inboxQty: num(c.inbox_qty), fullYn: c.full_yn,
-          lotNo: c.lot_no || c.carton_lot || null
+          lotNo: c.lot_no || c.carton_lot || null,
+          country: c.country || null
         };
       });
 
@@ -1997,7 +2250,6 @@
 
     function renderCHead() {
       document.getElementById('cHead').innerHTML =
-              '<div class="infopill"><span>포장대</span><b>' + esc(curS.equip) + '</b></div>' +
               '<div class="infopill tap" data-time="start"><span>시작</span><b>' + pill(curS.start) + '</b></div>' +
               '<div class="infopill tap" data-time="end"><span>종료</span><b>' + pill(curS.end) + '</b></div>' +
               '<span class="savetag" id="saveTag">자동 저장</span>' +
@@ -2172,7 +2424,8 @@
 
     /** CK 로트 미리보기 번호 — 국가 미지정이면 국가 토막을 빼고 만든다 */
     function ckLotFor(country) {
-      var prod = (curO && curO.code) || 'PACK';
+      var _v = variantOfAlloc(allocOf(country));
+      var prod = (_v && _v.code) || (curO && curO.code) || 'PACK';
       var d = (curS.start ? curS.start.split(' ')[0] : todayStr()).replace(/-/g, '').slice(2);
       return (country === NO_CTRY) ? (prod + '-CK-' + d) : (prod + '-CK-' + country + '-' + d);
     }
@@ -2188,8 +2441,8 @@
       var lots = curS.pkLots || [], total = pkTotal();
       var rows = lots.map(function (l) {
         return '<div class="mat on" style="margin-bottom:6px">' +
-                '<div class="mid"><div class="mn" style="font-size:15px">' + esc(l.lot) + '</div>' +
-                '<div class="mc">' + esc(l.name || '') + (l.udi ? ' · UDI ' + esc(l.udi) : '') + '</div></div>' +
+                '<div class="mid"><div class="mn" style="font-size:15px">' + esc(pkUdiOf(l)) + '</div>' +
+                '<div class="mc">' + esc(stripSfx(l.name || '')) + '</div></div>' +
                 '<span class="done-tag">' + l.qty + ' EA</span></div>';
       }).join('');
       var need = isCkStock() ? 0 : pkNeed();
@@ -2215,8 +2468,8 @@
       return country + '|' + code;
     }
 
-    function ckMatOf(code) {
-      return ckInputs().filter(function (x) {
+    function ckMatOf(code, country) {
+      return ckInputs(country).filter(function (x) {
         return x.code === code;
       })[0];
     }
@@ -2322,8 +2575,14 @@
       // ★ 투입자재 줄(.mat)과 같은 카드·스테퍼 모양을 쓴다. BOM 과 다르면 앰버로 표시
       return '<div class="browhead">CK 실적 수량<span class="ln"></span></div>' +
               '<div class="mat on"' + (diff ? ' style="border-color:var(--amber);background:linear-gradient(180deg,var(--amber-bg),#FFF)"' : '') + '>' +
-              '<div class="mid"><div class="mn">CK 실적 ' + act + ' EA' + diffTag + '</div>' +
-              '<div class="mc">BOM ' + bom + ' EA · 완제품 수와 별개로 실제 들어간 CK 수량</div></div>' +
+              '<div class="mid"><div class="mn">CK 실적 ' + act + ' EA' + diffTag + '</div></div>' +
+              /* ★ v3.6 CK 유효기간 — 수량 옆에서 입력하면 카드 머리·작업 목록에 바로 뜬다 */
+              '<div style="display:flex;flex-direction:row;align-items:center;gap:10px;margin-right:12px">' +
+              '<span style="font-size:14px;font-weight:800;color:var(--ink-2);white-space:nowrap">유효기간</span>' +
+              /* ★ 태블릿 — 달력 입력 대신 큰 버튼. 누르면 연·월·일 +/− 시트가 열린다 */
+              (ro ? '<b style="font-size:15px">' + esc(a.ckExp || '-') + '</b>'
+                      : '<button type="button" class="pkv-exp' + (a.ckExp ? '' : ' miss') + '" data-ckexpbtn="' +
+                      esc(a.country) + '">' + esc(a.ckExp || '입력') + '</button>') + '</div>' +
               ctrl + '</div>';
     }
 
@@ -2344,7 +2603,7 @@
       if (curS.ckManual && curS.ckManual[key] &&
               curS.ckQty && Object.prototype.hasOwnProperty.call(curS.ckQty, key))
         return num(curS.ckQty[key]);
-      var parts = key.split('|'), m = ckMatOf(parts[1]);
+      var parts = key.split('|'), m = ckMatOf(parts[1], parts[0]);
       return m ? ckDefaultQty(parts[0], m) : 0;
     }
 
@@ -2441,14 +2700,17 @@
      */
     function pkPlanByCountry() {
       var pool = (curS.pkLots || []).map(function (x) {
-        return {lot: x.lot, matLotId: x.matLotId, avail: (x.avail != null ? x.avail : x.qty), left: num(x.qty)};
+        return {lot: pkUdiOf(x), matLotId: x.matLotId, avail: (x.avail != null ? x.avail : x.qty), left: num(x.qty)};
       });
       return (curS.allocations || []).map(function (a) {
         var need = Math.round((a.qty || 0) * pkPerV()), rem = need, lines = [];
         for (var i = 0; i < pool.length && rem > 0; i++) {
           if (pool[i].left <= 0) continue;
           var take = Math.min(pool[i].left, rem);
-          lines.push({lot: pool[i].lot, take: take, avail: pool[i].avail});
+          // ★ 같은 UDI 로트(사내 W- 로트 여러 건)는 한 줄로 합친다 — 현장은 한 로트를 고른 것이다
+          var last = lines[lines.length - 1];
+          if (last && last.lot === pool[i].lot) last.take += take;
+          else lines.push({lot: pool[i].lot, take: take, avail: pool[i].avail});
           pool[i].left -= take;
           rem -= take;
         }
@@ -2499,7 +2761,7 @@
 
     /** 이 국가의 투입자재 중 재고가 모자란 것이 있는가 */
     function allocLack(a) {
-      return ckInputs().some(function (m) {
+      return ckInputs(a.country).some(function (m) {
         var q = ckQtyByKey(ckKey(a.country, m.code));
         return q > 0 && q > (m.sterileLot ? m.sterilStock : m.usable);
       });
@@ -2523,7 +2785,7 @@
         // ★ CK 자체재고 세션은 조달 방식이 없다 — CK 를 만드는 자리에서 CK 재고를 못 쓴다
         var mode = isCkStock() ? 'produce' : ckModeOf(a.country);
         var sl = ckStockOf(curS.ckStock ? curS.ckStock[a.country] : null);
-        var list = ckInputs();
+        var list = ckInputs(a.country);
         var matCount = list.filter(function (m) {
           return ckQtyByKey(ckKey(a.country, m.code)) > 0;
         }).length;
@@ -2561,20 +2823,41 @@
         var sub = hideCk ? (isCkStock() ? ('수량 ' + (a.qty || 0) + ' EA')
                         : ('완제품 ' + fmtQ(a.qty || 0) + '개 · PK ' + fmtQ((a.qty || 0) * pkPerV()) +
                                 ' · CK ' + fmtQ(ckQ2)))
+                /* ★ 현장 요청 — CK 로트·투입자재·인박스 계산 줄은 지운다(읽어도 무슨 말인지 모름).
+                     남기는 것: 자체재고 로트, CK 유효기간 */
                 : ((mode === 'stock')
-                        ? (sl ? 'CK 재고 ' + esc(sl.lot) + ' · 가용 ' + sl.avail
-                                : '투입할 CK 재고 로트를 고르세요')
-                        : ('CK 로트 ' + esc(a.ckLot || ckLotFor(a.country)) + ' · 투입자재 ' + matCount + '종'));
+                        ? (sl ? 'CK 재고 ' + esc(sl.lot) : '투입할 CK 재고 로트를 고르세요')
+                        : '');
+        if (!hideCk && !isCkStock() && a.ckExp)
+          sub += (sub ? ' · ' : '') + 'CK 유효기간 <b>' + esc(a.ckExp) + '</b>';
         // ①은 완제품 → CK, ③은 CK ← 완제품 순으로 적는다 (그 화면의 주어가 앞)
         /* ★ 세 숫자를 항상 같이 적는다.
            pk_per == ck_per 인 제품은 PK 와 CK 가 같은 값이라, 하나만 적으면
            「이 60이 PK 인가 CK 인가」를 화면에서 판별할 수 없다. */
         if (!hideCk && !isCkStock()) {
           var odd = allocPkOdd(a);
-          sub += ' · 인박스 ' + fmtQ(a.qty || 0) + '통 = PK ' + fmtQ((a.qty || 0) * pkPerV()) +
-                  ' + CK ' + fmtQ(ckQ2);
           // ★ 통을 못 채운 낱개는 숨기지 않는다 — 소비되지 않고 창고에 남는 수량이다
-          if (odd > 0) sub += ' · <b style="color:var(--amber)">낱개 ' + odd + '개 남음</b>';
+          if (odd > 0) sub += (sub ? ' · ' : '') + '<b style="color:var(--amber)">낱개 ' + odd + '개 남음</b>';
+        }
+
+        /* ★ v3.6 차수 선택 — 국가 이름 아래. 반영(CK 생산) 뒤에는 잠근다 */
+        var varCell = '';
+        if (multiVariant() && !isNo) {
+          var vSel = variantOfAlloc(a);
+          if (lock) {
+            // 예전(차수 도입 전) 반영분은 차수가 없다 — 그때는 표시하지 않는다
+            // 확정된 표시는 「CK : 00차수」 만 — 괄호(국내/해외)는 고를 때만 보여준다
+            varCell = vSel ? '<span class="pkv-chip">CK : ' + esc((vSel.suffix || '-') + '차수') + '</span>'
+                    : (produced ? '' : '<span class="pkv-chip">CK 차수 미지정</span>');
+          } else {
+            varCell = '<select class="pkv-sel' + (vSel ? '' : ' miss') + '" data-avar="' + i + '">' +
+                    (vSel ? '' : '<option value="">CK 차수 선택</option>') +
+                    variants().map(function (v) {
+                      var on = vSel && String(v.product_mat_id) === String(vSel.product_mat_id);
+                      return '<option value="' + v.product_mat_id + '"' + (on ? ' selected' : '') +
+                              (v.bom_ok === 'Y' ? '' : ' disabled') + '>' + esc(variantLabel(v)) + '</option>';
+                    }).join('') + '</select>';
+          }
         }
 
         var badge = produced ? '<span class="st-badge done">반영됨</span>'
@@ -2582,6 +2865,7 @@
                         : (mode === 'stock' ? '<span class="st-badge stock">자체재고 투입</span>'
                                 : '<span class="st-badge wait">새로 생산</span>'));
         if (lack && !hideCk) badge += '<span class="st-badge rw">자재 부족</span>';
+        if (multiVariant() && !isNo && !produced && !variantOfAlloc(a)) badge += '<span class="st-badge rw">CK 차수 미선택</span>';
 
         /* ★ 스테퍼는 «인박스(통)» 수를 그대로 받는다.
            예전에는 CK 개수를 띄웠다. 속값(통 수)과 표시가 3배 어긋나니
@@ -2612,11 +2896,10 @@
           var pl = plans[i] || {need: 0, lines: [], short: 0};
           var lines = pl.lines.map(function (x) {
             return '<div class="vlrow"><span class="ln">' + esc(x.lot) + '</span>' +
-                    '<span class="tk">' + x.take + '</span>' +
-                    '<span class="av">/ 가용 ' + x.avail + '</span></div>';
+                    '<span class="tk">' + x.take + '</span></div>';
           }).join('');
           var head = pl.need > 0
-                  ? ('투입 PK · 소요 ' + pl.need + (pl.lines.length > 1 ? ' · 로트 ' + pl.lines.length + '건' : ''))
+                  ? ('투입 PK · ' + pl.need + ' EA' + (pl.lines.length > 1 ? ' · 로트 ' + pl.lines.length + '건' : ''))
                   : '투입 PK · 수량 입력 대기';
           pkRow = '<div class="veslot' + (pl.short > 0 ? ' warn' : '') + '">' +
                   '<div class="vl"><div class="vlt">' + head + '</div>' +
@@ -2652,7 +2935,7 @@
 
         return '<div class="' + cls + '"><div class="edge"></div>' +
                 '<div class="shead">' +
-                '<div class="sid">' + nameCell + '<div class="sc">' + sub + '</div></div>' +
+                '<div class="sid">' + nameCell + varCell + (sub ? '<div class="sc">' + sub + '</div>' : '') + '</div>' +
                 badge + '<span class="sgap"></span>' + qtyCtrl + del + '</div>' +
                 pkRow + ckPart + '</div>';
       }).join('');
@@ -2666,9 +2949,13 @@
     }
 
     function ckBodyInner(a, ro, reviewOnly, mode, sl) {
-      var list = ckInputs();
+      var list = ckInputs(a.country);
+      var CKL = ckStockFor(a);   // ★ v3.6 이 줄 차수의 CK 자체재고만
+      if (multiVariant() && !variantOfAlloc(a))
+        return '<div class="region-warn">⚠ CK 차수(국내 / 해외1 …)을 먼저 고르세요 — 구분에 따라 CK 투입자재가 달라집니다.</div>';
       if (!list.length)
-        return '<div class="region-warn">⚠ CK 반제품 BOM 구성자재를 찾을 수 없습니다. BOM 등록을 확인하세요.</div>';
+        return '<div class="region-warn">⚠ CK BOM 미등록 — 이 CK 의 구성자재가 없습니다. BOM 을 등록하거나 「＋ 자재」로 담아 진행하세요.</div>' +
+                (ro ? '' : '<div class="mat-tools" style="margin:0 0 10px"><button class="baddbtn" data-ckadd="' + a.country + '">＋ 자재</button></div>');
 
       /* ★ ckstock 세션에서는 「새로 생산 / 자체재고 투입」 선택 자체를 숨긴다.
          ★ 버튼은 «감싸지 않은 상태»로 만든다 — 아래에서 편집 버튼과 한 줄로 합친다.
@@ -2678,13 +2965,13 @@
               (mode === 'produce' ? ' style="background:var(--teal);color:#fff;border-color:var(--teal)"' : '') +
               '>새로 생산</button>' +
               '<button data-ckmode="' + a.country + '|stock"' +
-              (CK_STOCK_LOTS.length ? (mode === 'stock' ? ' style="background:var(--teal);color:#fff;border-color:var(--teal)"' : '')
+              (CKL.length ? (mode === 'stock' ? ' style="background:var(--teal);color:#fff;border-color:var(--teal)"' : '')
                       : ' disabled style="opacity:.45"') +
-              '>자체재고 투입' + (CK_STOCK_LOTS.length ? ' (' + CK_STOCK_LOTS.length + ')' : ' · 재고 없음') + '</button>';
+              '>자체재고 투입' + (CKL.length ? ' (' + CKL.length + ')' : ' · 재고 없음') + '</button>';
       var modeBar = modeBtns ? '<div class="mat-tools" style="margin:0 0 10px">' + modeBtns + '</div>' : '';
 
       if (mode === 'stock') {
-        var opts = CK_STOCK_LOTS.map(function (l) {
+        var opts = CKL.map(function (l) {
           return '<div class="lotopt ' + (sl && sl.matLotId === l.matLotId ? 'sel' : '') + '"' +
                   (ro ? '' : ' data-ckstock="' + a.country + '|' + l.matLotId + '"') + '>' +
                   '<div style="flex:1;min-width:0"><span class="ln">' + esc(l.lot) + '</span>' +
@@ -2693,7 +2980,7 @@
                   (l.avail < a.qty ? ' · <b style="color:var(--red)">수량 부족</b>' : '') + '</div></div>' +
                   (sl && sl.matLotId === l.matLotId ? '<span class="done-tag">선택</span>' : '') + '</div>';
         }).join('');
-        if (!CK_STOCK_LOTS.length)
+        if (!CKL.length)
           opts = '<div class="region-warn">⚠ 생산창고에 CK 자체재고가 없습니다. ' +
                   '「CK 자체재고 생산지시」로 먼저 만들거나 「새로 생산」을 고르세요.</div>';
         return '<div class="browhead">CK 조달 방식<span class="ln"></span></div>' +
@@ -2720,7 +3007,7 @@
         var fbInfo = '';
         if (isFB) {
           fbInfo = selLot
-                  ? ' · <b style="color:var(--green)">멸균로트 ' + esc(selLot) + '</b>' +
+                  ? ' · <b style="color:var(--green)">로트 ' + esc(udiTxt(bagLotOf(selLot) || {lot: selLot})) + '</b>' +
                   (autoPick ? ' <span style="font-size:11px;color:var(--teal-d);font-weight:800">(선입선출 자동)</span>'
                           : ' <span style="font-size:11px;color:var(--ink-2);font-weight:800">(수동)</span>')
                   : ' · <b style="color:var(--amber)">멸균창고에 사용 가능한 로트 없음</b>';
@@ -2765,7 +3052,7 @@
                 '<div class="mid"><div class="mn">' + esc(m.name) +
                 (isFB ? ' <span style="font-size:11px;color:var(--teal-d);font-weight:800">[멸균]</span>' : '') + '</div>' +
                 '<div class="mc">' + esc(m.code) +
-                (extra ? ' · BOM 외 <b>수동</b>' : ' · BOM 투입 <b>' + bomNeed + '</b> (개당 ' + m.qtyPer + ')') +
+                (extra ? ' · BOM 외 <b>수동</b>' : ' · 개당 ' + fmtQ(m.qtyPer)) +
                 tag + ' · ' + stockHtml + fbInfo + '</div></div>' + fbBtn + qtyCtrl + '</div>';
       }).join('');
 
@@ -2780,9 +3067,7 @@
       var done = !!(curS.scanCkpk && curS.scanInbox);
       var html = '';
       if (!done) {
-        html += '<div class="part"><div class="id"><span class="pn">📷 UDI 라벨 2회 스캔</span>' +
-                '<span class="pc">① CK·PK 라벨(수량 없음) + ② 인박스 라벨(수량 있음). ' +
-                '스캔한 로트가 완제품 로트(' + esc(curS.lotNo || '-') + ')의 외부 로트로 기록됩니다.</span></div>' +
+        html += '<div class="part"><div class="id"><span class="pn">📷 UDI 라벨 2회 스캔</span></div>' +
                 (lk ? '' : '<button class="btn primary" id="scanIn" style="min-height:54px">스캔</button>') + '</div>';
       } else {
         var ck = curS.scanCkpk, ib = curS.scanInbox;
@@ -2790,8 +3075,7 @@
                 '<tr><td><b>CK·PK</b></td><td>' + esc(ck.lot || '-') + '</td><td>' + esc(ck.gtin || '-') + '</td><td>-</td></tr>' +
                 '<tr><td><b>인박스</b></td><td>' + esc(ib.lot || '-') + '</td><td>' + esc(ib.gtin || '-') + '</td><td>' +
                 (ib.qty != null ? ib.qty : '-') + '</td></tr>' +
-                '<tr><td><b>완제품 로트</b></td><td colspan="3">' + esc(curS.lotNo || '-') +
-                ' ↔ 외부 ' + esc(curS.makerLot || ib.lot || '-') + '</td></tr></table>';
+                '<tr><td><b>로트</b></td><td colspan="3">' + esc(curS.makerLot || ib.lot || '-') + '</td></tr></table>';
       }
       return html;
     }
@@ -2841,33 +3125,13 @@
 
       var fpi = fgPerInbox();
       var ibCnt = inboxCountOf(units);
-      var html = '<div class="part"><div class="id"><span class="pn">인박스</span>' +
-              '<span class="pc">완제품 ' + units + '개' +
-              (fpi > 1 ? ' ÷ ' + fpi + '입 = 인박스 ' + ibCnt : ' = 인박스 ' + ibCnt + ' (완제품 1개당 인박스 1개)') +
-              ' · ②에서 소비됨</span></div>' +
+      /* ★ 현장 요청 — 인박스·카톤 계산 문구, 카톤 로트 목록, UDI 라벨 안내는 지운다.
+           박스 수만 남긴다. 카톤 로트는 라벨 출력 버튼이 그대로 찍는다. */
+      var html = '<div class="part"><div class="id"><span class="pn">인박스</span></div>' +
               '<span class="done-tag">' + ibCnt + ' 박스</span></div>' +
               '<div class="part"><div class="id"><span class="pn">카톤(아웃박스)</span>' +
-              '<span class="pc">완제품 ' + units + ' ÷ ' + cap + '입' +
-              (fpi > 1 ? '(인박스 ' + Math.round(cap / fpi) + '통)' : '') +
-              ' = 카톤 ' + cartons.length +
-              (part ? ' (동일수량 ' + full + ' + 잔여 ' + part + ')' : '') +
-              ' · OUT BOX ' + cartons.length + '개 소비</span></div>' +
+              (part ? '<span class="pc">' + full + '박스 + 잔여 ' + part + '박스</span>' : '') + '</div>' +
               '<span class="done-tag">' + cartons.length + ' 박스</span></div>';
-
-      html += '<div class="secline">카톤 라벨 <span class="ln"></span><span>박스마다 다른 로트 · 1박스 1장</span></div>';
-      var cbase = (curS.scanCarton && curS.scanCarton.lot) || curS.lotNo ||
-              ((curS.scanInbox || curS.scanCkpk || {}).lot) || '';
-      if (cbase) {
-        html += '<div class="part"><div class="id"><span class="pn">카톤 로트</span><span class="pc">' +
-                cartons.map(function (c) {
-                  return '#' + c.cartonNo + ' ' + esc(cartonLotOf(c, cbase)) +
-                          (c.fullYn === 'N' ? '(잔여)' : '');
-                }).join(' · ') + '</span></div>' +
-                '<span class="done-tag">' + cartons.length + ' 로트</span></div>';
-      }
-      html += '<div class="part locked"><div class="id"><span class="pn">완제품 UDI 라벨</span>' +
-              '<span class="pc">외부(ERP/UDI) 인쇄물 — MES 는 스캔 지정만, 별도 출력 없음</span></div>' +
-              '<span class="done-tag" style="background:var(--surface-2);color:var(--ink-2)">스캔 지정</span></div>';
 
       var btns = '';
       if (full > 0) btns += '<button class="btn primary" id="bcCartonFull" style="flex:1;min-height:56px">🗳 카톤 동일수량 바코드 (' + full + '장)</button>';
@@ -2972,9 +3236,7 @@
       // ── ④ 아웃박스 ──
       if (vph === 'outbox' || curS.st === 'done') {
         html += '<div class="secline">④ 아웃박스(카톤) <span class="ln"></span>' +
-                '<span>완제품 ' + outboxCap() + '개' +
-                (fgPerInbox() > 1 ? '(인박스 ' + Math.round(outboxCap() / fgPerInbox()) + '통)' : '') +
-                ' = 카톤 1</span></div>';
+                '<span>카톤 1박스 = 완제품 ' + outboxCap() + '개</span></div>';
         html += cartonBlock(ro);
       }
 
@@ -3074,7 +3336,8 @@
 
       // ── ③ 라벨 스캔 ──
       if (ph === 'label') {
-        bar.innerHTML = actsum('완제품 로트', esc(curS.lotNo || '-') + ' · ' + (curS.units || 0) + ' EA') +
+        // ★ 현장 요청 — 사내 로트(P-…) 대신 로트(멸균 UDI)
+        bar.innerHTML = actsum('로트', esc(curS.makerLot || pkUdiSummary() || '-') + ' · ' + (curS.units || 0) + ' EA') +
                 '<button class="btn ghost" id="packBack">‹ 포장 취소</button>' +
                 '<button class="btn primary" id="scanOpen">📷 라벨 스캔</button>';
         document.getElementById('scanOpen').onclick = openScan;
@@ -3089,10 +3352,19 @@
 
       // ── ④ 아웃박스 ──
       var cartons = cartonList();
+      /* ★ 카톤 바코드를 하단 바에도 둔다. 본문 맨 아래 버튼은 화면 끝에 걸려
+           태블릿에서 잘 안 눌렸다(현장 지적). 하단 바는 항상 보이고 손이 닿는다. */
+      var nFull = cartons.filter(function (c) { return c.fullYn !== 'N'; }).length;
+      var nPart = cartons.length - nFull;
       bar.innerHTML = actsum('카톤(아웃박스)', cartons.length + ' 박스') +
+              (nFull ? '<button class="btn ghost" id="barCartonFull">🗳 카톤 바코드 ' + nFull + '장</button>' : '') +
+              (nPart ? '<button class="btn ghost" id="barCartonPart">잔여 ' + nPart + '장</button>' : '') +
               '<button class="btn ghost" id="labelBack">‹ 라벨 취소</button>' +
               '<button class="btn primary" id="outDone">포장 공정 완료</button>';
       document.getElementById('outDone').onclick = doOutboxFinish;
+      var bF = document.getElementById('barCartonFull'), bP = document.getElementById('barCartonPart');
+      if (bF) bF.onclick = function () { printCartons(true); };
+      if (bP) bP.onclick = function () { printCartons(false); };
       document.getElementById('labelBack').onclick = function () {
         uiConfirm('라벨 스캔을 취소합니다.\n완제품 로트는 그대로 남고 외부 UDI 로트만 지워집니다.', function () {
           post('/label_cancel', {mp_id: curS.mpId}, '라벨 취소 — 다시 스캔할 수 있습니다', reopen);
@@ -3404,8 +3676,14 @@
           /* qty 는 BOM 값 그대로 — 서버 검증식(배분합계 == 완제품 × ck_per)과 완제품 수 계산용.
              ck_qty 는 실적 CK 수 — 서버가 CK 생산·소비 수량으로 쓴다(비우면 qty). */
           qty: ckBom, ck_qty: (ckQ !== ckBom ? ckQ : ''),
-          mode: mode, ck_lot: a.ckLot || ckLotFor(a.country), items: []
+          mode: mode, ck_lot: a.ckLot || ckLotFor(a.country), items: [],
+          // ★ v3.6 차수 완제품 · CK 유효기간
+          product_mat_id: a.prodMatId || '', ck_exp: a.ckExp || ''
         };
+        if (strict && multiVariant() && !variantOfAlloc(a)) {
+          error = allocLabel(a) + ' — CK 차수(국내 / 해외1 …)을 선택하세요';
+          break;
+        }
 
         if (mode === 'stock') {
           var sl = ckStockOf(curS.ckStock ? curS.ckStock[a.country] : null);
@@ -3424,13 +3702,13 @@
           row.ck_mat_lot_id = sl.matLotId;
           row.ck_lot = sl.lot;
           // 복원용 한 줄 (CK 품목 자신)
-          if (curS.ckMatId) row.items.push({mat_id: curS.ckMatId, qty: ckQ, mat_lot_id: sl.matLotId});
+          if (ckMatIdOfAlloc(a)) row.items.push({mat_id: ckMatIdOfAlloc(a), qty: ckQ, mat_lot_id: sl.matLotId});
           out.push(row);
           continue;
         }
 
         // ── 새로 생산 ── 필터백 로트 확정(미변경이면 선입선출 기본값)
-        var list = ckInputs();
+        var list = ckInputs(a.country);
         for (var j = 0; j < list.length; j++) {
           var m = list[j], key = ckKey(a.country, m.code), q = ckQtyByKey(key);
           if (q <= 0) continue;
@@ -3525,6 +3803,17 @@
       C화면 이벤트
       ══════════════════════════════════════════════════════════════════════ */
     document.getElementById('cBody').addEventListener('click', function (e) {
+      var expBtn = e.target.closest('[data-ckexpbtn]');
+      if (expBtn) {
+        var ea2 = allocOf(expBtn.dataset.ckexpbtn);
+        if (!ea2) return;
+        uiPickDate(allocLabel(ea2) + ' · CK 유효기간', ea2.ckExp, function (v) {
+          ea2.ckExp = v || '';
+          renderCBody();
+          scheduleAllocSave();
+        });
+        return;
+      }
       var go = e.target.closest('[data-goto]');
       if (go) {
         var to = go.dataset.goto;
@@ -3626,7 +3915,8 @@
           if (!q0 && curS.allocations.length) flash('남은 수량이 없어 0개로 추가했습니다');
           curS.allocations.push({
             country: next.code, countryId: next.id,
-            qty: q0, pkReq: pk0, ckState: 'plan'
+            qty: q0, pkReq: pk0, ckState: 'plan',
+            prodMatId: defaultVariant(next.code), ckExp: ''
           });
           ckOpenMap[ckOpenKey(next.code)] = true;
           renderCBody();
@@ -3706,7 +3996,7 @@
         //   그래야 다음에 배분 수량을 고쳐도 다시 누를 필요 없이 따라 움직인다.
         // ★ 추가자재는 BOM 권장치가 없으므로(qty_per 0) 초기화 대상에서 뺀다.
         //   같이 리셋하면 사람이 넣은 수량이 조용히 0 이 된다.
-        ckInputs().forEach(function (m) {
+        ckInputs(c3).forEach(function (m) {
           if (isCkExtra(m.code)) return;
           resetCkQty(ckKey(c3, m.code));
         });
@@ -3717,7 +4007,7 @@
       var ckNone = e.target.closest('[data-cknone]');
       if (ckNone) {
         var c4 = ckNone.dataset.cknone;
-        ckInputs().forEach(function (m) {
+        ckInputs(c4).forEach(function (m) {
           setCkQty(ckKey(c4, m.code), 0);
         });
         renderCBody();
@@ -3726,7 +4016,7 @@
       }
       var ckChk = e.target.closest('[data-ckchk]');
       if (ckChk) {
-        var k = ckChk.dataset.ckchk, parts = k.split('|'), mm = ckMatOf(parts[1]);
+        var k = ckChk.dataset.ckchk, parts = k.split('|'), mm = ckMatOf(parts[1], parts[0]);
         if (mm) {
           // 켜기 = BOM 권장치 자동 / 끄기 = 0 고정
           if (ckQtyByKey(k) > 0) setCkQty(k, 0); else resetCkQty(k);
@@ -3775,7 +4065,7 @@
       var ckPad = e.target.closest('[data-ckpad]');
       if (ckPad) {
         var k2 = ckPad.dataset.ckpad, parts2 = k2.split('|');
-        var m2 = ckMatOf(parts2[1]), c5 = countryOf(parts2[0]);
+        var m2 = ckMatOf(parts2[1], parts2[0]), c5 = countryOf(parts2[0]);
         var max = m2 ? (m2.sterileLot ? m2.sterilStock : m2.usable) : 9999;
         openPad((c5 ? c5.flag + ' ' : '') + (m2 ? m2.name : '자재') + ' 투입수량',
                 ckQtyByKey(k2), max, function (v) {
@@ -3813,8 +4103,15 @@
       // 카톤 바코드 (인쇄용 — DB 에 남기지 않는다)
       var cbtn = e.target.closest ? e.target.closest('#bcCartonFull, #bcCartonPart') : null;
       if (cbtn) {
+        printCartons(cbtn.id === 'bcCartonFull');
+        return;
+      }
+    });
+
+    /** 카톤 바코드 출력 — 본문 버튼과 하단 바 버튼이 같이 쓴다 */
+    function printCartons(wantFull) {
+      {
         var cartons = cartonList();
-        var wantFull = cbtn.id === 'bcCartonFull';
         var target = cartons.filter(function (c) {
           return wantFull ? c.fullYn !== 'N' : c.fullYn === 'N';
         });
@@ -3837,14 +4134,47 @@
                     matName: (curO && curO.name) || '',
                     qty: c.inboxQty,
                     makerLot: makerLot,
+                    country: countryEn(c.country),   // ★ 카톤마다 국가 — 영문 대문자
                     copies: 1
                   };
                 }));
-        return;
       }
-    });
+    }
 
     document.getElementById('cBody').addEventListener('change', function (e) {
+      /* ★ v3.6 차수 선택 — CK 가 바뀌므로 그 국가의 투입자재 수정값·조달 방식을 처음으로 되돌린다 */
+      var vsel = e.target.closest('[data-avar]');
+      if (vsel) {
+        var va = curS.allocations[+vsel.dataset.avar];
+        if (!va) return;
+        var vid = vsel.value || null;
+        if (String(va.prodMatId || '') === String(vid || '')) return;
+        va.prodMatId = vid ? +vid : null;
+        resetCkMatsOf(va.country);
+        Object.keys(curS.ckOff || {}).forEach(function (k) {
+          if (k.indexOf(va.country + '|') === 0) delete curS.ckOff[k];
+        });
+        if (curS.ckMode) delete curS.ckMode[va.country];
+        if (curS.ckStock) delete curS.ckStock[va.country];
+        va.ckLot = null;
+        if (vid) rememberVariant(va.country, vid);
+        ckOpenMap[ckOpenKey(va.country)] = true;
+        var vv = variantOfAlloc(va);
+        flash(allocLabel(va) + ' — ' + (vv ? variantLabel(vv) : 'CK 차수 해제'));
+        renderCBody();
+        renderCAction();
+        scheduleAllocSave();
+        return;
+      }
+      var vexp = e.target.closest('[data-ckexp]');
+      if (vexp) {
+        var ea = allocOf(vexp.dataset.ckexp);
+        if (!ea) return;
+        ea.ckExp = vexp.value || '';
+        renderCBody();
+        scheduleAllocSave();
+        return;
+      }
       var sel = e.target.closest('[data-alloc]');
       if (sel && sel.tagName === 'SELECT') {
         var i = +sel.dataset.alloc;
@@ -3880,6 +4210,7 @@
             delete ckOpenMap[ok1];
           }
           a.ckLot = null;
+          if (!a.prodMatId) a.prodMatId = defaultVariant(to);
           flash('국가를 ' + (co ? co.name : to) + '(으)로 바꿨습니다');
           renderCBody();
           renderCAction();
@@ -4039,10 +4370,10 @@
         var other = base != null && String(l.matId) !== String(base);
         return '<div class="lotopt ' + (sel ? 'sel' : '') + '" data-pklot="' + l.matLotId + '"' +
                 (other ? ' style="border-color:var(--amber)"' : '') + '>' +
-                '<div style="flex:1;min-width:0"><span class="ln">' + esc(l.lot) + '</span>' +
+                '<div style="flex:1;min-width:0"><span class="ln">' + esc(udiTxt(l)) + '</span>' +
                 (other ? ' <span class="lotbadge">다른 품목</span>' : '') +
                 '<div class="meta">' + esc(l.name) + ' · 가용 ' + l.avail + ' EA' +
-                (l.sterilDate ? ' · 멸균 ' + l.sterilDate : '') + (l.udi ? ' · UDI ' + esc(l.udi) : '') +
+                (l.sterilDate ? ' · 멸균 ' + l.sterilDate : '') +
                 (other ? ' · <b style="color:var(--amber)">작지의 PK 품목이 아닙니다</b>' : '') + '</div></div>' +
                 /* ★ 담긴 로트만 스테퍼를 보이면 「담기 탭 → 수량 조절」 두 동작이 된다.
          항상 스테퍼를 두고 + 를 누르는 순간 담기게 한다.
@@ -4312,9 +4643,9 @@
         box.innerHTML = FILTERBAG_LOTS.map(function (l) {
           var tag = (l.lot === first) ? '선입선출' : '멸균필';
           return '<div class="lotopt ' + (l.lot === cur ? 'sel' : '') + '" data-baglot="' + esc(l.lot) + '">' +
-                  '<div style="flex:1;min-width:0"><span class="ln">' + esc(l.lot) + '</span>' +
+                  '<div style="flex:1;min-width:0"><span class="ln">' + esc(udiTxt(l)) + '</span>' +
                   '<div class="meta">' + esc(l.name) + ' · 가용 ' + l.avail + ' EA' +
-                  (l.sterilDate ? ' · 멸균 ' + l.sterilDate : '') + (l.batchNo ? ' · ' + esc(l.batchNo) : '') + '</div></div>' +
+                  (l.sterilDate ? ' · 멸균 ' + l.sterilDate : '') + '</div></div>' +
                   '<span class="done-tag"' + (l.lot === first ? ' style="background:var(--teal);color:#fff"' : '') + '>' +
                   tag + '</span></div>';
         }).join('');
@@ -5190,7 +5521,7 @@
     });
 
     function ckStartOk() {
-      document.getElementById('startOk').disabled = !(selWorkers.length && selE);
+      document.getElementById('startOk').disabled = !selWorkers.length;
     }
 
     document.getElementById('startOk').onclick = function () {
@@ -5198,10 +5529,8 @@
         flash('작업자를 선택하세요');
         return;
       }
-      if (!selE) {
-        flash('포장대를 선택하세요');
-        return;
-      }
+      // ★ 포장대 선택 없음 — 설비가 있으면 첫 번째, 없으면 서버가 기본값을 고른다
+      if (!selE) selE = EQUIPS[0] || {equipId: '', name: ''};
       var btn = this;
       btn.disabled = true;
 
@@ -5236,7 +5565,7 @@
           waitSel = {};
           waitQty = {};
           var d = (r && r.data) || {};
-          flash('포장 작업 생성 · ' + workerNames() + ' / ' + selE.name + ' · PK ' + (d.units || 0) + ' EA 담김');
+          flash('포장 작업 생성 · ' + workerNames() + (selE && selE.name ? ' / ' + selE.name : '') + ' · PK ' + (d.units || 0) + ' EA 담김');
           refreshQueue0(function () {
             if (!d.jr_pk) return;
             openOrder(+d.jr_pk);
@@ -5270,11 +5599,11 @@
         // ★ PK 자동배정 결과를 알려준다 — 못 잡았어도 세션은 열린다.
         //   CK 자체재고 지시는 PK 품목이 없어 자동배정이 안 도는 게 정상이라 안내를 생략한다.
         if (curO && curO.jobKind === 'ckstock')
-          flash('CK 생산 작업 시작 · ' + workerNames() + ' / ' + selE.name);
+          flash('CK 생산 작업 시작 · ' + workerNames() + (selE && selE.name ? ' / ' + selE.name : ''));
         else if (num(d.auto_pk_qty) > 0)
           flash('작업 시작 · PK ' + d.auto_pk_cnt + '개 로트 ' + d.auto_pk_qty + ' EA 자동 선택');
         else
-          flash(d.auto_pk_note || ('작업 시작 · ' + workerNames() + ' / ' + selE.name));
+          flash(d.auto_pk_note || ('작업 시작 · ' + workerNames() + (selE && selE.name ? ' / ' + selE.name : '')));
         var mpId = d.mp_id;
         loadSessions(curO.jrPk, function () {
           renderSessList();
@@ -5456,8 +5785,10 @@
         w = Math.min(LB.maxX, w);
         w = Math.round(w * 1000) / 1000;
 
+        var noText = el.getAttribute && el.getAttribute('data-notext') === '1';
         JsBarcode(el, v, Object.assign({}, base,
-                {width: w, margin: 0, marginLeft: 10 * w, marginRight: 10 * w}));
+                {width: w, margin: 0, marginLeft: 10 * w, marginRight: 10 * w},
+                noText ? {displayValue: false} : {}));
         return w / MM;
       } catch (e) {
         console.error('barcode render failed', v, e);
@@ -5470,6 +5801,21 @@
      1공장은 인박스·CK/PK 라벨의 외부 로트, 2공장은 박스라벨(maker_lot_no).
      MES 로트(바코드)와 «별개» 이므로 둘 다 찍는다.
      칸 이름을 바꾸려면 여기 한 곳만 고치면 된다. */
+    /** 국가코드 → 영문 대문자 (CA → CANADA). 브라우저 내장 지역명 사용, 없으면 코드 그대로 */
+    function countryEn(code) {
+      if (!code || code === NO_CTRY) return '';
+      // 라벨 칸이 17mm 라 긴 이름은 통용 약칭으로 (UNITED STATES 는 잘린다)
+      var SHORT = {US: 'USA', GB: 'UK', KR: 'KOREA', AE: 'UAE'};
+      if (SHORT[String(code).toUpperCase()]) return SHORT[String(code).toUpperCase()];
+      try {
+        if (window.Intl && Intl.DisplayNames) {
+          var n = new Intl.DisplayNames(['en'], {type: 'region'}).of(String(code).toUpperCase());
+          if (n && n !== code) return n.toUpperCase();
+        }
+      } catch (e) {}
+      return String(code).toUpperCase();
+    }
+
     function labelTable(l, svgId) {
       function v(x) { return esc(x == null || x === '' ? '' : String(x)); }
       return '<div class="lb"><table class="lbt">' +
@@ -5477,9 +5823,18 @@
               '<tr><td class="k">품목코드</td><td>' + v(l.matCode) + '</td>' +
               '<td class="k">수량</td><td>' + v(l.qty) + '</td></tr>' +
               '<tr><td class="k">품명</td><td colspan="3" class="nm">' + v(l.matName) + '</td></tr>' +
+              /* ★ 수출 박스 — 같은 UDI 의 미국/캐나다 박스가 겉으로 똑같다.
+                   스캔 전에 눈으로 가를 수 있게 LOT 줄 오른쪽에 국가(영문)를 굵게 넣는다.
+                   줄을 새로 만들지 않는 이유 : 70x50mm 라 바코드 높이가 줄어든다. */
               '<tr><td class="k">LOT NO.</td><td colspan="3">' +
               (l.makerLot ? v(l.makerLot) : '-') + '</td></tr>' +
-              '<tr><td colspan="4" class="bc"><svg id="' + svgId + '"></svg></td></tr>' +
+              /* ★ 국가는 바코드 아래 로트번호 «옆» 에 (현장 요청).
+                   JsBarcode 글자는 svg 안이라 옆에 붙일 수 없어, 국가가 있으면
+                   바코드 글자를 끄고(data-notext) 같은 줄을 직접 쓴다 */
+              '<tr><td colspan="4" class="bc"><svg id="' + svgId + '"' + (l.country ? ' data-notext="1"' : '') + '></svg>' +
+              (l.country ? '<div class="bctx"><span class="bcl">' + v(l.lot) + '</span>' +
+                      '<span class="bcc">(' + v(l.country) + ')</span></div>' : '') +
+              '</td></tr>' +
               '</table></div>';
     }
 
@@ -5503,6 +5858,9 @@
             '.lbt td.k{font-weight:700;background:#f2f2f2}' +
             '.lbt td.nm{font-size:2.5mm;height:6.5mm;word-break:break-all}' +
             '.lbt td.bc{padding:1mm .5mm;height:auto}' +
+            '.lbt .bctx{display:flex;justify-content:center;align-items:baseline;gap:1.2mm;margin-top:.6mm;white-space:nowrap}' +
+            '.lbt .bcl{font-family:monospace;font-size:2.9mm}' +
+            '.lbt .bcc{font-family:monospace;font-size:2.9mm;font-weight:400}' +
             '.lbt col.c1{width:14mm}.lbt col.c2{width:23mm}' +
             '.lbt col.c3{width:14mm}.lbt col.c4{width:17mm}' +
             '.lbt svg{display:block;margin:0 auto;max-width:100%;height:auto}';

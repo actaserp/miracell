@@ -20,7 +20,9 @@ import java.util.Set;
  * ①생산형 공용 조회 서비스 (조립·블리스터·융착·포장). 화면은 process_id 만 바꿔 공용.
  * <p>
  * 화면 골격: 날짜(A) → 작업조(B) → 용기(C)
- * - 작업조 = 별도 테이블 없음. (ProductionDate, ShiftCode, Actor_id) 로 mat_produce 를 group by 하여 파생.
+ * - 작업조 = 별도 테이블 없음. (ProductionDate, ShiftCode, Actor_id, Equipment_id) 로 mat_produce 를 group by 하여 파생.
+ *   ★ 설비까지 넣는다 — 같은 조원이 두 설비를 동시에 돌리는 경우가 있다(조립: 초음파 융착기 + 조립설비).
+ *     대표만으로 묶으면 두 설비 작업이 한 카드로 합쳐지고 새 조를 만들 수 없었다.
  * - 용기   = mat_produce 차수 1건.
  * - 실적 생성/완료 = ProductionCreateService (ProductionWorkController 에서 호출).
  * <p>
@@ -75,7 +77,7 @@ public class ProductionWorkService {
         String sql = """
                 SELECT mp."ProductionDate"::date                              AS work_date
                      , to_char(mp."ProductionDate", 'yyyy-mm-dd')             AS work_date_str
-                     , COUNT(DISTINCT (mp."ShiftCode", mp."Actor_id"))        AS crew_cnt
+                     , COUNT(DISTINCT (mp."ShiftCode", mp."Actor_id", COALESCE(mp."Equipment_id",0))) AS crew_cnt
                      , COUNT(*)                                               AS item_cnt
                      , COUNT(*) FILTER (WHERE mp."State" = 'finished')        AS item_done_cnt
                      , COUNT(*) FILTER (WHERE mp."State" = 'working')         AS item_working_cnt
@@ -176,7 +178,17 @@ public class ProductionWorkService {
      */
     public List<Map<String, Object>> getItemList(Integer processId, String date, String shiftCode,
                                                  Integer actorId, String spjangcd, Integer jobResId) {
+        return getItemList(processId, date, shiftCode, actorId, spjangcd, jobResId, null);
+    }
+
+    /**
+     * equipmentId : null = 설비로 거르지 않음(구 호출) / 0 = 설비 없는 차수 / 그 외 = 그 설비.
+     */
+    public List<Map<String, Object>> getItemList(Integer processId, String date, String shiftCode,
+                                                 Integer actorId, String spjangcd, Integer jobResId,
+                                                 Integer equipmentId) {
         MapSqlParameterSource p = new MapSqlParameterSource();
+        p.addValue("equipId", equipmentId);
         p.addValue("processId", processId);
         p.addValue("date", date == null ? null : LocalDate.parse(date));
         p.addValue("shiftCode", shiftCode);
@@ -208,6 +220,8 @@ public class ProductionWorkService {
                    AND mp.spjangcd = :spjangcd
                    AND mp."ShiftCode" = :shiftCode
                    AND mp."Actor_id" = :actorId
+                   AND (CAST(:equipId AS INTEGER) IS NULL
+                        OR COALESCE(mp."Equipment_id",0) = CAST(:equipId AS INTEGER))
                    AND ( (CAST(:jobResId AS INTEGER) IS NOT NULL
                           AND mp."JobResponse_id" = CAST(:jobResId AS INTEGER))
                       OR (CAST(:jobResId AS INTEGER) IS NULL
@@ -821,7 +835,7 @@ public class ProductionWorkService {
                              , COUNT(*)                                               AS chasu_cnt
                              , COUNT(*) FILTER (WHERE mp."State"='finished')          AS done_cnt
                              , COUNT(*) FILTER (WHERE mp."State"='working')           AS working_cnt
-                             , COUNT(DISTINCT (mp."ShiftCode", mp."Actor_id"))        AS crew_cnt
+                             , COUNT(DISTINCT (mp."ShiftCode", mp."Actor_id", COALESCE(mp."Equipment_id",0))) AS crew_cnt
                           FROM mat_produce mp
                          WHERE mp."JobResponse_id" = jr.id
                            AND COALESCE(mp."_status",'a') = 'a'

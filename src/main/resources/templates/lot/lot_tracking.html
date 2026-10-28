@@ -198,6 +198,17 @@
               <th><label for="match_by_name">조회기준</label></th>
               <td><input type="text" class="form-control2" id="match_by_name" name="match_by_name" readonly style="width:100%;"></td>
             </tr>
+            <!-- ★ 1공장 포장 완제품 — 국가마다 로트가 따로 생긴다. 포장분이 아니면 빈칸 -->
+            <tr>
+              <th><label for="country_name">국가</label></th>
+              <td><input type="text" class="form-control2" id="country_name" name="country_name" readonly style="width:100%;"></td>
+              <th><label for="ck_name">CK 구분</label></th>
+              <td><input type="text" class="form-control2" id="ck_name" name="ck_name" readonly style="width:100%;"></td>
+              <th><label for="ck_exp">CK 유효기간</label></th>
+              <td><input type="text" class="form-control2" id="ck_exp" name="ck_exp" readonly style="width:100%;"></td>
+              <th><label for="udi_countries">같은 UDI 국가별</label></th>
+              <td><input type="text" class="form-control2" id="udi_countries" name="udi_countries" readonly style="width:100%;" title="같은 UDI 로 포장된 완제품 로트 전체의 국가별 수량"></td>
+            </tr>
             </tbody>
           </table>
         </form>
@@ -528,6 +539,8 @@
             { binding: 'mat_name', header: '품목', width: 250, align: 'left' },
             { binding: 'ShipDate', header: '출하일', width: 150, align: 'center' },
             { binding: 'company_name', header: '고객사', width: 150, align: 'left' },
+            { binding: 'country', header: '국가', width: 80, align: 'center' },
+            { binding: 'carton_lot_no', header: '카톤', width: 190, align: 'center' },
             { binding: 'Qty', header: '출하량', width: 100, align: 'right', format: 'n0' },
             { binding: 'shipment_state', header: '출하상태', width: 150, align: 'center' }
           ]
@@ -655,6 +668,7 @@
           let r = g.rep, parts = [];
           if (r.LotNumber) parts.push(r.LotNumber);
           if (r.mat_name)  parts.push(r.mat_name);
+          if (r.country_name) parts.push(r.country_name);
           if (g.store_text) parts.push(g.store_text);
           if (parts.length === 0) parts.push('#' + (i + 1));
           $c.append($('<option>').val(i).text(parts.join(' · ')));

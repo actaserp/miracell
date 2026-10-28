@@ -743,7 +743,7 @@
                 workers: workers.slice(), leader_id: workers[0].id,
                 equip: equip.name, equip_id: equip.id, code: equip.code || '',
                 shift: CTX.shiftCode, done: false, start: todayStr() + ' ' + hhmm(), end: null,
-                items: [], _draft: true, _key: CTX.shiftCode + '|' + workers[0].id
+                items: [], _draft: true, _key: CTX.shiftCode + '|' + workers[0].id + '|' + (equip.id || 0)   /* ★ 설비까지 — 같은 조원이 다른 설비로 동시에 작업한다 */
             };
         }
 
@@ -793,7 +793,7 @@
                 shift: c.shift_code || 'D',
                 done: (c.state === 'done'),
                 start: c.start_time, end: c.end_time, good_qty: num(c.good_qty),
-                items: [], _draft: false, _key: (c.shift_code || 'D') + '|' + c.actor_id
+                items: [], _draft: false, _key: (c.shift_code || 'D') + '|' + c.actor_id + '|' + (c.equipment_id || 0)
             }));
         }
 
@@ -807,7 +807,7 @@
         function loadServerItems(crew) {
             const iq = {
                 process_id: PROC_ID, date: curD.date,
-                shift_code: crew.shift, actor_id: crew.leader_id, spjangcd: CTX.spjangcd
+                shift_code: crew.shift, actor_id: crew.leader_id, equipment_id: crew.equip_id || 0, spjangcd: CTX.spjangcd
             };
             if (CTX.woOnly && curD && curD.job_res_id) iq.job_res_id = curD.job_res_id;
             const r = apiGet('/item_list', iq);
@@ -1376,7 +1376,7 @@
 
         document.getElementById('crewOk').onclick = () => {
             const c = mkCrew(selWorkers, selE);
-            /* 같은 (shift, 대표) 조가 이미 있으면 그걸 연다 */
+            /* 같은 (shift, 대표, 설비) 조가 이미 있으면 그걸 연다. 설비가 다르면 새 조 */
             const exist = curD.crews.findIndex(x => x._key === c._key);
             if (exist >= 0) {
                 hideMask('crewMask');

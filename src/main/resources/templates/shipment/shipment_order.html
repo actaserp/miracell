@@ -306,6 +306,7 @@
                             })
                         },
                         {binding: 'cur_stock', header: '현재고', width: 80, align: 'right', isReadOnly: true},
+                        {binding: 'country_stock', header: '국가별 재고', width: 180, align: 'left', isReadOnly: true},
                         // {binding: 'Standard', header: '규격', width: 80, align: 'right', isReadOnly: true},
                         //{ binding: 'order_input_qty', header: '추가지시량', width: '*', align: 'right', isReadOnly: false },
 
@@ -452,7 +453,8 @@
                         {binding: 'mat_name', header: '품목명', width: '*', align: 'left'},
                         {binding: 'unit_name', header: '단위', width: 80, align: 'center'},
                         {binding: 'standard1', header: '규격', width: 80, align: 'center'},
-                        {binding: 'cur_stock', header: '현재고', width: 80, align: 'right'}
+                        {binding: 'cur_stock', header: '현재고', width: 80, align: 'right'},
+                        {binding: 'country_stock', header: '국가별 재고', width: 180, align: 'left'}
                     ],
                     itemsSource: this.viewData3,
                 });

@@ -55,7 +55,6 @@
     @media (max-width:760px)  { #f1Wrap .env-grid { grid-template-columns:repeat(2,1fr); } }
     #f1Wrap .env { border:1px solid #e1e6ee; border-radius:9px; padding:8px 10px; background:#f7f9fc;
       border-left:4px solid #0f9d58; }
-    #f1Wrap .env[data-code] { cursor:pointer; }
     #f1Wrap .env.bad   { border-left-color:#d64545; background:#fff5f5; }
     #f1Wrap .env.stale { border-left-color:#b9c1cd; background:#f4f5f7; }
     #f1Wrap .env.stale .v { color:#9aa3b0 !important; }
@@ -75,8 +74,8 @@
     #f1Wrap .env .ts { font-size:10px; color:#9aa3b0; margin-top:3px; font-weight:700; }
 
     /* ── 생산현황 + 인원 ── */
-    #f1Wrap .f1-mid { display:grid; grid-template-columns:1.7fr 1fr; gap:10px; }
-    @media (max-width:1100px) { #f1Wrap .f1-mid { grid-template-columns:1fr; } }
+    /* 생산현황 · 작업인원을 위아래로 — 작업인원이 공정 섹션 8칸이라 옆에 두면 좁다 */
+    #f1Wrap .f1-mid { display:grid; grid-template-columns:1fr; gap:10px; }
 
     /* ★ table 을 쓰지 않는다. layout_page 공용 CSS 가 table/td 에 폭·display 를 걸어
          셀이 쪼개져 겹쳐 보였다. 공용 CSS 는 건드리지 않고 div 그리드로 간다. */
@@ -108,6 +107,25 @@
     #f1Wrap .prod .pr > div { margin:0; padding:0; }
     #f1Wrap .prod .pitems div { margin:0; }
 
+    /* ── 작업인원: 공정 섹션 ── */
+    #f1Wrap .f1-secs { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:8px; }
+    @media (max-width:1300px) { #f1Wrap .f1-secs { grid-template-columns:repeat(3, minmax(0,1fr)); } }
+    @media (max-width:900px)  { #f1Wrap .f1-secs { grid-template-columns:repeat(2, minmax(0,1fr)); } }
+    #f1Wrap .f1-sec { border:1px solid #e1e6ee; border-radius:9px; background:#fff; overflow:hidden;
+      display:flex; flex-direction:column; min-height:92px; }
+    #f1Wrap .f1-sec-h { display:flex; align-items:center; gap:6px; padding:7px 10px; font-size:12px;
+      font-weight:800; background:#f4f7fb; border-bottom:1px solid #e9edf3; }
+    #f1Wrap .f1-sec-h i { width:8px; height:8px; border-radius:50%; background:#c3cad5; flex:0 0 8px; }
+    #f1Wrap .f1-sec.on .f1-sec-h { background:#eaf7ef; color:#0b7a43; }
+    #f1Wrap .f1-sec.on .f1-sec-h i { background:#0f9d58; }
+    #f1Wrap .f1-sec.idle .f1-sec-h { background:#f1f2f5; color:#5d6776; }
+    #f1Wrap .f1-sec-h b { margin-left:auto; font-size:15px; font-variant-numeric:tabular-nums; }
+    #f1Wrap .f1-sec-b { padding:7px 8px; display:flex; flex-wrap:wrap; gap:5px; align-content:flex-start; }
+    #f1Wrap .f1-pn { border:1px solid #cdebd9; background:#f1fbf5; border-radius:6px; padding:3px 8px;
+      font-size:12px; font-weight:800; color:#1f2733; }
+    #f1Wrap .f1-pn small { color:#0b7a43; font-weight:700; margin-left:4px; font-size:10.5px; }
+    #f1Wrap .f1-sec.idle .f1-pn { border-color:#e1e6ee; background:#f7f8fa; color:#5d6776; }
+    #f1Wrap .f1-sec-none { color:#b3bac5; font-size:11.5px; padding:2px; }
     #f1Wrap .ppl-sum { display:flex; gap:8px; margin-bottom:8px; }
     #f1Wrap .ppl-sum div { flex:1; border-radius:8px; padding:7px 10px; font-size:11px; font-weight:800; }
     #f1Wrap .ppl-sum .w { background:#e3f5ea; color:#0b7a43; }
@@ -151,6 +169,44 @@
     .f1-modal .ft button { border:1px solid #d5dbe5; background:#fff; border-radius:6px; padding:6px 14px;
       font-weight:800; cursor:pointer; }
     .f1-modal .ft button.pri { background:#2f6fed; border-color:#2f6fed; color:#fff; margin-left:auto; }
+
+    /* ══ 한 화면 맞춤 (스크롤 최소화) — 현장 요청 ══════════════════════
+       간격·글자를 줄이고, 생산현황 품목은 가로로 흘려 쓰고,
+       작업인원 공정 섹션 8칸은 넓은 화면에서 한 줄로 둔다. */
+    #f1Wrap { gap:7px; }
+    #f1Wrap .f1-card-h { padding:6px 12px; }
+    #f1Wrap .f1-card-b { padding:6px 10px; }
+    #f1Wrap .f1-alarm { padding:6px 12px; }
+    #f1Wrap .env { padding:5px 9px; }
+    #f1Wrap .env .m { margin-top:1px; }
+    #f1Wrap .env .m .v { font-size:19px; }
+    #f1Wrap .env .ts { margin-top:1px; }
+    #f1Wrap .prod { font-size:12px; }
+    #f1Wrap .prod .pr { padding:4px 8px; gap:8px; grid-template-columns:110px minmax(0,1fr) 80px 14px; }
+    #f1Wrap .prod .pr.hd { padding:3px 8px; }
+    #f1Wrap .prod .pitems { display:flex; flex-wrap:wrap; column-gap:22px; row-gap:1px; }
+    #f1Wrap .prod .pitems div { line-height:1.4; }
+    /* 생산현황 | 작업인원 좌우 배치 (예전처럼). 작업인원 섹션은 2칸 × 4줄 */
+    #f1Wrap .f1-mid { grid-template-columns:minmax(0,1.55fr) minmax(0,1fr); gap:7px; align-items:stretch; }
+    @media (max-width:1100px) { #f1Wrap .f1-mid { grid-template-columns:1fr; } }
+    #f1Wrap .f1-secs { grid-template-columns:repeat(2, minmax(0,1fr)); gap:6px; }
+    @media (min-width:1900px) { #f1Wrap .f1-secs { grid-template-columns:repeat(3, minmax(0,1fr)); } }
+    #f1Wrap .f1-sec { min-height:0; }
+    #f1Wrap .f1-sec-h { padding:5px 8px; font-size:11.5px; }
+    #f1Wrap .f1-sec-h b { font-size:14px; }
+    #f1Wrap .f1-sec-b { padding:5px 6px; gap:4px; min-height:34px; }
+    #f1Wrap .f1-pn { padding:2px 6px; font-size:11.5px; }
+
+    /* ══ 화면 아래까지 채우기 — 생산현황·작업인원이 남은 높이를 나눠 갖는다 ══ */
+    #f1Wrap { min-height:calc(100vh - 150px); }
+    #f1Wrap .f1-mid { flex:1 1 auto; min-height:0; }
+    #f1Wrap .f1-mid > .f1-card > .f1-card-b { flex:1 1 auto; display:flex; flex-direction:column; }
+    #f1Wrap .prod { flex:1 1 auto; }
+    #f1Wrap #f1Prod { flex:1 1 auto; display:flex; flex-direction:column; }
+    #f1Wrap #f1Prod > .pr { flex:1 1 auto; align-items:center; font-size:13px; }
+    #f1Wrap .prod .pcat { font-size:13.5px; }
+    #f1Wrap .f1-secs { flex:1 1 auto; grid-auto-rows:1fr; }
+    #f1Wrap .f1-sec-b { flex:1 1 auto; }
   </style>
 </head>
 
@@ -183,7 +239,7 @@
 
         <div class="f1-mid">
           <div class="f1-card">
-            <div class="f1-card-h">2. 생산현황 <span class="sub">진행중 = 작업 시작 수량 · 오늘 완료 = 확정 양품 · 행 클릭 시 공정 화면</span></div>
+            <div class="f1-card-h">2. 생산현황 <span class="sub">오늘 시작한 작업 기준 · 행 클릭 시 공정 화면</span></div>
             <div class="f1-card-b">
               <div class="prod">
                 <div class="pr hd"><span>구분</span><span>진행중</span><span style="text-align:right">오늘 완료</span><span></span></div>
@@ -192,10 +248,9 @@
             </div>
           </div>
           <div class="f1-card">
-            <div class="f1-card-h h-ppl">3. 작업인원 <span class="sub">근태 미연동 — 작업 중인지만 표시</span></div>
+            <div class="f1-card-h h-ppl">3. 작업인원 <span class="sub" id="f1PplSub">근태 미연동 — 오늘 시작한 작업 기준</span></div>
             <div class="f1-card-b">
-              <div class="ppl-sum" id="f1PplSum"></div>
-              <div class="ppl" id="f1Ppl"></div>
+              <div class="f1-secs" id="f1Ppl"></div>
             </div>
           </div>
         </div>
@@ -234,7 +289,6 @@
 </th:block>
 
 <th:block layout:fragment="scripts">
-  <script th:src="@{/js/env_chart.js}"></script>
   <script type="text/javascript">
     /* ═══════════════════════════════════════════════════
        1공장 대시보드
@@ -249,18 +303,6 @@
          템플릿 파싱이 깨진다(주석 안이라도). 배열의 배열은 push 로 만든다.
     ═══════════════════════════════════════════════════ */
     const F1_API = '/api/dashboard/f1';
-
-    /* ★ 폴링 전용 조용한 조회.
-         AjaxUtil 은 실패하면 「에러가 발생했습니다」 알림을 띄운다. 서버 재시작 중에는
-         5초마다 실패하므로 알림이 쌓여 벽걸이에서 아무도 못 끈다.
-         실패는 cb(null) 로만 알리고 화면은 직전 값을 유지한다(각 콜백이 null 을 처리한다). */
-    function f1QuietGet(url, data, cb) {
-      $.ajax({url: url, data: data, type: 'GET', dataType: 'json', cache: false, timeout: 20000,
-        global: false,
-        success: function (res) { cb(res); },
-        error: function () { cb(null); }});
-    }
-
     const F1_SPJANGCD = (typeof SPJANGCD !== 'undefined' && SPJANGCD) ? SPJANGCD : 'ZZ';
     const F1_ENV_MS = 5000;
     const F1_MAIN_MS = 30000;
@@ -273,13 +315,14 @@
     const F1_GOOD_QUALITY = 192;
 
     /* 구분 → 클릭 시 갈 공정. 진행중 행이 있으면 그 행의 공정이 우선한다. */
+    /* 생산현황 행 = 공정. 작업인원 섹션과 같은 이름·같은 순서 (서버 ACTIVE 하나에서 나온다) */
     const F1_CATS = [
-      {key: 'wash',    name: '세척',          proc: 'bsc01'},
-      {key: 'vessel',  name: '용기',          proc: 'bsc02'},
-      {key: 'pk',      name: 'Process Kit',   proc: 'bsc03'},
-      {key: 'storage', name: '혈액저장용기',  proc: 'bsc06'},
-      {key: 'steril',  name: '멸균',          proc: 'bsc04'},
-      {key: 'product', name: '완제품',        proc: 'bsc05'}
+      {proc: 'bsc01', name: '세척'},
+      {proc: 'bsc02', name: '조립'},
+      {proc: 'bsc03', name: '블리스터 포장'},
+      {proc: 'bsc06', name: '고주파 융착'},
+      {proc: 'bsc04', name: '멸균'},
+      {proc: 'bsc05', name: '포장'}
     ];
 
     /* ★ 공정 화면 — menu_item."MenuCode" (/gui/{MenuCode}/default).
@@ -378,7 +421,7 @@
     }
 
     function f1LoadEnv() {
-      f1QuietGet(F1_API + '/env', {spjangcd: F1_SPJANGCD}, function (res) {
+      AjaxUtil.getAsyncData(F1_API + '/env', {spjangcd: F1_SPJANGCD}, function (res) {
         if (!res || res.success === false || !res.data) {
           document.getElementById('f1EnvSub').textContent = '센서 조회 실패 — 다시 시도합니다';
           return;
@@ -451,7 +494,7 @@
         var ts = g.rows[0].ts;
 
         var cls = state === 'stale' ? 'stale' : (state === 'bad' ? 'bad' : '');
-        return '<div class="env ' + cls + '" data-code="' + f1Esc(g.code) + '" data-name="' + f1Esc(g.name) + '" title="눌러서 추이 보기">'
+        return '<div class="env ' + cls + '">'
                 + '<div class="t">' + f1Esc(g.name) + '<span class="k">' + kinds + '</span>' + badge + '</div>'
                 + metrics
                 + '<div class="ts">' + (ts ? f1Esc(ts) + ' · ' : '') + f1Ago(age) + '</div>'
@@ -502,7 +545,7 @@
     // 생산 · 인원 · 재고
     // ═══════════════════════════════════════════════════
     function f1LoadMain() {
-      f1QuietGet(F1_API + '/read', {spjangcd: F1_SPJANGCD}, function (res) {
+      AjaxUtil.getAsyncData(F1_API + '/read', {spjangcd: F1_SPJANGCD}, function (res) {
         if (!res || res.success === false || !res.data) {
           document.getElementById('f1Upd').textContent = '조회 실패 — 다시 시도합니다';
           return;
@@ -519,47 +562,23 @@
     function f1RenderProd() {
       var working = f1Data.working || [];
       var done = {};
-      (f1Data.today_done || []).forEach(function (r) { done[r.cat] = f1Num(r.qty); });
-      /* ★ 완제품 오늘 완료는 통합 KPI 와 같은 값을 쓴다(같은 숫자를 두 화면이 다르게 말하지 않게) */
-      if (f1Data.kpi && f1Has(f1Data.kpi.f1_today_good)) done.product = f1Num(f1Data.kpi.f1_today_good);
-
-      var wash = f1Data.wash_today || {};
-      var steril = f1Data.steril || [];
+      (f1Data.today_done || []).forEach(function (r) {
+        if (f1Has(r.qty)) done[r.sec] = {qty: f1Num(r.qty), unit: r.unit || '개'};
+      });
+      /* ★ 포장 오늘 완료는 통합 KPI 와 같은 값을 쓴다(같은 숫자를 두 화면이 다르게 말하지 않게) */
+      if (f1Data.kpi && f1Has(f1Data.kpi.f1_today_good))
+        done.bsc05 = {qty: f1Num(f1Data.kpi.f1_today_good), unit: '개'};
 
       document.getElementById('f1Prod').innerHTML = F1_CATS.map(function (c) {
-        var items = '', on = false, proc = c.proc, doneTxt = '';
-
-        if (c.key === 'wash') {
-          /* 세척은 mat_produce 를 만들지 않는다 — wash_work 세션으로 본다 */
-          var sc = f1Num(wash.session_cnt);
-          on = f1Num(f1Data.wash_working) > 0;   // 끝나지 않은 세척 세션이 있으면 작업중
-          items = sc ? '<div>오늘 <b>' + sc + '</b>세션 · 품목 ' + f1Num(wash.item_cnt) + '건</div>'
-                  : '<span class="pnone">—</span>';
-          doneTxt = sc ? sc + '<small>세션</small>' : '-';
-        } else if (c.key === 'steril') {
-          var run = steril.filter(function (b) { return b.state === 'working'; });
-          var today = steril.length;
-          on = run.length > 0;
-          items = run.length ? run.map(function (b) {
-            return '<div>' + f1Esc(b.equ_name || '멸균기') + ' · 로트 <b>' + f1Num(b.lot_cnt) + '</b>건'
-                    + (b.actor_name ? '<span class="who">' + f1Esc(b.actor_name) + '</span>' : '') + '</div>';
-          }).join('') : '<span class="pnone">—</span>';
-          /* 진행중 배치는 완료로 세지 않는다 (BI 판정 결과 값은 화면마다 표기가 달라 여기서 판정하지 않는다) */
-          var fin = steril.filter(function (b) { return b.state !== 'working' && b.steril_date; }).length;
-          doneTxt = fin ? fin + '<small>배치</small>' : '-';
-        } else {
-          var rows = working.filter(function (w) { return w.cat === c.key; });
-          on = rows.length > 0;
-          if (rows.length && rows[0].proc_code) proc = rows[0].proc_code;
-          items = rows.length ? rows.map(function (w) {
-            return '<div>' + f1Esc(w.mat_name) + ' : <b>' + f1Fmt(w.qty) + '</b>개'
-                    + '<span class="who">' + f1Esc(w.proc_name || '')
-                    + (w.workers ? ' · ' + f1Esc(w.workers) : '') + '</span></div>';
-          }).join('') : '<span class="pnone">—</span>';
-          doneTxt = f1Has(done[c.key]) ? f1Fmt(done[c.key]) + '<small>개</small>' : '-';
-        }
-
-        var url = F1_PROC_MENU[proc] ? proc : '';   // data-url 에는 공정 코드를 싣는다
+        var rows = working.filter(function (w) { return w.proc_code === c.proc; });
+        var on = rows.length > 0;
+        var items = rows.length ? rows.map(function (w) {
+          return '<div>' + f1Esc(w.mat_name) + ' : <b>' + f1Fmt(w.qty) + '</b>' + f1Esc(w.unit || '개')
+                  + (w.workers ? '<span class="who">' + f1Esc(w.workers) + '</span>' : '') + '</div>';
+        }).join('') : '<span class="pnone">—</span>';
+        var d = done[c.proc];
+        var doneTxt = (d && d.qty) ? f1Fmt(d.qty) + '<small>' + f1Esc(d.unit) + '</small>' : '-';
+        var url = F1_PROC_MENU[c.proc] ? c.proc : '';
         return '<div class="pr prow' + (on ? ' on' : '') + (url ? '' : ' nolink') + '" data-url="' + f1Esc(url) + '">'
                 + '<div class="pcat"><i></i>' + c.name + '</div>'
                 + '<div class="pitems">' + items + '</div>'
@@ -568,16 +587,57 @@
       }).join('');
     }
 
+    /* 작업인원 공정 섹션 — 현장 요청 순서. code 는 서버 sec_codes 값(공정 코드 / quality). */
+    const F1_PPL_SECS = [
+      {code: 'bsc01',   name: '세척'},
+      {code: 'bsc02',   name: '조립'},
+      {code: 'bsc03',   name: '블리스터 포장'},
+      {code: 'bsc06',   name: '고주파 융착'},
+      {code: 'bsc04',   name: '멸균'},
+      {code: 'bsc05',   name: '포장'},
+      {code: 'quality', name: '수입 및 완제품 검사'}
+    ];
+
+    /* ★ 두 공정에 동시에 붙어 있는 사람은 두 섹션에 다 나온다 (실제로 그렇게 일하고 있다).
+         그래서 섹션 인원 합이 「작업중」 사람 수보다 클 수 있다 — 위 숫자는 사람 수로 센다.
+       ★ 「대기」는 오늘 시작한 작업이 하나도 없는 사람. */
     function f1RenderPeople() {
       var ppl = f1Data.people || [];
-      var w = ppl.filter(function (p) { return p.state === 'working'; });
-      document.getElementById('f1PplSum').innerHTML =
-              '<div class="w">작업중<b>' + w.length + '</b></div>'
-              + '<div class="i">대기<b>' + (ppl.length - w.length) + '</b></div>';
-      document.getElementById('f1Ppl').innerHTML = ppl.length ? ppl.map(function (p) {
-        return '<div class="p ' + p.state + '"><i></i>' + f1Esc(p.name)
-                + '<span class="wh">' + (p.state === 'working' ? f1Esc(p.where_name || '작업중') : '대기') + '</span></div>';
-      }).join('') : '<div class="empty">1공장 인원이 없습니다.</div>';
+      var by = {}, idle = [], working = 0, extra = {};
+      F1_PPL_SECS.forEach(function (sc) { by[sc.code] = []; });
+      ppl.forEach(function (p) {
+        if (p.state !== 'working') { idle.push(p); return; }
+        working++;
+        String(p.sec_codes || '').split(',').filter(Boolean).forEach(function (c) {
+          if (by[c]) by[c].push(p);
+          else (extra[c] = extra[c] || []).push(p);   // 섹션에 없는 공정 — 버리지 않고 「기타」로
+        });
+      });
+      var box = function (name, list, cls, sub) {
+        return '<div class="f1-sec ' + cls + '"><div class="f1-sec-h"><i></i>' + f1Esc(name)
+                + '<b>' + list.length + '</b></div><div class="f1-sec-b">'
+                + (list.length ? list.map(function (p) {
+                  return '<span class="f1-pn">' + f1Esc(p.name) + (sub ? sub(p) : '') + '</span>';
+                }).join('') : '<span class="f1-sec-none">—</span>')
+                + '</div></div>';
+      };
+      var html = F1_PPL_SECS.map(function (sc) {
+        var list = by[sc.code];
+        /* 검사는 무슨 검사인지(업무 이름)를 이름 옆에 붙인다 */
+        var sub = sc.code === 'quality' ? function (p) {
+          return p.where_name ? '<small>' + f1Esc(p.where_name) + '</small>' : '';
+        } : null;
+        return box(sc.name, list, list.length ? 'on' : '', sub);
+      }).join('');
+      var ex = [];
+      Object.keys(extra).forEach(function (k) { ex = ex.concat(extra[k]); });
+      if (ex.length) html += box('기타', ex, 'on', function (p) {
+        return p.where_name ? '<small>' + f1Esc(p.where_name) + '</small>' : '';
+      });
+      html += box('대기', idle, 'idle', null);
+      document.getElementById('f1Ppl').innerHTML = ppl.length ? html : '<div class="empty">1공장 인원이 없습니다.</div>';
+      document.getElementById('f1PplSub').textContent =
+              '작업중 ' + working + '명 · 대기 ' + idle.length + '명 · 근태 미연동';
     }
 
 
@@ -671,15 +731,6 @@
         var tr = e.target.closest('.pr.prow');
         var code = tr && tr.getAttribute('data-url');
         if (code) f1OpenProc(code);
-      });
-      /* 센서 카드를 누르면 추이 그래프 (통합 대시보드와 같은 창) */
-      document.getElementById('f1Env').addEventListener('click', function (e) {
-        var c = e.target.closest('.env[data-code]');
-        if (c && window.EnvChart) EnvChart.open({
-          spjangcd: F1_SPJANGCD,
-          groupCode: c.getAttribute('data-code'),
-          groupName: c.getAttribute('data-name')
-        });
       });
       document.getElementById('f1Gear').addEventListener('click', f1ModalOpen);
       document.getElementById('f1ModalX').addEventListener('click', f1ModalClose);

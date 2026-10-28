@@ -513,7 +513,7 @@ public class PackService {
                  , COALESCE(s.working_cnt, 0)   AS working_cnt
                  , COALESCE(s.units, 0)         AS packed_units
                  , s.phases                     AS phases
-                 , lt.lot_no                    AS lot_no
+                 , COALESCE(lt.lot_no, pl.lot_no) AS lot_no
               FROM job_res jr
               JOIN proc_wc pw          ON pw.wc_id = jr."WorkCenter_id"
               LEFT JOIN job_res hdr    ON hdr.id = jr."Parent_id"
@@ -539,7 +539,7 @@ public class PackService {
                    같은 작지(부모)의 형제 공정이 만든 로트 중 멸균필 로트에서 찾는다.
                    UDI 를 비워 둔 경우엔 멸균필 로트번호로 대신한다. */
               LEFT JOIN LATERAL (
-                  SELECT string_agg(DISTINCT COALESCE(NULLIF(sl."MakerLotNo",''), sl."LotNumber"), ', ') AS lot_no
+                  SELECT string_agg(DISTINCT NULLIF(sl."MakerLotNo",''), ', ') AS lot_no   -- ★ UDI 만 (사내 로트 W-… 는 현장이 안 본다)
                     FROM job_res sib
                     JOIN mat_produce mp3 ON mp3."JobResponse_id" = sib.id AND COALESCE(mp3._status,'a') = 'a'
                     JOIN mat_lot sl ON sl."LotNumber" = mp3."LotNumber"
@@ -547,6 +547,17 @@ public class PackService {
                    WHERE jr."Parent_id" IS NOT NULL
                      AND sib."Parent_id" = jr."Parent_id" AND sib.id <> jr.id
               ) lt ON true
+              /* ★ 위에서 못 찾으면(작지 없이 시작 · 자체 작지 등) 이 작지 작업에 실제로 담은
+                   PK 로트의 UDI 로트번호를 쓴다 — 「로트 미정」 대신 현장이 고른 그 로트가 나온다 */
+              LEFT JOIN LATERAL (
+                  SELECT string_agg(DISTINCT NULLIF(pml."MakerLotNo",''), ', ') AS lot_no
+                    FROM mat_produce mp4
+                    JOIN pack_alloc_item pai ON pai."MatProduce_id" = mp4.id
+                                            AND COALESCE(pai._status,'a') = 'a'
+                                            AND COALESCE(pai."ItemKind",'ck') = 'pk'
+                    JOIN mat_lot pml ON pml.id = pai."MatLot_id"
+                   WHERE mp4."JobResponse_id" = jr.id AND COALESCE(mp4._status,'a') = 'a'
+              ) pl ON true
              WHERE (jr."ProductionDate" BETWEEN CAST(:dateFrom AS date) AND CAST(:dateTo AS date)
                     OR jr."ProductionDate" IS NULL)
                AND (:item = '' OR tm."Code" ILIKE '%' || :item || '%'
@@ -1088,6 +1099,18 @@ public class PackService {
                         THEN 'Y' ELSE 'N' END   AS no_job_yn
                  , CASE WHEN jr."Parent_id" IS NULL AND smg."MaterialType" = 'semi'
                         THEN 'ckstock' ELSE 'kit' END AS job_kind
+                 -- ★ v3.6 국가 · 차수 · CK 유효기간 요약 (세션 카드에 보여준다)
+                 /* 국가별 한 줄 — 「국가|CK 차수|CK 유효기간」 을 ';;' 로 잇는다. 화면이 줄바꿈으로 편다.
+                      차수는 고른 완제품 코드 끝 두 자리(-00/-01). 없으면(형제 하나뿐) 빈칸 */
+                 , (SELECT STRING_AGG(COALESCE(NULLIF(pa."CountryName",''), pa."CountryCode")
+                                      || '|' || COALESCE(substring(vm."Code" from '-([0-9]{2})$'), '')
+                                      || '|' || COALESCE(to_char(pa."CkExpDate",'YYYY-MM-DD'), ''),
+                                      ';;' ORDER BY pa.id)
+                      FROM pack_alloc pa LEFT JOIN material vm ON vm.id = pa."Material_id"
+                     WHERE pa."MatProduce_id" = mp.id AND COALESCE(pa._status,'a')='a'
+                       AND pa."Qty" > 0 AND pa."CountryCode" <> '-') AS countries
+                 , (SELECT to_char(MIN(pa."CkExpDate"),'YYYY-MM-DD') FROM pack_alloc pa
+                     WHERE pa."MatProduce_id" = mp.id AND COALESCE(pa._status,'a')='a') AS ck_exp
                  -- 담아둔 PK (①에서 자동/수동으로 저장된다) ★PK 낱개 단위
                  , COALESCE(pk.pk_qty,0)        AS pk_qty
                  , COALESCE(pk.pk_cnt,0)        AS pk_cnt
@@ -1217,6 +1240,8 @@ public class PackService {
                  , pa."CkMatProduce_id" AS ck_mp_id, COALESCE(pa."CkState",'plan') AS ck_state
                  , pa."CkMaterial_id" AS ck_mat_id
                  , pa."CkQty" AS ck_qty                  -- ★ CK 실적(NULL = BOM = Qty)
+                 , pa."Material_id" AS product_mat_id    -- ★ v3.6 차수 완제품
+                 , to_char(pa."CkExpDate",'YYYY-MM-DD') AS ck_exp   -- ★ v3.6 CK 유효기간
               FROM pack_alloc pa
              WHERE pa."MatProduce_id" = :mpId AND COALESCE(pa._status,'a')='a'
              ORDER BY pa.id
@@ -1258,6 +1283,33 @@ public class PackService {
 				? toInt(session.get("product_mat_id"))
 				: (jrPk == null ? null : resolveCkMaterial(jrPk));
 		data.put("ck_material_id", ckMatIdForUi);
+
+		/* ★ v3.6 차수 — 국가 줄마다 고를 완제품 형제 품목과 그 CK.
+		     CK 마다 BOM 과 자체재고가 다르므로 차수별로 같이 내려준다.
+		     화면은 국가 줄의 차수에 맞는 목록만 꺼내 쓴다. */
+		boolean ckStockSess = "ckstock".equals(str(session == null ? null : session.get("job_kind")));
+		List<Map<String, Object>> variants = ckStockSess ? new ArrayList<>() : getVariants(productMatId);
+		data.put("variants", variants);
+		Map<String, Object> vBom = new HashMap<>();
+		List<Map<String, Object>> vStock = new ArrayList<>();
+		Set<Integer> seenCk = new HashSet<>();
+		for (Map<String, Object> v : variants) {
+			Integer ck = toInt(v.get("ck_mat_id"));
+			if (ck == null || !seenCk.add(ck)) continue;
+			List<Map<String, Object>> b = getCkBom(ck, null, spjangcd);
+			vBom.put(String.valueOf(ck), b == null ? new ArrayList<>() : b);
+			if (ckMatIdForUi != null && ck.equals(ckMatIdForUi)) continue;   // 아래 기본 목록에 이미 있다
+			List<Map<String, Object>> sl = getCkStockLots(ck, null, spjangcd);
+			if (sl != null) vStock.addAll(sl);
+		}
+		data.put("variant_ck_bom", vBom);
+		if (!vStock.isEmpty()) {
+			List<Map<String, Object>> all = new ArrayList<>();
+			Object base = data.get("ck_stock_lots");
+			if (base instanceof List) all.addAll((List<Map<String, Object>>) base);
+			all.addAll(vStock);
+			data.put("ck_stock_lots", all);
+		}
 
 		// 작지 잔여 (이 세션 제외) — 화면이 PK 수량 상한 안내에 쓴다
 		//   ★ 완제품 단위다. 화면에서 PK 개수로 보여주려면 × pk_per 할 것
@@ -1354,7 +1406,9 @@ public class PackService {
 
 		JobRes jr = this.jobResRepository.getJobResById(jrId);
 		if (jr == null)          return fail(result, "작업지를 찾을 수 없습니다.");
-		if (equipmentId == null) return fail(result, "포장대를 선택해주세요.");
+		// ★ 현장 요청 — 포장대를 고르지 않고 시작한다. 비면 포장 워크센터의 첫 설비를 쓴다
+		if (equipmentId == null) equipmentId = defaultPackEquipment(spjangcd);
+		if (equipmentId == null) return fail(result, "포장 공정에 등록된 설비가 없습니다. 설비를 먼저 등록하세요.");
 		if (workerId == null)    return fail(result, "작업자를 선택해주세요.");
 
 		Integer productMatId = resolveProductMaterial(jrId);
@@ -1554,7 +1608,8 @@ public class PackService {
 		result.success = true;
 
 		if (productMatId == null) return fail(result, "완제품 품목을 선택해주세요.");
-		if (equipmentId == null)  return fail(result, "포장대를 선택해주세요.");
+		if (equipmentId == null)  equipmentId = defaultPackEquipment(spjangcd);
+		if (equipmentId == null)  return fail(result, "포장 공정에 등록된 설비가 없습니다. 설비를 먼저 등록하세요.");
 		if (workerId == null)     return fail(result, "작업자를 선택해주세요.");
 		if (pkLots == null || pkLots.isEmpty())
 			return fail(result, "포장할 PK 로트를 선택해주세요.");
@@ -1700,6 +1755,88 @@ public class PackService {
              ORDER BY bc._order LIMIT 1
             """, p);
 		return r == null ? null : toInt(r.get("ck_mat_id"));
+	}
+
+	/** 포장대 기본값 — 포장(bsc05) 워크센터의 첫 설비. 화면에서 포장대 선택을 없앴다 */
+	private Integer defaultPackEquipment(String spjangcd) {
+		List<Map<String, Object>> eq = getEquipments(getPackWorkCenterId(), spjangcd);
+		if ((eq == null || eq.isEmpty()) && !isBlank(spjangcd)) eq = getEquipments(getPackWorkCenterId(), null);
+		return (eq == null || eq.isEmpty()) ? null : toInt(eq.get(0).get("equipment_id"));
+	}
+
+	// =========================================================================
+	// 차수 (완제품 형제 품목) — ★v3.6
+	// =========================================================================
+
+	/**
+	 * 같은 제품의 차수 품목들.
+	 *
+	 *   3BmSC60MC-CU1-00 (국내) / -01 (해외1) / -02 (해외2) 처럼 코드 끝 «-두자리» 만 다른
+	 *   완제품들이다. PK 는 같고 CK 만 다르다 — 포장 ② 에서 국가 줄마다 하나를 고른다.
+	 *
+	 *   ★ 국가로 차수를 정하지 않는다. 같은 미국이라도 이번엔 01, 다음엔 02 로 나갈 수 있다.
+	 *   ★ CK 는 «그 완제품 BOM» 에서만 찾는다(코드 규칙으로 추측하지 않는다).
+	 *     BOM 이 아직 없는 차수는 ck_mat_id = null · bom_ok = 'N' 으로 내려 화면이 흐리게 보여준다.
+	 *     담당자가 그 품목이 들어올 때 BOM 을 넣으면 그때부터 고를 수 있다.
+	 *   ★ 코드가 «-두자리» 로 끝나지 않으면(3A버전 등) 자기 자신 하나뿐이다.
+	 */
+	public List<Map<String, Object>> getVariants(Integer productMatId) {
+		List<Map<String, Object>> out = new ArrayList<>();
+		if (productMatId == null) return out;
+		Material me = this.materialRepository.getMaterialById(productMatId);
+		if (me == null) return out;
+		String code = me.getCode() == null ? "" : me.getCode();
+		java.util.regex.Matcher mt = java.util.regex.Pattern.compile("^(.*)-(\\d{2})$").matcher(code);
+
+		List<Map<String, Object>> rows;
+		if (mt.matches()) {
+			rows = this.sqlRunner.getRows("""
+                SELECT m.id AS product_mat_id, m."Code" AS code, m."Name" AS name
+                  FROM material m
+                 WHERE m."Code" LIKE (CAST(:prefix AS varchar) || '-__')
+                   AND COALESCE(m._status,'a') <> 'd'
+                 ORDER BY m."Code"
+                """, new MapSqlParameterSource().addValue("prefix", mt.group(1)));
+			if (rows != null) {
+				String pre = mt.group(1) + "-";
+				rows.removeIf(r -> {
+					String c = str(r.get("code"));
+					return c == null || !c.startsWith(pre) || !c.substring(pre.length()).matches("\\d{2}");
+				});
+			}
+		} else {
+			rows = null;
+		}
+		if (rows == null || rows.isEmpty()) {
+			rows = new ArrayList<>();
+			Map<String, Object> self = new HashMap<>();
+			self.put("product_mat_id", me.getId());
+			self.put("code", code);
+			self.put("name", me.getName());
+			rows.add(self);
+		}
+		for (Map<String, Object> r : rows) {
+			String c = str(r.get("code"));
+			java.util.regex.Matcher m2 = java.util.regex.Pattern.compile("-(\\d{2})$").matcher(c == null ? "" : c);
+			r.put("suffix", m2.find() ? m2.group(1) : "");
+			Integer ck = resolveCkMaterialByProduct(toInt(r.get("product_mat_id")));
+			r.put("ck_mat_id", ck);
+			Material cm = (ck == null) ? null : this.materialRepository.getMaterialById(ck);
+			r.put("ck_code", cm == null ? null : cm.getCode());
+			r.put("ck_name", cm == null ? null : cm.getName());
+			r.put("bom_ok", ck == null ? "N" : "Y");
+			r.put("is_order", productMatId.equals(toInt(r.get("product_mat_id"))) ? "Y" : "N");
+			out.add(r);
+		}
+		return out;
+	}
+
+	/** 배분 줄의 차수 품목이 이 세션 완제품의 형제인지 — 아니면 null (화면이 엉뚱한 값을 보내도 막는다) */
+	private Map<String, Object> variantOf(List<Map<String, Object>> variants, Integer productMatId) {
+		if (productMatId == null || variants == null) return null;
+		for (Map<String, Object> v : variants)
+			if (productMatId.equals(toInt(v.get("product_mat_id")))) return v;
+		return null;
 	}
 
 	private Integer getPackWorkCenterId() {
@@ -1993,7 +2130,9 @@ public class PackService {
 		}
 
 		Integer ckMatId = ckStock ? mp.getMaterialId() : resolveCkMaterial(jr.getId());
-		if (ckMatId == null) return fail(result, "CK 반제품 품목을 확인할 수 없습니다.");
+		// ★ v3.6 : 작지 완제품 BOM 에 CK 가 없어도 국가 줄마다 고른 차수의 CK 로 진행할 수 있다.
+		//   줄에 차수도 없으면 아래 국가 루프에서 막힌다.
+		if (ckMatId == null && ckStock) return fail(result, "CK 반제품 품목을 확인할 수 없습니다.");
 
 		// ★ v3.3 : 완제품 1개당 PK·CK 배수. 아래 units 산출과 배분 검증의 기준이다
 		Map<String, Float> kit = getKitSpec(mp.getMaterialId(), spjangcd);
@@ -2107,6 +2246,26 @@ public class PackService {
 		// ── 배분 + CK 투입자재 확정 저장 ──
 		writeAllocations(mpId, allocations, spjangcd, user);
 
+		/* ★ v3.6 차수 검증 — 형제 품목이 둘 이상이면 국가 줄마다 차수가 반드시 있어야 한다.
+		     예전에는 조용히 작지의 CK(00) 로 넣어서 해외 골수에 국내 BOM 이 투입됐다. */
+		if (!ckStock) {
+			List<Map<String, Object>> vs = getVariants(mp.getMaterialId());
+			if (vs.size() > 1) {
+				List<Map<String, Object>> miss = this.sqlRunner.getRows("""
+                    SELECT pa."CountryName" AS name, pa."CountryCode" AS code
+                      FROM pack_alloc pa
+                     WHERE pa."MatProduce_id" = :mpId AND COALESCE(pa._status,'a')='a'
+                       AND pa."Qty" > 0 AND COALESCE(pa."CkState",'plan') = 'plan'
+                       AND pa."Material_id" IS NULL
+                    """, new MapSqlParameterSource().addValue("mpId", mpId));
+				if (miss != null && !miss.isEmpty()) {
+					Map<String, Object> m0 = miss.get(0);
+					return fail(result, (isBlank(str(m0.get("name"))) ? str(m0.get("code")) : str(m0.get("name")))
+							+ " — CK 차수(국내 / 해외1 …)을 선택하세요.");
+				}
+			}
+		}
+
 		// ── 소비 : PK ── ★낱개 그대로 차감한다(환산 금지)
 		for (Map<String, Object> lot : pkResolved) {
 			float qty = toFloat(lot.get("_qty"));
@@ -2130,7 +2289,8 @@ public class PackService {
 		List<Map<String, Object>> allocRows = this.sqlRunner.getRows("""
             SELECT pa.id AS alloc_id, pa."CountryCode" AS country, pa."Qty" AS qty,
                    pa."CkQty" AS ck_qty,
-                   pa."CkLotNumber" AS ck_lot, COALESCE(pa."CkState",'plan') AS ck_state
+                   pa."CkLotNumber" AS ck_lot, COALESCE(pa."CkState",'plan') AS ck_state,
+                   pa."Material_id" AS product_mat_id, pa."CkMaterial_id" AS ck_mat_id
               FROM pack_alloc pa
              WHERE pa."MatProduce_id" = :mpId AND COALESCE(pa._status,'a')='a'
              ORDER BY pa.id
@@ -2162,7 +2322,13 @@ public class PackService {
 			Integer ckMpId = null;
 			String  ckLotNo;
 			Integer ckLotId;
-			Integer usedCkMatId = ckMatId;
+			/* ★ v3.6 차수 — 국가 줄마다 CK 품목이 다를 수 있다(골수 00 국내 / 01 해외1 / 02 해외2).
+			     줄에 차수가 있으면 그 완제품 BOM 의 CK, 없으면(형제가 하나뿐인 혈액 등) 예전처럼 작지의 CK. */
+			Integer rowCkMatId = ckStock ? ckMatId
+					: (toInt(ar.get("product_mat_id")) != null ? toInt(ar.get("ck_mat_id")) : ckMatId);
+			if (rowCkMatId == null)
+				return fail(result, ckPrefix(country) + "고른 CK 차수의 완제품 BOM 에 CK 가 없습니다. BOM 등록 후 진행하세요.");
+			Integer usedCkMatId = rowCkMatId;
 
 			if ("stock".equals(mode)) {
 				// ── CK 자체재고 투입 ── 새로 만들지 않고 창고 17 로트를 그대로 쓴다
@@ -2174,11 +2340,13 @@ public class PackService {
 					return fail(result, ckPrefix(country) + "CK 재고가 부족합니다. (필요 " + fmt(ckQty) + ")");
 				ckLotNo = str(lot.get("lot_no"));
 				usedCkMatId = toInt(lot.get("mat_id"));
+				if (usedCkMatId != null && !usedCkMatId.equals(rowCkMatId))
+					return fail(result, ckPrefix(country) + "고른 CK 재고(" + ckLotNo + ")가 고른 CK 차수의 품목이 아닙니다.");
 			} else {
 				// ── CK 새로 생산 ── 국가별 mat_produce 1행 + 구성자재 소비 + 로트 입고
 				MaterialProduce ckMp = new MaterialProduce();
 				ckMp.setJobResponseId(jr.getId());
-				ckMp.setMaterialId(ckMatId);
+				ckMp.setMaterialId(rowCkMatId);
 				ckMp.setProcessId(mp.getProcessId());
 				ckMp.setProcessOrder(mp.getProcessOrder());
 				ckMp.setLotIndex(nextCkLotIndex(jr.getId()));
@@ -2251,7 +2419,7 @@ public class PackService {
 				// ★ 국가는 로트번호(BSC60-…-CK-JP-260805)에 이미 들어 있다.
 				//   여기엔 어느 공장에서 나온 로트인지를 남긴다 — 2공장(M-CELL)도
 				//   같은 mat_lot 에 로트를 만들기 때문에 이 구분이 없으면 섞여 보인다.
-				receiveLot(ckMatId, ckLotNo, null, ckQty, STORE_CK_OUT,
+				receiveLot(rowCkMatId, ckLotNo, null, ckQty, STORE_CK_OUT,
 						"mat_produce", ckMp.getId(), "CK 생산 입고(1공장)", user, spjangcd);
 				ckLotId = findLotIdBySource(ckMp.getId(), STORE_CK_OUT);
 			}
@@ -2625,6 +2793,17 @@ public class PackService {
 		String udiLot   = !isBlank(ibLot)  ? ibLot  : ckLot;
 
 		String expectGtin = getExpectedGtin(mp.getMaterialId(), spjangcd);
+		// ★ v3.6 차수 — 국가 줄에서 고른 차수 완제품의 GTIN 도 맞는 것으로 본다
+		if (expectGtin != null && !isBlank(scanGtin) && !gtinLike(expectGtin, scanGtin)) {
+			List<Map<String, Object>> vm = this.sqlRunner.getRows("""
+                SELECT DISTINCT pa."Material_id" AS mid FROM pack_alloc pa
+                 WHERE pa."MatProduce_id" = :mpId AND COALESCE(pa._status,'a')='a' AND pa."Material_id" IS NOT NULL
+                """, new MapSqlParameterSource().addValue("mpId", mpId));
+			if (vm != null) for (Map<String, Object> r : vm) {
+				String g = getExpectedGtin(toInt(r.get("mid")), spjangcd);
+				if (g != null && gtinLike(g, scanGtin)) { expectGtin = g; break; }
+			}
+		}
 		if (expectGtin != null && !isBlank(scanGtin) && !gtinLike(expectGtin, scanGtin))
 			warns.add("GTIN이 작업지시와 다릅니다. (기대 " + expectGtin + " / 스캔 " + scanGtin + ")");
 
@@ -2872,6 +3051,7 @@ public class PackService {
 
 		List<Map<String, Object>> allocs = this.sqlRunner.getRows("""
             SELECT pa.id AS alloc_id, pa."CountryCode" AS country, pa."Qty" AS qty
+                 , pa."Material_id" AS product_mat_id
               FROM pack_alloc pa
              WHERE pa."MatProduce_id" = :mpId AND COALESCE(pa._status,'a') = 'a'
                AND pa."Qty" > 0
@@ -2912,7 +3092,11 @@ public class PackService {
 			boolean named = !(isBlank(country) || NO_COUNTRY.equals(country));
 			String lotNo  = named ? mp.getLotNumber() + "-" + country : mp.getLotNumber();
 
-			receiveLot(mp.getMaterialId(), lotNo, null, qty, outStoreId,
+			/* ★ v3.6 차수 — 고른 차수 완제품으로 입고한다(국내 00 · 해외 01 재고가 따로 잡힌다).
+			     차수가 없으면(형제 하나뿐) 예전처럼 작지 완제품 */
+			Integer outMatId = toInt(a.get("product_mat_id")) != null
+					? toInt(a.get("product_mat_id")) : mp.getMaterialId();
+			receiveLot(outMatId, lotNo, null, qty, outStoreId,
 					"mat_produce", mpId, "포장 완제품 입고" + ckTag(country), user, spjangcd);
 
 			Integer matLotId = findLotIdByNumber(lotNo, mpId);
@@ -3289,6 +3473,10 @@ public class PackService {
 		if (allocations == null) return;
 		Integer userId = (user == null ? null : user.getId());
 
+		// ★ v3.6 차수 — 형제 품목이 아니면 저장하지 않는다(화면이 엉뚱한 id 를 보내도 막는다)
+		MaterialProduce smp = this.matProduceRepository.getMatProduceById(mpId);
+		List<Map<String, Object>> variants = (smp == null) ? null : getVariants(smp.getMaterialId());
+
 		for (Map<String, Object> a : allocations) {
 			float qty = toFloat(a.get("qty"));
 			if (qty <= 0) continue;
@@ -3304,6 +3492,11 @@ public class PackService {
 			Float ckQtyCol = (ckAct > 0 && Math.abs(ckAct - qty) > EPS) ? ckAct : null;
 			p.addValue("ckQty", ckQtyCol);
 			p.addValue("ckLot", str(a.get("ck_lot")));
+			Map<String, Object> v = variantOf(variants, toInt(a.get("product_mat_id")));
+			p.addValue("prodMatId", v == null ? null : toInt(v.get("product_mat_id")));
+			p.addValue("ckMatId",   v == null ? null : toInt(v.get("ck_mat_id")));
+			String exp = str(a.get("ck_exp"));
+			p.addValue("ckExp", (exp != null && exp.matches("\\d{4}-\\d{2}-\\d{2}")) ? exp : null);
 			// ★ 출처 기록 — Qty 가 CK 낱개 기준이라는 점을 행 자체에 남긴다.
 			//   완제품 단위와 헷갈려 잘못 읽는 사고가 반복되는 값이다.
 			p.addValue("memo", "포장 국가배분" + ckTag(countryCodeOf(a))
@@ -3315,9 +3508,11 @@ public class PackService {
 			Map<String, Object> row = this.sqlRunner.getRow("""
                 INSERT INTO pack_alloc
                        ("MatProduce_id","Country_id","CountryCode","CountryName","Qty","CkQty","CkLotNumber",
+                        "Material_id","CkMaterial_id","CkExpDate",
                         "CkState","Description",_status,_created,_creater_id,spjangcd)
                 VALUES (:mpId, CAST(:countryId AS integer), :code, :name, CAST(:qty AS float8),
                         CAST(:ckQty AS float8), :ckLot,
+                        CAST(:prodMatId AS integer), CAST(:ckMatId AS integer), CAST(:ckExp AS date),
                         'plan',:memo,'a',now(),CAST(:userId AS integer),CAST(:spjangcd AS varchar))
                 RETURNING id
                 """, p);

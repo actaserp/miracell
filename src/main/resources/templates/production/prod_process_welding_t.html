@@ -19,31 +19,45 @@
         .qhead{display:flex;align-items:baseline;gap:12px;margin:2px 2px 18px}
         .qhead h1{font-size:26px;font-weight:800;letter-spacing:-.03em;margin:0}
         .qhead .cnt{color:var(--ink-2);font-weight:700}
-        .searchbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 2px 18px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px;box-shadow:var(--shadow)}
+        .qgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+        /* 작업지시 큐 필터/검색 (기존 목업 기능 이식) */
+        .qfilter{display:flex;gap:8px;margin-left:auto}
+        .qfilter button{min-height:44px;padding:0 16px;border-radius:999px;border:1px solid var(--line);
+            background:var(--surface);color:var(--ink-2);font-weight:700;font-size:15px;cursor:pointer}
+        .qfilter button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+        .searchbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 2px 18px;
+            background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px;box-shadow:var(--shadow)}
         .searchbar .slab{font-weight:800;color:var(--ink-2);font-size:14px}
         .searchbar .tilde{font-weight:800;color:var(--ink-2)}
-        .dinput{height:48px;border:1px solid var(--line);border-radius:12px;padding:0 12px;font-size:16px;font-weight:700;color:var(--ink);background:var(--surface-2);font-variant-numeric:tabular-nums;min-width:150px}
-        .sbtn{height:48px;padding:0 22px;border:none;border-radius:12px;background:var(--teal);color:#fff;font-weight:800;font-size:16px;cursor:pointer;margin-left:auto}
+        .dinput{height:48px;border:1px solid var(--line);border-radius:12px;padding:0 12px;font-size:16px;
+            font-weight:700;color:var(--ink);background:var(--surface-2);font-variant-numeric:tabular-nums;min-width:150px}
+        .sbtn{height:48px;padding:0 22px;border:none;border-radius:12px;background:var(--teal);color:#fff;
+            font-weight:800;font-size:16px;cursor:pointer;margin-left:auto}
         .sbtn:active{background:var(--teal-d)}
-        .qgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
-        .day{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px 18px 16px;
+        /* 작지 집계 박스 (계획/완료/잔여) */
+        .ovbox{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:4px}
+        .ov{flex:1;min-width:120px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;box-shadow:var(--shadow)}
+        .ov .l{font-size:13px;color:var(--ink-2);font-weight:700}
+        .ov .v{font-size:26px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+        .ov.left .v{color:var(--teal-d)}
+        .wo{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px 18px 16px;
             cursor:pointer;box-shadow:var(--shadow);transition:transform .12s ease;position:relative;overflow:hidden}
-        .day:active{transform:scale(.985)}
-        .day .edge{position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--line)}
-        .day[data-st="working"] .edge{background:var(--teal)}.day[data-st="wait"] .edge{background:var(--amber)}.day[data-st="done"] .edge{background:var(--green)}
-        .day .row1{display:flex;align-items:center;gap:10px;margin-bottom:12px}
-        .day .dt{font-weight:800;font-size:20px;letter-spacing:-.02em}
-        .day .today{padding:4px 10px;border-radius:999px;background:var(--teal);color:#fff;font-size:12px;font-weight:800}
+        .wo:active{transform:scale(.985)}
+        .wo .edge{position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--line)}
+        .wo[data-st="working"] .edge{background:var(--teal)}.wo[data-st="wait"] .edge{background:var(--amber)}.wo[data-st="done"] .edge{background:var(--green)}
+        .wo .row1{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+        .wo .wono{font-weight:800;font-size:15px;color:var(--ink-2)}
         .chip{margin-left:auto;padding:5px 11px;border-radius:999px;font-size:13px;font-weight:800}
         .chip.working{background:var(--teal-bg);color:var(--teal-d)}.chip.wait{background:var(--amber-bg);color:var(--amber)}.chip.done{background:var(--green-bg);color:var(--green)}
-        .day .meta{display:flex;gap:22px;align-items:flex-end}
-        .day .meta .blk{display:flex;flex-direction:column;gap:2px}
-        .day .meta .lab{font-size:12.5px;color:var(--ink-2);font-weight:700}
-        .day .meta .val{font-size:20px;font-weight:800;font-variant-numeric:tabular-nums}
-        .day .meta .val.left{color:var(--teal-d)}
-        .day .cnts{margin-left:auto;display:flex;gap:8px}
-        .minipill{padding:5px 10px;border-radius:10px;font-size:12.5px;font-weight:800;font-variant-numeric:tabular-nums}
-        .minipill.w{background:var(--amber-bg);color:var(--amber)}.minipill.g{background:var(--teal-bg);color:var(--teal-d)}.minipill.d{background:var(--green-bg);color:var(--green)}
+        .wo .name{font-size:19px;font-weight:800;letter-spacing:-.02em;line-height:1.3;margin:2px 0 14px}
+        .wo .meta{display:flex;gap:18px;align-items:flex-end}
+        .wo .meta .blk{display:flex;flex-direction:column;gap:2px}
+        .wo .meta .lab{font-size:12.5px;color:var(--ink-2);font-weight:700}
+        .wo .meta .val{font-size:18px;font-weight:800;font-variant-numeric:tabular-nums}
+        .wo .meta .val.left{color:var(--teal-d)}
+        .wo .prog{margin-left:auto;text-align:right}
+        .wo .bar{height:8px;width:120px;background:var(--surface-2);border-radius:999px;overflow:hidden;margin-top:6px}
+        .wo .bar>i{display:block;height:100%;background:var(--teal);border-radius:999px}
 
         /* 공통 상단바(B,C) */
         .topbar2{flex:0 0 auto;background:var(--surface);border-bottom:1px solid var(--line);
@@ -87,7 +101,7 @@
         .wk .wkdel:active{background:var(--red);color:#fff}
         .emptybox{text-align:center;color:var(--ink-2);font-weight:700;padding:30px;border:1.5px dashed var(--line);border-radius:var(--r)}
 
-        /* C. 필터백 아이템 + 아코디언 BOM */
+        /* C. PK 아이템 + 아코디언 BOM */
         .vitem{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);position:relative;overflow:hidden}
         .vitem .edge{position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--amber);z-index:1}
         .vitem[data-st="working"] .edge{background:var(--teal)}.vitem[data-st="done"] .edge{background:var(--green)}
@@ -121,11 +135,46 @@
             border:1px solid var(--line);border-radius:10px;padding:5px 10px;cursor:pointer;font-variant-numeric:tabular-nums}
         .vtimes .tp:active{background:var(--line)}.vtimes .tp b{color:var(--teal-d);text-decoration:underline dotted;margin-left:2px}
 
-        .vbom{border-top:1px dashed var(--line);background:var(--surface-2);padding:12px 16px 14px 24px;display:none}
+        /* 투입 용기 반제품 로트 (FIFO 자동선택) 행 */
+        .veslot{margin:0 16px 4px 24px;padding:12px 14px;border:1px solid var(--teal);background:var(--teal-bg);border-radius:14px;
+            display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+        .veslot .vl{flex:1;min-width:0}
+        .veslot .vlt{font-size:12px;font-weight:800;color:var(--teal-d)}
+        .veslot .vll{font-size:16px;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .veslot .vlm{font-size:12.5px;color:var(--ink-2);font-weight:700}
+        .veslot .vchg{height:46px;padding:0 16px;border-radius:12px;border:1px solid var(--teal);background:var(--surface);color:var(--teal-d);font-weight:800;font-size:14px;cursor:pointer;flex:0 0 auto}
+
+        /* 로트 선택 모달 — 합계 배너 */
+        .lotsum{display:flex;align-items:baseline;gap:8px;padding:9px 12px;border-radius:10px;
+            background:var(--surface-2);border:1px solid var(--line);font-weight:800;font-size:13px;margin-bottom:8px}
+        .lotsum .need{margin-left:auto;font-variant-numeric:tabular-nums}
+        .lotsum.bad{background:#fff2f2;border-color:#e9b4b4;color:#d33}
+        .lotsum.okk{background:var(--teal-bg);border-color:var(--teal);color:var(--teal-d)}
+        .picklist .lqty{display:flex;align-items:center;gap:6px;margin-left:auto}
+        .picklist .lqty .lq{min-width:54px;height:34px;padding:0 8px;border-radius:9px;border:1.5px solid var(--teal);
+            background:#fff;color:var(--teal-d);font-weight:800;font-size:14px;display:flex;align-items:center;
+            justify-content:center;font-variant-numeric:tabular-nums;cursor:pointer}
+        .picklist .prow.off .lqty{opacity:.35;pointer-events:none}
+
+        /* FIFO 배분 예고 행 — 로트별로 얼마가 빠지는지 */
+        .veslot .vlrow{display:flex;align-items:baseline;gap:8px;font-size:13px;font-weight:800;margin-top:3px}
+        .veslot .vlrow .ln{color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .veslot .vlrow .tk{margin-left:auto;color:var(--teal-d);font-variant-numeric:tabular-nums}
+        .veslot .vlrow .av{color:var(--ink-2);font-size:11px;font-weight:700;white-space:nowrap}
+        .veslot .vlshort{margin-top:5px;font-size:12px;font-weight:800;color:#d33}
+
+        /* 부가자재 BOM 아코디언 (목업 디자인) */
+        .bomtoggle{margin:6px 16px 0 24px;display:flex;align-items:center;gap:8px;cursor:pointer;
+            color:var(--ink-2);font-weight:800;font-size:13.5px;padding:8px 0}
+        .bomtoggle .caret{width:28px;height:28px;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);
+            display:grid;place-items:center;font-size:13px;transition:transform .15s}
+        .bomtoggle.open .caret{transform:rotate(90deg);background:var(--teal-bg);border-color:var(--teal);color:var(--teal-d)}
+        .bomtoggle .ln{flex:1;height:1px;background:var(--line)}
+        .vbom{margin:0 16px 14px 24px;padding:4px 0 0;display:none}
         .vbom.open{display:block}
-        .vbom .bhead{display:flex;align-items:center;gap:8px;margin-bottom:10px;color:var(--ink-2);font-weight:800;font-size:13.5px}
-        .vbom .bhead .ln{flex:1;height:1px;background:var(--line)}
-        .vbom .baddbtn{height:38px;padding:0 12px;border-radius:10px;border:1px solid var(--teal);background:var(--teal-bg);color:var(--teal-d);font-weight:800;font-size:13px;cursor:pointer}
+        .vbom .baddbtn{height:38px;padding:0 12px;border-radius:10px;border:1px solid var(--teal);background:var(--teal-bg);color:var(--teal-d);font-weight:800;font-size:13px;cursor:pointer;margin-left:auto}
+        .vbom .browhead{display:flex;align-items:center;gap:8px;margin:2px 0 6px;color:var(--ink-2);font-weight:800;font-size:13px}
+        .vbom .browhead .ln{flex:1;height:1px;background:var(--line)}
         .brow{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
         .brow:last-child{border-bottom:none}
         .brow .bid{flex:1;min-width:0}
@@ -207,12 +256,19 @@
 
     <div class="ms-wash-root">
         <div class="app">
-            <!-- A. 날짜 카드 -->
+            <!-- A. 작업지시(WO) 큐 -->
             <div class="screen" id="scA"><div class="wrap">
-                <div class="qhead"><h1>고주파 융착 공정</h1><a title="북마크" class="bookmark toggle">내 메뉴</a><span class="cnt" id="dayCnt"></span></div>
-                <div class="searchbar"><span class="slab">작업일</span>
-                    <input type="date" id="dFrom" class="dinput"/><span class="tilde">~</span><input type="date" id="dTo" class="dinput"/>
-                    <button class="sbtn" id="btnSearch">조회</button></div>
+                <div class="qhead"><h1>PK 블리스터 공정</h1><a title="북마크" class="bookmark toggle">내 메뉴</a><span class="cnt" id="dayCnt"></span>
+                    <div class="qfilter"><button class="on" data-f="all">전체</button>
+                        <button data-f="wait">대기</button><button data-f="working">작업중</button>
+                        <button data-f="done">완료</button></div></div>
+                <div class="searchbar">
+                    <span class="slab">작업지시일</span>
+                    <input type="date" id="dFrom" class="dinput"/>
+                    <span class="tilde">~</span>
+                    <input type="date" id="dTo" class="dinput"/>
+                    <button class="sbtn" id="btnSearch">조회</button>
+                </div>
                 <div class="qgrid" id="dayGrid"></div>
             </div></div>
 
@@ -220,20 +276,25 @@
             <div class="screen hide" id="scB"><div class="col-stack">
                 <div class="topbar2">
                     <button class="back" data-back="A">‹</button>
-                    <div class="htitle"><div class="t" id="bDate">—</div><div class="s">생산 1캠퍼스 · 고주파 융착</div></div>
+                    <div class="htitle"><div class="t" id="bDate">—</div><div class="s">생산 1캠퍼스 · PK 블리스터</div></div>
                     <div class="infopill big"><span>완료수량</span><b id="bDoneQty">0</b></div>
                 </div>
                 <div class="bscroll"><div class="bgrid">
+                    <div class="ovbox">
+                        <div class="ov"><div class="l">계획</div><div class="v" id="ovPlan">0</div></div>
+                        <div class="ov"><div class="l">블리스터 완료</div><div class="v" id="ovDone">0</div></div>
+                        <div class="ov left"><div class="l">잔여</div><div class="v" id="ovRemain">0</div></div>
+                    </div>
                     <div class="secline">작업조 <span class="ln"></span><span id="wkCnt"></span></div>
                     <div id="wkList" style="display:flex;flex-direction:column;gap:12px"></div>
                 </div></div>
                 <div class="actionbar">
-                    <div class="actsum"><span class="l">다인 1조 편성 가능 · 조를 눌러 필터백을 융착하세요</span></div>
+                    <div class="actsum"><span class="l">다인 1조 편성 가능 · 조를 눌러 PK를 블리스터하세요</span></div>
                     <button class="btn start" id="btnAddCrew">＋ 작업조 추가</button>
                 </div>
             </div></div>
 
-            <!-- C. 필터백 리스트 -->
+            <!-- C. PK 리스트 -->
             <div class="screen hide" id="scC"><div class="col-stack">
                 <div class="topbar2">
                     <button class="back" data-back="B">‹</button>
@@ -241,36 +302,50 @@
                     <div class="chead" id="cHead"></div>
                 </div>
                 <div class="bscroll"><div class="bgrid">
-                    <div class="secline">융착 필터백 <span class="ln"></span><span id="itemCnt"></span></div>
+                    <div class="secline">블리스터 PK <span class="ln"></span><span id="itemCnt"></span></div>
                     <div id="itemList" style="display:flex;flex-direction:column;gap:12px"></div>
                 </div></div>
                 <div class="actionbar" id="cAction"></div>
             </div></div>
         </div>
 
-        <!-- 작업조 편성 시트 (작업자 다중 + 융착기) -->
+        <!-- 작업조 편성 시트 (작업자 다중 + 압착기) -->
         <div class="mask" id="crewMask"><div class="sheet"><div class="body">
             <div class="sh"><h3>작업조 편성</h3><button class="x" data-close>✕</button></div>
             <div class="fieldlab">작업자 <span style="color:var(--ink-2);font-weight:700">(여러 명 선택 가능)</span></div>
             <div class="opts" id="workerOpts"></div>
-            <div class="fieldlab">융착기</div><div class="opts" id="equipOpts"></div>
+            <div class="fieldlab">압착기</div><div class="opts" id="equipOpts"></div>
             <button class="ok" id="crewOk" disabled>이 조로 시작</button>
         </div></div></div>
 
-        <!-- 필터백 선택 시트 (작업지시 / 자유) -->
+        <!-- PK 선택 시트 (작업지시 전용: CTX.woOnly) -->
         <div class="mask" id="vesMask"><div class="sheet"><div class="body">
-            <div class="sh"><h3>융착할 필터백 선택</h3><button class="x" data-close>✕</button></div>
-            <div class="fieldlab">필터백 작업지시 <span style="color:var(--ink-2);font-weight:700">(생산지시로 생성됨)</span></div>
+            <div class="sh"><h3>블리스터할 PK 선택</h3><button class="x" data-close>✕</button></div>
+            <div class="fieldlab">PK 작업지시 <span style="color:var(--ink-2);font-weight:700">(생산지시 전개로 생성됨)</span></div>
             <div class="picklist" id="woVesList"></div>
-            <div class="fieldlab">작지 없이 직접 선택 <span style="color:var(--ink-2);font-weight:700">(필터백 반제품)</span></div>
-            <div class="picklist" id="freeVesList"></div>
+            <div id="freeVesSection">
+                <div class="fieldlab">작지 없이 직접 선택 <span style="color:var(--ink-2);font-weight:700">(PK 품목)</span></div>
+                <div class="picklist" id="freeVesList"></div>
+            </div>
             <button class="ok" data-close style="background:var(--surface-2);color:var(--ink);border:1.5px solid var(--line)">닫기</button>
+        </div></div></div>
+
+        <!-- 용기 반제품 로트 선택(FIFO) -->
+        <div class="mask" id="lotMask"><div class="sheet"><div class="body">
+            <div class="sh"><h3>용기 반제품 로트 선택</h3><button class="x" data-close>✕</button></div>
+            <div class="fieldlab">클린룸 가용 로트 <span style="color:var(--ink-2);font-weight:700">(체크한 로트에서만 차감 · 수량을 눌러 조절)</span></div>
+            <div class="lotsum" id="lotSum"></div>
+            <div class="picklist" id="lotList"></div>
+            <div style="display:flex;gap:10px;margin-top:14px">
+                <button class="ok" id="lotAuto" style="flex:0 0 40%;margin-top:0;background:var(--surface-2);color:var(--ink);border:1.5px solid var(--line)">FIFO 자동</button>
+                <button class="ok" id="lotOk" style="margin-top:0">적용</button>
+            </div>
         </div></div></div>
 
         <!-- BOM 자재 추가 시트 (클린룸 재고) -->
         <div class="mask" id="partMask"><div class="sheet"><div class="body">
             <div class="sh"><h3 id="partTitle">투입자재 추가</h3><button class="x" data-close>✕</button></div>
-            <div class="fieldlab">세척 완료 재고 (클린룸 창고) · 눌러서 담기</div>
+            <div class="fieldlab">클린룸 재고 (용기 반제품·부자재) · 눌러서 담기</div>
             <div class="picklist" id="partList"></div>
             <button class="ok" data-close style="background:var(--surface-2);color:var(--ink);border:1.5px solid var(--line)">닫기</button>
         </div></div></div>
@@ -388,32 +463,22 @@
         })();
 
         /* ==========================================================
-           고주파 융착 공정 배선 (①생산형 공용 API: /api/production/work)
-           - 조립 화면(prod_process_assembly_bsc_t.html)과 배선 동일. CTX 만 다름.
-           - 산출 = 골수용 필터백(멸균백) 반제품 → 클린룸(5) 입고.
-             필터백 품목이 SterilizationYN='Y' 면 멸균 화면 대상목록에 자동 노출된다.
+           블리스터 공정 배선 (①생산형 공용 API: /api/production/work)
+           - 세척과 달리 세션 테이블이 없다(v3). mat_produce 는 '완료' 시점에만 생성.
            - 작업조 = (날짜, shift, Actor) 파생. 완료 전 편집은 화면 드래프트.
-           - BOM 기본값은 서버(/bom_default)가 per·mat_id·소스창고재고와 함께 내려준다.
+           - BOM 기본값은 서버(/bom_default)가 per·mat_id·재고와 함께 내려준다.
+           - 화면별로 CTX.processCode 만 바꾸면 블리스터/융착/포장에 재사용.
            ========================================================== */
         const CTX = Object.assign({
             spjangcd: 'ZZ',
             factoryId: '',
             dayRange: 30,
-            processCode: 'bsc06',   // 고주파 융착 (조립=bsc02 / 블리스터=bsc03 / 포장=bsc05)
+            processCode: 'bsc03',   // 블리스터(PK 산출). 조립=bsc02 / 융착=bsc06 / 포장=bsc05
             shiftCode: 'D',         // 교대 기본값(주간). 추후 선택 UI로 대체 가능
-            cleanStore: 5,          // 산출/기본 소스 = 클린룸창고
-            /* 투입자재 추가 시트에서 훑을 창고.
-               실제 차감 창고는 서버 resolveSourceStore 가 자재별로 정한다
-               (멸균Y→18 / 반제품→5 / 세척Y→5 / 그외→17).
-               ✅ 확인됨(BOM 조회): 융착 투입자재(필터·원단·호스·레드캡)는 전부
-                  sub_mat + WashYN='N' → 생산창고(17). 그래서 17만 훑는다.
-                  나중에 반제품을 투입으로 쓰게 되면 [17, 5] 로 늘리면 된다. */
-            stockStores: [17],
-            stockFilter: 'stock'    // 'stock'=실재고 기준 / 'wash'=세척부품(WashYN='Y')
-        }, window.WELD_CTX || {});
-
-        /* 창고 표시명 (투입자재 시트 라벨용) */
-        const STORE_LAB = {3: '자재창고', 4: '제품창고', 5: '클린룸', 17: '생산창고', 18: '멸균창고', 2: '부적합'};
+            cleanStore: 5,          // 투입 소스 = 클린룸창고 (PK 반제품 + 부자재)
+            stockFilter: 'stock',   // 투입후보 필터: 'stock'=클린룸 실재고(PK 반제품+부자재) / 'wash'=세척부품(조립용)
+            woOnly: true            // 블리스터=작업지시(WO)로만 선택. PK 작지는 완제품 작지 전개로 항상 존재 → 자유선택(FREE) 불필요
+        }, window.BLIS_CTX || window.ASSY_CTX || {});
 
         let PROC_ID = null, WC = null, OUT_STORE = null;   // /context 로 채움
         const BASE = '/api/production/work';
@@ -503,45 +568,172 @@
             return `${s.replace(/-/g, '. ')} (${WD[d.getDay()]})`;
         }
 
-        /* 소요량: 수동 입력 있으면 그 값, 없으면 per×필터백 수량 */
+        /* 소요량: 수동 입력 있으면 그 값, 없으면 per×PK수량 */
         function bomQ(row, vqty) {
             return row.manual ? (row.qty || 0) : Math.round((row.per || 1) * (vqty || 0));
         }
 
-        /* 산출품목(필터백)의 BOM 기본값 — 서버가 per·mat_id·클린룸재고 내려줌 */
+        /* 용기 반제품 소요량 = per × PK수량 */
+        function vesNeed(it) {
+            return (it && it.ves) ? Math.round((it.ves.per || 1) * (it.qty || 0)) : 0;
+        }
+
+        /* ★ 용기 로트 FIFO 배분 미리보기.
+             서버(consumeBomList)는 로트를 받지 않는다 — matId·qty 만 받아
+             클린룸 로트를 오래된 순으로 순회하며 필요량을 채운다.
+             즉 20개 로트 둘로 40개를 차감하는 것은 원래부터 되던 일이고,
+             화면이 첫 로트 하나만 보여줘서 「하나밖에 못 고른다」로 보였을 뿐이다.
+             여기서 서버와 같은 순서로 미리 나눠 보여준다.
+             ★ 정렬(InputDateTime ASC, id ASC)이 서버와 같아야 예고와 결과가 어긋나지 않는다.
+               loadVesLot 이 /material_lots 를 그 순서로 받아오므로 배열 순서를 그대로 쓴다. */
+        /* ★ PK 수량이 바뀌었을 때 지정 로트 배분을 다시 흘린다.
+             · 고른 로트는 고른 순서를 그대로 유지한 채 가용까지 다시 채운다
+             · 그래도 모자라면 나머지 클린룸 로트를 FIFO 로 이어 붙인다
+               (고른 로트의 잔량을 넘겨 생산하는 경우 — 자동으로 다음 로트가 붙어야 한다)
+             · 수량이 줄면 뒤쪽부터 자연히 빠진다
+             지정을 통째로 버리지 않는 이유는, 작업자가 특정 로트를 먼저 쓰겠다고
+             정한 의도는 수량이 바뀌어도 유효하기 때문이다. */
+        function reflowAlloc(it) {
+            if (!it.vesAlloc || !it.vesAlloc.length) return;
+            const need = vesNeed(it);
+            if (need <= 0) { it.vesAlloc = null; return; }
+
+            const avail = {};
+            (it.vesLots || []).forEach(l => { avail[l.lot_id] = num(l.avail); });
+
+            // 고른 순서 먼저, 그다음 나머지를 FIFO 순서로
+            const picked = it.vesAlloc.map(a => a.lot_id);
+            const order = it.vesAlloc.map(a => ({lot_id: a.lot_id, lot_no: a.lot_no}))
+                .concat((it.vesLots || [])
+                    .filter(l => picked.indexOf(l.lot_id) < 0)
+                    .map(l => ({lot_id: l.lot_id, lot_no: l.lot_no})));
+
+            const out = [];
+            let remain = need;
+            order.forEach(o => {
+                if (remain <= 0) return;
+                const cap = num(avail[o.lot_id]);
+                const take = Math.min(cap, remain);
+                if (take <= 0) return;
+                out.push({lot_id: o.lot_id, lot_no: o.lot_no, qty: take});
+                remain -= take;
+            });
+            it.vesAlloc = out.length ? out : null;
+        }
+
+        function vesPlan(it) {
+            const need = vesNeed(it);
+
+            /* 사용자가 로트를 직접 지정했으면 그것이 곧 배분이다.
+               서버도 같은 목록을 받아 그 순서·수량대로 차감하므로
+               화면에 적힌 것과 실제 차감이 어긋나지 않는다. */
+            if (it.vesAlloc && it.vesAlloc.length) {
+                const rows = it.vesAlloc.map(a => {
+                    const l = (it.vesLots || []).find(x => x.lot_id === a.lot_id);
+                    return {lot_no: a.lot_no, avail: l ? num(l.avail) : num(a.qty),
+                        take: num(a.qty), wh: l ? l.wh : '클린룸', fixed: true};
+                });
+                const sum = rows.reduce((x, r) => x + r.take, 0);
+                return {need: need, rows: rows, short: Math.max(need - sum, 0),
+                    over: Math.max(sum - need, 0), fixed: true};
+            }
+
+            const rows = [];
+            let remain = need;
+            (it.vesLots || []).forEach(l => {
+                if (remain <= 0) return;
+                const take = Math.min(num(l.avail), remain);
+                if (take <= 0) return;
+                rows.push({lot_no: l.lot_no, avail: num(l.avail), take: take, wh: l.wh});
+                remain -= take;
+            });
+            return {need: need, rows: rows, short: remain > 0 ? remain : 0, over: 0};
+        }
+
+        /* 서버 소비 페이로드 = 용기 반제품(per×수량) + 부가자재 BOM. 용기도 BOM 구성품으로 함께 FIFO 차감. */
+        function inputPayload(it) {
+            /* manual = 작업자가 직접 고친 줄. 서버가 초안에 함께 담아,
+               완료취소 후에도 고친 줄만 잠기고 나머지는 자동계산이 살아난다. */
+            const rows = it.bom.map(b => ({matId: b.mat_id, qty: bomQ(b, it.qty), manual: !!b.manual}));
+            if (it.ves) {
+                const v = {matId: it.ves.mat_id, qty: vesNeed(it)};
+                /* 로트를 직접 지정했으면 함께 보낸다. 없으면 서버가 FIFO 로 차감(기존 동작). */
+                if (it.vesAlloc && it.vesAlloc.length) {
+                    v.lots = it.vesAlloc.map(a => ({lotId: a.lot_id, qty: num(a.qty)}));
+                }
+                rows.unshift(v);
+            }
+            return rows.filter(r => r.qty > 0);
+        }
+
+        /* 용기 반제품 로트 — 클린룸 FIFO(오래된 순). 첫 로트=자동선택 */
+        function loadVesLot(matId) {
+            if (!matId) return null;
+            const r = apiGet('/material_lots', {material_id: matId, store_id: CTX.cleanStore});
+            const lots = (r.data || []).map(l => ({
+                lot_id: l.lot_id, lot_no: l.lot_no, name: l.mat_name,
+                avail: num(l.avail), wh: l.warehouse || '클린룸', in_date: l.in_date
+            }));
+            return lots.length ? {list: lots, sel: lots[0]} : {list: [], sel: null};
+        }
+
+        /* 산출품목(PK) 투입 = 용기 반제품(FIFO 로트) + 부가자재 BOM. 서버가 per·재고·mat_type 내려줌 */
         /* mpId 를 주면 서버가 그 차수의 투입 초안(DraftBomJson)을 얹어 내려준다.
-           완료취소 후 다시 열어도 직전에 넣은 수량·추가 자재가 그대로 살아난다. */
+           완료취소 후 다시 열어도 직전에 넣은 수량·추가 자재가 그대로 살아난다.
+           용기(semi)는 초안 수량을 쓰지 않는다 — 로트 배분은 vesLot 이 따로 들고 있다. */
         function loadBomDefault(matId, prodDate, mpId) {
-            if (!matId) return [];
+            const empty = {ves: null, vesLots: [], vesLot: null, bom: []};
+            if (!matId) return empty;
             const q = {
                 material_id: matId, qty: 1,               // per 만 쓰므로 qty=1 로 호출
                 clean_store: CTX.cleanStore, production_date: prodDate || todayStr()
             };
             if (mpId) q.mp_id = mpId;
             const r = apiGet('/bom_default', q);
-            return (r.data || [])
-                .filter(b => !(b.is_draft === 'Y' && num(b.draft_qty) <= 0))
+            const rows = (r.data || [])
+                // 초안에서 빠진 자재 = 작업자가 뺀 것. 단 용기(semi)는 항상 남긴다.
+                .filter(b => (b.mat_type === 'semi')
+                    || !(b.is_draft === 'Y' && num(b.draft_qty) <= 0))
                 .map(b => ({
                     mat_id: b.mat_id, code: b.mat_code, name: b.mat_name,
                     per: num(b.per) || 1,
-                    /* 작업자가 직접 고친 줄만 값을 잠근다.
-                       손대지 않은 줄은 0·자동으로 되돌려, 수량을 바꾸면
-                       per×수량 이 다시 따라 움직인다(취소 전과 같은 동작). */
-                    qty: b.is_manual === 'Y' ? num(b.draft_qty) : 0,
-                    manual: b.is_manual === 'Y',
+                    /* 작업자가 직접 고친 줄만 값을 잠근다. 손대지 않은 줄은
+                       0·자동으로 되돌려 per×수량 계산이 다시 살아난다. */
+                    qty: (b.is_manual === 'Y' && b.mat_type !== 'semi') ? num(b.draft_qty) : 0,
+                    manual: (b.is_manual === 'Y' && b.mat_type !== 'semi'),
                     added: b.is_added === 'Y',
-                    stock: num(b.stock), store: b.src_store_name || '재고'
+                    stock: num(b.stock),
+                    store: b.src_store_name || '재고', mat_type: b.mat_type || 'raw'
                 }));
+            // 용기 = BOM 내 반제품(semi). 없으면 null. 나머지 = 부가자재.
+            const vi = rows.findIndex(x => x.mat_type === 'semi');
+            let ves = null, vesLots = [], vesLot = null;
+            if (vi >= 0) {
+                const v = rows.splice(vi, 1)[0];
+                ves = {mat_id: v.mat_id, code: v.code, name: v.name, per: v.per, stock: v.stock};
+                const lot = loadVesLot(v.mat_id);
+                vesLots = lot ? lot.list : [];
+                vesLot = lot ? lot.sel : null;
+            }
+            return {ves, vesLots, vesLot, bom: rows};
         }
 
-        /* 필터백 객체 — 작업지시(WO) 또는 자유(FREE) 소스에서 생성. BOM 은 서버 기본값 */
+        /* PK 객체 — 작업지시(WO) 또는 자유(FREE) 소스에서 생성. BOM 은 서버 기본값 */
         function mkVes(src, prodDate) {
+            const inp = loadBomDefault(src.mat_id, prodDate);
+            /* ★ 지시량을 미리 채운다.
+                 어차피 지시한 만큼 생산하므로 0 에서 시작해 손으로 올릴 이유가 없다.
+                 수량이 들어가면 bomQ(per×qty)·vesPlan 도 함께 지시량 기준으로 잡혀,
+                 투입 자재와 용기 로트 배분이 처음부터 실제 규모로 보인다.
+                 다르게 만들면 수량만 고치면 되고, 나머지는 따라 움직인다.
+                 작지 없는 자유선택(plan 없음)은 종전대로 0 에서 시작한다. */
             return {
                 mat_id: src.mat_id, vcode: src.vcode, vname: src.vname,
                 wo: src.wo || null, job_res_id: src.job_res_id || null,
-                plan: num(src.plan),
-                qty: 0, st: 'wait', start: null, end: null, open: false,
-                mp_id: null, bom: loadBomDefault(src.mat_id, prodDate)
+                plan: num(src.plan) || 0,
+                qty: num(src.plan) || 0, st: 'wait', start: null, end: null, open: false,
+                mp_id: null,
+                ves: inp.ves, vesLots: inp.vesLots, vesLot: inp.vesLot, bom: inp.bom
             };
         }
 
@@ -551,39 +743,33 @@
                 workers: workers.slice(), leader_id: workers[0].id,
                 equip: equip.name, equip_id: equip.id, code: equip.code || '',
                 shift: CTX.shiftCode, done: false, start: todayStr() + ' ' + hhmm(), end: null,
-                items: [], _draft: true, _key: CTX.shiftCode + '|' + workers[0].id
+                items: [], _draft: true, _key: CTX.shiftCode + '|' + workers[0].id + '|' + (equip.id || 0)   /* ★ 설비까지 — 같은 조원이 다른 설비로 동시에 작업한다 */
             };
         }
 
         /* ── 서버 로드 ── */
         let DAYS = [];
         let curD = null, curC = null;
+        let queueFilter = 'all';   // 작업지시 큐 상태필터: all/wait/working/done (기존 목업 기능)
 
+        /* WO-우선(블리스터): 작업지시 큐를 진입 화면(A)에 로드. curD = '현재 작지' 컨텍스트로 재사용. */
         function loadDays() {
-            const to = dateTo(), from = dateFrom();
-            const r = apiGet('/day_list', {process_id: PROC_ID, date_from: from, date_to: to, spjangcd: CTX.spjangcd});
-            DAYS = (r.data || []).map(d => ({
-                date: d.work_date_str,
-                crew_cnt: num(d.crew_cnt), item_cnt: num(d.item_cnt),
-                good_qty: num(d.good_qty),
-                cnts: {wait: 0, work: num(d.item_working_cnt), done: num(d.item_done_cnt)},
-                st: d.state || 'wait',
+            const dF = document.getElementById('dFrom'), dT = document.getElementById('dTo');
+            const to = (dT && dT.value) ? dT.value : todayStr();
+            const from = (dF && dF.value) ? dF.value : shiftDay(to, -CTX.dayRange);
+            const r = apiGet('/wo_queue', {process_id: PROC_ID, spjangcd: CTX.spjangcd, date_from: from, date_to: to});
+            DAYS = (r.data || []).map(w => ({
+                job_res_id: w.job_res_id,
+                order_num: w.order_num,
+                mat_id: w.mat_id, vcode: w.mat_code, vname: w.mat_name, unit: w.unit || 'EA',
+                date: w.plan_date || todayStr(),   // 차수 timestamp·신규생산 기준일
+                plan: num(w.plan_qty),
+                good_qty: num(w.good_qty),
+                crew_cnt: num(w.crew_cnt),
+                cnts: {wait: 0, work: num(w.working_cnt), done: num(w.done_cnt)},
+                st: w.state || 'wait',
                 crews: [], _drafts: [], _loaded: false
             }));
-            const t = todayStr();
-            if (!DAYS.some(d => d.date === t)) {
-                DAYS.unshift({
-                    date: t,
-                    crew_cnt: 0,
-                    item_cnt: 0,
-                    good_qty: 0,
-                    cnts: {wait: 0, work: 0, done: 0},
-                    st: 'wait',
-                    crews: [],
-                    _drafts: [],
-                    _loaded: false
-                });
-            }
         }
 
         function parseMembers(leaderName, membersStr) {
@@ -595,9 +781,11 @@
             return arr;
         }
 
-        /* 서버 확정 작업조 (완료된 필터백이 있는 조) */
+        /* 서버 확정 작업조 (완료된 PK가 있는 조) */
         function loadServerCrews(date) {
-            const r = apiGet('/crew_list', {process_id: PROC_ID, date: date, spjangcd: CTX.spjangcd});
+            const q = {process_id: PROC_ID, date: date, spjangcd: CTX.spjangcd};
+            if (CTX.woOnly && curD && curD.job_res_id) q.job_res_id = curD.job_res_id;
+            const r = apiGet('/crew_list', q);
             return (r.data || []).map(c => ({
                 workers: parseMembers(c.leader_name, c.members),
                 leader_id: c.actor_id, leader_name: c.leader_name || '-',
@@ -605,25 +793,11 @@
                 shift: c.shift_code || 'D',
                 done: (c.state === 'done'),
                 start: c.start_time, end: c.end_time, good_qty: num(c.good_qty),
-                items: [], _draft: false, _key: (c.shift_code || 'D') + '|' + c.actor_id
+                items: [], _draft: false, _key: (c.shift_code || 'D') + '|' + c.actor_id + '|' + (c.equipment_id || 0)
             }));
         }
 
-        /* 확정 작업조의 필터백(차수) 목록 */
-        /* 작업지시별 지시량 — item_list 에는 지시량이 없어, 다시 열면 카드에서 사라졌다.
-           같은 날의 작지 목록에서 찾아 붙인다(날짜당 한 번만 읽는다). */
-        let _planMap = null, _planDate = null;
-        function planOf(jobResId) {
-            if (!jobResId) return 0;
-            if (_planDate !== curD.date || !_planMap) {
-                _planMap = {};
-                _planDate = curD.date;
-                const w = apiGet('/work_orders', {process_id: PROC_ID, date: curD.date, spjangcd: CTX.spjangcd});
-                (w.data || []).forEach(v => { _planMap[v.job_res_id] = num(v.order_qty); });
-            }
-            return _planMap[jobResId] || 0;
-        }
-
+        /* 확정 작업조의 PK(차수) 목록 */
         /* ★ 투입자재 목록의 펼침/접힘 상태 (mp_id → true/false)
              PK 추가·완료·새로고침 때마다 목록을 서버에서 다시 만들면서 open 이 기본값
              (완료=펼침)으로 돌아가, 닫아 둔 목록이 다시 펼쳐졌다.
@@ -631,40 +805,51 @@
         const OPEN_ST = {};
 
         function loadServerItems(crew) {
-            const r = apiGet('/item_list', {
+            const iq = {
                 process_id: PROC_ID, date: curD.date,
-                shift_code: crew.shift, actor_id: crew.leader_id, spjangcd: CTX.spjangcd
-            });
+                shift_code: crew.shift, actor_id: crew.leader_id, equipment_id: crew.equip_id || 0, spjangcd: CTX.spjangcd
+            };
+            if (CTX.woOnly && curD && curD.job_res_id) iq.job_res_id = curD.job_res_id;
+            const r = apiGet('/item_list', iq);
             return (r.data || []).map(i => {
                 const done = (i.state === 'finished' || i.state === 'done');
+                // 완료분: 실제 차감된 투입자재(mat_lot_cons) 읽기전용. 용기(semi)는 veslot, 나머지는 부가자재.
+                const inp = done ? consumedToInputs(i.mp_id) : loadBomDefault(i.mat_id, curD.date, i.mp_id);
                 return {
                     mp_id: i.mp_id, mat_id: i.mat_id, vcode: i.mat_code, vname: i.mat_name,
                     wo: i.order_num || null, job_res_id: i.job_res_id || null,
-                    plan: planOf(i.job_res_id),
                     lot: i.lot_no || null,
                     qty: num(i.good_qty), defQty: num(i.defect_qty),
                     st: done ? 'done' : (i.state || 'done'),
                     start: i.start_time, end: i.end_time,
                     open: (i.mp_id != null && i.mp_id in OPEN_ST) ? OPEN_ST[i.mp_id] : done,
-                    // 완료분: 실제 차감된 투입자재(mat_lot_cons)를 읽어와 읽기전용 표시. 작업중분: BOM 기본값.
-                    bom: done ? loadConsumedInputs(i.mp_id) : loadBomDefault(i.mat_id, curD.date, i.mp_id)
+                    ves: inp.ves, vesLots: inp.vesLots, vesLot: inp.vesLot, bom: inp.bom
                 };
             });
         }
 
-        /* 완료된 차수가 실제 소비한 투입자재(로트별 집계) — 읽기전용 표시용 */
-        function loadConsumedInputs(mpId) {
-            if (!mpId) return [];
+        /* 완료된 차수의 실제 차감 자재 → {ves(용기 반제품), vesLot(차감 로트), bom(부가자재 읽기전용)} */
+        function consumedToInputs(mpId) {
+            const empty = {ves: null, vesLots: [], vesLot: null, bom: []};
+            if (!mpId) return empty;
             const r = apiGet('/consumed_inputs', {mp_id: mpId});
-            return (r.data || []).map(c => ({
+            const rows = (r.data || []).map(c => ({
                 mat_id: c.mat_id, code: c.mat_code, name: c.mat_name,
                 unit: c.unit || '', qty: num(c.consumed_qty), lots: c.lots || '',
                 store: c.store || '', mat_type: c.mat_type || 'raw',
                 readonly: true, manual: false, per: 1, stock: 0
             }));
+            let ves = null, vesLot = null;
+            const vi = rows.findIndex(x => x.mat_type === 'semi');
+            if (vi >= 0) {
+                const v = rows.splice(vi, 1)[0];
+                ves = {mat_id: v.mat_id, code: v.code, name: v.name, per: 1, stock: 0};
+                vesLot = {lot_no: v.lots || '-', avail: v.qty, wh: v.store || '클린룸'};
+            }
+            return {ves, vesLots: [], vesLot, bom: rows};
         }
 
-        /* 하루치 작업조 = 서버 확정 + 화면 드래프트(아직 완료 필터백 없는 조) */
+        /* 하루치 작업조 = 서버 확정 + 화면 드래프트(아직 완료 PK 없는 조) */
         function loadDayCrews(d) {
             const server = loadServerCrews(d.date);
             server.forEach(c => c.items = loadServerItems(c));
@@ -693,33 +878,52 @@
             return false;
         }
 
-        /* ── A. 날짜 카드 ── */
+        /* ── A. 작업지시(WO) 카드 ── 블리스터는 작지 단위로 선택 */
         const dayGrid = document.getElementById('dayGrid');
 
         function renderDays() {
-            document.getElementById('dayCnt').textContent = DAYS.length + '일';
-            dayGrid.innerHTML = DAYS.map((d, i) => {
-                const st = d.st, isToday = d.date === todayStr();
-                const wait = d._loaded ? d.crews.reduce((a, c) => a + c.items.filter(x => x.st === 'wait').length, 0) : 0;
-                return `<div class="day" data-st="${st}" data-i="${i}"><div class="edge"></div>
-      <div class="row1"><span class="dt">${fmtDate(d.date)}</span>
-        ${isToday ? '<span class="today">오늘</span>' : ''}
+            const list = DAYS.filter(d => queueFilter === 'all' || d.st === queueFilter);
+            document.getElementById('dayCnt').textContent = list.length + '건';
+            if (!list.length) {
+                dayGrid.innerHTML = `<div class="emptybox">${DAYS.length ? '해당 상태의 작업지시가 없습니다.' : '진행할 PK 작업지시가 없습니다.<br>완제품 작업지시를 내리면 PK 작지가 전개됩니다.'}</div>`;
+                return;
+            }
+            dayGrid.innerHTML = list.map((d) => {
+                const i = DAYS.indexOf(d);
+                const st = d.st;
+                const pct = d.plan > 0 ? Math.min(100, Math.round(d.good_qty / d.plan * 100)) : 0;
+                return `<div class="wo" data-st="${st}" data-i="${i}"><div class="edge"></div>
+      <div class="row1"><span class="wono">${d.order_num || '-'}</span>
+        <span style="font-size:13px;color:var(--ink-2);font-weight:700">${d.date}</span>
         <span class="chip ${st}">${STLAB[st]}</span></div>
+      <div class="name">${d.vname}</div>
       <div class="meta">
-        <div class="blk"><span class="lab">작업조</span><span class="val">${d._loaded ? d.crews.length : d.crew_cnt}조</span></div>
-        <div class="blk"><span class="lab">완료수량</span><span class="val left">${d.good_qty}</span></div>
-        <div class="cnts">
-          <span class="minipill w">대기 ${wait}</span>
-          <span class="minipill g">작업중 ${d.cnts.work}</span>
-          <span class="minipill d">완료 ${d.cnts.done}</span>
-        </div></div></div>`;
+        <div class="blk"><span class="lab">계획</span><span class="val">${d.plan}</span></div>
+        <div class="blk"><span class="lab">완료</span><span class="val left">${d.good_qty}</span></div>
+        <div class="blk"><span class="lab">작업조</span><span class="val">${d.crew_cnt}</span></div>
+        <div class="prog"><span class="lab">${st === 'wait' ? '미시작' : '진행 ' + pct + '%'}</span>
+          <div class="bar"><i style="width:${pct}%"></i></div></div></div></div>`;
             }).join('');
         }
 
         dayGrid.addEventListener('click', e => {
-            const c = e.target.closest('.day');
+            const c = e.target.closest('.wo');
             if (c) openDay(+c.dataset.i);
         });
+
+        /* 상태필터 · 날짜범위 조회 (기존 목업 기능 이식) */
+        document.querySelectorAll('.qfilter button').forEach(b => b.addEventListener('click', () => {
+            document.querySelectorAll('.qfilter button').forEach(x => x.classList.remove('on'));
+            b.classList.add('on');
+            queueFilter = b.dataset.f;
+            renderDays();
+        }));
+        document.getElementById('btnSearch').addEventListener('click', () => { loadDays(); renderDays(); });
+        (function initDates() {
+            const t = todayStr(), f = shiftDay(t, -CTX.dayRange);
+            document.getElementById('dFrom').value = f;
+            document.getElementById('dTo').value = t;
+        })();
 
         /* ── 화면 전환 ── */
         const SC = {
@@ -771,8 +975,15 @@
         }
 
         function renderCrews() {
-            document.getElementById('bDate').textContent = fmtDate(curD.date);
-            document.getElementById('bDoneQty').textContent = curD._loaded ? dayDone(curD) : curD.good_qty;
+            document.getElementById('bDate').textContent =
+                (CTX.woOnly && curD.vname) ? `${curD.vname} · ${curD.order_num || ''}`.trim() : fmtDate(curD.date);
+            const doneQty = curD._loaded ? dayDone(curD) : curD.good_qty;
+            document.getElementById('bDoneQty').textContent = doneQty;
+            // 작지 집계(계획/완료/잔여) — 기존 목업 기능
+            const ovP = document.getElementById('ovPlan'), ovD = document.getElementById('ovDone'), ovR = document.getElementById('ovRemain');
+            if (ovP) ovP.textContent = curD.plan != null ? curD.plan : 0;
+            if (ovD) ovD.textContent = doneQty;
+            if (ovR) ovR.textContent = Math.max(0, (curD.plan || 0) - doneQty);
             document.getElementById('wkCnt').textContent = curD.crews.length + '조';
             setTimeout(refreshWoBadge, 0);
             const box = document.getElementById('wkList');
@@ -791,7 +1002,7 @@
             }).join('');
         }
 
-        /* 드래프트(완료 필터백 없음)만 삭제 가능 — 확정 작업조는 완료취소로 되돌린다 */
+        /* 드래프트(완료 PK 없음)만 삭제 가능 — 확정 작업조는 완료취소로 되돌린다 */
         function crewDeletable(c) {
             return c._draft && !c.items.some(i => i.st === 'done');
         }
@@ -805,10 +1016,12 @@
                     return;
                 }
                 const label = crewLabel(c);
-                curD._drafts = (curD._drafts || []).filter(x => x !== c);
-                curD.crews.splice(i, 1);
-                renderCrews();
-                flash(`작업조 삭제 · ${label}`);
+                uiConfirm(`[${label}] 작업조를 삭제하시겠습니까?`, function () {
+                    curD._drafts = (curD._drafts || []).filter(x => x !== c);
+                    curD.crews.splice(i, 1);
+                    renderCrews();
+                    flash(`작업조 삭제 · ${label}`);
+                }, '삭제');
                 return;
             }
             const w = e.target.closest('.wk');
@@ -816,7 +1029,7 @@
         });
         document.getElementById('btnAddCrew').onclick = openCrewSheet;
 
-        /* ── C. 필터백 리스트 ── */
+        /* ── C. PK 리스트 ── */
         function openCrew(i) {
             curC = curD.crews[i];
             curC._idx = i;
@@ -838,7 +1051,7 @@
             document.getElementById('itemCnt').textContent = curC.items.length + '종';
             const box = document.getElementById('itemList');
             if (!curC.items.length) {
-                box.innerHTML = `<div class="emptybox">융착할 필터백이 없습니다. 아래 ‘＋ 필터백 추가’로 담으세요.</div>`;
+                box.innerHTML = `<div class="emptybox">블리스터할 PK가 없습니다. 아래 ‘＋ PK 추가’로 담으세요.</div>`;
             } else {
                 box.innerHTML = curC.items.map((it, i) => vesCard(it, i)).join('');
             }
@@ -862,17 +1075,13 @@
                 }
             }
             const woBadge = it.wo ? '' : `<span class="wobadge free">작지없음</span>`;
-            /* 몇 개를 만들어야 하는지 — 선택 시트에서만 보이고 담으면 사라졌다. */
-            const planTag = (it.wo && it.plan)
-                ? `<span style="margin-left:8px;font-size:12px;font-weight:800;color:var(--ink-2)">지시 ${it.plan}</span>`
-                : '';
             const times = (it.st === 'wait') ? '' : `<div class="vtimes">
           <span class="tp" data-vtime="start" data-vi="${i}">시작 <b>${pillT(it.start)}</b></span>
           <span class="tp" data-vtime="end" data-vi="${i}">종료 <b>${pillT(it.end)}</b></span></div>`;
-            const readonly = (it.st === 'done');
+            const locked = it.st === 'done';
             const bomRows = it.bom.map((b, bi) => {
-                if (readonly) {
-                    // 완료 차수: 실제 차감된 자재(수량·로트) 읽기전용
+                if (locked) {
+                    // 완료 차수: 실제 차감된 부가자재(수량·로트) 읽기전용
                     return `<div class="brow">
           <div class="bid"><div class="bn">${b.name}</div><div class="bc">${b.code}${b.lots ? ' · 로트 ' + b.lots : ''}</div></div>
           <span class="autotag">차감</span>
@@ -889,19 +1098,49 @@
             <div class="bq ${auto ? 'auto' : ''}" data-bpad="${i}_${bi}">${bomQ(b, it.qty)}</div><button class="plus">+</button></div>
           <button class="brm" data-brm="${i}_${bi}">✕</button></div>`;
             }).join('');
-            return `<div class="vitem ${it.st === 'done' ? 'locked' : ''}" data-st="${it.st}"><div class="edge"></div>
+            /* 완료된 차수는 실제 차감분(vesLot)을 그대로 보여준다.
+               진행 중이면 FIFO 배분 예고를 로트별로 나눠 적는다 —
+               로트 하나로는 모자라도 여러 로트에 걸쳐 차감되므로
+               「20개짜리 하나뿐인데 40개를 어떻게」로 읽히면 안 된다. */
+            let vesRow = '';
+            if (it.ves && locked) {
+                const vm = it.vesLot;
+                vesRow = `<div class="veslot">
+        <div class="vl"><div class="vlt">투입 용기 반제품 로트 · 차감 완료</div>
+          <div class="vll">${vm ? vm.lot_no : '미지정'}</div>
+          <div class="vlm">${vm ? (it.ves.name + ' · 차감 ' + vm.avail + ' · ' + vm.wh) : '가용 로트 없음'}</div></div></div>`;
+            } else if (it.ves) {
+                const pl = vesPlan(it);
+                const lines = pl.rows.map(x =>
+                    `<div class="vlrow"><span class="ln">${x.lot_no}</span>`
+                    + `<span class="tk">${x.take}</span>`
+                    + `<span class="av">/ 가용 ${x.avail}</span></div>`).join('');
+                const head = pl.need > 0
+                    ? `${pl.fixed ? '로트 지정' : 'FIFO 배분'} · 소요 ${pl.need}`
+                    + (pl.rows.length > 1 ? ' · 로트 ' + pl.rows.length + '건' : '')
+                    : (pl.fixed ? '로트 지정' : 'FIFO 배분') + ' · 수량 입력 대기';
+                vesRow = `<div class="veslot">
+        <div class="vl"><div class="vlt">투입 용기 반제품 · ${head}</div>
+          ${lines || `<div class="vlm">${pl.need > 0 ? '가용 로트 없음' : it.ves.name}</div>`}
+          ${pl.short > 0 ? `<div class="vlshort">부족 ${pl.short}개 — 이대로 완료하면 재고 부족으로 막힙니다</div>` : ''}
+          ${pl.over > 0 ? `<div class="vlshort">지정 ${pl.over}개 초과 — 소요보다 많이 차감됩니다</div>` : ''}
+        </div>
+        <button class="vchg" data-pickves="${i}">변경</button></div>`;
+            }
+            const woTag = it.wo ? `<span class="autotag">지시 ${it.wo}</span>` : `<span class="autotag" style="color:var(--amber)">작지없음</span>`;
+            return `<div class="vitem ${locked ? 'locked' : ''}" data-st="${it.st}"><div class="edge"></div>
       <div class="vhead">
-        <button class="caret ${it.open ? 'open' : ''}" data-toggle="${i}">▶</button>
-        <div class="vid" data-toggle="${i}"><div class="pn">${it.vname}</div>
-          <div class="sub"><span class="pc">${it.vcode}</span>${woBadge}${planTag}</div></div>
+        <div class="vid" data-toggle="${i}" style="cursor:pointer"><div class="pn">${it.vname}</div>
+          <div class="sub"><span class="pc">${it.vcode}</span>${woTag}</div></div>
         <span class="st-badge ${it.st}">${STLAB[it.st]}</span>
-        ${ctrl}${(it.lot && it.st === 'done') ? `<span class="autotag" style="font-size:12px;font-weight:800;color:var(--teal-d);background:var(--teal-bg);border:1px solid var(--teal);white-space:nowrap">LOT ${it.lot}</span>` : ''}${actions}
-        ${times}
+        ${ctrl}${(it.lot && it.st === 'done') ? `<span class="autotag" style="font-size:12px;font-weight:800;color:var(--teal-d);background:var(--teal-bg);border:1px solid var(--teal);white-space:nowrap">LOT ${it.lot}</span>` : ''}${actions}${times}
       </div>
+      ${vesRow}
+      <div class="bomtoggle ${it.open ? 'open' : ''}" data-toggle="${i}"><span class="caret">▶</span>
+        부가자재 BOM ${locked ? '· 차감 완료' : '(클린룸 재고 소요)'} · ${it.bom.length}종<span class="ln"></span></div>
       <div class="vbom ${it.open ? 'open' : ''}">
-        <div class="bhead">${readonly ? '투입자재 · 차감 완료' : '투입자재 · 융착 원부자재 소요'} <span class="ln"></span>
-          ${readonly ? '' : `<button class="baddbtn" data-badd="${i}">＋ 자재</button>`}</div>
-        ${bomRows || `<div style="color:var(--ink-2);font-weight:700;padding:8px 0">${readonly ? '차감된 투입자재가 없습니다.' : '투입자재가 없습니다. ＋자재로 추가하세요.'}</div>`}
+        <div class="browhead">투입자재<span class="ln"></span>${locked ? '' : `<button class="baddbtn" data-badd="${i}">＋ 자재</button>`}</div>
+        ${bomRows || `<div style="color:var(--ink-2);font-weight:700;padding:8px 0">${locked ? '차감된 부가자재가 없습니다.' : '부가자재가 없습니다. ＋자재로 추가하세요.'}</div>`}
       </div></div>`;
         }
 
@@ -909,11 +1148,13 @@
             const bar = document.getElementById('cAction');
             const allDone = curC.items.length && curC.items.every(i => i.st === 'done');
             bar.innerHTML = `<div class="actsum"><span class="l">완료수량</span><span class="v">${crewDone(curC)} EA</span></div>
-        <button class="btn ghost" data-cact="addVes">＋ 필터백 추가</button>`;
+        <button class="btn ghost" data-cact="addVes">＋ PK 추가</button>`;
         }
 
         /* C 이벤트 위임 */
         document.getElementById('itemList').addEventListener('click', e => {
+            const pv = e.target.closest('[data-pickves]');
+            if (pv) { openLotSheet(+pv.dataset.pickves); return; }
             const tg = e.target.closest('[data-toggle]');
             if (tg) {
                 const it = curC.items[+tg.dataset.toggle];
@@ -925,7 +1166,9 @@
             const vs = e.target.closest('[data-vstep]');
             if (vs && (e.target.classList.contains('plus') || e.target.classList.contains('minus'))) {
                 const i = +vs.dataset.vstep, d = e.target.classList.contains('plus') ? 1 : -1;
-                curC.items[i].qty = Math.max(0, (+curC.items[i].qty || 0) + d);
+                const itv = curC.items[i];
+                itv.qty = Math.max(0, (+itv.qty || 0) + d);
+                reflowAlloc(itv);   // 용기 투입량도 함께 따라간다
                 renderItems();
                 return;
             }
@@ -981,12 +1224,20 @@
                 startVessel(it);
             } else if (a === 'complete') {
                 if (!(it.qty > 0)) {
-                    flash('필터백 수량을 확인하세요');
+                    flash('PK 수량을 확인하세요');
                     return;
                 }
                 const shortRow = it.bom.find(b => bomQ(b, it.qty) > b.stock);
                 if (shortRow) {
-                    flash(`재고 부족 · ${shortRow.name} (재고 ${shortRow.stock.toLocaleString()})`);
+                    flash(`클린룸 재고 부족 · ${shortRow.name} (재고 ${shortRow.stock.toLocaleString()})`);
+                    return;
+                }
+                /* 용기 반제품도 막는다. 서버가 로트를 다 훑고도 모자라면
+                   IllegalStateException 으로 롤백하는데, 여기서 먼저 잡으면
+                   작업자가 완료를 누르기 전에 부족분을 안다. */
+                const vp = vesPlan(it);
+                if (vp.short > 0) {
+                    flash(`클린룸 용기 부족 · ${it.ves.name} (부족 ${vp.short.toLocaleString()})`);
                     return;
                 }
                 finishVessel(it);
@@ -1008,22 +1259,22 @@
         });
         document.getElementById('cAction').addEventListener('click', e => {
             const b = e.target.closest('[data-cact]');
-            if (b && b.dataset.cact === 'addVes') openVesSheet();
+            if (b && b.dataset.cact === 'addVes') {
+                if (CTX.woOnly) addCurrentWoPk();   // 블리스터: 현재 작지의 PK를 바로 담기(모달 없음)
+                else openVesSheet();                 // 조립: PK 선택 시트
+            }
         });
         document.getElementById('cHead').addEventListener('click', e => {
             const t = e.target.closest('[data-time]');
             if (t) openTime(t.dataset.time, curC, crewLabel(curC));
         });
 
-        /* 필터백 작업시작 = wait→working (item_start, mp_id). BOM 편집 유지 위해 리로드 안 함 */
+        /* PK 작업시작 = wait→working (item_start, mp_id). BOM 편집 유지 위해 리로드 안 함 */
         function startVessel(it) {
             if (!it.mp_id) { flash('담기 정보가 없습니다. 다시 담아주세요'); return; }
             apiPost('/item_start', {
                 mp_id: it.mp_id, qty: it.qty || 0, defect_qty: it.defQty || 0,
-                bom_json: JSON.stringify(it.bom.map(b => ({matId: b.mat_id, qty: bomQ(b, it.qty),
-                    /* 작업자가 직접 고친 줄인지. 서버가 초안에 함께 담아,
-                       완료취소 후에도 고친 줄만 잠기고 나머지는 per×수량 자동계산이 살아난다. */
-                    manual: !!b.manual}))),
+                bom_json: JSON.stringify(inputPayload(it)),
                 clean_store: CTX.cleanStore
             }, (r) => {
                 it.st = 'working';
@@ -1037,7 +1288,7 @@
             });
         }
 
-        /* 필터백 완료 = 시작된 차수(mp_id) 확정 + BOM 소비 + 반제품 입고 */
+        /* PK 완료 = 시작된 차수(mp_id) 확정 + BOM 소비 + 반제품 입고 */
         function finishVessel(it) {
             if (!it.mp_id) { flash('담기 정보가 없습니다. 다시 담아주세요'); return; }
             apiPost('/item_finish', {
@@ -1046,10 +1297,7 @@
                 defect_qty: it.defQty || 0,
                 start_time: it.start || '',
                 end_time: it.end || (todayStr() + ' ' + hhmm()),
-                bom_json: JSON.stringify(it.bom.map(b => ({matId: b.mat_id, qty: bomQ(b, it.qty),
-                    /* 작업자가 직접 고친 줄인지. 서버가 초안에 함께 담아,
-                       완료취소 후에도 고친 줄만 잠기고 나머지는 per×수량 자동계산이 살아난다. */
-                    manual: !!b.manual}))),
+                bom_json: JSON.stringify(inputPayload(it)),
                 equipment_id: curC.equip_id || '',
                 clean_store: CTX.cleanStore,
                 spjangcd: CTX.spjangcd
@@ -1057,7 +1305,7 @@
                 const key = curC._key;
                 refreshDays();
                 reloadCurDay(key);   // 서버 재로딩 → 완료 차수에 '차감된 투입자재' 표시
-                flash(`융착 완료 · ${it.vname} ${it.qty} 산출 (클린룸 입고)`);
+                flash(`블리스터 완료 · ${it.vname} ${it.qty} 산출 (클린룸 재고 소요)`);
             });
         }
 
@@ -1128,7 +1376,7 @@
 
         document.getElementById('crewOk').onclick = () => {
             const c = mkCrew(selWorkers, selE);
-            /* 같은 (shift, 대표) 조가 이미 있으면 그걸 연다 */
+            /* 같은 (shift, 대표, 설비) 조가 이미 있으면 그걸 연다. 설비가 다르면 새 조 */
             const exist = curD.crews.findIndex(x => x._key === c._key);
             if (exist >= 0) {
                 hideMask('crewMask');
@@ -1145,7 +1393,7 @@
             flash(`작업조 편성 · ${selWorkers.map(w => w.name).join(', ')} / ${selE.name}`);
         };
 
-        /* 필터백 선택 (작업지시 / 자유) */
+        /* PK 선택 (작업지시 / 자유) */
         let WO_VES = [], FREE_VES = [];
 
         function openVesSheet() {
@@ -1154,8 +1402,16 @@
                 job_res_id: v.job_res_id, wo: v.order_num, mat_id: v.mat_id,
                 vcode: v.mat_code, vname: v.mat_name, plan: num(v.order_qty)
             }));
-            const frR = apiGet('/target_materials', {process_id: PROC_ID, spjangcd: CTX.spjangcd});
-            FREE_VES = (frR.data || []).map(v => ({mat_id: v.mat_id, vcode: v.mat_code, vname: v.mat_name}));
+            // 작업지시(WO) 전용 공정(블리스터 등)은 자유선택 목록을 쓰지 않는다.
+            const freeSec = document.getElementById('freeVesSection');
+            if (CTX.woOnly) {
+                FREE_VES = [];
+                if (freeSec) freeSec.style.display = 'none';
+            } else {
+                if (freeSec) freeSec.style.display = '';
+                const frR = apiGet('/target_materials', {process_id: PROC_ID, spjangcd: CTX.spjangcd});
+                FREE_VES = (frR.data || []).map(v => ({mat_id: v.mat_id, vcode: v.mat_code, vname: v.mat_name}));
+            }
 
             const has = id => curC.items.some(it => it.mat_id === id && !it.wo);
             const hasWo = jr => curC.items.some(it => it.job_res_id === jr);
@@ -1169,12 +1425,12 @@
         <div class="prow ${has(v.mat_id) ? 'added' : ''}" data-free="${i}">
           <div class="pid"><div class="pnm">${v.vname}</div><div class="pcode">${v.vcode}</div></div>
           <div class="pchk">${has(v.mat_id) ? '✓' : '＋'}</div></div>`).join('')
-                : `<div class="emptybox">선택 가능한 반제품(필터백)이 없습니다</div>`;
+                : `<div class="emptybox">선택 가능한 반제품(PK)이 없습니다</div>`;
             showMask('vesMask');
         }
 
         function addVes(src, byWo) {
-            // 같은 필터백 매칭들 (WO=job_res_id, FREE=mat_id)
+            // 같은 PK 매칭들 (WO=job_res_id, FREE=mat_id)
             const matches = [];
             curC.items.forEach((it, ix) => {
                 const m = byWo ? (it.job_res_id === src.job_res_id) : (it.mat_id === src.mat_id && !it.wo);
@@ -1189,23 +1445,44 @@
                     apiPost('/item_delete', {mp_id: it.mp_id}, () => {
                         curC.items.splice(waitIdx, 1);
                         openVesSheet(); renderItems(); refreshDays();
-                        flash('필터백 담기 취소');
+                        flash('PK 담기 취소');
                     });
                 } else {
                     curC.items.splice(waitIdx, 1);
                     openVesSheet(); renderItems();
-                    flash('필터백 담기 취소');
+                    flash('PK 담기 취소');
                 }
                 return;
             }
 
             if (matches.length > 0) {
-                /* 이미 작업중/완료된 같은 필터백 존재 → 확인 후 추가 담기 허용 */
-                uiConfirm(`이미 진행 중인 [${src.vname}] 필터백이 있습니다.\n같은 필터백을 추가로 담으시겠습니까?`,
+                /* 이미 작업중/완료된 같은 PK 존재 → 확인 후 추가 담기 허용 */
+                uiConfirm(`이미 진행 중인 [${src.vname}] PK가 있습니다.\n같은 PK를 추가로 담으시겠습니까?`,
                     () => commitAddVes(src), '추가 담기');
                 return;
             }
 
+            commitAddVes(src);
+        }
+
+        /* WO-우선(블리스터): 현재 작지(curD)의 PK를 차수로 바로 담기. PK 선택 모달 불필요. */
+        function addCurrentWoPk() {
+            if (!curD || !curD.job_res_id) { flash('작업지시를 먼저 선택하세요'); return; }
+            /* ★ 남은 지시량을 담는다.
+                 curD.plan 은 작지 OrderQty, curD.good_qty 는 이미 완료된 수량이다.
+                 그냥 plan 을 쓰면 2차수째에 또 전량이 찍혀 지시량을 넘긴다.
+                 이미 다 채웠으면 0 이 되므로, 그때는 사람이 올려서 초과생산을 명시한다. */
+            const left = Math.max(num(curD.plan) - num(curD.good_qty), 0);
+            const src = {
+                job_res_id: curD.job_res_id, mat_id: curD.mat_id,
+                vname: curD.vname, vcode: curD.vcode, wo: curD.order_num,
+                plan: left
+            };
+            // 대기 상태 차수가 이미 있으면 중복 담기 방지(먼저 시작/완료 유도)
+            if (curC.items.some(it => it.st === 'wait')) {
+                flash('대기 중인 차수가 있습니다. 먼저 작업시작하세요');
+                return;
+            }
             commitAddVes(src);
         }
 
@@ -1228,10 +1505,11 @@
                 if (v.mp_id != null) OPEN_ST[v.mp_id] = true;
                 curC.items.push(v);
                 curC._draft = false;
-                openVesSheet();
+                // 선택 시트가 열려 있을 때만(FREE/조립) 목록 갱신. WO 직접담기는 시트를 열지 않음.
+                if (document.getElementById('vesMask').classList.contains('show')) openVesSheet();
                 renderItems();
                 refreshDays();
-                flash('필터백 담기 · 대기 (저장됨)');
+                flash('PK 담기 · 대기 (저장됨)');
             });
         }
 
@@ -1244,37 +1522,153 @@
             if (r) addVes(FREE_VES[+r.dataset.free], false);
         });
 
-        /* BOM 자재 추가 — 융착 부자재는 클린룸(5)/생산창고(17)에 흩어져 있어 둘 다 훑는다.
-           같은 자재가 두 창고에 있으면 재고 많은 쪽 1건만 남긴다(차감 창고는 서버가 결정). */
+        /* BOM 자재 추가 (클린룸 재고) */
         let partVi = null, CLEAN_STOCK = [];
 
-        function loadPartStock() {
-            const seen = new Map();
-            (CTX.stockStores || [CTX.cleanStore]).forEach(sid => {
-                const r = apiGet('/clean_stock', {store_id: sid, filter_mode: CTX.stockFilter});
-                (r.data || []).forEach(s => {
-                    const row = {
-                        mat_id: s.mat_id, code: s.mat_code, name: s.mat_name,
-                        stock: num(s.stock), store: sid, storeName: STORE_LAB[sid] || ('창고' + sid)
-                    };
-                    const old = seen.get(row.mat_id);
-                    if (!old || row.stock > old.stock) seen.set(row.mat_id, row);
-                });
-            });
-            return Array.from(seen.values()).sort((a, b) => (a.code || '').localeCompare(b.code || ''));
+        /* ── 용기 반제품 로트 선택 시트 ──
+             체크한 로트에서만, 지정한 수량만큼 차감한다.
+             선택 결과는 it.vesAlloc = [{lot_id, lot_no, qty}] 로 남고
+             inputPayload 가 lots 로 실어 보낸다(서버 consumeBomList 가 그 순서대로 차감).
+             ★ 아무것도 안 고르면 vesAlloc = null 로 두어 FIFO 로 돌려놓는다 —
+               빈 배열로 두면 「0개 차감」과 구분이 안 된다. */
+        let lotVi = null, LOT_DRAFT = [];
+
+        function lotDraftSum() {
+            return LOT_DRAFT.reduce((a, x) => a + (x.on ? num(x.qty) : 0), 0);
         }
+
+        /* 체크된 로트에 FIFO 로 필요량을 다시 나눠 담는다.
+           아무것도 안 켜져 있으면 전체를 후보로 본다(= 첫 진입·FIFO 자동). */
+        function lotDraftAuto(need, onlyChecked) {
+            let remain = need;
+            LOT_DRAFT.forEach(x => {
+                const use = onlyChecked ? x.on : true;
+                if (!use || remain <= 0) { if (!onlyChecked) { x.on = false; x.qty = 0; } else if (!x.on) x.qty = 0; return; }
+                const take = Math.min(x.avail, remain);
+                x.on = take > 0;
+                x.qty = take;
+                remain -= take;
+            });
+        }
+
+        function renderLotSheet() {
+            const it = curC.items[lotVi];
+            const need = vesNeed(it);
+            const sum = lotDraftSum();
+            const diff = sum - need;
+            const bar = document.getElementById('lotSum');
+            bar.className = 'lotsum ' + (diff === 0 && need > 0 ? 'okk' : (diff !== 0 ? 'bad' : ''));
+            bar.innerHTML = `<span>소요 ${need}</span><span class="need">지정 ${sum}`
+                + (diff === 0 ? ' · 일치' : (diff > 0 ? ` · ${diff} 초과` : ` · ${-diff} 부족`)) + '</span>';
+
+            const box = document.getElementById('lotList');
+            box.innerHTML = LOT_DRAFT.length ? LOT_DRAFT.map((l, i) => `
+        <div class="prow ${l.on ? 'added' : 'off'}" data-lot="${i}">
+          <div class="pid"><div class="pnm">${l.lot_no}${i === 0 ? ' <span class="autotag">FIFO</span>' : ''}</div>
+            <div class="pcode">${l.name} · ${l.in_date || ''} · 가용 ${l.avail}</div></div>
+          <div class="lqty"><div class="lq" data-lqty="${i}">${l.on ? l.qty : 0}</div></div>
+          <div class="pchk" data-ltog="${i}">${l.on ? '✓' : '＋'}</div></div>`).join('')
+                : `<div class="emptybox">클린룸에 가용한 용기 반제품 로트가 없습니다</div>`;
+        }
+
+        function openLotSheet(vi) {
+            const it = curC.items[vi];
+            if (!it || !it.ves) { flash('이 PK에는 용기 반제품 구성이 없습니다'); return; }
+            lotVi = vi;
+            // 최신 가용 로트 재조회(다른 조가 소비했을 수 있음)
+            const lot = loadVesLot(it.ves.mat_id);
+            it.vesLots = lot ? lot.list : [];
+            const prev = {};
+            (it.vesAlloc || []).forEach(a => { prev[a.lot_id] = num(a.qty); });
+            LOT_DRAFT = it.vesLots.map(l => ({
+                lot_id: l.lot_id, lot_no: l.lot_no, name: l.name, in_date: l.in_date,
+                avail: num(l.avail),
+                on: prev[l.lot_id] > 0,
+                qty: prev[l.lot_id] > 0 ? Math.min(prev[l.lot_id], num(l.avail)) : 0
+            }));
+            // 지정 이력이 없으면 FIFO 로 미리 채워 보여준다
+            if (!LOT_DRAFT.some(x => x.on)) lotDraftAuto(vesNeed(it), false);
+            renderLotSheet();
+            showMask('lotMask');
+        }
+
+        document.getElementById('lotList').addEventListener('click', e => {
+            if (lotVi == null) return;
+            const it = curC.items[lotVi];
+
+            const tg = e.target.closest('[data-ltog]');
+            if (tg) {
+                const l = LOT_DRAFT[+tg.dataset.ltog];
+                l.on = !l.on;
+                if (l.on && l.qty <= 0) {
+                    // 켤 때는 아직 모자란 만큼만 자동으로 담는다
+                    const lack = Math.max(vesNeed(it) - lotDraftSum(), 0);
+                    l.qty = Math.min(l.avail, lack > 0 ? lack : l.avail);
+                }
+                if (!l.on) l.qty = 0;
+                renderLotSheet();
+                return;
+            }
+            const qb = e.target.closest('[data-lqty]');
+            if (qb) {
+                const idx = +qb.dataset.lqty;
+                if (!LOT_DRAFT[idx].on) return;
+                openPad({type: 'lot', idx: idx});
+            }
+        });
+
+        document.getElementById('lotAuto').addEventListener('click', () => {
+            if (lotVi == null) return;
+            lotDraftAuto(vesNeed(curC.items[lotVi]), false);
+            renderLotSheet();
+        });
+
+        document.getElementById('lotOk').addEventListener('click', () => {
+            if (lotVi == null) return;
+            const it = curC.items[lotVi];
+            const need = vesNeed(it);
+            const picked = LOT_DRAFT.filter(x => x.on && num(x.qty) > 0);
+            const over = picked.find(x => num(x.qty) > x.avail);
+            if (over) { flash(`가용 초과 · ${over.lot_no} (가용 ${over.avail})`); return; }
+
+            if (!picked.length) {
+                it.vesAlloc = null;                     // FIFO 로 복귀
+                it.vesLot = it.vesLots[0] || null;
+                hideMask('lotMask');
+                renderItems();
+                flash('용기 로트 · FIFO 자동으로 되돌림');
+                return;
+            }
+            const sum = picked.reduce((a, x) => a + num(x.qty), 0);
+            if (sum !== need) {
+                // 막지는 않는다. 초과·부족은 완료 시 서버가 다시 검증한다.
+                flash(sum > need ? `소요보다 ${sum - need} 많습니다` : `소요보다 ${need - sum} 모자랍니다`);
+            }
+            it.vesAlloc = picked.map(x => ({lot_id: x.lot_id, lot_no: x.lot_no, qty: num(x.qty)}));
+            it.vesLot = {lot_id: picked[0].lot_id, lot_no: picked[0].lot_no,
+                avail: picked[0].avail, wh: '클린룸'};
+            hideMask('lotMask');
+            renderItems();
+            flash(`용기 로트 ${picked.length}건 지정 · 합계 ${sum}`);
+        });
 
         function openPartSheet(vi) {
             partVi = vi;
             document.getElementById('partTitle').textContent = curC.items[vi].vname + ' · 투입자재 추가';
-            CLEAN_STOCK = loadPartStock();
+            const r = apiGet('/clean_stock', {store_id: CTX.cleanStore, filter_mode: CTX.stockFilter});
+            CLEAN_STOCK = (r.data || []).map(s => ({
+                mat_id: s.mat_id,
+                code: s.mat_code,
+                name: s.mat_name,
+                stock: num(s.stock)
+            }));
             const has = id => curC.items[vi].bom.some(b => b.mat_id === id);
             document.getElementById('partList').innerHTML = CLEAN_STOCK.length ? CLEAN_STOCK.map((s, i) => `
         <div class="prow ${has(s.mat_id) ? 'added' : ''}" data-part="${i}">
           <div class="pid"><div class="pnm">${s.name}</div><div class="pcode">${s.code}</div></div>
-          <div class="pr"><div class="pl">${s.storeName} 재고</div>${s.stock.toLocaleString()}</div>
+          <div class="pr"><div class="pl">클린룸 재고</div>${s.stock.toLocaleString()}</div>
           <div class="pchk">${has(s.mat_id) ? '✓' : '＋'}</div></div>`).join('')
-                : `<div class="emptybox">투입 가능한 재고가 없습니다</div>`;
+                : `<div class="emptybox">클린룸 재고가 없습니다</div>`;
             showMask('partMask');
         }
 
@@ -1294,8 +1688,7 @@
                     per: 1,
                     qty: curC.items[partVi].qty || 0,
                     manual: true,
-                    stock: s.stock,
-                    store: s.storeName || '재고'
+                    stock: s.stock
                 });
                 flash('자재 추가');
             }
@@ -1303,7 +1696,7 @@
             renderItems();
         });
 
-        /* 시작/종료 시간 수정 (조/필터백 공용) */
+        /* 시작/종료 시간 수정 (조/PK 공용) */
         let timeWhich = 'start', timeTarget = null, editDate = new Date();
 
         function fmtDEdit(d) {
@@ -1335,17 +1728,13 @@
             const b = e.target.closest('[data-t]');
             if (!b) return;
             const H = document.getElementById('tH'), M = document.getElementById('tM');
-            /* ★ 자리올림/자리내림 — 실제 시각으로 더하고 빼서 시·날짜까지 맞춘다.
-               예전에는 10:00 에서 분 ▼ → 10:59, 00:30 에서 시 ▼ → 23:30(날짜 그대로)처럼
-               «내렸는데 시간이 늦어지는» 문제가 있었다. */
-            var step = {'h+': 60, 'h-': -60, 'm+': 1, 'm-': -1}[b.dataset.t] || 0;
-            var d = new Date(editDate.getFullYear(), editDate.getMonth(), editDate.getDate(),
-                +H.textContent, +M.textContent);
-            d.setMinutes(d.getMinutes() + step);
-            editDate = new Date(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), d.getMinutes());
-            H.textContent = String(d.getHours()).padStart(2, '0');
-            M.textContent = String(d.getMinutes()).padStart(2, '0');
-            document.getElementById('tDate').textContent = fmtDEdit(editDate);
+            let h = +H.textContent, m = +M.textContent;
+            if (b.dataset.t === 'h+') h = (h + 1) % 24;
+            if (b.dataset.t === 'h-') h = (h + 23) % 24;
+            if (b.dataset.t === 'm+') m = (m + 1) % 60;
+            if (b.dataset.t === 'm-') m = (m + 59) % 60;
+            H.textContent = String(h).padStart(2, '0');
+            M.textContent = String(m).padStart(2, '0');
         });
         document.getElementById('timeOk').onclick = () => {
             const ds = `${editDate.getFullYear()}-${String(editDate.getMonth() + 1).padStart(2, '0')}-${String(editDate.getDate()).padStart(2, '0')}`;
@@ -1363,18 +1752,9 @@
             if (timeTarget.mp_id) {
                 const p = {mp_id: timeTarget.mp_id};
                 if (timeWhich === 'start') p.start_time = v; else p.end_time = v;
-                apiPost('/item_update_time', p, (r) => {
+                apiPost('/item_update_time', p, () => {
                     if (timeWhich === 'start') timeTarget.start = v; else timeTarget.end = v;
                     hideMask('timeMask');
-                    /* ★ 시작 날짜를 바꾸면 서버가 작업일(ProductionDate)도 옮긴다.
-                         지금 보고 있는 날짜에서는 빠졌으므로 첫 화면으로 돌아가 다시 읽는다. */
-                    const wd = r && r.data && r.data.work_date;
-                    if (wd && curD && wd !== curD.date) {
-                        refreshDays();
-                        show('A');
-                        flash('작업일을 ' + wd + ' 로 옮겼습니다');
-                        return;
-                    }
                     renderItems();
                     renderCrews();
                     flash(lab + ' 저장 ' + pillT(v));
@@ -1391,7 +1771,7 @@
             flash(lab + ' ' + pillT(v) + ' (화면에만 반영)');
         };
 
-        /* 넘패드 (필터백/BOM 공용) */
+        /* 넘패드 (PK/BOM 공용) */
         let padCtx = null, padVal = '';
 
         function openPad(ctx) {
@@ -1399,7 +1779,11 @@
             if (ctx.type === 'ves') {
                 const it = curC.items[ctx.vi];
                 padVal = String(it.qty || 0);
-                document.getElementById('padLab').textContent = it.vname + ' · 필터백 수량';
+                document.getElementById('padLab').textContent = it.vname + ' · PK 수량';
+            } else if (ctx.type === 'lot') {
+                const l = LOT_DRAFT[ctx.idx];
+                padVal = String(l.qty || 0);
+                document.getElementById('padLab').textContent = l.lot_no + ' · 차감 수량 (가용 ' + l.avail + ')';
             } else {
                 const it = curC.items[ctx.vi], b = it.bom[ctx.bi];
                 padVal = String(bomQ(b, it.qty));
@@ -1415,8 +1799,28 @@
             if (k === 'C') padVal = '';
             else if (k === 'OK') {
                 const val = Math.max(0, parseInt(padVal || '0', 10));
-                if (padCtx.type === 'ves') curC.items[padCtx.vi].qty = val;
-                else {
+                if (padCtx.type === 'ves') {
+                    const it = curC.items[padCtx.vi];
+                    /* PK 수량이 바뀌면 용기 투입량도 따라 올라간다(per × qty).
+                       고른 로트를 유지한 채 다시 흘리고, 그 로트들로 모자라면
+                       나머지를 FIFO 로 이어 붙인다. */
+                    const had = it.vesAlloc ? it.vesAlloc.length : 0;
+                    it.qty = val;
+                    reflowAlloc(it);
+                    if (had && it.vesAlloc && it.vesAlloc.length > had) {
+                        flash(`용기 부족분 · 로트 ${it.vesAlloc.length - had}건 FIFO 자동 추가`);
+                    }
+                }
+                else if (padCtx.type === 'lot') {
+                    const l = LOT_DRAFT[padCtx.idx];
+                    // 가용을 넘겨 적으면 완료 때 서버가 막는다. 여기서 먼저 잘라준다.
+                    l.qty = Math.min(val, l.avail);
+                    l.on = l.qty > 0;
+                    hideMask('padMask');
+                    renderLotSheet();
+                    if (val > l.avail) flash(`가용 ${l.avail} 까지만 지정됩니다`);
+                    return;
+                } else {
                     const b = curC.items[padCtx.vi].bom[padCtx.bi];
                     b.manual = true;
                     b.qty = val;
@@ -1470,24 +1874,24 @@
             m.style.display = 'flex';
         }
 
-        /* 필터백 삭제 (확인 모달 경유). 헤더 ⋮ 메뉴·기타에서 공용 호출 */
+        /* PK 삭제 (확인 모달 경유). 헤더 ⋮ 메뉴·기타에서 공용 호출 */
         function deleteVessel(vi) {
             const it = curC.items[vi];
             if (!it) return;
-            uiConfirm(`[${it.vname}] 필터백을 삭제하시겠습니까?`, function () {
+            uiConfirm(`[${it.vname}] PK를 삭제하시겠습니까?`, function () {
                 if (it.mp_id) {
                     apiPost('/item_delete', {mp_id: it.mp_id}, () => {
                         curC.items.splice(vi, 1);
                         renderItems();
                         renderCrews();
                         refreshDays();
-                        flash('필터백 삭제');
+                        flash('PK 삭제');
                     });
                 } else {
                     curC.items.splice(vi, 1);
                     renderItems();
                     renderCrews();
-                    flash('필터백 삭제');
+                    flash('PK 삭제');
                 }
             });
         }
@@ -1504,13 +1908,13 @@
                     if (mn.style.display === 'block' && !mn.contains(e.target) && !e.target.closest('[data-menu]')) mn.style.display = 'none';
                 });
             }
-            // 토글: 이미 이 필터백 메뉴가 열려 있으면 닫는다
+            // 토글: 이미 이 PK 메뉴가 열려 있으면 닫는다
             if (mn.style.display === 'block' && mn.dataset.vi === String(vi)) {
                 mn.style.display = 'none';
                 return;
             }
             mn.dataset.vi = String(vi);
-            mn.innerHTML = `<button data-menudel="${vi}" style="width:100%;display:flex;align-items:center;gap:8px;text-align:left;padding:13px 14px;border:none;border-radius:10px;background:none;color:#d33;font-weight:800;font-size:15px">🗑 이 필터백 삭제</button>`;
+            mn.innerHTML = `<button data-menudel="${vi}" style="width:100%;display:flex;align-items:center;gap:8px;text-align:left;padding:13px 14px;border:none;border-radius:10px;background:none;color:#d33;font-weight:800;font-size:15px">🗑 이 PK 삭제</button>`;
             mn.querySelector('[data-menudel]').onclick = () => { mn.style.display = 'none'; deleteVessel(vi); };
             mn.style.display = 'block';
             const r = btn.getBoundingClientRect();
@@ -1536,38 +1940,10 @@
             if (!WC) console.warn('[work] 워크센터를 찾지 못했습니다. work_center."Process_id" 매핑 확인');
         }
 
-        /* ── 날짜 필터 ─────────────────────────────────────
-           비워두면 기본 기간(CTX.dayRange, 30일)으로 되돌린다.
-           서버 day_list 는 date_from/date_to 를 이미 받으므로 API 변경 없음. */
-        function dateFrom() {
-            const v = document.getElementById('dFrom').value;
-            return v || shiftDay(todayStr(), -CTX.dayRange);
-        }
-        function dateTo() {
-            const v = document.getElementById('dTo').value;
-            return v || todayStr();
-        }
-        function initDates() {
-            const t = todayStr();
-            const f = document.getElementById('dFrom'), o = document.getElementById('dTo');
-            if (!f.value) f.value = shiftDay(t, -CTX.dayRange);
-            if (!o.value) o.value = t;
-        }
-        document.getElementById('btnSearch').addEventListener('click', function () {
-            if (dateFrom() > dateTo()) { flash('시작일이 종료일보다 늦습니다'); return; }
-            refreshDays();
-        });
-        document.querySelectorAll('#dFrom,#dTo').forEach(function (el) {
-            el.addEventListener('keydown', function (e) {
-                if (e.key === 'Enter') { e.preventDefault(); document.getElementById('btnSearch').click(); }
-            });
-        });
-
         (function boot(tries) {
             tries = tries || 0;
             if (typeof AjaxUtil !== 'undefined' && AjaxUtil.getSyncData) {
                 loadContext();
-                initDates();
                 refreshDays();
                 return;
             }
@@ -1709,7 +2085,7 @@
                     var cs = getComputedStyle(c);
                     return cs.marginLeft === 'auto' || parseFloat(cs.flexGrow) > 0;
                 });
-                b.style.cssText = (pushed ? '' : 'margin-left:auto;') + 'flex:0 0 auto;align-self:center;'
+                b.style.cssText = (pushed ? '' : '') + 'flex:0 0 auto;align-self:center;'
                     + 'width:40px;height:40px;border-radius:12px;'
                     + 'border:1px solid var(--line,#dfe3e8);background:var(--surface,#fff);'
                     + 'color:var(--ink-2,#5b6570);font-size:19px;font-weight:800;line-height:1;'
@@ -1892,11 +2268,6 @@
         }
         .tcol button { width: 96px !important; height: 60px !important; }
         .dateedit .dbtn { width: 64px !important; height: 58px !important; }
-        /* ★ 토스트(알림)는 터치를 받지 않는다.
-             토스트는 사라진 뒤에도 투명한 채로 화면 하단(bottom:110px · z-index 60)에 남아
-             시트(z-index 40)의 ▼ 버튼·하단 버튼 위를 덮고 있었다. 그래서 «버튼이 보이는데
-             눌러도 안 먹는» 일이 생겼다 — 알림이 한 번이라도 뜬 뒤에만 생겨서 들쭉날쭉했다. */
-        #toast, #packToast { pointer-events: none !important; }
     </style>
     <script th:inline="none">
         (function () {
@@ -1964,7 +2335,9 @@
                 if (e.pointerType === 'mouse') return;          // 마우스는 click 이 정상 동작
                 var b = e.target && e.target.closest ? e.target.closest('button') : null;
                 if (!b || b.disabled || b.closest(SKIP)) return;
-                tapBtn = b; tx = e.clientX; ty = e.clientY;
+                tapBtn = b;
+                tx = e.clientX;
+                ty = e.clientY;
             }, true);
             window.addEventListener('pointerup', function (e) {
                 var b = tapBtn;

@@ -51,186 +51,158 @@ public class DashBoardF1Service {
 	}
 
 	/*
-	 * 품목 구분.
+	 * ═══ 지금 작업중 — 생산현황(2번)과 작업인원(3번)의 «단 하나의» 출처 ═══
 	 *
-	 * ★ mat_grp 로는 못 가른다 — 용기·PK·혈액저장용기가 전부 「가공품(semi)」이다.
-	 *   이름으로 가른다. 순서가 중요하다:
-	 *     저장용기를 용기보다 먼저 본다 ('혈액저장용기' 는 '%용기%' 에도 걸린다)
-	 *     PK 를 용기보다 먼저 본다     (PK 이름에 '용기' 가 들어가는 품목이 생길 수 있다)
-	 * ★ 이름 매칭은 임시다. 품목 마스터에 구분 컬럼이 생기면 그걸로 바꾼다.
+	 *   예전에는 두 칸이 서로 다른 쿼리를 썼다.
+	 *     · 생산현황은 「품목 이름」으로 구분(용기/PK/혈액저장용기)하고 날짜 제한이 없었고
+	 *     · 작업인원은 「공정」으로 구분하고 오늘 시작한 것만 셌다
+	 *   그래서 같은 블리스터 포장인데 위에는 3명, 아래는 1명이 나왔다.
+	 *   세척은 mat_produce 가 아니라 wash_work 에 남는데 작업인원은 그걸 안 봐서 0명이었다.
+	 *
+	 *   이제 둘 다 아래 ACTIVE 한 덩어리를 쓴다. 구분도 공정(Code) 하나다.
+	 *     sec       공정 코드 (bsc01 세척 · bsc02 조립 · bsc03 블리스터 포장 · bsc06 고주파 융착 · bsc04 멸균 · bsc05 포장)
+	 *     item      화면에 적을 이름 (품목 / 세척기 / 멸균기)
+	 *     qty,unit  진행중 수량과 단위 (개 · 건 · 로트)
+	 *     pid       작업자 person.id
+	 *
+	 *   ★ 오늘 시작한 것만 (현장 요청 — 다음날이면 초기화).
+	 *     종료를 안 누르고 퇴근한 어제 세션은 생산현황에서도, 작업인원에서도 빠진다.
+	 *     두 칸이 같은 규칙이어야 서로 맞는다.
+	 *   ★ 1공장만 (공정 Factory_id = 1).
 	 */
-	private static String catSql(String typeExpr, String nameExpr) {
-		return "CASE WHEN COALESCE(" + typeExpr + ",'') = 'product' THEN 'product'"
-				+ " WHEN " + nameExpr + " LIKE '%저장용기%' THEN 'storage'"
-				+ " WHEN " + nameExpr + " LIKE '%PK-%' THEN 'pk'"
-				+ " WHEN " + nameExpr + " LIKE '%용기%' THEN 'vessel'"
-				+ " ELSE NULL END";
-	}
-
-	private static final String CAT_MP = catSql(
-			"COALESCE(omg.\"MaterialType\", mg.\"MaterialType\")",
-			"COALESCE(om.\"Name\", m.\"Name\")");
-
-	// =================================================================
-	// 환경 (온습도 · 차압)
-	// =================================================================
-
 	/** 센서 최신값 — 통합 대시보드와 같은 출처(EnvSensorService) */
 	public List<Map<String, Object>> getEnv(String spjangcd) {
 		return envSensorService.getEnv(spjangcd);
 	}
 
+	private static final String ACTIVE = """
+			active AS (
+			    -- 조립 · 블리스터 · 융착 · 포장 : 진행중 차수
+			    SELECT pr."Code"                          AS sec
+			         , COALESCE(om."Name", m."Name")      AS item
+			         , COALESCE(mp."GoodQty", 0)          AS qty
+			         , '개'                               AS unit
+			         , mp."Actor_id"                      AS pid
+			      FROM mat_produce mp
+			      JOIN job_res jr ON jr.id = mp."JobResponse_id"
+			      LEFT JOIN work_center wc ON wc.id = COALESCE(mp."WorkCenter_id", jr."WorkCenter_id")
+			      LEFT JOIN process     pr ON pr.id = wc."Process_id"
+			      LEFT JOIN material om  ON om.id  = mp."Material_id"
+			      LEFT JOIN material m   ON m.id   = jr."Material_id"
+			     WHERE COALESCE(mp._status,'a') = 'a'
+			       AND mp."State" <> 'finished' AND mp."EndTime" IS NULL
+			       AND COALESCE(pr."Factory_id", 1) = 1
+			       AND pr."Code" IN ('bsc02','bsc03','bsc06','bsc05')
+			       AND COALESCE(mp."StartTime", mp."_created")::date = CURRENT_DATE
+			       AND (CAST(:spjangcd AS varchar) IS NULL OR jr.spjangcd = CAST(:spjangcd AS varchar))
+			    UNION ALL
+			    -- 세척 : wash_work 세션 (품목이 전부 완료되기 전까지 작업중)
+			    SELECT 'bsc01'
+			         , COALESCE(e."Name", '세척기')
+			         , (SELECT COUNT(*) FROM wash_work_item wi
+			             WHERE wi."WashWork_id" = ww.id AND wi."_status" = 'a')
+			         , '건'
+			         , ww."Actor_id"
+			      FROM wash_work ww
+			      LEFT JOIN equ e ON e.id = ww."Equipment_id"
+			     WHERE ww."_status" = 'a'
+			       AND ww."WashDate" = CURRENT_DATE
+			       AND NOT EXISTS (                       -- 품목이 있고 전부 done 이면 끝난 세션
+			           SELECT 1 FROM wash_work_item wi
+			            WHERE wi."WashWork_id" = ww.id AND wi."_status" = 'a'
+			           HAVING COUNT(*) > 0 AND COUNT(*) = COUNT(*) FILTER (WHERE wi."State" = 'done'))
+			    UNION ALL
+			    -- 멸균 : 진행중 배치
+			    SELECT 'bsc04'
+			         , COALESCE(e."Name", '멸균기')
+			         , (SELECT COUNT(*) FROM steril_batch_item bi WHERE bi."SterilBatch_id" = b.id)
+			         , '로트'
+			         , b."Actor_id"
+			      FROM steril_batch b
+			      LEFT JOIN equ e ON e.id = b."Equipment_id"
+			     WHERE b."State" = 'working'
+			       AND COALESCE(b."StartTime"::date, b."SterilDate") = CURRENT_DATE
+			)
+			""";
+
 	// =================================================================
-	// 생산현황 (품목 구분별 진행중)
+	// 생산현황 (공정별 진행중) — ACTIVE 그대로
 	// =================================================================
+
+	public List<Map<String, Object>> getWorking(String spjangcd) {
+		String sql = "WITH " + ACTIVE + """
+				SELECT a.sec AS proc_code, a.item AS mat_name, a.unit
+				     , SUM(a.qty)                               AS qty
+				     , COUNT(*)                                 AS session_cnt
+				     , STRING_AGG(DISTINCT pe."Name", ', ')     AS workers
+				  FROM active a
+				  LEFT JOIN person pe ON pe.id = a.pid
+				 GROUP BY a.sec, a.item, a.unit
+				 ORDER BY a.sec, SUM(a.qty) DESC
+				""";
+		return nz(this.sqlRunner.getRows(sql, p(spjangcd)));
+	}
 
 	/**
-	 * 진행중 차수 — 산출 품목별.
-	 *
-	 * ★ 산출 품목은 mat_produce."Material_id" 우선(COALESCE(om, m)).
-	 *   작지 품목을 쓰면 한 작지에 PK 생산과 키트 결합이 섞일 때 전부 하나로 보인다.
-	 * ★ 1공장만: 공정의 Factory_id = 1.
-	 * ★ qty 는 시작 입력분(계획)이다. 「진행중 N개」로만 읽는다.
+	 * 오늘 완료 — 공정별.
+	 *   조립·블리스터·융착 : 오늘 끝난 차수 양품
+	 *   포장               : 완제품만 (CK 반제품은 빼야 같은 키트를 두 번 안 센다)
+	 *   세척               : 오늘 끝난 세척 품목 수량
+	 *   멸균               : 오늘 끝난 배치 수
 	 */
-	public List<Map<String, Object>> getWorking(String spjangcd) {
-		String sql = """
-				SELECT x.cat, x.mat_name, x.proc_code, x.proc_name
-				     , SUM(x.qty)                                AS qty
-				     , COUNT(*)                                  AS session_cnt
-				     , STRING_AGG(DISTINCT x.actor_name, ', ')   AS workers
-				  FROM (
-				    SELECT %s                                    AS cat
-				         , COALESCE(om."Name", m."Name")         AS mat_name
-				         , pr."Code"                             AS proc_code
-				         , pr."Name"                             AS proc_name
-				         , COALESCE(mp."GoodQty", 0)             AS qty
-				         , COALESCE((SELECT STRING_AGG(pm."Name", ', ' ORDER BY (mm."Person_id" = mp."Actor_id") DESC, pm."Name")
-				                       FROM mat_produce_member mm JOIN person pm ON pm.id = mm."Person_id"
-				                      WHERE mm."MatProduce_id" = mp.id AND COALESCE(mm._status,'a') = 'a'),
-				                    pe."Name")                   AS actor_name
-				      FROM mat_produce mp
-				      JOIN job_res jr ON jr.id = mp."JobResponse_id"
-				      LEFT JOIN work_center wc ON wc.id = COALESCE(mp."WorkCenter_id", jr."WorkCenter_id")
-				      LEFT JOIN process     pr ON pr.id = wc."Process_id"
-				      LEFT JOIN material om  ON om.id  = mp."Material_id"
-				      LEFT JOIN mat_grp  omg ON omg.id = om."MaterialGroup_id"
-				      LEFT JOIN material m   ON m.id   = jr."Material_id"
-				      LEFT JOIN mat_grp  mg  ON mg.id  = m."MaterialGroup_id"
-				      LEFT JOIN person   pe  ON pe.id  = mp."Actor_id"
-				     WHERE COALESCE(mp._status,'a') = 'a'
-				       AND mp."State" <> 'finished' AND mp."EndTime" IS NULL
-				       AND COALESCE(pr."Factory_id", 1) = 1
-				       AND (CAST(:spjangcd AS varchar) IS NULL OR jr.spjangcd = CAST(:spjangcd AS varchar))
-				  ) x
-				 WHERE x.cat IS NOT NULL
-				 GROUP BY x.cat, x.mat_name, x.proc_code, x.proc_name
-				 ORDER BY x.cat, SUM(x.qty) DESC
-				""".formatted(CAT_MP);
-		return nz(this.sqlRunner.getRows(sql, p(spjangcd)));
-	}
-
-	/** 오늘 확정 양품 — 구분별 합계 (카드 아래 「오늘 완료」) */
 	public List<Map<String, Object>> getTodayDone(String spjangcd) {
 		String sql = """
-				SELECT x.cat, SUM(x.qty) AS qty
-				  FROM (
-				    SELECT %s                                    AS cat
-				         , COALESCE(mp."GoodQty", 0)             AS qty
-				      FROM mat_produce mp
-				      JOIN job_res jr ON jr.id = mp."JobResponse_id"
-				      LEFT JOIN work_center wc ON wc.id = COALESCE(mp."WorkCenter_id", jr."WorkCenter_id")
-				      LEFT JOIN process     pr ON pr.id = wc."Process_id"
-				      LEFT JOIN material om  ON om.id  = mp."Material_id"
-				      LEFT JOIN mat_grp  omg ON omg.id = om."MaterialGroup_id"
-				      LEFT JOIN material m   ON m.id   = jr."Material_id"
-				      LEFT JOIN mat_grp  mg  ON mg.id  = m."MaterialGroup_id"
-				     WHERE COALESCE(mp._status,'a') = 'a'
-				       AND (mp."State" = 'finished' OR mp."EndTime" IS NOT NULL)
-				       AND COALESCE(mp."EndTime", mp."StartTime", mp."ProductionDate"::timestamptz)::date = CURRENT_DATE
-				       AND COALESCE(pr."Factory_id", 1) = 1
-				       /* ★ 완제품은 마지막 공정(포장 bsc05)만 센다.
-				            전 공정을 더하면 같은 키트를 공정 수만큼 센다(통합 KPI 와 같은 규칙). */
-				       AND (COALESCE(omg."MaterialType", mg."MaterialType", '') <> 'product' OR pr."Code" = 'bsc05')
-				       AND (CAST(:spjangcd AS varchar) IS NULL OR jr.spjangcd = CAST(:spjangcd AS varchar))
-				  ) x
-				 WHERE x.cat IS NOT NULL
-				 GROUP BY x.cat
-				""".formatted(CAT_MP);
-		return nz(this.sqlRunner.getRows(sql, p(spjangcd)));
-	}
-
-
-	/** 진행중 세척 세션 수 — 생산현황 「세척」 행 초록불 (작업인원과 같은 판정) */
-	public int getWashWorking(String spjangcd) {
-		String sql = """
-				SELECT COUNT(*) AS cnt
-				  FROM wash_work w
-				 WHERE COALESCE(w._status,'a') = 'a'
-				   AND w."WashDate" >= CURRENT_DATE - 1
-				   AND (NOT EXISTS (SELECT 1 FROM wash_work_item i
-				                     WHERE i."WashWork_id" = w.id AND COALESCE(i._status,'a') = 'a')
-				        OR EXISTS (SELECT 1 FROM wash_work_item i
-				                    WHERE i."WashWork_id" = w.id AND COALESCE(i._status,'a') = 'a'
-				                      AND i."EndTime" IS NULL))
+				SELECT pr."Code" AS sec, SUM(COALESCE(mp."GoodQty",0)) AS qty, '개' AS unit
+				  FROM mat_produce mp
+				  JOIN job_res jr ON jr.id = mp."JobResponse_id"
+				  LEFT JOIN work_center wc ON wc.id = COALESCE(mp."WorkCenter_id", jr."WorkCenter_id")
+				  LEFT JOIN process     pr ON pr.id = wc."Process_id"
+				  LEFT JOIN material om  ON om.id  = mp."Material_id"
+				  LEFT JOIN mat_grp  omg ON omg.id = om."MaterialGroup_id"
+				 WHERE COALESCE(mp._status,'a') = 'a'
+				   AND (mp."State" = 'finished' OR mp."EndTime" IS NOT NULL)
+				   AND COALESCE(mp."EndTime", mp."StartTime", mp."ProductionDate"::timestamptz)::date = CURRENT_DATE
+				   AND COALESCE(pr."Factory_id", 1) = 1
+				   AND pr."Code" IN ('bsc02','bsc03','bsc06','bsc05')
+				   AND (pr."Code" <> 'bsc05' OR COALESCE(omg."MaterialType",'') = 'product')
+				   AND (CAST(:spjangcd AS varchar) IS NULL OR jr.spjangcd = CAST(:spjangcd AS varchar))
+				 GROUP BY pr."Code"
+				UNION ALL
+				SELECT 'bsc01', SUM(COALESCE(wi."Qty",0)), '개'
+				  FROM wash_work_item wi
+				  JOIN wash_work ww ON ww.id = wi."WashWork_id" AND ww."_status" = 'a'
+				 WHERE wi."_status" = 'a' AND wi."State" = 'done'
+				   AND COALESCE(wi."EndTime"::date, ww."WashDate") = CURRENT_DATE
+				UNION ALL
+				SELECT 'bsc04', COUNT(*), '배치'
+				  FROM steril_batch b
+				 WHERE b."State" <> 'working' AND b."SterilDate" = CURRENT_DATE
 				""";
-		List<Map<String, Object>> r = nz(this.sqlRunner.getRows(sql, p(spjangcd)));
-		return r.isEmpty() || r.get(0).get("cnt") == null ? 0 : ((Number) r.get(0).get("cnt")).intValue();
+		return nz(this.sqlRunner.getRows(sql, p(spjangcd)));
 	}
 
 	// =================================================================
-	// 작업인원
+	// 작업인원 — ACTIVE + 업무 시작(품질검사)
 	// =================================================================
 
 	/**
 	 * 1공장 인원 — 작업중 / 대기.
 	 *
-	 * ★ 작업중의 출처는 셋이다: 진행중 차수(mat_produce) · 멸균 배치 · 업무 시작(work_duty).
-	 *   품질검사처럼 실적이 없는 사람은 work_duty 로만 「작업중」이 된다.
-	 *
-	 * ★ 근태(연차·지각)는 MES 에 없다. 「지금 차수나 멸균 배치를 붙잡고 있나」만 본다.
-	 *   대기 = 출근했는지와 무관하다. 화면 문구도 「대기」로만 쓴다(「출근」이라 쓰지 않는다).
-	 * ★ 공장 미지정(Factory_id NULL)은 뺀다. 양쪽에 다 뜨면 인원이 부풀어 보인다.
-	 * ★ rtflag NULL 은 재직으로 본다(ComboService.person 과 같은 규칙).
+	 * ★ 공정 작업은 생산현황과 같은 ACTIVE 를 쓴다(두 칸의 사람이 항상 같다).
+	 * ★ 품질검사처럼 실적이 없는 사람은 work_duty(업무 시작)로만 「작업중」이 된다.
+	 * ★ 근태(연차·지각)는 MES 에 없다. 대기 = 오늘 시작한 작업이 없는 사람.
+	 * ★ 1공장 계정(user_profile.Factory_id = 1)이 있는 사람만.
 	 */
 	public List<Map<String, Object>> getPeople(String spjangcd) {
-		String sql = """
-				WITH busy AS (
-				    SELECT ppl.pid, pr."Name" AS where_name
-				      FROM mat_produce mp
-				      JOIN job_res jr ON jr.id = mp."JobResponse_id"
-				      LEFT JOIN work_center wc ON wc.id = COALESCE(mp."WorkCenter_id", jr."WorkCenter_id")
-				      LEFT JOIN process     pr ON pr.id = wc."Process_id"
-				      /* ★ 대표(Actor_id)만 보면 조원이 「대기」로 남는다 — 조원(mat_produce_member)도 작업중 */
-				      CROSS JOIN LATERAL (
-				          SELECT mp."Actor_id" AS pid
-				          UNION
-				          SELECT mm."Person_id" FROM mat_produce_member mm
-				           WHERE mm."MatProduce_id" = mp.id AND COALESCE(mm._status,'a') = 'a'
-				      ) ppl
-				     WHERE COALESCE(mp._status,'a') = 'a'
-				       AND mp."State" <> 'finished' AND mp."EndTime" IS NULL
-				       AND COALESCE(pr."Factory_id", 1) = 1
+		String sql = "WITH " + ACTIVE + """
+				, busy AS (
+				    SELECT a.pid, pr."Name" AS where_name, a.sec
+				      FROM active a
+				      LEFT JOIN process pr ON pr."Code" = a.sec
 				    UNION ALL
-				    /* ★ 세척은 mat_produce 를 만들지 않는다 — wash_work 진행중(종료 시각 없음)도 작업중 */
-				    SELECT w."Actor_id", '세척'
-				      FROM wash_work w
-				     WHERE COALESCE(w._status,'a') = 'a'
-				       AND w."WashDate" >= CURRENT_DATE - 1
-				       /* 시각은 품목(wash_work_item)에 있다 — 품목이 아직 없거나 안 끝난 품목이 있으면 진행중 */
-				       AND (NOT EXISTS (SELECT 1 FROM wash_work_item i
-				                         WHERE i."WashWork_id" = w.id AND COALESCE(i._status,'a') = 'a')
-				            OR EXISTS (SELECT 1 FROM wash_work_item i
-				                        WHERE i."WashWork_id" = w.id AND COALESCE(i._status,'a') = 'a'
-				                          AND i."EndTime" IS NULL))
-				    UNION ALL
-				    SELECT b."Actor_id", '멸균'
-				      FROM steril_batch b
-				     WHERE b."State" = 'working'
-				    UNION ALL
-				    /* ★ 업무 시작·종료(품질검사 등) — 실적 없이 「지금 업무 중」만 남는 사람.
-				         오늘 시작해서 아직 종료하지 않은 것만. 어제 것은 자정에 닫힌 것으로 본다. */
 				    SELECT COALESCE(u.personid, CASE WHEN u.username ~ '^[0-9]+$' THEN u.username::int END)
-				         , COALESCE(g."Name", '업무')
+				         , COALESCE(d."TaskName", g."Name", '업무')
+				         , 'quality'
 				      FROM work_duty d
 				      JOIN auth_user u ON u.id = d."User_id"
 				      LEFT JOIN user_group g ON g.id = d."UserGroup_id"
@@ -242,10 +214,8 @@ public class DashBoardF1Service {
 				         , pe."Name"                                          AS name
 				         , CASE WHEN COUNT(b.pid) > 0 THEN 'working' ELSE 'idle' END AS state
 				         , STRING_AGG(DISTINCT b.where_name, ', ')            AS where_name
+				         , STRING_AGG(DISTINCT b.sec, ',')                    AS sec_codes
 				      FROM person pe
-				      /* ★ 1공장 = 「1공장 계정이 있는 사람」.
-				           person.Factory_id 만 보면 계정 없는 인원(테스트·미등록)까지 섞인다.
-				           계정은 username = person.id 로 연결되어 있다. */
 				      JOIN auth_user u     ON u.username = pe.id::text
 				      JOIN user_profile up ON up."User_id" = u.id AND up."Factory_id" = 1
 				      LEFT JOIN busy b ON b.pid = pe.id
@@ -255,13 +225,12 @@ public class DashBoardF1Service {
 
 				    UNION ALL
 
-				    /* ★ 품질검사 그룹 중 사원(person)과 연결되지 않은 계정.
-				         사원 등록 없이 계정만 만든 담당자도 이름이 나오게 한다.
-				         id 는 음수(-auth_user.id) — 사원 id 와 겹치지 않게. */
+				    /* 품질검사 그룹 중 사원(person)과 연결되지 않은 계정 — id 는 음수 */
 				    SELECT -u.id
 				         , COALESCE(NULLIF(up."Name",''), NULLIF(u.first_name,''), u.username)
 				         , CASE WHEN d.id IS NOT NULL THEN 'working' ELSE 'idle' END
-				         , CASE WHEN d.id IS NOT NULL THEN g."Name" END
+				         , CASE WHEN d.id IS NOT NULL THEN COALESCE(d."TaskName", g."Name") END
+				         , CASE WHEN d.id IS NOT NULL THEN 'quality' END
 				      FROM auth_user u
 				      JOIN user_profile up ON up."User_id" = u.id AND COALESCE(up."Factory_id", 1) = 1
 				      JOIN user_group g    ON g.id = up."UserGroup_id" AND g."Code" = 'quality'
@@ -289,9 +258,6 @@ public class DashBoardF1Service {
 		Map<String, Object> data = new HashMap<>();
 		data.put("working",    getWorking(spjangcd));
 		data.put("today_done", getTodayDone(spjangcd));
-		data.put("wash_today", mainService.getWashToday(spjangcd));
-		data.put("wash_working", getWashWorking(spjangcd));
-		data.put("steril",     mainService.getSterilNow(spjangcd));
 		data.put("people",     getPeople(spjangcd));
 		data.put("kpi",        mainService.getKpi(spjangcd));          // f1_today_good 만 쓴다
 		data.put("defect",     mainService.getDefectToday(spjangcd));  // 화면에서 factory_id=1 만

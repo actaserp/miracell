@@ -562,7 +562,7 @@
                 workers: workers.slice(), leader_id: workers[0].id,
                 equip: equip.name, equip_id: equip.id, code: equip.code || '',
                 shift: CTX.shiftCode, done: false, start: baseDay() + ' ' + hhmm(), end: null,
-                items: [], _draft: true, _key: CTX.shiftCode + '|' + workers[0].id
+                items: [], _draft: true, _key: CTX.shiftCode + '|' + workers[0].id + '|' + (equip.id || 0)   /* ★ 설비까지 — 같은 조원이 다른 설비로 동시에 작업한다 */
             };
         }
 
@@ -620,7 +620,7 @@
                 shift: c.shift_code || 'D',
                 done: (c.state === 'done'),
                 start: c.start_time, end: c.end_time, good_qty: num(c.good_qty),
-                items: [], _draft: false, _key: (c.shift_code || 'D') + '|' + c.actor_id
+                items: [], _draft: false, _key: (c.shift_code || 'D') + '|' + c.actor_id + '|' + (c.equipment_id || 0)
             }));
         }
 
@@ -648,7 +648,7 @@
         function loadServerItems(crew) {
             const r = apiGet('/item_list', {
                 process_id: PROC_ID, date: curD.date,
-                shift_code: crew.shift, actor_id: crew.leader_id, spjangcd: CTX.spjangcd
+                shift_code: crew.shift, actor_id: crew.leader_id, equipment_id: crew.equip_id || 0, spjangcd: CTX.spjangcd
             });
             return (r.data || []).map(i => {
                 const done = (i.state === 'finished' || i.state === 'done');
@@ -1193,7 +1193,7 @@
 
         document.getElementById('crewOk').onclick = () => {
             const c = mkCrew(selWorkers, selE);
-            /* 같은 (shift, 대표) 조가 이미 있으면 그걸 연다 */
+            /* 같은 (shift, 대표, 설비) 조가 이미 있으면 그걸 연다. 설비가 다르면 새 조 */
             const exist = curD.crews.findIndex(x => x._key === c._key);
             if (exist >= 0) {
                 hideMask('crewMask');
@@ -2171,6 +2171,7 @@
         .autop .ah .hint{margin-left:auto;font-size:12.5px;font-weight:800;color:var(--teal-d);background:var(--teal-bg);border-radius:999px;padding:5px 12px}
         .autop .ah .hint.sel{background:var(--amber-bg);color:var(--amber)}
         .aseglist{display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch}
+        .aseg-more{flex:0 0 auto;align-self:center;height:40px;padding:0 14px;border-radius:12px;border:1.5px dashed var(--line);background:var(--surface);font-weight:800;font-size:13px;color:var(--ink-2);cursor:pointer;white-space:nowrap}
         .aseg{flex:0 0 auto;min-width:190px;border:1.5px solid var(--line);border-radius:14px;padding:10px 12px;background:var(--surface-2);cursor:pointer;position:relative;user-select:none}
         .aseg.open{border-color:var(--green);background:var(--green-bg)}
         .aseg.free{border-style:dashed;border-color:var(--amber)}
@@ -2200,24 +2201,46 @@
             var A = {enabled: false, segs: [], sums: {}, status: null, sel: null, eq: null};
             var box = null;
 
-            function n(v) { var x = parseFloat(v); return isNaN(x) ? 0 : x; }
-            function fq(v) { v = n(v); return (v === Math.floor(v)) ? String(v) : v.toFixed(2); }
-            function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+            function n(v) {
+                var x = parseFloat(v);
+                return isNaN(x) ? 0 : x;
+            }
+
+            function fq(v) {
+                v = n(v);
+                return (v === Math.floor(v)) ? String(v) : v.toFixed(2);
+            }
+
+            function esc(s) {
+                return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+                    return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c];
+                });
+            }
 
             function get(path, p) {
                 if (typeof AjaxUtil === 'undefined' || !AjaxUtil.getSyncData) return {};
                 return AjaxUtil.getSyncData(API + path, p || {}) || {};
             }
+
             function post(path, p, cb) {
                 AjaxUtil.postAsyncData(API + path, p || {}, function (r) {
                     r = r || {};
-                    if (r.success === false) { flash(r.message || '처리에 실패했습니다'); return; }
+                    if (r.success === false) {
+                        flash(r.message || '처리에 실패했습니다');
+                        return;
+                    }
                     cb && cb(r);
                 });
             }
 
-            function curOk() { return typeof curC !== 'undefined' && curC && curC.equip_id; }
-            function cOn() { var el = document.getElementById('scC'); return el && !el.classList.contains('hide'); }
+            function curOk() {
+                return typeof curC !== 'undefined' && curC && curC.equip_id;
+            }
+
+            function cOn() {
+                var el = document.getElementById('scC');
+                return el && !el.classList.contains('hide');
+            }
 
             function ensureBox() {
                 if (box) return box;
@@ -2230,32 +2253,52 @@
                 box.addEventListener('click', onPanelClick);
                 box.addEventListener('dragstart', function (e) {
                     var c = e.target.closest('.aseg[data-seg]');
-                    if (!c || c.classList.contains('linked')) { e.preventDefault(); return; }
+                    if (!c || c.classList.contains('linked')) {
+                        e.preventDefault();
+                        return;
+                    }
                     A.sel = +c.dataset.seg;
                     e.dataTransfer.setData('text/plain', String(A.sel));
                     e.dataTransfer.effectAllowed = 'copy';
                     markTargets(true);
                 });
-                box.addEventListener('dragend', function () { markTargets(false); });
+                box.addEventListener('dragend', function () {
+                    markTargets(false);
+                });
                 return box;
             }
 
-            function hide() { if (box) box.style.display = 'none'; A.enabled = false; A.sel = null; markTargets(false); }
+            function hide() {
+                if (box) box.style.display = 'none';
+                A.enabled = false;
+                A.sel = null;
+                markTargets(false);
+            }
 
             /* ── 읽기 ── */
             function load() {
-                if (!cOn() || !curOk()) { hide(); return; }
+                if (!cOn() || !curOk()) {
+                    hide();
+                    return;
+                }
                 if (!ensureBox()) return;
                 var r = get('/seg_list', {equipment_id: curC.equip_id});
                 var d = r.data || {};
-                if (!d.enabled) { hide(); return; }
+                if (!d.enabled) {
+                    hide();
+                    return;
+                }
                 A.enabled = true;
                 A.eq = curC.equip_id;
                 A.status = d.status || {};
                 A.segs = d.segs || [];
                 A.sums = {};
-                (d.mp_sum || []).forEach(function (s) { A.sums[s.mp_id] = s; });
-                if (A.sel && !A.segs.some(function (s) { return s.id === A.sel && !s.mp_id; })) A.sel = null;
+                (d.mp_sum || []).forEach(function (s) {
+                    A.sums[s.mp_id] = s;
+                });
+                if (A.sel && !A.segs.some(function (s) {
+                    return s.id === A.sel && !s.mp_id;
+                })) A.sel = null;
                 syncItems();
                 render();
             }
@@ -2271,7 +2314,10 @@
                     var was = !!it._auto;
                     it._auto = !!s;
                     it._autoOpen = !!(s && n(s.open_cnt) > 0);
-                    if (!s) { if (was) changed = true; return; }
+                    if (!s) {
+                        if (was) changed = true;
+                        return;
+                    }
                     if (busy) return;
                     var q = n(s.qty), dq = n(s.def_qty);
                     if (it.qty !== q || it.defQty !== dq || it.start !== s.start_str || it.end !== s.end_str || it.st === 'wait') {
@@ -2329,7 +2375,9 @@
 
                     var stp = c.querySelector('.stepper');
                     if (stp) {
-                        stp.querySelectorAll('button').forEach(function (b) { b.style.display = 'none'; });
+                        stp.querySelectorAll('button').forEach(function (b) {
+                            b.style.display = 'none';
+                        });
                         var qd = stp.querySelector('.qty');
                         if (qd) {
                             qd.removeAttribute('data-vpad');
@@ -2350,9 +2398,14 @@
                 var b = document.getElementById('scB');
                 if (!b || b.classList.contains('hide')) return;
                 var r = get('/free_summary', {spjangcd: (typeof CTX !== 'undefined' && CTX.spjangcd) || ''});
-                var rows = (r.data || []).filter(function (x) { return n(x.free_cnt) > 0; });
+                var rows = (r.data || []).filter(function (x) {
+                    return n(x.free_cnt) > 0;
+                });
                 var byEq = {}, total = 0;
-                rows.forEach(function (x) { byEq[String(x.equipment_id)] = x; total += n(x.free_cnt); });
+                rows.forEach(function (x) {
+                    byEq[String(x.equipment_id)] = x;
+                    total += n(x.free_cnt);
+                });
 
                 /* 구분선 칩 */
                 var sec = document.querySelector('#scB .secline');
@@ -2365,7 +2418,9 @@
                             sec.insertBefore(chip, sec.querySelector('#wkCnt'));
                         }
                         chip.textContent = '장비 미매칭 ' + fq(total);
-                        chip.title = rows.map(function (x) { return x.equ_name + ' ' + fq(x.free_cnt) + '건'; }).join(', ');
+                        chip.title = rows.map(function (x) {
+                            return x.equ_name + ' ' + fq(x.free_cnt) + '건';
+                        }).join(', ');
                     } else if (chip) chip.remove();
                 }
 
@@ -2379,7 +2434,11 @@
                     var m = eqEl.querySelector('.afmark');
                     var x = byEq[String(crew.equip_id)];
                     if (x) {
-                        if (!m) { m = document.createElement('span'); m.className = 'afmark'; eqEl.appendChild(m); }
+                        if (!m) {
+                            m = document.createElement('span');
+                            m.className = 'afmark';
+                            eqEl.appendChild(m);
+                        }
                         m.textContent = '미매칭 ' + fq(x.free_cnt);
                     } else if (m) m.remove();
                 });
@@ -2393,7 +2452,9 @@
                 var run = st.last_run === 'Y';
                 var age = n(st.age_sec);
                 var stale = st.age_sec == null || age > 60;
-                var free = A.segs.filter(function (s) { return !s.mp_id; }).length;
+                var free = A.segs.filter(function (s) {
+                    return !s.mp_id;
+                }).length;
 
                 var hint = A.sel
                     ? '<span class="hint sel">붙일 용기 카드를 누르세요 · 다시 누르면 취소</span>'
@@ -2405,7 +2466,26 @@
                         : (run ? '자동운전 중' : '정지') + ' · ' + esc(st.last_ts || '')) + '</span>'
                     + hint + '</div>';
 
-                var cards = A.segs.length ? A.segs.map(function (s) {
+                /* ★ 구간이 끝없이 옆으로 쌓이지 않게.
+                     기본은 「손댈 것」만 — 가동중 · 미매칭 · 붙었지만 용기가 아직 완료 전.
+                     용기까지 완료된 구간(✓)은 접어 두고 「완료 n건」으로 연다.
+                     순서: 가동중 → 미매칭(최근 먼저) → 붙은 것 */
+                var rank = function (s) {
+                    return s.state === 'open' ? 0 : (!s.mp_id ? 1 : 2);
+                };
+                var doneSegs = A.segs.filter(function (s) {
+                    return s.mp_id && s.mp_state === 'finished';
+                });
+                var showSegs = A.segs.filter(function (s) {
+                    return A.showDone || !(s.mp_id && s.mp_state === 'finished');
+                })
+                    .slice().sort(function (a, b) {
+                        return rank(a) - rank(b);
+                    });
+                var tgl = doneSegs.length
+                    ? '<button type="button" class="aseg-more" data-showdone="1">' + (A.showDone ? '완료 접기' : '완료 ' + doneSegs.length + '건') + '</button>'
+                    : '';
+                var cards = showSegs.length ? showSegs.map(function (s) {
                     var open = s.state === 'open';
                     var linked = !!s.mp_id;
                     var done = s.mp_state === 'finished';
@@ -2421,9 +2501,9 @@
                         + '<div class="q">' + fq(s.good_qty) + '<small>EA</small>'
                         + (n(s.err_qty) > 0 ? '<span class="er">불량 ' + fq(s.err_qty) + '</span>' : '') + '</div>'
                         + lk + (btns ? '<div class="ab">' + btns + '</div>' : '') + '</div>';
-                }).join('') : '<div class="empty">아직 가동 구간이 없습니다.</div>';
+                }).join('') : '<div class="empty">' + (A.segs.length ? '처리할 구간이 없습니다.' : '아직 가동 구간이 없습니다.') + '</div>';
 
-                box.innerHTML = head + '<div class="aseglist">' + cards + '</div>';
+                box.innerHTML = head + '<div class="aseglist">' + cards + tgl + '</div>';
             }
 
             function markTargets(on) {
@@ -2438,11 +2518,20 @@
 
             /* ── 패널 클릭 ── */
             function onPanelClick(e) {
+                if (e.target.closest('[data-showdone]')) {
+                    A.showDone = !A.showDone;
+                    render();
+                    return;
+                }
                 var ul = e.target.closest('[data-unlink]');
                 if (ul) {
                     var sid = +ul.dataset.unlink;
                     uiConfirm('이 구간을 용기에서 떼어낼까요?\n용기 수량이 그만큼 줄어듭니다.', function () {
-                        post('/seg_unlink', {seg_id: sid}, function (r) { applySum(r.data); load(); flash('구간 해제'); });
+                        post('/seg_unlink', {seg_id: sid}, function (r) {
+                            applySum(r.data);
+                            load();
+                            flash('구간 해제');
+                        });
                     }, '해제');
                     return;
                 }
@@ -2452,7 +2541,9 @@
                 A.sel = (A.sel === id) ? null : id;
                 render();
                 markTargets(!!A.sel);
-                if (A.sel && !curC.items.some(function (it) { return it.st !== 'done' && it.mp_id; })) {
+                if (A.sel && !curC.items.some(function (it) {
+                    return it.st !== 'done' && it.mp_id;
+                })) {
                     flash('붙일 용기가 없습니다. 아래 ‘＋ 용기 추가’로 먼저 담으세요');
                 }
             }
@@ -2472,11 +2563,21 @@
                나머지는 미매칭 구간으로 남긴다. 시각은 사람이 입력하지 않는다. */
             function linkTo(segId, it) {
                 if (!it) return;
-                if (it.st === 'done') { flash('완료된 용기에는 붙일 수 없습니다'); return; }
-                if (!it.mp_id) { flash('저장되지 않은 용기입니다. 다시 담아주세요'); return; }
-                var seg = A.segs.find(function (s) { return s.id === segId; });
+                if (it.st === 'done') {
+                    flash('완료된 용기에는 붙일 수 없습니다');
+                    return;
+                }
+                if (!it.mp_id) {
+                    flash('저장되지 않은 용기입니다. 다시 담아주세요');
+                    return;
+                }
+                var seg = A.segs.find(function (s) {
+                    return s.id === segId;
+                });
                 if (seg && seg.state !== 'open' && n(seg.good_qty) > 1) {
-                    askQty(seg, it, function (q) { doLink(segId, it, q); });
+                    askQty(seg, it, function (q) {
+                        doLink(segId, it, q);
+                    });
                 } else {
                     doLink(segId, it, null);
                 }
@@ -2507,6 +2608,7 @@
                 aqLabel();
                 showMask('padMask');
             }
+
             function aqLabel() {
                 if (!AQ) return;
                 var v = n(padVal);
@@ -2515,6 +2617,7 @@
                 if (v > AQ.total) t += ' — 구간보다 많습니다';
                 document.getElementById('padLab').textContent = t;
             }
+
             (function () {
                 var keys = document.querySelector('#padMask .keys');
                 if (!keys) return;
@@ -2522,12 +2625,21 @@
                 keys.addEventListener('click', function (e) {
                     if (!AQ || !padCtx || padCtx.type !== 'auto') return;
                     var k = e.target.dataset && e.target.dataset.k;
-                    if (k !== 'OK') { setTimeout(aqLabel, 0); return; }
+                    if (k !== 'OK') {
+                        setTimeout(aqLabel, 0);
+                        return;
+                    }
                     e.stopPropagation();
                     e.preventDefault();
                     var v = n(padVal);
-                    if (!(v > 0)) { flash('붙일 수량을 입력하세요'); return; }
-                    if (v > AQ.total) { flash('구간 수량(' + fq(AQ.total) + ')보다 많이 붙일 수 없습니다'); return; }
+                    if (!(v > 0)) {
+                        flash('붙일 수량을 입력하세요');
+                        return;
+                    }
+                    if (v > AQ.total) {
+                        flash('구간 수량(' + fq(AQ.total) + ')보다 많이 붙일 수 없습니다');
+                        return;
+                    }
                     var cb = AQ.onOk, total = AQ.total;
                     AQ = null;
                     padCtx = null;
@@ -2538,14 +2650,19 @@
                 var mask = document.getElementById('padMask');
                 if (mask && window.MutationObserver) {
                     new MutationObserver(function () {
-                        if (!mask.classList.contains('show') && AQ) { AQ = null; padCtx = null; }
+                        if (!mask.classList.contains('show') && AQ) {
+                            AQ = null;
+                            padCtx = null;
+                        }
                     }).observe(mask, {attributes: true, attributeFilter: ['class']});
                 }
             })();
 
             function applySum(s, it) {
                 if (!s) return;
-                it = it || (curC && curC.items.find(function (x) { return x.mp_id === s.mp_id; }));
+                it = it || (curC && curC.items.find(function (x) {
+                    return x.mp_id === s.mp_id;
+                }));
                 if (!it || it.st === 'done') return;
                 it.qty = n(s.qty);
                 it.defQty = n(s.def_qty);
@@ -2591,7 +2708,9 @@
                     e.preventDefault();
                     e.dataTransfer.dropEffect = 'copy';
                     var v = e.target.closest('.vitem');
-                    list.querySelectorAll('.auto-over').forEach(function (x) { if (x !== v) x.classList.remove('auto-over'); });
+                    list.querySelectorAll('.auto-over').forEach(function (x) {
+                        if (x !== v) x.classList.remove('auto-over');
+                    });
                     v.classList.add('auto-over');
                 });
                 list.addEventListener('dragleave', function (e) {
@@ -2617,7 +2736,9 @@
             }
             /* 용기 목록을 다시 그리면 「장비」 표시가 지워지므로 다시 단다 */
             if (list && window.MutationObserver) {
-                new MutationObserver(function () { if (A.enabled) decorate(); }).observe(list, {childList: true});
+                new MutationObserver(function () {
+                    if (A.enabled) decorate();
+                }).observe(list, {childList: true});
             }
             /* A·B 화면 전환 시에도 미매칭 배지를 바로 갱신 */
             ['scA', 'scB'].forEach(function (id) {
@@ -2631,7 +2752,9 @@
             /* 작업조 목록을 다시 그리면 표시가 지워지므로 다시 단다 */
             var wk = document.getElementById('wkList');
             if (wk && window.MutationObserver) {
-                new MutationObserver(function () { setTimeout(loadFree, 0); }).observe(wk, {childList: true});
+                new MutationObserver(function () {
+                    setTimeout(loadFree, 0);
+                }).observe(wk, {childList: true});
             }
             var tick = 0;
             setInterval(function () {
@@ -2640,8 +2763,13 @@
                 else if (++tick % 2 === 0) loadFree();   // A·B 는 10초마다
             }, 5000);
             (function firstFree(t) {
-                if (typeof AjaxUtil !== 'undefined' && AjaxUtil.getSyncData) { loadFree(); return; }
-                if ((t || 0) < 100) setTimeout(function () { firstFree((t || 0) + 1); }, 100);
+                if (typeof AjaxUtil !== 'undefined' && AjaxUtil.getSyncData) {
+                    loadFree();
+                    return;
+                }
+                if ((t || 0) < 100) setTimeout(function () {
+                    firstFree((t || 0) + 1);
+                }, 100);
             })();
         })();
     </script>

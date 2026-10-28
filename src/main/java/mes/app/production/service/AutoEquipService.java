@@ -383,6 +383,106 @@ public class AutoEquipService {
 		return data;
 	}
 
+	// =================================================================
+	// 2-1. 이력 (장비 가동 이력 화면 — 사무실 조회용)
+	// =================================================================
+
+	/** 자동화 설비 목록 */
+	public List<Map<String, Object>> getEquipList(String spjangcd) {
+		return nz(sqlRunner.getRows("""
+                SELECT a.equipment_id, e."Name" AS equ_name, a.use_yn
+                  FROM equ_auto a JOIN equ e ON e.id = a.equipment_id
+                 WHERE (CAST(:sp AS varchar) IS NULL OR a.spjangcd = CAST(:sp AS varchar))
+                 ORDER BY e."Name"
+                """, p().addValue("sp", spjangcd)));
+	}
+
+	/**
+	 * 기간 구간 목록 + 매칭 정보.
+	 *   state : all | free(미매칭) | working(붙었고 용기 완료 전) | done(용기 완료)
+	 * ★ 매칭됐던 용기가 삭제(_status='d')됐으면 미매칭으로 본다(조립 화면과 같은 규칙).
+	 * ★ 매칭한 사람은 계정에서 찾는다(사원 등록 없는 계정도 있다).
+	 */
+	public List<Map<String, Object>> getHistory(Integer equipmentId, String from, String to, String state) {
+		return nz(sqlRunner.getRows("""
+                SELECT * FROM (
+                    SELECT s.id
+                         , e."Name"                                                          AS equ_name
+                         , s.state                                                           AS seg_state
+                         , to_char(s.start_time, 'YYYY-MM-DD HH24:MI:SS')                    AS start_at
+                         , to_char(COALESCE(s.end_time, s.last_prod_time), 'YYYY-MM-DD HH24:MI:SS') AS end_at
+                         , ROUND(EXTRACT(epoch FROM (COALESCE(s.end_time, s.last_prod_time, now()::timestamp)
+                                                     - s.start_time)) / 60.0)                AS dur_min
+                         , COALESCE(s.good_qty, 0)                                           AS good_qty
+                         , COALESCE(s.err_qty, 0)                                            AS err_qty
+                         , CASE WHEN alive THEN mp.id END                                    AS mp_id
+                         , CASE WHEN alive THEN m."Name" END                                 AS mat_name
+                         , CASE WHEN alive THEN mp."LotNumber" END                           AS lot_no
+                         /* ★ 현장은 로트를 UDI 로트(멸균 배치 외부라벨)로만 구분한다.
+                              용기 → 블리스터(PK) → 멸균 으로 내려가며 로트 계보를 따라가
+                              그 용기가 들어간 멸균 배치의 UDI 로트를 찾는다. 여러 배치로 갈렸으면 모두. */
+                         , CASE WHEN alive THEN udi.udi_lot END                              AS udi_lot
+                         , CASE WHEN alive THEN udi.udi_state END                            AS udi_state
+                         , CASE WHEN alive THEN to_char(mp."ProductionDate", 'YYYY-MM-DD') END AS work_date
+                         , CASE WHEN alive THEN mp."State" END                               AS mp_state
+                         , CASE WHEN alive THEN COALESCE(mp."GoodQty", 0) END                AS mp_qty
+                         /* 작업자 전원 — 대표 먼저. 조원 명단(mat_produce_member)이 없으면 대표만 */
+                         , CASE WHEN alive THEN COALESCE((
+                               SELECT string_agg(p2."Name", ', ' ORDER BY (m2."Person_id" = mp."Actor_id") DESC, p2."Name")
+                                 FROM mat_produce_member m2
+                                 JOIN person p2 ON p2.id = m2."Person_id"
+                                WHERE m2."MatProduce_id" = mp.id
+                                  AND COALESCE(m2."_status",'a') = 'a'), pe."Name") END       AS actor_name
+                         , CASE WHEN alive THEN COALESCE(NULLIF(up."Name",''), NULLIF(u.first_name,''), u.username) END AS linker_name
+                         , CASE WHEN alive THEN to_char(s.linked_at, 'MM-DD HH24:MI') END    AS linked_at
+                         , CASE WHEN NOT alive THEN 'free'
+                                WHEN mp."State" = 'finished' THEN 'done'
+                                ELSE 'working' END                                           AS link_state
+                      FROM equ_auto_seg s
+                      JOIN equ e ON e.id = s.equipment_id
+                      LEFT JOIN mat_produce mp ON mp.id = s.mat_produce_id
+                      CROSS JOIN LATERAL (SELECT (mp.id IS NOT NULL AND COALESCE(mp._status,'a') = 'a') AS alive) al
+                      LEFT JOIN material m      ON m.id = mp."Material_id"
+                      LEFT JOIN person pe       ON pe.id = mp."Actor_id"
+                      LEFT JOIN LATERAL (
+                          WITH RECURSIVE g(lot_id, depth) AS (
+                              SELECT ml.id, 0
+                                FROM mat_lot ml
+                               WHERE ml."SourceTableName" = 'mat_produce' AND ml."SourceDataPk" = mp.id
+                              UNION
+                              /* 이 로트를 소비한 다음 공정 차수 → 그 차수가 만든 로트 */
+                              SELECT ml2.id, g.depth + 1
+                                FROM g
+                                JOIN mat_lot_cons c ON c."MaterialLot_id" = g.lot_id
+                                                   AND c."SourceTableName" = 'mat_produce'
+                                JOIN mat_lot ml2    ON ml2."SourceTableName" = 'mat_produce'
+                                                   AND ml2."SourceDataPk" = c."SourceDataPk"
+                               WHERE g.depth < 6
+                          )
+                          SELECT string_agg(DISTINCT COALESCE(NULLIF(bl."MakerLotNo",''), b."MakerLotNo"), ', ')
+                                     FILTER (WHERE COALESCE(NULLIF(bl."MakerLotNo",''), b."MakerLotNo") IS NOT NULL) AS udi_lot
+                               , CASE WHEN bool_or(b."State" = 'done' OR b."BiResult" = 'pass') THEN 'done'
+                                      WHEN bool_or(b."State" = 'working')                         THEN 'working'
+                                      WHEN bool_or(b."State" = 'scrapped' OR b."BiResult" = 'fail') THEN 'scrapped'
+                                      ELSE 'none' END                                                AS udi_state
+                            FROM g
+                            JOIN steril_batch_item bi ON bi."MatLot_id" = g.lot_id
+                            JOIN steril_batch b       ON b.id = bi."SterilBatch_id"
+                            LEFT JOIN mat_lot bl      ON bl.id = bi."MatLot_id"
+                      ) udi ON alive AND mp."State" = 'finished'
+                      LEFT JOIN auth_user u     ON u.id = s.linker_id
+                      LEFT JOIN user_profile up ON up."User_id" = u.id
+                     WHERE (CAST(:eq AS integer) IS NULL OR s.equipment_id = CAST(:eq AS integer))
+                       AND s.start_time >= CAST(:from AS date)
+                       AND s.start_time <  CAST(:to AS date) + 1
+                ) x
+                 WHERE (CAST(:st AS varchar) IS NULL OR CAST(:st AS varchar) = 'all' OR x.link_state = CAST(:st AS varchar))
+                 ORDER BY x.start_at DESC
+                 LIMIT 2000
+                """, p().addValue("eq", equipmentId).addValue("from", from).addValue("to", to)
+				.addValue("st", state)));
+	}
+
 	private Map<String, Object> mpSummary(Integer mpId) {
 		Map<String, Object> r = sqlRunner.getRow("""
                 SELECT :mp AS mp_id

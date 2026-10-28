@@ -276,6 +276,8 @@
                         {binding: 'unit_name', header: '단위', width: '*', align: 'center'},
                         {binding: 'order_qty', header: '지시량', width: '*', align: 'right'},
                         {binding: 'ship_qty', header: '출하량', width: '*', align: 'right'},  //, editor: { type: 'money' }
+                        /* 지금 남은 국가별 재고 — 어느 나라 박스를 낼 수 있는지 */
+                        {binding: 'country_stock', header: '국가별 재고', width: 170, align: 'left'},
                         {binding: 'description', header: '비고', width: '*', align: 'left'},
                     ],
                     itemsSource: this.viewData2,
@@ -318,6 +320,7 @@
                         unit_name: data[i].unit_name,
                         order_qty: data[i].order_qty,
                         ship_qty: data[i].ship_qty,
+                        country_stock: data[i].country_stock,
                         description: data[i].description
                     };
                     cv.addNew(newRow);

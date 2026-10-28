@@ -45,6 +45,23 @@ public class MaterialCurrentStockService {
             , count(ml.id) as lot_count
             , coalesce(m."SafetyStock",0) as safety_stock
             , m."LotUseYN" as lot_use_yn
+            /* ★ 국가별 재고 — 1공장 포장 때 국가마다 따로 생긴 완제품 로트(pack_alloc)로 센다.
+                 포장 국가 배분이 한 번도 없는 품목(원자재·2공장 등)은 NULL → 빈칸.
+                 국가 없이 들어온 예전 재고는 「미지정」으로 묶는다. */
+            , case when exists (select 1 from mat_lot cl2
+                                  join pack_alloc ca2 on ca2."MatLot_id" = cl2.id
+                                 where cl2."Material_id" = m.id)
+                   then (select string_agg(x.c || ' ' || x.q, ' · ' order by x.c = '미지정', x.c)
+                           from (select coalesce(nullif(ca."CountryName",''), ca."CountryCode", '미지정') as c
+                                      , round(sum(cl."CurrentStock")::numeric, 0)::text as q
+                                   from mat_lot cl
+                                   left join pack_alloc ca on ca."MatLot_id" = cl.id
+                                                          and coalesce(ca._status,'a') = 'a'
+                                                          and ca."CountryCode" <> '-'
+                                  where cl."Material_id" = m.id
+                                    and coalesce(cl."CurrentStock",0) > 0
+                                  group by 1) x)
+              end as country_stock
             from material m 
             inner join mat_grp mg on mg.id = m."MaterialGroup_id"
             left join unit u on u.id = m."Unit_id"

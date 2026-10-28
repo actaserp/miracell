@@ -79,6 +79,54 @@
             color: black;
             font-weight: bold;
         }
+        #tabAuto .ea-sum { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; }
+        @media (max-width:900px){ #tabAuto .ea-sum { grid-template-columns:repeat(2,1fr); } }
+        #tabAuto .ea-k { background:#fff; border:1px solid #dbe1ea; border-radius:10px; padding:10px 14px; }
+        #tabAuto .ea-k .l { font-size:11.5px; font-weight:800; color:#8a94a4; }
+        #tabAuto .ea-k .v { font-size:24px; font-weight:800; font-variant-numeric:tabular-nums; margin-top:2px; }
+        #tabAuto .ea-k .v small { font-size:12px; color:#a7b0be; margin-left:3px; }
+        #tabAuto .ea-k .s { font-size:11px; color:#8a94a4; font-weight:700; margin-top:2px; }
+        #tabAuto .ea-k.warn .v { color:#a45b00; }
+        #tabAuto .ea-k.bad .v { color:#d64545; }
+        #tabAuto .ea-k.ok .v { color:#0b7a43; }
+
+        #tabAuto .ea-card { background:#fff; border:1px solid #dbe1ea; border-radius:10px; overflow:hidden; }
+        #tabAuto .ea-tbl-wrap { max-height:620px; overflow:auto; }
+        #tabAuto table.ea-tbl { width:100%; border-collapse:collapse; font-size:12.5px; font-variant-numeric:tabular-nums; }
+        #tabAuto .ea-tbl thead { position:sticky; top:0; z-index:1; }
+        #tabAuto .ea-tbl th { background:#f7f9fc; border-bottom:1px solid #e5e9f0; padding:7px 8px; font-size:11.5px;
+            color:#5b6675; white-space:nowrap; text-align:center; }
+        #tabAuto .ea-tbl td { padding:6px 8px; border-bottom:1px solid #f0f2f6; text-align:center; white-space:nowrap; }
+        #tabAuto .ea-tbl td.l { text-align:left; }
+        #tabAuto .ea-tbl td.n { text-align:right; }
+        #tabAuto .ea-tbl td small { color:#8a94a4; margin-left:4px; }
+        #tabAuto .chip { display:inline-block; font-size:11px; font-weight:800; padding:2px 8px; border-radius:999px; }
+        #tabAuto .chip.free { background:#fff1d6; color:#a45b00; }
+        #tabAuto .chip.working { background:#e6f0ff; color:#2f6fed; }
+        #tabAuto .chip.done { background:#e3f5ea; color:#0b7a43; }
+        #tabAuto .chip.open { background:#e3f5ea; color:#0b7a43; margin-left:4px; }
+        #tabAuto .err { color:#d64545; font-weight:800; }
+        #tabAuto .diff { color:#d64545; font-weight:800; }
+        #tabAuto .ea-empty { padding:30px; text-align:center; color:#8a94a4; font-size:13px; }
+
+        /* ── 탭: 설비 가동 기록(equ_run) / 자동화 장비 구간(equ_auto_seg) ──
+           ★ 둘 다 「설비가 언제 돌았나」라 한 화면에 둔다. 출처가 달라 표는 나눈다.
+             가동 기록 = 사람이 완료한 실적이 남긴 구간 / 장비 구간 = PLC 카운트가 만든 구간 */
+        .eq-tabs { display:flex; gap:6px; margin:12px 0 4px; border-bottom:2px solid #e5e9f0; }
+        .eq-tabs button { border:0; background:none; padding:8px 16px; font-weight:800; font-size:13.5px;
+            color:#8a94a4; cursor:pointer; border-bottom:3px solid transparent; margin-bottom:-2px; }
+        .eq-tabs button.on { color:#2f6fed; border-bottom-color:#2f6fed; }
+        .eq-tabs .cnt { font-size:11px; font-weight:800; padding:1px 7px; border-radius:999px;
+            background:#fff1d6; color:#a45b00; margin-left:5px; }
+        #tabAuto { display:none; flex-direction:column; gap:10px; margin-top:10px;
+            font-family:'Pretendard','Malgun Gothic',sans-serif; color:#1f2733; }
+        #tabAuto.on { display:flex; }
+        #tabAuto .ea-tool { display:flex; align-items:center; gap:8px; }
+        #tabAuto .ea-tool .info { margin-left:auto; font-size:11.5px; color:#8a94a4; font-weight:700; }
+        #tabAuto .ea-tool select { height:32px; border:1px solid #d5dbe5; border-radius:6px; padding:0 8px; font-size:13px; }
+        #tabAuto .ea-tool .xl { height:32px; border:1px solid #0f9d58; border-radius:6px; padding:0 14px;
+            font-weight:800; cursor:pointer; background:#fff; color:#0b7a43; }
+        .tab-hide { display:none !important; }
     </style>
 </head>
 <th:block layout:fragment="content">
@@ -148,6 +196,26 @@
                 </div>
             </form>
 
+            <div class="eq-tabs" id="eqTabs">
+                <button type="button" data-tab="run" class="on">설비 가동 기록</button>
+                <button type="button" data-tab="auto">자동화 장비 구간<span class="cnt" id="autoFreeCnt" style="display:none"></span></button>
+            </div>
+
+            <div id="tabAuto">
+                <div class="ea-tool">
+                    <select id="eaSt">
+                        <option value="all">전체</option>
+                        <option value="free">미매칭</option>
+                        <option value="working">매칭 · 용기 작업중</option>
+                        <option value="done">매칭 · 용기 완료</option>
+                    </select>
+                    <button type="button" class="xl" id="eaXl">엑셀</button>
+                    <span class="info" id="eaInfo"></span>
+                </div>
+                <div class="ea-sum" id="eaSum"></div>
+                <div class="ea-card"><div class="ea-tbl-wrap" id="eaTable"><div class="ea-empty">조회하세요.</div></div></div>
+            </div>
+
             <div id="eqSummary" class="eq-sum"></div>
             <div id="eqWarn"></div>
 
@@ -162,7 +230,7 @@
         </section>
 
 
-        <section class="">
+        <section class="" id="runChartSec">
             <div class="card card-default  mb-2">
                 <div class="card-wrapper" style="max-height: 420px; transition: max-height 0.5s ease 0s; position:relative; ">
                     <div class="card-body">
@@ -530,6 +598,140 @@
 
         }
 
+        const EA_API = '/api/production/auto';
+        const EA_SPJANGCD = (typeof SPJANGCD !== 'undefined' && SPJANGCD) ? SPJANGCD : 'ZZ';
+        const EA_ST_NM = {free: '미매칭', working: '매칭 · 작업중', done: '매칭 · 완료'};
+
+        var eaRows = [];
+
+        function eaEsc(v) {
+            return String(v === null || v === undefined ? '' : v)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+        function eaN(v) { var x = parseFloat(v); return isNaN(x) ? 0 : x; }
+        function eaQ(v) { v = eaN(v); return v === Math.floor(v) ? v.toLocaleString('ko-KR') : v.toFixed(2); }
+        function eaPad(n) { return String(n).padStart(2, '0'); }
+        function eaYmd(d) { return d.getFullYear() + '-' + eaPad(d.getMonth() + 1) + '-' + eaPad(d.getDate()); }
+        function eaDur(m) { m = eaN(m); return m < 60 ? Math.round(m) + '분' : Math.floor(m / 60) + '시간 ' + Math.round(m % 60) + '분'; }
+        function eaMsg(t) { if (typeof Alert !== 'undefined') Alert.alert('', t); }
+
+        function eaSearch() {
+            var from = $('#date_from').val(), to = $('#date_to').val();
+            if (!from || !to) { eaMsg('기간을 입력하세요.'); return; }
+            document.getElementById('eaInfo').textContent = '조회 중…';
+            AjaxUtil.getAsyncData(EA_API + '/history', {
+                equipment_id: $('#search_equipment').val() || '',
+                from: from, to: to, state: document.getElementById('eaSt').value
+            }, function (res) {
+                if (!res || res.success === false) {
+                    document.getElementById('eaInfo').textContent = '조회 실패' + (res && res.message ? ' — ' + res.message : '');
+                    return;
+                }
+                eaRows = res.data || [];
+                eaFreeBadge();
+                document.getElementById('eaInfo').textContent = eaRows.length + '건' + (eaRows.length >= 2000 ? ' (최대 2,000건 — 기간을 줄이세요)' : '');
+                eaRender();
+            });
+        }
+
+        /* UDI 로트 표시 — 현장은 이 번호로만 구분한다. 없으면 어디까지 왔는지 */
+        function eaUdi(r) {
+            if (!r.mp_id) return '';
+            if (r.udi_lot && r.udi_state !== 'none') return r.udi_lot + (r.udi_state === 'working' ? ' (멸균중)' : r.udi_state === 'scrapped' ? ' (멸균 불합격)' : '');
+            if (r.mp_state !== 'finished') return '용기 작업중';
+            return '멸균 전';
+        }
+
+        function eaRender() {
+            /* 합계 — 장비 카운트 vs 매칭된 수량.
+               같은 용기에 구간 여러 개가 붙을 수 있어 용기 수량은 용기별로 한 번만 센다. */
+            var cnt = 0, err = 0, free = 0, freeN = 0, linked = 0, mpSeen = {}, mpQty = 0;
+            eaRows.forEach(function (r) {
+                cnt += eaN(r.good_qty); err += eaN(r.err_qty);
+                if (r.link_state === 'free') { free += eaN(r.good_qty); freeN++; }
+                else {
+                    linked += eaN(r.good_qty);
+                    if (r.mp_id && !mpSeen[r.mp_id]) { mpSeen[r.mp_id] = 1; mpQty += eaN(r.mp_qty); }
+                }
+            });
+            var gap = mpQty - linked;
+            document.getElementById('eaSum').innerHTML =
+                '<div class="ea-k"><div class="l">장비 카운트</div><div class="v">' + eaQ(cnt) + '<small>EA</small></div>'
+                + '<div class="s">구간 ' + eaRows.length + '건</div></div>'
+                + '<div class="ea-k ' + (err ? 'bad' : '') + '"><div class="l">장비 불량(ErrCount)</div><div class="v">' + eaQ(err) + '<small>EA</small></div></div>'
+                + '<div class="ea-k ok"><div class="l">매칭된 구간 수량</div><div class="v">' + eaQ(linked) + '<small>EA</small></div></div>'
+                + '<div class="ea-k ' + (freeN ? 'warn' : '') + '"><div class="l">미매칭</div><div class="v">' + eaQ(free) + '<small>EA</small></div>'
+                + '<div class="s">' + freeN + '건</div></div>'
+                + '<div class="ea-k ' + (Math.abs(gap) > 0.0001 ? 'bad' : '') + '"><div class="l">용기 실적 합계</div><div class="v">' + eaQ(mpQty) + '<small>EA</small></div>'
+                + '<div class="s">' + (Math.abs(gap) > 0.0001 ? '구간 수량과 ' + (gap > 0 ? '+' : '') + eaQ(gap) + ' 차이 — 기간 밖 구간이 붙었거나 수량을 고친 용기' : '구간 수량과 일치') + '</div></div>';
+
+            var host = document.getElementById('eaTable');
+            if (!eaRows.length) { host.innerHTML = '<div class="ea-empty">기간 안에 가동 구간이 없습니다.</div>'; return; }
+            host.innerHTML = '<table class="ea-tbl"><thead><tr>'
+                + '<th>설비</th><th>시작</th><th>종료</th><th>가동</th><th>수량</th><th>불량</th>'
+                + '<th>상태</th><th>품목</th><th>UDI 로트</th><th>작업일</th><th>작업자</th><th>매칭</th>'
+                + '</tr></thead><tbody>'
+                + eaRows.map(function (r) {
+                    var open = r.seg_state === 'open';
+                    return '<tr><td class="l">' + eaEsc(r.equ_name) + '</td>'
+                        + '<td>' + eaEsc(r.start_at) + '</td>'
+                        + '<td>' + (open ? '<span class="chip open">가동중</span>' : eaEsc((r.end_at || '').slice(11))) + '</td>'
+                        + '<td>' + eaDur(r.dur_min) + '</td>'
+                        + '<td class="n">' + eaQ(r.good_qty) + '</td>'
+                        + '<td class="n ' + (eaN(r.err_qty) ? 'err' : '') + '">' + (eaN(r.err_qty) ? eaQ(r.err_qty) : '-') + '</td>'
+                        + '<td><span class="chip ' + r.link_state + '">' + EA_ST_NM[r.link_state] + '</span></td>'
+                        + '<td class="l">' + (r.mp_id ? eaEsc(r.mat_name) : '-') + '</td>'
+                        + '<td class="l" title="내부 로트 ' + eaEsc(r.lot_no || '') + '">' + (r.mp_id ? (r.udi_lot && r.udi_state !== 'none' ? '<b>' + eaEsc(eaUdi(r)) + '</b>' : '<small style="margin:0">' + eaEsc(eaUdi(r)) + '</small>') : '-') + '</td>'
+                        + '<td>' + eaEsc(r.work_date || '-') + '</td>'
+                        + '<td>' + eaEsc(r.actor_name || '-') + '</td>'
+                        + '<td>' + (r.mp_id ? eaEsc(r.linker_name || '') + '<small>' + eaEsc(r.linked_at || '') + '</small>' : '-') + '</td></tr>';
+                }).join('') + '</tbody></table>';
+        }
+
+        function eaExcel() {
+            if (!eaRows.length) { eaMsg('먼저 조회하세요.'); return; }
+            var q = function (v) { v = String(v === null || v === undefined ? '' : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+            /* ★ 대괄호 두 개를 붙여 쓰지 않는다 — Thymeleaf 인라인 표현식으로 읽힌다 */
+            var head = ['설비', '시작', '종료', '가동(분)', '수량', '불량', '상태', '품목', 'UDI 로트', '내부 로트', '작업일', '작업자', '매칭자', '매칭시각'];
+            var lines = [];
+            lines.push(head.join(','));
+            eaRows.forEach(function (r) {
+                lines.push([r.equ_name, r.start_at, r.seg_state === 'open' ? '가동중' : r.end_at, Math.round(eaN(r.dur_min)),
+                    eaN(r.good_qty), eaN(r.err_qty), EA_ST_NM[r.link_state], r.mat_name, eaUdi(r), r.lot_no, r.work_date,
+                    r.actor_name, r.linker_name, r.linked_at].map(q).join(','));
+            });
+            var blob = new Blob(['﻿' + lines.join('\r\n')], {type: 'text/csv;charset=utf-8'});
+            var a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = '장비가동이력_' + $('#date_from').val() + '_' + $('#date_to').val() + '.csv';
+            document.body.appendChild(a); a.click(); a.remove();
+            setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+        }
+
+
+        /* 탭 머리의 미매칭 건수 — 「설비 가동 기록」 탭에 있어도 누락이 보이게 */
+        function eaFreeBadge() {
+            var n = eaRows.filter(function (r) { return r.link_state === 'free'; }).length;
+            var el = document.getElementById('autoFreeCnt');
+            if (!el) return;
+            el.style.display = n ? '' : 'none';
+            el.textContent = '미매칭 ' + n;
+        }
+
+        var EQ_TAB = 'run';
+        function eqSetTab(t) {
+            EQ_TAB = t;
+            document.querySelectorAll('#eqTabs button').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-tab') === t); });
+            var run = (t === 'run');
+            ['eqSummary', 'eqWarn', 'divList', 'runChartSec'].forEach(function (id) {
+                var el = document.getElementById(id);
+                if (el) el.classList.toggle('tab-hide', !run);
+            });
+            document.getElementById('tabAuto').classList.toggle('on', !run);
+            if (run && page) { page.grid.invalidate(); }
+            if (!run) eaSearch();
+        }
+
         let page = null;
 
         $(document.body).ready(function (e) {
@@ -548,15 +750,23 @@
 
             // 콤보만 바꿔도 바로 조회한다 — 검색 버튼을 한 번 더 누르게 하지 않는다
             $('#search_equipment').on('change', function () {
-                page.searchMainData();
+                if (EQ_TAB === 'auto') eaSearch(); else page.searchMainData();
             });
 
-            // 검색
+            // 검색 — 보고 있는 탭만 다시 읽는다
             $('#btnSearch').click(function (e) {
-                page.searchMainData();
+                if (EQ_TAB === 'auto') eaSearch(); else page.searchMainData();
             });
+
+            document.getElementById('eqTabs').addEventListener('click', function (e) {
+                var b = e.target.closest('button[data-tab]');
+                if (b) eqSetTab(b.getAttribute('data-tab'));
+            });
+            document.getElementById('eaSt').addEventListener('change', eaSearch);
+            document.getElementById('eaXl').addEventListener('click', eaExcel);
 
             page.searchMainData();
+            eaSearch();   // 탭 머리 미매칭 건수용 — 화면은 가동 기록 탭으로 연다
 
         });
 

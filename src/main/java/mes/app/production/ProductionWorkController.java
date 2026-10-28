@@ -87,9 +87,11 @@ public class ProductionWorkController {
             @RequestParam("shift_code") String shiftCode,
             @RequestParam("actor_id") Integer actorId,
             @RequestParam("spjangcd") String spjangcd,
-            @RequestParam(value = "job_res_id", required = false) Integer jobResId) {
+            @RequestParam(value = "job_res_id", required = false) Integer jobResId,
+            /* ★ 작업조 = 교대 + 대표 + 설비. 0 = 설비 없음. 안 보내면(구 화면) 설비로 거르지 않는다 */
+            @RequestParam(value = "equipment_id", required = false) Integer equipmentId) {
         AjaxResult r = new AjaxResult();
-        r.data = this.productionWorkService.getItemList(processId, date, shiftCode, actorId, spjangcd, jobResId);
+        r.data = this.productionWorkService.getItemList(processId, date, shiftCode, actorId, spjangcd, jobResId, equipmentId);
         return r;
     }
 

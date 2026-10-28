@@ -46,6 +46,27 @@ public class AutoEquipController {
 		return r;
 	}
 
+	/** 자동화 설비 목록 — 장비 가동 이력 화면 */
+	@GetMapping("/equ_list")
+	public AjaxResult equList(@RequestParam(value = "spjangcd", required = false) String spjangcd) {
+		AjaxResult r = new AjaxResult();
+		r.success = true;
+		r.data = autoEquipService.getEquipList(spjangcd);
+		return r;
+	}
+
+	/** 장비 가동 이력 — 기간 · 설비 · 상태(all/free/working/done) */
+	@GetMapping("/history")
+	public AjaxResult history(@RequestParam(value = "equipment_id", required = false) Integer equipmentId,
+							  @RequestParam("from") String from,
+							  @RequestParam("to") String to,
+							  @RequestParam(value = "state", required = false) String state) {
+		AjaxResult r = new AjaxResult();
+		r.success = true;
+		r.data = autoEquipService.getHistory(equipmentId, from, to, state);
+		return r;
+	}
+
 	@PostMapping("/seg_link")
 	public AjaxResult segLink(@RequestParam("seg_ids") String segIds,
 							  @RequestParam("mp_id") Integer mpId,

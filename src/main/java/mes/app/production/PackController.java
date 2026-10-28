@@ -236,7 +236,7 @@ public class PackController {
 	@Transactional
 	public AjaxResult packStart(
 			@RequestParam("jr_pk") Integer jrPk,
-			@RequestParam("equipment_id") Integer equipmentId,
+			@RequestParam(value = "equipment_id", required = false) Integer equipmentId,
 			@RequestParam("worker_id") Integer workerId,
 			@RequestParam(value = "member_ids", required = false) String memberIds,
 			@RequestParam("spjangcd") String spjangcd,
@@ -266,7 +266,7 @@ public class PackController {
 			@RequestParam("product_mat_id") Integer productMatId,
 			@RequestParam(value = "order_qty", required = false) Float orderQty,
 			@RequestParam("pk_lots") String pkLotsJson,
-			@RequestParam("equipment_id") Integer equipmentId,
+			@RequestParam(value = "equipment_id", required = false) Integer equipmentId,
 			@RequestParam("worker_id") Integer workerId,
 			@RequestParam(value = "member_ids", required = false) String memberIds,
 			@RequestParam(value = "prod_date", required = false) String prodDate,
