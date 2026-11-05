@@ -1,5 +1,7 @@
 package mes.app.balju;
 
+import mes.config.MesPaths;
+
 import lombok.extern.slf4j.Slf4j;
 import mes.app.MailService;
 import mes.app.balju.service.BaljuOrderService;
@@ -378,12 +380,12 @@ public class BaljuOrderController {
       // 4. 엑셀 템플릿 기반 파일 생성
       // 디스크 임시파일은 반복/동시 전송 충돌 방지를 위해 유니크하게
       String diskName = String.format("%s_%s_%d.xlsx", jumunNumber, safeCompanyName, System.currentTimeMillis());
-      Path tempXlsx = Paths.get("C:/Temp/mes21/" + diskName);
+      Path tempXlsx = MesPaths.path(diskName);
       Files.createDirectories(tempXlsx.getParent()); // 상위 디렉터리만 보장
       tempXlsx.toFile().deleteOnExit();              // 최후 보루(JVM 종료 시 정리)
       // deleteIfExists / createFile 제거 — FileOutputStream 이 어차피 새로 씀
 
-      try (FileInputStream fis = new FileInputStream("C:/Temp/mes21/문서/BaljuTemplate_miracell.xlsx");
+      try (FileInputStream fis = new FileInputStream(MesPaths.path("문서", "BaljuTemplate_miracell.xlsx").toFile());
            Workbook workbook = new XSSFWorkbook(fis);
            FileOutputStream fos = new FileOutputStream(tempXlsx.toFile())) {
 

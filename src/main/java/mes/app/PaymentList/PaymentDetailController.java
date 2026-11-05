@@ -1,5 +1,7 @@
 package mes.app.PaymentList;
 
+import mes.config.MesPaths;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -130,8 +132,8 @@ public class PaymentDetailController {
       result.success = true;
       result.message = "데이터 조회 성공";
       result.data = Map.of(
-          "userName", userName,  // 사용자 이름
-          "paymentList", getPaymentList // 결재 목록 리스트
+              "userName", userName,  // 사용자 이름
+              "paymentList", getPaymentList // 결재 목록 리스트
       );
 
     } catch (Exception e) {
@@ -166,7 +168,7 @@ public class PaymentDetailController {
   @RequestMapping(value = "/pdf", method = RequestMethod.GET)
   public ResponseEntity<Resource> getPdf(@RequestParam("appnum") String appnum) {
     try {
-    //  log.info("PDF 조회 요청: appnum={}", appnum);
+      //  log.info("PDF 조회 요청: appnum={}", appnum);
 
       // DB에서 PDF 파일명 조회
       Optional<String> optionalPdfFileName = paymentDetailService.findPdfFilenameByRealId(appnum);
@@ -177,16 +179,16 @@ public class PaymentDetailController {
 
       // 파일명 그대로 사용
       String pdfFileName = optionalPdfFileName.get();
-   //   log.info("사용 파일명: {}", pdfFileName);
+      //   log.info("사용 파일명: {}", pdfFileName);
 
       // 운영체제별 저장 경로 설정
       String osName = System.getProperty("os.name").toLowerCase();
       String uploadDir = osName.contains("win") ? "C:\\Temp\\APP\\S_KRU\\"
-          : System.getProperty("user.home") + "/APP/S_KRU";
+              : MesPaths.path("APP", "S_KRU").toString();
 
       // PDF 파일 경로 설정 및 존재 여부 확인
       Path pdfPath = Paths.get(uploadDir, pdfFileName);
-    //  log.info("PDF 파일 경로: {}", pdfPath.toString());
+      //  log.info("PDF 파일 경로: {}", pdfPath.toString());
 
       if (!Files.exists(pdfPath)) {
         log.warn("파일이 존재하지 않음: {}", pdfPath.toString());
@@ -195,11 +197,11 @@ public class PaymentDetailController {
 
       // 파일 정보 로깅
       File file = pdfPath.toFile();
-    //  log.info("파일 존재 확인 완료 - 파일 크기: {} bytes", file.length());
+      //  log.info("파일 존재 확인 완료 - 파일 크기: {} bytes", file.length());
 
       // PDF 파일을 Resource로 변환 후 응답
       Resource resource = new FileSystemResource(file);
-   //   log.info("Resource 변환 완료, 파일 응답 준비 시작");
+      //   log.info("Resource 변환 완료, 파일 응답 준비 시작");
 
       HttpHeaders headers = new HttpHeaders();
       headers.setContentType(MediaType.APPLICATION_PDF);
@@ -211,12 +213,12 @@ public class PaymentDetailController {
       headers.add("Access-Control-Allow-Methods", "GET, OPTIONS");
       headers.add("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
-     // log.info("PDF 응답 완료 - 파일명: {}, 크기: {} bytes", pdfFileName, file.length());
+      // log.info("PDF 응답 완료 - 파일명: {}, 크기: {} bytes", pdfFileName, file.length());
 
       return ResponseEntity.ok()
-          .headers(headers)
-          .contentLength(file.length())
-          .body(resource);
+              .headers(headers)
+              .contentLength(file.length())
+              .body(resource);
 
     } catch (Exception e) {
       log.error("서버 내부 오류 발생: appnum={}, message={}", appnum, e.getMessage(), e);
@@ -228,7 +230,7 @@ public class PaymentDetailController {
   @RequestMapping(value = "/pdf2", method = RequestMethod.GET)
   public ResponseEntity<Resource> getPdf2(@RequestParam("appnum") String appnum) {
     try {
-     // log.info("PDF 조회 요청: appnum={}", appnum);
+      // log.info("PDF 조회 요청: appnum={}", appnum);
 
       // DB에서 PDF 파일명 조회
       Optional<String> optionalPdfFileName = paymentDetailService.findPdfFilenameByRealId2(appnum);
@@ -244,11 +246,11 @@ public class PaymentDetailController {
       // 운영체제별 저장 경로 설정
       String osName = System.getProperty("os.name").toLowerCase();
       String uploadDir = osName.contains("win") ? "C:\\Temp\\APP\\S_KRU\\"
-          : System.getProperty("user.home") + "/APP/S_KRU";
+              : MesPaths.path("APP", "S_KRU").toString();
 
       // PDF 파일 경로 설정 및 존재 여부 확인
       Path pdfPath = Paths.get(uploadDir, pdfFileName);
-     // log.info("PDF 파일 경로: {}", pdfPath.toString());
+      // log.info("PDF 파일 경로: {}", pdfPath.toString());
 
       if (!Files.exists(pdfPath)) {
         log.warn("파일이 존재하지 않음: {}", pdfPath.toString());
@@ -257,7 +259,7 @@ public class PaymentDetailController {
 
       // 파일 정보 로깅
       File file = pdfPath.toFile();
-     // log.info("파일 존재 확인 완료 - 파일 크기: {} bytes", file.length());
+      // log.info("파일 존재 확인 완료 - 파일 크기: {} bytes", file.length());
 
       // PDF 파일을 Resource로 변환 후 응답
       Resource resource = new FileSystemResource(file);
@@ -276,9 +278,9 @@ public class PaymentDetailController {
       //log.info("PDF 응답 완료 - 파일명: {}, 크기: {} bytes", pdfFileName, file.length());
 
       return ResponseEntity.ok()
-          .headers(headers)
-          .contentLength(file.length())
-          .body(resource);
+              .headers(headers)
+              .contentLength(file.length())
+              .body(resource);
 
     } catch (Exception e) {
       log.error("서버 내부 오류 발생: appnum={}, message={}", appnum, e.getMessage(), e);
@@ -288,7 +290,7 @@ public class PaymentDetailController {
 
   @PostMapping("/changeState")
   public AjaxResult ChangeState(@RequestBody Map<String, Object> request
-  , Authentication auth) {
+          , Authentication auth) {
     AjaxResult result = new AjaxResult();
 
     User user = (User) auth.getPrincipal();
@@ -303,14 +305,14 @@ public class PaymentDetailController {
     String papercd = (String) request.get("papercd");
 
     log.info("📥 결재 상태 변경 요청: appnum={}, appgubun={}, action={}, remark={} ,appperid={}, papercd={}",
-        appnum, appgubun, action, remark, appperid, papercd);
+            appnum, appgubun, action, remark, appperid, papercd);
 
     // 📌 action 문자열 → 상태코드로 변환
     Map<String, String> actionCodeMap = Map.of(
-        "reject", "131",
-        "hold", "201",
-        "approve", "101",
-        "cancel", "001"
+            "reject", "131",
+            "hold", "201",
+            "approve", "101",
+            "cancel", "001"
     );
 
     String stateCode = actionCodeMap.get(action);
@@ -330,7 +332,7 @@ public class PaymentDetailController {
 //      } else if (appnum.matches("^[0-9].*ZZ$")) {
 //        updated = paymentDetailService.updateStateForNumberZZ(appnum, appgubun, stateCode, remark, appperid, papercd);
 //      } else if (appnum.startsWith("V")) {
-        updated = paymentDetailService.updateStateForV(appnum, appgubun, stateCode, remark, appperid, papercd);
+      updated = paymentDetailService.updateStateForV(appnum, appgubun, stateCode, remark, appperid, papercd);
 //      } else {
 //        result.success = false;
 //        result.message = "지원되지 않는 문서번호 형식입니다.";
@@ -383,8 +385,8 @@ public class PaymentDetailController {
       result.success = true;
       result.message = "";
       result.data = Map.of(
-          "canCancel", canCancel,
-          "isApproved", isApproved
+              "canCancel", canCancel,
+              "isApproved", isApproved
       );
 
     } catch (Exception e) {
@@ -447,7 +449,7 @@ public class PaymentDetailController {
     Path tempXlsx = Files.createTempFile(uuid, ".xlsx");
     Path tempPdf = Path.of(tempXlsx.toString().replace(".xlsx", ".pdf"));
 
-    try (FileInputStream fis = new FileInputStream("C:/Temp/mes21/문서/VacDemoFile.xlsx");
+    try (FileInputStream fis = new FileInputStream(MesPaths.path("문서", "VacDemoFile.xlsx").toFile());
          Workbook workbook = new XSSFWorkbook(fis);
          FileOutputStream fos = new FileOutputStream(tempXlsx.toFile())) {
 
@@ -551,7 +553,7 @@ public class PaymentDetailController {
     Path tempPdf = Path.of(tempXlsx.toString().replace(".xlsx", ".pdf"));
 
     // 2. 엑셀 템플릿 불러오기 및 수정
-    try (FileInputStream fis = new FileInputStream("C:/Temp/mes21/문서/VacDemoFile.xlsx");
+    try (FileInputStream fis = new FileInputStream(MesPaths.path("문서", "VacDemoFile.xlsx").toFile());
          Workbook workbook = new XSSFWorkbook(fis);
          FileOutputStream fos = new FileOutputStream(tempXlsx.toFile())) {
 

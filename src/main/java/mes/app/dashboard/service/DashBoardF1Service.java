@@ -65,9 +65,10 @@ public class DashBoardF1Service {
 	 *     qty,unit  진행중 수량과 단위 (개 · 건 · 로트)
 	 *     pid       작업자 person.id
 	 *
-	 *   ★ 오늘 시작한 것만 (현장 요청 — 다음날이면 초기화).
-	 *     종료를 안 누르고 퇴근한 어제 세션은 생산현황에서도, 작업인원에서도 빠진다.
-	 *     두 칸이 같은 규칙이어야 서로 맞는다.
+	 *   ★ 날짜와 상관없이 «작업중» 이면 계속 보여준다 (2026-11-05 현장 요청).
+	 *     한 세션을 며칠씩 이어서 쓰기 때문이다(조립 10/29 세션에서 11/5 장비 가동).
+	 *     끝난 작업은 각 공정 화면에서 종료해야 빠진다.
+	 *     ※ 품질검사(work_duty)만 자정에 자동 종료된다 — 그쪽은 원래 하루 단위다.
 	 *   ★ 1공장만 (공정 Factory_id = 1).
 	 */
 	/** 센서 최신값 — 통합 대시보드와 같은 출처(EnvSensorService) */
@@ -96,10 +97,6 @@ public class DashBoardF1Service {
 			       AND mp."EndTime" IS NULL
 			       AND COALESCE(pr."Factory_id", 1) = 1
 			       AND pr."Code" IN ('bsc02','bsc03','bsc06','bsc05')
-			       /* ★ 오늘 시작한 것만 — 단, 포장은 며칠씩 이어서 하는 공정이라 열려 있으면 다 센다
-			            (포장 화면도 날짜 없이 열린 작업을 보여준다) */
-			       AND (pr."Code" = 'bsc05'
-			            OR COALESCE(mp."StartTime", mp."_created")::date = CURRENT_DATE)
 			       AND (CAST(:spjangcd AS varchar) IS NULL OR jr.spjangcd = CAST(:spjangcd AS varchar))
 			    UNION ALL
 			    -- 세척 : wash_work 세션 (품목이 전부 완료되기 전까지 작업중)
@@ -114,7 +111,6 @@ public class DashBoardF1Service {
 			      FROM wash_work ww
 			      LEFT JOIN equ e ON e.id = ww."Equipment_id"
 			     WHERE ww."_status" = 'a'
-			       AND ww."WashDate" = CURRENT_DATE
 			       AND NOT EXISTS (                       -- 품목이 있고 전부 done 이면 끝난 세션
 			           SELECT 1 FROM wash_work_item wi
 			            WHERE wi."WashWork_id" = ww.id AND wi."_status" = 'a'
@@ -131,7 +127,6 @@ public class DashBoardF1Service {
 			      FROM steril_batch b
 			      LEFT JOIN equ e ON e.id = b."Equipment_id"
 			     WHERE b."State" = 'working'
-			       AND COALESCE(b."StartTime"::date, b."SterilDate") = CURRENT_DATE
 			)
 			/* ★ 사람 = 대표 + 조원 전부 (현장 요청 — 「대표」 구분 없이 다 나온다).
 			     조원은 mat_produce_member 한 곳에 있다. 차수는 예전 방식(MatProduce_id)과

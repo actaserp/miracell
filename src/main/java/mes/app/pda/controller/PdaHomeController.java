@@ -1,5 +1,7 @@
 package mes.app.pda.controller;
 
+import mes.config.MesPaths;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import mes.domain.model.AjaxResult;
@@ -23,7 +25,7 @@ public class PdaHomeController {
     @Autowired
     private ObjectMapper jacksonObjectMapper;
 
-    private static final String version_file = "C:/Temp/mes21//version.json";
+    private static final String version_file = MesPaths.path("version.json").toString();
 
     @GetMapping("/pda/app/version")
     public AjaxResult getVersion() {
@@ -55,7 +57,7 @@ public class PdaHomeController {
     @GetMapping("/pda/app/version/miracellpda_latest.apk")
     public ResponseEntity<Resource> downloadApk(@RequestParam String version){
         try{
-            String apkPath = "C:/Temp/mes21/miracellpda/" + "app_" + version + ".apk";
+            String apkPath = MesPaths.path("miracellpda", "app_" + version + ".apk").toString();
             File file = new File(apkPath);
 
             if(!file.exists()){
