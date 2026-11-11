@@ -1295,7 +1295,7 @@
     }
 
     function loadWaitLots(cb) {
-      apiGet(PACK_API + '/steril_lots', {spjangcd: _sp(), kind: 'pk', exclude_ordered: true}).then(function (r) {
+      apiGet(PACK_API + '/steril_lots', {spjangcd: _sp(), kind: 'pk', exclude_ordered: false}).then(function (r) {
         PK_WAIT = ((r && r.data) || []).map(normLot).filter(function (l) {
           return l.avail > 0;
         });
@@ -6560,7 +6560,9 @@
         lastTap = Date.now();
         b.click();                                      // 합성 click (isTrusted:false)
       }, true);
-      window.addEventListener('pointercancel', function () { tapBtn = null; }, true);
+      window.addEventListener('pointercancel', function () {
+        tapBtn = null;
+      }, true);
       window.addEventListener('click', function (e) {
         if (e.isTrusted && Date.now() - lastTap < 700) {
           e.stopPropagation();
